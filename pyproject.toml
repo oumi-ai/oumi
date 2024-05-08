@@ -2,11 +2,19 @@
 requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-data]
+lema = ["LICENSE", "README.md"]
+
 [tool.setuptools_scm]
 # default scm config.
 
 [tool.setuptools]
 # default setuptools config.
+
+[tool.setuptools.packages.find]
+include = ["lema", "lema.*"]
+exclude = []
+
 
 [project]
 name = "lema"
@@ -28,20 +36,22 @@ Issues = "https://github.com/openlema/lema/issues"
 
 [project.optional-dependencies]
 dev = ["black", "ruff", "isort", "mypy"]
+train = ["click", "datasets", "torchmetrics"]
+all = ["lema[dev,train]"]
 
 [project.scripts]
 lema-cli = "lema:main"
 
-
-[tool.black]
-line-length = 88
-
-[tool.isort]
-profile = "black"
-
 [tool.ruff]
 line-length = 88
-ignore = []
+extend-include = ["*.ipynb"] # Include ipython notebooks
+
+[tool.ruff.lint]
+# pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
+select = ["F", "E", "W", "I", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.mypy]
 check_untyped_defs = true
