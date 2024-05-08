@@ -45,6 +45,7 @@ lema-cli = "lema:main"
 [tool.ruff]
 line-length = 88
 extend-include = ["*.ipynb"] # Include ipython notebooks
+ignore = ["D104"]
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
