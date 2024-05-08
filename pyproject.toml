@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# default scm config.
+
+[tool.setuptools]
+# default setuptools config.
+
+[project]
+name = "lema"
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.8"
+description = "Learning Machines - Modeling Platform"
+authors = [{ name = "LeMa Team", email = "contact@openlema.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+]
+dependencies = ["transformers"]
+
+[project.urls]
+Homepage = "https://github.com/openlema/lema"
+Issues = "https://github.com/openlema/lema/issues"
+
+[project.optional-dependencies]
+dev = ["black", "ruff", "isort", "mypy"]
+
+[project.scripts]
+lema-cli = "lema:main"
+
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+ignore = []
+
+[tool.mypy]
+check_untyped_defs = true
