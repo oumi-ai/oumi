@@ -29,7 +29,7 @@ def build_model(config: TrainingConfig, **kwargs):
         trust_remote_code=config.model_params.trust_remote_code,
     )
 
-    if config.training_params.use_lora and config.peft_params.q_lora:
+    if config.training_params.use_peft and config.peft_params.q_lora:
         quantization_config = GPTQConfig(
             bits=config.peft_params.q_lora_bits, disable_exllama=True
         )

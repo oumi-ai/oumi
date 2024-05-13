@@ -20,15 +20,15 @@ def build_trainer(config: TrainingConfig):
        configuration is not supported.
     """
 
-    if config.training_params.trainer_type == "trl_sft":
+    if config.training_params.trainer_name == "trl_sft":
         return SFTTrainer
 
-    elif config.training_params.trainer_type == "trl_dpo":
+    elif config.training_params.trainer_name == "trl_dpo":
         return DPOTrainer
 
-    elif config.training_params.trainer_type == "hf":
+    elif config.training_params.trainer_name == "hf":
         return Trainer
 
     raise NotImplementedError(
-        f"Trainer type {config.training_params.trainer_type} not supported."
+        f"Trainer type {config.training_params.trainer_name} not supported."
     )

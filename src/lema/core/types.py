@@ -1,5 +1,5 @@
-from dataclasses import Optional, dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 import transformers
 
@@ -12,6 +12,7 @@ import transformers
 class TrainingParams(transformers.TrainingArguments):
     optim: str = "adamw_torch"
     use_peft: bool = False
+    trainer_name: str = "trl_sft"
 
     enable_gradient_checkpointing: bool = False
 
@@ -21,6 +22,12 @@ class DataParams:
     dataset_name: Optional[str] = None
 
     preprocessing_function_name: Optional[str] = None
+
+    trainer_kwargs: Optional[dict] = field(
+        default_factory=lambda: {
+            "dataset_text_field": "prompt"
+        }  # TODO: remove this default
+    )
 
 
 @dataclass
@@ -35,15 +42,7 @@ class PeftParams:
     lora_r: int = 16
     lora_alpha: int = 16
     lora_dropout: float = 0.05
-    lora_target_modules: List[str] = [
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
-    ]
+    lora_target_modules: Optional[List[str]] = None
     lora_bias: str = "none"
     lora_task_type = "CAUSAL_LM"
 
