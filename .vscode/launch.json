@@ -7,8 +7,6 @@
             "request": "launch",
             "module": "lema.train",
             "args": [
-                "--output_dir",
-                "tmp",
                 "--model_name",
                 "microsoft/Phi-3-mini-4k-instruct",
                 "--dataset_name",
@@ -16,7 +14,9 @@
                 "--trust_remote_code",
                 "true",
                 "--preprocessing_function_name",
-                "alpaca"
+                "alpaca",
+                "--output_dir",
+                "tmp"
             ]
         },
         {
