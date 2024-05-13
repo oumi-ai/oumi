@@ -51,14 +51,17 @@ lema-cli = "lema:main"
 [tool.ruff]
 line-length = 88
 extend-include = ["*.ipynb"] # Include ipython notebooks
-ignore = ["D104"]
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
 select = ["F", "E", "W", "I"] # "D"
+ignore = ["D104"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.isort]
+known_first_party = ["lema"]
 
 [tool.mypy]
 check_untyped_defs = true
