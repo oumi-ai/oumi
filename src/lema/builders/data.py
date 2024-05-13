@@ -4,9 +4,20 @@ from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from regi
 
 
 def build_prompt_generation_fn(function_name, tokenizer):
-    """Build a prompt generation function."""
+    """Build a prompt generation function.
 
-    # TODO: pull from registry
+    Args:
+        function_name (str): The name of the prompt generation function.
+        tokenizer: The tokenizer object used for tokenization.
+
+    Returns:
+        The prompt generation function corresponding to the given function_name.
+
+    Raises:
+        ValueError: If the function_name is unknown.
+    """
+
+    # TODO: this should be pulled from registry
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
 
@@ -14,7 +25,19 @@ def build_prompt_generation_fn(function_name, tokenizer):
 
 
 def build_dataset(dataset_name, preprocessing_function_name, tokenizer, **kwargs):
-    """Build a dataset for training."""
+    """
+    Build a dataset for training.
+
+    Args:
+        dataset_name (str): The name of the dataset to load.
+        preprocessing_function_name (str): The name of the preprocessing
+            function to apply to the dataset.
+        tokenizer: The tokenizer object to use for preprocessing.
+        **kwargs: Additional keyword arguments to pass to the dataset mapping function.
+
+    Returns:
+        dataset: The built dataset for training.
+    """
 
     # TODO: should return all splits
     dataset = load_dataset(dataset_name, split="train")
