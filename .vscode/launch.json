@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "LeMa - Train Example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.train",
+            "args": [
+                "--output_dir",
+                "tmp",
+                "--model_name",
+                "microsoft/Phi-3-mini-4k-instruct",
+                "--dataset_name",
+                "yahma/alpaca-cleaned",
+                "--trust_remote_code",
+                "true",
+                "--preprocessing_function_name",
+                "alpaca"
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
