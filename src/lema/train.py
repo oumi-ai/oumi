@@ -54,7 +54,11 @@ def train(config: TrainingConfig):
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer)
+    dataset = build_dataset(
+        dataset_name=config.data_params.dataset_name,
+        preprocessing_function_name=config.data_params.preprocessing_function_name,
+        tokenizer=tokenizer,
+    )
 
     # Train model
     trainer_cls = build_trainer(config)
