@@ -66,6 +66,13 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
         trust_remote_code=config.model_params.trust_remote_code,
         **kwargs,
     )
+
+    if tokenizer.pad_token is None:
+        # Set pad token to eos token if not already set
+        # Older models may not have pad token set
+        # TODO: should log a warning here
+        tokenizer.pad_token = tokenizer.eos_token
+
     return tokenizer
 
 

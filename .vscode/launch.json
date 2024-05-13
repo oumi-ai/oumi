@@ -8,7 +8,7 @@
             "module": "lema.train",
             "args": [
                 "--model_name",
-                "microsoft/Phi-3-mini-4k-instruct",
+                "openai-community/gpt2",
                 "--dataset_name",
                 "yahma/alpaca-cleaned",
                 "--trust_remote_code",
