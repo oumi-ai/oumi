@@ -47,14 +47,14 @@ def train(config: TrainingConfig):
 
     model = build_model(config)
 
-    if config.training_params.use_lora:
+    if config.training_params.use_peft:
         model = build_peft_model(config)
 
-    if config.training_params.gradient_checkpointing:
+    if config.training_params.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(tokenizer)
+    dataset = build_dataset(config, tokenizer)
 
     # Train model
     trainer_cls = build_trainer(config)

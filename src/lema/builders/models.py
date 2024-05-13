@@ -30,7 +30,9 @@ def build_model(config: TrainingConfig, **kwargs):
     )
 
     if config.training_params.use_lora and config.peft_params.q_lora:
-        quantization_config = GPTQConfig(bits=4, disable_exllama=True)
+        quantization_config = GPTQConfig(
+            bits=config.peft_params.q_lora_bits, disable_exllama=True
+        )
     else:
         quantization_config = None
 
@@ -46,7 +48,7 @@ def build_model(config: TrainingConfig, **kwargs):
     return model
 
 
-def build_tokenizer(config: TrainingConfig):
+def build_tokenizer(config: TrainingConfig, **kwargs):
     """Build and return a tokenizer based on the provided LeMa configuration.
 
     TODO: add ability to load tokenizer from lema registry
@@ -62,6 +64,7 @@ def build_tokenizer(config: TrainingConfig):
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         config.model_params.model_name,
         trust_remote_code=config.model_params.trust_remote_code,
+        **kwargs,
     )
     return tokenizer
 
@@ -70,10 +73,10 @@ def build_peft_model(base_model, config: TrainingConfig):
     lora_config = LoraConfig(
         r=config.peft_params.lora_r,
         lora_alpha=config.peft_params.lora_alpha,
-        target_modules=config.peft_params.lora_target_modules,
         lora_dropout=config.peft_params.lora_dropout,
+        target_modules=config.peft_params.lora_target_modules,
         bias=config.peft_params.lora_bias,
-        task_type=config.peft_params.task_type,
+        task_type=config.peft_params.lora_task_type,
     )
 
     if config.peft_params.q_lora:
