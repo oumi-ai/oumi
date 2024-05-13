@@ -7,7 +7,6 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
-from lema.core.saver import save_model
 from lema.core.types import (
     DataParams,
     ModelParams,
@@ -15,6 +14,7 @@ from lema.core.types import (
     TrainingConfig,
     TrainingParams,
 )
+from lema.utils.saver import save_model
 
 
 def main():
@@ -56,9 +56,9 @@ def train(config: TrainingConfig):
     # Load data & preprocessing
     dataset = build_dataset(tokenizer)
 
+    # Train model
     trainer_cls = build_trainer(config)
 
-    # Train model
     trainer = trainer_cls(
         model=model,
         tokenizer=tokenizer,
