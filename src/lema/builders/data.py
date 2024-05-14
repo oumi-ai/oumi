@@ -1,9 +1,14 @@
-from datasets import load_dataset
+from typing import Callable
+
+import transformers
+from datasets import Dataset, load_dataset
 
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 
 
-def build_prompt_generation_fn(function_name, tokenizer):
+def build_prompt_generation_fn(
+    function_name: str, tokenizer: transformers.PreTrainedTokenizerBase
+) -> Callable:
     """Build a prompt generation function.
 
     Args:
@@ -24,7 +29,12 @@ def build_prompt_generation_fn(function_name, tokenizer):
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 
 
-def build_dataset(dataset_name, preprocessing_function_name, tokenizer, **kwargs):
+def build_dataset(
+    dataset_name: str,
+    preprocessing_function_name: str,
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    **kwargs,
+) -> Dataset:
     """
     Build a dataset for training.
 

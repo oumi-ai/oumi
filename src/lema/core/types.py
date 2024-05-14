@@ -2,12 +2,12 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 import transformers
+from peft import TaskType
+
 
 #
 # Training Params
 #
-
-
 @dataclass
 class TrainingParams(transformers.TrainingArguments):
     optim: str = "adamw_torch"
@@ -44,7 +44,7 @@ class PeftParams:
     lora_dropout: float = 0.05
     lora_target_modules: Optional[List[str]] = None
     lora_bias: str = "none"
-    lora_task_type = "CAUSAL_LM"
+    lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
     q_lora: bool = False

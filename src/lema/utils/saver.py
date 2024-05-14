@@ -7,7 +7,7 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer):
     Save the model's state dictionary to the specified output directory.
 
     Args:
-        config (TrainingConfig): The LeMa training config
+        config (TrainingConfig): The LeMa training config.
         trainer (transformers.Trainer): The trainer object used for training the model.
 
     Returns:

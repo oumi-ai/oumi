@@ -5,19 +5,19 @@ from lema.core.types import TrainingConfig
 
 
 def build_trainer(config: TrainingConfig):
-    """Builds and returns a trainer based on the provided configuration.
+    """Build and returns a trainer based on the provided configuration.
 
     Args:
        config (TrainingConfig): The configuration object
-       containing the training parameters.
+        containing the training parameters.
 
     Returns:
        Trainer: An instance of the appropriate trainer based on the trainer type
-       specified in the configuration.
+        specified in the configuration.
 
     Raises:
        NotImplementedError: If the trainer type specified in the
-       configuration is not supported.
+        configuration is not supported.
     """
 
     if config.training_params.trainer_name == "trl_sft":
