@@ -19,7 +19,6 @@ from lema.utils.saver import save_model
 
 def main():
     """Main entry point for training LeMa."""
-
     #
     # Parse CLI arguments
     #
@@ -39,9 +38,8 @@ def main():
     train(config)
 
 
-def train(config: TrainingConfig):
+def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
-
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config)
 

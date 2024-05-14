@@ -21,7 +21,6 @@ def build_prompt_generation_fn(
     Raises:
         ValueError: If the function_name is unknown.
     """
-
     # TODO: this should be pulled from registry
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
@@ -35,8 +34,7 @@ def build_dataset(
     tokenizer: transformers.PreTrainedTokenizerBase,
     **kwargs,
 ) -> Dataset:
-    """
-    Build a dataset for training.
+    """Build a dataset for training.
 
     Args:
         dataset_name (str): The name of the dataset to load.
@@ -48,7 +46,6 @@ def build_dataset(
     Returns:
         dataset: The built dataset for training.
     """
-
     # TODO: should return all splits
     dataset = load_dataset(dataset_name, split="train")
 

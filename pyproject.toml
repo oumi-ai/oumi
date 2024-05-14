@@ -54,8 +54,8 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
-select = ["F", "E", "W", "I"] # "D"
-ignore = ["D104"]
+select = ["F", "E", "W", "I", "D"]
+ignore = ["D100", "D104"]  # Temporary rules
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
