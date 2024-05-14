@@ -2,7 +2,7 @@ import transformers
 from lema.core.types import TrainingConfig
 
 
-def save_model(config: TrainingConfig, trainer: transformers.Trainer):
+def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
     """
     Save the model's state dictionary to the specified output directory.
 

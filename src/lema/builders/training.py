@@ -20,6 +20,7 @@ def build_trainer(config: TrainingConfig):
         configuration is not supported.
     """
 
+    # TODO: add enum type for trainer_name
     if config.training_params.trainer_name == "trl_sft":
         return SFTTrainer
 
