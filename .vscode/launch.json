@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "LeMa - Train Example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.train",
+            "args": [
+                "--model_name",
+                "openai-community/gpt2",
+                "--dataset_name",
+                "yahma/alpaca-cleaned",
+                "--trust_remote_code",
+                "true",
+                "--preprocessing_function_name",
+                "alpaca",
+                "--output_dir",
+                "tmp"
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

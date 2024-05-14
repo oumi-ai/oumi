@@ -16,6 +16,9 @@ lema is a learning machines modeling platform that allows you to build and train
 - [ ] Easily run in a locally, jupyter notebook, vscvode debugger, or remote cluster
 - [ ] Full finetuning using SFT, DPO
 
+## [TODO] Open Design Questions
+- [ ] What is a good data abstraction of instruction finetuning datasets ?
+
 ## Dev Environment setup
 
 1. Install miniconda: https://docs.anaconda.com/free/miniconda/miniconda-install/
