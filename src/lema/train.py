@@ -1,3 +1,5 @@
+import argparse
+
 from omegaconf import OmegaConf
 
 from lema.builders import (
@@ -11,14 +13,43 @@ from lema.core.types import TrainingConfig
 from lema.utils.saver import save_model
 
 
-def main() -> None:
-    """Main entry point for training LeMa."""
-    # Load configuration
-    base_config = OmegaConf.structured(TrainingConfig)
-    cli_config = OmegaConf.from_cli()
-    config = OmegaConf.merge(base_config, cli_config)
+def parse_cli():
+    """Parse command line arguments and return the configuration filename."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c", "--config", default=None, help="Path to the configuration file"
+    )
+    args, unknown = parser.parse_known_args()
+    return args.config, unknown
 
-    config = OmegaConf.to_object(config)
+
+def main() -> None:
+    """Main entry point for training LeMa.
+
+    By priority:
+    - CLI arguments
+    - Configuration file
+    - Dataclass defaults
+    """
+    # Load configuration
+    config_path, arg_list = parse_cli()
+
+    # Start with dataclass default values and type annotations
+    base_config = OmegaConf.structured(TrainingConfig)
+
+    # Override with configuration file if provided
+    if config_path is not None:
+        file_config = OmegaConf.load(config_path)
+        config = OmegaConf.merge(base_config, file_config)
+    else:
+        config = base_config
+
+    # Override with CLI arguments if provided
+    cli_config = OmegaConf.from_cli(arg_list)
+    config = OmegaConf.merge(config, cli_config)
+
+    # Merge and validate configs
+    config: TrainingConfig = OmegaConf.to_object(config)
 
     #
     # Run training

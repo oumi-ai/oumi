@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import transformers
-from omegaconf import OmegaConf
+from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
 
@@ -33,7 +33,7 @@ class TrainingParams:
 
 @dataclass
 class DataParams:
-    dataset_name: str
+    dataset_name: str = MISSING
 
     preprocessing_function_name: Optional[str] = None
 
@@ -46,7 +46,7 @@ class DataParams:
 
 @dataclass
 class ModelParams:
-    model_name: str
+    model_name: str = MISSING
     trust_remote_code: bool = False
 
 
@@ -82,10 +82,10 @@ class BaseConfig:
 
 @dataclass
 class TrainingConfig(BaseConfig):
-    data_params: DataParams
-    model_params: ModelParams
-    training_params: TrainingParams
-    peft_params: Optional[PeftParams] = None
+    data_params: DataParams = field(default_factory=DataParams)
+    model_params: ModelParams = field(default_factory=ModelParams)
+    training_params: TrainingParams = field(default_factory=TrainingParams)
+    peft_params: PeftParams = field(default_factory=PeftParams)
 
 
 @dataclass
