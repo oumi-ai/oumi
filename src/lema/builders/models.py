@@ -91,7 +91,7 @@ def build_peft_model(base_model, config: TrainingConfig):
         lora_alpha=config.peft.lora_alpha,
         lora_dropout=config.peft.lora_dropout,
         target_modules=config.peft.lora_target_modules,
-        bias=config.peft.lora_bias,
+        bias=config.peft.lora_bias,  # type: ignore
         task_type=config.peft.lora_task_type,
     )
 

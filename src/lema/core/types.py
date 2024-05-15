@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
 import transformers
 from omegaconf import MISSING, OmegaConf
@@ -53,7 +53,7 @@ class PeftParams:
     lora_alpha: int = 16
     lora_dropout: float = 0.05
     lora_target_modules: Optional[List[str]] = None
-    lora_bias: Literal["none", "all", "lora_only"] = "none"
+    lora_bias: str = "none"
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
