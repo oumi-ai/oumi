@@ -46,7 +46,8 @@ train = [
 all = ["lema[dev,train]"]
 
 [project.scripts]
-lema-cli = "lema:main"
+lema-train = "lema.train:main"
+lema-evaluate = "lema.evaluate:main"
 
 [tool.ruff]
 line-length = 88
