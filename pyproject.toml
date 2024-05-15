@@ -66,6 +66,8 @@ known_first_party = ["lema"]
 
 
 [tool.pyright]
-typeCheckingMode = "basic"  # basic to start, graduate to standard or strict
+typeCheckingMode = "standard"  # basic to start, graduate to standard or strict
 pythonVersion = "3.8"
 pythonPlatform = "All"  # Include linux, mac, windows
+
+reportPrivateImportUsage = "none"
