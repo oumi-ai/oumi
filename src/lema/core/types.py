@@ -1,10 +1,10 @@
-from collections import Enum
 from dataclasses import dataclass, field
-from typing import List, Optional
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import transformers
 from omegaconf import OmegaConf
-from peft import TaskType
+from peft.utils.peft_types import TaskType
 
 
 #
@@ -33,11 +33,11 @@ class TrainingParams:
 
 @dataclass
 class DataParams:
-    dataset_name: Optional[str] = None
+    dataset_name: str
 
     preprocessing_function_name: Optional[str] = None
 
-    trainer_kwargs: Optional[dict] = field(
+    trainer_kwargs: Dict[str, Any] = field(
         default_factory=lambda: {
             "dataset_text_field": "prompt"
         }  # TODO: remove this default
@@ -74,6 +74,7 @@ class BaseConfig:
         """Save the configuration to a YAML file."""
         OmegaConf.save(config=self, f=path)
 
+    @classmethod
     def from_yaml(cls, path: str):
         """Load the configuration from a YAML file."""
         return OmegaConf.load(path)

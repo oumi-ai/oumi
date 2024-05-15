@@ -34,7 +34,7 @@ def train(config: TrainingConfig) -> None:
     model = build_model(config)
 
     if config.training_params.use_peft:
-        model = build_peft_model(config)
+        model = build_peft_model(model, config)
 
     if config.training_params.enable_gradient_checkpointing:
         model.enable_input_require_grads()
