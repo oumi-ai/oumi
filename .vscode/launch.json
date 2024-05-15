@@ -11,7 +11,8 @@
                 "data_params.dataset_name=yahma/alpaca-cleaned",
                 "model_params.trust_remote_code=true",
                 "data_params.preprocessing_function_name=alpaca",
-                "training_params.output_dir=tmp"
+                "training_params.output_dir=tmp",
+                "data_params.trainer_kwargs.dataset_text_field=prompt"
             ],
             "justMyCode": true
         },

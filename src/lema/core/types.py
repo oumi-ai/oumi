@@ -25,7 +25,7 @@ class TrainingParams:
     output_dir: str = "output"
 
     def to_hf(self):
-        """Convert to HuggingFace's TrainingArguments."""
+        """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
             optim=self.optim, output_dir=self.output_dir
         )
@@ -37,11 +37,7 @@ class DataParams:
 
     preprocessing_function_name: Optional[str] = None
 
-    trainer_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "dataset_text_field": "prompt"
-        }  # TODO: remove this default
-    )
+    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
