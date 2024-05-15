@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import transformers
 from peft import TaskType
@@ -9,29 +9,18 @@ from peft import TaskType
 # Training Params
 #
 @dataclass
-class TrainingParams(transformers.TrainingArguments):
+class TrainingParams:
     optim: str = "adamw_torch"
     use_peft: bool = False
     trainer_name: str = "trl_sft"
-
     enable_gradient_checkpointing: bool = False
+    output_dir: str = "output"
 
-    # FIXME: Current version of omegaconf does not support Union types
-    # See issue: https://github.com/omry/omegaconf/issues/144
-    # In this section we override Union type annotations from parent
-    # with Any type instead.
-    # This is a temporary workaround until the issue is resolved.
-    lr_scheduler_kwargs: Any = field(
-        default_factory=dict,
-    )
-    accelerator_config: Any = field(init=True, default=None)
-    debug: Any = ""
-    fsdp: Any = ""
-    fsdp_config: Any = None
-    deepspeed: Any = None
-    report_to: Any = None
-    gradient_checkpointing_kwargs: Any = None
-    optim_target_modules: Any = None
+    def to_hf(self):
+        """Convert to HuggingFace's TrainingArguments."""
+        return transformers.TrainingArguments(
+            optim=self.optim, output_dir=self.output_dir
+        )
 
 
 @dataclass
@@ -81,7 +70,7 @@ class TrainingConfig(BaseConfig):
     data_params: DataParams
     model_params: ModelParams
     training_params: TrainingParams
-    peft_params: PeftParams
+    peft_params: Optional[PeftParams] = None
 
 
 @dataclass

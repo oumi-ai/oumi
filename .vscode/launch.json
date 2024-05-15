@@ -13,7 +13,7 @@
                 "data_params.preprocessing_function_name=alpaca",
                 "training_params.output_dir=tmp"
             ],
-            "justMyCode": false
+            "justMyCode": true
         },
         {
             "name": "Python Debugger: Current File",

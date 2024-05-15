@@ -18,6 +18,8 @@ def main() -> None:
     cli_config = OmegaConf.from_cli()
     config = OmegaConf.merge(base_config, cli_config)
 
+    config = OmegaConf.to_object(config)
+
     #
     # Run training
     #
@@ -50,7 +52,7 @@ def train(config: TrainingConfig) -> None:
     trainer = trainer_cls(
         model=model,
         tokenizer=tokenizer,
-        args=config.training_params,
+        args=config.training_params.to_hf(),
         train_dataset=dataset,
         **config.data_params.trainer_kwargs,
     )
