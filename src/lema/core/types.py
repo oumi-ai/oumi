@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import transformers
 from peft import TaskType
@@ -15,6 +15,23 @@ class TrainingParams(transformers.TrainingArguments):
     trainer_name: str = "trl_sft"
 
     enable_gradient_checkpointing: bool = False
+
+    # FIXME: Current version of omegaconf does not support Union types
+    # See issue: https://github.com/omry/omegaconf/issues/144
+    # In this section we override Union type annotations from parent
+    # with Any type instead.
+    # This is a temporary workaround until the issue is resolved.
+    lr_scheduler_kwargs: Any = field(
+        default_factory=dict,
+    )
+    debug: Any = ""
+    fsdp: Any = ""
+    fsdp_config: Any = None
+    accelerator_config: Any = None
+    deepspeed: Any = None
+    report_to: Any = None
+    gradient_checkpointing_kwargs: Any = None
+    optim_target_modules: Any = None
 
 
 @dataclass
