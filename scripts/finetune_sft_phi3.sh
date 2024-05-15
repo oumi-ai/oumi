@@ -1,8 +1,10 @@
 #!/bin/bash
 
+# Arguments need to be provided in dotfile format
 python -m lema.train \
-    --model_name "microsoft/Phi-3-mini-4k-instruct" \
-    --dataset_name "yahma/alpaca-cleaned" \
-    --output_dir tmp/ \
-    --trust_remote_code true \
-    --preprocessing_function_name alpaca
+    "model.model_name=microsoft/Phi-3-mini-4k-instruct" \
+    "data.dataset_name=yahma/alpaca-cleaned" \
+    "data.preprocessing_function_name=alpaca" \
+    "data.trainer_kwargs.dataset_text_field=prompt" \
+    "training.output_dir=train/" \
+    "model.trust_remote_code=true"
