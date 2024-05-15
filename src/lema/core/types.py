@@ -66,14 +66,9 @@ class PeftParams:
 #
 @dataclass
 class BaseConfig:
-    def to_yaml(self, path: str):
+    def to_yaml(self, path: str) -> None:
         """Save the configuration to a YAML file."""
         OmegaConf.save(config=self, f=path)
-
-    @classmethod
-    def from_yaml(cls, path: str):
-        """Load the configuration from a YAML file."""
-        return OmegaConf.load(path)
 
 
 @dataclass
