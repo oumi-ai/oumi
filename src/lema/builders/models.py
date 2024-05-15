@@ -24,13 +24,13 @@ def build_model(config: TrainingConfig, **kwargs):
     # Load from huggingface hub
     #
     hf_config = transformers.AutoConfig.from_pretrained(
-        config.model_params.model_name,
-        trust_remote_code=config.model_params.trust_remote_code,
+        config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
     )
 
-    if config.training_params.use_peft and config.peft_params.q_lora:
+    if config.training.use_peft and config.peft.q_lora:
         quantization_config = GPTQConfig(
-            bits=config.peft_params.q_lora_bits, disable_exllama=True
+            bits=config.peft.q_lora_bits, disable_exllama=True
         )
     else:
         quantization_config = None
@@ -38,8 +38,8 @@ def build_model(config: TrainingConfig, **kwargs):
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
         device_map=device_map,
-        pretrained_model_name_or_path=config.model_params.model_name,
-        trust_remote_code=config.model_params.trust_remote_code,
+        pretrained_model_name_or_path=config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
         quantization_config=quantization_config,
         **kwargs,
     )
@@ -62,8 +62,8 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
 
     """
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        config.model_params.model_name,
-        trust_remote_code=config.model_params.trust_remote_code,
+        config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
         **kwargs,
     )
 
@@ -87,18 +87,18 @@ def build_peft_model(base_model, config: TrainingConfig):
         The built PEFT model.
     """
     lora_config = LoraConfig(
-        r=config.peft_params.lora_r,
-        lora_alpha=config.peft_params.lora_alpha,
-        lora_dropout=config.peft_params.lora_dropout,
-        target_modules=config.peft_params.lora_target_modules,
-        bias=config.peft_params.lora_bias,
-        task_type=config.peft_params.lora_task_type,
+        r=config.peft.lora_r,
+        lora_alpha=config.peft.lora_alpha,
+        lora_dropout=config.peft.lora_dropout,
+        target_modules=config.peft.lora_target_modules,
+        bias=config.peft.lora_bias,
+        task_type=config.peft.lora_task_type,
     )
 
-    if config.peft_params.q_lora:
+    if config.peft.q_lora:
         model = prepare_model_for_kbit_training(
             model=base_model,
-            use_gradient_checkpointing=config.training_params.gradient_checkpointing,
+            use_gradient_checkpointing=config.training.enable_gradient_checkpointing,
         )
     else:
         model = base_model

@@ -64,16 +64,16 @@ def train(config: TrainingConfig) -> None:
 
     model = build_model(config)
 
-    if config.training_params.use_peft:
+    if config.training.use_peft:
         model = build_peft_model(model, config)
 
-    if config.training_params.enable_gradient_checkpointing:
+    if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
     dataset = build_dataset(
-        dataset_name=config.data_params.dataset_name,
-        preprocessing_function_name=config.data_params.preprocessing_function_name,
+        dataset_name=config.data.dataset_name,
+        preprocessing_function_name=config.data.preprocessing_function_name,
         tokenizer=tokenizer,
     )
 
@@ -83,9 +83,9 @@ def train(config: TrainingConfig) -> None:
     trainer = trainer_cls(
         model=model,
         tokenizer=tokenizer,
-        args=config.training_params.to_hf(),
+        args=config.training.to_hf(),
         train_dataset=dataset,
-        **config.data_params.trainer_kwargs,
+        **config.data.trainer_kwargs,
     )
 
     trainer.train()

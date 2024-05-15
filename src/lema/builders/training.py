@@ -19,15 +19,15 @@ def build_trainer(config: TrainingConfig):
         NotImplementedError: If the trainer type specified in the
             configuration is not supported.
     """
-    if config.training_params.trainer_type == TrainerType.TRL_SFT:
+    if config.training.trainer_type == TrainerType.TRL_SFT:
         return SFTTrainer
 
-    elif config.training_params.trainer_type == TrainerType.TRL_DPO:
+    elif config.training.trainer_type == TrainerType.TRL_DPO:
         return DPOTrainer
 
-    elif config.training_params.trainer_type == TrainerType.HF:
+    elif config.training.trainer_type == TrainerType.HF:
         return Trainer
 
     raise NotImplementedError(
-        f"Trainer type {config.training_params.trainer_type} not supported."
+        f"Trainer type {config.training.trainer_type} not supported."
     )

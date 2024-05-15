@@ -7,12 +7,12 @@
             "request": "launch",
             "module": "lema.train",
             "args": [
-                "model_params.model_name=openai-community/gpt2",
-                "data_params.dataset_name=yahma/alpaca-cleaned",
-                "model_params.trust_remote_code=true",
-                "data_params.preprocessing_function_name=alpaca",
-                "training_params.output_dir=tmp",
-                "data_params.trainer_kwargs.dataset_text_field=prompt"
+                "data.dataset_name=yahma/alpaca-cleaned",
+                "data.preprocessing_function_name=alpaca",
+                "data.trainer_kwargs.dataset_text_field=prompt",
+                "model.model_name=openai-community/gpt2",
+                "model.trust_remote_code=true",
+                "training.output_dir=tmp"
             ],
             "justMyCode": true
         },

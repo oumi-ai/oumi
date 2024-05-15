@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import transformers
 from omegaconf import MISSING, OmegaConf
@@ -53,7 +53,7 @@ class PeftParams:
     lora_alpha: int = 16
     lora_dropout: float = 0.05
     lora_target_modules: Optional[List[str]] = None
-    lora_bias: str = "none"
+    lora_bias: Literal["none", "all", "lora_only"] = "none"
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
@@ -78,13 +78,13 @@ class BaseConfig:
 
 @dataclass
 class TrainingConfig(BaseConfig):
-    data_params: DataParams = field(default_factory=DataParams)
-    model_params: ModelParams = field(default_factory=ModelParams)
-    training_params: TrainingParams = field(default_factory=TrainingParams)
-    peft_params: PeftParams = field(default_factory=PeftParams)
+    data: DataParams = field(default_factory=DataParams)
+    model: ModelParams = field(default_factory=ModelParams)
+    training: TrainingParams = field(default_factory=TrainingParams)
+    peft: PeftParams = field(default_factory=PeftParams)
 
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data_params: DataParams
-    model_params: ModelParams
+    data: DataParams
+    model: ModelParams
