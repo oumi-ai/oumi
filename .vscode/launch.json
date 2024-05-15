@@ -7,16 +7,11 @@
             "request": "launch",
             "module": "lema.train",
             "args": [
-                "--model_name",
-                "openai-community/gpt2",
-                "--dataset_name",
-                "yahma/alpaca-cleaned",
-                "--trust_remote_code",
-                "true",
-                "--preprocessing_function_name",
-                "alpaca",
-                "--output_dir",
-                "tmp"
+                "model_params.model_name=openai-community/gpt2",
+                "data_params.dataset_name=yahma/alpaca-cleaned",
+                "model_params.trust_remote_code=true",
+                "data_params.preprocessing_function_name=alpaca",
+                "training_params.output_dir=tmp"
             ]
         },
         {
