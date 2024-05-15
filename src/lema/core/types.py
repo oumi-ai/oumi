@@ -24,10 +24,10 @@ class TrainingParams(transformers.TrainingArguments):
     lr_scheduler_kwargs: Any = field(
         default_factory=dict,
     )
+    accelerator_config: Any = field(init=True, default=None)
     debug: Any = ""
     fsdp: Any = ""
     fsdp_config: Any = None
-    accelerator_config: Any = None
     deepspeed: Any = None
     report_to: Any = None
     gradient_checkpointing_kwargs: Any = None
