@@ -18,7 +18,7 @@ class TrainerType(Enum):
 
 @dataclass
 class TrainingParams:
-    optim: str = "adamw_torch"
+    optimizer: str = "adamw_torch"
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.TRL_SFT
     enable_gradient_checkpointing: bool = False
@@ -27,7 +27,7 @@ class TrainingParams:
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
-            optim=self.optim, output_dir=self.output_dir
+            optim=self.optimizer, output_dir=self.output_dir
         )
 
 

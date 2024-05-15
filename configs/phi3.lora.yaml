@@ -1,0 +1,25 @@
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  trust_remote_code: True
+
+data:
+  dataset_name: "yahma/alpaca-cleaned"
+  preprocessing_function_name: "alpaca"
+  trainer_kwargs:
+    dataset_text_field: "prompt"
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: true
+  output_dir: "output/phi3.lora"
+
+peft:
+  q_lora: False
+  lora_target_modules:
+  - "q_proj"
+  - "k_proj"
+  - "v_proj"
+  - "o_proj"
+  - "gate_proj"
+  - "up_proj"
+  - "down_proj"
