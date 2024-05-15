@@ -17,7 +17,6 @@ def build_model(config: TrainingConfig, **kwargs):
     Returns:
         model: The built model.
     """
-
     # TODO: add device_map to config
     device_map = "auto"
 
@@ -56,6 +55,7 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
     Args:
         config (TrainingConfig): The configuration object containing
             the model parameters and training parameters.
+        **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
         tokenizer: The tokenizer object built from the configuration.
@@ -77,6 +77,15 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
 
 
 def build_peft_model(base_model, config: TrainingConfig):
+    """Build a PEFT model based on the given base model and configuration.
+
+    Args:
+        base_model: The base model to build the PEFT model on.
+        config: The training configuration.
+
+    Returns:
+        The built PEFT model.
+    """
     lora_config = LoraConfig(
         r=config.peft_params.lora_r,
         lora_alpha=config.peft_params.lora_alpha,
