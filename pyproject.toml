@@ -64,5 +64,8 @@ convention = "google"
 [tool.isort]
 known_first_party = ["lema"]
 
-[tool.mypy]
-check_untyped_defs = true
+
+[tool.pyright]
+typeCheckingMode = "basic"  # basic to start, graduate to standard or strict
+pythonVersion = "3.8"
+pythonPlatform = "All"  # Include linux, mac, windows
