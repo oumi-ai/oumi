@@ -1,4 +1,4 @@
-import transformers
+from omegaconf import OmegaConf
 
 from lema.builders import (
     build_dataset,
@@ -7,30 +7,16 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
-from lema.core.types import (
-    DataParams,
-    ModelParams,
-    PeftParams,
-    TrainingConfig,
-    TrainingParams,
-)
+from lema.core.types import TrainingConfig
 from lema.utils.saver import save_model
 
 
-def main():
+def main() -> None:
     """Main entry point for training LeMa."""
-    #
-    # Parse CLI arguments
-    #
-    parser = transformers.HfArgumentParser(
-        (DataParams, ModelParams, TrainingParams, PeftParams)
-    )
-
-    data_params, model_params, training_params, peft_params = (
-        parser.parse_args_into_dataclasses()
-    )
-
-    config = TrainingConfig(data_params, model_params, training_params, peft_params)
+    # Load configuration
+    base_config = OmegaConf.structured(TrainingConfig)
+    cli_config = OmegaConf.from_cli()
+    config = OmegaConf.merge(base_config, cli_config)
 
     #
     # Run training
