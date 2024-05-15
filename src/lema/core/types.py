@@ -1,18 +1,26 @@
+from collections import Enum
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 import transformers
+from omegaconf import OmegaConf
 from peft import TaskType
 
 
 #
 # Training Params
 #
+class TrainerType(Enum):
+    TRL_SFT = "trl_sft"
+    TRL_DPO = "trl_dpo"
+    HF = "hf"
+
+
 @dataclass
 class TrainingParams:
     optim: str = "adamw_torch"
     use_peft: bool = False
-    trainer_name: str = "trl_sft"
+    trainer_type: TrainerType = TrainerType.TRL_SFT
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
 
@@ -62,7 +70,13 @@ class PeftParams:
 #
 @dataclass
 class BaseConfig:
-    pass
+    def to_yaml(self, path: str):
+        """Save the configuration to a YAML file."""
+        OmegaConf.save(config=self, f=path)
+
+    def from_yaml(cls, path: str):
+        """Load the configuration from a YAML file."""
+        return OmegaConf.load(path)
 
 
 @dataclass
