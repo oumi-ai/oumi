@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import transformers
 from datasets import Dataset, load_dataset
@@ -30,17 +30,17 @@ def build_prompt_generation_fn(
 
 def build_dataset(
     dataset_name: str,
-    preprocessing_function_name: str,
     tokenizer: transformers.PreTrainedTokenizerBase,
+    preprocessing_function_name: Optional[str] = None,
     **kwargs,
 ) -> Dataset:
     """Build a dataset for training.
 
     Args:
-        dataset_name (str): The name of the dataset to load.
-        preprocessing_function_name (str): The name of the preprocessing
-            function to apply to the dataset.
+        dataset_name: The name of the dataset to load.
         tokenizer: The tokenizer object to use for preprocessing.
+        preprocessing_function_name: The name of the preprocessing
+            function to apply to the dataset.
         **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
     Returns:
@@ -49,10 +49,10 @@ def build_dataset(
     # TODO: should return all splits
     dataset = load_dataset(dataset_name, split="train")
 
-    preprocessing_fn = build_prompt_generation_fn(
-        preprocessing_function_name, tokenizer
-    )
-
-    dataset = dataset.map(preprocessing_fn, batched=True, **kwargs)
+    if preprocessing_function_name:
+        preprocessing_fn = build_prompt_generation_fn(
+            preprocessing_function_name, tokenizer
+        )
+        dataset = dataset.map(preprocessing_fn, batched=True, **kwargs)
 
     return dataset

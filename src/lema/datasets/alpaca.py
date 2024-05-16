@@ -1,3 +1,7 @@
+from typing import Callable
+
+from transformers import PreTrainedTokenizerBase
+
 PROMPT_TEMPLATE = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
 ### Instruction:
@@ -10,13 +14,15 @@ PROMPT_TEMPLATE = """Below is an instruction that describes a task, paired with 
 {output}{eos_token}"""  # noqa: E501
 
 
-def alpaca_preprocessing_fn(tokenizer):
+def alpaca_preprocessing_fn(
+    tokenizer: PreTrainedTokenizerBase,
+) -> Callable:
     """Build a preprocessing function for the Alpaca dataset.
 
     Dataset: https://huggingface.co/datasets/tatsu-lab/alpaca
     """
 
-    def prompt_generation_fn(samples):
+    def prompt_generation_fn(samples) -> dict:
         instructions = samples["instruction"]
         inputs = samples["input"]
         outputs = samples["output"]

@@ -56,7 +56,7 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
 select = ["F", "E", "W", "I", "D"]
-ignore = ["D100", "D104"]  # Temporary rules
+ignore = ["D100", "D101", "D104"]  # Temporary rules
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -66,6 +66,8 @@ known_first_party = ["lema"]
 
 
 [tool.pyright]
-typeCheckingMode = "basic"  # basic to start, graduate to standard or strict
+typeCheckingMode = "standard"  # basic to start, graduate to standard or strict
 pythonVersion = "3.8"
 pythonPlatform = "All"  # Include linux, mac, windows
+
+reportPrivateImportUsage = "none"

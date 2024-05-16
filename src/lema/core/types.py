@@ -1,38 +1,55 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import transformers
-from peft import TaskType
+from omegaconf import MISSING, OmegaConf
+from peft.utils.peft_types import TaskType
 
 
 #
 # Training Params
 #
-@dataclass
-class TrainingParams(transformers.TrainingArguments):
-    optim: str = "adamw_torch"
-    use_peft: bool = False
-    trainer_name: str = "trl_sft"
+class TrainerType(Enum):
+    """Enum representing the supported trainers."""
 
+    TRL_SFT = "trl_sft"
+    "Supervised fine-tuning trainer from `trl` library."
+
+    TRL_DPO = "trl_dpo"
+    "Direct preference optimization trainer from `trl` library."
+
+    HF = "hf"
+    "Generic HuggingFace trainer from `transformers` library."
+
+
+@dataclass
+class TrainingParams:
+    optimizer: str = "adamw_torch"
+    use_peft: bool = False
+    trainer_type: TrainerType = TrainerType.TRL_SFT
     enable_gradient_checkpointing: bool = False
+    output_dir: str = "output"
+
+    def to_hf(self):
+        """Convert LeMa config to HuggingFace's TrainingArguments."""
+        return transformers.TrainingArguments(
+            optim=self.optimizer, output_dir=self.output_dir
+        )
 
 
 @dataclass
 class DataParams:
-    dataset_name: Optional[str] = None
+    dataset_name: str = MISSING
 
     preprocessing_function_name: Optional[str] = None
 
-    trainer_kwargs: Optional[dict] = field(
-        default_factory=lambda: {
-            "dataset_text_field": "prompt"
-        }  # TODO: remove this default
-    )
+    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ModelParams:
-    model_name: str
+    model_name: str = MISSING
     trust_remote_code: bool = False
 
 
@@ -56,18 +73,20 @@ class PeftParams:
 #
 @dataclass
 class BaseConfig:
-    pass
+    def to_yaml(self, path: str) -> None:
+        """Save the configuration to a YAML file."""
+        OmegaConf.save(config=self, f=path)
 
 
 @dataclass
 class TrainingConfig(BaseConfig):
-    data_params: DataParams
-    model_params: ModelParams
-    training_params: TrainingParams
-    peft_params: PeftParams
+    data: DataParams = field(default_factory=DataParams)
+    model: ModelParams = field(default_factory=ModelParams)
+    training: TrainingParams = field(default_factory=TrainingParams)
+    peft: PeftParams = field(default_factory=PeftParams)
 
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data_params: DataParams
-    model_params: ModelParams
+    data: DataParams
+    model: ModelParams
