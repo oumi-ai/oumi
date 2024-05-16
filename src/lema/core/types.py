@@ -11,9 +11,16 @@ from peft.utils.peft_types import TaskType
 # Training Params
 #
 class TrainerType(Enum):
+    """Enum representing the supported trainers."""
+
     TRL_SFT = "trl_sft"
+    "Supervised fine-tuning trainer from `trl` library."
+
     TRL_DPO = "trl_dpo"
+    "Direct preference optimization trainer from `trl` library."
+
     HF = "hf"
+    "Generic HuggingFace trainer from `transformers` library."
 
 
 @dataclass

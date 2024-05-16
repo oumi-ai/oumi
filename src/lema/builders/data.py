@@ -37,9 +37,9 @@ def build_dataset(
     """Build a dataset for training.
 
     Args:
-        dataset_name (str): The name of the dataset to load.
+        dataset_name: The name of the dataset to load.
         tokenizer: The tokenizer object to use for preprocessing.
-        preprocessing_function_name (str): The name of the preprocessing
+        preprocessing_function_name: The name of the preprocessing
             function to apply to the dataset.
         **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
