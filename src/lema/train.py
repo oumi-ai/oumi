@@ -26,9 +26,9 @@ def parse_cli():
 def main() -> None:
     """Main entry point for training LeMa.
 
-    Training arguments are fetched from the following sources, ordered by priority:
-    1. [Optional] arguments provided as CLI arguments, in dotfile format
-    2. [Optional]arguments provided in a yaml config file
+    Training arguments are fetched from the following sources, ordered by decreasing priority:
+    1. [Optional] Arguments provided as CLI arguments, in dotfile format
+    2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
     # Load configuration
