@@ -22,7 +22,7 @@ lema is a learning machines modeling platform that allows you to build and train
 ## Dev Environment Setup
 
 
-1. Install homebrew (the command below was copied from brew.sh)
+1. Install homebrew (the command below was copied from www.brew.sh)
 
    ```
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -42,41 +42,49 @@ lema is a learning machines modeling platform that allows you to build and train
    gh auth login
    ```
 
-4. Clone the lema repository
+4. Set your Github name and email
+
+   ```
+   git config --global user.name "YOUR_NAME"
+   git config --global user.email YOUR_USERNAME@openlema.com
+
+   ```
+
+5. Clone the lema repository
 
    ```
    gh repo clone openlema/lema
    ```
 
-5. Install Miniconda
+6. Install Miniconda
 
    https://docs.anaconda.com/free/miniconda/miniconda-install/
 
 [comment]: <> (This is a package/environment manager that we mainly need to pull all the relevant python packages via pip)
 
 
-6. Create a new environment for lema and activate it
+7. Create a new environment for lema and activate it
 
    ```
-   conda create -n leva python=3.11
-   activate lema environment
+   conda create -n lema python=3.11
+   conda activate lema
    ```
 
-7. Install lema:
+8. Install lema dependencies
 
    ```
    cd lema
    pip install -e .
    ```
 
-8. Install pre-commit hooks
+9. Install pre-commit hooks
 
    ```
    pip install pre-commit
    pre-commit install
    ```
 
-9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
+10. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
 
     ```
     alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
