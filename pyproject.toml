@@ -71,3 +71,6 @@ pythonVersion = "3.8"
 pythonPlatform = "All"  # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
