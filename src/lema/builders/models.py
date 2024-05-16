@@ -1,3 +1,4 @@
+import torch
 import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
@@ -28,6 +29,10 @@ def build_model(config: TrainingConfig, **kwargs):
         trust_remote_code=config.model.trust_remote_code,
     )
 
+    # Enable flash attention for underlying model.
+    # Requires installation of flash-attn library
+    hf_config._attn_implementation = "flash_attention_2"
+
     if config.training.use_peft and config.peft.q_lora:
         quantization_config = GPTQConfig(
             bits=config.peft.q_lora_bits, disable_exllama=True
@@ -37,6 +42,7 @@ def build_model(config: TrainingConfig, **kwargs):
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
+        torch_dtype=torch.bfloat16,  # Requires hardware that supports bf16
         device_map=device_map,
         pretrained_model_name_or_path=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
@@ -73,6 +79,9 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
         # TODO: should log a warning here
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Note: bfloat16 models prefer right
+    # but phi-3's flash attn implementation requires left
+    # tokenizer.padding_side = 'right'
     return tokenizer
 
 

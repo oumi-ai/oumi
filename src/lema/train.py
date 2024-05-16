@@ -1,3 +1,5 @@
+import pynvml
+import torch
 import argparse
 
 from omegaconf import OmegaConf
@@ -10,7 +12,21 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.types import TrainingConfig
-from lema.utils.saver import save_model
+
+
+def print_gpu_utilization():
+    """Print GPU utilization."""
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    print(f"GPU memory occupied: {info.used//1024**2} MB.")
+
+
+def print_summary(result):
+    """Print summary of training metrics."""
+    print(f"Time: {result.metrics['train_runtime']:.2f}")
+    print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
+    print_gpu_utilization()
 
 
 def parse_cli():
@@ -32,6 +48,9 @@ def main() -> None:
     3. Default arguments values defined in the data class
     """
     # Load configuration
+    torch.cuda.set_per_process_memory_fraction(0.95)
+    torch.cuda.empty_cache()
+    print_gpu_utilization()
     config_path, arg_list = parse_cli()
 
     # Start with dataclass default values and type annotations
@@ -56,20 +75,24 @@ def main() -> None:
     #
     train(config)
 
+    torch.cuda.empty_cache()
+    print_gpu_utilization()
+
 
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config)
-
+    print_gpu_utilization()
     model = build_model(config)
-
+    print_gpu_utilization()
     if config.training.use_peft:
         model = build_peft_model(model, config)
 
     if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 
+    print_gpu_utilization()
     # Load data & preprocessing
     dataset = build_dataset(
         dataset_name=config.data.dataset_name,
@@ -77,7 +100,10 @@ def train(config: TrainingConfig) -> None:
         tokenizer=tokenizer,
     )
 
+    print_gpu_utilization()
+
     # Train model
+
     trainer_cls = build_trainer(config)
 
     trainer = trainer_cls(
@@ -88,15 +114,20 @@ def train(config: TrainingConfig) -> None:
         **config.data.trainer_kwargs,
     )
 
-    trainer.train()
+    print_gpu_utilization()
+    result = trainer.train()
+    print_summary(result)
 
+    """
     # Save final checkpoint & training state
     trainer.save_state()
+
 
     save_model(
         config=config,
         trainer=trainer,
     )
+    """
 
 
 if __name__ == "__main__":

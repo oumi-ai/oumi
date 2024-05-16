@@ -6,6 +6,9 @@ import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
+_BATCH_SIZE = 2
+_ACCUMULATION_STEPS = 16
+
 
 #
 # Training Params
@@ -24,10 +27,20 @@ class TrainerType(Enum):
 
 
 @dataclass
-class TrainingParams:
-    optimizer: str = "adamw_torch"
+class TrainingParams(transformers.TrainingArguments):
+    """Training params."""
+
+    optim: str = "adafactor"
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.TRL_SFT
+    per_device_train_batch_size: int = _BATCH_SIZE
+    per_device_eval_batch_size: int = _BATCH_SIZE
+    eval_accumulation_steps: int = _ACCUMULATION_STEPS
+    gradient_accumulation_steps: int = _ACCUMULATION_STEPS
+
+    # Max steps to train, useful for debugging/code iteration
+    max_steps: int = 10
+
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
 
@@ -40,6 +53,8 @@ class TrainingParams:
 
 @dataclass
 class DataParams:
+    """Data Params."""
+
     dataset_name: str = MISSING
 
     preprocessing_function_name: Optional[str] = None
@@ -49,12 +64,16 @@ class DataParams:
 
 @dataclass
 class ModelParams:
+    """Model Params."""
+
     model_name: str = MISSING
     trust_remote_code: bool = False
 
 
 @dataclass
 class PeftParams:
+    """Peft Params."""
+
     # Lora Params
     lora_r: int = 16
     lora_alpha: int = 16
@@ -80,13 +99,17 @@ class BaseConfig:
 
 @dataclass
 class TrainingConfig(BaseConfig):
+    """Training config."""
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     training: TrainingParams = field(default_factory=TrainingParams)
     peft: PeftParams = field(default_factory=PeftParams)
+    
 
 
 @dataclass
 class EvaluationConfig(BaseConfig):
+    """Eval config."""
+
     data: DataParams
     model: ModelParams
