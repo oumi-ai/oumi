@@ -70,7 +70,7 @@ lema is a learning machines modeling platform that allows you to build and train
    conda activate lema
    ```
 
-8. Install lema dependencies
+8. Install lema package and its dependencies
 
    ```
    cd lema
