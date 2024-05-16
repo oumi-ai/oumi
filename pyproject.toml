@@ -58,6 +58,9 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 select = ["F", "E", "W", "I", "D"]
 ignore = ["D100", "D101", "D104"]  # Temporary rules
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]  # Ignore docstring checks in tests
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
