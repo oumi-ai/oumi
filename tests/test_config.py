@@ -2,6 +2,7 @@ import os
 import tempfile
 
 from lema.core.types import TrainingConfig
+from omegaconf import OmegaConf
 
 
 def test_config_serialization():
@@ -26,3 +27,17 @@ def test_config_equality():
 
     config_a.model.model_name = "test_model"
     assert config_a != config_b
+
+
+def test_config_override():
+    low_priority_config = TrainingConfig()
+    low_priority_config.model.model_name = "model_low_priority"
+
+    high_priority_config = TrainingConfig()
+    high_priority_config.model.model_name = "model_high_priority"
+
+    # Override with CLI arguments if provided
+    merged_config = OmegaConf.merge(low_priority_config, high_priority_config)
+    assert merged_config.model.model_name == "model_high_priority"
+    assert merged_config == high_priority_config
+    assert merged_config != low_priority_config
