@@ -7,7 +7,7 @@ data:
   preprocessing_function_name: "trl_dpo"
 
 training:
-  optimizer: "adafactor"
+  optimizer: "adamw_torch"
   use_peft: true
   output_dir: "output/phi3.dpo"
   trainer_type: "TRL_DPO"
