@@ -6,6 +6,10 @@ _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
 _REJECTED_KEY = "rejected"
 
+_ROLE = "role"
+_CONTENT = "content"
+_ASSISTANT = "assistant"
+
 
 def trl_dpo_chat_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
@@ -42,7 +46,7 @@ def trl_dpo_chat_preprocessor_fn(
 def _extract_from_chat_format(sample):
     # Get the last 'assistant' turn in the chat.
     for turn in sample[::-1]:
-        if turn["role"] == "assistant":
-            return turn["content"]
+        if turn[_ROLE] == _ASSISTANT:
+            return turn[_CONTENT]
 
     raise ValueError("No chat turn was found with an 'assistant' role.")
