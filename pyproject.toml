@@ -58,16 +58,21 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 select = ["F", "E", "W", "I", "D"]
 ignore = ["D100", "D101", "D104"]  # Temporary rules
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]  # Ignore docstring checks in tests
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.isort]
 known_first_party = ["lema"]
 
-
 [tool.pyright]
-typeCheckingMode = "standard"  # basic to start, graduate to standard or strict
+typeCheckingMode = "standard"
 pythonVersion = "3.8"
 pythonPlatform = "All"  # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import transformers
 from omegaconf import MISSING, OmegaConf
@@ -71,11 +71,29 @@ class PeftParams:
 #
 # Configs
 #
+T = TypeVar("T", bound="BaseConfig")
+
+
 @dataclass
 class BaseConfig:
     def to_yaml(self, path: str) -> None:
         """Save the configuration to a YAML file."""
         OmegaConf.save(config=self, f=path)
+
+    @classmethod
+    def from_yaml(cls: Type[T], path: str) -> Type[T]:
+        """Load a configuration from a YAML file.
+
+        Args:
+            path: The path to the YAML file.
+
+        Returns:
+            BaseConfig: The merged configuration object.
+        """
+        schema = OmegaConf.structured(cls)
+        file_config = OmegaConf.load(path)
+        config = OmegaConf.merge(schema, file_config)
+        return config
 
 
 @dataclass
