@@ -5,6 +5,5 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.analysis.typeCheckingMode": "standard",
     "python.languageServer": "Pylance"
 }
