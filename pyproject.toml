@@ -67,7 +67,6 @@ convention = "google"
 [tool.isort]
 known_first_party = ["lema"]
 
-
 [tool.pyright]
 typeCheckingMode = "standard"  # basic to start, graduate to standard or strict
 pythonVersion = "3.8"
