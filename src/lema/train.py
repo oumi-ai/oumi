@@ -1,6 +1,5 @@
 import argparse
 
-import torch
 from omegaconf import OmegaConf
 
 from lema.builders import (
@@ -12,6 +11,7 @@ from lema.builders import (
 )
 from lema.core.types import TrainingConfig
 from lema.utils.saver import save_model
+from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
 
 
 def parse_cli():
@@ -33,11 +33,8 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
-    # To avoid reaching into shared gpu memory (slow) on windows/WSL
-    # Below line will cause an OOM instead
-    torch.cuda.set_per_process_memory_fraction(0.95)
-
-    _device_cleanup()
+    limit_per_process_memory()
+    device_cleanup()
 
     # Load configuration
     config_path, arg_list = parse_cli()
@@ -64,7 +61,7 @@ def main() -> None:
     #
     train(config)
 
-    _device_cleanup()
+    device_cleanup()
 
 
 def train(config: TrainingConfig) -> None:
@@ -107,11 +104,6 @@ def train(config: TrainingConfig) -> None:
         config=config,
         trainer=trainer,
     )
-
-
-def _device_cleanup() -> None:
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
