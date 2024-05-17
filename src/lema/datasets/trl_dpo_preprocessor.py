@@ -14,7 +14,11 @@ _ASSISTANT = "assistant"
 def trl_dpo_chat_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Callable:
-    """Build a preprocessing function for the TRL DPO trainer."""
+    """Build a preprocessing function for the TRL DPO trainer.
+
+    DPOTrainer expects prompts, as well as the chosen and rejected responses
+    for each prompt.
+    """
 
     def prompt_generation_fn(samples) -> dict:
         prompt = samples[_PROMPT_KEY]
@@ -32,12 +36,8 @@ def trl_dpo_chat_preprocessor_fn(
         ):
             results[_PROMPT_KEY].append(prompt_sample)
 
-            chosen_sample_response = tokenizer.apply_chat_template(
-                chosen_sample, tokenize=False
-            )
-            rejected_sample_response = tokenizer.apply_chat_template(
-                rejected_sample, tokenize=False
-            )
+            chosen_sample_response = _extract_from_chat_format(chosen_sample)
+            rejected_sample_response = _extract_from_chat_format(rejected_sample)
 
             results[_CHOSEN_KEY].append(chosen_sample_response)
             results[_REJECTED_KEY].append(rejected_sample_response)
@@ -45,3 +45,12 @@ def trl_dpo_chat_preprocessor_fn(
         return results
 
     return prompt_generation_fn
+
+
+def _extract_from_chat_format(sample):
+    # Get the last 'assistant' turn in the chat.
+    for turn in sample[::-1]:
+        if turn[_ROLE] == _ASSISTANT:
+            return turn[_CONTENT]
+
+    raise ValueError("No chat turn was found with an 'assistant' role.")
