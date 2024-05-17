@@ -4,15 +4,13 @@ model:
 
 data:
   dataset_name: "mlabonne/orpo-dpo-mix-40k"
-  preprocessing_function_name: "alpaca"
-  trainer_kwargs:
-    dataset_text_field: "prompt"
+  preprocessing_function_name: "trl_dpo"
 
 training:
-  optimizer: "adamw_torch"
+  optimizer: "adafactor"
   use_peft: true
   output_dir: "output/phi3.dpo"
-  trainer_type: "trl_dpo"
+  trainer_type: "TRL_DPO"
 
 peft:
   q_lora: False

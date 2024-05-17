@@ -40,4 +40,9 @@ def trl_dpo_chat_preprocessor_fn(
 
 
 def _extract_from_chat_format(sample):
-    print(sample)
+    # Get the last 'assistant' turn in the chat.
+    for turn in sample[::-1]:
+        if turn["role"] == "assistant":
+            return turn["content"]
+
+    raise ValueError("No chat turn was found with an 'assistant' role.")
