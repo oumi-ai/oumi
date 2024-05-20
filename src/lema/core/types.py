@@ -61,18 +61,18 @@ class DataParams:
 class ModelParams:
     model_name: str = MISSING
     trust_remote_code: bool = False
-    _torch_dtype: str = "float32"
+    torch_dtype_str: str = "float32"
 
     def torch_dtype(self):
         """Convert string dtype to torch.dtype."""
-        if self._torch_dtype in ["f64", "float64", "double"]:
+        if self.torch_dtype_str in ["f64", "float64", "double"]:
             return torch.float64
-        elif self._torch_dtype in ["f32", "float32", "float"]:
+        elif self.torch_dtype_str in ["f32", "float32", "float"]:
             return torch.float32
-        elif self._torch_dtype in ["bf16", "bfloat16"]:
+        elif self.torch_dtype_str in ["bf16", "bfloat16"]:
             return torch.bfloat16
         else:
-            raise ValueError(f"Unsupported data type: {self._torch_dtype}")
+            raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
 
 @dataclass
