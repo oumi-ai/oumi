@@ -4,6 +4,7 @@ import transformers
 from datasets import Dataset, load_dataset
 
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
+from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 
 
 def build_prompt_generation_fn(
@@ -24,6 +25,8 @@ def build_prompt_generation_fn(
     # TODO: this should be pulled from registry
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
+    elif function_name == "trl_dpo":
+        return trl_dpo_chat_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 

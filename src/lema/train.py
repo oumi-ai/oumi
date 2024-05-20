@@ -11,6 +11,7 @@ from lema.builders import (
 )
 from lema.core.types import TrainingConfig
 from lema.utils.saver import save_model
+from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
 
 
 def parse_cli():
@@ -32,6 +33,9 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
+    limit_per_process_memory()
+    device_cleanup()
+
     # Load configuration
     config_path, arg_list = parse_cli()
 
@@ -56,6 +60,8 @@ def main() -> None:
     # Run training
     #
     train(config)
+
+    device_cleanup()
 
 
 def train(config: TrainingConfig) -> None:
