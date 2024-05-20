@@ -34,7 +34,7 @@ def main() -> None:
     3. Default arguments values defined in the data class
     """
     limit_per_process_memory()
-    device_cleanup()
+    device_cleanup(verbose=True)
 
     # Load configuration
     config_path, arg_list = parse_cli()
@@ -61,7 +61,7 @@ def main() -> None:
     #
     train(config)
 
-    device_cleanup()
+    device_cleanup(verbose=True)
 
 
 def train(config: TrainingConfig) -> None:
