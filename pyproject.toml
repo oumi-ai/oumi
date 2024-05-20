@@ -24,7 +24,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
 ]
-dependencies = ["transformers"]
+dependencies = [
+    "torch",
+    "transformers"
+]
 
 [project.urls]
 Homepage = "https://github.com/openlema/lema"
