@@ -24,14 +24,17 @@ classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
 ]
-dependencies = ["transformers"]
+dependencies = [
+    "torch",
+    "transformers"
+]
 
 [project.urls]
 Homepage = "https://github.com/openlema/lema"
 Issues = "https://github.com/openlema/lema/issues"
 
 [project.optional-dependencies]
-dev = ["black", "ruff", "isort", "mypy"]
+dev = ["black", "ruff", "isort", "mypy", "pynvml"]
 train = [
     "transformers",
     "trl",

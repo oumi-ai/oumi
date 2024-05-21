@@ -37,6 +37,7 @@ def build_model(config: TrainingConfig, **kwargs):
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
+        torch_dtype=config.model.torch_dtype(),
         device_map=device_map,
         pretrained_model_name_or_path=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
