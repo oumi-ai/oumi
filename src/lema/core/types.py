@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
 
 import transformers
 from omegaconf import MISSING, OmegaConf
@@ -31,10 +31,28 @@ class TrainingParams:
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
 
+    logger = "wandb", "tensorboard"
+    run_name: str = "default"
+
+    log_level: str = "info"
+    dep_log_level: str = "warning"
+
+    logging_strategy: Literal["no", "epoch", "steps"] = "steps"
+    logging_dir = "output/runs"
+    logging_steps: int = 50
+
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
-            optim=self.optimizer, output_dir=self.output_dir
+            log_level=self.dep_log_level,
+            logging_dir=self.logging_dir,
+            logging_nan_inf_filter=True,
+            logging_steps=self.logging_steps,
+            logging_strategy=self.logging_strategy,
+            optim=self.optimizer,
+            output_dir=self.output_dir,
+            push_to_hub=False,
+            run_name=self.run_name,
         )
 
 
