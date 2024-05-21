@@ -7,18 +7,18 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
       - id: check-added-large-files
       - id: check-ast
-      - id: check-json
-      - id: check-toml
-      - id: check-merge-conflict
-      - id: check-shebang-scripts-are-executable
-      - id: check-executables-have-shebangs
       - id: check-case-conflict
       - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.3
     hooks:
