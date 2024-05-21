@@ -35,15 +35,11 @@ def main() -> None:
     # Load configuration
     config_path, arg_list = parse_cli()
 
-    # Start with dataclass default values and type annotations
-    base_config = OmegaConf.structured(TrainingConfig)
-
     # Override with configuration file if provided
     if config_path is not None:
-        file_config = OmegaConf.load(config_path)
-        config = OmegaConf.merge(base_config, file_config)
+        config = TrainingConfig.from_yaml(config_path)
     else:
-        config = base_config
+        config = OmegaConf.structured(TrainingConfig)
 
     # Override with CLI arguments if provided
     cli_config = OmegaConf.from_cli(arg_list)
@@ -64,7 +60,6 @@ def train(config: TrainingConfig) -> None:
     tokenizer = build_tokenizer(config)
 
     model = build_model(config)
-
     if config.training.use_peft:
         model = build_peft_model(model, config)
 
