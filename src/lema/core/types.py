@@ -166,3 +166,7 @@ class TrainingConfig(BaseConfig):
 class EvaluationConfig(BaseConfig):
     data: DataParams
     model: ModelParams
+
+@dataclass
+class InferenceConfig(BaseConfig):    
+    model: ModelParams
