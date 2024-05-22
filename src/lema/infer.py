@@ -76,6 +76,7 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
         input_text = input("Enter your input prompt: ")
         input_texts.append(input_text)
     else:
+        # TODO: Support reading inputs from datasets.
         raise NotImplementedError
 
     inputs = tokenizer(input_texts, return_tensors="pt")
@@ -86,7 +87,9 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
     outputs = model.generate(
         **inputs,
         max_new_tokens=config.generation.max_new_tokens)
-        
+
+    # TODO: Support writing predictions to files.
+    # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
     for input_idx in range(outputs.data.size(dim=0)):
         print(f"Prompt: {input_texts[input_idx]}")
         for token_id in outputs.data[input_idx]:

@@ -133,7 +133,8 @@ class EvaluationConfig(BaseConfig):
 
 
 @dataclass
-class GenerationConfig(BaseConfig):    
+class GenerationConfig(BaseConfig):
+    # TODO: Add more parameters to control text generation.
     max_new_tokens: int = 256
 
 @dataclass
