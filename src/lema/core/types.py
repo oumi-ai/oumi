@@ -36,16 +36,52 @@ class TrainingParams:
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
 
+    run_name: str = "default"
+
+    log_level: str = "info"
+    dep_log_level: str = "warning"
+
+    enable_wandb: bool = False
+    enable_tensorboard: bool = True
+
+    logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
+    logging_dir = "output/runs"
+    logging_steps: int = 50
+
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            log_level=self.dep_log_level,
+            logging_dir=self.logging_dir,
+            logging_nan_inf_filter=True,
+            logging_steps=self.logging_steps,
+            logging_strategy=self.logging_strategy,
+            max_steps=self.max_steps,
             optim=self.optimizer,
             output_dir=self.output_dir,
-            per_device_train_batch_size=self.per_device_train_batch_size,
             per_device_eval_batch_size=self.per_device_eval_batch_size,
-            gradient_accumulation_steps=self.gradient_accumulation_steps,
-            max_steps=self.max_steps,
+            per_device_train_batch_size=self.per_device_train_batch_size,
+            push_to_hub=False,
+            report_to=self._get_hf_report_to(),
+            run_name=self.run_name,
         )
+
+    def _get_hf_report_to(self) -> List[str]:
+        """Get the list of reporting tools enabled for the current instance.
+
+        Returns:
+            list: A list of reporting tools enabled.
+                Possible values are "wandb", "tensorboard", or "none".
+        """
+        report_to = []
+        if self.enable_wandb:
+            report_to.append("wandb")
+        if self.enable_tensorboard:
+            report_to.append("tensorboard")
+        if len(report_to) == 0:
+            report_to.append("none")
+        return report_to
 
 
 @dataclass
