@@ -69,7 +69,6 @@ convention = "google"
 
 [tool.ruff.lint.isort]
 known-first-party = ["lema"]
-lines-after-imports = 2
 
 [tool.pyright]
 typeCheckingMode = "standard"

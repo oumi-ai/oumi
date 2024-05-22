@@ -1,7 +1,7 @@
 import logging
 
 
-def get_logger(name, level="info") -> logging.Logger:
+def get_logger(name, level="warning") -> logging.Logger:
     """Get a logger instance with the specified name and log level.
 
     Args:
