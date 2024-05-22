@@ -42,7 +42,7 @@ def main() -> None:
     config_path, verbose, arg_list = parse_cli()
 
     limit_per_process_memory()
-    device_cleanup(verbose=verbose)
+    device_cleanup()
 
     # Override with configuration file if provided
     if config_path is not None:
@@ -62,7 +62,7 @@ def main() -> None:
     #
     train(config)
 
-    device_cleanup(verbose=verbose)
+    device_cleanup()
 
 
 def train(config: TrainingConfig) -> None:
