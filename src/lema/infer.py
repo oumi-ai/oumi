@@ -59,26 +59,38 @@ def main():
     #
     # Run inference
     #
-    infer(config)
+    infer(config, interactive)
 
 
-def infer(config: InferenceConfig) -> None:
-    """Evaluate a model using the provided configuration."""
+def infer(config: InferenceConfig, interactive: bool = False) -> None:
+    """Evaluate a model using the provided configuration."""    
+    
     train_config = TrainingConfig(model=config.model)    
 
     tokenizer = build_tokenizer(train_config)
 
     model = build_model(train_config)
 
-    inputs = tokenizer(["Today is"], return_tensors="pt")
+    input_texts = []
+    if interactive:
+        input_text = input("Enter your text: ")
+        input_texts.append(input_text)
+    else:
+        raise NotImplementedError
+
+    inputs = tokenizer(input_texts, return_tensors="pt")
 
     model_device = next(model.parameters()).device
     inputs = inputs.to(model_device)
 
-    outputs = model.generate(**inputs, max_new_tokens=10)    
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=config.generation.max_new_tokens)    
         
-    for tok in outputs.data[0]:    
-        print(f"| {tok:5d} | {tokenizer.decode(tok):8s}")
+    for input_idx in range(outputs.data.size(dim=0)):
+        print(f"| {input_texts[input_idx]}")
+        for  tok_id in outputs.data[input_idx]:    
+            print(f"| | {tok_id:5d} | {tokenizer.decode(tok_id):8s}")
 
 
 if __name__ == "__main__":

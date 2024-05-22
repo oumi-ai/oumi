@@ -131,6 +131,12 @@ class EvaluationConfig(BaseConfig):
     data: DataParams
     model: ModelParams
 
+
+@dataclass
+class GenerationConfig(BaseConfig):    
+    max_new_tokens: int = 256
+
 @dataclass
 class InferenceConfig(BaseConfig):    
-    model: ModelParams
+    model: ModelParams = field(default_factory=ModelParams)
+    generation: GenerationConfig = field(default_factory=GenerationConfig)

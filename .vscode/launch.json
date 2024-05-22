@@ -1,13 +1,14 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
+
         {
             "name": "LeMa - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",
             "module": "lema.infer",
             "args": [            
+                "--interactive",
                 "model.model_name=openai-community/gpt2",
                 "model.trust_remote_code=true",                
             ],
