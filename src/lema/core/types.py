@@ -63,7 +63,7 @@ class TrainingParams:
             per_device_eval_batch_size=self.per_device_eval_batch_size,
             per_device_train_batch_size=self.per_device_train_batch_size,
             push_to_hub=False,
-            report_to=self._get_hf_report_to,
+            report_to=self._get_hf_report_to(),
             run_name=self.run_name,
         )
 
