@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import torch
 import transformers
@@ -42,9 +42,9 @@ class TrainingParams:
     dep_log_level: str = "warning"
 
     enable_wandb: bool = False
-    enable_tensorboard: bool = False
+    enable_tensorboard: bool = True
 
-    logging_strategy: Literal["no", "epoch", "steps"] = "steps"
+    logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
     logging_dir = "output/runs"
     logging_steps: int = 50
 
