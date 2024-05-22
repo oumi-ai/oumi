@@ -67,8 +67,9 @@ ignore = ["D100", "D101", "D104"]  # Temporary rules
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.isort]
-known_first_party = ["lema"]
+[tool.ruff.lint.isort]
+known-first-party = ["lema"]
+lines-after-imports = 2
 
 [tool.pyright]
 typeCheckingMode = "standard"
