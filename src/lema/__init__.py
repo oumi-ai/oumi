@@ -1,7 +1,8 @@
 from lema.evaluate import evaluate
+from lema.logging import configure_dependency_warnings, logger
 from lema.train import train
-from lema.utils.logging_utils import get_logger
 
-logger = get_logger("lema")
+configure_dependency_warnings()
 
-__all__ = ["train", "evaluate"]
+
+__all__ = ["train", "evaluate", "logger"]
