@@ -1,10 +1,18 @@
 import torch
+from lema.utils.debugging_utils import print_nvidia_gpu_memory_utilization
 
 
-def device_cleanup() -> None:
+def device_cleanup(verbose=False) -> None:
     """Empty's cuda cache, good to do before and after training for cleanup."""
     if torch.cuda.is_available():
+        if verbose:
+            print("Outputting max memory usage before cleanup")
+            print_nvidia_gpu_memory_utilization()
         torch.cuda.empty_cache()
+
+        if verbose:
+            print("Memory after cleanup:")
+            print_nvidia_gpu_memory_utilization()
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:

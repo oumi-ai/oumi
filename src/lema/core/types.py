@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
+import torch
 import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
@@ -30,11 +31,20 @@ class TrainingParams:
     trainer_type: TrainerType = TrainerType.TRL_SFT
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
+    per_device_train_batch_size: int = 8
+    per_device_eval_batch_size: int = 8
+    gradient_accumulation_steps: int = 1
+    max_steps: int = -1
 
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
-            optim=self.optimizer, output_dir=self.output_dir
+            optim=self.optimizer,
+            output_dir=self.output_dir,
+            per_device_train_batch_size=self.per_device_train_batch_size,
+            per_device_eval_batch_size=self.per_device_eval_batch_size,
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            max_steps=self.max_steps,
         )
 
 
@@ -51,6 +61,18 @@ class DataParams:
 class ModelParams:
     model_name: str = MISSING
     trust_remote_code: bool = False
+    torch_dtype_str: str = "float32"
+
+    def torch_dtype(self):
+        """Convert string dtype to torch.dtype."""
+        if self.torch_dtype_str in ["f64", "float64", "double"]:
+            return torch.float64
+        elif self.torch_dtype_str in ["f32", "float32", "float"]:
+            return torch.float32
+        elif self.torch_dtype_str in ["bf16", "bfloat16"]:
+            return torch.bfloat16
+        else:
+            raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
 
 @dataclass

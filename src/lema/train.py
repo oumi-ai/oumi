@@ -20,8 +20,13 @@ def parse_cli():
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+    )
     args, unknown = parser.parse_known_args()
-    return args.config, unknown
+    return args.config, args.verbose, unknown
 
 
 def main() -> None:
@@ -33,11 +38,11 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
-    limit_per_process_memory()
-    device_cleanup()
-
     # Load configuration
-    config_path, arg_list = parse_cli()
+    config_path, verbose, arg_list = parse_cli()
+
+    limit_per_process_memory()
+    device_cleanup(verbose=verbose)
 
     # Start with dataclass default values and type annotations
     base_config = OmegaConf.structured(TrainingConfig)
@@ -61,7 +66,7 @@ def main() -> None:
     #
     train(config)
 
-    device_cleanup()
+    device_cleanup(verbose=verbose)
 
 
 def train(config: TrainingConfig) -> None:
