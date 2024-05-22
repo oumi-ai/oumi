@@ -1,19 +1,6 @@
 {
     "version": "0.2.0",
-    "configurations": [
-
-        {
-            "name": "LeMa - Inference From CLI Example",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lema.infer",
-            "args": [            
-                "--interactive",
-                "model.model_name=openai-community/gpt2",
-                "model.trust_remote_code=true",                
-            ],
-            "justMyCode": true
-        },
+    "configurations": [        
         {
             "name": "LeMa - Train From CLI Example",
             "type": "debugpy",
@@ -37,6 +24,19 @@
             "args": [
                 "-c",
                 "configs/phi3.lora.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "LeMa - Inference From CLI Example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.infer",
+            "args": [            
+                "--interactive",
+                "model.model_name=openai-community/gpt2",
+                "model.trust_remote_code=true",
+                "generation.max_new_tokens=16",
             ],
             "justMyCode": true
         },

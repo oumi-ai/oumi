@@ -73,7 +73,7 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
 
     input_texts = []
     if interactive:
-        input_text = input("Enter your text: ")
+        input_text = input("Enter your input prompt: ")
         input_texts.append(input_text)
     else:
         raise NotImplementedError
@@ -85,12 +85,12 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
 
     outputs = model.generate(
         **inputs,
-        max_new_tokens=config.generation.max_new_tokens)    
+        max_new_tokens=config.generation.max_new_tokens)
         
     for input_idx in range(outputs.data.size(dim=0)):
-        print(f"| {input_texts[input_idx]}")
-        for  tok_id in outputs.data[input_idx]:    
-            print(f"| | {tok_id:5d} | {tokenizer.decode(tok_id):8s}")
+        print(f"Prompt: {input_texts[input_idx]}")
+        for token_id in outputs.data[input_idx]:
+            print(f"| | {token_id:5d} | {tokenizer.decode(token_id):8s}")
 
 
 if __name__ == "__main__":
