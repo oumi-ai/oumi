@@ -43,6 +43,8 @@ train = [
     "omegaconf",
     "datasets",
     "torchmetrics",
+    "tensorboard",
+    "wandb",
     "sentencepiece",   # for phi-3
     "flash-attention", # for phi-3
 ]
