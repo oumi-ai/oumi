@@ -12,13 +12,14 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
     Returns:
         logging.Logger: The logger instance.
     """
-    logger = logging.getLogger(name)
-
     if name not in logging.Logger.manager.loggerDict:
+        logger = logging.getLogger(name)
+        logger.setLevel(level.upper())
+
         # Default log format
         formatter = logging.Formatter(
             "[%(asctime)s][%(name)s][%(levelname)s]"
-            "[%(pathname)s:%(lineno)s] %(message)s"
+            "[%(filename)s:%(lineno)s] %(message)s"
         )
 
         # Add a console handler to the logger
@@ -27,6 +28,8 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
         console_handler.setLevel(level.upper())
 
         logger.addHandler(console_handler)
+    else:
+        logger = logging.getLogger(name)
 
     return logger
 

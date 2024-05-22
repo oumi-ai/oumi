@@ -1,6 +1,6 @@
 import torch
 
-from lema import logger
+from lema.logging import logger
 from lema.utils.debugging_utils import get_nvidia_gpu_memory_utilization
 
 

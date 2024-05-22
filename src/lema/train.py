@@ -10,6 +10,7 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.types import TrainingConfig
+from lema.logging import logger
 from lema.utils.saver import save_model
 from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
 
@@ -95,6 +96,7 @@ def train(config: TrainingConfig) -> None:
         **config.data.trainer_kwargs,
     )
 
+    logger.info("Starting training...")
     trainer.train()
 
     # Save final checkpoint & training state
