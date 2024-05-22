@@ -1,6 +1,6 @@
 {
     "version": "0.2.0",
-    "configurations": [        
+    "configurations": [
         {
             "name": "LeMa - Train From CLI Example",
             "type": "debugpy",
