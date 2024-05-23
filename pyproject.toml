@@ -43,6 +43,8 @@ train = [
     "omegaconf",
     "datasets",
     "torchmetrics",
+    "tensorboard",
+    "wandb",
     "sentencepiece",   # for phi-3
     "flash-attention", # for phi-3
 ]
@@ -67,8 +69,8 @@ ignore = ["D100", "D101", "D104"]  # Temporary rules
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.isort]
-known_first_party = ["lema"]
+[tool.ruff.lint.isort]
+known-first-party = ["lema"]
 
 [tool.pyright]
 typeCheckingMode = "standard"

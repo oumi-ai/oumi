@@ -10,6 +10,7 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.types import TrainingConfig
+from lema.logging import logger
 from lema.utils.saver import save_model
 from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
 
@@ -42,17 +43,13 @@ def main() -> None:
     config_path, verbose, arg_list = parse_cli()
 
     limit_per_process_memory()
-    device_cleanup(verbose=verbose)
-
-    # Start with dataclass default values and type annotations
-    base_config = OmegaConf.structured(TrainingConfig)
+    device_cleanup()
 
     # Override with configuration file if provided
     if config_path is not None:
-        file_config = OmegaConf.load(config_path)
-        config = OmegaConf.merge(base_config, file_config)
+        config = TrainingConfig.from_yaml(config_path)
     else:
-        config = base_config
+        config = OmegaConf.structured(TrainingConfig)
 
     # Override with CLI arguments if provided
     cli_config = OmegaConf.from_cli(arg_list)
@@ -66,7 +63,7 @@ def main() -> None:
     #
     train(config)
 
-    device_cleanup(verbose=verbose)
+    device_cleanup()
 
 
 def train(config: TrainingConfig) -> None:
@@ -75,7 +72,6 @@ def train(config: TrainingConfig) -> None:
     tokenizer = build_tokenizer(config)
 
     model = build_model(config)
-
     if config.training.use_peft:
         model = build_peft_model(model, config)
 
@@ -100,6 +96,7 @@ def train(config: TrainingConfig) -> None:
         **config.data.trainer_kwargs,
     )
 
+    logger.info("Starting training...")
     trainer.train()
 
     # Save final checkpoint & training state
