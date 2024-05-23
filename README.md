@@ -116,7 +116,7 @@ sky check
 
 To launch a job on the cloud, you can use the following command:
 ```python
-sky launch -c lema-cluster configs/sky.yaml  # edit the configs/sky.yaml file to your needs
+sky launch -c lema-cluster configs/skypilot/sky.yaml  # edit the configs/skypilot/sky.yaml file to your needs
 ```
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manuall, or use the following to automatically take it down after 10 minutes of inactivity:

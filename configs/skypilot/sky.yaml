@@ -17,6 +17,9 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
+envs:
+  WANDB_PROJECT: lema-train-test
+
 setup: |
   set -e
   pip install '.[all]'
@@ -24,7 +27,7 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   python -m lema.train \
-      -c configs/phi3.dpo.nvidia.24g.yaml \
+      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
