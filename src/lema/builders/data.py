@@ -35,6 +35,7 @@ def build_dataset(
     dataset_name: str,
     tokenizer: transformers.PreTrainedTokenizerBase,
     preprocessing_function_name: Optional[str] = None,
+    split: Optional[str] = "train",
     **kwargs,
 ) -> Dataset:
     """Build a dataset for training.
@@ -44,13 +45,14 @@ def build_dataset(
         tokenizer: The tokenizer object to use for preprocessing.
         preprocessing_function_name: The name of the preprocessing
             function to apply to the dataset.
+        split (str, optional): The split type to be loaded and used, e.g., "test".
         **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
     Returns:
         dataset: The built dataset for training.
     """
     # TODO: should return all splits
-    dataset = load_dataset(dataset_name, split="train")
+    dataset = load_dataset(dataset_name, split=split)
 
     if preprocessing_function_name:
         preprocessing_fn = build_prompt_generation_fn(

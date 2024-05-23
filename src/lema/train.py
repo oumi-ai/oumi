@@ -83,6 +83,7 @@ def train(config: TrainingConfig) -> None:
         dataset_name=config.data.dataset_name,
         preprocessing_function_name=config.data.preprocessing_function_name,
         tokenizer=tokenizer,
+        split=config.data.split,
     )
 
     # Train model
