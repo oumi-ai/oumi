@@ -11,13 +11,10 @@ lema is a learning machines modeling platform that allows you to build and train
 - Visualization tools for model analysis and interpretation.
 - Integration with popular libraries and frameworks.
 
-## [WIP] Features
+## Features
 
-- [ ] Easily run in a locally, jupyter notebook, vscvode debugger, or remote cluster
-- [ ] Full finetuning using SFT, DPO
-
-## [TODO] Open Design Questions
-- [ ] What is a good data abstraction of instruction finetuning datasets ?
+- [x] Easily run in a locally, jupyter notebook, vscvode debugger, or remote cluster
+- [x] Full finetuning using SFT, DPO
 
 ## Dev Environment Setup
 
@@ -96,7 +93,33 @@ lema is a learning machines modeling platform that allows you to build and train
     lema
     ```
 
-## [WIP] User Setup
+## User Setup
 
 To install lema, you can use pip:
-`pip install lema[dev,train]`
+`pip install lema[cloud,dev,train]`
+
+
+## Training on a cloud cluster
+To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
+```python
+pip install lema[cloud]
+```
+
+Then setup your cloud credentials:
+- [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod-cloud)
+- [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
+
+You environement should be read! Use this to check
+```python
+sky check
+```
+
+To launch a job on the cloud, you can use the following command:
+```python
+sky launch -c lema-cluster configs/skypilot/sky.yaml  # edit the configs/skypilot/sky.yaml file to your needs
+```
+
+Remember to stop the cluster when you are done to avoid extra charges. You can either do it manuall, or use the following to automatically take it down after 10 minutes of inactivity:
+```python
+sky autostop lema-cluster -i 10
+```

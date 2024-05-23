@@ -1,0 +1,34 @@
+name: lema-train-example
+
+resources:
+  # Use 1 of the following GPUs depending on availability. No preference.
+  accelerators: {A10, L4, L4S, A10g}
+  any_of:
+    - use_spot: true
+    - use_spot: false
+
+# Upload a working directory to remote ~/sky_workdir.
+workdir: .
+
+# Upload local files.
+file_mounts:
+  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  # /artifacts:
+  #   name: lema-dev-private # Not available on lambda
+  #   mode: MOUNT
+
+envs:
+  WANDB_PROJECT: lema-train-test
+
+setup: |
+  set -e
+  pip install '.[all]'
+
+run: |
+  set -e  # Exit if any command failed.
+  python -m lema.train \
+      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
+      "training.output_dir=train/" \
+      "training.enable_wandb=true" \
+      "training.enable_tensorboard=true" \
+      "training.logging_steps=10"
