@@ -5,7 +5,7 @@ from lema.core.types import TrainerType, TrainingConfig
 
 
 def build_trainer(config: TrainingConfig):
-    """Build and returns a trainer based on the provided configuration.
+    """Builds and returns a trainer based on the provided configuration.
 
     Args:
         config (TrainingConfig): The configuration object
