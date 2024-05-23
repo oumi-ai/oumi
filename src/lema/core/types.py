@@ -92,6 +92,8 @@ class DataParams:
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+    split: str = "train"
+
 
 @dataclass
 class ModelParams:
@@ -173,7 +175,8 @@ class GenerationConfig(BaseConfig):
     # TODO: Add more parameters to control text generation.
     max_new_tokens: int = 256
 
+
 @dataclass
-class InferenceConfig(BaseConfig):    
+class InferenceConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
