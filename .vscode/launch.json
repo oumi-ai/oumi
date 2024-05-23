@@ -31,6 +31,19 @@
             "justMyCode": true
         },
         {
+            "name": "LeMa - Inference From CLI Example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.infer",
+            "args": [            
+                "--interactive",
+                "model.model_name=openai-community/gpt2",
+                "model.trust_remote_code=true",
+                "generation.max_new_tokens=16",
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
