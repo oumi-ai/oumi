@@ -109,6 +109,8 @@ class ModelParams:
             return torch.float32
         elif self.torch_dtype_str in ["bf16", "bfloat16"]:
             return torch.bfloat16
+        elif self.torch_dtype_str in ["f16", "float16", "half"]:
+            return torch.float16
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 

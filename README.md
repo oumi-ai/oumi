@@ -114,9 +114,20 @@ You environement should be read! Use this to check
 sky check
 ```
 
+You can look at the existing clusters with the following command:
+```python
+sky status
+```
+
+To see the available GPUs, you can use the following command:
+```python
+sky show-gpus
+```
+
 To launch a job on the cloud, you can use the following command:
 ```python
-sky launch -c lema-cluster configs/skypilot/sky.yaml  # edit the configs/skypilot/sky.yaml file to your needs
+# edit the configs/skypilot/sky.yaml file to your needs
+sky launch -c lema-cluster configs/skypilot/sky.yaml
 ```
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manuall, or use the following to automatically take it down after 10 minutes of inactivity:
