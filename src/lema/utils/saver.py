@@ -15,7 +15,7 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
     """
     output_dir = config.training.output_dir
 
-    if trainer.model.use_peft:
+    if trainer.training.use_peft:
         state_dict = {k: t for k, t in trainer.model.named_parameters() if "lora_" in k}
     else:
         state_dict = trainer.model.state_dict()

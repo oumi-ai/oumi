@@ -45,7 +45,7 @@ class TrainingParams:
     enable_tensorboard: bool = True
 
     logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
-    logging_dir = "output/runs"
+    logging_dir: str = "output/runs"
     logging_steps: int = 50
 
     def to_hf(self):
