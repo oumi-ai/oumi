@@ -1,15 +1,14 @@
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
 
-from lema.core.types import TrainerType, TrainingConfig
+from lema.core.types import TrainerType
 
 
-def build_trainer(config: TrainingConfig):
+def build_trainer(trainer_type: TrainerType):
     """Builds and returns a trainer based on the provided configuration.
 
     Args:
-        config (TrainingConfig): The configuration object
-            containing the training parameters.
+        trainer_type (TrainerType): Enum indicating the type of training.
 
     Returns:
         Trainer: An instance of the appropriate trainer based on the trainer type
@@ -19,15 +18,13 @@ def build_trainer(config: TrainingConfig):
         NotImplementedError: If the trainer type specified in the
             configuration is not supported.
     """
-    if config.training.trainer_type == TrainerType.TRL_SFT:
+    if trainer_type == TrainerType.TRL_SFT:
         return SFTTrainer
 
-    elif config.training.trainer_type == TrainerType.TRL_DPO:
+    elif trainer_type == TrainerType.TRL_DPO:
         return DPOTrainer
 
-    elif config.training.trainer_type == TrainerType.HF:
+    elif trainer_type == TrainerType.HF:
         return Trainer
 
-    raise NotImplementedError(
-        f"Trainer type {config.training.trainer_type} not supported."
-    )
+    raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
