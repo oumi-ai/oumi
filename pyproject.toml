@@ -41,7 +41,7 @@ dev = [
     "mypy",
     "pynvml",
     "pytest",
-    ]
+]
 train = [
     "transformers",
     "trl",

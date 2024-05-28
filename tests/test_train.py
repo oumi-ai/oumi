@@ -6,13 +6,14 @@ from lema.core.types import DataParams
 from lema.core.types import ModelParams
 from lema.core.types import TrainingParams
 from lema.core.types import TrainingConfig
-from omegaconf import OmegaConf
 
 
 from lema import train
 
 
 def test_basic_train():
+    output_temp_dir = tempfile.mkdtemp()
+
     config: TrainingConfig = TrainingConfig(
         data=DataParams(
             dataset_name="yahma/alpaca-cleaned",
@@ -30,7 +31,7 @@ def test_basic_train():
             logging_steps=5,
             enable_wandb=False,
             enable_tensorboard=False,
-            output_dir="tmp",
+            output_dir=output_temp_dir,
         ),
     )
 
