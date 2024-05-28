@@ -35,6 +35,7 @@ class TrainingParams:
     per_device_eval_batch_size: int = 8
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
+    num_train_epochs: int = 3
 
     run_name: str = "default"
 
@@ -47,6 +48,17 @@ class TrainingParams:
     logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
     logging_dir: str = "output/runs"
     logging_steps: int = 50
+
+    learning_rate: float = 5e-05
+    lr_scheduler_type: str = "cosine"  # TODO Update by enumerating *more* options
+    warmup_ratio: float = 0.0
+
+    weight_decay: float = 0.0
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
+    adam_epsilon: float = 1e-08
+
+    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
@@ -65,6 +77,14 @@ class TrainingParams:
             push_to_hub=False,
             report_to=self._get_hf_report_to(),
             run_name=self.run_name,
+            learning_rate=self.learning_rate,
+            lr_scheduler_type=self.lr_scheduler_type,
+            warmup_ratio=self.warmup_ratio,
+            weight_decay=self.weight_decay,
+            adam_beta1=self.adam_beta1,
+            adam_beta2=self.adam_beta2,
+            adam_epsilon=self.adam_epsilon,
+            gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
         )
 
     def _get_hf_report_to(self) -> List[str]:
