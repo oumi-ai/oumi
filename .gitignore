@@ -1,6 +1,7 @@
 # Local experiments
 tmp/
 wandb/
+output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -165,6 +166,3 @@ cython_debug/
 
 # Mac
 .DS_Store
-
-# Outputs generated from model training
-output

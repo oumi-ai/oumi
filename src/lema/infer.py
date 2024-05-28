@@ -2,13 +2,11 @@ import argparse
 
 from omegaconf import OmegaConf
 
-from lema.builders import (    
+from lema.builders import (
     build_model,
     build_tokenizer,
 )
-
 from lema.core.types import InferenceConfig
-from lema.core.types import TrainingConfig
 
 
 def parse_cli():
@@ -24,7 +22,6 @@ def parse_cli():
     )
     args, unknown = parser.parse_known_args()
     return args.config, args.interactive, unknown
-
 
 
 def main():
@@ -63,13 +60,10 @@ def main():
 
 
 def infer(config: InferenceConfig, interactive: bool = False) -> None:
-    """Evaluate a model using the provided configuration."""    
-    
-    train_config = TrainingConfig(model=config.model)    
+    """Evaluate a model using the provided configuration."""
+    tokenizer = build_tokenizer(config.model)
 
-    tokenizer = build_tokenizer(train_config)
-
-    model = build_model(train_config)
+    model = build_model(config)
 
     input_texts = []
     if interactive:
@@ -84,9 +78,7 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
     model_device = next(model.parameters()).device
     inputs = inputs.to(model_device)
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=config.generation.max_new_tokens)
+    outputs = model.generate(**inputs, max_new_tokens=config.generation.max_new_tokens)
 
     # TODO: Support writing predictions to files.
     # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.

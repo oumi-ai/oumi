@@ -1,17 +1,19 @@
+from typing import Union
+
 import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
-from lema.core.types import ModelParams, TrainingConfig
+from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
 
 
-def build_model(config: TrainingConfig, **kwargs):
+def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     """Build and return a model based on the provided LeMa configuration.
 
     # TODO: add ability to load model from lema registry
 
     Args:
-        config (TrainingConfig): The configuration object containing model config.
+        config: The configuration object containing model config.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -28,7 +30,11 @@ def build_model(config: TrainingConfig, **kwargs):
         trust_remote_code=config.model.trust_remote_code,
     )
 
-    if config.training.use_peft and config.peft.q_lora:
+    if (
+        isinstance(config, TrainingConfig)
+        and config.training.use_peft
+        and config.peft.q_lora
+    ):
         quantization_config = GPTQConfig(
             bits=config.peft.q_lora_bits, disable_exllama=True
         )

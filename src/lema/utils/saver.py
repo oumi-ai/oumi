@@ -22,4 +22,4 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
         state_dict = trainer.model.state_dict()
 
     trainer._save(output_dir, state_dict=state_dict)
-    logger.info("Model has been saved at " + output_dir)
+    logger.info(f"Model has been saved at {output_dir}.")
