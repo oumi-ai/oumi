@@ -2,7 +2,7 @@ import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
-from lema.core.types import TrainingConfig
+from lema.core.types import ModelParams, TrainingConfig
 
 
 def build_model(config: TrainingConfig, **kwargs):
@@ -48,14 +48,14 @@ def build_model(config: TrainingConfig, **kwargs):
     return model
 
 
-def build_tokenizer(config: TrainingConfig, **kwargs):
+def build_tokenizer(model_params: ModelParams, **kwargs):
     """Build and return a tokenizer based on the provided LeMa configuration.
 
     TODO: add ability to load tokenizer from lema registry
 
     Args:
-        config (TrainingConfig): The configuration object containing
-            the model parameters and training parameters.
+        model_params (ModelParams): The configuration object containing
+            the model parameters.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
@@ -63,8 +63,8 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
 
     """
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        config.model.model_name,
-        trust_remote_code=config.model.trust_remote_code,
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
         **kwargs,
     )
 
@@ -77,29 +77,32 @@ def build_tokenizer(config: TrainingConfig, **kwargs):
     return tokenizer
 
 
-def build_peft_model(base_model, config: TrainingConfig):
+def build_peft_model(
+    base_model, use_gradient_checkpointing: bool, peft_config: TrainingConfig
+):
     """Build a PEFT model based on the given base model and configuration.
 
     Args:
         base_model: The base model to build the PEFT model on.
-        config: The training configuration.
+        use_gradient_checkpointing: Enable/disable gradient checkpointing.
+        peft_config: The desired configuration for LORA.
 
     Returns:
         The built PEFT model.
     """
     lora_config = LoraConfig(
-        r=config.peft.lora_r,
-        lora_alpha=config.peft.lora_alpha,
-        lora_dropout=config.peft.lora_dropout,
-        target_modules=config.peft.lora_target_modules,
-        bias=config.peft.lora_bias,  # type: ignore
-        task_type=config.peft.lora_task_type,
+        r=peft_config.lora_r,
+        lora_alpha=peft_config.lora_alpha,
+        lora_dropout=peft_config.lora_dropout,
+        target_modules=peft_config.lora_target_modules,
+        bias=peft_config.lora_bias,  # type: ignore
+        task_type=peft_config.lora_task_type,
     )
 
-    if config.peft.q_lora:
+    if peft_config.q_lora:
         model = prepare_model_for_kbit_training(
             model=base_model,
-            use_gradient_checkpointing=config.training.enable_gradient_checkpointing,
+            use_gradient_checkpointing=use_gradient_checkpointing,
         )
     else:
         model = base_model

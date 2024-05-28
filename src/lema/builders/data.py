@@ -1,8 +1,9 @@
-from typing import Callable, Optional
+from typing import Callable
 
 import transformers
 from datasets import Dataset, load_dataset
 
+from lema.core.types import DataParams
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 
@@ -32,31 +33,26 @@ def build_prompt_generation_fn(
 
 
 def build_dataset(
-    dataset_name: str,
+    dataset_config: DataParams,
     tokenizer: transformers.PreTrainedTokenizerBase,
-    preprocessing_function_name: Optional[str] = None,
-    split: Optional[str] = "train",
     **kwargs,
 ) -> Dataset:
     """Build a dataset for training.
 
     Args:
-        dataset_name: The name of the dataset to load.
+        dataset_config: The configuration object of the dataset.
         tokenizer: The tokenizer object to use for preprocessing.
-        preprocessing_function_name: The name of the preprocessing
-            function to apply to the dataset.
-        split (str, optional): The split type to be loaded and used, e.g., "test".
         **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
     Returns:
         dataset: The built dataset for training.
     """
     # TODO: should return all splits
-    dataset = load_dataset(dataset_name, split=split)
+    dataset = load_dataset(dataset_config.dataset_name, split=dataset_config.split)
 
-    if preprocessing_function_name:
+    if dataset_config.preprocessing_function_name:
         preprocessing_fn = build_prompt_generation_fn(
-            preprocessing_function_name, tokenizer
+            dataset_config.preprocessing_function_name, tokenizer
         )
         dataset = dataset.map(preprocessing_fn, batched=True, **kwargs)
 
