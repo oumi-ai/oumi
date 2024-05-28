@@ -47,8 +47,10 @@ train = [
     "wandb",
     "sentencepiece",   # for phi-3
     "flash-attention", # for phi-3
+    "pynvml",
 ]
-all = ["lema[dev,train]"]
+cloud = ["skypilot[lambda,runpod]"]
+all = ["lema[dev,train,cloud]"]
 
 [project.scripts]
 lema-train = "lema.train:main"

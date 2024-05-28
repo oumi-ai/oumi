@@ -46,7 +46,7 @@ class TrainingParams:
     enable_tensorboard: bool = True
 
     logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
-    logging_dir = "output/runs"
+    logging_dir: str = "output/runs"
     logging_steps: int = 50
 
     learning_rate: float = 5e-05
@@ -129,6 +129,8 @@ class ModelParams:
             return torch.float32
         elif self.torch_dtype_str in ["bf16", "bfloat16"]:
             return torch.bfloat16
+        elif self.torch_dtype_str in ["f16", "float16", "half"]:
+            return torch.float16
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
