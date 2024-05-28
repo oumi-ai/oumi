@@ -34,7 +34,14 @@ Homepage = "https://github.com/openlema/lema"
 Issues = "https://github.com/openlema/lema/issues"
 
 [project.optional-dependencies]
-dev = ["black", "ruff", "isort", "mypy", "pynvml"]
+dev = [
+    "black",
+    "ruff",
+    "isort",
+    "mypy",
+    "pynvml",
+    "pytest",
+]
 train = [
     "transformers",
     "trl",
