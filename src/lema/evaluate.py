@@ -11,7 +11,7 @@ def main():
 
 def evaluate(config: EvaluationConfig) -> None:
     """Evaluate a model using the provided configuration."""
-    raise NotImplementedError("Model evaluation is is not implemented yet")
+    raise NotImplementedError("Model evaluation is not implemented yet")
 
 
 if __name__ == "__main__":

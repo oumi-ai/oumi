@@ -22,6 +22,4 @@ def test_basic_evaluate():
     with pytest.raises(NotImplementedError) as exception_info:
         evaluate(config)
 
-    assert str(exception_info.value) == (
-        "Model evaluation is is not implemented yet"
-    )
+    assert str(exception_info.value) == ("Model evaluation is not implemented yet")
