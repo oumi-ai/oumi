@@ -69,25 +69,22 @@ def main() -> None:
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
     # Initialize model and tokenizer
-    tokenizer = build_tokenizer(config)
+    tokenizer = build_tokenizer(config.model)
 
     model = build_model(config)
     if config.training.use_peft:
-        model = build_peft_model(model, config)
+        model = build_peft_model(
+            model, config.training.enable_gradient_checkpointing, config.peft
+        )
 
     if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(
-        dataset_name=config.data.dataset_name,
-        preprocessing_function_name=config.data.preprocessing_function_name,
-        tokenizer=tokenizer,
-        split=config.data.split,
-    )
+    dataset = build_dataset(dataset_config=config.data, tokenizer=tokenizer)
 
     # Train model
-    trainer_cls = build_trainer(config)
+    trainer_cls = build_trainer(config.training.trainer_type)
 
     trainer = trainer_cls(
         model=model,
@@ -99,6 +96,7 @@ def train(config: TrainingConfig) -> None:
 
     logger.info("Starting training...")
     trainer.train()
+    logger.info("Training is Complete.")
 
     # Save final checkpoint & training state
     trainer.save_state()
