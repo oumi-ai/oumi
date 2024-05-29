@@ -1,6 +1,4 @@
-from lema.core.types import DataParams
-from lema.core.types import EvaluationConfig
-from lema.core.types import ModelParams
+from lema.core.types import DataParams, EvaluationConfig, ModelParams
 
 
 def main():
