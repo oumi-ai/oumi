@@ -36,11 +36,12 @@ Issues = "https://github.com/openlema/lema/issues"
 [project.optional-dependencies]
 dev = [
     "black",
-    "ruff",
     "isort",
     "mypy",
+    "pre-commit",
     "pynvml",
     "pytest",
+    "ruff",
 ]
 train = [
     "transformers",
