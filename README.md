@@ -43,7 +43,7 @@ lema is a learning machines modeling platform that allows you to build and train
 
    ```
    git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@openlema.com
+   git config --global user.email YOUR_USERNAME@learning-machines.ai
 
    ```
 
@@ -71,13 +71,12 @@ lema is a learning machines modeling platform that allows you to build and train
 
    ```
    cd lema
-   pip install -e .
+   pip install -e '.[all]'
    ```
 
 9. Install pre-commit hooks
 
    ```
-   pip install pre-commit
    pre-commit install
    ```
 
@@ -92,6 +91,8 @@ lema is a learning machines modeling platform that allows you to build and train
     source ~/{.zshrc or .bashrc}
     lema
     ```
+
+11. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management.
 
 ## User Setup
 
@@ -109,7 +110,7 @@ Then setup your cloud credentials:
 - [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod-cloud)
 - [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
 
-You environement should be read! Use this to check
+Your environment should be ready! Use this to check:
 ```python
 sky check
 ```
@@ -130,7 +131,7 @@ To launch a job on the cloud, you can use the following command:
 sky launch -c lema-cluster configs/skypilot/sky.yaml
 ```
 
-Remember to stop the cluster when you are done to avoid extra charges. You can either do it manuall, or use the following to automatically take it down after 10 minutes of inactivity:
+Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually, or use the following to automatically take it down after 10 minutes of inactivity:
 ```python
 sky autostop lema-cluster -i 10
 ```
