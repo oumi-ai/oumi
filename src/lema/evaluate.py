@@ -1,14 +1,17 @@
-from lema.core.types import EvaluationConfig
+from lema.core.types import DataParams, EvaluationConfig, ModelParams
 
 
 def main():
     """Main entry point for evaluating LeMa."""
-    raise NotImplementedError
+
+    # TODO: Implement config/CLI-arguments parsing.
+    config: EvaluationConfig = EvaluationConfig(data=DataParams(), model=ModelParams())
+    evaluate(config)
 
 
 def evaluate(config: EvaluationConfig) -> None:
     """Evaluate a model using the provided configuration."""
-    raise NotImplementedError
+    raise NotImplementedError("Model evaluation is not implemented yet")
 
 
 if __name__ == "__main__":
