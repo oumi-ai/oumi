@@ -60,8 +60,9 @@ cloud = ["skypilot[lambda,runpod]"]
 all = ["lema[dev,train,cloud]"]
 
 [project.scripts]
-lema-train = "lema.train:main"
 lema-evaluate = "lema.evaluate:main"
+lema-infer = "lema.infer:main"
+lema-train = "lema.train:main"
 
 [tool.ruff]
 line-length = 88
