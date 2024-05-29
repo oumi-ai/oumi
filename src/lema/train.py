@@ -15,7 +15,7 @@ from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
-    log_device_info,
+    log_devices_info,
 )
 
 
@@ -45,10 +45,9 @@ def main() -> None:
     """
     # Load configuration
     config_path, verbose, arg_list = parse_cli()
-    
+
     limit_per_process_memory()
     device_cleanup()
-    log_device_info()
 
     # Override with configuration file if provided
     if config_path is not None:
@@ -73,6 +72,8 @@ def main() -> None:
 
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
+    log_devices_info()
+
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 
