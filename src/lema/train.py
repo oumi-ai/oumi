@@ -12,7 +12,11 @@ from lema.builders import (
 from lema.core.types import TrainingConfig
 from lema.logging import logger
 from lema.utils.saver import save_model
-from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
+from lema.utils.torch_utils import (
+    device_cleanup,
+    limit_per_process_memory,
+    log_device_info,
+)
 
 
 def parse_cli():
@@ -41,9 +45,10 @@ def main() -> None:
     """
     # Load configuration
     config_path, verbose, arg_list = parse_cli()
-
+    
     limit_per_process_memory()
     device_cleanup()
+    log_device_info()
 
     # Override with configuration file if provided
     if config_path is not None:
