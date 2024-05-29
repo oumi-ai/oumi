@@ -2,7 +2,9 @@ name: lema-train-example
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
-  accelerators: {A10, L4, L4S, A10g}
+  # To view other GPU types use the following commands:
+  # `sky show-gpus`, `sky show-gpus -a`
+  accelerators: {A40, A10, A10g}  
   any_of:
     - use_spot: true
     - use_spot: false
