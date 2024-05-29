@@ -1,9 +1,8 @@
 name: lema-train-example
 
 resources:
-  # Use 1 of the following GPUs depending on availability. No preference.  
+  # Use 1 of the following GPUs depending on availability. No preference.
   accelerators: {A10, L4, L4S, A10g}
-  # accelerators: {A10, L4, L4S, A10g, A100, H100, K80, P100, RTX4090, A40}
   any_of:
     - use_spot: true
     - use_spot: false
