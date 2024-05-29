@@ -12,7 +12,11 @@ from lema.builders import (
 from lema.core.types import TrainingConfig
 from lema.logging import logger
 from lema.utils.saver import save_model
-from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
+from lema.utils.torch_utils import (
+    device_cleanup,
+    limit_per_process_memory,
+    log_devices_info,
+)
 
 
 def parse_cli():
@@ -68,6 +72,8 @@ def main() -> None:
 
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
+    log_devices_info()
+
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 

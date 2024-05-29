@@ -29,3 +29,32 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
     """
     if torch.cuda.is_available():
         torch.cuda.set_per_process_memory_fraction(percent)
+
+
+def log_devices_info() -> None:
+    """Logs high-level info about all available accelerator devices."""
+    if not torch.cuda.is_available():
+        logger.info("CUDA is not available!")
+        return
+
+    num_devices = torch.cuda.device_count()
+    logger.info(f"CUDA devices: {num_devices}")
+
+    def _mem_to_gb(x):
+        return round(float(x) / 1024**3, 2)
+
+    for i in range(num_devices):
+        device_name = torch.cuda.get_device_name(i)
+        mem_free, mem_total = torch.cuda.mem_get_info(i)
+        mem_allocated = torch.cuda.memory_allocated(i)
+        mem_reserved = torch.cuda.memory_reserved(i)
+        clock_rate = torch.cuda.clock_rate(i)
+        capability = torch.cuda.get_device_capability(i)
+        logger.info(
+            f"device({i})='{device_name}' "
+            f"ClockRate: {clock_rate} Capability: {capability} "
+            f"Memory: [Total: {_mem_to_gb(mem_total)}GB "
+            f"Free: {_mem_to_gb(mem_free)}GB "
+            f"Allocated: {_mem_to_gb(mem_allocated)}GB "
+            f"Cached: {_mem_to_gb(mem_reserved)}GB]"
+        )
