@@ -1,29 +1,21 @@
+import csv
 from typing import Any, List
 
+import pandas as pd
+from datasets import load_dataset
 from llama_cpp import Llama, llama_chat_format, llama_types
 from tqdm import tqdm
 
 # Note: REQUIRES INSTALLING llama-cpp-python:
 # https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#installation
-# Note that you may need a different command to install for Nvidia GPUs:
-# CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir
+# Also note that you may need a different command to install for Nvidia GPUs:
 
-REPO_ID = "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF"
-FILENAME = "*Q1_M.gguf"
-CONTEXT_WINDOW_SIZE = 8192
-
-llm = Llama.from_pretrained(
-    repo_id=REPO_ID,
-    filename=FILENAME,
-    n_gpu_layers=-1,
-    seed=1337,
-    n_ctx=CONTEXT_WINDOW_SIZE,
-    verbose=False,
-)
+# CMAKE_ARGS="-DLLAMA_CUDA=on"
+# pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir
 
 
 @llama_chat_format.register_chat_format("llama-3-modified")
-def format_llama3(
+def _format_llama3(
     messages: List[llama_types.ChatCompletionRequestMessage],
     **kwargs: Any,
 ) -> llama_chat_format.ChatFormatterResponse:
@@ -41,57 +33,57 @@ def format_llama3(
     return llama_chat_format.ChatFormatterResponse(prompt=_prompt, stop=_sep)
 
 
-# Overwrite chat formatter to ensure it gets reset.
-llm.chat_format = "llama-3-modified"
-llm.chat_handler = None
-
-
-def get_response(messages, system_instruction="", verbose=False):
+def _get_response(llm, messages, system_instruction=""):
     new_messages = messages
     if system_instruction:
         new_messages = [{"role": "system", "content": system_instruction}] + messages
     output = llm.create_chat_completion(new_messages)
-    if verbose:
-        print("Output: ", output)
     response = output["choices"][0]["message"]["content"]
     return response
 
 
-verbose = True
+def main() -> None:
+    """Runs inference on specified model using llama-cpp-python library."""
+    REPO_ID = "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF"
+    FILENAME = "*Q1_M.gguf"
+    CONTEXT_WINDOW_SIZE = 8192
+    llm = Llama.from_pretrained(
+        repo_id=REPO_ID,
+        filename=FILENAME,
+        n_gpu_layers=-1,
+        seed=1337,
+        n_ctx=CONTEXT_WINDOW_SIZE,
+        verbose=False,
+    )
 
-import csv
+    # Overwrite chat formatter to ensure it gets reset.
+    llm.chat_format = "llama-3-modified"
+    llm.chat_handler = None
 
-import pandas as pd
-from datasets import load_dataset
+    hf_dataset = load_dataset("yahma/alpaca-cleaned", split="train[:10]")
 
-hf_dataset = load_dataset("yahma/alpaca-cleaned", split="train[:500]")
-print(len(hf_dataset))
+    records = []
+    for row in tqdm(hf_dataset):
+        hf_prompt = row["instruction"]
+
+        # Formatting specific to alpaca-cleaned dataset
+        if row["input"]:
+            hf_prompt += "\n\n" + row["input"]
+        messages = [{"role": "user", "content": hf_prompt}]
+
+        base_response = _get_response(llm, messages)
+        record = {
+            "instruction": row["instruction"],
+            "input": row["input"],
+            "prompt": hf_prompt,
+            "original response": row["output"],
+            "base response": base_response,
+        }
+        records.append(record)
+
+    frame = pd.DataFrame(records)
+    frame.to_csv("out.tsv", sep="\t", quoting=csv.QUOTE_ALL, index=False)
 
 
-def postprocess(raw_output):
-    return raw_output.split("<response>")[1].split("</end_response>")[0]
-
-
-records = []
-counter = 0
-for row in tqdm(hf_dataset):
-    hf_prompt = row["instruction"]
-    print(hf_prompt)
-    if row["input"]:
-        hf_prompt += "\n\n" + row["input"]
-    messages = [{"role": "user", "content": hf_prompt}]
-
-    base_response = get_response(messages)
-    record = {
-        "instruction": row["instruction"],
-        "input": row["input"],
-        "prompt": hf_prompt,
-        "original response": row["output"],
-        "base response": base_response,
-    }
-    records.append(record)
-
-    counter += 1
-
-frame = pd.DataFrame(records)
-frame.to_csv("out.tsv", sep="\t", quoting=csv.QUOTE_ALL, index=False)
+if __name__ == "__main__":
+    main()
