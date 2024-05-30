@@ -12,7 +12,7 @@ from transformers import PreTrainedTokenizerBase
 
 
 def maybe_insert_system_message(messages, tokenizer):
-    """_summary_.
+    """Insert a system message to start the chat dialogue.
 
     Args:
         messages (_type_): _description_
@@ -34,7 +34,7 @@ def apply_chat_template(
     task: Literal["sft", "generation"],
     auto_insert_empty_system_msg: bool = True,
 ):
-    """_summary_.
+    """Apply the chat template carried by the tokenizer to the input example.
 
     Args:
         example (_type_): _description_
