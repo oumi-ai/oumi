@@ -71,6 +71,7 @@ lema-train = "lema.train:main"
 [tool.ruff]
 line-length = 88
 extend-include = ["*.ipynb"] # Include ipython notebooks
+exclude = ["src/lema/experimental/*"]
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
