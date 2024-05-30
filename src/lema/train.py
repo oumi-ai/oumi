@@ -31,9 +31,6 @@ def parse_cli():
         action="store_true",
     )
     args, unknown = parser.parse_known_args()
-    # print(f"args: {args}")
-    # print(f"unknown: {unknown}")
-    # if unknown == [" "]: unknown = []
     return args.config, args.verbose, unknown
 
 
