@@ -30,7 +30,7 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
             f"Building model for distributed training (world_size: {world_size})..."
         )
         device_map = "cuda"
-    logger.info(f"Building model using device_map: {device_map})...")
+    logger.info(f"Building model using device_map: {device_map}...")
 
     #
     # Load from huggingface hub
