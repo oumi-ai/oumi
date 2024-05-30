@@ -26,7 +26,7 @@ LeMa uses the [ruff](https://github.com/astral-sh/ruff) formatter for general fo
 (see section 1.2). These checks can also be run manually via:
 
 ```
-pre-commit run ruff --all-files  # for ruff
+pre-commit run ruff --all-files
 ```
 
 The configuration is stored in [pyproject.toml](pyproject.toml).
@@ -34,7 +34,7 @@ The configuration is stored in [pyproject.toml](pyproject.toml).
 
 # 2. Type Annotations and Static Type Checking
 
-TODO: Configure `pyright`, and proivide guidance.
+TODO: Configure `pyright`, and provide guidance.
 
 # 3. Imports and `__init__.py`
 
@@ -44,4 +44,3 @@ All imports in LeMa should be absolute.
 # 4. Documentation
 
 TODO: Configure `sphinx` (or similar), and provide guidance
-
