@@ -116,10 +116,13 @@ class DataParams:
 
     split: str = "train"
 
+    chat_template: Optional[str] = None
+
 
 @dataclass
 class ModelParams:
     model_name: str = MISSING
+    model_max_length: Optional[int] = None
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
 

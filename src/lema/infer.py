@@ -61,7 +61,7 @@ def main():
 
 def infer(config: InferenceConfig, interactive: bool = False) -> None:
     """Evaluate a model using the provided configuration."""
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = build_tokenizer(config)
 
     model = build_model(config)
 

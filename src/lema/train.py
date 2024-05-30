@@ -69,7 +69,7 @@ def main() -> None:
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
     # Initialize model and tokenizer
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = build_tokenizer(config)
 
     model = build_model(config)
     if config.training.use_peft:
