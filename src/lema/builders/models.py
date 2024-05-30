@@ -4,7 +4,7 @@ import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
-from lema.core.types import InferenceConfig, TrainingConfig
+from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
@@ -54,13 +54,14 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     return model
 
 
-def build_tokenizer(config: Union[TrainingConfig, InferenceConfig], **kwargs):
+def build_tokenizer(model_params: ModelParams, **kwargs):
     """Build and return a tokenizer based on the provided LeMa configuration.
 
     TODO: add ability to load tokenizer from lema registry
 
     Args:
-        config: The configuration object containing model config.
+        model_params (ModelParams): The configuration object containing
+            the model parameters.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
@@ -68,8 +69,8 @@ def build_tokenizer(config: Union[TrainingConfig, InferenceConfig], **kwargs):
 
     """
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        config.model.model_name,
-        trust_remote_code=config.model.trust_remote_code,
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
         **kwargs,
     )
 
@@ -79,11 +80,11 @@ def build_tokenizer(config: Union[TrainingConfig, InferenceConfig], **kwargs):
         # TODO: should log a warning here
         tokenizer.pad_token = tokenizer.eos_token
 
-    if config.model.model_max_length:
-        tokenizer.model_max_length = config.model.model_max_length
+    if model_params.model_max_length:
+        tokenizer.model_max_length = model_params.model_max_length
 
-    if config.model.chat_template:
-        tokenizer.chat_template = chat_template_registry(config.model.chat_template)
+    if model_params.chat_template:
+        tokenizer.chat_template = chat_template_registry(model_params.chat_template)
 
     return tokenizer
 
