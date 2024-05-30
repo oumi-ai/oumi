@@ -10,8 +10,6 @@ from typing import Callable, Literal
 
 from transformers import PreTrainedTokenizerBase
 
-DEFAULT_CHAT_TEMPLATE = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"  # noqa
-
 
 def maybe_insert_system_message(messages, tokenizer):
     """_summary_.
@@ -23,10 +21,7 @@ def maybe_insert_system_message(messages, tokenizer):
     if messages[0]["role"] == "system":
         return
 
-    # chat template can be one of two attributes, we check in order
     chat_template = tokenizer.chat_template
-    if chat_template is None:
-        chat_template = tokenizer.default_chat_template
 
     # confirm the jinja template refers to a system message before inserting
     if "system" in chat_template or "<|im_start|>" in chat_template:
