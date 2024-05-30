@@ -129,8 +129,6 @@ class DataParams:
 
     split: str = "train"
 
-    chat_template: Optional[str] = None
-
 
 @dataclass
 class ModelParams:
@@ -138,6 +136,7 @@ class ModelParams:
     model_max_length: Optional[int] = None
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
+    chat_template: Optional[str] = None
 
     def torch_dtype(self):
         """Convert string dtype to torch.dtype."""

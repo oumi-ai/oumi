@@ -82,8 +82,8 @@ def build_tokenizer(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     if config.model.model_max_length:
         tokenizer.model_max_length = config.model.model_max_length
 
-    if isinstance(config, TrainingConfig) and config.data.chat_template:
-        tokenizer.chat_template = config.data.chat_template
+    if config.model.chat_template:
+        tokenizer.chat_template = chat_template_registry(config.model.chat_template)
 
     return tokenizer
 
@@ -121,3 +121,29 @@ def build_peft_model(
     model = get_peft_model(model, lora_config)
 
     return model
+
+
+def chat_template_registry(template_name):
+    """Selecting a chat template based on code name.
+
+    NOTE: (internal) This registry is experimental and will be formatted
+    better once we have explored chat-template uses/cases (e.g., enumerate,
+    use .ninja files like them https://github.com/chujiezheng/chat_templates/tree/main
+    , etc.)
+
+    Args:
+        template_name (str): the code name describing the chat-tamplate.
+
+    Raises:
+        NotImplementedError: if the requested code name does not exist
+        in the registry.
+
+    Returns:
+        str: a ninja-based chat-template.
+    """
+    if template_name == "Zephyr-7B-LeMa-default":
+        return "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"  # noqa
+    else:
+        raise NotImplementedError(
+            "Currently only *experimental* template for Zephyr-7B has been added."
+        )
