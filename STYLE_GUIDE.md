@@ -46,4 +46,4 @@ All imports in LeMa should be absolute.
 
 # 4. Documentation
 
-TODO: Configure `sphinx` (or similar), and provide guidance
+TODO: Configure `sphinx` (or similar), and provide guidance.
