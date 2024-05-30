@@ -1,7 +1,7 @@
 import pytest
 
 from lema import evaluate
-from lema.core.types import EvaluationConfig, ModelParams, DataParams
+from lema.core.types import DataParams, EvaluationConfig, ModelParams
 
 
 def test_basic_evaluate():

@@ -1,8 +1,9 @@
 import os
 import tempfile
 
-from lema.core.types import TrainingConfig
 from omegaconf import OmegaConf
+
+from lema.core.types import TrainingConfig
 
 
 def test_config_serialization():

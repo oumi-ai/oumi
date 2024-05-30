@@ -3,7 +3,6 @@ from lema.core.types import DataParams, EvaluationConfig, ModelParams
 
 def main():
     """Main entry point for evaluating LeMa."""
-
     # TODO: Implement config/CLI-arguments parsing.
     config: EvaluationConfig = EvaluationConfig(data=DataParams(), model=ModelParams())
     evaluate(config)

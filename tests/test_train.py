@@ -1,14 +1,7 @@
-import os
-import pytest
 import tempfile
 
-from lema.core.types import DataParams
-from lema.core.types import ModelParams
-from lema.core.types import TrainingParams
-from lema.core.types import TrainingConfig
-
-
 from lema import train
+from lema.core.types import DataParams, ModelParams, TrainingConfig, TrainingParams
 
 
 def test_basic_train():
