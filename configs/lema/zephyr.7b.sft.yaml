@@ -11,9 +11,10 @@ model:
 data:
   dataset_name: "HuggingFaceH4/ultrachat_200k"
   split: "train_sft"
-  preprocessing_function_name: "trl_dpo" #TODO
+  preprocessing_function_name: "trl_sft_ultrachat_200k"
   preprocessing_function_kwargs:
     num_proc: 6
+    batched: False
   chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"  # pylint: disable=invalid-name
   # seed: 42 # TODO
   trainer_kwargs:
@@ -37,8 +38,9 @@ training:
   # packing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
+
   # Use for debugging purposes:
-  # max_steps: 2
+  max_steps: 2
 
 peft:
   q_lora: False

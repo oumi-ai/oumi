@@ -6,6 +6,7 @@ from datasets import Dataset, load_dataset
 from lema.core.types import DataParams
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
+from lema.datasets.ultrachat_200k import trl_sft_chat_preprocessor_fn
 
 
 def build_prompt_generation_fn(
@@ -26,6 +27,8 @@ def build_prompt_generation_fn(
     # TODO: this should be pulled from registry
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
+    elif function_name == "trl_sft_ultrachat_200k":
+        return trl_sft_chat_preprocessor_fn(tokenizer)
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
 
@@ -54,6 +57,10 @@ def build_dataset(
         preprocessing_fn = build_prompt_generation_fn(
             dataset_config.preprocessing_function_name, tokenizer
         )
-        dataset = dataset.map(preprocessing_fn, batched=True, **kwargs)
+
+        if "batched" not in kwargs:  # TODO absorb in default config
+            kwargs["batched"] = True
+
+        dataset = dataset.map(preprocessing_fn, **kwargs)
 
     return dataset
