@@ -57,7 +57,7 @@ train = [
     "flash-attention", # for phi-3
     "pynvml",
 ]
-cloud = ["skypilot[lambda,runpod]"]
+cloud = ["skypilot-nightly[lambda,runpod]"]
 all = ["lema[dev,train,cloud]"]
 
 [project.scripts]
