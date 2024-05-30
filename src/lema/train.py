@@ -59,7 +59,7 @@ def main() -> None:
     cli_config = OmegaConf.from_cli(arg_list)
     try:
         config = OmegaConf.merge(config, cli_config)
-    except Exception as e:
+    except Exception:
         logger.exception(
             f"Failed to merge Omega config: {config} and CLI config: {cli_config}"
         )
