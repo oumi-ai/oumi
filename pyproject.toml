@@ -57,7 +57,10 @@ train = [
     "flash-attention", # for phi-3
     "pynvml",
 ]
-cloud = ["skypilot[lambda,runpod]"]
+# TODO: Switch to stable build "skypilot[lambda,runpod]"
+# once RunPod multi-GPU bugfix is included (>0.5.0)
+# https://github.com/skypilot-org/skypilot/pull/3291/files
+cloud = ["skypilot-nightly[lambda,runpod]"]
 all = ["lema[dev,train,cloud]"]
 
 [project.scripts]

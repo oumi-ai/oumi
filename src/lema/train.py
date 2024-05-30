@@ -57,7 +57,13 @@ def main() -> None:
 
     # Override with CLI arguments if provided
     cli_config = OmegaConf.from_cli(arg_list)
-    config = OmegaConf.merge(config, cli_config)
+    try:
+        config = OmegaConf.merge(config, cli_config)
+    except Exception as e:
+        logger.exception(
+            f"Failed to merge Omega config: {config} and CLI config: {cli_config}"
+        )
+        raise
 
     # Merge and validate configs
     config: TrainingConfig = OmegaConf.to_object(config)

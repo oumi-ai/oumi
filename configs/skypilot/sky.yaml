@@ -5,6 +5,9 @@ resources:
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {A40, A10, A10g}
+  # To configure single-node, multi-gpu (N GPUs) training, do the following:
+  # 1. Set `accelerators:` above to something like this: {A40:N}
+  # 2. Set `--nproc-per-node N` in the `run:` command at the bottom of the file.
   any_of:
     - use_spot: true
     - use_spot: false
@@ -30,7 +33,7 @@ run: |
   set -e  # Exit if any command failed.
   torchrun --standalone --nnodes 1 --nproc-per-node 1 \
       -m lema.train \
-      -c configs/lema/phi3.dpo.nvidia.24g.yaml \      
+      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

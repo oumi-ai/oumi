@@ -1,3 +1,4 @@
+import os
 from typing import Union
 
 import transformers
@@ -5,6 +6,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
 from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
+from lema.logging import logger
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
@@ -21,6 +23,14 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     """
     # TODO: add device_map to config
     device_map = "auto"
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    # "auto" is not compatible with distributed training.
+    if world_size > 1:
+        logger.info(
+            f"Building model for distributed training (world_size: {world_size})..."
+        )
+        device_map = "cuda"
+    logger.info(f"Building model using device_map: {device_map}...")
 
     #
     # Load from huggingface hub
