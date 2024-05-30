@@ -5,6 +5,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
 from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
+from lema.logging import logger
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
@@ -77,7 +78,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     if tokenizer.pad_token is None:
         # Set pad token to eos token if not already set
         # Older models may not have pad token set
-        # TODO: should log a warning here
+        logger.warning("<pad> token not found: setting <pad> with <eos>.")
         tokenizer.pad_token = tokenizer.eos_token
 
     if model_params.model_max_length:
