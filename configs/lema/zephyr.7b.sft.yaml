@@ -19,7 +19,7 @@ data:
   # seed: 42 # TODO
   trainer_kwargs:
     dataset_text_field: "text"
-    max_seq_length: 2048 # TODO doubly-used; should be equal to model_max_length
+    max_seq_length: ${model.model_max_length}
     # packing: True
     # , **{"padding_size": "left"}
 
