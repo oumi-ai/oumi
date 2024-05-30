@@ -17,14 +17,13 @@ The pre-commit hooks will now be run before each commit. You can also run the ho
 ```
 pre-commit run  # run all hooks on changed files
 pre-commit run --all-files  # or, run all hooks on all files
-pre-commit run ruff --all-files  # or, run specific tool (e.g., ruff) on all files
 ```
 
 
 ## 1.3. Code Formatting
 
-LeMa uses the [ruff](https://github.com/google/yapf) formatter for general formatting. These checks run through pre-commit
-(see section 2.2). These checks can also be run manually via:
+LeMa uses the [ruff](https://github.com/astral-sh/ruff) formatter for general formatting. These checks run through pre-commit
+(see section 1.2). These checks can also be run manually via:
 
 ```
 pre-commit run ruff --all-files  # for ruff
@@ -35,7 +34,7 @@ The configuration is stored in [pyproject.toml](pyproject.toml).
 
 # 2. Type Annotations and Static Type Checking
 
-TODO: Configure `pyright` and proivide guidance.
+TODO: Configure `pyright`, and proivide guidance.
 
 # 3. Imports and `__init__.py`
 
@@ -44,5 +43,5 @@ All imports in LeMa should be absolute.
 
 # 4. Documentation
 
-TODO: Configure `sphinx` (or similar) and provide guidance
+TODO: Configure `sphinx` (or similar), and provide guidance
 
