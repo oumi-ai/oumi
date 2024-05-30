@@ -1,5 +1,6 @@
-## Full specs to make Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full
-## For code used: https://github.com/huggingface/alignment-handbook/blob/main/recipes/zephyr-7b-beta/sft/config_full.yaml
+## Full specs to make Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # pylint: disable=invalid-name
+## External training code inspiration:
+## https://github.com/huggingface/alignment-handbook/blob/main/recipes/zephyr-7b-beta/sft/config_full.yaml # pylint: disable=invalid-name
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1" # Base model that will be SFT
@@ -8,32 +9,35 @@ model:
 
 data:
   dataset_name: "HuggingFaceH4/ultrachat_200k"
-  preprocessing_function_name: "trl_dpo" #TODO
   split: "train_sft"
-  # chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
+  preprocessing_function_name: "trl_dpo" #TODO
+  preprocessing_function_kwargs:
+    num_proc: 6
+  # chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}" # pylint: disable=invalid-name
   # seed: 42 # TODO
   trainer_kwargs:
     dataset_text_field: "text"
     max_seq_length: 2048
     # packing: True
-  # , **{"padding_size": "left"}
+    # , **{"padding_size": "left"}
 
 training:
   optimizer: "adamw_torch"
   use_peft: True
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: true
-  per_device_train_batch_size: 2   # Small for testing
+  per_device_train_batch_size: 1   # Small for testing
   gradient_accumulation_steps: 1
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
-  # num_train_epochs: 1
+  num_train_epochs: 1
   output_dir: "output/zephyr.7b.sft"
   warmup_ratio: 0.1
   # packing: True
-  # gradient_checkpointing_kwargs:
-  #   use_reentrant: False
-  max_steps: 2 # Use for debugging purposes
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  # Use for debugging purposes:
+  # max_steps: 2
 
 peft:
   q_lora: False
@@ -49,5 +53,3 @@ peft:
   - "gate_proj"
   - "up_proj"
   - "down_proj"
-
-# load_in_4bit: true from alignment code

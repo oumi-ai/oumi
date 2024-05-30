@@ -110,6 +110,8 @@ class DataParams:
 
     preprocessing_function_name: Optional[str] = None
 
+    preprocessing_function_kwargs: Dict[str, Any] = field(default_factory=dict)
+
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     split: str = "train"
