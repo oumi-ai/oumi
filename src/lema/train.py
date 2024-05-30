@@ -69,7 +69,7 @@ def main() -> None:
 def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
     # Initialize model and tokenizer
-    tokenizer = build_tokenizer(config)
+    tokenizer = build_tokenizer(config.model)
 
     model = build_model(config)
     if config.training.use_peft:
@@ -81,11 +81,7 @@ def train(config: TrainingConfig) -> None:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(
-        dataset_config=config.data,
-        tokenizer=tokenizer,
-        **config.data.preprocessing_function_kwargs,
-    )
+    dataset = build_dataset(dataset_config=config.data, tokenizer=tokenizer)
 
     # Train model
     trainer_cls = build_trainer(config.training.trainer_type)

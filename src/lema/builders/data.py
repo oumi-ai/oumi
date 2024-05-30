@@ -38,14 +38,12 @@ def build_prompt_generation_fn(
 def build_dataset(
     dataset_config: DataParams,
     tokenizer: transformers.PreTrainedTokenizerBase,
-    **kwargs,
 ) -> Dataset:
     """Build a dataset for training.
 
     Args:
         dataset_config: The configuration object of the dataset.
         tokenizer: The tokenizer object to use for preprocessing.
-        **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
     Returns:
         dataset: The built dataset for training.
@@ -58,9 +56,8 @@ def build_dataset(
             dataset_config.preprocessing_function_name, tokenizer
         )
 
-        if "batched" not in kwargs:  # TODO absorb in default config
-            kwargs["batched"] = True
-
-        dataset = dataset.map(preprocessing_fn, **kwargs)
+        dataset = dataset.map(
+            preprocessing_fn, **dataset_config.preprocessing_function_kwargs
+        )
 
     return dataset
