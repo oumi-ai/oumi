@@ -31,10 +31,9 @@ def parse_cli():
         action="store_true",
     )
     args, unknown = parser.parse_known_args()
-    print(f"args: {args}")
-    print(f"unknown: {unknown}")
-    if unknown == [" "]:
-        unknown = []
+    # print(f"args: {args}")
+    # print(f"unknown: {unknown}")
+    # if unknown == [" "]: unknown = []
     return args.config, args.verbose, unknown
 
 
@@ -64,8 +63,9 @@ def main() -> None:
     try:
         config = OmegaConf.merge(config, cli_config)
     except Exception as e:
-        print(f"Failed to merge Omega configs: {config} and CLI config: {cli_config}")
-        print(f"Exception: {e}")
+        logger.exception(
+            f"Failed to merge Omega config: {config} and CLI config: {cli_config}"
+        )
         raise
 
     # Merge and validate configs
