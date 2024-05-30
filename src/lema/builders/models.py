@@ -20,7 +20,7 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
         model: The built model.
     """
     # TODO: add device_map to config
-    device_map = "auto"
+    device_map = "cuda"
 
     #
     # Load from huggingface hub
