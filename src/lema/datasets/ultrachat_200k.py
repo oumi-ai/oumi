@@ -76,10 +76,10 @@ def apply_chat_template(
     return example
 
 
-def trl_sft_chat_preprocessor_fn(
+def trl_sft_ultrachat_200k_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Callable:
-    """Build a preprocessing function for the TRL SFT trainer."""
+    """Build a preprocessing function for a TRL SFT (chat) trainer."""
 
     def prompt_generation_fn(samples) -> dict:
         results = apply_chat_template(
