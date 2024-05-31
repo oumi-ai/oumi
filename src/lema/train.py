@@ -80,14 +80,40 @@ def train(config: TrainingConfig) -> None:
     """Train a model using the provided configuration."""
     log_devices_info()
 
-    # Initialize model and tokenizer
-    tokenizer = build_tokenizer(config.model)
+    # FIXME: This is a hack. It will be replaced with an actual registry
+    from lema.core.models.dummy import DummyConfig, DummyModel, get_tokenizer
 
-    model = build_model(config)
-    if config.training.use_peft:
-        model = build_peft_model(
-            model, config.training.enable_gradient_checkpointing, config.peft
-        )
+    fake_registry = {
+        "learning-machines/dummy": {
+            "model_config": DummyConfig,
+            "model_class": DummyModel,
+            "tokenizer": get_tokenizer,
+        }
+    }
+
+    model_name = config.model.model_name
+    tokenizer = None
+
+    if model_name in fake_registry.keys():
+        # retrieve the tokenizer from the registry and initialize it
+        if "tokenizer" in fake_registry[model_name]:
+            tokenizer = fake_registry[model_name]["tokenizer"]()
+
+        # initialize the custom local model
+        model_config = fake_registry[model_name]["model_config"]
+        model_class = fake_registry[model_name]["model_class"]
+        model = model_class(model_config())
+    else:
+        # download and initialize the model from huggingface
+        model = build_model(config)
+        if config.training.use_peft:
+            model = build_peft_model(
+                model, config.training.enable_gradient_checkpointing, config.peft
+            )
+
+    # Fall back into the default tokenizer, if there is none defined so far.
+    if not tokenizer:
+        tokenizer = build_tokenizer(config.model)
 
     if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
