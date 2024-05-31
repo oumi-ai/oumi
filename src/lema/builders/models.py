@@ -29,10 +29,10 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
-    if config.model.model_name in FAKE_REGISTRY.keys():
+    if config.model.model_name in FAKE_REGISTRY:
         return build_custom_model(config.model.model_name)
     else:
-        return load_model_from_huggingface(config, *kwargs)
+        return build_huggingface_model(config, *kwargs)
 
 
 def build_custom_model(model_name):
@@ -44,9 +44,7 @@ def build_custom_model(model_name):
     return model
 
 
-def load_model_from_huggingface(
-    config: Union[TrainingConfig, InferenceConfig], **kwargs
-):
+def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     """Download and build the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
@@ -100,8 +98,8 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
         tokenizer: The tokenizer object built from the configuration.
     """
     # Check if there is a tokenizer registered in our LeMa registry.
-    if model_params.model_name in FAKE_REGISTRY.keys():
-        if "tokenizer" in FAKE_REGISTRY[model_params.model_name].keys():
+    if model_params.model_name in FAKE_REGISTRY:
+        if "tokenizer" in FAKE_REGISTRY[model_params.model_name]:
             tokenizer = FAKE_REGISTRY[model_params.model_name]["tokenizer"]()
             return tokenizer
 
