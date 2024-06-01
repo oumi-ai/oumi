@@ -76,14 +76,14 @@ def main() -> None:
     device_cleanup()
 
 
-def train(config: TrainingConfig) -> None:
+def train(config: TrainingConfig, **kwargs) -> None:
     """Train a model using the provided configuration."""
     log_devices_info()
 
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 
-    model = build_model(config)
+    model = build_model(config, *kwargs)
     if config.training.use_peft:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft

@@ -5,14 +5,22 @@ import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
+from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
 from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
 from lema.logging import logger
+
+# FIXME: This is a hack. It will be replaced with an actual registry.
+FAKE_REGISTRY = {
+    "learning-machines/sample": {
+        "model_config": SampleConfig,
+        "model_class": SampleModel,
+        "tokenizer": get_tokenizer,
+    }
+}
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     """Build and return a model based on the provided LeMa configuration.
-
-    # TODO: add ability to load model from lema registry
 
     Args:
         config: The configuration object containing model config.
@@ -21,6 +29,23 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
+    if config.model.model_name in FAKE_REGISTRY:
+        return build_custom_model(config.model.model_name)
+    else:
+        return build_huggingface_model(config, *kwargs)
+
+
+def build_custom_model(model_name):
+    """Build a custom model from our LeMa registry."""
+    model_config = FAKE_REGISTRY[model_name]["model_config"]
+    model_class = FAKE_REGISTRY[model_name]["model_class"]
+    model = model_class(model_config())
+
+    return model
+
+
+def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
+    """Download and build the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -32,9 +57,6 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
         device_map = "cuda"
     logger.info(f"Building model using device_map: {device_map}...")
 
-    #
-    # Load from huggingface hub
-    #
     hf_config = transformers.AutoConfig.from_pretrained(
         config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
@@ -67,8 +89,6 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
 def build_tokenizer(model_params: ModelParams, **kwargs):
     """Build and return a tokenizer based on the provided LeMa configuration.
 
-    TODO: add ability to load tokenizer from lema registry
-
     Args:
         model_params (ModelParams): The configuration object containing
             the model parameters.
@@ -76,8 +96,14 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 
     Returns:
         tokenizer: The tokenizer object built from the configuration.
-
     """
+    # Check if there is a tokenizer registered in our LeMa registry.
+    if model_params.model_name in FAKE_REGISTRY:
+        if "tokenizer" in FAKE_REGISTRY[model_params.model_name]:
+            tokenizer = FAKE_REGISTRY[model_params.model_name]["tokenizer"]()
+            return tokenizer
+
+    # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
