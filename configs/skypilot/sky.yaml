@@ -37,5 +37,5 @@ run: |
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
-      "training.max_steps=10"
+      "training.max_steps=10" \
       "training.logging_steps=10"
