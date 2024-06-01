@@ -42,8 +42,7 @@ def main():
 
     # Override with configuration file if provided
     if config_path is not None:
-        # all_configs.append(OmegaConf.load(config_path))
-        pass
+        all_configs.append(InferenceConfig.from_yaml(config_path))
 
     # Override with CLI arguments if provided
     all_configs.append(OmegaConf.from_cli(arg_list))
