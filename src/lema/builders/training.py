@@ -7,7 +7,7 @@ from lema.core.types import TrainerType
 
 
 def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
-    """Builds and returns a trainer type based on the provided configuration.
+    """Builds a trainer creator functor based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
