@@ -43,7 +43,7 @@ def test_custom_train():
             },
         ),
         model=ModelParams(
-            model_name="learning-machines/dummy",
+            model_name="learning-machines/sample",
             trust_remote_code=False,
         ),
         training=TrainingParams(
