@@ -1,11 +1,14 @@
+from typing import Callable
+
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
 
 from lema.core.types import TrainerType
 
 
-def build_trainer(trainer_type: TrainerType):
-    """Builds and returns a trainer based on the provided configuration.
+# NOTE: This function returns a class type, which may be problematic.
+def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
+    """Builds and returns a trainer type based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
@@ -19,12 +22,12 @@ def build_trainer(trainer_type: TrainerType):
             configuration is not supported.
     """
     if trainer_type == TrainerType.TRL_SFT:
-        return SFTTrainer
+        return lambda *args, **kwargs: SFTTrainer(*args, **kwargs)
 
     elif trainer_type == TrainerType.TRL_DPO:
-        return DPOTrainer
+        return lambda *args, **kwargs: DPOTrainer(*args, **kwargs)
 
     elif trainer_type == TrainerType.HF:
-        return Trainer
+        return lambda *args, **kwargs: Trainer(*args, **kwargs)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

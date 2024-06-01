@@ -1,7 +1,13 @@
-from typing import Callable
+from typing import Callable, Union
 
 import transformers
-from datasets import Dataset, load_dataset
+from datasets import (
+    Dataset,
+    DatasetDict,
+    IterableDataset,
+    IterableDatasetDict,
+    load_dataset,
+)
 
 from lema.core.types import DataParams
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
@@ -36,7 +42,7 @@ def build_dataset(
     dataset_config: DataParams,
     tokenizer: transformers.PreTrainedTokenizerBase,
     **kwargs,
-) -> Dataset:
+) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]:
     """Build a dataset for training.
 
     Args:
