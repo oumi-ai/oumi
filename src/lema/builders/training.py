@@ -6,7 +6,6 @@ from trl import DPOTrainer, SFTTrainer
 from lema.core.types import TrainerType
 
 
-# NOTE: This function returns a class type, which may be problematic.
 def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
     """Builds and returns a trainer type based on the provided configuration.
 
@@ -14,8 +13,9 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
         trainer_type (TrainerType): Enum indicating the type of training.
 
     Returns:
-        Trainer: An instance of the appropriate trainer based on the trainer type
-            specified in the configuration.
+        A builder function that can create an appropriate trainer based on the trainer
+        type specified in the configuration. All function arguments supplied by caller
+        are forwarded to the trainer's constructor.
 
     Raises:
         NotImplementedError: If the trainer type specified in the
