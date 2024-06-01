@@ -174,7 +174,7 @@ class BaseConfig:
         """
         schema = OmegaConf.structured(cls)
         file_config = OmegaConf.load(path)
-        config = OmegaConf.merge(schema, file_config)
+        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
         if not isinstance(config, cls):
             raise TypeError(f"config is not {cls}")
         return cast(cls, config)
