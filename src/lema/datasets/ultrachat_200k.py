@@ -10,22 +10,41 @@ from typing import Callable, Literal
 
 from transformers import PreTrainedTokenizerBase
 
+from lema.logging import logger
+
 
 def maybe_insert_system_message(messages, tokenizer):
-    """Insert a system message to start the chat dialogue.
+    """Insert an empty system message to prepend a chat dialogue.
+
+    An empty message will not be added if the role corresponding to the first message
+    of the input `messages` is already set to `system', or if the chat_template does
+    not seem to support system messages in general.
+
+    Note: A system message is typically used to ground the higher-level purpose the LLM
+    has in the context of the messages. E.g., the LLM a prompted to be a hungry pirate.
+    Adding empty prompts can be beneficial to homogenize a dataset where some dialogues
+    do have explicit such system messages, and others do not.
 
     Args:
-        messages (_type_): _description_
-        tokenizer (_type_): _description_
+        messages (List[Dict]): Each item of is a dict mapping the `content` of the
+            message and the `role` of the one relayed it.
+        tokenizer (PreTrainedTokenizerBase): the tokenizer used to process the messages.
     """
-    if messages[0]["role"] == "system":
+    if messages[0]["role"] == "system":  # skip if it explicitly exists
         return
 
     chat_template = tokenizer.chat_template
 
-    # confirm the jinja template refers to a system message before inserting
+    # confirm the jinja template supports a system message before inserting
+    # TODO: this function can be reused by more dataset; to be moved in a broader scope
+    # about chat_templates
+    # TODO: Investigate which templates (models) are eligible for system-messages
+    # NOTE: below <|im_start|> covers ChatML template and it is a hack that will be
+    # be fixed when we repackage the templates logic at a broader score.
     if "system" in chat_template or "<|im_start|>" in chat_template:
         messages.insert(0, {"role": "system", "content": ""})
+    else:
+        logger.warning("Requested to add an empty system message using a template")
 
 
 def apply_chat_template(
@@ -37,18 +56,26 @@ def apply_chat_template(
     """Apply the chat template carried by the tokenizer to the input example.
 
     Args:
-        example (_type_): _description_
-        tokenizer (_type_): _description_
-        task (Literal[]): _description_
-        auto_insert_empty_system_msg (bool, optional): _description_. Defaults to True.
+        example (Dict): Mapping `messages` to a List containing the (ordered) messages
+            exchanged within a single chat dialogue.
+            Each item of example["messages"] is a dict mapping the `content` of the
+            message and the `role` of the one relayed it.
+            E.g., role == 'user' or role == 'assistant'.
+        tokenizer (PreTrainedTokenizerBase): the tokenizer to be used to process
+            the example.
+        task (Literal[str]): The task type the example is used in.
+            "sft": i.e., for training purposes.
+            "generation": i.e., for inference purposes.
+        auto_insert_empty_system_msg (bool, optional): To add or not an empty
+            system message at the beginning of the formatted chat. Defaults to True.
 
     Raises:
-        NotImplementedError: _description_
-        ValueError: _description_
-        ValueError: _description_
+        NotImplementedError: Currently only the `sft` task mode is supported.
+        ValueError: if requested `task` is not in "sft" or "generation"
 
     Returns:
-        _type_: _description_
+        Dict: It adds a `text` key in the input `example` dictionary, mapped to a string
+        carrying the `messages` to the tokenizer's chat format.
     """
     if task in ["generation"]:
         raise NotImplementedError("currently only sft implementation is supported")
