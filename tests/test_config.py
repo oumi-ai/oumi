@@ -9,6 +9,7 @@ from lema.core.types import TrainingConfig
 def test_config_serialization():
     with tempfile.TemporaryDirectory() as folder:
         original_config = TrainingConfig()
+        original_config.data.dataset_name = "my_test_dataset"
         original_config.model.model_name = "my_test_model"
 
         filename = os.path.join(folder, "test_config.yaml")

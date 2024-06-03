@@ -1,4 +1,5 @@
 import argparse
+from typing import cast
 
 from omegaconf import OmegaConf
 
@@ -37,26 +38,24 @@ def main():
     config_path, interactive, arg_list = parse_cli()
 
     # Start with dataclass default values and type annotations
-    base_config = OmegaConf.structured(InferenceConfig)
+    all_configs = [OmegaConf.structured(InferenceConfig)]
 
     # Override with configuration file if provided
     if config_path is not None:
-        file_config = OmegaConf.load(config_path)
-        config = OmegaConf.merge(base_config, file_config)
-    else:
-        config = base_config
+        all_configs.append(InferenceConfig.from_yaml(config_path))
 
     # Override with CLI arguments if provided
-    cli_config = OmegaConf.from_cli(arg_list)
-    config = OmegaConf.merge(config, cli_config)
+    all_configs.append(OmegaConf.from_cli(arg_list))
 
     # Merge and validate configs
-    config: InferenceConfig = OmegaConf.to_object(config)
+    config = OmegaConf.to_object(OmegaConf.merge(*all_configs))
+    if not isinstance(config, InferenceConfig):
+        raise TypeError("config is not InferenceConfig")
 
     #
     # Run inference
     #
-    infer(config, interactive)
+    infer(cast(InferenceConfig, config), interactive)
 
 
 def infer(config: InferenceConfig, interactive: bool = False) -> None:

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
 import torch
 import transformers
@@ -163,7 +163,7 @@ class BaseConfig:
         OmegaConf.save(config=self, f=path)
 
     @classmethod
-    def from_yaml(cls: Type[T], path: str) -> Type[T]:
+    def from_yaml(cls: Type[T], path: str) -> T:
         """Load a configuration from a YAML file.
 
         Args:
@@ -174,8 +174,10 @@ class BaseConfig:
         """
         schema = OmegaConf.structured(cls)
         file_config = OmegaConf.load(path)
-        config = OmegaConf.merge(schema, file_config)
-        return config
+        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+        if not isinstance(config, cls):
+            raise TypeError(f"config is not {cls}")
+        return cast(cls, config)
 
 
 @dataclass

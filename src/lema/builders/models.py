@@ -6,7 +6,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
 from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
-from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
+from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
 
 # FIXME: This is a hack. It will be replaced with an actual registry.
@@ -120,7 +120,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 
 
 def build_peft_model(
-    base_model, use_gradient_checkpointing: bool, peft_config: TrainingConfig
+    base_model, use_gradient_checkpointing: bool, peft_config: PeftParams
 ):
     """Build a PEFT model based on the given base model and configuration.
 

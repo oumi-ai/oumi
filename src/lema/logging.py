@@ -1,5 +1,6 @@
 import logging
 import warnings
+from typing import Union
 
 
 def get_logger(name: str, level: str = "info") -> logging.Logger:
@@ -48,15 +49,24 @@ def update_logger_level(name: str, level: str = "info") -> None:
         handler.setLevel(level.upper())
 
 
-def configure_dependency_warnings(level: str = "info") -> None:
+def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
     """Ignore non-critical warnings from dependencies, unless in debug mode.
 
     Args:
         level (str, optional): The log level to set for the logger. Defaults to "info".
     """
-    level = logging.getLevelName(level.upper())
+    level_value = logging.DEBUG
+    if isinstance(level, str):
+        level_value = logging.getLevelName(level.upper())
+        if not isinstance(level_value, int):
+            raise TypeError(
+                f"getLevelName() mapped log level name to non-integer: "
+                f"{type(level_value)}!"
+            )
+    elif isinstance(level, int):
+        level_value = int(level)
 
-    if level > logging.DEBUG:
+    if level_value > logging.DEBUG:
         warnings.filterwarnings(action="ignore", category=UserWarning, module="torch")
         warnings.filterwarnings(
             action="ignore", category=UserWarning, module="huggingface_hub"
