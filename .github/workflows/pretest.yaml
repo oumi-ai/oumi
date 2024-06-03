@@ -31,7 +31,7 @@ jobs:
     - name: Setup dev dependencies
       run: |
         set -e  # Exit if any command failed.
-        cd ./lema/
+        # cd ./lema/
         pip install '.[dev]'
 
     - name: Check pre-commit rules
