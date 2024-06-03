@@ -45,6 +45,10 @@ class Registry:
         else:  # partial record, ingore for now.
             return None
 
+    def clear(self) -> None:
+        """Clear the registry."""
+        self._registry = defaultdict(lambda: RegistryValue())
+
     def __repr__(self):
         """Define how this class is properly printed."""
         registry_str = ""
