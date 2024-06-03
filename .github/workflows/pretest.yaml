@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Setup cache
+    - name: Setup Cache
       uses: actions/cache@v4
       with:
         path: ~/.cache
@@ -28,18 +28,17 @@ jobs:
         restore-keys:
           static-checks-
 
-    - name: Setup dev dependencies
+    - name: Setup Dependencies
       run: |
-        set -e  # Exit if any command failed.
-        # cd ./lema/
+        set -e  # Exit if any command failed
+        python -m pip install --upgrade pip
         pip install '.[all]'
-        # pip install black isort mypy pre-commit pynvml pytest pytest-cov ruff
 
-    - name: Check pre-commit rules
+    - name: Check Pre-commit rules
       run: |
         pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run integration tests
+    - name: Run Tests
       run: |
         cd ./tests/
         pytest -s
