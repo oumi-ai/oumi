@@ -22,7 +22,7 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
-    custom_model_in_registry = REGISTRY.lookup(config.model.model_name)
+    custom_model_in_registry = REGISTRY.lookup_model(config.model.model_name)
     if custom_model_in_registry:
         return build_custom_model(custom_model_in_registry)
     else:
@@ -31,9 +31,9 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
 
 def build_custom_model(custom_model_in_registry):
     """Build a custom model from our LeMa registry."""
-    config_class = custom_model_in_registry.config_class
+    model_config = custom_model_in_registry.model_config
     model_class = custom_model_in_registry.model_class
-    model = model_class(config_class())
+    model = model_class(model_config())
 
     return model
 
