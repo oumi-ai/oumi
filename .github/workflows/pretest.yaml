@@ -18,27 +18,17 @@ jobs:
       id: setup-python
       with:
         python-version: '3.11'
-
-    - name: Setup Cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache
-        key:
-          static-checks-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
-        restore-keys:
-          static-checks-
-
-    - name: Setup Dependencies
+        cache: 'pip' # caching pip dependencies
       run: |
         set -e  # Exit if any command failed
         python -m pip install --upgrade pip
         pip install '.[all]'
 
-    - name: Check Pre-commit rules
+    - name: Check LeMa Pre-commit rules
       run: |
         pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run Tests
+    - name: Run LeMa Tests
       run: |
         cd ./tests/
         pytest -s
