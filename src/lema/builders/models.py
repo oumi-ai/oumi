@@ -1,3 +1,4 @@
+import os.path as osp
 from typing import Union
 
 import transformers
@@ -143,9 +144,16 @@ def build_chat_template(template_name):
     Returns:
         str: a ninja-based chat-template.
     """
-    if template_name == "Zephyr-7B-LeMa-default":
-        return "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"  # noqa
+    lema_top_dir = osp.dirname(osp.dirname(osp.abspath(__file__)))
+    chat_template_directory = osp.join(lema_top_dir, "datasets/chat_templates")
+
+    if template_name.lower() == "zephyr":
+        chat_template_file = osp.join(chat_template_directory, "zephyr.jinja")
+        with open(chat_template_file) as in_file:
+            chat_template = in_file.read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        return chat_template
     else:
         raise NotImplementedError(
-            "Currently only *experimental* template for Zephyr-7B has been added."
+            "Currently only *experimental* template for Zephyr has been added."
         )
