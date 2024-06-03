@@ -36,11 +36,12 @@ Issues = "https://github.com/openlema/lema/issues"
 [project.optional-dependencies]
 dev = [
     "black",
-    "ruff",
     "isort",
     "mypy",
+    "pre-commit",
     "pynvml",
     "pytest",
+    "ruff",
 ]
 train = [
     "transformers",
@@ -56,12 +57,16 @@ train = [
     "flash-attention", # for phi-3
     "pynvml",
 ]
-cloud = ["skypilot[lambda,runpod]"]
+# TODO: Switch to stable build "skypilot[lambda,runpod]"
+# once RunPod multi-GPU bugfix is included (>0.5.0)
+# https://github.com/skypilot-org/skypilot/pull/3291/files
+cloud = ["skypilot-nightly[lambda,runpod]"]
 all = ["lema[dev,train,cloud]"]
 
 [project.scripts]
-lema-train = "lema.train:main"
 lema-evaluate = "lema.evaluate:main"
+lema-infer = "lema.infer:main"
+lema-train = "lema.train:main"
 
 [tool.ruff]
 line-length = 88

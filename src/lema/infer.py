@@ -71,7 +71,7 @@ def infer(config: InferenceConfig, interactive: bool = False) -> None:
         input_texts.append(input_text)
     else:
         # TODO: Support reading inputs from datasets.
-        raise NotImplementedError
+        raise NotImplementedError("Non-interactive inference is not implemented yet")
 
     inputs = tokenizer(input_texts, return_tensors="pt")
 

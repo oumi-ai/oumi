@@ -12,7 +12,11 @@ from lema.builders import (
 from lema.core.types import TrainingConfig
 from lema.logging import logger
 from lema.utils.saver import save_model
-from lema.utils.torch_utils import device_cleanup, limit_per_process_memory
+from lema.utils.torch_utils import (
+    device_cleanup,
+    limit_per_process_memory,
+    log_devices_info,
+)
 
 
 def parse_cli():
@@ -53,7 +57,13 @@ def main() -> None:
 
     # Override with CLI arguments if provided
     cli_config = OmegaConf.from_cli(arg_list)
-    config = OmegaConf.merge(config, cli_config)
+    try:
+        config = OmegaConf.merge(config, cli_config)
+    except Exception:
+        logger.exception(
+            f"Failed to merge Omega config: {config} and CLI config: {cli_config}"
+        )
+        raise
 
     # Merge and validate configs
     config: TrainingConfig = OmegaConf.to_object(config)
@@ -66,12 +76,14 @@ def main() -> None:
     device_cleanup()
 
 
-def train(config: TrainingConfig) -> None:
+def train(config: TrainingConfig, **kwargs) -> None:
     """Train a model using the provided configuration."""
+    log_devices_info()
+
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 
-    model = build_model(config)
+    model = build_model(config, *kwargs)
     if config.training.use_peft:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
