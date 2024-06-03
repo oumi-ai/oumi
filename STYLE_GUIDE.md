@@ -31,7 +31,7 @@ run manually via:
 pre-commit run ruff --all-files
 ```
 
-The configuration is stored in [pyproject.toml](pyproject.toml) and 
+The configuration is stored in [pyproject.toml](pyproject.toml) and
 [.pre-commit-config.yaml](.pre-commit-config.yaml).
 
 

@@ -13,6 +13,7 @@ def test_registry_model_basic():
         pass
 
     custom_model_in_registry = REGISTRY.lookup_model("learning-machines/dummy")
+    assert custom_model_in_registry
     model_config = custom_model_in_registry.model_config
     model_class = custom_model_in_registry.model_class
     assert model_config == DummyModelConfig

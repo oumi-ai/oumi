@@ -8,7 +8,7 @@ from transformers import GPTQConfig
 # FIXME: The following import is NOT used, but is needed to populate the registry.
 import lema.core.models  # noqa: F401
 from lema.core.registry import REGISTRY
-from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
+from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
 
 
@@ -115,7 +115,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 
 
 def build_peft_model(
-    base_model, use_gradient_checkpointing: bool, peft_config: TrainingConfig
+    base_model, use_gradient_checkpointing: bool, peft_config: PeftParams
 ):
     """Build a PEFT model based on the given base model and configuration.
 

@@ -1,6 +1,8 @@
 import argparse
+from typing import Callable, cast
 
 from omegaconf import OmegaConf
+from transformers import Trainer
 
 from lema.builders import (
     build_dataset,
@@ -49,29 +51,30 @@ def main() -> None:
     limit_per_process_memory()
     device_cleanup()
 
+    # Start with dataclass default values and type annotations
+    all_configs = [OmegaConf.structured(TrainingConfig)]
+
     # Override with configuration file if provided
     if config_path is not None:
-        config = TrainingConfig.from_yaml(config_path)
-    else:
-        config = OmegaConf.structured(TrainingConfig)
+        all_configs.append(TrainingConfig.from_yaml(config_path))
 
     # Override with CLI arguments if provided
-    cli_config = OmegaConf.from_cli(arg_list)
+    all_configs.append(OmegaConf.from_cli(arg_list))
     try:
-        config = OmegaConf.merge(config, cli_config)
+        # Merge and validate configs
+        config = OmegaConf.merge(*all_configs)
     except Exception:
-        logger.exception(
-            f"Failed to merge Omega config: {config} and CLI config: {cli_config}"
-        )
+        logger.exception(f"Failed to merge Omega configs: {all_configs}")
         raise
 
-    # Merge and validate configs
-    config: TrainingConfig = OmegaConf.to_object(config)
+    config = OmegaConf.to_object(config)
+    if not isinstance(config, TrainingConfig):
+        raise TypeError("config is not TrainingConfig")
 
     #
     # Run training
     #
-    train(config)
+    train(cast(TrainingConfig, config))
 
     device_cleanup()
 
@@ -96,9 +99,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
     dataset = build_dataset(dataset_config=config.data, tokenizer=tokenizer)
 
     # Train model
-    trainer_cls = build_trainer(config.training.trainer_type)
+    create_trainer_fn: Callable[..., Trainer] = build_trainer(
+        config.training.trainer_type
+    )
 
-    trainer = trainer_cls(
+    trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
         args=config.training.to_hf(),

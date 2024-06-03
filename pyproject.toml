@@ -87,7 +87,9 @@ convention = "google"
 known-first-party = ["lema"]
 
 [tool.pyright]
-typeCheckingMode = "standard"
+include = ["src/lema/**", "tests/**"]
+exclude = ["src/lema/experimental/**"]
+typeCheckingMode = "basic"
 pythonVersion = "3.8"
 pythonPlatform = "All"  # Include linux, mac, windows
 

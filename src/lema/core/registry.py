@@ -1,13 +1,13 @@
 from collections import defaultdict, namedtuple
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Callable, Optional
 
 
-class RegistryType(StrEnum):
-    CLASS = "class"
-    FUNCTION = "function"
-    MODEL_CONFIG_CLASS = "model config class"
-    MODEL_CLASS = "model class"
+class RegistryType(Enum):
+    CLASS = 1
+    FUNCTION = 2
+    MODEL_CONFIG_CLASS = 3
+    MODEL_CLASS = 4
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
