@@ -1,0 +1,37 @@
+name: "Pre-review Tests"
+
+on: [push, pull_request]
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # Checkout using commit hash to make "no-commit-to-branch" test pass.
+        ref: ${{ github.sha }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      id: setup-python
+      with:
+        python-version: '3.11'
+        cache: 'pip' # caching pip dependencies
+        cache-dependency-path: pyproject.toml
+
+    - name: Setup LeMa Dependencies
+      run: |
+        set -e  # Exit if any command failed
+        python -m pip install --upgrade pip
+        pip install -e '.[all]'
+
+    - name: Check LeMa Pre-commit rules
+      run: |
+        pre-commit run --all-files --show-diff-on-failure
+
+    - name: Run LeMa Tests
+      run: |
+        cd ./tests/
+        pytest -s
