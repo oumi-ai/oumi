@@ -19,6 +19,8 @@ jobs:
       with:
         python-version: '3.11'
         cache: 'pip' # caching pip dependencies
+
+    - name: Setup LeMa Dependencies
       run: |
         set -e  # Exit if any command failed
         python -m pip install --upgrade pip
