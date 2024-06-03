@@ -118,6 +118,7 @@ class DataParams:
 @dataclass
 class ModelParams:
     model_name: str = MISSING
+    tokenizer_name: str = ""
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
 

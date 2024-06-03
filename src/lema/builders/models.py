@@ -5,18 +5,11 @@ import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
-from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
+# FIXME: The following import is NOT used, but is needed to populate the registry.
+import lema.core.models  # noqa: F401
+from lema.core.registry import REGISTRY
 from lema.core.types import InferenceConfig, ModelParams, TrainingConfig
 from lema.logging import logger
-
-# FIXME: This is a hack. It will be replaced with an actual registry.
-FAKE_REGISTRY = {
-    "learning-machines/sample": {
-        "model_config": SampleConfig,
-        "model_class": SampleModel,
-        "tokenizer": get_tokenizer,
-    }
-}
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
@@ -29,17 +22,18 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
-    if config.model.model_name in FAKE_REGISTRY:
-        return build_custom_model(config.model.model_name)
+    custom_model_in_registry = REGISTRY.lookup(config.model.model_name)
+    if custom_model_in_registry:
+        return build_custom_model(custom_model_in_registry)
     else:
         return build_huggingface_model(config, *kwargs)
 
 
-def build_custom_model(model_name):
+def build_custom_model(custom_model_in_registry):
     """Build a custom model from our LeMa registry."""
-    model_config = FAKE_REGISTRY[model_name]["model_config"]
-    model_class = FAKE_REGISTRY[model_name]["model_class"]
-    model = model_class(model_config())
+    config_class = custom_model_in_registry.config_class
+    model_class = custom_model_in_registry.model_class
+    model = model_class(config_class())
 
     return model
 
@@ -97,15 +91,15 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     Returns:
         tokenizer: The tokenizer object built from the configuration.
     """
-    # Check if there is a tokenizer registered in our LeMa registry.
-    if model_params.model_name in FAKE_REGISTRY:
-        if "tokenizer" in FAKE_REGISTRY[model_params.model_name]:
-            tokenizer = FAKE_REGISTRY[model_params.model_name]["tokenizer"]()
-            return tokenizer
+    # Identify the tokenizer we need to leverage for this model.
+    if model_params.tokenizer_name:
+        tokenizer_name = model_params.tokenizer_name
+    else:
+        tokenizer_name = model_params.model_name
 
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        model_params.model_name,
+        tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
         **kwargs,
     )

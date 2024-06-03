@@ -1,7 +1,6 @@
-from .sample import SampleConfig, SampleModel, get_tokenizer
+from .sample import SampleConfig, SampleModel
 
 __all__ = [
     "SampleConfig",
     "SampleModel",
-    "get_tokenizer",
 ]
