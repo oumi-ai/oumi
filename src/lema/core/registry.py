@@ -1,6 +1,6 @@
 from collections import defaultdict, namedtuple
 from enum import StrEnum
-from typing import Callable, Union
+from typing import Any, Callable, Optional
 
 
 class RegistryType(StrEnum):
@@ -19,17 +19,15 @@ class Registry:
         """Initialize the class Registry."""
         self._registry = defaultdict(lambda: None)
 
-    def register(self, name: str, type: RegistryType, value) -> None:
-        """Registrer a new record."""
-        registry_key = RegistryKey(name, type)
-        self._registry[registry_key] = value
+    def register(self, name: str, type: RegistryType, value: Any) -> None:
+        """Register a new record."""
+        self._registry[RegistryKey(name, type)] = value
 
-    def lookup(self, name: str, type: RegistryType) -> Union[Callable, None]:
-        """Lookup a record by name."""
-        registry_key = RegistryKey(name, type)
-        return self._registry[registry_key]
+    def lookup(self, name: str, type: RegistryType) -> Optional[Callable]:
+        """Lookup a record by name and type."""
+        return self._registry[RegistryKey(name, type)]
 
-    def lookup_model(self, name: str) -> Union[RegisteredModel, None]:
+    def lookup_model(self, name: str) -> Optional[RegisteredModel]:
         """Lookup a record that corresponds to a registered model."""
         model_config = self.lookup(name, RegistryType.MODEL_CONFIG_CLASS)
         model_class = self.lookup(name, RegistryType.MODEL_CLASS)
@@ -44,10 +42,7 @@ class Registry:
 
     def __repr__(self):
         """Define how this class is properly printed."""
-        registry_str = ""
-        for key in self._registry:
-            registry_str += f"{key}: {self._registry[key]}\n"
-        return registry_str
+        return "\n".join(f"{key}: {value}" for key, value in self._registry.items())
 
 
 REGISTRY = Registry()

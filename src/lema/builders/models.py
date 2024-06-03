@@ -95,6 +95,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     if model_params.tokenizer_name:
         tokenizer_name = model_params.tokenizer_name
     else:
+        # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
 
     # Download and build the tokenizer from the HuggingFace Hub.
