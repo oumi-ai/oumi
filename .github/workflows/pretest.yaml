@@ -1,0 +1,44 @@
+name: "Pre-review Tests"
+
+on: [push, pull_request]
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # Checkout using commit hash to make "no-commit-to-branch" test pass.
+        ref: ${{ github.sha }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      id: setup-python
+      with:
+        python-version: '3.11'
+
+    - name: Setup cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache
+        key:
+          static-checks-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
+        restore-keys:
+          static-checks-
+
+    - name: Setup dev dependencies
+      run: |
+        set -e  # Exit if any command failed.
+        cd ./lema/
+        pip install '.[dev]'
+
+    - name: Check pre-commit rules
+      run: |
+        pre-commit run --all-files --show-diff-on-failure
+
+    - name: Run integration tests
+      run: |
+        cd ./tests/
+        pytest -s
