@@ -13,23 +13,21 @@ from lema.core import registry
 NAME = "learning-machines/sample"
 
 
-@registry.register_cls
+@registry.register(NAME, registry.RegistryType.MODEL_CONFIG_CLASS)
 class SampleConfig(transformers.GPT2Config):
     """A sample model config to be used for testing and as sample code."""
 
-    registry_name = NAME
-    registry_type = registry.RegistryType.MODEL_CONFIG_CLASS
+    pass
 
 
-@registry.register_cls
+@registry.register(NAME, registry.RegistryType.MODEL_CLASS)
 class SampleModel(transformers.GPT2LMHeadModel):
     """A sample model to be used for testing and as sample code."""
 
-    registry_name = NAME
-    registry_type = registry.RegistryType.MODEL_CLASS
+    pass
 
 
-@registry.register_fn(registry_name=NAME, registry_type=registry.RegistryType.FUNCTION)
+@registry.register(NAME, registry.RegistryType.FUNCTION)
 def sample_fn():
     """A sample function to be used for testing and as sample code."""
     pass
