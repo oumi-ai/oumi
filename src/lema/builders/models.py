@@ -85,7 +85,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
         tokenizer.model_max_length = model_params.model_max_length
 
     if model_params.chat_template:
-        tokenizer.chat_template = chat_template_registry(model_params.chat_template)
+        tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
     return tokenizer
 
@@ -125,7 +125,7 @@ def build_peft_model(
     return model
 
 
-def chat_template_registry(template_name):
+def build_chat_template(template_name):
     """Selecting a chat template based on code name.
 
     NOTE: (internal) This registry is experimental and will be formatted
@@ -134,7 +134,7 @@ def chat_template_registry(template_name):
     , etc.)
 
     Args:
-        template_name (str): the code name describing the chat-tamplate.
+        template_name (str): the code name describing the chat-template.
 
     Raises:
         NotImplementedError: if the requested code name does not exist
