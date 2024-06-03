@@ -61,7 +61,7 @@ def apply_chat_template(
         example["text"] = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True if task == "generation" else False,
+            add_generation_prompt=(task == "generation"),
         )
     else:
         raise ValueError(
