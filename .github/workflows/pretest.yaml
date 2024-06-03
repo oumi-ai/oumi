@@ -20,7 +20,7 @@ jobs:
         python-version: '3.11'
         cache: 'pip' # caching pip dependencies
         cache-dependency-path: pyproject.toml
-      run: pip install '.[all]'
+      run: pip install -e '.[all]'
 
     - name: Check LeMa Pre-commit rules
       run: |
