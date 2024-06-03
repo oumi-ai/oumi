@@ -104,26 +104,26 @@ class TrainingParams:
         return report_to
 
 
-def _initialize_data_preprocessing_kwargs():
-    """Create default param values the data preprocessing mapping (.map) function.
-
-    Returns:
-        dict: contains the default set params.
-    """
-    defaults = dict()
-    defaults["batched"] = True  # Note the default of hugginface is False.
-    return defaults
-
-
 @dataclass
 class DataParams:
+    @staticmethod
+    def _default_factory_preprocessing_kwargs() -> dict:
+        """Create default param values the data preprocessing mapping (.map) function.
+
+        Returns:
+        dict: contains the default set params.
+        """
+        defaults = dict()
+        defaults["batched"] = True  # Note the default of hugginface is False.
+        return defaults
+
+    preprocessing_function_kwargs: Dict[str, Any] = field(
+        default_factory=_default_factory_preprocessing_kwargs
+    )
+
     dataset_name: str = MISSING
 
     preprocessing_function_name: Optional[str] = None
-
-    preprocessing_function_kwargs: Dict[str, Any] = field(
-        default_factory=_initialize_data_preprocessing_kwargs
-    )
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
