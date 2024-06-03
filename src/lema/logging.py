@@ -59,7 +59,10 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
     if isinstance(level, str):
         level_value = logging.getLevelName(level.upper())
         if not isinstance(level_value, int):
-            return
+            raise ValueError(
+                f"getLevelName() mapped log level name to non-integer: "
+                f"{type(level_value)}!"
+            )
     elif isinstance(level, int):
         level_value = int(level)
 
