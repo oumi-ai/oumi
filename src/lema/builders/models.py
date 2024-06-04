@@ -1,4 +1,6 @@
 import os
+import os.path as osp
+
 from typing import Union
 
 import transformers
@@ -8,6 +10,7 @@ from transformers import GPTQConfig
 from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
 from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
+
 
 # FIXME: This is a hack. It will be replaced with an actual registry.
 FAKE_REGISTRY = {
@@ -113,8 +116,14 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     if tokenizer.pad_token is None:
         # Set pad token to eos token if not already set
         # Older models may not have pad token set
-        # TODO: should log a warning here
+        logger.warning("<pad> token not found: setting <pad> with <eos>.")
         tokenizer.pad_token = tokenizer.eos_token
+
+    if model_params.model_max_length:
+        tokenizer.model_max_length = model_params.model_max_length
+
+    if model_params.chat_template:
+        tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
     return tokenizer
 
@@ -152,3 +161,36 @@ def build_peft_model(
     model = get_peft_model(model, lora_config)
 
     return model
+
+
+def build_chat_template(template_name):
+    """Selecting a chat template based on code name.
+
+    NOTE: (internal) This registry is experimental and will be formatted
+    better once we have explored chat-template uses/cases (e.g., enumerate,
+    use .ninja files like them https://github.com/chujiezheng/chat_templates/tree/main
+    , etc.)
+
+    Args:
+        template_name (str): the code name describing the chat-template.
+
+    Raises:
+        NotImplementedError: if the requested code name does not exist
+        in the registry.
+
+    Returns:
+        str: a ninja-based chat-template.
+    """
+    lema_top_dir = osp.dirname(osp.dirname(osp.abspath(__file__)))
+    chat_template_directory = osp.join(lema_top_dir, "datasets/chat_templates")
+
+    if template_name.lower() == "zephyr":
+        chat_template_file = osp.join(chat_template_directory, "zephyr.jinja")
+        with open(chat_template_file) as in_file:
+            chat_template = in_file.read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        return chat_template
+    else:
+        raise NotImplementedError(
+            "Currently only *experimental* template for Zephyr has been added."
+        )

@@ -112,15 +112,31 @@ class DataParams:
     streaming: bool = False
     split: str = "train"
 
+    @staticmethod
+    def _default_factory_preprocessing_kwargs() -> dict:
+        """Create default param values the data preprocessing mapping (.map) function.
+
+        Returns:
+        dict: contains the default set params.
+        """
+        defaults = dict()
+        defaults["batched"] = True  # Note the default of hugginface is False.
+        return defaults
+
     preprocessing_function_name: Optional[str] = None
+    preprocessing_function_kwargs: Dict[str, Any] = field(
+        default_factory=_default_factory_preprocessing_kwargs
+    )
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ModelParams:
     model_name: str = MISSING
+    model_max_length: Optional[int] = None
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
+    chat_template: Optional[str] = None
 
     def torch_dtype(self):
         """Convert string dtype to torch.dtype."""
