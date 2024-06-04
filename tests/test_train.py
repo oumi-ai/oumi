@@ -53,6 +53,7 @@ def test_custom_train():
             enable_wandb=False,
             enable_tensorboard=False,
             output_dir=output_temp_dir,
+            include_performance_metrics=True,
         ),
     )
 
