@@ -60,6 +60,9 @@ class TrainingParams:
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+    include_tokens_per_second: Optional[bool] = None
+    include_num_input_tokens_seen: Optional[bool] = None
+
     def to_hf(self):
         """Convert LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
@@ -85,6 +88,8 @@ class TrainingParams:
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
+            include_tokens_per_second=self.include_tokens_per_second,
+            include_num_input_tokens_seen=self.include_num_input_tokens_seen,
         )
 
     def _get_hf_report_to(self) -> List[str]:

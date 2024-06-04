@@ -52,6 +52,8 @@ def test_custom_train():
             enable_wandb=False,
             enable_tensorboard=False,
             output_dir=output_temp_dir,
+            include_tokens_per_second=True,
+            include_num_input_tokens_seen=True,
         ),
     )
 
