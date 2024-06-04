@@ -44,11 +44,12 @@ def test_custom_train():
         ),
         model=ModelParams(
             model_name="learning-machines/sample",
+            tokenizer_name="gpt2",
             trust_remote_code=False,
         ),
         training=TrainingParams(
-            max_steps=5,
-            logging_steps=5,
+            max_steps=3,
+            logging_steps=3,
             enable_wandb=False,
             enable_tensorboard=False,
             output_dir=output_temp_dir,

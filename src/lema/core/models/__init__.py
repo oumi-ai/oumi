@@ -1,7 +1,3 @@
-from .sample import SampleConfig, SampleModel, get_tokenizer
+from lema.core.models.sample import SampleConfig, SampleModel
 
-__all__ = [
-    "SampleConfig",
-    "SampleModel",
-    "get_tokenizer",
-]
+__all__ = ["SampleConfig", "SampleModel"]

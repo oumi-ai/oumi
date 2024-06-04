@@ -57,7 +57,12 @@ def build_dataset(
         dataset: The built dataset for training.
     """
     # TODO: should return all splits
-    dataset = load_dataset(dataset_config.dataset_name, split=dataset_config.split)
+    dataset = load_dataset(
+        dataset_config.dataset_name,
+        name=dataset_config.dataset_config,
+        streaming=dataset_config.streaming,
+        split=dataset_config.split,
+    )
 
     if dataset_config.preprocessing_function_name:
         preprocessing_fn = build_prompt_generation_fn(

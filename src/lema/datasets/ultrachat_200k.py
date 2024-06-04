@@ -96,7 +96,7 @@ def apply_chat_template(
     else:
         raise ValueError(
             f"Task {task} not supported, please ensure that the provided "
-            f"task is one of ['sft', 'generation']"
+            "task is one of ['sft', 'generation']"
         )
     return example
 
@@ -106,7 +106,7 @@ def trl_sft_ultrachat_200k_preprocessor_fn(
 ) -> Callable:
     """Build a preprocessing function for a TRL SFT (chat) trainer."""
 
-    def prompt_generation_fn(samples: dict) -> dict:
+    def prompt_generation_fn(samples) -> dict:
         results = apply_chat_template(
             samples, tokenizer=tokenizer, task="sft", auto_insert_empty_system_msg=True
         )
