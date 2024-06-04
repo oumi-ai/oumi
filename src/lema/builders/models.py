@@ -1,6 +1,5 @@
 import os
 import os.path as osp
-
 from typing import Union
 
 import transformers
