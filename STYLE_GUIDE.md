@@ -37,12 +37,19 @@ The configuration is stored in [pyproject.toml](pyproject.toml) and
 
 # 2. Type Annotations and Static Type Checking
 
-TODO: Configure `pyright`, and provide guidance.
+LeMa aims to annotate all functions with type annotations (introduced in
+[PEP 526](https://www.python.org/dev/peps/pep-0526/)).
+
+To validate type annotations using [PyRight](https://github.com/microsoft/pyright), run one of these commands:
+
+```
+pre-commit run pyright
+pre-commit run pyright --all-files
+```
 
 # 3. Imports and `__init__.py`
 
 All imports in LeMa should be absolute.
-
 
 # 4. Documentation
 
