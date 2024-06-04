@@ -28,29 +28,30 @@ pre-commit install
 
 To submit a contribution:
 
-1\. Fork a copy of the [LeMa](https://github.com/mosaicml/composer) library to your own account.
+1. Fork a copy of the [LeMa](https://github.com/openlema/lema) repository to your own account.
 
-2\. Clone your fork locally and add the LeMa repo as a remote repository:
+2. Clone your fork locally and add the LeMa repo as a remote repository:
 
 <!--pytest.mark.skip-->
 ```bash
 git clone git@github.com:<github_id>/openlema/lema.git
-cd lema
+cd ./lema/
 git remote add upstream https://github.com/openlema/lema.git
 ```
 
-3\. Create a branch and make your proposed changes.
+3. Create a branch and make your proposed changes.
 
 <!--pytest.mark.skip-->
 ```bash
 git checkout -b my-awesome-new-feature
 ```
 
-4\. When you are ready, submit a pull request into the LeMa repository!
+4. When you are ready, submit a pull request into the LeMa repository!
 
 ## Pull request (PR) guidelines
 
 Basic guidelines that will make your PR easier to review:
+
 * Self-contained title and description. Please include a concise title and clear PR description. The title should allow someone to understand what the PR changes or does at a glance. The description should allow someone to understand the contents of the PR _without_ looking at the code.
 * Include tests. If you are fixing a bug, please add a test that would've caught the bug. If you are adding a new feature, please add unit tests too.
 * `pre-commit` should help you handle formatting and type checking. Please do make sure you have it installed as described [above](#prerequisites).
