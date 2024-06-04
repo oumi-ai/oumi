@@ -6,7 +6,7 @@ Significant portion of code was copied from:
 https://github.com/huggingface/alignment-handbook/blob/main/src/alignment/data.py#L28
 """
 
-from typing import Callable, Dict, Literal
+from typing import Callable, Literal
 
 from transformers import PreTrainedTokenizerBase
 
@@ -95,18 +95,18 @@ def apply_chat_template(
         )
     else:
         raise ValueError(
-            f"Task {task} not supported, please ensure that the provided \
-            task is one of ['sft', 'generation']"
+            f"Task {task} not supported, please ensure that the provided "
+            f"task is one of ['sft', 'generation']"
         )
     return example
 
 
 def trl_sft_ultrachat_200k_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
-) -> Callable[Dict, Dict]:
+) -> Callable:
     """Build a preprocessing function for a TRL SFT (chat) trainer."""
 
-    def prompt_generation_fn(samples: Dict) -> dict:
+    def prompt_generation_fn(samples: dict) -> dict:
         results = apply_chat_template(
             samples, tokenizer=tokenizer, task="sft", auto_insert_empty_system_msg=True
         )

@@ -51,6 +51,7 @@ def build_dataset(
     Args:
         dataset_config: The configuration object of the dataset.
         tokenizer: The tokenizer object to use for preprocessing.
+        kwargs: Keyword arguments.
 
     Returns:
         dataset: The built dataset for training.
