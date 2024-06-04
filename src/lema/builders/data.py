@@ -12,6 +12,7 @@ from datasets import (
 from lema.core.types import DataParams
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
+from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 
 
 def build_prompt_generation_fn(
@@ -32,6 +33,8 @@ def build_prompt_generation_fn(
     # TODO: this should be pulled from registry
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
+    elif function_name == "trl_sft_ultrachat_200k":
+        return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
 
@@ -48,7 +51,6 @@ def build_dataset(
     Args:
         dataset_config: The configuration object of the dataset.
         tokenizer: The tokenizer object to use for preprocessing.
-        **kwargs: Additional keyword arguments to pass to the dataset mapping function.
 
     Returns:
         dataset: The built dataset for training.
@@ -60,6 +62,9 @@ def build_dataset(
         preprocessing_fn = build_prompt_generation_fn(
             dataset_config.preprocessing_function_name, tokenizer
         )
-        dataset = dataset.map(preprocessing_fn, batched=True, **kwargs)
+
+        dataset = dataset.map(
+            preprocessing_fn, **dataset_config.preprocessing_function_kwargs
+        )
 
     return dataset

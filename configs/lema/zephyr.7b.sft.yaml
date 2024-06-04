@@ -1,0 +1,57 @@
+## Full specs to make Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # pylint: disable=invalid-name
+## External training code inspiration:
+## https://github.com/huggingface/alignment-handbook/blob/main/recipes/zephyr-7b-beta/sft/config_full.yaml # pylint: disable=invalid-name
+
+model:
+  model_name: "mistralai/Mistral-7B-v0.1" # Base model that will be SFT
+  trust_remote_code: True
+  torch_dtype_str: "bfloat16"  # maybe float16 for Mac
+  model_max_length: 2048
+  chat_template: "zephyr"
+
+data:
+  dataset_name: "HuggingFaceH4/ultrachat_200k"
+  split: "train_sft"
+  preprocessing_function_name: "trl_sft_ultrachat_200k"
+  preprocessing_function_kwargs:
+    num_proc: 6
+    batched: False
+    # seed: 42 # TODO - not used yet
+  trainer_kwargs:
+    dataset_text_field: "text"
+    max_seq_length: ${model.model_max_length}
+    # packing: True
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: True
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: true
+  per_device_train_batch_size: 1   # Small for testing
+  gradient_accumulation_steps: 1
+  learning_rate: 2.0e-05
+  lr_scheduler_type: "cosine"
+  num_train_epochs: 1
+  output_dir: "output/zephyr.7b.sft"
+  warmup_ratio: 0.1
+  # packing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+
+  # Use for debugging purposes:
+  max_steps: 2
+
+peft:
+  q_lora: False
+  q_lora_bits: 4
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+  - "q_proj"
+  - "k_proj"
+  - "v_proj"
+  - "o_proj"
+  - "gate_proj"
+  - "up_proj"
+  - "down_proj"
