@@ -106,6 +106,12 @@ class TrainingParams:
 
 @dataclass
 class DataParams:
+    # Parameters for `datasets.load_dataset()`
+    dataset_name: str = MISSING
+    dataset_config: Optional[str] = None
+    streaming: bool = False
+    split: str = "train"
+
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
         """Create default param values the data preprocessing mapping (.map) function.
@@ -117,17 +123,11 @@ class DataParams:
         defaults["batched"] = True  # Note the default of hugginface is False.
         return defaults
 
+    preprocessing_function_name: Optional[str] = None
     preprocessing_function_kwargs: Dict[str, Any] = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
-
-    dataset_name: str = MISSING
-
-    preprocessing_function_name: Optional[str] = None
-
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
-
-    split: str = "train"
 
 
 @dataclass
