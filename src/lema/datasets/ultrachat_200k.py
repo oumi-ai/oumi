@@ -36,7 +36,7 @@ def maybe_insert_system_message(messages, tokenizer):
     chat_template = tokenizer.chat_template
 
     # confirm the jinja template supports a system message before inserting
-    # TODO: this function can be reused by more dataset; to be moved in a broader scope
+    # TODO: this function can be reused by more datasets; to be moved in a broader scope
     # about chat_templates
     # TODO: Investigate which templates (models) are eligible for system-messages
     # NOTE: below <|im_start|> covers ChatML template and it is a hack that will be
