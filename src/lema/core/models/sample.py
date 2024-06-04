@@ -25,9 +25,3 @@ class SampleModel(transformers.GPT2LMHeadModel):
     """A sample model to be used for testing and as sample code."""
 
     pass
-
-
-@registry.register(NAME, registry.RegistryType.FUNCTION)
-def sample_fn():
-    """A sample function to be used for testing and as sample code."""
-    pass

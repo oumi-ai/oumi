@@ -1,13 +1,11 @@
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from enum import Enum
 from typing import Any, Callable, Optional
 
 
 class RegistryType(Enum):
-    CLASS = 1
-    FUNCTION = 2
-    MODEL_CONFIG_CLASS = 3
-    MODEL_CLASS = 4
+    MODEL_CONFIG_CLASS = 1
+    MODEL_CLASS = 2
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -17,38 +15,71 @@ RegisteredModel = namedtuple("RegisteredModel", ["model_config", "model_class"])
 class Registry:
     def __init__(self):
         """Initialize the class Registry."""
-        self._registry = defaultdict(lambda: None)
+        self._registry = dict()
+
+    def _contains(self, key: RegistryKey) -> bool:
+        """Indicates whether a record already exists in the registry."""
+        return key in self._registry
+
+    def __repr__(self) -> str:
+        """Define how this class is properly printed."""
+        return "\n".join(f"{key}: {value}" for key, value in self._registry.items())
+
+    # Public functions.
+    def contains(self, name: str, type: RegistryType) -> bool:
+        """Indicates whether a record exists in the registry."""
+        return self._contains(RegistryKey(name, type))
 
     def register(self, name: str, type: RegistryType, value: Any) -> None:
         """Register a new record."""
-        self._registry[RegistryKey(name, type)] = value
+        registry_key = RegistryKey(name, type)
+        if self._contains(registry_key):
+            current_value = self.get(name=name, type=type)
+            raise ValueError(
+                f"Registry: `{name}` of `{type}` "
+                f"is already registered as `{current_value}`."
+            )
+        self._registry[registry_key] = value
 
-    def lookup(self, name: str, type: RegistryType) -> Optional[Callable]:
+    def get(
+        self,
+        name: str,
+        type: RegistryType,
+        except_if_missing: bool = True,
+    ) -> Optional[Callable]:
         """Lookup a record by name and type."""
-        return self._registry[RegistryKey(name, type)]
+        registry_key = RegistryKey(name, type)
+        if not self._contains(registry_key):
+            if except_if_missing:
+                raise ValueError(f"Registry: `{name}` of `{type}` does not exist.")
+            else:
+                return None
+        else:
+            return self._registry[registry_key]
 
-    def lookup_model(self, name: str) -> Optional[RegisteredModel]:
+    def clear(self) -> None:
+        """Clear the registry."""
+        self._registry = dict()
+
+    # Convinience public function wrappers.
+    def get_model(
+        self, name: str, except_if_missing: bool = True
+    ) -> Optional[RegisteredModel]:
         """Lookup a record that corresponds to a registered model."""
-        model_config = self.lookup(name, RegistryType.MODEL_CONFIG_CLASS)
-        model_class = self.lookup(name, RegistryType.MODEL_CLASS)
+        model_config = self.get(
+            name, RegistryType.MODEL_CONFIG_CLASS, except_if_missing
+        )
+        model_class = self.get(name, RegistryType.MODEL_CLASS, except_if_missing)
         if model_config and model_class:
             return RegisteredModel(model_config=model_config, model_class=model_class)
         else:
             return None
 
-    def clear(self) -> None:
-        """Clear the registry."""
-        self._registry = defaultdict(lambda: None)
-
-    def __repr__(self):
-        """Define how this class is properly printed."""
-        return "\n".join(f"{key}: {value}" for key, value in self._registry.items())
-
 
 REGISTRY = Registry()
 
 
-def register(registry_name: str, registry_type: RegistryType):
+def register(registry_name: str, registry_type: RegistryType) -> Callable:
     """Register object `obj` in the LeMa global registry."""
 
     def decorator_register(obj):

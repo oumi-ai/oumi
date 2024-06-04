@@ -22,7 +22,9 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
-    custom_model_in_registry = REGISTRY.lookup_model(config.model.model_name)
+    custom_model_in_registry = REGISTRY.get_model(
+        name=config.model.model_name, except_if_missing=False
+    )
     if custom_model_in_registry:
         return build_custom_model(custom_model_in_registry)
     else:
