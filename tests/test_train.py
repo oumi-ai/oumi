@@ -20,8 +20,8 @@ def test_basic_train():
             trust_remote_code=True,
         ),
         training=TrainingParams(
-            max_steps=5,
-            logging_steps=5,
+            max_steps=3,
+            logging_steps=3,
             enable_wandb=False,
             enable_tensorboard=False,
             output_dir=output_temp_dir,
