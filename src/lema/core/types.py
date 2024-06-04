@@ -117,7 +117,7 @@ class DataParams:
         defaults["batched"] = True  # Note the default of hugginface is False.
         return defaults
 
-    preprocessing_function_kwargs: Dict[str, Any] = field(
+    preprocessing_function_kwargs: dict = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
 
