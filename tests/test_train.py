@@ -44,6 +44,7 @@ def test_custom_train():
         ),
         model=ModelParams(
             model_name="learning-machines/sample",
+            tokenizer_name="gpt2",
             trust_remote_code=False,
         ),
         training=TrainingParams(
