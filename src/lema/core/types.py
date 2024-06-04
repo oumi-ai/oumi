@@ -60,7 +60,7 @@ class TrainingParams:
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # Whether to include perfomance metrics e.g., tokens stats
+    # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
     def to_hf(self):
