@@ -9,7 +9,7 @@ def get_nvidia_gpu_memory_utilization() -> float:
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-    return info.used // 1024**2
+    return float(info.used) // 1024**2
 
 
 def print_nvidia_gpu_memory_utilization() -> None:
