@@ -124,28 +124,28 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 
 
 def build_peft_model(
-    base_model, use_gradient_checkpointing: bool, peft_config: PeftParams
+    base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
-    """Build a PEFT model based on the given base model and configuration.
+    """Build a PEFT model based on the given base model and params.
 
     Args:
         base_model: The base model to build the PEFT model on.
         use_gradient_checkpointing: Enable/disable gradient checkpointing.
-        peft_config: The desired configuration for LORA.
+        peft_params: The desired params for LORA.
 
     Returns:
         The built PEFT model.
     """
     lora_config = LoraConfig(
-        r=peft_config.lora_r,
-        lora_alpha=peft_config.lora_alpha,
-        lora_dropout=peft_config.lora_dropout,
-        target_modules=peft_config.lora_target_modules,
-        bias=peft_config.lora_bias,  # type: ignore
-        task_type=peft_config.lora_task_type,
+        r=peft_params.lora_r,
+        lora_alpha=peft_params.lora_alpha,
+        lora_dropout=peft_params.lora_dropout,
+        target_modules=peft_params.lora_target_modules,
+        bias=peft_params.lora_bias,  # type: ignore
+        task_type=peft_params.lora_task_type,
     )
 
-    if peft_config.q_lora:
+    if peft_params.q_lora:
         model = prepare_model_for_kbit_training(
             model=base_model,
             use_gradient_checkpointing=use_gradient_checkpointing,
