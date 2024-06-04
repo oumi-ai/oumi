@@ -1,6 +1,5 @@
 import os
 import os.path as osp
-
 from typing import Union
 
 import transformers
@@ -10,7 +9,6 @@ from transformers import GPTQConfig
 from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
 from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
-
 
 # FIXME: This is a hack. It will be replaced with an actual registry.
 FAKE_REGISTRY = {
