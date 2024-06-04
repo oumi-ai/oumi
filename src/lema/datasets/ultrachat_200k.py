@@ -13,20 +13,6 @@ from transformers import PreTrainedTokenizerBase
 import lema.logging
 
 
-def trl_sft_ultrachat_200k_preprocessor_fn(
-    tokenizer: PreTrainedTokenizerBase,
-) -> Callable:
-    """Build a preprocessing function for a TRL SFT (chat) trainer."""
-
-    def prompt_generation_fn(samples: dict) -> dict:
-        results = apply_chat_template(
-            samples, tokenizer=tokenizer, task="sft", auto_insert_empty_system_msg=True
-        )
-        return results
-
-    return prompt_generation_fn
-
-
 def maybe_insert_system_message(messages, tokenizer):
     """Insert an empty system message to prepend a chat dialogue.
 
@@ -113,3 +99,17 @@ def apply_chat_template(
             f"task is one of ['sft', 'generation']"
         )
     return example
+
+
+def trl_sft_ultrachat_200k_preprocessor_fn(
+    tokenizer: PreTrainedTokenizerBase,
+) -> Callable:
+    """Build a preprocessing function for a TRL SFT (chat) trainer."""
+
+    def prompt_generation_fn(samples: dict) -> dict:
+        results = apply_chat_template(
+            samples, tokenizer=tokenizer, task="sft", auto_insert_empty_system_msg=True
+        )
+        return results
+
+    return prompt_generation_fn
