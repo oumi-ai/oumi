@@ -79,12 +79,24 @@ class Registry:
 REGISTRY = Registry()
 
 
-def register(registry_name: str, registry_type: RegistryType) -> Callable:
-    """Register object `obj` in the LeMa global registry."""
+def register(
+    registry_name: str, registry_type: RegistryType, registry=REGISTRY
+) -> Callable:
+    """Register object `obj` in the LeMa global registry.
+
+    Args:
+        registry_name: The name that the object should be registered with.
+        registry_type: The type of object we are registering.
+        registry: The registry to register the object to. This defaults to the
+                  LeMa global registry `REGISTRY`.
+
+    Returns:
+        object: The original object, after registering it.
+    """
 
     def decorator_register(obj):
         """Decorator to register its target `obj`."""
-        REGISTRY.register(name=registry_name, type=registry_type, value=obj)
+        registry.register(name=registry_name, type=registry_type, value=obj)
         return obj
 
     return decorator_register
