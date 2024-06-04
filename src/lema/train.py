@@ -92,6 +92,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, config.training.enable_gradient_checkpointing, config.peft
         )
 
+    # Enable gradients for input embeddings
     if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 

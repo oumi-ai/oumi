@@ -1,0 +1,16 @@
+# Toy pretraining config for GPT-2.
+
+model:
+  model_name: "openai-community/gpt2"
+  trust_remote_code: True
+
+data:
+  dataset_name: "Salesforce/wikitext"
+  dataset_config: "wikitext-2-raw-v1"
+  trainer_kwargs:
+    dataset_text_field: "text"
+
+training:
+  max_steps: 2
+  enable_tensorboard: False
+  output_dir: "output/gpt2.pt"

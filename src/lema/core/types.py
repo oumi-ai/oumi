@@ -106,13 +106,14 @@ class TrainingParams:
 
 @dataclass
 class DataParams:
+    # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
+    dataset_config: Optional[str] = None
+    streaming: bool = False
+    split: str = "train"
 
     preprocessing_function_name: Optional[str] = None
-
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
-
-    split: str = "train"
 
 
 @dataclass
