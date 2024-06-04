@@ -37,6 +37,5 @@ run: |
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
-      "training.include_tokens_per_second=true" \
-      "training.include_num_input_tokens_seen=true" \
+      "training.include_performance_metrics=true" \
       "training.logging_steps=10"
