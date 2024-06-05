@@ -71,6 +71,12 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         quantization_config = GPTQConfig(
             bits=config.peft.q_lora_bits, disable_exllama=True
         )
+        # TODO possibly update with config.model
+        # quantization_config = BitsAndBytesConfig(
+        #     load_in_4bit=config.peft.q_lora_bits==4,
+        #     load_in_8bit=config.peft.q_lora_bits==8,
+        #     bnb_4bit_compute_dtype=torch.bfloat16
+        # )
     else:
         quantization_config = None
 

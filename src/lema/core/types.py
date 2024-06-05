@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, cast
+from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
 import torch
 import transformers
@@ -176,7 +176,8 @@ class PeftParams:
         default=None,
         metadata={"help": ("Model layers to unfreeze & train.")},
     )
-    lora_bias: Literal["none", "all", "lora_only"] = field(
+
+    lora_bias: str = field(
         default="none",
         metadata={
             "help": (

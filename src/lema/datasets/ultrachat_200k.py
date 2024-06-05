@@ -95,7 +95,8 @@ def apply_chat_template(
         )
     else:
         raise ValueError(
-            f"Task {task} not supported, please ensure that the provided task is one of ['sft', 'generation']"  # noqa TODO: understand pyright issue with \
+            f"Task {task} not supported, please ensure that the provided "
+            "task is one of ['sft', 'generation']"
         )
     return example
 
