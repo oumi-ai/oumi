@@ -23,7 +23,8 @@ def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
     infer_interactive(config)
 
 
-def test_basic_infer_non_interactive():
+@pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
+def test_basic_infer_non_interactive(num_batches, batch_size):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="openai-community/gpt2",
@@ -34,39 +35,19 @@ def test_basic_infer_non_interactive():
         ),
     )
 
-    output = infer(
-        config,
-        [
-            [
-                FIXED_PROMPT,
-            ],
-        ],
-    )
-    assert output == [
-        [
-            FIXED_RESPONSE,
-        ],
-    ]
-    output = infer(
-        config,
-        [
-            [
-                FIXED_PROMPT,
-                FIXED_PROMPT,
-            ],
-            [
-                FIXED_PROMPT,
-                FIXED_PROMPT,
-            ],
-        ],
-    )
-    assert output == [
-        [
-            FIXED_RESPONSE,
-            FIXED_RESPONSE,
-        ],
-        [
-            FIXED_RESPONSE,
-            FIXED_RESPONSE,
-        ],
-    ]
+    input = []
+    for _ in range(num_batches):
+        batch_input = []
+        for _ in range(batch_size):
+            batch_input.append(FIXED_PROMPT)
+        input.append(batch_input)
+    output = infer(config, input)
+
+    expected_output = []
+    for _ in range(num_batches):
+        batch_output = []
+        for _ in range(batch_size):
+            batch_output.append(FIXED_RESPONSE)
+        expected_output.append(batch_output)
+
+    assert output == expected_output
