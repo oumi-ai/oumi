@@ -37,20 +37,36 @@ def test_basic_infer_non_interactive():
     output = infer(
         config,
         [
-            FIXED_PROMPT,
+            [
+                FIXED_PROMPT,
+            ],
         ],
     )
     assert output == [
-        FIXED_RESPONSE,
+        [
+            FIXED_RESPONSE,
+        ],
     ]
     output = infer(
         config,
         [
-            FIXED_PROMPT,
-            FIXED_PROMPT,
+            [
+                FIXED_PROMPT,
+                FIXED_PROMPT,
+            ],
+            [
+                FIXED_PROMPT,
+                FIXED_PROMPT,
+            ],
         ],
     )
     assert output == [
-        FIXED_RESPONSE,
-        FIXED_RESPONSE,
+        [
+            FIXED_RESPONSE,
+            FIXED_RESPONSE,
+        ],
+        [
+            FIXED_RESPONSE,
+            FIXED_RESPONSE,
+        ],
     ]

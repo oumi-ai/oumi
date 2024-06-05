@@ -1,5 +1,5 @@
 import argparse
-from typing import cast
+from typing import List, cast
 
 from omegaconf import OmegaConf
 
@@ -61,39 +61,56 @@ def main():
 def infer_interactive(config: InferenceConfig) -> None:
     """Interactively provide the model response for a user-provided input."""
     input_text = input("Enter your input prompt: ")
-    outputs_decoded = infer(
+    model_response = infer(
         config,
         [
-            input_text,
+            [
+                input_text,
+            ],
         ],
     )
-    print(outputs_decoded[0])
+    print(model_response[0][0])
 
 
 # TODO: Support writing predictions to files.
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
-def infer(config: InferenceConfig, input_batch):
-    """Run batch inference for a model, using the provided configuration."""
+def infer(config: InferenceConfig, input: List[List[str]]) -> List[List[str]]:
+    """Run batch inference for a model, using the provided configuration.
+
+    Args:
+        config: The desired configuration for inference.
+        input: A list of text prompts of shape (num_batches, batch_size).
+
+    Returns:
+        object: A list of model responses of shape (num_batches, batch_size).
+    """
     tokenizer = build_tokenizer(config.model)
     model = build_model(config)
+    model_device = next(model.parameters()).device
 
-    # Tokenization of input_batch.
-    input_batch_tokenized = tokenizer(input_batch, return_tensors="pt")
+    # Tokenization of input (in place).
+    for batch_index, batch in enumerate(input):
+        batch_tokenized = tokenizer(batch, return_tensors="pt")
+        batch_tokenized = batch_tokenized.to(model_device)
+        input[batch_index] = batch_tokenized
 
     # Generate model outputs.
-    model_device = next(model.parameters()).device
-    input_batch_tokenized = input_batch_tokenized.to(model_device)
-    outputs = model.generate(
-        **input_batch_tokenized, max_new_tokens=config.generation.max_new_tokens
-    )
+    output = []
+    for batch in input:
+        output.append(
+            model.generate(**batch, max_new_tokens=config.generation.max_new_tokens)
+        )
 
     # Decode the outputs.
-    outputs_decoded = []
-    for input_idx in range(outputs.data.size(dim=0)):
-        output = "".join(f"{tokenizer.decode(id)}" for id in outputs.data[input_idx])
-        outputs_decoded.append(output)
+    output_decoded = []
+    for batch in output:
+        batch_output_decoded = []
+        for prompt_index in range(batch.data.size(dim=0)):
+            response = "".join(tokenizer.decode(id) for id in batch.data[prompt_index])
+            batch_output_decoded.append(response)
+        output_decoded.append(batch_output_decoded)
 
-    return outputs_decoded
+    return output_decoded
 
 
 if __name__ == "__main__":
