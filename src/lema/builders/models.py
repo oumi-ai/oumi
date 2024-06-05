@@ -6,18 +6,11 @@ import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import GPTQConfig
 
-from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
+# FIXME: The following import is NOT used, but is needed to populate the registry.
+import lema.core.models  # noqa: F401
+from lema.core.registry import REGISTRY
 from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
-
-# FIXME: This is a hack. It will be replaced with an actual registry.
-FAKE_REGISTRY = {
-    "learning-machines/sample": {
-        "model_config": SampleConfig,
-        "model_class": SampleModel,
-        "tokenizer": get_tokenizer,
-    }
-}
 
 
 def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
@@ -30,16 +23,19 @@ def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
     Returns:
         model: The built model.
     """
-    if config.model.model_name in FAKE_REGISTRY:
-        return build_custom_model(config.model.model_name)
+    custom_model_in_registry = REGISTRY.get_model(
+        name=config.model.model_name, except_if_missing=False
+    )
+    if custom_model_in_registry:
+        return build_custom_model(custom_model_in_registry)
     else:
         return build_huggingface_model(config, *kwargs)
 
 
-def build_custom_model(model_name):
+def build_custom_model(custom_model_in_registry):
     """Build a custom model from our LeMa registry."""
-    model_config = FAKE_REGISTRY[model_name]["model_config"]
-    model_class = FAKE_REGISTRY[model_name]["model_class"]
+    model_config = custom_model_in_registry.model_config
+    model_class = custom_model_in_registry.model_class
     model = model_class(model_config())
 
     return model
@@ -71,12 +67,6 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         quantization_config = GPTQConfig(
             bits=config.peft.q_lora_bits, disable_exllama=True
         )
-        # TODO possibly update with config.model
-        # quantization_config = BitsAndBytesConfig(
-        #     load_in_4bit=config.peft.q_lora_bits==4,
-        #     load_in_8bit=config.peft.q_lora_bits==8,
-        #     bnb_4bit_compute_dtype=torch.bfloat16
-        # )
     else:
         quantization_config = None
 
@@ -104,15 +94,16 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     Returns:
         tokenizer: The tokenizer object built from the configuration.
     """
-    # Check if there is a tokenizer registered in our LeMa registry.
-    if model_params.model_name in FAKE_REGISTRY:
-        if "tokenizer" in FAKE_REGISTRY[model_params.model_name]:
-            tokenizer = FAKE_REGISTRY[model_params.model_name]["tokenizer"]()
-            return tokenizer
+    # Identify the tokenizer we need to leverage for this model.
+    if model_params.tokenizer_name:
+        tokenizer_name = model_params.tokenizer_name
+    else:
+        # If no specific tokenizer is defined, fall back to model's default.
+        tokenizer_name = model_params.model_name
 
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        model_params.model_name,
+        tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
         **kwargs,
     )
@@ -133,29 +124,29 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 
 
 def build_peft_model(
-    base_model, use_gradient_checkpointing: bool, peft_config: PeftParams
+    base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
-    """Build a PEFT model based on the given base model and configuration.
+    """Build a PEFT model based on the given base model and params.
 
     Args:
         base_model: The base model to build the PEFT model on.
         use_gradient_checkpointing: Enable/disable gradient checkpointing.
-        peft_config: The desired configuration for LORA.
+        peft_params: The desired params for LORA.
 
     Returns:
         The built PEFT model.
     """
     lora_config = LoraConfig(
-        r=peft_config.lora_r,
-        lora_alpha=peft_config.lora_alpha,
-        lora_dropout=peft_config.lora_dropout,
-        target_modules=peft_config.lora_target_modules,
-        modules_to_save=peft_config.lora_target_modules,
-        bias=peft_config.lora_bias,  # type: ignore
-        task_type=peft_config.lora_task_type,
+        r=peft_params.lora_r,
+        lora_alpha=peft_params.lora_alpha,
+        lora_dropout=peft_params.lora_dropout,
+        target_modules=peft_params.lora_target_modules,
+        modules_to_save=peft_params.lora_modules_to_save,
+        bias=peft_params.lora_bias,  # type: ignore
+        task_type=peft_params.lora_task_type,
     )
 
-    if peft_config.q_lora:
+    if peft_params.q_lora:
         model = prepare_model_for_kbit_training(
             model=base_model,
             use_gradient_checkpointing=use_gradient_checkpointing,

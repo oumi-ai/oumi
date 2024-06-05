@@ -42,29 +42,35 @@ def build_prompt_generation_fn(
 
 
 def build_dataset(
-    dataset_config: DataParams,
+    data_params: DataParams,
     tokenizer: transformers.PreTrainedTokenizerBase,
     **kwargs,
 ) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]:
     """Build a dataset for training.
 
     Args:
-        dataset_config: The configuration object of the dataset.
+        data_params: The dataset parameters.
         tokenizer: The tokenizer object to use for preprocessing.
+        kwargs: Keyword arguments.
 
     Returns:
         dataset: The built dataset for training.
     """
     # TODO: should return all splits
-    dataset = load_dataset(dataset_config.dataset_name, split=dataset_config.split)
+    dataset = load_dataset(
+        data_params.dataset_name,
+        name=data_params.dataset_config,
+        streaming=data_params.streaming,
+        split=data_params.split,
+    )
 
-    if dataset_config.preprocessing_function_name:
+    if data_params.preprocessing_function_name:
         preprocessing_fn = build_prompt_generation_fn(
-            dataset_config.preprocessing_function_name, tokenizer
+            data_params.preprocessing_function_name, tokenizer
         )
 
         dataset = dataset.map(
-            preprocessing_fn, **dataset_config.preprocessing_function_kwargs
+            preprocessing_fn, **data_params.preprocessing_function_kwargs
         )
 
     return dataset

@@ -31,6 +31,17 @@
             "justMyCode": true
         },
         {
+            "name": "LeMa - Pretrain From Config Example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.train",
+            "args": [
+                "-c",
+                "configs/lema/gpt2.pt.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "LeMa - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",

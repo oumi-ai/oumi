@@ -92,11 +92,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, config.training.enable_gradient_checkpointing, config.peft
         )
 
+    # Enable gradients for input embeddings
     if config.training.enable_gradient_checkpointing:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(dataset_config=config.data, tokenizer=tokenizer)
+    dataset = build_dataset(config.data, tokenizer)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
