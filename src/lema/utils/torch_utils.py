@@ -48,7 +48,9 @@ def log_devices_info() -> None:
         mem_free, mem_total = torch.cuda.mem_get_info(i)
         mem_allocated = torch.cuda.memory_allocated(i)
         mem_reserved = torch.cuda.memory_reserved(i)
-        clock_rate = torch.cuda.clock_rate(i)
+        clock_rate = (
+            torch.cuda.clock_rate(i) if hasattr(torch.cuda, "clock_rate") else 0
+        )
         capability = torch.cuda.get_device_capability(i)
         logger.info(
             f"device({i})='{device_name}' "
