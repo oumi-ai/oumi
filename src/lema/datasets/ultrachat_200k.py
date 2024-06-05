@@ -45,8 +45,7 @@ def maybe_insert_system_message(messages, tokenizer):
         messages.insert(0, {"role": "system", "content": ""})
     else:
         lema.logging.logger.warning(
-            "Requested to add an empty system message using a \
-                                     template"
+            "Requested to add an empty system message using a template."
         )
 
 
@@ -81,7 +80,7 @@ def apply_chat_template(
         carrying the `messages` to the tokenizer's chat format.
     """
     if task in ["generation"]:
-        raise NotImplementedError("currently only sft implementation is supported")
+        raise NotImplementedError("currently only sft implementation is supported.")
 
     if task in ["sft", "generation"]:
         messages = example["messages"]

@@ -163,36 +163,34 @@ class PeftParams:
     # Lora Params
     lora_r: int = field(
         default=16,
-        metadata={"help": ("LoRA R value.")},
+        metadata={"help": "LoRA R value."},
     )
     lora_alpha: int = field(
         default=16,
-        metadata={"help": ("LoRA alpha.")},
+        metadata={"help": "LoRA alpha."},
     )
     lora_dropout: float = field(
         default=0.05,
-        metadata={"help": ("LoRA dropout.")},
+        metadata={"help": "LoRA dropout."},
     )
-
     lora_target_modules: Optional[List[str]] = field(
         default=None,
-        metadata={"help": ("LoRA target modules.")},
+        metadata={"help": "LoRA target modules."},
     )
     lora_modules_to_save: Optional[List[str]] = field(
         default=None,
-        metadata={"help": ("Model layers to unfreeze & train.")},
+        metadata={"help": "Model layers to unfreeze and train."},
     )
-
     lora_bias: str = field(
         default="none",
         metadata={
             "help": (
-                "Bias type for Lora. Can be 'none', 'all' or 'lora_only'. \
-                           If 'all' or 'lora_only', the corresponding biases will \
-                           be updated during training. Be aware that this means that, \
-                           even when disabling the adapters, the model will not \
-                           produce the same output as the base model would have \
-                           without adaptation."
+                "Bias type for Lora. Can be 'none', 'all' or 'lora_only'. "
+                "If 'all' or 'lora_only', the corresponding biases will "
+                "be updated during training. Be aware that this means that, "
+                "even when disabling the adapters, the model will not "
+                "produce the same output as the base model would have "
+                "without adaptation."
             )
         },
     )  # TODO consider adding attribution to:
