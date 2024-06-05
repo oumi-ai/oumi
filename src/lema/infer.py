@@ -55,36 +55,45 @@ def main():
     #
     # Run inference
     #
-    infer(cast(InferenceConfig, config), interactive)
+    infer_interactive(cast(InferenceConfig, config))
 
 
-def infer(config: InferenceConfig, interactive: bool = False) -> None:
-    """Evaluate a model using the provided configuration."""
+def infer_interactive(config: InferenceConfig) -> None:
+    """Interactively provide the model response for a user-provided input."""
+    input_text = input("Enter your input prompt: ")
+    outputs_decoded = infer(
+        config,
+        [
+            input_text,
+        ],
+    )
+    print(outputs_decoded[0])
+
+
+# TODO: Support writing predictions to files.
+# TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
+def infer(config: InferenceConfig, input_batch):
+    """Run batch inference for a model, using the provided configuration."""
     tokenizer = build_tokenizer(config.model)
-
     model = build_model(config)
 
-    input_texts = []
-    if interactive:
-        input_text = input("Enter your input prompt: ")
-        input_texts.append(input_text)
-    else:
-        # TODO: Support reading inputs from datasets.
-        raise NotImplementedError("Non-interactive inference is not implemented yet")
+    # Tokenization of input_batch.
+    input_batch_tokenized = tokenizer(input_batch, return_tensors="pt")
 
-    inputs = tokenizer(input_texts, return_tensors="pt")
-
+    # Generate model outputs.
     model_device = next(model.parameters()).device
-    inputs = inputs.to(model_device)
+    input_batch_tokenized = input_batch_tokenized.to(model_device)
+    outputs = model.generate(
+        **input_batch_tokenized, max_new_tokens=config.generation.max_new_tokens
+    )
 
-    outputs = model.generate(**inputs, max_new_tokens=config.generation.max_new_tokens)
-
-    # TODO: Support writing predictions to files.
-    # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
+    # Decode the outputs.
+    outputs_decoded = []
     for input_idx in range(outputs.data.size(dim=0)):
-        print(f"Prompt: {input_texts[input_idx]}")
-        for token_id in outputs.data[input_idx]:
-            print(f"| | {token_id:5d} | {tokenizer.decode(token_id):8s}")
+        output = "".join(f"{tokenizer.decode(id)}" for id in outputs.data[input_idx])
+        outputs_decoded.append(output)
+
+    return outputs_decoded
 
 
 if __name__ == "__main__":

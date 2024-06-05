@@ -1,7 +1,10 @@
 import pytest
 
-from lema import infer
+from lema import infer, infer_interactive
 from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
+
+FIXED_PROMPT = "Hello world!"
+FIXED_RESPONSE = "Hello world!\n\nI'm not"
 
 
 def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
@@ -16,10 +19,8 @@ def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
     )
 
     # Simulate the user entering "Hello world!" in the terminal:
-    monkeypatch.setattr("builtins.input", lambda _: "Hello world!")
-    infer(config, interactive=True)
-
-    # TODO: Change "infer" interface to return output for testing.
+    monkeypatch.setattr("builtins.input", lambda _: FIXED_PROMPT)
+    infer_interactive(config)
 
 
 def test_basic_infer_non_interactive():
@@ -33,9 +34,23 @@ def test_basic_infer_non_interactive():
         ),
     )
 
-    with pytest.raises(NotImplementedError) as exception_info:
-        infer(config, interactive=False)
-
-    assert str(exception_info.value) == (
-        "Non-interactive inference is not implemented yet"
+    output = infer(
+        config,
+        [
+            FIXED_PROMPT,
+        ],
     )
+    assert output == [
+        FIXED_RESPONSE,
+    ]
+    output = infer(
+        config,
+        [
+            FIXED_PROMPT,
+            FIXED_PROMPT,
+        ],
+    )
+    assert output == [
+        FIXED_RESPONSE,
+        FIXED_RESPONSE,
+    ]
