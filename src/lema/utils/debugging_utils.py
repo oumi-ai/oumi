@@ -5,6 +5,8 @@ try:
 except ModuleNotFoundError:
     pynvml = None
 
+# TODO: Add support for `amdsmi.amdsmi_init()`` for AMD GPUs
+
 
 def get_nvidia_gpu_memory_utilization() -> float:
     """Returns amount of memory being used on an Nvidia GPU in MB.
