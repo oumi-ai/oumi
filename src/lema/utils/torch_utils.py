@@ -48,13 +48,10 @@ def log_devices_info() -> None:
         mem_free, mem_total = torch.cuda.mem_get_info(i)
         mem_allocated = torch.cuda.memory_allocated(i)
         mem_reserved = torch.cuda.memory_reserved(i)
-        clock_rate = (
-            torch.cuda.clock_rate(i) if hasattr(torch.cuda, "clock_rate") else 0
-        )
         capability = torch.cuda.get_device_capability(i)
         logger.info(
             f"device({i})='{device_name}' "
-            f"ClockRate: {clock_rate} Capability: {capability} "
+            f"Capability: {capability} "
             f"Memory: [Total: {_mem_to_gb(mem_total)}GB "
             f"Free: {_mem_to_gb(mem_free)}GB "
             f"Allocated: {_mem_to_gb(mem_allocated)}GB "
