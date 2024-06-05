@@ -95,15 +95,14 @@ def apply_chat_template(
         )
     else:
         raise ValueError(
-            f"Task {task} not supported, please ensure that the provided \
-            task is one of ['sft', 'generation']"
+            f"Task {task} not supported, please ensure that the provided task is one of ['sft', 'generation']"  # noqa TODO: understand pyright issue with \
         )
     return example
 
 
 def trl_sft_ultrachat_200k_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
-) -> Callable[Dict, Dict]:
+) -> Callable[..., Dict]:
     """Build a preprocessing function for a TRL SFT (chat) trainer."""
 
     def prompt_generation_fn(samples: Dict) -> dict:

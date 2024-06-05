@@ -1,6 +1,5 @@
 import os
 import os.path as osp
-
 from typing import Union
 
 import transformers
@@ -10,7 +9,6 @@ from transformers import GPTQConfig
 from lema.core.models.sample import SampleConfig, SampleModel, get_tokenizer
 from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
 from lema.logging import logger
-
 
 # FIXME: This is a hack. It will be replaced with an actual registry.
 FAKE_REGISTRY = {
@@ -146,6 +144,7 @@ def build_peft_model(
         lora_alpha=peft_config.lora_alpha,
         lora_dropout=peft_config.lora_dropout,
         target_modules=peft_config.lora_target_modules,
+        modules_to_save=peft_config.lora_target_modules,
         bias=peft_config.lora_bias,  # type: ignore
         task_type=peft_config.lora_task_type,
     )

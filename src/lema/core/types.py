@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, cast
 
 import torch
 import transformers
@@ -155,11 +155,42 @@ class ModelParams:
 @dataclass
 class PeftParams:
     # Lora Params
-    lora_r: int = 16
-    lora_alpha: int = 16
-    lora_dropout: float = 0.05
-    lora_target_modules: Optional[List[str]] = None
-    lora_bias: str = "none"
+    lora_r: int = field(
+        default=16,
+        metadata={"help": ("LoRA R value.")},
+    )
+    lora_alpha: int = field(
+        default=16,
+        metadata={"help": ("LoRA alpha.")},
+    )
+    lora_dropout: float = field(
+        default=0.05,
+        metadata={"help": ("LoRA dropout.")},
+    )
+
+    lora_target_modules: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": ("LoRA target modules.")},
+    )
+    lora_modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": ("Model layers to unfreeze & train.")},
+    )
+    lora_bias: Literal["none", "all", "lora_only"] = field(
+        default="none",
+        metadata={
+            "help": (
+                "Bias type for Lora. Can be 'none', 'all' or 'lora_only'. \
+                           If 'all' or 'lora_only', the corresponding biases will \
+                           be updated during training. Be aware that this means that, \
+                           even when disabling the adapters, the model will not \
+                           produce the same output as the base model would have \
+                           without adaptation."
+            )
+        },
+    )  # TODO consider adding attribution to:
+    # https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
