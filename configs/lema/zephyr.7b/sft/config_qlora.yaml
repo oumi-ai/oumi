@@ -1,0 +1,54 @@
+## Full specs to make Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # pylint: disable=invalid-name
+## External training code inspiration:
+## https://github.com/huggingface/alignment-handbook/blob/main/recipes/zephyr-7b-beta/sft/config_full.yaml # pylint: disable=invalid-name
+# TODO add: packing: True, seed: 42
+
+model:
+  model_name: mistralai/Mistral-7B-v0.1
+  trust_remote_code: True
+  torch_dtype_str: bfloat16
+  model_max_length: 2048
+  chat_template: zephyr
+
+data:
+  dataset_name: HuggingFaceH4/ultrachat_200k
+  split: train_sft
+  preprocessing_function_name: trl_sft_ultrachat_200k
+  preprocessing_function_kwargs:
+    num_proc: 6
+    batched: false
+  trainer_kwargs:
+    dataset_text_field: text
+    max_seq_length: ${model.model_max_length}
+
+training:
+  optimizer: adamw_torch
+  use_peft: true
+  trainer_type: TRL_SFT
+  enable_gradient_checkpointing: true
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+  learning_rate: 2.0e-04
+  lr_scheduler_type: cosine
+  output_dir: output/zephyr-7b-sft-qlora
+  warmup_ratio: 0.1
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  packing: true # Used only in case `dataset_text_field` is passed above in trainer_kwargs
+  max_steps: -1
+  num_train_epochs: 1
+
+peft:
+  q_lora: true
+  q_lora_bits: 4
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
