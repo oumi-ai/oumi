@@ -46,7 +46,7 @@ def main() -> None:
     3. Default arguments values defined in the data class
     """
     # Load configuration
-    config_path, verbose, arg_list = parse_cli()
+    config_path, _, arg_list = parse_cli()
 
     limit_per_process_memory()
     device_cleanup()
