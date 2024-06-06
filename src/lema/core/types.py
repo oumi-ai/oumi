@@ -192,10 +192,12 @@ class PeftParams:
                 "even when disabling the adapters, the model will not "
                 "produce the same output as the base model would have "
                 "without adaptation."
+                "NOTE: see: "
+                "https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py"
+                "for more details."
             )
         },
-    )  # TODO consider adding attribution to:
-    # https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
+    )
 
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
