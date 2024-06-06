@@ -57,3 +57,28 @@ def log_devices_info() -> None:
             f"Allocated: {_mem_to_gb(mem_allocated)}GB "
             f"Cached: {_mem_to_gb(mem_reserved)}GB]"
         )
+
+
+def print_trainable_parameters(model: torch.nn.Module) -> None:
+    """Prints the number of trainable parameters in the model.
+
+    Args:
+        model: The neural network.
+
+    Note: original code:
+    https://github.com/huggingface/peft/blob/main/examples/fp4_finetuning/finetune_fp4_opt_bnb_peft.py
+
+    TODO: Use it with our logger.
+    """
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    print(
+        (
+            f"Trainable params: {trainable_params} || All params: {all_param} "
+            f"|| Trainable%: {100 * trainable_params / all_param :.4f}"
+        )
+    )

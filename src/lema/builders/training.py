@@ -31,25 +31,3 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
         return lambda *args, **kwargs: Trainer(*args, **kwargs)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
-
-
-def print_trainable_parameters(model):
-    """Prints the number of trainable parameters in the model.
-
-    Note: original code:
-    https://github.com/huggingface/peft/blob/main/examples/fp4_finetuning/finetune_fp4_opt_bnb_peft.py
-
-    TODO: Use it with our logger.
-    """
-    trainable_params = 0
-    all_param = 0
-    for _, param in model.named_parameters():
-        all_param += param.numel()
-        if param.requires_grad:
-            trainable_params += param.numel()
-    print(
-        (
-            f"Trainable params: {trainable_params} || All params: {all_param} "
-            f"|| Trainable%: {100 * trainable_params / all_param :.4f}"
-        )
-    )
