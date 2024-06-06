@@ -35,7 +35,7 @@ your own account.
 2. Clone your fork locally, and add the LeMa repo as a remote repository:
 
 <!--pytest.mark.skip-->
-```bash
+```shell
 git clone git@github.com:<github_id>/openlema/lema.git
 cd ./lema/
 git remote add upstream https://github.com/openlema/lema.git
@@ -44,7 +44,7 @@ git remote add upstream https://github.com/openlema/lema.git
 3. Create a branch, and make your proposed changes.
 
 <!--pytest.mark.skip-->
-```bash
+```shell
 git checkout -b my-awesome-new-feature
 ```
 
@@ -66,7 +66,10 @@ Please do make sure you have it installed as described [above](#prerequisites).
 
 To test your changes locally, run:
 
-* `cd ./tests/; pytest -s`
+```shell
+cd ./tests/
+pytest -s
+```
 
 To run pre-commit hooks manually, run `pre-commit run --all-files`
 

@@ -6,7 +6,7 @@ Significant portion of code was copied from:
 https://github.com/huggingface/alignment-handbook/blob/main/src/alignment/data.py#L28
 """
 
-from typing import Callable, Literal
+from typing import Callable, Dict, Literal
 
 from transformers import PreTrainedTokenizerBase
 
@@ -45,8 +45,7 @@ def maybe_insert_system_message(messages, tokenizer):
         messages.insert(0, {"role": "system", "content": ""})
     else:
         lema.logging.logger.warning(
-            "Requested to add an empty system message using a \
-                                     template"
+            "Requested to add an empty system message using a template."
         )
 
 
@@ -81,7 +80,7 @@ def apply_chat_template(
         carrying the `messages` to the tokenizer's chat format.
     """
     if task in ["generation"]:
-        raise NotImplementedError("currently only sft implementation is supported")
+        raise NotImplementedError("currently only sft implementation is supported.")
 
     if task in ["sft", "generation"]:
         messages = example["messages"]
@@ -103,7 +102,7 @@ def apply_chat_template(
 
 def trl_sft_ultrachat_200k_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
-) -> Callable:
+) -> Callable[..., Dict]:
     """Build a preprocessing function for a TRL SFT (chat) trainer."""
 
     def prompt_generation_fn(samples) -> dict:
