@@ -35,7 +35,7 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: false
   packing: true # Used only in case `dataset_text_field` is passed above in trainer_kwargs
-  max_steps: -1
+  max_steps: 2 # debugging
   num_train_epochs: 1
 
 peft:
