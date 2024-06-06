@@ -18,24 +18,23 @@ lema is a learning machines modeling platform that allows you to build and train
 
 ## Dev Environment Setup
 
-
-1. Install Miniconda
+### Install Miniconda
 
    https://docs.anaconda.com/free/miniconda/miniconda-install/
 
 [comment]: <> (This is a package/environment manager that we mainly need to pull all the relevant python packages via pip)
 
 
-2. Create a new environment for lema and activate it
+### Create a new environment for lema and activate it
 
    ```
    conda create -n lema python=3.11
    conda activate lema
    ```
 
-3. Install GitHub CLI
+### Install GitHub CLI
 
-3.a. **Mac**
+#### Instructions for **Mac**
 
    Install Homebrew (the command below was copied from www.brew.sh)
 
@@ -49,7 +48,7 @@ lema is a learning machines modeling platform that allows you to build and train
    brew install gh
    ```
 
-3.b. **Linux** (including [WSL](https://learn.microsoft.com/en-us/windows/wsl/))
+#### Instructions for **Linux**, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
 
   Follow https://github.com/cli/cli?tab=readme-ov-file#conda
 
@@ -57,13 +56,13 @@ lema is a learning machines modeling platform that allows you to build and train
    conda install gh --channel conda-forge
    ```
 
-4. Authorize Github CLI (easier when using SSH protocol)
+### Authorize Github CLI (easier when using SSH protocol)
 
    ```
    gh auth login
    ```
 
-5. Set your Github name and email
+### Set your Github name and email
 
    ```
    git config --global user.name "YOUR_NAME"
@@ -71,26 +70,26 @@ lema is a learning machines modeling platform that allows you to build and train
 
    ```
 
-6. Clone the lema repository
+### Clone the lema repository
 
    ```
    gh repo clone openlema/lema
    ```
 
-7. Install lema package and its dependencies
+### Install lema package and its dependencies
 
    ```
    cd lema
    pip install -e '.[all]'
    ```
 
-8. Install pre-commit hooks
+### Install pre-commit hooks
 
    ```
    pre-commit install
    ```
 
-9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
+### [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
 
     ```
     alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
@@ -102,7 +101,7 @@ lema is a learning machines modeling platform that allows you to build and train
     lema
     ```
 
-10. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management.
+### [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management.
 
 ## User Setup
 
