@@ -1,7 +1,10 @@
 import pytest
 
-from lema import infer
+from lema import infer, infer_interactive
 from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
+
+FIXED_PROMPT = "Hello world!"
+FIXED_RESPONSE = "Hello world!\n\nI'm not"
 
 
 def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
@@ -16,13 +19,12 @@ def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
     )
 
     # Simulate the user entering "Hello world!" in the terminal:
-    monkeypatch.setattr("builtins.input", lambda _: "Hello world!")
-    infer(config, interactive=True)
-
-    # TODO: Change "infer" interface to return output for testing.
+    monkeypatch.setattr("builtins.input", lambda _: FIXED_PROMPT)
+    infer_interactive(config)
 
 
-def test_basic_infer_non_interactive():
+@pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
+def test_basic_infer_non_interactive(num_batches, batch_size):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="openai-community/gpt2",
@@ -33,9 +35,19 @@ def test_basic_infer_non_interactive():
         ),
     )
 
-    with pytest.raises(NotImplementedError) as exception_info:
-        infer(config, interactive=False)
+    input = []
+    for _ in range(num_batches):
+        batch_input = []
+        for _ in range(batch_size):
+            batch_input.append(FIXED_PROMPT)
+        input.append(batch_input)
+    output = infer(config, input)
 
-    assert str(exception_info.value) == (
-        "Non-interactive inference is not implemented yet"
-    )
+    expected_output = []
+    for _ in range(num_batches):
+        batch_output = []
+        for _ in range(batch_size):
+            batch_output.append(FIXED_RESPONSE)
+        expected_output.append(batch_output)
+
+    assert output == expected_output
