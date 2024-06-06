@@ -74,6 +74,13 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
     else:
         quantization_config = None
 
+    use_cache = True
+    if (
+        isinstance(config, TrainingConfig)
+        and config.training.enable_gradient_checkpointing
+    ):
+        use_cache = False
+
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
         torch_dtype=config.model.torch_dtype(),
@@ -81,6 +88,7 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         pretrained_model_name_or_path=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
         quantization_config=quantization_config,
+        use_cache=use_cache,
         **kwargs,
     )
 
