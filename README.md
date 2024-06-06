@@ -38,13 +38,13 @@ lema is a learning machines modeling platform that allows you to build and train
 
    Install Homebrew (the command below was copied from www.brew.sh)
 
-   ```
+   ```shell
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
 
    Then follow "Next steps" (shown after installation) to add `brew` into `.zprofile`
 
-   ```
+   ```shell
    brew install gh
    ```
 
@@ -52,54 +52,54 @@ lema is a learning machines modeling platform that allows you to build and train
 
   Follow https://github.com/cli/cli?tab=readme-ov-file#conda
 
-   ```
+   ```shell
    conda install gh --channel conda-forge
    ```
 
 ### 4. Authorize Github CLI (easier when using SSH protocol)
 
-   ```
+   ```shell
    gh auth login
    ```
 
 ### 5. Set your Github name and email
 
-   ```
+   ```shell
    git config --global user.name "YOUR_NAME"
    git config --global user.email YOUR_USERNAME@learning-machines.ai
-
    ```
 
 ### 6. Clone the lema repository
 
-   ```
+   ```shell
    gh repo clone openlema/lema
    ```
 
 ### 7. Install lema package and its dependencies
 
-   ```
+   ```shell
    cd lema
    pip install -e '.[all]'
    ```
 
 ### 8. Install pre-commit hooks
 
-   ```
+   ```shell
    pre-commit install
    ```
 
 ### 9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
 
-    ```
-    alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
-    ```
+   ```shell
+   alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
+   ```
 
-    Ensure that this works with:
-    ```
-    source ~/{.zshrc or .bashrc}
-    lema
-    ```
+   Ensure that this works with:
+
+   ```shell
+   source ~/{.zshrc or .bashrc}
+   lema
+   ```
 
 ### 10. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management.
 
@@ -111,7 +111,7 @@ To install lema, you can use pip:
 
 ## Training on a cloud cluster
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
-```python
+```shell
 pip install lema[cloud]
 ```
 
@@ -120,27 +120,27 @@ Then setup your cloud credentials:
 - [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
 
 Your environment should be ready! Use this to check:
-```python
+```shell
 sky check
 ```
 
 You can look at the existing clusters with the following command:
-```python
+```shell
 sky status
 ```
 
 To see the available GPUs, you can use the following command:
-```python
+```shell
 sky show-gpus
 ```
 
 To launch a job on the cloud, you can use the following command:
-```python
+```shell
 # edit the configs/skypilot/sky.yaml file to your needs
 sky launch -c lema-cluster configs/skypilot/sky.yaml
 ```
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually, or use the following to automatically take it down after 10 minutes of inactivity:
-```python
+```shell
 sky autostop lema-cluster -i 10
 ```
