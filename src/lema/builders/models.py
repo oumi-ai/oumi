@@ -54,9 +54,18 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         device_map = "cuda"
     logger.info(f"Building model using device_map: {device_map}...")
 
+    # TODO - See https://github.com/orgs/openlema/projects/1?pane=issue&itemId=66471991
+    use_cache = True
+    if (
+        isinstance(config, TrainingConfig)
+        and config.training.enable_gradient_checkpointing
+    ):
+        use_cache = False
+
     hf_config = transformers.AutoConfig.from_pretrained(
         config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
+        use_cache=use_cache,
     )
 
     if (
@@ -74,13 +83,6 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
     else:
         quantization_config = None
 
-    use_cache = True
-    if (
-        isinstance(config, TrainingConfig)
-        and config.training.enable_gradient_checkpointing
-    ):
-        use_cache = False
-
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
         torch_dtype=config.model.torch_dtype(),
@@ -88,7 +90,6 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         pretrained_model_name_or_path=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
         quantization_config=quantization_config,
-        use_cache=use_cache,
         **kwargs,
     )
 
