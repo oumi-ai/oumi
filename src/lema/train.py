@@ -46,7 +46,7 @@ def main() -> None:
     3. Default arguments values defined in the data class
     """
     # Load configuration
-    config_path, verbose, arg_list = parse_cli()
+    config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
     limit_per_process_memory()
     device_cleanup()
@@ -97,7 +97,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(config.data, tokenizer)
+    dataset = build_dataset(config, tokenizer)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(

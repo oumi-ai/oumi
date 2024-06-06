@@ -7,6 +7,8 @@ import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
+_DATASET_TEXT_FIELD = "dataset_text_field"
+
 
 #
 # Training Params
@@ -114,8 +116,15 @@ class DataParams:
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
     dataset_config: Optional[str] = None
-    streaming: bool = False
     split: str = "train"
+    stream: bool = False
+
+    # Whether to pack the text into constant-length chunks,
+    # each the size of the model's max input length.
+    # This will stream the dataset, and tokenize on the fly
+    # if the dataset isn't already tokenized (i.e. has an `input_ids` column).
+    # Requires `stream` to be set to True.
+    pack: bool = False
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -125,7 +134,7 @@ class DataParams:
         dict: contains the default set params.
         """
         defaults = dict()
-        defaults["batched"] = True  # Note the default of hugginface is False.
+        defaults["batched"] = True  # Note the default of huggingface is False.
         return defaults
 
     preprocessing_function_name: Optional[str] = None
@@ -133,6 +142,24 @@ class DataParams:
         default_factory=_default_factory_preprocessing_kwargs
     )
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    def get_dataset_text_field(self) -> Optional[str]:
+        """Get the `dataset_text_field` value if present."""
+        return self.trainer_kwargs.get(_DATASET_TEXT_FIELD)
+
+    def __post_init__(self):
+        """Verify params if packing is enabled."""
+        if self.pack:
+            if not self.stream:
+                raise ValueError("`stream` must be enabled if `pack` is enabled.")
+            if (
+                not self.preprocessing_function_name
+                and _DATASET_TEXT_FIELD not in self.trainer_kwargs
+            ):
+                raise ValueError(
+                    "Either `trainer_kwargs['dataset_text_field']` "
+                    "or `preprocessing_function_name` must be specified."
+                )
 
 
 @dataclass
@@ -161,11 +188,43 @@ class ModelParams:
 @dataclass
 class PeftParams:
     # Lora Params
-    lora_r: int = 16
-    lora_alpha: int = 16
-    lora_dropout: float = 0.05
-    lora_target_modules: Optional[List[str]] = None
-    lora_bias: str = "none"
+    lora_r: int = field(
+        default=16,
+        metadata={"help": "LoRA R value."},
+    )
+    lora_alpha: int = field(
+        default=16,
+        metadata={"help": "LoRA alpha."},
+    )
+    lora_dropout: float = field(
+        default=0.05,
+        metadata={"help": "LoRA dropout."},
+    )
+    lora_target_modules: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "LoRA target modules."},
+    )
+    lora_modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "Model layers to unfreeze and train."},
+    )
+    lora_bias: str = field(
+        default="none",
+        metadata={
+            "help": (
+                "Bias type for Lora. Can be 'none', 'all' or 'lora_only'. "
+                "If 'all' or 'lora_only', the corresponding biases will "
+                "be updated during training. Be aware that this means that, "
+                "even when disabling the adapters, the model will not "
+                "produce the same output as the base model would have "
+                "without adaptation."
+                "NOTE: see: "
+                "https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py"
+                "for more details."
+            )
+        },
+    )
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
