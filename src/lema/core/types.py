@@ -7,6 +7,8 @@ import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
+_DATASET_TEXT_FIELD = "dataset_text_field"
+
 
 #
 # Training Params
@@ -114,8 +116,15 @@ class DataParams:
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
     dataset_config: Optional[str] = None
-    streaming: bool = False
+    stream: bool = False
     split: str = "train"
+
+    # Whether to pack the text into constant-length chunks,
+    # each the size of the model's max input length.
+    # This will stream the dataset, and tokenize on the fly
+    # if the dataset isn't already tokenized (i.e. has an `input_ids` column).
+    # Requires `stream` to be set to True.
+    pack: bool = False
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -133,6 +142,24 @@ class DataParams:
         default_factory=_default_factory_preprocessing_kwargs
     )
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    def get_dataset_text_field(self) -> Optional[str]:
+        """Get the `dataset_text_field` value if present."""
+        return self.trainer_kwargs.get(_DATASET_TEXT_FIELD)
+
+    def __post_init__(self):
+        """Verify params if packing is enabled."""
+        if self.pack:
+            if not self.stream:
+                raise ValueError("`stream` must be enabled if `pack` is enabled.")
+            if (
+                not self.preprocessing_function_name
+                and _DATASET_TEXT_FIELD not in self.trainer_kwargs
+            ):
+                raise ValueError(
+                    "Either `trainer_kwargs['dataset_text_field']` "
+                    "or `preprocessing_function_name` must be specified."
+                )
 
 
 @dataclass

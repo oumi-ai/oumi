@@ -97,7 +97,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(config.data, tokenizer)
+    dataset = build_dataset(config, tokenizer)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
