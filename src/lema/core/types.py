@@ -59,6 +59,7 @@ class TrainingParams:
     adam_epsilon: float = 1e-08
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    packing: Optional[bool] = False
 
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
