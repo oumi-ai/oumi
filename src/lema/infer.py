@@ -3,11 +3,11 @@ from typing import List, cast
 
 from omegaconf import OmegaConf
 
-from .builders import (
+from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from .core.types import InferenceConfig
+from lema.core.types import InferenceConfig
 
 
 def parse_cli():
