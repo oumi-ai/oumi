@@ -51,6 +51,8 @@ lema is a learning machines modeling platform that allows you to build and train
 
 3.b. **Linux** (including [WSL](https://learn.microsoft.com/en-us/windows/wsl/))
 
+  Follow https://github.com/cli/cli?tab=readme-ov-file#conda
+
    ```
    conda install gh --channel conda-forge
    ```
