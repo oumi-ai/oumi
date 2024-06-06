@@ -59,6 +59,7 @@ class TrainingParams:
     adam_epsilon: float = 1e-08
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    packing: Optional[bool] = False
 
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
@@ -161,11 +162,43 @@ class ModelParams:
 @dataclass
 class PeftParams:
     # Lora Params
-    lora_r: int = 16
-    lora_alpha: int = 16
-    lora_dropout: float = 0.05
-    lora_target_modules: Optional[List[str]] = None
-    lora_bias: str = "none"
+    lora_r: int = field(
+        default=16,
+        metadata={"help": "LoRA R value."},
+    )
+    lora_alpha: int = field(
+        default=16,
+        metadata={"help": "LoRA alpha."},
+    )
+    lora_dropout: float = field(
+        default=0.05,
+        metadata={"help": "LoRA dropout."},
+    )
+    lora_target_modules: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "LoRA target modules."},
+    )
+    lora_modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "Model layers to unfreeze and train."},
+    )
+    lora_bias: str = field(
+        default="none",
+        metadata={
+            "help": (
+                "Bias type for Lora. Can be 'none', 'all' or 'lora_only'. "
+                "If 'all' or 'lora_only', the corresponding biases will "
+                "be updated during training. Be aware that this means that, "
+                "even when disabling the adapters, the model will not "
+                "produce the same output as the base model would have "
+                "without adaptation."
+                "NOTE: see: "
+                "https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py"
+                "for more details."
+            )
+        },
+    )
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params

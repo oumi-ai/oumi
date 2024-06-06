@@ -4,7 +4,7 @@ from typing import Union
 
 import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import GPTQConfig
+from transformers import BitsAndBytesConfig
 
 # FIXME: The following import is NOT used, but is needed to populate the registry.
 import lema.core.models  # noqa: F401
@@ -64,9 +64,13 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         and config.training.use_peft
         and config.peft.q_lora
     ):
-        quantization_config = GPTQConfig(
-            bits=config.peft.q_lora_bits, disable_exllama=True
+        # TODO confirm bnb_4bit_compute_dtype must be config.model.torch_dtype always
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=config.peft.q_lora_bits == 4,
+            load_in_8bit=config.peft.q_lora_bits == 8,
+            bnb_4bit_compute_dtype=config.model.torch_dtype(),
         )
+
     else:
         quantization_config = None
 
@@ -141,6 +145,7 @@ def build_peft_model(
         lora_alpha=peft_params.lora_alpha,
         lora_dropout=peft_params.lora_dropout,
         target_modules=peft_params.lora_target_modules,
+        modules_to_save=peft_params.lora_modules_to_save,
         bias=peft_params.lora_bias,  # type: ignore
         task_type=peft_params.lora_task_type,
     )
