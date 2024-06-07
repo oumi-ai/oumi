@@ -21,6 +21,7 @@ data:
     batched: False
   trainer_kwargs:
     dataset_text_field: text
+    max_seq_length: ${model.model_max_length}
 
 training:
   optimizer: adamw_torch
