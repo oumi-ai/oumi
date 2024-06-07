@@ -1,0 +1,9 @@
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  tokenizer_name: "microsoft/Phi-3-mini-4k-instruct"
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+data:
+  dataset_name: "cais/mmlu"
+  split: "validation"

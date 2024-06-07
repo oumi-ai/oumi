@@ -9,11 +9,19 @@ from transformers import BitsAndBytesConfig
 # FIXME: The following import is NOT used, but is needed to populate the registry.
 import lema.core.models  # noqa: F401
 from lema.core.registry import REGISTRY
-from lema.core.types import InferenceConfig, ModelParams, PeftParams, TrainingConfig
+from lema.core.types import (
+    EvaluationConfig,
+    InferenceConfig,
+    ModelParams,
+    PeftParams,
+    TrainingConfig,
+)
 from lema.logging import logger
 
 
-def build_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
+def build_model(
+    config: Union[TrainingConfig, InferenceConfig, EvaluationConfig], **kwargs
+):
     """Build and return a model based on the provided LeMa configuration.
 
     Args:
@@ -41,7 +49,9 @@ def build_custom_model(custom_model_in_registry):
     return model
 
 
-def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kwargs):
+def build_huggingface_model(
+    config: Union[TrainingConfig, InferenceConfig, EvaluationConfig], **kwargs
+):
     """Download and build the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
