@@ -12,7 +12,7 @@ from lema.core.types import (
 )
 
 
-def test_basic_train():
+def test_train_basic():
     output_temp_dir = tempfile.mkdtemp()
 
     config: TrainingConfig = TrainingConfig(
@@ -38,7 +38,7 @@ def test_basic_train():
     train(config)
 
 
-def test_custom_train():
+def test_train_custom():
     output_temp_dir = tempfile.mkdtemp()
 
     config: TrainingConfig = TrainingConfig(
@@ -69,7 +69,7 @@ def test_custom_train():
 # Currently takes a long time to run because packing is very slow.
 # TODO: Change `skip` to `e2e` after #62 is fixed.
 @pytest.mark.skip
-def test_pack_train():
+def test_train_pack():
     output_temp_dir = tempfile.mkdtemp()
 
     config: TrainingConfig = TrainingConfig(
