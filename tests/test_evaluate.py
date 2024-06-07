@@ -9,9 +9,6 @@ def test_basic_evaluate():
         data=DataParams(
             dataset_name="yahma/alpaca-cleaned",
             preprocessing_function_name="alpaca",
-            trainer_kwargs={
-                "dataset_text_field": "prompt",
-            },
         ),
         model=ModelParams(
             model_name="openai-community/gpt2",
