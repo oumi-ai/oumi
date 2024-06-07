@@ -40,6 +40,9 @@ def main():
         config_path, arg_list, logger=logger
     )
 
+    #
+    # Run inference
+    #
     infer_interactive(config)
 
 
