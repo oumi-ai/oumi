@@ -84,7 +84,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
-        config.training.trainer_type
+        config.training.trainer_type, config.model.model_max_length
     )
 
     trainer = create_trainer_fn(
@@ -92,7 +92,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
-        **config.data.trainer_kwargs,
+        **kwargs,
     )
 
     logger.info("Starting training...")

@@ -1,7 +1,5 @@
 import tempfile
 
-import pytest
-
 from lema import train
 from lema.core.types import (
     DataParams,
@@ -51,6 +49,7 @@ def test_train_custom():
         model=ModelParams(
             model_name="learning-machines/sample",
             tokenizer_name="gpt2",
+            model_max_length=1024,
             trust_remote_code=False,
         ),
         training=TrainingParams(
@@ -69,7 +68,7 @@ def test_train_custom():
 
 # Currently takes a long time to run because packing is very slow.
 # TODO: Change `skip` to `e2e` after #62 is fixed.
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_train_pack():
     output_temp_dir = tempfile.mkdtemp()
 

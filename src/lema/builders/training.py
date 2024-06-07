@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Any, Callable, Dict, Optional, Type
 
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
@@ -6,11 +6,14 @@ from trl import DPOTrainer, SFTTrainer
 from lema.core.types import TrainerType
 
 
-def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
+def build_trainer(
+    trainer_type: TrainerType, max_seq_length: Optional[int]
+) -> Callable[..., Trainer]:
     """Builds a trainer creator functor based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
+        max_seq_length: Maximum sequence length (tokens).
 
     Returns:
         A builder function that can create an appropriate trainer based on the trainer
@@ -21,13 +24,22 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
         NotImplementedError: If the trainer type specified in the
             configuration is not supported.
     """
+
+    def _create_builder_fn(
+        cls: Type[Trainer], extra_args: Dict[str, Any]
+    ) -> Callable[..., Trainer]:
+        return lambda *args, **kwargs: cls(*args, **{**kwargs, **extra_args})
+
+    extra_args = {}
     if trainer_type == TrainerType.TRL_SFT:
-        return lambda *args, **kwargs: SFTTrainer(*args, **kwargs)
-
+        if max_seq_length is not None:
+            extra_args["max_seq_length"] = int(max_seq_length)
+        return _create_builder_fn(SFTTrainer, extra_args)
     elif trainer_type == TrainerType.TRL_DPO:
-        return lambda *args, **kwargs: DPOTrainer(*args, **kwargs)
-
+        if max_seq_length is not None:
+            extra_args["max_length"] = int(max_seq_length)
+        return _create_builder_fn(DPOTrainer, extra_args)
     elif trainer_type == TrainerType.HF:
-        return lambda *args, **kwargs: Trainer(*args, **kwargs)
+        return _create_builder_fn(Trainer, extra_args)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
