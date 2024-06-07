@@ -6,6 +6,7 @@ import torch
 import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
+from transformers.utils import is_flash_attn_2_available
 
 _DATASET_TEXT_FIELD = "dataset_text_field"
 
@@ -170,6 +171,7 @@ class ModelParams:
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None
+    attn_implementation: Optional[str] = None
 
     def torch_dtype(self):
         """Convert string dtype to torch.dtype."""
@@ -183,6 +185,23 @@ class ModelParams:
             return torch.float16
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
+
+    def use_flash_attention_2(self) -> bool:
+        """Checks if flash attention 2 was requested and can be used.
+
+        Note: Flash attention 2 paper https://arxiv.org/abs/2307.08691
+        """
+        if self.attn_implementation == "flash_attention_2":
+            if is_flash_attn_2_available():
+                return True
+            else:
+                # TODO add flash-attention-2 in optional dependecies (toml)
+                raise ValueError(
+                    "Flash attention 2 was requested "
+                    "but is not supported by the system."
+                )
+
+        return False
 
 
 @dataclass

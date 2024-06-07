@@ -66,6 +66,7 @@ def build_huggingface_model(config: Union[TrainingConfig, InferenceConfig], **kw
         config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
         use_cache=use_cache,
+        flash_attention_2=config.model.use_flash_attention_2(),
     )
 
     if (
