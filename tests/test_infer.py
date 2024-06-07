@@ -7,7 +7,7 @@ FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "Hello world!\n\nI'm not"
 
 
-def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
+def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="openai-community/gpt2",
@@ -24,7 +24,7 @@ def test_basic_infer_interactive(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
-def test_basic_infer_non_interactive(num_batches, batch_size):
+def test_infer_basic_non_interactive(num_batches, batch_size):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="openai-community/gpt2",

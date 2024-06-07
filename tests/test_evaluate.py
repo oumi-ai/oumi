@@ -4,7 +4,7 @@ from lema import evaluate
 from lema.core.types import DataParams, EvaluationConfig, ModelParams
 
 
-def test_basic_evaluate():
+def test_evaluate_basic():
     config: EvaluationConfig = EvaluationConfig(
         data=DataParams(
             dataset_name="yahma/alpaca-cleaned",
