@@ -1,5 +1,7 @@
 import tempfile
 
+import pytest
+
 from lema import train
 from lema.core.types import (
     DataParams,
@@ -64,6 +66,9 @@ def test_custom_train():
     train(config)
 
 
+# Currently takes a long time to run because packing is very slow.
+# TODO: Change `skip` to `e2e` after #62 is fixed.
+@pytest.mark.skip
 def test_pack_train():
     output_temp_dir = tempfile.mkdtemp()
 

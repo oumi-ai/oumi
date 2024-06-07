@@ -266,13 +266,15 @@ class TrainingConfig(BaseConfig):
         if self.training.trainer_type == TrainerType.TRL_SFT:
             if not self.data.text_col:
                 raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
+
+            # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
+            # `SFTTrainer`, and warn users if their value will be overridden.
             existing_dataset_text_field = self.data.trainer_kwargs.get(
                 "dataset_text_field"
             )
             if (
                 existing_dataset_text_field is not None
-                and existing_dataset_text_field != self.data.text_col
-            ):
+            ) and existing_dataset_text_field != self.data.text_col:
                 logger.warning(
                     "Overriding existing `dataset_text_field` value "
                     f'"{existing_dataset_text_field}" with "{self.data.text_col}"'
