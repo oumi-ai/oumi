@@ -7,7 +7,7 @@ import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
-_DATASET_TEXT_FIELD = "dataset_text_field"
+from lema.logging import logger
 
 
 #
@@ -30,7 +30,7 @@ class TrainerType(Enum):
 class TrainingParams:
     optimizer: str = "adamw_torch"
     use_peft: bool = False
-    trainer_type: TrainerType = TrainerType.TRL_SFT
+    trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
     per_device_train_batch_size: int = 8
@@ -137,29 +137,21 @@ class DataParams:
         defaults["batched"] = True  # Note the default of huggingface is False.
         return defaults
 
+    # The dataset column name containing the text to train on. Required for SFTTrainer.
+    text_col: Optional[str] = None
     preprocessing_function_name: Optional[str] = None
     preprocessing_function_kwargs: Dict[str, Any] = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    def get_dataset_text_field(self) -> Optional[str]:
-        """Get the `dataset_text_field` value if present."""
-        return self.trainer_kwargs.get(_DATASET_TEXT_FIELD)
-
     def __post_init__(self):
-        """Verify params if packing is enabled."""
+        """Verify params."""
         if self.pack:
             if not self.stream:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
-            if (
-                not self.preprocessing_function_name
-                and _DATASET_TEXT_FIELD not in self.trainer_kwargs
-            ):
-                raise ValueError(
-                    "Either `trainer_kwargs['dataset_text_field']` "
-                    "or `preprocessing_function_name` must be specified."
-                )
+            if not self.text_col:
+                raise ValueError("`text_col` must be specified if `pack` is enabled.")
 
 
 @dataclass
@@ -268,6 +260,26 @@ class TrainingConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
     training: TrainingParams = field(default_factory=TrainingParams)
     peft: PeftParams = field(default_factory=PeftParams)
+
+    def __post_init__(self):
+        """Verify/populate params."""
+        if self.training.trainer_type == TrainerType.TRL_SFT:
+            if not self.data.text_col:
+                raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
+
+            # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
+            # `SFTTrainer`, and warn users if their value will be overridden.
+            existing_dataset_text_field = self.data.trainer_kwargs.get(
+                "dataset_text_field"
+            )
+            if (
+                existing_dataset_text_field is not None
+            ) and existing_dataset_text_field != self.data.text_col:
+                logger.warning(
+                    "Overriding existing `dataset_text_field` value "
+                    f'"{existing_dataset_text_field}" with "{self.data.text_col}"'
+                )
+            self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
 
 
 @dataclass
