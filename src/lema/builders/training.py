@@ -28,7 +28,7 @@ def build_trainer(
     def _create_builder_fn(
         cls: Type[Trainer], extra_args: Dict[str, Any]
     ) -> Callable[..., Trainer]:
-        return lambda *args, **kwargs: cls(*args, **kwargs)
+        return lambda *args, **kwargs: cls(*args, **{**kwargs, **extra_args})
 
     extra_args = {}
     if trainer_type == TrainerType.TRL_SFT:
