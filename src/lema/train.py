@@ -92,7 +92,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
-        **kwargs,
+        **config.data.trainer_kwargs,
     )
 
     logger.info("Starting training...")
