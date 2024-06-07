@@ -6,8 +6,7 @@ model:
 data:
   dataset_name: "yahma/alpaca-cleaned"
   preprocessing_function_name: "alpaca"
-  trainer_kwargs:
-    dataset_text_field: "prompt"
+  text_col: "prompt"
 
 training:
   optimizer: "adamw_torch"
