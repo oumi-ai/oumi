@@ -271,8 +271,8 @@ class BaseConfig:
     ) -> T:
         """Load a configuration from various sources.
 
-        If both YAML and agument_listy are provided, then
-        parameters specified in arg_list have higher precedence.
+        If both YAML and arguments list are provided, then
+        parameters specified in `arg_list` have higher precedence.
 
         Args:
             config_path: The path to the YAML file.
@@ -286,11 +286,11 @@ class BaseConfig:
         # that all other configs are of this structured type as well.
         all_configs = [OmegaConf.structured(cls)]
 
-        # Override with configuration file if provided
+        # Override with configuration file if provided.
         if config_path is not None:
             all_configs.append(cls.from_yaml(config_path))
 
-        # Override with CLI arguments if provided
+        # Override with CLI arguments.
         all_configs.append(OmegaConf.from_cli(arg_list))
         try:
             # Merge and validate configs
