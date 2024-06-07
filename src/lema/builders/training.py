@@ -38,6 +38,8 @@ def build_trainer(
     elif trainer_type == TrainerType.TRL_DPO:
         if max_seq_length is not None:
             extra_args["max_length"] = int(max_seq_length)
+        # DPOTrainer also defines "max_prompt_length" and "max_target_length".
+        # How to handle that?
         return _create_builder_fn(DPOTrainer, extra_args)
     elif trainer_type == TrainerType.HF:
         return _create_builder_fn(Trainer, extra_args)
