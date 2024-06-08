@@ -162,7 +162,7 @@ def evaluate(config: EvaluationConfig) -> None:
         else:
             incorrect_answers_count += 1
 
-    print("Correct answers:", correct_answers_count, "of", len(dataset))
+    print(f"Correct answers: {correct_answers_count} of {len(dataset)}")
     print("Incorrect answers:", incorrect_answers_count, "of", len(dataset))
     print("Ambigiuous answers:", ambigious_answers_count, "of", len(dataset))
 
