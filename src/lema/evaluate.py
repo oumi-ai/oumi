@@ -150,7 +150,11 @@ def evaluate(config: EvaluationConfig) -> None:
     dataset_batched = batch(dataset, batch_size)
 
     # Run inference and then unbatch the model responses.
-    responses_batched = infer(config, dataset_batched)
+    responses_batched = infer(
+        model_params=config.model,
+        max_new_tokens=config.generation.max_new_tokens,
+        input=dataset_batched,
+    )
     responses = unbatch(responses_batched)
 
     # FIXME (3): Generalize answer extraction.

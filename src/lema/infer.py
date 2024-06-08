@@ -1,5 +1,5 @@
 import argparse
-from typing import List, Union, cast
+from typing import List, cast
 
 from omegaconf import OmegaConf
 from tqdm import tqdm
@@ -8,7 +8,7 @@ from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from lema.core.types import EvaluationConfig, InferenceConfig
+from lema.core.types import InferenceConfig, ModelParams
 
 
 def parse_cli():
@@ -63,8 +63,9 @@ def infer_interactive(config: InferenceConfig) -> None:
     """Interactively provide the model response for a user-provided input."""
     input_text = input("Enter your input prompt: ")
     model_response = infer(
-        config,
-        [
+        model_params=config.model,
+        max_new_tokens=config.generation.max_new_tokens,
+        input=[
             [
                 input_text,
             ],
@@ -76,19 +77,20 @@ def infer_interactive(config: InferenceConfig) -> None:
 # TODO: Support writing predictions to files.
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
-    config: Union[InferenceConfig, EvaluationConfig], input: List[List[str]]
+    model_params: ModelParams, max_new_tokens: int, input: List[List[str]]
 ) -> List[List[str]]:
     """Run batch inference for a model, using the provided configuration.
 
     Args:
-        config: The desired configuration for inference.
+        model_params: The configuration object containing the model parameters.
+        max_new_tokens: The maximum number of tokens to generate.
         input: A list of text prompts of shape (num_batches, batch_size).
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
-    tokenizer = build_tokenizer(config.model)
-    model = build_model(config)
+    tokenizer = build_tokenizer(model_params)
+    model = build_model(model_params)
     model_device = next(model.parameters()).device
 
     # Tokenization of input (in place, batch mode).
@@ -101,9 +103,7 @@ def infer(
     output = []
     with tqdm(total=len(input), desc="Generating Model Responses") as pbar:
         for batch in input:
-            output.append(
-                model.generate(**batch, max_new_tokens=config.generation.max_new_tokens)
-            )
+            output.append(model.generate(**batch, max_new_tokens=max_new_tokens))
             pbar.update()
 
     # Decode the outputs (batch mode).

@@ -1,6 +1,6 @@
 import os
 import os.path as osp
-from typing import Union
+from typing import Optional
 
 import transformers
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
@@ -9,35 +9,39 @@ from transformers import BitsAndBytesConfig
 # FIXME: The following import is NOT used, but is needed to populate the registry.
 import lema.core.models  # noqa: F401
 from lema.core.registry import REGISTRY
-from lema.core.types import (
-    EvaluationConfig,
-    InferenceConfig,
-    ModelParams,
-    PeftParams,
-    TrainingConfig,
-)
+from lema.core.types import ModelParams, PeftParams
 from lema.logging import logger
 
 
 def build_model(
-    config: Union[TrainingConfig, InferenceConfig, EvaluationConfig], **kwargs
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    use_peft: bool = False,
+    **kwargs,
 ):
     """Build and return a model based on the provided LeMa configuration.
 
     Args:
-        config: The configuration object containing model config.
+        model_params: The configuration object containing the model parameters.
+        peft_params: The configuration object containing the peft parameters.
+        use_peft: whether to build the model using PEFT.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
         model: The built model.
     """
     custom_model_in_registry = REGISTRY.get_model(
-        name=config.model.model_name, except_if_missing=False
+        name=model_params.model_name, except_if_missing=False
     )
     if custom_model_in_registry:
         return build_custom_model(custom_model_in_registry)
     else:
-        return build_huggingface_model(config, *kwargs)
+        return build_huggingface_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            use_peft=use_peft,
+            *kwargs,
+        )
 
 
 def build_custom_model(custom_model_in_registry):
@@ -50,7 +54,10 @@ def build_custom_model(custom_model_in_registry):
 
 
 def build_huggingface_model(
-    config: Union[TrainingConfig, InferenceConfig, EvaluationConfig], **kwargs
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    use_peft: bool = False,
+    **kwargs,
 ):
     """Download and build the model from the HuggingFace Hub."""
     # TODO: add device_map to config
@@ -65,31 +72,26 @@ def build_huggingface_model(
     logger.info(f"Building model using device_map: {device_map}...")
 
     hf_config = transformers.AutoConfig.from_pretrained(
-        config.model.model_name,
-        trust_remote_code=config.model.trust_remote_code,
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
     )
 
-    if (
-        isinstance(config, TrainingConfig)
-        and config.training.use_peft
-        and config.peft.q_lora
-    ):
-        # TODO confirm bnb_4bit_compute_dtype must be config.model.torch_dtype always
+    if use_peft and peft_params and peft_params.q_lora:
+        # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
         quantization_config = BitsAndBytesConfig(
-            load_in_4bit=config.peft.q_lora_bits == 4,
-            load_in_8bit=config.peft.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=config.model.torch_dtype(),
+            load_in_4bit=peft_params.q_lora_bits == 4,
+            load_in_8bit=peft_params.q_lora_bits == 8,
+            bnb_4bit_compute_dtype=model_params.torch_dtype(),
         )
-
     else:
         quantization_config = None
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         config=hf_config,
-        torch_dtype=config.model.torch_dtype(),
+        torch_dtype=model_params.torch_dtype(),
         device_map=device_map,
-        pretrained_model_name_or_path=config.model.model_name,
-        trust_remote_code=config.model.trust_remote_code,
+        pretrained_model_name_or_path=model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
         quantization_config=quantization_config,
         **kwargs,
     )

@@ -86,7 +86,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 
-    model = build_model(config, *kwargs)
+    model = build_model(
+        model_params=config.model,
+        peft_params=config.peft,
+        use_peft=config.training.use_peft,
+        *kwargs,
+    )
     if config.training.use_peft:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
