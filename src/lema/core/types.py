@@ -29,6 +29,7 @@ class TrainerType(Enum):
 
 @dataclass
 class TrainingParams:
+    # TODO convert into fields to add metadata?
     optimizer: str = "adamw_torch"
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.TRL_SFT
@@ -60,6 +61,13 @@ class TrainingParams:
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     adam_epsilon: float = 1e-08
+
+    # TODO We need to handle more ellegantly the precision(s).
+    fp16: bool = False  # 16-bit (mixed) precision training instead of 32-bit training
+
+    bf16: bool = False  # Whether to use bf16 16-bit (mixed) precision training instead
+    # of 32-bit training. Requires Ampere or higher NVIDIA architecture
+    # or using CPU or Ascend NPU.
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
@@ -93,6 +101,8 @@ class TrainingParams:
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
             include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,
+            fp16=self.fp16,
+            bf16=self.bf16,
         )
 
     def _get_hf_report_to(self) -> List[str]:

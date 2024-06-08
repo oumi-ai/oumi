@@ -41,6 +41,8 @@ training:
   max_steps: -1
   num_train_epochs: 1
   # use_cache # TODO figure out a leaner way to disable cache
+  fp16: false
+  bf16: true
 
 peft:
   q_lora: true
