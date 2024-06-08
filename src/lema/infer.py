@@ -88,10 +88,9 @@ def infer(
 
     # Generate model outputs (batch mode).
     output = []
-    with tqdm(total=len(input), desc="Generating Model Responses") as pbar:
-        for batch in input:
-            output.append(model.generate(**batch, max_new_tokens=max_new_tokens))
-            pbar.update()
+    for batch_index in tqdm(range(len(input)), desc="Generating Model Responses"):
+        batch = input[batch_index]
+        output.append(model.generate(**batch, max_new_tokens=max_new_tokens))
 
     # Decode the outputs (batch mode).
     output_decoded = []

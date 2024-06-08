@@ -162,9 +162,9 @@ def evaluate(config: EvaluationConfig) -> None:
         else:
             incorrect_answers_count += 1
 
-    print(f"Correct answers: {correct_answers_count} of {len(dataset)}")
-    print("Incorrect answers:", incorrect_answers_count, "of", len(dataset))
-    print("Ambigiuous answers:", ambigious_answers_count, "of", len(dataset))
+    logger.info(f"Correct answers: {correct_answers_count} of {len(dataset)}")
+    logger.info(f"Incorrect answers: {incorrect_answers_count} of {len(dataset)}")
+    logger.info(f"Ambigiuous answers: {ambigious_answers_count} of {len(dataset)}")
 
 
 if __name__ == "__main__":
