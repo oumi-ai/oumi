@@ -98,7 +98,7 @@ def evaluate(config: EvaluationConfig) -> None:
 
     # FIXME: Only evaluate a small portion for now for testing purposes.
     # FIXME: It seems that it's simpler to get rid of the complex `Dataset`
-    #        class at this point (for simplicicity) and cast to a list.
+    #        class at this point (for simplicity) and cast to a list.
     #        Re-evaluate this choice later.
     dataset = dataset.select(range(8))
     dataset_responses = [entry["answer"] for entry in dataset]  # type: ignore
