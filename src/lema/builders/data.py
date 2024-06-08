@@ -79,12 +79,16 @@ def build_dataset(
         dataset_kwargs = {}
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
-
+        # Our preprocessing functions take a dict as input and return a dict as output.
+        # formatting_func must return a str, so we fetch the target str from the dict.
+        if preprocessing_fn:
+            dataset_kwargs["formatting_func"] = lambda x: preprocessing_fn(x)[
+                data_params.text_col
+            ]
         dataset = ConstantLengthDataset(
             tokenizer,
             dataset,
-            dataset_text_field=data_params.get_dataset_text_field(),
-            formatting_func=preprocessing_fn,
+            dataset_text_field=data_params.text_col,
             **dataset_kwargs,
         )
     elif data_params.preprocessing_function_name:

@@ -9,10 +9,12 @@
             "args": [
                 "data.dataset_name=yahma/alpaca-cleaned",
                 "data.preprocessing_function_name=alpaca",
-                "data.trainer_kwargs.dataset_text_field=prompt",
+                "data.text_col=prompt",
                 "model.model_name=openai-community/gpt2",
                 "model.trust_remote_code=true",
-                "training.logging_steps=10",
+                "training.trainer_type=TRL_SFT",
+                "training.max_steps=3",
+                "training.logging_steps=3",
                 "training.enable_wandb=false",
                 "training.enable_tensorboard=false",
                 "training.output_dir=tmp"

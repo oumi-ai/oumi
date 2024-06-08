@@ -1,7 +1,6 @@
 import argparse
-from typing import List, cast
+from typing import List
 
-from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from lema.builders import (
@@ -9,6 +8,7 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import InferenceConfig, ModelParams
+from lema.logging import logger
 
 
 def parse_cli():
@@ -38,25 +38,12 @@ def main():
     # Load configuration
     config_path, interactive, arg_list = parse_cli()
 
-    # Start with dataclass default values and type annotations
-    all_configs = [OmegaConf.structured(InferenceConfig)]
+    config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
+        config_path, arg_list, logger=logger
+    )
 
-    # Override with configuration file if provided
-    if config_path is not None:
-        all_configs.append(InferenceConfig.from_yaml(config_path))
-
-    # Override with CLI arguments if provided
-    all_configs.append(OmegaConf.from_cli(arg_list))
-
-    # Merge and validate configs
-    config = OmegaConf.to_object(OmegaConf.merge(*all_configs))
-    if not isinstance(config, InferenceConfig):
-        raise TypeError("config is not InferenceConfig")
-
-    #
     # Run inference
-    #
-    infer_interactive(cast(InferenceConfig, config))
+    infer_interactive(config)
 
 
 def infer_interactive(config: InferenceConfig) -> None:

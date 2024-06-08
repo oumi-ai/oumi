@@ -1,10 +1,8 @@
 import argparse
 import re
 import string
-from typing import cast
 
 from datasets import Dataset, DatasetDict, load_dataset
-from omegaconf import OmegaConf
 
 from lema.core.types import EvaluationConfig
 from lema.infer import infer
@@ -34,27 +32,12 @@ def main() -> None:
     # Load configuration
     config_path, arg_list = parse_cli()
 
-    # Start with dataclass default values and type annotations
-    all_configs = [OmegaConf.structured(EvaluationConfig)]
+    config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
+        config_path, arg_list, logger=logger
+    )
 
-    # Override with configuration file if provided
-    if config_path is not None:
-        all_configs.append(EvaluationConfig.from_yaml(config_path))
-
-    # Override with CLI arguments if provided
-    all_configs.append(OmegaConf.from_cli(arg_list))
-    try:
-        # Merge and validate configs
-        config = OmegaConf.merge(*all_configs)
-    except Exception:
-        logger.exception(f"Failed to merge Omega configs: {all_configs}")
-        raise
-
-    config = OmegaConf.to_object(config)
-    if not isinstance(config, EvaluationConfig):
-        raise TypeError("config is not EvaluationConfig")
-
-    evaluate(cast(EvaluationConfig, config))
+    # Run evaluation
+    evaluate(config)
 
 
 def evaluate(config: EvaluationConfig) -> None:

@@ -3,7 +3,7 @@ import pytest
 from lema.core.registry import RegisteredModel, Registry, RegistryType, register
 
 
-def test_registering_model_class():
+def test_registry_model_class():
     test_registry = Registry()
 
     @register("dummy_class", RegistryType.MODEL_CLASS, test_registry)
@@ -15,7 +15,7 @@ def test_registering_model_class():
     assert test_registry.get("dummy_class", RegistryType.MODEL_CLASS) == DummyClass
 
 
-def test_registering_model_config_class():
+def test_registry_model_config_class():
     test_registry = Registry()
 
     @register("dummy_config_class", RegistryType.MODEL_CONFIG_CLASS, test_registry)
@@ -30,7 +30,7 @@ def test_registering_model_config_class():
     )
 
 
-def test_registering_class_twice():
+def test_registry_failure_register_class_twice():
     test_registry = Registry()
 
     @register("dummy_class", RegistryType.MODEL_CLASS, test_registry)
@@ -45,11 +45,12 @@ def test_registering_class_twice():
 
     assert str(exception_info.value) == (
         "Registry: `dummy_class` of `RegistryType.MODEL_CLASS` is already registered "
-        "as `<class 'test_registry.test_registering_class_twice.<locals>.DummyClass'>`."
+        "as `<class 'test_registry.test_registry_failure_register_class_twice.<locals>"
+        ".DummyClass'>`."
     )
 
 
-def test_get_unregistered_class():
+def test_registry_failure_get_unregistered_class():
     test_registry = Registry()
 
     assert not test_registry.contains("unregistered_class", RegistryType.MODEL_CLASS)
@@ -67,7 +68,7 @@ def test_get_unregistered_class():
     )
 
 
-def test_register_model():
+def test_registry_model():
     test_registry = Registry()
 
     @register("learning-machines/dummy", RegistryType.MODEL_CONFIG_CLASS, test_registry)
@@ -87,7 +88,7 @@ def test_register_model():
     assert model_class == DummyModelClass
 
 
-def test_model_not_present_in_registry():
+def test_registry_failure_model_not_present_in_registry():
     test_registry = Registry()
 
     @register(
@@ -147,7 +148,7 @@ def test_model_not_present_in_registry():
     )
 
 
-def test_registering_functon():
+def test_registry_functon():
     test_registry = Registry()
 
     # Note: This is ONLY for testing (NOT valid sample code)!

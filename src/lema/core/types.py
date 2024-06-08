@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, TypeVar, cast
@@ -7,7 +8,7 @@ import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
 
-_DATASET_TEXT_FIELD = "dataset_text_field"
+from lema.logging import logger
 
 
 #
@@ -30,7 +31,7 @@ class TrainerType(Enum):
 class TrainingParams:
     optimizer: str = "adamw_torch"
     use_peft: bool = False
-    trainer_type: TrainerType = TrainerType.TRL_SFT
+    trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
     output_dir: str = "output"
     per_device_train_batch_size: int = 8
@@ -137,29 +138,21 @@ class DataParams:
         defaults["batched"] = True  # Note the default of huggingface is False.
         return defaults
 
+    # The dataset column name containing the text to train on. Required for SFTTrainer.
+    text_col: Optional[str] = None
     preprocessing_function_name: Optional[str] = None
     preprocessing_function_kwargs: Dict[str, Any] = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    def get_dataset_text_field(self) -> Optional[str]:
-        """Get the `dataset_text_field` value if present."""
-        return self.trainer_kwargs.get(_DATASET_TEXT_FIELD)
-
     def __post_init__(self):
-        """Verify params if packing is enabled."""
+        """Verify params."""
         if self.pack:
             if not self.stream:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
-            if (
-                not self.preprocessing_function_name
-                and _DATASET_TEXT_FIELD not in self.trainer_kwargs
-            ):
-                raise ValueError(
-                    "Either `trainer_kwargs['dataset_text_field']` "
-                    "or `preprocessing_function_name` must be specified."
-                )
+            if not self.text_col:
+                raise ValueError("`text_col` must be specified if `pack` is enabled.")
 
 
 @dataclass
@@ -240,25 +233,69 @@ T = TypeVar("T", bound="BaseConfig")
 
 @dataclass
 class BaseConfig:
-    def to_yaml(self, path: str) -> None:
+    def to_yaml(self, config_path: str) -> None:
         """Save the configuration to a YAML file."""
-        OmegaConf.save(config=self, f=path)
+        OmegaConf.save(config=self, f=config_path)
 
     @classmethod
-    def from_yaml(cls: Type[T], path: str) -> T:
+    def from_yaml(cls: Type[T], config_path: str) -> T:
         """Load a configuration from a YAML file.
 
         Args:
-            path: The path to the YAML file.
+            config_path: The path to the YAML file.
 
         Returns:
             BaseConfig: The merged configuration object.
         """
         schema = OmegaConf.structured(cls)
-        file_config = OmegaConf.load(path)
+        file_config = OmegaConf.load(config_path)
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
         if not isinstance(config, cls):
             raise TypeError(f"config is not {cls}")
+        return cast(cls, config)
+
+    @classmethod
+    def from_yaml_and_arg_list(
+        cls: Type[T],
+        config_path: Optional[str],
+        arg_list: List[str],
+        logger: Optional[logging.Logger] = None,
+    ) -> T:
+        """Load a configuration from various sources.
+
+        If both YAML and arguments list are provided, then
+        parameters specified in `arg_list` have higher precedence.
+
+        Args:
+            config_path: The path to the YAML file.
+            arg_list: Command line arguments list.
+            logger: (optional) Logger.
+
+        Returns:
+            BaseConfig: The merged configuration object.
+        """
+        # Start with an empty typed config. This forces OmegaConf to validate
+        # that all other configs are of this structured type as well.
+        all_configs = [OmegaConf.structured(cls)]
+
+        # Override with configuration file if provided.
+        if config_path is not None:
+            all_configs.append(cls.from_yaml(config_path))
+
+        # Override with CLI arguments.
+        all_configs.append(OmegaConf.from_cli(arg_list))
+        try:
+            # Merge and validate configs
+            config = OmegaConf.merge(*all_configs)
+        except Exception:
+            if logger:
+                logger.exception(f"Failed to merge Omega configs: {all_configs}")
+            raise
+
+        config = OmegaConf.to_object(config)
+        if not isinstance(config, cls):
+            raise TypeError(f"config {type(config)} is not {type(cls)}")
+
         return cast(cls, config)
 
 
@@ -268,6 +305,26 @@ class TrainingConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
     training: TrainingParams = field(default_factory=TrainingParams)
     peft: PeftParams = field(default_factory=PeftParams)
+
+    def __post_init__(self):
+        """Verify/populate params."""
+        if self.training.trainer_type == TrainerType.TRL_SFT:
+            if not self.data.text_col:
+                raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
+
+            # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
+            # `SFTTrainer`, and warn users if their value will be overridden.
+            existing_dataset_text_field = self.data.trainer_kwargs.get(
+                "dataset_text_field"
+            )
+            if (
+                existing_dataset_text_field is not None
+            ) and existing_dataset_text_field != self.data.text_col:
+                logger.warning(
+                    "Overriding existing `dataset_text_field` value "
+                    f'"{existing_dataset_text_field}" with "{self.data.text_col}"'
+                )
+            self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
 
 
 @dataclass

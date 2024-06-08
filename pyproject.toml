@@ -75,9 +75,13 @@ line-length = 88
 extend-include = ["*.ipynb"] # Include ipython notebooks
 
 [tool.ruff.lint]
-# pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D)
-select = ["F", "E", "W", "I", "D"]
+# pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D), flake8-tidy-imports(TID)
+select = ["F", "E", "W", "I", "D", "TID"]
 ignore = ["D100", "D101", "D104"]  # Temporary rules
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Ignore docstring checks in tests
