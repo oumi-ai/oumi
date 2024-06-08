@@ -1,7 +1,6 @@
 import argparse
-from typing import Callable, cast
+from typing import Callable
 
-from omegaconf import OmegaConf
 from transformers import Trainer
 
 from lema.builders import (
@@ -51,30 +50,14 @@ def main() -> None:
     limit_per_process_memory()
     device_cleanup()
 
-    # Start with dataclass default values and type annotations
-    all_configs = [OmegaConf.structured(TrainingConfig)]
-
-    # Override with configuration file if provided
-    if config_path is not None:
-        all_configs.append(TrainingConfig.from_yaml(config_path))
-
-    # Override with CLI arguments if provided
-    all_configs.append(OmegaConf.from_cli(arg_list))
-    try:
-        # Merge and validate configs
-        config = OmegaConf.merge(*all_configs)
-    except Exception:
-        logger.exception(f"Failed to merge Omega configs: {all_configs}")
-        raise
-
-    config = OmegaConf.to_object(config)
-    if not isinstance(config, TrainingConfig):
-        raise TypeError("config is not TrainingConfig")
+    config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
+        config_path, arg_list, logger=logger
+    )
 
     #
     # Run training
     #
-    train(cast(TrainingConfig, config))
+    train(config)
 
     device_cleanup()
 

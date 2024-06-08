@@ -16,6 +16,7 @@ data:
   split: train_sft
   stream: True
   pack: True
+  text_col: "text"
   preprocessing_function_name: trl_sft_ultrachat_200k
   preprocessing_function_kwargs:
     num_proc: 6

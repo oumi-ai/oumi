@@ -10,10 +10,10 @@ data:
   dataset_config: "wikitext-2-raw-v1"
   stream: True
   pack: True
-  trainer_kwargs:
-    dataset_text_field: "text"
+  text_col: "text"
 
 training:
+  trainer_type: TRL_SFT
   max_steps: 2
   enable_tensorboard: False
   output_dir: "output/gpt2.pt"

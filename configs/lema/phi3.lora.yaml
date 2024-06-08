@@ -5,12 +5,12 @@ model:
 data:
   dataset_name: "yahma/alpaca-cleaned"
   preprocessing_function_name: "alpaca"
-  trainer_kwargs:
-    dataset_text_field: "prompt"
+  text_col: "prompt"
 
 training:
   optimizer: "adamw_torch"
   use_peft: true
+  trainer_type: TRL_SFT
   output_dir: "output/phi3.lora"
 
 peft:
