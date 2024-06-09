@@ -135,7 +135,7 @@ def evaluate(config: EvaluationConfig) -> None:
     # Run inference and then unbatch the model responses.
     responses_batched = infer(
         model_params=config.model,
-        max_new_tokens=config.generation.max_new_tokens,
+        generation_config=config.generation,
         input=dataset_batched,
     )
     responses = unbatch(responses_batched)

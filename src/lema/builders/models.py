@@ -16,7 +16,6 @@ from lema.logging import logger
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
-    use_peft: bool = False,
     **kwargs,
 ):
     """Build and return a model based on the provided LeMa configuration.
@@ -24,7 +23,6 @@ def build_model(
     Args:
         model_params: The configuration object containing the model parameters.
         peft_params: The configuration object containing the peft parameters.
-        use_peft: whether to build the model using PEFT.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -39,7 +37,6 @@ def build_model(
         return build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
-            use_peft=use_peft,
             *kwargs,
         )
 
@@ -56,7 +53,6 @@ def build_custom_model(custom_model_in_registry):
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
-    use_peft: bool = False,
     **kwargs,
 ):
     """Download and build the model from the HuggingFace Hub."""
@@ -76,7 +72,7 @@ def build_huggingface_model(
         trust_remote_code=model_params.trust_remote_code,
     )
 
-    if use_peft and peft_params and peft_params.q_lora:
+    if peft_params and peft_params.q_lora:
         # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=peft_params.q_lora_bits == 4,

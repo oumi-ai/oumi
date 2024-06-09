@@ -28,7 +28,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
     model_params = ModelParams(
         model_name="openai-community/gpt2", trust_remote_code=True
     )
-    max_new_tokens = 5
+    generation_config = GenerationConfig(max_new_tokens=5)
 
     input = []
     for _ in range(num_batches):
@@ -37,7 +37,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
             batch_input.append(FIXED_PROMPT)
         input.append(batch_input)
     output = infer(
-        model_params=model_params, max_new_tokens=max_new_tokens, input=input
+        model_params=model_params, generation_config=generation_config, input=input
     )
 
     expected_output = []

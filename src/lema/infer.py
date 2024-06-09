@@ -7,7 +7,7 @@ from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from lema.core.types import InferenceConfig, ModelParams
+from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
 from lema.logging import logger
 
 
@@ -51,7 +51,7 @@ def infer_interactive(config: InferenceConfig) -> None:
     input_text = input("Enter your input prompt: ")
     model_response = infer(
         model_params=config.model,
-        max_new_tokens=config.generation.max_new_tokens,
+        generation_config=config.generation,
         input=[
             [
                 input_text,
@@ -64,13 +64,15 @@ def infer_interactive(config: InferenceConfig) -> None:
 # TODO: Support writing predictions to files.
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
-    model_params: ModelParams, max_new_tokens: int, input: List[List[str]]
+    model_params: ModelParams,
+    generation_config: GenerationConfig,
+    input: List[List[str]],
 ) -> List[List[str]]:
     """Run batch inference for a model, using the provided configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
-        max_new_tokens: The maximum number of tokens to generate.
+        generation_config: The configuration object for model generation.
         input: A list of text prompts of shape (num_batches, batch_size).
 
     Returns:
@@ -90,7 +92,9 @@ def infer(
     output = []
     for batch_index in tqdm(range(len(input)), desc="Generating Model Responses"):
         batch = input[batch_index]
-        output.append(model.generate(**batch, max_new_tokens=max_new_tokens))
+        output.append(
+            model.generate(**batch, max_new_tokens=generation_config.max_new_tokens)
+        )
 
     # Decode the outputs (batch mode).
     output_decoded = []
