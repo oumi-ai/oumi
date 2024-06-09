@@ -328,12 +328,6 @@ class TrainingConfig(BaseConfig):
 
 
 @dataclass
-class EvaluationConfig(BaseConfig):
-    data: DataParams
-    model: ModelParams
-
-
-@dataclass
 class GenerationConfig(BaseConfig):
     # TODO: Add more parameters to control text generation.
     max_new_tokens: int = 256
@@ -341,5 +335,12 @@ class GenerationConfig(BaseConfig):
 
 @dataclass
 class InferenceConfig(BaseConfig):
+    model: ModelParams = field(default_factory=ModelParams)
+    generation: GenerationConfig = field(default_factory=GenerationConfig)
+
+
+@dataclass
+class EvaluationConfig(BaseConfig):
+    data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)

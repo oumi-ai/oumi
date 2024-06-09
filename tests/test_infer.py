@@ -25,15 +25,10 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
 def test_infer_basic_non_interactive(num_batches, batch_size):
-    config: InferenceConfig = InferenceConfig(
-        model=ModelParams(
-            model_name="openai-community/gpt2",
-            trust_remote_code=True,
-        ),
-        generation=GenerationConfig(
-            max_new_tokens=5,
-        ),
+    model_params = ModelParams(
+        model_name="openai-community/gpt2", trust_remote_code=True
     )
+    generation_config = GenerationConfig(max_new_tokens=5)
 
     input = []
     for _ in range(num_batches):
@@ -41,7 +36,9 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
         for _ in range(batch_size):
             batch_input.append(FIXED_PROMPT)
         input.append(batch_input)
-    output = infer(config, input)
+    output = infer(
+        model_params=model_params, generation_config=generation_config, input=input
+    )
 
     expected_output = []
     for _ in range(num_batches):

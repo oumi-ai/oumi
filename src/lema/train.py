@@ -54,9 +54,7 @@ def main() -> None:
         config_path, arg_list, logger=logger
     )
 
-    #
     # Run training
-    #
     train(config)
 
     device_cleanup()
@@ -69,8 +67,16 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
 
-    model = build_model(config, *kwargs)
-    if config.training.use_peft:
+    # Are we supporting PEFT?
+    use_peft = config.training.use_peft and config.peft
+
+    # Build model.
+    model = build_model(
+        model_params=config.model,
+        peft_params=config.peft if use_peft else None,
+        *kwargs,
+    )
+    if use_peft:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
         )

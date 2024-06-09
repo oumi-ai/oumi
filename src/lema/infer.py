@@ -1,11 +1,13 @@
 import argparse
 from typing import List
 
+from tqdm import tqdm
+
 from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from lema.core.types import InferenceConfig
+from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
 from lema.logging import logger
 
 
@@ -40,9 +42,7 @@ def main():
         config_path, arg_list, logger=logger
     )
 
-    #
     # Run inference
-    #
     infer_interactive(config)
 
 
@@ -50,8 +50,9 @@ def infer_interactive(config: InferenceConfig) -> None:
     """Interactively provide the model response for a user-provided input."""
     input_text = input("Enter your input prompt: ")
     model_response = infer(
-        config,
-        [
+        model_params=config.model,
+        generation_config=config.generation,
+        input=[
             [
                 input_text,
             ],
@@ -62,41 +63,47 @@ def infer_interactive(config: InferenceConfig) -> None:
 
 # TODO: Support writing predictions to files.
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
-def infer(config: InferenceConfig, input: List[List[str]]) -> List[List[str]]:
+def infer(
+    model_params: ModelParams,
+    generation_config: GenerationConfig,
+    input: List[List[str]],
+) -> List[List[str]]:
     """Run batch inference for a model, using the provided configuration.
 
     Args:
-        config: The desired configuration for inference.
+        model_params: The configuration object containing the model parameters.
+        generation_config: The configuration object for model generation.
         input: A list of text prompts of shape (num_batches, batch_size).
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
-    tokenizer = build_tokenizer(config.model)
-    model = build_model(config)
+    tokenizer = build_tokenizer(model_params)
+    model = build_model(model_params)
     model_device = next(model.parameters()).device
 
-    # Tokenization of input (in place).
+    # Tokenization of input (in place, batch mode).
     for batch_index, batch in enumerate(input):
-        batch_tokenized = tokenizer(batch, return_tensors="pt")
+        batch_tokenized = tokenizer(batch, return_tensors="pt", padding=True)
         batch_tokenized = batch_tokenized.to(model_device)
         input[batch_index] = batch_tokenized
 
-    # Generate model outputs.
+    # Generate model outputs (batch mode).
     output = []
-    for batch in input:
+    for batch_index in tqdm(range(len(input)), desc="Generating Model Responses"):
+        batch = input[batch_index]
         output.append(
-            model.generate(**batch, max_new_tokens=config.generation.max_new_tokens)
+            model.generate(**batch, max_new_tokens=generation_config.max_new_tokens)
         )
 
-    # Decode the outputs.
+    # Decode the outputs (batch mode).
     output_decoded = []
     for batch in output:
-        batch_output_decoded = []
-        for prompt_index in range(batch.data.size(dim=0)):
-            response = "".join(tokenizer.decode(id) for id in batch.data[prompt_index])
-            batch_output_decoded.append(response)
-        output_decoded.append(batch_output_decoded)
+        output_decoded.append(
+            tokenizer.batch_decode(
+                batch.data, skip_special_tokens=True, clean_up_tokenization_spaces=True
+            )
+        )
 
     return output_decoded
 
