@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Callable, Optional, Type
 
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
@@ -25,23 +25,14 @@ def build_trainer(
             configuration is not supported.
     """
 
-    def _create_builder_fn(
-        cls: Type[Trainer], extra_args: Dict[str, Any]
-    ) -> Callable[..., Trainer]:
-        return lambda *args, **kwargs: cls(*args, **{**kwargs, **extra_args})
+    def _create_builder_fn(cls: Type[Trainer]) -> Callable[..., Trainer]:
+        return lambda *args, **kwargs: cls(*args, **kwargs)
 
-    extra_args = {}
     if trainer_type == TrainerType.TRL_SFT:
-        # if max_seq_length is not None:
-        #    extra_args["max_seq_length"] = int(max_seq_length)
-        return _create_builder_fn(SFTTrainer, extra_args)
+        return _create_builder_fn(SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
-        # if max_seq_length is not None:
-        #    extra_args["max_length"] = int(max_seq_length)
-        # DPOTrainer also defines "max_prompt_length" and "max_target_length".
-        # How to handle that?
-        return _create_builder_fn(DPOTrainer, extra_args)
+        return _create_builder_fn(DPOTrainer)
     elif trainer_type == TrainerType.HF:
-        return _create_builder_fn(Trainer, extra_args)
+        return _create_builder_fn(Trainer)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

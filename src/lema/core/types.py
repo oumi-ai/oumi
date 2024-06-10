@@ -326,11 +326,19 @@ class TrainingConfig(BaseConfig):
                 )
             self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
 
-        if self.model.model_max_length:
+        if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length = int(self.model.model_max_length)
             if self.training.trainer_type == TrainerType.TRL_SFT:
                 self.data.trainer_kwargs["max_seq_length"] = max_seq_length
-                pass
+            elif self.training.trainer_type == TrainerType.TRL_DPO:
+                self.data.trainer_kwargs["max_length"] = max_seq_length
+                # TODO: DPOTrainer also defines "max_prompt_length" and
+                # "max_target_length". How to handle them?
+            else:
+                logger.warn(
+                    f"Ignored model.model_max_length={max_seq_length} config "
+                    f"parameter for trainer {self.training.trainer_type}."
+                )
 
 
 @dataclass
