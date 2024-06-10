@@ -1,6 +1,7 @@
 import argparse
 from typing import List
 
+import torch
 from tqdm import tqdm
 
 from lema.builders import (
@@ -67,6 +68,7 @@ def infer(
     model_params: ModelParams,
     generation_config: GenerationConfig,
     input: List[List[str]],
+    exclude_prompt_from_reponse: bool = True,
 ) -> List[List[str]]:
     """Run batch inference for a model, using the provided configuration.
 
@@ -74,6 +76,8 @@ def infer(
         model_params: The configuration object containing the model parameters.
         generation_config: The configuration object for model generation.
         input: A list of text prompts of shape (num_batches, batch_size).
+        exclude_prompt_from_reponse: Whether to trim the model's reponse and remove the
+          prepended prompt.
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
@@ -98,7 +102,16 @@ def infer(
 
     # Decode the outputs (batch mode).
     output_decoded = []
-    for batch in output:
+    for batch_index, batch in enumerate(output):
+        # For each batch, remove the prepended prompts from all model reponses.
+        if exclude_prompt_from_reponse:
+            new_batch_data = []
+            for reponse_index, response in enumerate(batch.data):
+                prompt = input[batch_index]["input_ids"][reponse_index]  # type: ignore
+                assert prompt.tolist() == response[: len(prompt)].tolist()
+                new_batch_data.append(response[len(prompt) :])
+            batch.data = torch.stack(new_batch_data, dim=0)
+
         output_decoded.append(
             tokenizer.batch_decode(
                 batch.data, skip_special_tokens=True, clean_up_tokenization_spaces=True
