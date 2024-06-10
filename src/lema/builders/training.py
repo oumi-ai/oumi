@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Type
 
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
@@ -21,13 +21,15 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
         NotImplementedError: If the trainer type specified in the
             configuration is not supported.
     """
+
+    def _create_builder_fn(cls: Type[Trainer]) -> Callable[..., Trainer]:
+        return lambda *args, **kwargs: cls(*args, **kwargs)
+
     if trainer_type == TrainerType.TRL_SFT:
-        return lambda *args, **kwargs: SFTTrainer(*args, **kwargs)
-
+        return _create_builder_fn(SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
-        return lambda *args, **kwargs: DPOTrainer(*args, **kwargs)
-
+        return _create_builder_fn(DPOTrainer)
     elif trainer_type == TrainerType.HF:
-        return lambda *args, **kwargs: Trainer(*args, **kwargs)
+        return _create_builder_fn(Trainer)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

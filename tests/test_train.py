@@ -23,6 +23,7 @@ def test_train_basic():
         ),
         model=ModelParams(
             model_name="openai-community/gpt2",
+            model_max_length=1024,
             trust_remote_code=True,
         ),
         training=TrainingParams(
@@ -50,6 +51,7 @@ def test_train_custom():
         model=ModelParams(
             model_name="learning-machines/sample",
             tokenizer_name="gpt2",
+            model_max_length=1024,
             trust_remote_code=False,
         ),
         training=TrainingParams(
