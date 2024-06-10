@@ -32,12 +32,12 @@ def build_trainer(
 
     extra_args = {}
     if trainer_type == TrainerType.TRL_SFT:
-        if max_seq_length is not None:
-            extra_args["max_seq_length"] = int(max_seq_length)
+        # if max_seq_length is not None:
+        #    extra_args["max_seq_length"] = int(max_seq_length)
         return _create_builder_fn(SFTTrainer, extra_args)
     elif trainer_type == TrainerType.TRL_DPO:
-        if max_seq_length is not None:
-            extra_args["max_length"] = int(max_seq_length)
+        # if max_seq_length is not None:
+        #    extra_args["max_length"] = int(max_seq_length)
         # DPOTrainer also defines "max_prompt_length" and "max_target_length".
         # How to handle that?
         return _create_builder_fn(DPOTrainer, extra_args)

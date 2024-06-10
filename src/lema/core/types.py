@@ -326,6 +326,11 @@ class TrainingConfig(BaseConfig):
                 )
             self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
 
+        if self.model.model_max_length:
+            max_seq_length = int(self.model.model_max_length)
+            if self.training.trainer_type == TrainerType.TRL_SFT:
+                self.data.trainer_kwargs["max_seq_length"] = max_seq_length
+
 
 @dataclass
 class EvaluationConfig(BaseConfig):
