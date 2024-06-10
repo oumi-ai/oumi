@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Type
+from typing import Callable, Type
 
 from transformers import Trainer
 from trl import DPOTrainer, SFTTrainer
@@ -6,14 +6,11 @@ from trl import DPOTrainer, SFTTrainer
 from lema.core.types import TrainerType
 
 
-def build_trainer(
-    trainer_type: TrainerType, max_seq_length: Optional[int]
-) -> Callable[..., Trainer]:
+def build_trainer(trainer_type: TrainerType) -> Callable[..., Trainer]:
     """Builds a trainer creator functor based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
-        max_seq_length: Maximum sequence length (tokens).
 
     Returns:
         A builder function that can create an appropriate trainer based on the trainer

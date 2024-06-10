@@ -84,7 +84,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
-        config.training.trainer_type, config.model.model_max_length
+        config.training.trainer_type
     )
 
     trainer = create_trainer_fn(
