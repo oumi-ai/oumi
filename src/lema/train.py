@@ -17,6 +17,7 @@ from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
+    log_versioning_info,
 )
 
 
@@ -62,6 +63,7 @@ def main() -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Train a model using the provided configuration."""
+    log_versioning_info()
     log_devices_info()
 
     # Initialize model and tokenizer
