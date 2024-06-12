@@ -17,7 +17,7 @@ PROMPT_TEMPLATE = """Below is an instruction that describes a task, paired with 
 def alpaca_preprocessing_fn(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Callable:
-    """Build a preprocessing function for the Alpaca dataset.
+    """Builds a preprocessing function for the Alpaca dataset.
 
     Dataset: https://huggingface.co/datasets/tatsu-lab/alpaca
     """

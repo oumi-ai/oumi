@@ -5,7 +5,7 @@ from lema.logging import logger
 
 
 def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
-    """Save the model's state dictionary to the specified output directory.
+    """Saves the model's state dictionary to the specified output directory.
 
     Args:
         config (TrainingConfig): The LeMa training config.

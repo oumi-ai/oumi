@@ -14,7 +14,7 @@ _ASSISTANT = "assistant"
 def trl_dpo_chat_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Callable:
-    """Build a preprocessing function for the TRL DPO trainer.
+    """Builds a preprocessing function for the TRL DPO trainer.
 
     DPOTrainer expects prompts, as well as the chosen and rejected responses
     for each prompt.

@@ -7,7 +7,7 @@ from lema.utils.debugging_utils import get_nvidia_gpu_memory_utilization
 
 
 def device_cleanup() -> None:
-    """Empty's cuda cache, good to do before and after training for cleanup."""
+    """Empties cuda cache, good to do before and after training for cleanup."""
     if torch.cuda.is_available():
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
