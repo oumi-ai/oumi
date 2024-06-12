@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from lema.logging import logger
@@ -29,6 +31,25 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
     """
     if torch.cuda.is_available():
         torch.cuda.set_per_process_memory_fraction(percent)
+
+
+def log_versioning_info() -> None:
+    """Logs misc versioning information."""
+    logger.info(f"Torch version: {torch.__version__}")
+    if not torch.cuda.is_available():
+        logger.info("CUDA is not available!")
+        return
+
+    def _format_cudnn_version(v: Optional[int]) -> str:
+        if v is None:
+            return ""
+        return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
+
+    # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
+    logger.info(
+        f"CUDA version: {torch.version.cuda} "
+        f"CuDNN version: {_format_cudnn_version(torch.backends.cudnn.version())}"
+    )
 
 
 def log_devices_info() -> None:
