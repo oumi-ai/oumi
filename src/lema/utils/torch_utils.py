@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from lema.logging import logger
@@ -38,7 +40,9 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
-    def _format_cudnn_version(v):
+    def _format_cudnn_version(v: Optional[int]) -> str:
+        if v is None:
+            return ""
         return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
 
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
