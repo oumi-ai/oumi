@@ -4,7 +4,7 @@ from typing import Union
 
 
 def get_logger(name: str, level: str = "info") -> logging.Logger:
-    """Get a logger instance with the specified name and log level.
+    """Gets a logger instance with the specified name and log level.
 
     Args:
         name (str): The name of the logger.
@@ -36,7 +36,7 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
 
 
 def update_logger_level(name: str, level: str = "info") -> None:
-    """Update the log level of the logger.
+    """Updates the log level of the logger.
 
     Args:
         name (str): The logger instance to update.
@@ -50,7 +50,7 @@ def update_logger_level(name: str, level: str = "info") -> None:
 
 
 def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
-    """Ignore non-critical warnings from dependencies, unless in debug mode.
+    """Ignores non-critical warnings from dependencies, unless in debug mode.
 
     Args:
         level (str, optional): The log level to set for the logger. Defaults to "info".

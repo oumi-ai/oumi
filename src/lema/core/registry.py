@@ -14,7 +14,7 @@ RegisteredModel = namedtuple("RegisteredModel", ["model_config", "model_class"])
 
 class Registry:
     def __init__(self):
-        """Initialize the class Registry."""
+        """Initializes the class Registry."""
         self._registry = dict()
 
     def _contains(self, key: RegistryKey) -> bool:
@@ -22,7 +22,7 @@ class Registry:
         return key in self._registry
 
     def __repr__(self) -> str:
-        """Define how this class is properly printed."""
+        """Defines how this class is properly printed."""
         return "\n".join(f"{key}: {value}" for key, value in self._registry.items())
 
     # Public functions.
@@ -31,7 +31,7 @@ class Registry:
         return self._contains(RegistryKey(name, type))
 
     def register(self, name: str, type: RegistryType, value: Any) -> None:
-        """Register a new record."""
+        """Registers a new record."""
         registry_key = RegistryKey(name, type)
         if self._contains(registry_key):
             current_value = self.get(name=name, type=type)
@@ -47,7 +47,7 @@ class Registry:
         type: RegistryType,
         except_if_missing: bool = True,
     ) -> Optional[Callable]:
-        """Lookup a record by name and type."""
+        """Gets a record by name and type."""
         registry_key = RegistryKey(name, type)
         if not self._contains(registry_key):
             if except_if_missing:
@@ -58,14 +58,14 @@ class Registry:
             return self._registry[registry_key]
 
     def clear(self) -> None:
-        """Clear the registry."""
+        """Clears the registry."""
         self._registry = dict()
 
     # Convinience public function wrappers.
     def get_model(
         self, name: str, except_if_missing: bool = True
     ) -> Optional[RegisteredModel]:
-        """Lookup a record that corresponds to a registered model."""
+        """Gets a record that corresponds to a registered model."""
         model_config = self.get(
             name, RegistryType.MODEL_CONFIG_CLASS, except_if_missing
         )
@@ -82,7 +82,7 @@ REGISTRY = Registry()
 def register(
     registry_name: str, registry_type: RegistryType, registry=REGISTRY
 ) -> Callable:
-    """Register object `obj` in the LeMa global registry.
+    """Registers object `obj` in the LeMa global registry.
 
     Args:
         registry_name: The name that the object should be registered with.

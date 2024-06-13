@@ -22,7 +22,7 @@ from lema.utils.torch_utils import (
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
@@ -62,7 +62,7 @@ def main() -> None:
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
-    """Train a model using the provided configuration."""
+    """Trains a model using the provided configuration."""
     log_versioning_info()
     log_devices_info()
 

@@ -14,7 +14,7 @@ import lema.logging
 
 
 def maybe_insert_system_message(messages, tokenizer):
-    """Insert an empty system message to prepend a chat dialogue.
+    """Inserts an empty system message to prepend a chat dialogue.
 
     An empty message will not be added if the role corresponding to the first message
     of the input `messages` is already set to `system', or if the chat_template does
@@ -55,7 +55,7 @@ def apply_chat_template(
     task: Literal["sft", "generation"],
     auto_insert_empty_system_msg: bool = True,
 ):
-    """Apply the chat template carried by the tokenizer to the input example.
+    """Applies the chat template carried by the tokenizer to the input example.
 
     Args:
         example (Dict): Mapping `messages` to a List containing the (ordered) messages
@@ -103,7 +103,7 @@ def apply_chat_template(
 def trl_sft_ultrachat_200k_preprocessor_fn(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Callable[..., Dict]:
-    """Build a preprocessing function for a TRL SFT (chat) trainer."""
+    """Builds a preprocessing function for a TRL SFT (chat) trainer."""
 
     def prompt_generation_fn(samples) -> dict:
         results = apply_chat_template(

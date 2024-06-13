@@ -1,7 +1,5 @@
 import tempfile
 
-import pytest
-
 from lema import train
 from lema.core.types import (
     DataParams,
@@ -66,9 +64,6 @@ def test_train_custom():
         train(config)
 
 
-# Currently takes a long time to run because packing is very slow.
-# TODO: Change `skip` to `e2e` after #62 is fixed.
-@pytest.mark.skip
 def test_train_pack():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
@@ -81,7 +76,9 @@ def test_train_pack():
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
-                model_max_length=1024,
+                # The true max length is 1024, but a lower value works. This is done to
+                # reduce test runtime.
+                model_max_length=128,
                 trust_remote_code=True,
             ),
             training=TrainingParams(

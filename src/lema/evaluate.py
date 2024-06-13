@@ -11,7 +11,7 @@ from lema.utils.batching import batch, unbatch
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
@@ -41,7 +41,7 @@ def main() -> None:
 
 
 def evaluate(config: EvaluationConfig) -> None:
-    """Evaluate a model using the provided configuration.
+    """Evaluates a model using the provided configuration.
 
     Overview:
         This is a hardcoded function, intending to provide a starting point for our

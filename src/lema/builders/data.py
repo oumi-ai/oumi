@@ -19,7 +19,7 @@ from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 def build_prompt_generation_fn(
     function_name: str, tokenizer: transformers.PreTrainedTokenizerBase
 ) -> Callable:
-    """Build a prompt generation function.
+    """Builds a prompt generation function.
 
     Args:
         function_name (str): The name of the prompt generation function.
@@ -49,7 +49,7 @@ def build_dataset(
 ) -> Union[
     ConstantLengthDataset, DatasetDict, Dataset, IterableDatasetDict, IterableDataset
 ]:
-    """Build a dataset for training.
+    """Builds a dataset for training.
 
     Args:
         config: The training config.
