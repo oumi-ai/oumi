@@ -32,9 +32,9 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  CUDA_VISIBLE_DEVICES=
+  # CUDA_VISIBLE_DEVICES=
   accelerate launch \
-      --config_file configs/accelerate/local_machine_no_distributed_cpu_only.yaml \
+      --config_file configs/accelerate/sample_fsdp.yaml \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
       "training.output_dir=train/" \
