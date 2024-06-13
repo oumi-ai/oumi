@@ -1,7 +1,6 @@
 from typing import List, Tuple
 
 import numpy as np
-from scipy.special import softmax
 from tqdm import tqdm
 from transformers import PreTrainedTokenizerBase
 
@@ -10,6 +9,22 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import ModelParams
+
+
+def softmax(x, axis=None):
+    """Computes the softmax function.
+
+    The softmax function transforms each element of a collection by computing the
+    exponential of each element divided by the sum of the exponentials of all the
+    elements.
+
+    Note: This implementation is from scipy. We should consider replacing it with a
+    call to scipy.special.softmax(), if we add the scipy dependency for other
+    functionalities in the future.
+    """
+    x_max = np.amax(x, axis=axis, keepdims=True)
+    exp_x_shifted = np.exp(x - x_max)
+    return exp_x_shifted / np.sum(exp_x_shifted, axis=axis, keepdims=True)
 
 
 def most_probable_logits(
@@ -26,7 +41,7 @@ def infer_prob(
     input: List[List[str]],
     acceptable_logits: List[str],
 ) -> List[List[List[float]]]:
-    """Calculate the inference probabilities for the next logits to be generated.
+    """Calculates the inference probabilities for the next logits to be generated.
 
     Args:
         model_params: The configuration object containing the model parameters.
