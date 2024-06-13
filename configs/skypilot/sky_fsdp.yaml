@@ -31,7 +31,6 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  # CUDA_VISIBLE_DEVICES=
   accelerate launch \
       --config_file configs/accelerate/sample_fsdp.yaml \
       -m lema.train \
