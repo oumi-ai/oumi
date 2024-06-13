@@ -13,7 +13,7 @@ from lema.logging import logger
 
 
 def parse_cli():
-    """Parses command line arguments and return the configuration filename."""
+    """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
