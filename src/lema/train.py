@@ -78,6 +78,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         peft_params=config.peft if use_peft else None,
         *kwargs,
     )
+
     if use_peft:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft

@@ -64,7 +64,8 @@ def build_huggingface_model(
         logger.info(
             f"Building model for distributed training (world_size: {world_size})..."
         )
-        device_map = "cuda"
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        device_map = f"cuda:{local_rank}"
     logger.info(f"Building model using device_map: {device_map}...")
 
     hf_config = transformers.AutoConfig.from_pretrained(
