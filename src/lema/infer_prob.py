@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
+from scipy.special import softmax
 from tqdm import tqdm
 from transformers import PreTrainedTokenizerBase
 
@@ -11,28 +12,13 @@ from lema.builders import (
 from lema.core.types import ModelParams
 
 
-def softmax(x: List[float]) -> List[float]:
-    """Compute softmax values for each sets of scores in x."""
-    return (np.exp(x) / np.sum(np.exp(x), axis=0)).tolist()
-
-
 def most_probable_logits(
     tokenizer: PreTrainedTokenizerBase, logit_probs: List[float], count: int = 3
-):
+) -> List[Tuple[str, float]]:
     """Return the `count` most probable next logits, with their probabilities."""
-    logit_probs_sorted = sorted(set(logit_probs), reverse=True)
-    probable_logit_indices = []
-    probable_logits = []
-    for probability in logit_probs_sorted:
-        indices = [i for i, p in enumerate(logit_probs) if p == probability]
-        probable_logit_indices.extend(indices)
-        if len(probable_logit_indices) >= count:
-            break
-    probable_logit_indices = probable_logit_indices[:count]
-
-    for index in probable_logit_indices:
-        probable_logits.append((tokenizer.decode(index), logit_probs_sorted[index]))
-    return probable_logits
+    indices = np.argsort(logit_probs)
+    indices = indices[::-1][:count]  # Reverse and only keep `count` items.
+    return [(tokenizer.decode(index), logit_probs[index]) for index in indices]
 
 
 def infer_prob(
@@ -58,9 +44,9 @@ def infer_prob(
 
     # Tokenization of input (in place, batch mode).
     for batch_index, batch in enumerate(input):
-        batch_tokenized = tokenizer(batch, return_tensors="pt", padding=True)
-        batch_tokenized = batch_tokenized.to(model_device)
-        input[batch_index] = batch_tokenized
+        input[batch_index] = tokenizer(batch, return_tensors="pt", padding=True).to(
+            model_device
+        )
 
     # Tokenization of acceptable outputs (i.e. next logit to be generated).
     acceptable_logits_enc = tokenizer(
@@ -68,7 +54,9 @@ def infer_prob(
     )
 
     # Ensure each acceptable logit is encoded into a single token.
-    assert all([len(tokens) == 1 for tokens in acceptable_logits_enc.input_ids])
+    for encoded_logit in acceptable_logits_enc.input_ids:
+        if len(encoded_logit) != 1:
+            raise ValueError("Not all `acceptable_logits` map to a single token.")
 
     # Flatten to a list of encoded tokens (corresponding to acceptable logits).
     acceptable_logits_enc = [tokens[0] for tokens in acceptable_logits_enc.input_ids]
@@ -91,7 +79,7 @@ def infer_prob(
                 acceptable_logit_probs.append(
                     acceptable_logit_prob.detach().cpu().numpy().item()
                 )
-            inference_probs_batch.append(softmax(acceptable_logit_probs))
+            inference_probs_batch.append(softmax(acceptable_logit_probs).tolist())
         inference_probs.append(inference_probs_batch)
 
     return inference_probs
