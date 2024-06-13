@@ -40,5 +40,5 @@ run: |
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=true" \
-      "training.max_steps=3" \
+      "training.max_steps=1000" \
       "training.logging_steps=10"
