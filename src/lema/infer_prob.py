@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 import numpy as np
+import torch
 from tqdm import tqdm
 from transformers import PreTrainedTokenizerBase
 
@@ -91,9 +92,10 @@ def infer_prob(
             acceptable_logit_probs = []
             for acceptable_logit in acceptable_logits_enc:
                 acceptable_logit_prob = next_logit_probs[acceptable_logit]
-                acceptable_logit_probs.append(
-                    acceptable_logit_prob.detach().cpu().numpy().item()
-                )
+                with torch.no_grad():
+                    acceptable_logit_probs.append(
+                        acceptable_logit_prob.cpu().numpy().item()
+                    )
             inference_probs_batch.append(softmax(acceptable_logit_probs).tolist())
         inference_probs.append(inference_probs_batch)
 
