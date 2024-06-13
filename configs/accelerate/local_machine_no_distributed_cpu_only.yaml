@@ -1,4 +1,4 @@
-# Sample command to execute CPU-only training ona a single machine:
+# Sample command to execute CPU-only training on a single machine:
 # CUDA_VISIBLE_DEVICES= accelerate launch \
 #   --config_file configs/accelerate/local_machine_no_distributed_cpu_only.yaml \
 #   -m lema.train \
