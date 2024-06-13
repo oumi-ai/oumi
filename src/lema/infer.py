@@ -13,7 +13,7 @@ from lema.logging import logger
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
@@ -70,7 +70,7 @@ def infer(
     input: List[List[str]],
     exclude_prompt_from_reponse: bool = True,
 ) -> List[List[str]]:
-    """Run batch inference for a model, using the provided configuration.
+    """Runs batch inference for a model using the provided configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.

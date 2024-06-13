@@ -5,6 +5,11 @@
 LeMa follows Google's [Python Style Guide](https://google.github.io/styleguide/pyguide.html)
 for how to format and structure code.
 
+Prefer using descriptive-style verbs (ex. "Builds") over imperative-style (ex. "Build")
+for docstrings; see
+[style guide section 3.8.3](https://google.github.io/styleguide/pyguide.html#383-functions-and-methods)
+for more details.
+
 ## 1.2. Pre-Commit Hooks
 
 LeMa uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run

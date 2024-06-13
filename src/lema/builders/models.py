@@ -18,7 +18,7 @@ def build_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ):
-    """Build and return a model based on the provided LeMa configuration.
+    """Builds and returns a model based on the provided LeMa configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
@@ -42,7 +42,7 @@ def build_model(
 
 
 def build_custom_model(custom_model_in_registry):
-    """Build a custom model from our LeMa registry."""
+    """Builds a custom model from our LeMa registry."""
     model_config = custom_model_in_registry.model_config
     model_class = custom_model_in_registry.model_class
     model = model_class(model_config())
@@ -55,7 +55,7 @@ def build_huggingface_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ):
-    """Download and build the model from the HuggingFace Hub."""
+    """Downloads and builds the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -96,7 +96,7 @@ def build_huggingface_model(
 
 
 def build_tokenizer(model_params: ModelParams, **kwargs):
-    """Build and return a tokenizer based on the provided LeMa configuration.
+    """Builds and returns a tokenizer based on the provided LeMa configuration.
 
     Args:
         model_params (ModelParams): The configuration object containing
@@ -138,7 +138,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
 def build_peft_model(
     base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
-    """Build a PEFT model based on the given base model and params.
+    """Builds a PEFT model based on the given base model and params.
 
     Args:
         base_model: The base model to build the PEFT model on.
@@ -171,8 +171,8 @@ def build_peft_model(
     return model
 
 
-def build_chat_template(template_name):
-    """Selecting a chat template based on code name.
+def build_chat_template(template_name: str) -> str:
+    """Builds a chat template based on code name.
 
     NOTE: (internal) This registry is experimental and will be formatted
     better once we have explored chat-template uses/cases (e.g., enumerate,

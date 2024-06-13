@@ -67,7 +67,7 @@ class TrainingParams:
     include_performance_metrics: Optional[bool] = None
 
     def to_hf(self):
-        """Convert LeMa config to HuggingFace's TrainingArguments."""
+        """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -96,7 +96,7 @@ class TrainingParams:
         )
 
     def _get_hf_report_to(self) -> List[str]:
-        """Get the list of reporting tools enabled for the current instance.
+        """Gets the list of reporting tools enabled for the current instance.
 
         Returns:
             list: A list of reporting tools enabled.
@@ -129,7 +129,7 @@ class DataParams:
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
-        """Create default param values the data preprocessing mapping (.map) function.
+        """Creates default param values for the data preprocessing .map function.
 
         Returns:
         dict: contains the default set params.
@@ -147,7 +147,7 @@ class DataParams:
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
-        """Verify params."""
+        """Verifies params."""
         if self.pack:
             if not self.stream:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
@@ -165,7 +165,7 @@ class ModelParams:
     chat_template: Optional[str] = None
 
     def torch_dtype(self):
-        """Convert string dtype to torch.dtype."""
+        """Converts string dtype to torch.dtype."""
         if self.torch_dtype_str in ["f64", "float64", "double"]:
             return torch.float64
         elif self.torch_dtype_str in ["f32", "float32", "float"]:
@@ -234,12 +234,12 @@ T = TypeVar("T", bound="BaseConfig")
 @dataclass
 class BaseConfig:
     def to_yaml(self, config_path: str) -> None:
-        """Save the configuration to a YAML file."""
+        """Saves the configuration to a YAML file."""
         OmegaConf.save(config=self, f=config_path)
 
     @classmethod
     def from_yaml(cls: Type[T], config_path: str) -> T:
-        """Load a configuration from a YAML file.
+        """Loads a configuration from a YAML file.
 
         Args:
             config_path: The path to the YAML file.
@@ -261,7 +261,7 @@ class BaseConfig:
         arg_list: List[str],
         logger: Optional[logging.Logger] = None,
     ) -> T:
-        """Load a configuration from various sources.
+        """Loads a configuration from various sources.
 
         If both YAML and arguments list are provided, then
         parameters specified in `arg_list` have higher precedence.
@@ -307,7 +307,7 @@ class TrainingConfig(BaseConfig):
     peft: PeftParams = field(default_factory=PeftParams)
 
     def __post_init__(self):
-        """Verify/populate params."""
+        """Verifies/populates params."""
         if self.training.trainer_type == TrainerType.TRL_SFT:
             if not self.data.text_col:
                 raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
