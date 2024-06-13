@@ -6,7 +6,7 @@ resources:
   # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {"A40": 2} # , A10, A10g, A100-80GB-SXM}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
-  # 1. Set `accelerators:` above to something like this: {A40:N}
+  # 1. Set `accelerators:` above to something like this: {"A40": N}
   # 2. Set `num_processes: N` in configs/accelerate/sample_fsdp.yaml
   any_of:
     - use_spot: true
