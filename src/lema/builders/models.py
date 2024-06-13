@@ -18,7 +18,7 @@ def build_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ):
-    """Builds and return a model based on the provided LeMa configuration.
+    """Builds and returns a model based on the provided LeMa configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
@@ -55,7 +55,7 @@ def build_huggingface_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ):
-    """Downloads and build the model from the HuggingFace Hub."""
+    """Downloads and builds the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -96,7 +96,7 @@ def build_huggingface_model(
 
 
 def build_tokenizer(model_params: ModelParams, **kwargs):
-    """Builds and return a tokenizer based on the provided LeMa configuration.
+    """Builds and returns a tokenizer based on the provided LeMa configuration.
 
     Args:
         model_params (ModelParams): The configuration object containing

@@ -70,7 +70,7 @@ def infer(
     input: List[List[str]],
     exclude_prompt_from_reponse: bool = True,
 ) -> List[List[str]]:
-    """Runs batch inference for a model, using the provided configuration.
+    """Runs batch inference for a model using the provided configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.

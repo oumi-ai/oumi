@@ -76,6 +76,8 @@ def test_train_pack():
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
+                # The true max length is 1024, but a lower value works. This is done to
+                # reduce test runtime.
                 model_max_length=128,
                 trust_remote_code=True,
             ),

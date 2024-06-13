@@ -5,8 +5,5 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.languageServer": "Pylance",
-    "[markdown]": {
-        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
-    }
+    "python.languageServer": "Pylance"
 }

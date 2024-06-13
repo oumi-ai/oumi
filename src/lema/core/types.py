@@ -129,7 +129,7 @@ class DataParams:
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
-        """Creates default param values the data preprocessing mapping (.map) function.
+        """Creates default param values for the data preprocessing .map function.
 
         Returns:
         dict: contains the default set params.
