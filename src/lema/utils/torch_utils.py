@@ -110,7 +110,7 @@ def create_model_summary(model: Any) -> str:
         "Model summary:",
         repr(model),
         "",
-        "Modules ({len(model.named_modules())}):",
+        f"Modules ({len(model.named_modules())}):",
     ]
     for name, layer in model.named_modules():
         lines.append(f"{name} ({type(layer)})")
