@@ -1,4 +1,3 @@
-import os
 import os.path as osp
 from typing import Optional
 
@@ -11,6 +10,7 @@ import lema.core.models  # noqa: F401
 from lema.core.registry import REGISTRY
 from lema.core.types import ModelParams, PeftParams
 from lema.logging import logger
+from lema.utils.torch_utils import get_device_rank_info
 
 
 def build_model(
@@ -58,15 +58,17 @@ def build_huggingface_model(
     """Downloads and builds the model from the HuggingFace Hub."""
     # TODO: add device_map to config
     device_map = "auto"
-    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    device_rank_info = get_device_rank_info()
     # "auto" is not compatible with distributed training.
-    if world_size > 1:
+    if device_rank_info.world_size > 1:
         logger.info(
-            f"Building model for distributed training (world_size: {world_size})..."
+            f"Building model for distributed training "
+            f"(world_size: {device_rank_info.world_size})..."
         )
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        device_map = f"cuda:{local_rank}"
-    logger.info(f"Building model using device_map: {device_map}...")
+        device_map = f"cuda:{device_rank_info.local_rank}"
+    logger.info(
+        f"Building model using device_map: {device_map} ({device_rank_info})..."
+    )
 
     hf_config = transformers.AutoConfig.from_pretrained(
         model_params.model_name,
