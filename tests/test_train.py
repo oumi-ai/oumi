@@ -30,6 +30,7 @@ def test_train_basic():
                 enable_wandb=False,
                 enable_tensorboard=False,
                 output_dir=output_temp_dir,
+                print_model_summary=True,
             ),
         )
 
