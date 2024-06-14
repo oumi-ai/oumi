@@ -9,8 +9,8 @@ resources:
   # 1. Set `accelerators:` above to something like this: {"A40": N}
   # 2. Set `--nproc-per-node N` in the `run:` command at the bottom of the file.
   any_of:
-    - use_spot: false
     - use_spot: true
+    - use_spot: false
 
 
 # Upload a working directory to remote ~/sky_workdir.
@@ -39,5 +39,4 @@ run: |
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
-      "training.max_steps=10" \
       "training.logging_steps=10"
