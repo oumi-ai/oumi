@@ -53,6 +53,20 @@ def test_infer_prob(num_batches, batch_size):
             assert answer == CORRECT_ANSWERS[batch_no][batch_index][0]
 
 
+def test_infer_prob_entire_vocab():
+    model_params = ModelParams(
+        model_name="openai-community/gpt2", trust_remote_code=True
+    )
+
+    input = [
+        [
+            "Some random text ",
+        ],
+    ]
+    output = infer_prob(model_params=model_params, input=input)
+    assert len(output[0][0]) == 50257  # 50257 is the GPT-2 vocab size
+
+
 @pytest.mark.parametrize(
     "logit_probs,output",
     [
