@@ -1,6 +1,6 @@
 # Sample command:
 # accelerate launch \
-#   --config_file configs/accelerate/sample_fsdp.yaml \
+#   --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
 #   -m lema.train \
 #   -c configs/lema/gpt2.pt.yaml \
 #   "training.output_dir=/tmp/train/" \

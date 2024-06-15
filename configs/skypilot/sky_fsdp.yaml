@@ -32,12 +32,12 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   accelerate launch \
-      --config_file configs/accelerate/sample_fsdp.yaml \
+      --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=true" \
-      "training.max_steps=1000" \
+      "training.max_steps=500" \
       "training.logging_steps=10"
