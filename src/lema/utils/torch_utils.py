@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import torch
 
@@ -102,3 +102,23 @@ def get_device_rank_info() -> DeviceRankInfo:
             f"LOCAL_RANK must be within this range [0, {rank}]. Actual: {local_rank}."
         )
     return DeviceRankInfo(world_size=world_size, rank=rank, local_rank=local_rank)
+
+
+def create_model_summary(model: Any) -> str:
+    """Creates a model summary as a free-formed string."""
+    lines = ["Model summary:", repr(model), ""]
+
+    module_lines = [f"{name} ({type(layer)})" for name, layer in model.named_modules()]
+
+    lines.append(f"Modules ({len(module_lines)}):")
+    lines.extend(module_lines)
+    lines.append("")
+
+    # TODO: Consider whether to use `torchsummary` library here.
+    # Caveat: it may require sample inputs/shapes, and other aux info.
+    return "\n".join(lines)
+
+
+def log_model_summary(model) -> None:
+    """Logs a model summary."""
+    logger.info(create_model_summary(model))

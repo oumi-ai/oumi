@@ -66,6 +66,9 @@ class TrainingParams:
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
+    # Whether to print model summary e.g., layer names, for informational purposes.
+    log_model_summary: bool = False
+
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
