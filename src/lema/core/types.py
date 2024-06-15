@@ -67,7 +67,7 @@ class TrainingParams:
     include_performance_metrics: Optional[bool] = None
 
     # Whether to print model summary e.g., layer names, for informational purposes.
-    print_model_summary: bool = False
+    log_model_summary: bool = False
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
