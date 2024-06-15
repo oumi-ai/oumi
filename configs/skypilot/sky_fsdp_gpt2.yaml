@@ -32,6 +32,7 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   accelerate launch \
+      --use_fsdp \
       --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
