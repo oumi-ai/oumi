@@ -1,6 +1,5 @@
 from lema.evaluate import evaluate
 from lema.infer import infer, infer_interactive
-from lema.infer_prob import infer_prob, most_probable_logits
 from lema.logging import configure_dependency_warnings
 from lema.train import train
 
@@ -12,6 +11,4 @@ __all__ = [
     "evaluate",
     "infer",
     "infer_interactive",
-    "infer_prob",
-    "most_probable_logits",
 ]

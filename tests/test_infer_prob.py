@@ -1,8 +1,8 @@
 import pytest
 from transformers import PreTrainedTokenizerBase
 
-from lema import infer_prob, most_probable_logits
 from lema.core.types import ModelParams
+from lema.evaluation import infer_prob, most_probable_logits
 
 PROMPTS = [
     [
