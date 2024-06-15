@@ -27,6 +27,7 @@ def test_train_basic():
                 trainer_type=TrainerType.TRL_SFT,
                 max_steps=3,
                 logging_steps=3,
+                log_model_summary=True,
                 enable_wandb=False,
                 enable_tensorboard=False,
                 output_dir=output_temp_dir,

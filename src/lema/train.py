@@ -17,6 +17,7 @@ from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
+    log_model_summary,
     log_versioning_info,
 )
 
@@ -83,6 +84,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
         )
+
+    if config.training.log_model_summary:
+        log_model_summary(model)
 
     # Enable gradients for input embeddings
     if config.training.enable_gradient_checkpointing:
