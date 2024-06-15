@@ -2,7 +2,7 @@ import pytest
 from transformers import PreTrainedTokenizerBase
 
 from lema.core.types import ModelParams
-from lema.evaluation import infer_prob, most_probable_logits
+from lema.evaluation import infer_prob, most_probable_tokens
 
 PROMPTS = [
     [
@@ -43,7 +43,7 @@ def test_infer_prob(num_batches, batch_size):
     output = infer_prob(
         model_params=model_params,
         input=input,
-        acceptable_logits=POSSIBLE_ANSWERS,
+        acceptable_tokens=POSSIBLE_ANSWERS,
     )
 
     for batch_no, batch in enumerate(output):
@@ -68,7 +68,7 @@ def test_infer_prob_entire_vocab():
 
 
 @pytest.mark.parametrize(
-    "logit_probs,output",
+    "token_probs,output",
     [
         [[0.99, 0.01], [("index_0", 0.99), ("index_1", 0.01)]],
         [[0.01, 0.99], [("index_1", 0.99), ("index_0", 0.01)]],
@@ -83,9 +83,9 @@ def test_infer_prob_entire_vocab():
         ],
     ],
 )
-def test_most_probable_logits(logit_probs, output):
+def test_most_probable_tokens(token_probs, output):
     class MockDecoder(PreTrainedTokenizerBase):
         def decode(self, x):
             return f"index_{x}"
 
-    assert most_probable_logits(MockDecoder(), logit_probs) == output
+    assert most_probable_tokens(MockDecoder(), token_probs) == output

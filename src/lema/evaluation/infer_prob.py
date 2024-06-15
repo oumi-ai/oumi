@@ -28,37 +28,37 @@ def softmax(x, axis=None):
     return exp_x_shifted / np.sum(exp_x_shifted, axis=axis, keepdims=True)
 
 
-def most_probable_logits(
-    tokenizer: PreTrainedTokenizerBase, logit_probs: List[float], count: int = 3
+def most_probable_tokens(
+    tokenizer: PreTrainedTokenizerBase, token_probs: List[float], count: int = 3
 ) -> List[Tuple[str, float]]:
-    """Return the `count` most probable next logits, with their probabilities."""
-    indices = np.argsort(logit_probs)
+    """Return the `count` most probable next tokens, with their probabilities."""
+    indices = np.argsort(token_probs)
     indices = indices[::-1][:count]  # Reverse and only keep `count` items.
-    return [(tokenizer.decode(index), logit_probs[index]) for index in indices]
+    return [(tokenizer.decode(index), token_probs[index]) for index in indices]
 
 
 def infer_prob(
     model_params: ModelParams,
     input: List[List[str]],
-    acceptable_logits: Optional[List[str]] = None,
+    acceptable_tokens: Optional[List[str]] = None,
 ) -> List[List[List[float]]]:
-    """Calculates the inference probabilities for the next logits to be generated.
+    """Calculates the inference probabilities for the next tokens to be generated.
 
     Args:
         model_params: The configuration object containing the model parameters.
         input: A list of text prompts of shape (num_batches, batch_size).
-        acceptable_logits: The logits that are considered acceptable to be generated.
+        acceptable_tokens: The tokens that are considered acceptable to be generated.
           The function will return the generation probabilities for each of these. If
           not provided (= None), the probabilities for the entire tokenizer's vocabulary
           will be returned.
 
     Returns:
-        object: A 2D list of shape (num_batches, batch_size). Each item is another list
-          of the probabilities (one probability for very acceptable logit).
+        object: A 2D list of shape (num_batches, batch_size). Each item of the 2D list
+        is another list of the probabilities (one probability per acceptable token).
     """
     tokenizer = build_tokenizer(model_params)
-    logits_vocab = set(tokenizer.get_vocab())
-    logits_enc_vocab = set(tokenizer.get_vocab().values())
+    token_vocab = set(tokenizer.get_vocab())
+    token_id_vocab = set(tokenizer.get_vocab().values())
 
     model = build_model(model_params)
     model_device = next(model.parameters()).device
@@ -69,65 +69,65 @@ def infer_prob(
             model_device
         )
 
-    # Ensure the `acceptable_logits` are valid.
-    if not acceptable_logits:
-        # If no list of acceptable logits provided, use the entire vocabulary.
-        acceptable_logits = list(logits_vocab)
+    # Ensure the `acceptable_tokens` are valid.
+    if not acceptable_tokens:
+        # If no list of acceptable tokens provided, use the entire vocabulary.
+        acceptable_tokens = list(token_vocab)
     else:
-        # If provided with a list of logits, ensure these exist in the vocabulary.
-        for logit in acceptable_logits:
-            if logit not in logits_vocab:
-                raise ValueError(f"Logit `{logit}` NOT found in vocabulary")
+        # If provided with a list of tokens, ensure these exist in the vocabulary.
+        for token in acceptable_tokens:
+            if token not in token_vocab:
+                raise ValueError(f"Token `{token}` NOT found in vocabulary")
 
-    # Tokenization of acceptable outputs (i.e. next logit to be generated).
-    acceptable_logits_enc = tokenizer.convert_tokens_to_ids(acceptable_logits)
-    for logit_enc in acceptable_logits_enc:
-        if logit_enc not in logits_enc_vocab:
-            # For sanity checking, we also need to ensure that the encoded logits exist
-            # in the tokenizer's vocabulary. This check will fail primarily due to bugs
+    # Tokenization of acceptable outputs (i.e. next token to be generated).
+    acceptable_token_ids = tokenizer.convert_tokens_to_ids(acceptable_tokens)
+    for token_id in acceptable_token_ids:
+        if token_id not in token_id_vocab:
+            # For sanity checking, we need to ensure that the encoded tokens (ids) exist
+            # in the tokenizer's vocabulary. This check may fail primarily due to bugs
             # in custom tokenizer implementations, or incompatible tokenizer types.
-            raise ValueError(f"Enc logit `{logit_enc}` NOT found in vocabulary")
-        if logit_enc >= len(logits_vocab):
-            # The `logit_enc` will be utimately used as an index, to extract the
-            # probability of the logit, from a vocabulary-sized tensor. So, it must NOT
+            raise ValueError(f"Token id `{token_id}` NOT found in vocabulary")
+        if token_id >= len(token_id_vocab):
+            # The `token_id` will be utimately used as an index, to extract the
+            # probability of the token, from a vocabulary-sized tensor. So, it must NOT
             # be larger than the vocabulary size under any circumstances.
-            raise ValueError(f"Enc logit `{logit_enc}` larger than vocabulary size")
+            raise ValueError(f"Token id `{token_id}` larger than vocabulary size")
 
-    # Generate next logit probabilities (batch mode).
+    # Generate next token probabilities (batch mode).
     # Explanation:
-    #     Gets the next logit probabilities, i.e. `logit probs.logits`; this is a tensor
-    #     of shape [batch_size, num_input_logits, vocabulary_size].
+    #     Gets next tokens' unnormalized probabilities (logits): `token probs.logits`.
+    #     This is a tensor of shape [batch_size, num_input_tokens, vocabulary_size].
     #     - batch_size: The output is batched, since our input (`input`) is batched.
-    #     - num_input_logits: The probability of the next logit, for each logit that is
-    #       included in our input prompt. We are only interested in the next logit that
-    #       comes after the last logit of the input sequence, thus we will flatten this
-    #       dimension and only look at the final (-1) logit probabilities.
-    #     - vocabulary_size: We are provided with the probability for each possible
-    #       logit that exists in the tokenizer's vocabulary, thus this dimension equals
-    #       the size of the vocabulary.
+    #     - num_input_tokens: The probability of the next token, for each token that is
+    #       included in our input prompt. We are only interested in the next token that
+    #       comes after the last token of our input sequence, thus we will flatten this
+    #       dimension and only look at the final (-1) token probabilities.
+    #     - vocabulary_size: We are provided with the generation probability for each
+    #       possible token that exists in the tokenizer's vocabulary, thus this
+    #       dimension equals the size of the vocabulary.
     #     The `output` will be a 3D list [num_batches, batch_size, vocabulary_size].
     output = []
-    for batch_index in tqdm(range(len(input)), desc="Generating Logit Probs"):
+    for batch_index in tqdm(range(len(input)), desc="Generating Token Logits"):
         with torch.no_grad():
-            logit_probs = model(input[batch_index].input_ids)  # type: ignore
-            final_logit_probs = logit_probs.logits[:, -1, :].tolist()
+            token_logits = model(input[batch_index].input_ids)  # type: ignore
+            token_logits = token_logits.logits[:, -1, :].tolist()
 
             # For most tokenizers, the model returns as many probabilities as the number
-            # of logits that exist in the vocabulary. But, some models may return
+            # of tokens that exist in the vocabulary. But, some models may return
             # more, and also include special tokens (such as "end of generation"), which
-            # are not included in the vocabulary provided to the user.
-            assert len(final_logit_probs[-1]) >= len(logits_vocab)
-            output.append(final_logit_probs)
+            # are not included in the vocabulary provided to the user. Thus the ">=".
+            assert len(token_logits[-1]) >= len(token_vocab)
+            output.append(token_logits)
 
-    def reduce_to_acceptable_probs(logit_probs: List[float]) -> List[float]:
-        """Reduces the list of all logit probabilities to only the logits of interest.
+    def reduce_to_acceptable_tokens(token_logits: List[float]) -> List[float]:
+        """Reduces the list of token logits to only the token logits of interest.
 
-        Takes as input the list of probabilities that correspond to all logits in the
-        vocabulary and returns the list of probabilities for only the logits that the
-        user explicitly requested (`acceptable_logits_enc`). Then, applies softmax,
-        so that the new set of probabilities sums up to 1.
+        Takes as input the list of logits that correspond to all tokens in the
+        vocabulary and returns the list of logits for only the tokens that the
+        user explicitly requested (`acceptable_token_ids`). Then, applies softmax,
+        so that the corresponding probabilities are normalized to sum up to 1.
         """
-        logit_probs = [logit_probs[logit] for logit in acceptable_logits_enc]
-        return softmax(logit_probs).tolist()
+        token_logits = [token_logits[token_id] for token_id in acceptable_token_ids]
+        return softmax(token_logits).tolist()
 
-    return [list(map(reduce_to_acceptable_probs, batch)) for batch in output]
+    return [list(map(reduce_to_acceptable_tokens, batch)) for batch in output]
