@@ -108,9 +108,7 @@ def create_model_summary(model: Any) -> str:
     """Creates a model summary as a free-formed string."""
     lines = ["Model summary:", repr(model), ""]
 
-    module_lines = []
-    for name, layer in model.named_modules():
-        module_lines.append(f"{name} ({type(layer)})")
+    module_lines = [f"{name} ({type(layer)})" for name, layer in model.named_modules()]
 
     lines.append(f"Modules ({len(module_lines)}):")
     lines.extend(module_lines)
