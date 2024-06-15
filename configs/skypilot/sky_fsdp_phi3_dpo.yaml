@@ -32,12 +32,12 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   accelerate launch \
-      --config_file configs/accelerate/sample_fsdp_phi3.yaml \
+      --config_file configs/accelerate/sample_fsdp_phi3_dpo.yaml \
       -m lema.train \
-      -c configs/lema/gpt2.pt.yaml \
+      -c phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=true" \
-      "training.max_steps=500" \
+      "training.include_performance_metrics=false" \
+      "training.max_steps=10" \
       "training.logging_steps=10"
