@@ -1,12 +1,12 @@
 # Sample command:
 # accelerate launch \
-#   --config_file configs/accelerate/sample_fsdp_phi3.yaml \
+#   --config_file configs/accelerate/sample_fsdp_phi3_dpo.yaml \
 #   -m lema.train \
-#   -c configs/lema/gpt2.pt.yaml \
-#   "training.output_dir=/tmp/train/" \
-#   "training.enable_wandb=false" \
-#   "training.enable_tensorboard=false" \
-#   "training.include_performance_metrics=true" \
+#   -c configs/lema/phi3.dpo.nvidia.24g.yaml \
+#   "training.output_dir=train/" \
+#   "training.enable_wandb=true" \
+#   "training.enable_tensorboard=true" \
+#   "training.include_performance_metrics=false" \
 #   "training.max_steps=100" \
 #   "training.logging_steps=10"
 
@@ -25,7 +25,7 @@ fsdp_config:
   fsdp_sharding_strategy: FULL_SHARD
   fsdp_state_dict_type: SHARDED_STATE_DICT
   fsdp_sync_module_states: true
-  fsdp_transformer_layer_cls_to_wrap: GPT2Block
+  fsdp_transformer_layer_cls_to_wrap: Phi3DecoderLayer
   fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
