@@ -23,7 +23,7 @@ fsdp_config:
   fsdp_forward_prefetch: false # Important! "true" leads to post_hook error.
   fsdp_offload_params: false
   fsdp_sharding_strategy: NO_SHARD # FULL_SHARD
-  fsdp_state_dict_type: SHARDED_STATE_DICT
+  fsdp_state_dict_type: FULL_STATE_DICT # SHARDED_STATE_DICT
   fsdp_sync_module_states: true
   fsdp_transformer_layer_cls_to_wrap: Phi3DecoderLayer  # The basic block is named Phi3DecoderLayer (repeated 32 times)
   fsdp_use_orig_params: true
