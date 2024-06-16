@@ -24,7 +24,12 @@ classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
 ]
-dependencies = ["torch", "transformers"]
+
+dependencies = [
+    "torch",
+    "transformers",
+    "numpy<2.0.0", # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
+]
 
 [project.urls]
 Homepage = "https://github.com/openlema/lema"
