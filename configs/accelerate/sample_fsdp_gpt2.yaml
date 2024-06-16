@@ -1,5 +1,6 @@
 # Sample command:
 # accelerate launch \
+#   --use_fsdp \
 #   --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
 #   -m lema.train \
 #   -c configs/lema/gpt2.pt.yaml \
@@ -7,6 +8,7 @@
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \
 #   "training.include_performance_metrics=true" \
+#   "training.per_device_train_batch_size=8" \
 #   "training.max_steps=100" \
 #   "training.logging_steps=10"
 
