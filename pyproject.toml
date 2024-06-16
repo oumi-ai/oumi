@@ -26,7 +26,8 @@ classifiers = [
 ]
 dependencies = [
     "torch",
-    "transformers"
+    "transformers",
+    "numpy<2.0.0", # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
 ]
 
 [project.urls]

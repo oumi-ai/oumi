@@ -1,6 +1,7 @@
 import os
 from typing import Any, NamedTuple, Optional
 
+import numpy as np
 import torch
 
 from lema.logging import logger
@@ -36,7 +37,7 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
 
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
-    logger.info(f"Torch version: {torch.__version__}")
+    logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
     if not torch.cuda.is_available():
         logger.info("CUDA is not available!")
         return
