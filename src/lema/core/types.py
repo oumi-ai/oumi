@@ -63,6 +63,11 @@ class TrainingParams:
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+    fp16: bool = False  # 16-bit (mixed) precision training instead of 32-bit training
+    bf16: bool = False  # Whether to use bf16 16-bit (mixed) precision training instead
+    # of 32-bit training. Requires Ampere or higher NVIDIA architecture
+    # or using CPU or Ascend NPU.
+
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
@@ -96,6 +101,8 @@ class TrainingParams:
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
             include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,
+            fp16=self.fp16,
+            bf16=self.bf16,
         )
 
     def _get_hf_report_to(self) -> List[str]:

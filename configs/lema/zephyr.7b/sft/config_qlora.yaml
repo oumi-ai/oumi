@@ -36,6 +36,7 @@ training:
     use_reentrant: false
   max_steps: -1
   num_train_epochs: 1
+  fp16: true
 
 peft:
   q_lora: true
