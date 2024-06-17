@@ -144,3 +144,18 @@ Remember to stop the cluster when you are done to avoid extra charges. You can e
 ```shell
 sky autostop lema-cluster -i 10
 ```
+
+### Multi-GPU Training
+
+If your model fits on 1 GPU, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPUs. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+
+#### DDP (Distributed Data Parallel)
+
+To start DDP training on N GPUs, edit `configs/skypilot/sky.yaml` and configure it to use `N` GPUs. For example, for two (2) GPUs:
+
+* Set `accelerators:` section to something like this: `accelerators: {"A40": 2}`
+* Set `--nproc-per-node 2` in the `run:` command at the bottom of the file.
+
+Then run `sky launch -c lema-cluster configs/skypilot/sky.yaml` as before.
+
+#### FSDP (Fully Sharded Data Parallel)
