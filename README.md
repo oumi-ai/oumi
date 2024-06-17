@@ -145,17 +145,29 @@ Remember to stop the cluster when you are done to avoid extra charges. You can e
 sky autostop lema-cluster -i 10
 ```
 
-### Multi-GPU Training
+### Multi-GPU Training on a single node
 
-If your model fits on 1 GPU, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPUs. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+If your model fits on 1 GPU, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPUs and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
 
 #### DDP (Distributed Data Parallel)
 
-To start DDP training on N GPUs, edit `configs/skypilot/sky.yaml` and configure it to use `N` GPUs. For example, for two (2) GPUs:
+To start DDP training on `N` GPUs, edit `./configs/skypilot/sky.yaml` and configure it to use `N` GPUs. For example, for two (`2`) `A40` GPUs:
 
-* Set `accelerators:` section to something like this: `accelerators: {"A40": 2}`
+* Set `accelerators:` section to something like: `accelerators: {"A40": 2}`
 * Set `--nproc-per-node 2` in the `run:` command at the bottom of the file.
 
-Then run `sky launch -c lema-cluster configs/skypilot/sky.yaml` as before.
+Then run `sky launch ...` as before.
 
 #### FSDP (Fully Sharded Data Parallel)
+
+NOTE: PyTorch FSDP paper: https://arxiv.org/abs/2304.11277
+
+For example, for Phi3 DPO model, there are two related sample configs provided:
+* SkyPilot config: `configs/skypilot/sky_fsdp_phi3_dpo.yaml`
+  * Set `accelerators:` section to something like: `accelerators: {"A40": N}`, where N is the number of GPUs to use e.g., `2`.
+* [`accelerate`](https://github.com/huggingface/accelerate) config: `configs/accelerate/sample_fsdp_phi3_dpo.yaml`
+  * Set `num_processes: N`, where N is the number of GPUs.
+  * Update `fsdp_transformer_layer_cls_to_wrap` to match transformer layer class name in your model.
+  * Review and tune other FSDP parameters in the config, as described in [FSDP Configuration](https://huggingface.co/docs/transformers/main/en/fsdp#fsdp-configuration) and in [accelerate usage guide](https://huggingface.co/docs/accelerate/en/usage_guides/fsdp). They control various performance trade-offs.
+
+Then run `sky launch ...` as before.
