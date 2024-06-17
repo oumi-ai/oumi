@@ -29,7 +29,7 @@ def softmax(x, axis=None):
 
 
 def most_probable_tokens(
-    tokenizer: PreTrainedTokenizerBase, token_probs: List[float], count: int = 3
+    tokenizer: PreTrainedTokenizerBase, token_probs: List[float], count: int
 ) -> List[Tuple[str, float]]:
     """Return the `count` most probable next tokens, with their probabilities."""
     indices = np.argsort(token_probs)
@@ -63,10 +63,15 @@ def infer_prob(
     model = build_model(model_params)
     model_device = next(model.parameters()).device
 
-    # Tokenization of input (in place, batch mode).
-    for batch_index, batch in enumerate(input):
-        input[batch_index] = tokenizer(batch, return_tensors="pt", padding=True).to(
-            model_device
+    # Tokenization of input (batch mode).
+    # `input_tok` is a 2D list of tokenized prompts of shape (num_batches, batch_size).
+    # Each tokenized prompt itself is a class `tokenizers.Encoding`. If the tokenizer is
+    # a pure python tokenizer (i.e., not “Fast”), this class behaves just like a python
+    # dictionary, which holds the tokenized prompts under the key `input_ids`.
+    input_tok = []
+    for batch in input:
+        input_tok.append(
+            tokenizer(batch, return_tensors="pt", padding=True).to(model_device)
         )
 
     # Ensure the `acceptable_tokens` are valid.
@@ -97,7 +102,7 @@ def infer_prob(
     # Explanation:
     #     Gets next tokens' unnormalized probabilities (logits): `token probs.logits`.
     #     This is a tensor of shape [batch_size, num_input_tokens, vocabulary_size].
-    #     - batch_size: The output is batched, since our input (`input`) is batched.
+    #     - batch_size: The output is batched, since our input (`input_tok`) is batched.
     #     - num_input_tokens: The probability of the next token, for each token that is
     #       included in our input prompt. We are only interested in the next token that
     #       comes after the last token of our input sequence, thus we will flatten this
@@ -107,9 +112,9 @@ def infer_prob(
     #       dimension equals the size of the vocabulary.
     #     The `output` will be a 3D list [num_batches, batch_size, vocabulary_size].
     output = []
-    for batch_index in tqdm(range(len(input)), desc="Generating Token Logits"):
+    for batch_index in tqdm(range(len(input_tok)), desc="Generating Token Logits"):
         with torch.no_grad():
-            token_logits = model(input[batch_index].input_ids)  # type: ignore
+            token_logits = model(input_tok[batch_index].input_ids)  # type: ignore
             token_logits = token_logits.logits[:, -1, :].tolist()
 
             # For most tokenizers, the model returns as many probabilities as the number

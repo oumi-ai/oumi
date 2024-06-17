@@ -88,4 +88,28 @@ def test_most_probable_tokens(token_probs, output):
         def decode(self, x):
             return f"index_{x}"
 
-    assert most_probable_tokens(MockDecoder(), token_probs) == output
+    assert most_probable_tokens(MockDecoder(), token_probs, count=3) == output
+
+
+@pytest.mark.parametrize("count", [0, 1, 2, 3, 1000])
+def test_most_probable_tokens_varying_count(count):
+    class MockDecoder(PreTrainedTokenizerBase):
+        def decode(self, x):
+            return f"index_{x}"
+
+    token_probs = [0.8, 0.7, 0.3, 0.2, 0.0, 0.1, 0.4, 0.5, 0.9, 0.6]
+    full_output = [
+        ("index_8", 0.9),
+        ("index_0", 0.8),
+        ("index_1", 0.7),
+        ("index_9", 0.6),
+        ("index_7", 0.5),
+        ("index_6", 0.4),
+        ("index_2", 0.3),
+        ("index_3", 0.2),
+        ("index_5", 0.1),
+        ("index_4", 0.0),
+    ]
+    assert (
+        most_probable_tokens(MockDecoder(), token_probs, count) == full_output[:count]
+    )
