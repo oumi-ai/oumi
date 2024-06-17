@@ -4,7 +4,7 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {A40, A10, A10g, A100-80GB-SXM}
+  accelerators: {"A40", "A10", "A10g", "A100-80GB-SXM"}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # 1. Set `accelerators:` above to something like this: {"A40": N}
   # 2. Set `--nproc-per-node N` in the `run:` command at the bottom of the file.
@@ -38,4 +38,6 @@ run: |
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
+      "training.per_device_train_batch_size=4" \
+      "training.max_steps=20" \
       "training.logging_steps=10"
