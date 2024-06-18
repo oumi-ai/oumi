@@ -9,12 +9,13 @@ model:
   torch_dtype_str: bfloat16
   model_max_length: 2048
   chat_template: zephyr
+  attn_implementation: flash_attention_2
 
 data:
   dataset_name: HuggingFaceH4/ultrachat_200k
   split: train_sft
-  stream: True
-  pack: True
+  stream: false
+  pack: false
   text_col: "text"
   preprocessing_function_name: trl_sft_ultrachat_200k
   preprocessing_function_kwargs:

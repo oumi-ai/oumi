@@ -7,6 +7,7 @@ import torch
 import transformers
 from omegaconf import MISSING, OmegaConf
 from peft.utils.peft_types import TaskType
+from transformers.utils import is_flash_attn_2_available
 
 from lema.logging import logger
 
@@ -63,6 +64,11 @@ class TrainingParams:
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+    fp16: bool = False  # 16-bit (mixed) precision training instead of 32-bit training
+    bf16: bool = False  # Whether to use bf16 16-bit (mixed) precision training instead
+    # of 32-bit training. Requires Ampere or higher NVIDIA architecture
+    # or using CPU or Ascend NPU.
+
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
@@ -96,6 +102,8 @@ class TrainingParams:
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
             include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,
+            fp16=self.fp16,
+            bf16=self.bf16,
         )
 
     def _get_hf_report_to(self) -> List[str]:
@@ -166,6 +174,7 @@ class ModelParams:
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None
+    attn_implementation: Optional[str] = None
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
@@ -179,6 +188,39 @@ class ModelParams:
             return torch.float16
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
+
+    def __post_init__(self):
+        """Verifies params."""
+        # check if flash-attention-2 is requested and supported
+        if (self.attn_implementation == "flash_attention_2") and (
+            not is_flash_attn_2_available()
+        ):
+            raise ValueError(
+                "Flash attention 2 was requested but it is not "
+                "supported. Confirm that your hardware is compatible and then "
+                "consider installing it: pip install -U flash-attn --no-build-isolation"
+            )
+
+        # check if flash-attention-2 is requested with half-precision
+        if (self.attn_implementation == "flash_attention_2") and (
+            self.torch_dtype() not in [torch.bfloat16, torch.float16]
+        ):
+            logger.warn(
+                "Cannot use flash_attention_2 with a full-precision model. "
+                "Ignoring request for using flash_attention_2 by setting "
+                "attn_implementation system's default."
+            )
+            self.attn_implementation = None
+
+    @property
+    def should_use_flash_attention_2(self) -> bool:
+        """Checks if flash-attention-2 was requested.
+
+        Note: Flash attention 2 paper https://arxiv.org/abs/2307.08691
+        TODO add flash-attention-2 in optional dependecies if we want to
+        use it frequently (.toml).
+        """
+        return self.attn_implementation == "flash_attention_2"
 
 
 @dataclass
