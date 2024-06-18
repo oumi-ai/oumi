@@ -73,6 +73,7 @@ def build_huggingface_model(
     hf_config = transformers.AutoConfig.from_pretrained(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
+        flash_attention_2=model_params.should_use_flash_attention_2,
     )
 
     if peft_params and peft_params.q_lora:
