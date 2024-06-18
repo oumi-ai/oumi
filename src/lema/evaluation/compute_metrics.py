@@ -46,5 +46,9 @@ def compute_multiple_choice_accuracy(
                 prompts[answer_index], label_index_correct, label_index_by_model
             )
 
-    logger.info(f"Correct answers: {correct_answers_count} of {total_answers_count}")
-    return correct_answers_count / total_answers_count
+    accuracy = float(correct_answers_count) / total_answers_count
+    logger.info(
+        f"Correct answers: {correct_answers_count} of {total_answers_count}. "
+        f"Accuracy is {accuracy:.3f}."
+    )
+    return accuracy

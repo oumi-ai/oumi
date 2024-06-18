@@ -76,7 +76,7 @@ def evaluate(config: EvaluationConfig) -> None:
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
-    logger.info(f"MMLU accuracy for {subject} is {accuracy}")
+    logger.info(f"MMLU accuracy for {subject} is {accuracy:.3f}")
 
 
 if __name__ == "__main__":
