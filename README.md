@@ -154,7 +154,6 @@ If your model fits on 1 GPU, then consider using [DDP (Distributed Data Parallel
 To start DDP training, edit [configs/skypilot/sky.yaml](configs/skypilot/sky.yaml) and configure it to use `N` GPUs. For example, for two (2) `A40` GPUs:
 
 * Set the `accelerators:` section as follows: `accelerators: {"A40": 2}`
-* Set `--nproc-per-node 2` in the `run:` command at the bottom of the file.
 
 Then run `sky launch ...` as before.
 
