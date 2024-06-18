@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -266,8 +267,28 @@ class PeftParams:
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
-    q_lora: bool = False
-    q_lora_bits: int = 4
+    q_lora: bool = field(default=False, metadata={"help": "Use model quantization."})
+    q_lora_bits: int = field(
+        default=4, metadata={"help": "Quantization (precision) bits."}
+    )
+    # FIXME the names below use the bnb short for bits-and bytes
+    # If we consider wrapping more quantization libraries a better
+    # naming convention should be applied.
+    bnb_4bit_quant_type: str = field(
+        default="fp4", metadata={"help": "4-bit quantization type (fp4 or nf4)."}
+    )
+    use_bnb_nested_quant: bool = field(
+        default=False, metadata={"help": "Use nested quantization."}
+    )
+    bnb_4bit_quant_storage: str = field(
+        default="uint8",
+        metadata={"help": "Storage type to pack the quanitzed 4-bit prarams."},
+    )
+
+    def __iter__(self):
+        """An iterator over field names and values."""
+        for param in dataclasses.fields(self):
+            yield param.name, getattr(self, param.name)
 
 
 #

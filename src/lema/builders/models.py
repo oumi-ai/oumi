@@ -82,6 +82,9 @@ def build_huggingface_model(
             load_in_4bit=peft_params.q_lora_bits == 4,
             load_in_8bit=peft_params.q_lora_bits == 8,
             bnb_4bit_compute_dtype=model_params.torch_dtype(),
+            bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
+            bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
+            bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
         )
     else:
         quantization_config = None
