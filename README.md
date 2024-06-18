@@ -106,17 +106,17 @@ lema is a learning machines modeling platform that allows you to build and train
 ## User Setup
 
 To install lema, you can use pip:
-`pip install lema[cloud,dev,train]`
+`pip install 'lema[cloud,dev,train]'`
 
 
 ## Training on a cloud cluster
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 ```shell
-pip install lema[cloud]
+pip install 'lema[cloud]'
 ```
 
 Then setup your cloud credentials:
-- [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod-cloud)
+- [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod)
 - [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
 
 Your environment should be ready! Use this to check:
