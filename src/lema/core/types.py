@@ -207,9 +207,9 @@ class ModelParams:
             self.torch_dtype() not in [torch.bfloat16, torch.float16]
         ):
             logger.warn(
-                "Cannot use flash_attention_2 with a full-precision model. "
-                "Ignoring request for using flash_attention_2 by setting "
-                "attn_implementation system's default."
+                "Cannot use flash_attention_2 with a full-precision "
+                f"({self.torch_dtype()}) model. Ignoring request for using "
+                "flash_attention_2 by setting attn_implementation system's default."
             )
             self.attn_implementation = None
 

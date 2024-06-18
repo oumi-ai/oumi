@@ -125,8 +125,8 @@ def log_model_summary(model) -> None:
     logger.info(create_model_summary(model))
 
 
-def print_trainable_parameters(model: torch.nn.Module) -> None:
-    """Prints the number of trainable parameters in the model.
+def log_trainable_parameters(model: torch.nn.Module) -> None:
+    """Logs the number of trainable parameters of the model.
 
     Args:
         model: The torch-implemented neural network.
@@ -140,7 +140,7 @@ def print_trainable_parameters(model: torch.nn.Module) -> None:
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-    print(
+    logger.info(
         (
             f"Trainable params: {trainable_params} || All params: {all_param} "
             f"|| Trainable%: {100 * trainable_params / all_param :.4f}"
