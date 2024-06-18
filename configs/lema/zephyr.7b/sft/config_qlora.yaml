@@ -42,6 +42,8 @@ training:
     use_reentrant: false
   max_steps: -1
   num_train_epochs: 1
+  save_steps: 100
+  logging_first_step: True
   bf16: true
 
 peft:

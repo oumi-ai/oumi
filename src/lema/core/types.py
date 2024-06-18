@@ -41,6 +41,7 @@ class TrainingParams:
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
     num_train_epochs: int = 3
+    save_steps: int = 100
 
     run_name: str = "default"
 
@@ -53,6 +54,12 @@ class TrainingParams:
     logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
     logging_dir: str = "output/runs"
     logging_steps: int = 50
+
+    # TODO consider using this with our logger too
+    logging_first_step: bool = field(
+        default=False,
+        metadata={"help": "Whether to log and evaluate the first global_step or not."},
+    )
 
     learning_rate: float = 5e-05
     lr_scheduler_type: str = "cosine"  # TODO Update by enumerating *more* options
@@ -105,6 +112,8 @@ class TrainingParams:
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.fp16,
             bf16=self.bf16,
+            save_steps=self.save_steps,
+            logging_first_step=self.logging_first_step,
         )
 
     def _get_hf_report_to(self) -> List[str]:
