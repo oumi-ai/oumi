@@ -40,10 +40,12 @@ run: |
   echo "Number of nodes: ${num_nodes}"
   echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
 
-
   torchrun --standalone \
       --nnodes ${num_nodes} \
       --nproc-per-node ${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --rdzv_id=1 \
+      --rdzv_endpoint=${master_addr}:1234 \
+      --rdzv_backend=c10d \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
