@@ -45,6 +45,7 @@ training:
   save_steps: 100
   logging_first_step: True
   bf16: True
+  resume_from_checkpoint: None # Optional
 
 peft:
   q_lora: True
