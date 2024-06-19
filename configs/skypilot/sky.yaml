@@ -51,7 +51,7 @@ run: |
     exit 1
   fi
 
-  torchrun --standalone \
+  torchrun \
       --nnodes=${NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
