@@ -109,7 +109,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     logger.info("Starting training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=config.training.resume_from_checkpoint)
     logger.info("Training is Complete.")
 
     # Save final checkpoint & training state

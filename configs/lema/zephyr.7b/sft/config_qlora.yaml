@@ -34,8 +34,8 @@ training:
   gradient_accumulation_steps: 2
   learning_rate: 2.0e-04
   lr_scheduler_type: "cosine"
-  output_dir: "/workspace/zephyr-7b-sft-qlora"   # Note: change if you do not have access to /workspace
-  logging_dir: "/workspace/zephyr-7b-sft-qlora/runs"
+  output_dir: "/workspace/zephyr-7b-sft-qlora/cont"   # Note: change if you do not have access to /workspace
+  logging_dir: "/workspace/zephyr-7b-sft-qlora/runs/cont"
   logging_steps: 25
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
@@ -45,7 +45,7 @@ training:
   save_steps: 100
   logging_first_step: True
   bf16: True
-  resume_from_checkpoint: None # Optional
+  resume_from_checkpoint: /workspace/zephyr-7b-sft-qlora/checkpoint-1200 # Optional
 
 peft:
   q_lora: True
