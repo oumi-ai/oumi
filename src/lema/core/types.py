@@ -196,7 +196,7 @@ class DatasetParams:
 class DataParams:
     # The input datasets used for training. This will later be split into train, test,
     # and validation.
-    datasets: List[DatasetParams] = MISSING
+    datasets: List[DatasetParams] = field(default_factory=list)
     # Whether to pack the text into constant-length chunks,
     # each the size of the model's max input length.
     # This will stream the dataset, and tokenize on the fly
@@ -209,21 +209,22 @@ class DataParams:
     text_col: Optional[str] = None
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
     mixture_strategy: str = field(
-        default=str(MixtureStrategy.FIRST_EXHAUSTED),
+        default=MixtureStrategy.FIRST_EXHAUSTED.value,
         metadata={
             "help": "The mixture strategy to use when multiple datasets are "
-            f"provided. `{MixtureStrategy.FIRST_EXHAUSTED}` will sample from all "
+            f"provided. `{MixtureStrategy.FIRST_EXHAUSTED.value}` will sample from all "
             "datasets until exactly one dataset is completely represented in the "
-            f"mixture. `{MixtureStrategy.ALL_EXHAUSTED}` will sample from all "
+            f"mixture. `{MixtureStrategy.ALL_EXHAUSTED.value}` will sample from all "
             "datasets until every dataset is completely represented in the "
-            f"mixture. Note that `{MixtureStrategy.ALL_EXHAUSTED}` may result in "
+            f"mixture. Note that `{MixtureStrategy.ALL_EXHAUSTED.value}` may result in "
             "significant oversampling. Defaults to "
-            f"`{MixtureStrategy.FIRST_EXHAUSTED}`."
+            f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
         },
     )
 
     def __post_init__(self):
         """Verifies params."""
+        print(f"Type of datasets: {type(self.datasets)}, value: {self.datasets}")
         if self.pack:
             if not self.text_col:
                 raise ValueError("`text_col` must be specified if `pack` is enabled.")
@@ -253,8 +254,8 @@ class DataParams:
         ):
             raise ValueError(
                 "`mixture_strategy` must be one of "
-                f'["{MixtureStrategy.FIRST_EXHAUSTED}", '
-                f'"{MixtureStrategy.ALL_EXHAUSTED}"].'
+                f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
+                f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
 
 

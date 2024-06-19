@@ -169,7 +169,7 @@ def _sample_dataset(
             load_dataset(
                 dataset_params.dataset_name,
                 name=dataset_params.dataset_config,
-                streaming=True,
+                streaming=streaming,
                 split=dataset_params.split,
             ),
         )
