@@ -53,5 +53,5 @@ run: |
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
       "training.per_device_train_batch_size=4" \
-      "training.max_steps=20" \
+      "training.max_steps=5" \
       "training.logging_steps=10"

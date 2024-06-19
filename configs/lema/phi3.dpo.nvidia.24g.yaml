@@ -2,6 +2,7 @@ model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
+  attn_implementation: "flash_attention_2"
 
 data:
   dataset_name: "mlabonne/orpo-dpo-mix-40k"
