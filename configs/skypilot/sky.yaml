@@ -11,7 +11,7 @@ resources:
   # Set `accelerators:` above to something like this: {"A40": N}
 
   any_of:
-    - use_spot: true
+#    - use_spot: true
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
@@ -40,7 +40,7 @@ run: |
   master_addr=`echo "$SKYPILOT_NODE_IPS" | head -n1`
   echo "Master address: ${master_addr}"
   echo "Number of nodes: ${num_nodes}"
-  echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}
+  echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
 
   if [[ -z "${master_addr}" ]]; then
     echo "Master address is empty!"
