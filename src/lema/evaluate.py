@@ -80,7 +80,7 @@ def evaluate(config: EvaluationConfig) -> None:
         None for now, we will return a relevant class in the future.
     """
     # Load the dataset from HuggingFace or a local repository.
-    if config.data.dataset_name == "cais/mmlu":
+    if config.data.datasets[0].dataset_name == "cais/mmlu":
         dataset_dict = load_dataset("cais/mmlu", "all")
         assert isinstance(dataset_dict, DatasetDict)
     else:
@@ -88,12 +88,12 @@ def evaluate(config: EvaluationConfig) -> None:
         raise NotImplementedError("Model evaluation only for MMLU for now.")
 
     # Identify the relevant split within the dataset.
-    if config.data.split not in dataset_dict:
+    if config.data.datasets[0].split not in dataset_dict:
         raise ValueError(
-            f"Split {config.data.split} not supported for "
-            f"dataset {config.data.dataset_name}."
+            f"Split {config.data.datasets[0].split} not supported for "
+            f"dataset {config.data.datasets[0].dataset_name}."
         )
-    dataset = dataset_dict[config.data.split]
+    dataset = dataset_dict[config.data.datasets[0].split]
     assert isinstance(dataset, Dataset)
 
     # FIXME: Only evaluate a small portion for now for testing purposes.

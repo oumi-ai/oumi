@@ -3,13 +3,14 @@ import tempfile
 
 from omegaconf import OmegaConf
 
-from lema.core.types import TrainingConfig
+from lema.core.types import DatasetParams, TrainingConfig
 
 
 def test_config_serialization():
     with tempfile.TemporaryDirectory() as folder:
         original_config = TrainingConfig()
-        original_config.data.dataset_name = "my_test_dataset"
+        dataset_params = DatasetParams(dataset_name="my_test_dataset")
+        original_config.data.datasets = [dataset_params]
         original_config.model.model_name = "my_test_model"
 
         filename = os.path.join(folder, "test_config.yaml")
