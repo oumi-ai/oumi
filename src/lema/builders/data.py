@@ -1,5 +1,5 @@
 import copy
-from typing import Callable, List, Sequence, TypeVar, Union, cast
+from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import transformers
 from datasets import (
@@ -49,6 +49,7 @@ def build_prompt_generation_fn(
 def build_dataset(
     config: TrainingConfig,
     tokenizer: transformers.PreTrainedTokenizerBase,
+    seed: Optional[int] = None,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType]:
     """Builds a dataset for training.
@@ -56,6 +57,7 @@ def build_dataset(
     Args:
         config: The training config.
         tokenizer: The tokenizer object to use for preprocessing.
+        seed: If specified, a seed used for random sampling.
         kwargs: Keyword arguments.
 
     Returns:
@@ -77,7 +79,12 @@ def build_dataset(
     ]
 
     # Interleave datasets using mixture_strategy.
-    dataset = _mix_datasets(datasets, mixture_proportions, data_params.mixture_strategy)
+    dataset = _mix_datasets(
+        datasets,
+        mixture_proportions,
+        data_params.mixture_strategy,
+        seed,
+    )
     if data_params.pack:
         # Fetch max sequence length. If not specified, defaults to 1024.
         dataset_kwargs = {}
@@ -94,8 +101,9 @@ def build_dataset(
 
 def _mix_datasets(
     dataset_list: List[DatasetType],
-    mixture_proportions: Sequence[Union[float, None]],
+    mixture_proportions: Sequence[Optional[float]],
     mixture_strategy: str,
+    seed: Optional[int],
 ) -> DatasetType:
     """Joins multiple datasets using the provided `mixture_strategy`."""
     if any([proportion is None for proportion in mixture_proportions]):
@@ -108,6 +116,7 @@ def _mix_datasets(
         return interleave_datasets(
             dataset_list,
             probabilities=mixture_proportions,
+            seed=seed,
             stopping_strategy=(MixtureStrategy(mixture_strategy).get_literal_value()),
         )
 

@@ -20,6 +20,8 @@ def test_config_serialization():
 
         loaded_config = TrainingConfig.from_yaml(filename)
         assert loaded_config.model.model_name == "my_test_model"
+        assert len(loaded_config.data.datasets) == 1
+        assert loaded_config.data.datasets[0].dataset_name == "my_test_dataset"
         assert original_config == loaded_config
 
 
