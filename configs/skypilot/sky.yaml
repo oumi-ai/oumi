@@ -1,21 +1,21 @@
 name: lema-train-example
 
-num_nodes: 2
+num_nodes: 1
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: { "T4": 1 } # , "A10", "A10g", "A100-80GB-SXM"}
+  accelerators: { "A40", "A10", "A10g", "A100-80GB-SXM"}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # Set `accelerators:` above to something like this: {"A40": N}
 
-  disk_size: 200 # Disk size in GB
-  disk_tier: high
-  region: us-west3
+  disk_size: 200      # Disk size in GB
+  disk_tier: medium   # medium is the default.
+  # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
-#    - use_spot: true
+    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
@@ -53,11 +53,10 @@ run: |
 
   torchrun --standalone \
       --nnodes=${NUM_NODES} \
-      --node_rank=${SKYPILOT_NODE_RANK} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --rdzv_id=1 \
-      --rdzv_endpoint=${MASTER_ADDR}:1234 \
-      --rdzv_backend=c10d \
+      --master-addr=${MASTER_ADDR} \
+      --master-port=8008 \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
@@ -65,5 +64,5 @@ run: |
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
       "training.per_device_train_batch_size=4" \
-      "training.max_steps=5" \
+      "training.max_steps=20" \
       "training.logging_steps=10"
