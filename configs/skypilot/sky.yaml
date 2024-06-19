@@ -11,7 +11,7 @@ resources:
   # Set `accelerators:` above to something like this: {"A40": N}
 
   any_of:
-#    - use_spot: true
+    - use_spot: true
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
