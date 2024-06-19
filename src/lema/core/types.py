@@ -179,6 +179,7 @@ class DataParams:
 @dataclass
 class ModelParams:
     model_name: str = MISSING
+    adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
     model_max_length: Optional[int] = None
     trust_remote_code: bool = False

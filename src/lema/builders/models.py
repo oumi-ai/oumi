@@ -2,7 +2,7 @@ import os.path as osp
 from typing import Optional
 
 import transformers
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
 # FIXME: The following import is NOT used, but is needed to populate the registry.
@@ -98,6 +98,10 @@ def build_huggingface_model(
         quantization_config=quantization_config,
         **kwargs,
     )
+
+    # Load pretrained PEFT adapters
+    if model_params.adapter_model is not None:
+        model = PeftModel.from_pretrained(model, model_params.adapter_model)
 
     return model
 
