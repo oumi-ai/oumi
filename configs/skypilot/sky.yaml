@@ -1,14 +1,18 @@
 name: lema-train-example
 
-num_nodes: 1
+num_nodes: 2
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: { "A40": 1 } # , "A10", "A10g", "A100-80GB-SXM"}
+  accelerators: { "T4": 1 } # , "A10", "A10g", "A100-80GB-SXM"}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # Set `accelerators:` above to something like this: {"A40": N}
+
+  disk_size: 200 # Disk size in GB
+  disk_tier: high
+  region: us-west3
 
   any_of:
 #    - use_spot: true
@@ -36,22 +40,23 @@ run: |
 
   echo "SkyPilot node IPs: ${SKYPILOT_NODE_IPS}"
   echo "SkyPilot node rank: ${SKYPILOT_NODE_RANK}"
-  num_nodes=`echo "$SKYPILOT_NODE_IPS" | wc -l`
-  master_addr=`echo "$SKYPILOT_NODE_IPS" | head -n1`
-  echo "Master address: ${master_addr}"
-  echo "Number of nodes: ${num_nodes}"
+  export NUM_NODES=`echo "$SKYPILOT_NODE_IPS" | wc -l`
+  export MASTER_ADDR=`echo "$SKYPILOT_NODE_IPS" | head -n1`
+  echo "Master address: ${MASTER_ADDR}"
+  echo "Number of nodes: ${NUM_NODES}"
   echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
 
-  if [[ -z "${master_addr}" ]]; then
+  if [[ -z "${MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
     exit 1
   fi
 
   torchrun --standalone \
-      --nnodes ${num_nodes} \
-      --nproc-per-node ${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --rdzv_id="${master_addr}" \
-      --rdzv_endpoint=${master_addr}:1234 \
+      --nnodes=${NUM_NODES} \
+      --node_rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --rdzv_id=1 \
+      --rdzv_endpoint=${MASTER_ADDR}:1234 \
       --rdzv_backend=c10d \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
