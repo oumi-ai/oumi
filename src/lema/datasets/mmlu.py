@@ -80,8 +80,7 @@ class MmluDataset:
     @staticmethod
     def format_subject(subject: str) -> str:
         """Formats the subject of the prompt."""
-        subject_words = subject.split("_")
-        return "".join(f" {word}" for word in subject_words)
+        return subject.replace("_", " ")
 
     @classmethod
     def format_example(
@@ -162,7 +161,7 @@ class MmluDataset:
 
         prompt = (
             f"The following are multiple choice questions (with answers) "
-            f"about{MmluDataset.format_subject(subject)}.\n\n"
+            f"about {MmluDataset.format_subject(subject)}.\n\n"
         )
         prompt += self._few_shot_dict[subject]
         prompt += MmluDataset.format_example(example, include_answer=False)
