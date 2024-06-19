@@ -2,7 +2,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, cast
 
 import torch
 import transformers
@@ -295,7 +295,7 @@ class PeftParams:
         metadata={"help": "Storage type to pack the quanitzed 4-bit prarams."},
     )
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[str, Any]]:
         """An iterator over field names and values."""
         for param in dataclasses.fields(self):
             yield param.name, getattr(self, param.name)
