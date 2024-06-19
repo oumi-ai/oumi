@@ -1,7 +1,8 @@
+import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, cast
 
 import torch
 import transformers
@@ -40,6 +41,7 @@ class TrainingParams:
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
     num_train_epochs: int = 3
+    save_steps: int = 100
 
     run_name: str = "default"
 
@@ -52,6 +54,12 @@ class TrainingParams:
     logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
     logging_dir: str = "output/runs"
     logging_steps: int = 50
+
+    # TODO consider using this with our logger too
+    logging_first_step: bool = field(
+        default=False,
+        metadata={"help": "Whether to log and evaluate the first global_step or not."},
+    )
 
     learning_rate: float = 5e-05
     lr_scheduler_type: str = "cosine"  # TODO Update by enumerating *more* options
@@ -104,6 +112,8 @@ class TrainingParams:
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.fp16,
             bf16=self.bf16,
+            save_steps=self.save_steps,
+            logging_first_step=self.logging_first_step,
         )
 
     def _get_hf_report_to(self) -> List[str]:
@@ -169,6 +179,7 @@ class DataParams:
 @dataclass
 class ModelParams:
     model_name: str = MISSING
+    adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
     model_max_length: Optional[int] = None
     trust_remote_code: bool = False
@@ -206,9 +217,9 @@ class ModelParams:
             self.torch_dtype() not in [torch.bfloat16, torch.float16]
         ):
             logger.warn(
-                "Cannot use flash_attention_2 with a full-precision model. "
-                "Ignoring request for using flash_attention_2 by setting "
-                "attn_implementation system's default."
+                "Cannot use flash_attention_2 with a full-precision "
+                f"({self.torch_dtype()}) model. Ignoring request for using "
+                "flash_attention_2 by setting attn_implementation system's default."
             )
             self.attn_implementation = None
 
@@ -266,8 +277,28 @@ class PeftParams:
     lora_task_type: TaskType = TaskType.CAUSAL_LM
 
     # Q-Lora Params
-    q_lora: bool = False
-    q_lora_bits: int = 4
+    q_lora: bool = field(default=False, metadata={"help": "Use model quantization."})
+    q_lora_bits: int = field(
+        default=4, metadata={"help": "Quantization (precision) bits."}
+    )
+    # FIXME the names below use the bnb short for bits-and bytes
+    # If we consider wrapping more quantization libraries a better
+    # naming convention should be applied.
+    bnb_4bit_quant_type: str = field(
+        default="fp4", metadata={"help": "4-bit quantization type (fp4 or nf4)."}
+    )
+    use_bnb_nested_quant: bool = field(
+        default=False, metadata={"help": "Use nested quantization."}
+    )
+    bnb_4bit_quant_storage: str = field(
+        default="uint8",
+        metadata={"help": "Storage type to pack the quanitzed 4-bit prarams."},
+    )
+
+    def __iter__(self) -> Iterator[Tuple[str, Any]]:
+        """An iterator over field names and values."""
+        for param in dataclasses.fields(self):
+            yield param.name, getattr(self, param.name)
 
 
 #
