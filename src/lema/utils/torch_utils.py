@@ -83,7 +83,13 @@ def log_devices_info() -> None:
 
 
 DeviceRankInfo = NamedTuple(
-    "DeviceRankInfo", [("world_size", int), ("rank", int), ("local_rank", int)]
+    "DeviceRankInfo",
+    [
+        ("world_size", int),
+        ("rank", int),
+        ("local_world_size", int),
+        ("local_rank", int),
+    ],
 )
 
 
@@ -97,12 +103,25 @@ def get_device_rank_info() -> DeviceRankInfo:
         raise ValueError(
             f"RANK must be within this range [0, {world_size}). Actual: {rank}."
         )
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if local_rank < 0 or local_rank > rank:
+    local_world_size = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
+    if local_world_size <= 0 or local_world_size > world_size:
         raise ValueError(
-            f"LOCAL_RANK must be within this range [0, {rank}]. Actual: {local_rank}."
+            f"LOCAL_WORLD_SIZE must be within this range [1, {world_size}]. "
+            f"Actual: {local_world_size}."
         )
-    return DeviceRankInfo(world_size=world_size, rank=rank, local_rank=local_rank)
+    max_allowed_local_rank = min(rank, local_world_size - 1)
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if local_rank < 0 or local_rank > max_allowed_local_rank:
+        raise ValueError(
+            f"LOCAL_RANK must be within this range [0, {max_allowed_local_rank}]. "
+            f"Actual: {local_rank}."
+        )
+    return DeviceRankInfo(
+        world_size=world_size,
+        rank=rank,
+        local_world_size=local_world_size,
+        local_rank=local_rank,
+    )
 
 
 def create_model_summary(model: Any) -> str:
