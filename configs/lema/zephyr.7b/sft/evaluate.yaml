@@ -1,5 +1,6 @@
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
+  # Note: update below location with your pretrained PEFT model
   adapter_model: "/workspace/zephyr-7b-sft-qlora/checkpoint-1000"
   trust_remote_code: True
   torch_dtype_str: "bfloat16"
