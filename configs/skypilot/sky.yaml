@@ -11,7 +11,7 @@ resources:
   # Set `accelerators:` above to something like this: {"A40": N}
 
   disk_size: 200      # Disk size in GB
-  disk_tier: medium   # medium is the default.
+  # disk_tier: medium # medium is the default.
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
