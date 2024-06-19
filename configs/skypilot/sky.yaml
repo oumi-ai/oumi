@@ -1,5 +1,7 @@
 name: lema-train-example
 
+num_nodes: 1
+
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
@@ -31,7 +33,17 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  torchrun --standalone --nnodes 1 --nproc-per-node $SKYPILOT_NUM_GPUS_PER_NODE \
+  echo "SkyPilot node IPs: ${SKYPILOT_NODE_IPS}"
+  num_nodes=`echo "$SKYPILOT_NODE_IPS" | wc -l`
+  master_addr=`echo "$SKYPILOT_NODE_IPS" | head -n1`
+  echo "Master address: ${master_addr}"
+  echo "Number of nodes: ${num_nodes}"
+  echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
+
+
+  torchrun --standalone \
+      --nnodes ${num_nodes} \
+      --nproc-per-node ${SKYPILOT_NUM_GPUS_PER_NODE} \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
