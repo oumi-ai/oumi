@@ -78,7 +78,8 @@ def _find_checkpoint_to_resume_from(
 
     if checkpoint_path:
         logger.info(f"Resuming training from checkpoint: {checkpoint_path}")
-    return checkpoint_path if checkpoint_path else None
+        return checkpoint_path
+    return None
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
