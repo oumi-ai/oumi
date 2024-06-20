@@ -1,6 +1,6 @@
 name: lema-train-example
 
-num_nodes: 2
+num_nodes: 1
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
@@ -38,10 +38,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
-  ./configs/lema/sky_init.sh
-
-  echo "Master address: ${LEMA_MASTER_ADDR}"
-  echo "Number of nodes: ${LEMA_NUM_NODES}"
+  # Runs some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
 
   # configs/lema/phi3.dpo.nvidia.24g.yaml
   # configs/lema/gpt2.pt.yaml
@@ -57,6 +55,6 @@ run: |
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=1" \
-      "training.max_steps=20" \
+      "training.per_device_train_batch_size=2" \
+      "training.max_steps=100" \
       "training.logging_steps=10"
