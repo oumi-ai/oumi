@@ -73,11 +73,11 @@ def _find_checkpoint_to_resume_from(
         checkpoint_path = resume_from_checkpoint
     elif resume_from_last_checkpoint_if_exists:
         checkpoint_path = get_last_checkpoint(output_dir)
+        if not checkpoint_path:
+            logger.warning(f"No checkpoints found under {output_dir}")
 
     if checkpoint_path:
         logger.info(f"Resuming training from checkpoint: {checkpoint_path}")
-    else:
-        logger.warning(f"No checkpoints found under {output_dir}")
     return checkpoint_path if checkpoint_path else None
 
 
