@@ -1,21 +1,15 @@
 name: lema-train-example
 
-num_nodes: 1 # Set it to N for multi-node training.
-
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A40", "A10", "A10g", "A100-80GB-SXM"}
+  accelerators: {"A100-80GB"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
-  # Set `accelerators:` above to something like this: {"A40": N}
-
-  disk_size: 200      # Disk size in GB
-  # disk_tier: medium # medium is the default.
-  # region: us-west3  # Uncomment this line to only consider a specific region.
-
+  # 1. Set `accelerators:` above to something like this: {"A40": N}
+  # 2. Set `--nproc-per-node N` in the `run:` command at the bottom of the file.
   any_of:
-    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
+    - use_spot: true
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
@@ -23,7 +17,7 @@ workdir: .
 
 # Upload local files.
 file_mounts:
-  ~/.netrc: ~/.netrc # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
   # /artifacts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
@@ -48,11 +42,7 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
-      "training.output_dir=train/" \
-      "training.enable_wandb=true" \
-      "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=4" \
-      "training.max_steps=20" \
-      "training.logging_steps=10"
+      -c configs/lema/llama2b.pt.yaml \
+      "training.log_model_summary=True" \
+      "training.max_steps=100" \
+      "training.enable_wandb=true"

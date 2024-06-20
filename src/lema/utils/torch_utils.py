@@ -83,7 +83,13 @@ def log_devices_info() -> None:
 
 
 DeviceRankInfo = NamedTuple(
-    "DeviceRankInfo", [("world_size", int), ("rank", int), ("local_rank", int)]
+    "DeviceRankInfo",
+    [
+        ("world_size", int),
+        ("rank", int),
+        ("local_world_size", int),
+        ("local_rank", int),
+    ],
 )
 
 
@@ -97,12 +103,27 @@ def get_device_rank_info() -> DeviceRankInfo:
         raise ValueError(
             f"RANK must be within this range [0, {world_size}). Actual: {rank}."
         )
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if local_rank < 0 or local_rank > rank:
+    local_world_size = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
+    if local_world_size <= 0 or local_world_size > world_size:
         raise ValueError(
-            f"LOCAL_RANK must be within this range [0, {rank}]. Actual: {local_rank}."
+            f"LOCAL_WORLD_SIZE must be within this range [1, {world_size}]. "
+            f"Actual: {local_world_size}."
         )
-    return DeviceRankInfo(world_size=world_size, rank=rank, local_rank=local_rank)
+    # Per https://pytorch.org/docs/stable/elastic/run.html
+    # NEVER hard code any assumptions about the stable-ness of ranks or
+    # some correlation between RANK and LOCAL_RANK.
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if local_rank < 0 or local_rank >= local_world_size:
+        raise ValueError(
+            f"LOCAL_RANK must be within this range [0, {local_world_size}). "
+            f"Actual: {local_rank}."
+        )
+    return DeviceRankInfo(
+        world_size=world_size,
+        rank=rank,
+        local_world_size=local_world_size,
+        local_rank=local_rank,
+    )
 
 
 def create_model_summary(model: Any) -> str:
@@ -125,8 +146,8 @@ def log_model_summary(model) -> None:
     logger.info(create_model_summary(model))
 
 
-def print_trainable_parameters(model: torch.nn.Module) -> None:
-    """Prints the number of trainable parameters in the model.
+def log_trainable_parameters(model: torch.nn.Module) -> None:
+    """Logs the number of trainable parameters of the model.
 
     Args:
         model: The torch-implemented neural network.
@@ -140,7 +161,7 @@ def print_trainable_parameters(model: torch.nn.Module) -> None:
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-    print(
+    logger.info(
         (
             f"Trainable params: {trainable_params} || All params: {all_param} "
             f"|| Trainable%: {100 * trainable_params / all_param :.4f}"

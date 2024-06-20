@@ -4,36 +4,36 @@
 # TODO add: seed: 42
 
 model:
-  model_name: mistralai/Mistral-7B-v0.1
+  model_name: "mistralai/Mistral-7B-v0.1"
   trust_remote_code: True
-  torch_dtype_str: bfloat16
+  torch_dtype_str: "bfloat16"
   model_max_length: 2048
-  chat_template: zephyr
-  attn_implementation: flash_attention_2
+  chat_template: "zephyr"
+  attn_implementation: "flash_attention_2"
 
 data:
-  dataset_name: HuggingFaceH4/ultrachat_200k
-  split: train_sft
-  stream: false
-  pack: false
+  dataset_name: "HuggingFaceH4/ultrachat_200k"
+  split: "train_sft"
+  stream: False
+  pack: False
   text_col: "text"
-  preprocessing_function_name: trl_sft_ultrachat_200k
+  preprocessing_function_name: "trl_sft_ultrachat_200k"
   preprocessing_function_kwargs:
     num_proc: 6
     batched: False
 
 training:
-  optimizer: adamw_torch
+  optimizer: "adamw_torch"
   use_peft: True
-  trainer_type: TRL_SFT
-  enable_gradient_checkpointing: true
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 2
   learning_rate: 2.0e-05
-  lr_scheduler_type: cosine
-  output_dir: output/zephyr.7b.sft
+  lr_scheduler_type: "cosine"
+  output_dir: "output/zephyr.7b.sft"
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
-    use_reentrant: false
+    use_reentrant: False # So gradients flow from frozen input embedding
   max_steps: -1
   num_train_epochs: 1
