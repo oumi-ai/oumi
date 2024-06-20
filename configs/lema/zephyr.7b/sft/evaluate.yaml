@@ -1,0 +1,35 @@
+model:
+  model_name: "mistralai/Mistral-7B-v0.1"
+  # Note: update below location with your pretrained PEFT model
+  adapter_model: "/workspace/zephyr-7b-sft-qlora/checkpoint-1000"
+  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
+  model_max_length: 2048
+  chat_template: "zephyr"
+  attn_implementation: "flash_attention_2"
+
+data:
+  dataset_name: "cais/mmlu"
+  split: "test"
+  stream: False
+  pack: False
+  text_col: "text"
+
+generation:
+  max_new_tokens: 25
+
+peft: # TODO: see if needed given that you are using pretrained adapters
+  q_lora: True
+  q_lora_bits: 4
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+  bnb_4bit_quant_type: "nf4"
