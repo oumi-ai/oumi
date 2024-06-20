@@ -404,6 +404,9 @@ class TrainingConfig(BaseConfig):
 class GenerationConfig(BaseConfig):
     # TODO: Add more parameters to control text generation.
     max_new_tokens: int = 256
+    batch_size: int = 2
+    read_file: Optional[str] = None
+    write_file: Optional[str] = None
 
 
 @dataclass
@@ -417,4 +420,3 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
-    batch_size: int = 8
