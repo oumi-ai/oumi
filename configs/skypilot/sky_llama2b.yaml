@@ -44,5 +44,5 @@ run: |
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.log_model_summary=True" \
-      "training.max_steps=10" \
+      "training.max_steps=100" \
       "training.enable_wandb=true"
