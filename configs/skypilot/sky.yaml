@@ -1,6 +1,6 @@
 name: lema-train-example
 
-num_nodes: 1
+num_nodes: 1 # Set it to N for multi-node training.
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
@@ -38,25 +38,15 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
-  echo "SkyPilot node IPs: ${SKYPILOT_NODE_IPS}"
-  echo "SkyPilot node rank: ${SKYPILOT_NODE_RANK}"
-  export NUM_NODES=`echo "$SKYPILOT_NODE_IPS" | wc -l`
-  export MASTER_ADDR=`echo "$SKYPILOT_NODE_IPS" | head -n1`
-  echo "Master address: ${MASTER_ADDR}"
-  echo "Number of nodes: ${NUM_NODES}"
-  echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
+  # Runs some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
 
-  if [[ -z "${MASTER_ADDR}" ]]; then
-    echo "Master address is empty!"
-    exit 1
-  fi
-
-  torchrun --standalone \
-      --nnodes=${NUM_NODES} \
+  torchrun \
+      --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${MASTER_ADDR} \
-      --master-port=8008 \
+      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-port=8007 \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
