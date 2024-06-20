@@ -109,11 +109,13 @@ def get_device_rank_info() -> DeviceRankInfo:
             f"LOCAL_WORLD_SIZE must be within this range [1, {world_size}]. "
             f"Actual: {local_world_size}."
         )
-    max_allowed_local_rank = min(rank, local_world_size - 1)
+    # Per https://pytorch.org/docs/stable/elastic/run.html
+    # NEVER hard code any assumptions about the stable-ness of ranks or
+    # some correlation between RANK and LOCAL_RANK.
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if local_rank < 0 or local_rank > max_allowed_local_rank:
+    if local_rank < 0 or local_rank >= local_world_size:
         raise ValueError(
-            f"LOCAL_RANK must be within this range [0, {max_allowed_local_rank}]. "
+            f"LOCAL_RANK must be within this range [0, {local_world_size}). "
             f"Actual: {local_rank}."
         )
     return DeviceRankInfo(
