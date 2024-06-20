@@ -34,6 +34,6 @@ training:
   output_dir: "output/zephyr.7b.sft"
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
-    use_reentrant: False
+    use_reentrant: False # So gradients flow from frozen input embedding
   max_steps: -1
   num_train_epochs: 1
