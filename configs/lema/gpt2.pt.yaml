@@ -4,6 +4,7 @@ model:
   model_name: "openai-community/gpt2"
   model_max_length: 1024
   trust_remote_code: True
+  torch_dtype_str: "bfloat16"
 
 data:
   dataset_name: "Salesforce/wikitext"
