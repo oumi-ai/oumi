@@ -31,7 +31,16 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  torchrun --nnodes 1 --nproc-per-node $SKYPILOT_NUM_GPUS_PER_NODE \
+
+  # Run some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
+
+  torchrun \
+      --nnodes=${LEMA_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.log_model_summary=True" \
