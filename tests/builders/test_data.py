@@ -31,7 +31,7 @@ def _get_default_config(
     return TrainingConfig(
         data=DataParams(
             datasets=datasets,
-            text_col="prompt",
+            text_col="question",
             stream=streaming,
             pack=packing,
         ),
@@ -69,83 +69,83 @@ def test_data_single_dataset(streaming: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
             )
         ],
         streaming,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 51760
+    assert _get_dataset_size(dataset, streaming) == 100
 
 
 def test_data_multiple_datasets(streaming: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
             ),
         ],
         streaming,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 51760 * 2  # Duplicated dataset
+    assert _get_dataset_size(dataset, streaming) == 100 * 2  # Duplicated dataset
 
 
 def test_data_multiple_datasets_local_sample(streaming: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=5,
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
-                sample_count=51761,  # oversample by 1.
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
+                sample_count=201,  # oversample by 1.
             ),
         ],
         streaming,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 5 + 51761
+    assert _get_dataset_size(dataset, streaming) == 5 + 201
 
 
 def test_data_multiple_datasets_local_mixed(streaming: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
             ),
@@ -164,23 +164,23 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(streaming: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
             ),
             DatasetParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
-                split="train",
+                dataset_name="tasksource/mmlu",
+                dataset_config="abstract_algebra",
+                split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
             ),
@@ -200,23 +200,23 @@ def test_data_multiple_datasets_mixed_exception(streaming: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
@@ -232,23 +232,23 @@ def test_data_multiple_datasets_packing(streaming: bool):
             _ = _get_default_config(
                 [
                     DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
-                        split="train",
+                        dataset_name="tasksource/mmlu",
+                        dataset_config="abstract_algebra",
+                        split="test",
                         sample_count=5,
                         mixture_proportion=0.1,
                     ),
                     DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
-                        split="train",
+                        dataset_name="tasksource/mmlu",
+                        dataset_config="abstract_algebra",
+                        split="test",
                         sample_count=50,
                         mixture_proportion=0.4,
                     ),
                     DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
-                        split="train",
+                        dataset_name="tasksource/mmlu",
+                        dataset_config="abstract_algebra",
+                        split="test",
                         sample_count=5,
                         mixture_proportion=0.5,
                     ),
@@ -260,24 +260,24 @@ def test_data_multiple_datasets_packing(streaming: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
-                    sample_count=5,
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
+                    sample_count=50,
                     mixture_proportion=0.1,
                 ),
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="yahma/alpaca-cleaned",
-                    preprocessing_function_name="alpaca",
-                    split="train",
-                    sample_count=5,
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
+                    sample_count=50,
                     mixture_proportion=0.5,
                 ),
             ],
@@ -288,4 +288,4 @@ def test_data_multiple_datasets_packing(streaming: bool):
         tokenizer = build_tokenizer(config.model)
         dataset = build_dataset(config, tokenizer, seed=1)
         # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, streaming, packing=True) == 2
+        assert _get_dataset_size(dataset, streaming, packing=True) == 3
