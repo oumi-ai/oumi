@@ -12,7 +12,6 @@ def test_config_serialization():
         dataset_params = DatasetParams(dataset_name="my_test_dataset")
         original_config.data.datasets = [dataset_params]
         original_config.model.model_name = "my_test_model"
-
         filename = os.path.join(folder, "test_config.yaml")
         original_config.to_yaml(filename)
 

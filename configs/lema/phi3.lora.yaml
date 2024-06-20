@@ -3,8 +3,9 @@ model:
   trust_remote_code: True
 
 data:
-  dataset_name: "yahma/alpaca-cleaned"
-  preprocessing_function_name: "alpaca"
+  datasets:
+    - dataset_name: "yahma/alpaca-cleaned"
+      preprocessing_function_name: "alpaca"
   text_col: "prompt"
 
 training:
