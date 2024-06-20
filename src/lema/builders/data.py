@@ -1,5 +1,4 @@
-import copy
-from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
+from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import transformers
 from datasets import (
@@ -127,30 +126,9 @@ def _sample_dataset(
 ) -> DatasetType:
     """Loads and samples the specified dataset."""
     if dataset_params.sample_count is not None:
-        read_instructions = ReadInstruction(
-            dataset_params.split, to=dataset_params.sample_count, unit="abs"
-        )
-        return cast(
-            DatasetType,
-            load_dataset(
-                dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
-                streaming=streaming,
-                split=read_instructions.to_spec(),
-            ),
-        )
-    elif dataset_params.sample_proportion is not None:
-        # Get the number of complete datasets required for oversampling.
-        oversampling_copies = int(dataset_params.sample_proportion)
-        # Get the remaining percentage as a value in [0.0, 100.0].
-        dataset_percentage = 100 * (dataset_params.sample_proportion % 1)
-        read_instructions = ReadInstruction(
-            dataset_params.split, rounding="closest", to=dataset_percentage, unit="%"
-        )
-        dataset_list = []
-        if oversampling_copies > 0:
+        if streaming:
             dataset = cast(
-                DatasetType,
+                IterableDataset,
                 load_dataset(
                     dataset_params.dataset_name,
                     name=dataset_params.dataset_config,
@@ -158,19 +136,62 @@ def _sample_dataset(
                     split=dataset_params.split,
                 ),
             )
-            dataset_list = [copy.deepcopy(dataset) for _ in range(oversampling_copies)]
-        # Load the remaining dataset piece.
-        proportioned_dataset = cast(
-            DatasetType,
-            load_dataset(
-                dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
-                streaming=streaming,
-                split=read_instructions.to_spec(),
-            ),
-        )
-        dataset_list.append(proportioned_dataset)
-        return concatenate_datasets(dataset_list)
+            generator = _build_iterable_dataset_sampler(
+                dataset, dataset_params.sample_count
+            )
+            return cast(
+                DatasetType, IterableDataset.from_generator(generator, dataset.features)
+            )
+        else:
+            # Cast the ReadInstruction to Any as Huggingface type annotations are not
+            # up to date with their documenation. ReadInstruction can be passed as a
+            # split when loading datasets.
+            read_instructions: Any = ReadInstruction(
+                dataset_params.split, to=dataset_params.sample_count, unit="abs"
+            )
+            dataset = cast(
+                Dataset,
+                load_dataset(
+                    dataset_params.dataset_name,
+                    name=dataset_params.dataset_config,
+                    streaming=streaming,
+                    split=read_instructions,
+                ),
+            )
+            if dataset.num_rows < dataset_params.sample_count:
+                oversampling_copies = int(
+                    dataset_params.sample_count / dataset.num_rows
+                )
+                dataset_list = [
+                    cast(
+                        DatasetType,
+                        load_dataset(
+                            dataset_params.dataset_name,
+                            name=dataset_params.dataset_config,
+                            streaming=streaming,
+                            split=dataset_params.split,
+                        ),
+                    )
+                    for _ in range(oversampling_copies)
+                ]
+                remaining_rows = dataset_params.sample_count % dataset.num_rows
+                if remaining_rows > 0:
+                    split_read_instructions: Any = ReadInstruction(
+                        dataset_params.split, to=remaining_rows, unit="abs"
+                    )
+                    sampled_dataset: DatasetType = cast(
+                        DatasetType,
+                        load_dataset(
+                            dataset_params.dataset_name,
+                            name=dataset_params.dataset_config,
+                            streaming=streaming,
+                            split=split_read_instructions,
+                        ),
+                    )
+                    dataset_list.append(sampled_dataset)
+                return concatenate_datasets(dataset_list)
+            else:
+                return cast(DatasetType, dataset)
     else:
         # No sampling.
         return cast(
@@ -199,3 +220,18 @@ def _preprocess_dataset(
         )
     else:
         return dataset
+
+
+def _build_iterable_dataset_sampler(dataset: IterableDataset, n: int) -> Callable:
+    """Returns a generator that supports oversampling an IterableDataset."""
+
+    def _generator():
+        generation_count = 0
+        while generation_count < n:
+            for generation in dataset:
+                generation_count += 1
+                yield generation
+                if generation_count >= n:
+                    break
+
+    return _generator

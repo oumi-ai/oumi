@@ -147,18 +147,14 @@ class DatasetParams:
     dataset_config: Optional[str] = None
     split: str = "train"
 
-    # The number of examples to sample from the dataset. Must be non-negative. Mutually
-    # exclusive with `mixture_proportion` and `sample_proportion`. Defaults to None.
+    # The number of examples to sample from the dataset. Must be non-negative. Allows
+    # oversampling if `sample_count` is larger than the input dataset. Defaults to None.
     sample_count: Optional[int] = None
-    # The proportion of examples to sample from the dataset. Values greater than 1
-    # result in oversampling while values less than 1 result in undersampling. Must be
-    # non-negative. Mutually exclusive with `mixture_proportion` and `sample_count`.
-    # Defaults to None.
-    sample_proportion: Optional[float] = None
     # The proportion of examples from this dataset relative to other datasets in the
     # mixture. If specified, all datasets must supply this value. Must be a float in
     # the range [0, 1.0]. The `mixture_proportion` for all input datasets must sum to 1.
-    # Mutually exclusive with `sample_proportion` and `sample_count`. Defaults to None.
+    # Examples are sampled after the dataset has been sampled using `sample_count` if
+    # specified. Defaults to None.
     mixture_proportion: Optional[float] = None
 
     @staticmethod
@@ -182,9 +178,6 @@ class DatasetParams:
         if self.sample_count is not None:
             if self.sample_count < 0:
                 raise ValueError("`sample_count` must be greater than 0.")
-        if self.sample_proportion is not None:
-            if self.sample_proportion < 0:
-                raise ValueError("`sample_proportion` must be greater than 0.")
         if self.mixture_proportion is not None:
             if self.mixture_proportion < 0:
                 raise ValueError("`mixture_proportion` must be greater than 0.")
