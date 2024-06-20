@@ -1,6 +1,7 @@
 import argparse
 from typing import List
 
+import peft
 import torch
 from tqdm import tqdm
 
@@ -84,6 +85,12 @@ def infer(
     """
     tokenizer = build_tokenizer(model_params)
     model = build_model(model_params)
+
+    if isinstance(model, peft.PeftModel):
+        raise NotImplementedError(
+            "Inference does not work yet for pretrained PEFT models."
+        )
+
     model_device = next(model.parameters()).device
 
     # Tokenization of input (in place, batch mode).
