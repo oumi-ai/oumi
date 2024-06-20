@@ -83,7 +83,7 @@ class TrainingParams:
     # Whether to print model summary e.g., layer names, for informational purposes.
     log_model_summary: bool = False
 
-    # Wheter to resume training by loading first the pointed model from this folder
+    # Whether to resume training by loading first the pointed model from this folder
     resume_from_checkpoint: Optional[str] = None
 
     def to_hf(self):
@@ -452,3 +452,4 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    batch_size: int = 8
