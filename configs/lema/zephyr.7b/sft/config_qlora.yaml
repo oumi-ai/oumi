@@ -4,50 +4,51 @@
 # TODO add: seed: 42
 
 model:
-  model_name: mistralai/Mistral-7B-v0.1
+  model_name: "mistralai/Mistral-7B-v0.1"
   trust_remote_code: True
-  torch_dtype_str: bfloat16
+  torch_dtype_str: "bfloat16"
   model_max_length: 2048
-  chat_template: zephyr
-  attn_implementation: flash_attention_2
+  chat_template: "zephyr"
+  attn_implementation: "flash_attention_2"
 
 data:
-  dataset_name: HuggingFaceH4/ultrachat_200k
-  split: train_sft
-  stream: false
-  pack: false
+  dataset_name: "HuggingFaceH4/ultrachat_200k"
+  split: "train_sft"
+  stream: False
+  pack: False
   text_col: "text"
-  preprocessing_function_name: trl_sft_ultrachat_200k
+  preprocessing_function_name: "trl_sft_ultrachat_200k"
   preprocessing_function_kwargs:
     num_proc: 6
-    batched: false
+    batched: False
   trainer_kwargs: # TODO discuss necessity
-    dataset_text_field: text
+    dataset_text_field: "text"
     max_seq_length: ${model.model_max_length}
 
 training:
-  optimizer: adamw_torch
-  use_peft: true
-  trainer_type: TRL_SFT
-  enable_gradient_checkpointing: true
+  optimizer: "adamw_torch"
+  use_peft: True
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 2
   learning_rate: 2.0e-04
-  lr_scheduler_type: cosine
-  output_dir: /workspace/zephyr-7b-sft-qlora
-  logging_dir: /workspace/zephyr-7b-sft-qlora/runs
+  lr_scheduler_type: "cosine"
+  output_dir: "/workspace/zephyr-7b-sft-qlora/cont"   # Note: change if you do not have access to /workspace
+  logging_dir: "/workspace/zephyr-7b-sft-qlora/runs/cont"
   logging_steps: 25
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
-    use_reentrant: false
+    use_reentrant: False
   max_steps: -1
   num_train_epochs: 1
   save_steps: 100
   logging_first_step: True
-  bf16: true
+  bf16: True
+  resume_from_checkpoint: /workspace/zephyr-7b-sft-qlora/checkpoint-1200 # Optional
 
 peft:
-  q_lora: true
+  q_lora: True
   q_lora_bits: 4
   lora_r: 16
   lora_alpha: 16
@@ -60,4 +61,4 @@ peft:
   - gate_proj
   - up_proj
   - down_proj
-  bnb_4bit_quant_type: nf4
+  bnb_4bit_quant_type: "nf4"

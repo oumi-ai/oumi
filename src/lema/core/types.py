@@ -83,6 +83,9 @@ class TrainingParams:
     # Whether to print model summary e.g., layer names, for informational purposes.
     log_model_summary: bool = False
 
+    # Whether to resume training by loading first the pointed model from this folder
+    resume_from_checkpoint: Optional[str] = None
+
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
@@ -114,6 +117,7 @@ class TrainingParams:
             bf16=self.bf16,
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
+            resume_from_checkpoint=self.resume_from_checkpoint,
         )
 
     def _get_hf_report_to(self) -> List[str]:
