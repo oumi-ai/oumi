@@ -1,21 +1,21 @@
 name: lema-train-example
 
-num_nodes: 1
+num_nodes: 1 # Set it to N for multi-node training.
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"T4" : 1} # , "A10", "A10g", "A100-80GB-SXM"}
+  accelerators: {"A40", "A10", "A10g", "A100-80GB-SXM"}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # Set `accelerators:` above to something like this: {"A40": N}
 
   disk_size: 200      # Disk size in GB
   # disk_tier: medium # medium is the default.
-  region: us-west3  # Uncomment this line to only consider a specific region.
+  # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
-    # - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
+    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
@@ -41,8 +41,6 @@ run: |
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  # configs/lema/phi3.dpo.nvidia.24g.yaml
-  # configs/lema/gpt2.pt.yaml
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -50,11 +48,11 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/gpt2.pt.yaml \
+      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=2" \
-      "training.max_steps=100" \
+      "training.per_device_train_batch_size=4" \
+      "training.max_steps=20" \
       "training.logging_steps=10"
