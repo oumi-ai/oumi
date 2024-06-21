@@ -48,9 +48,7 @@ class DatasetSplit(Enum):
     """Enum representing the split for a dataset."""
 
     TRAIN = "train"
-
     TEST = "test"
-
     VALIDATION = "validation"
 
 
@@ -331,8 +329,10 @@ class DataParams:
             return self.train
         elif split == DatasetSplit.TEST:
             return self.test
-        else:
+        elif split == DatasetSplit.VALIDATION:
             return self.validation
+        else:
+            raise ValueError(f"Received invalid split: {split}.")
 
 
 @dataclass
