@@ -19,13 +19,6 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _foo():
-    try:
-        raise Exception("wow")
-    except Exception as e:
-        return str(e)
-
-
 def _get_all_config_paths() -> List[str]:
     """Recursively returns all configs in the /configs/lema/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
