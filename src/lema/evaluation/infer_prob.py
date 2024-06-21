@@ -10,6 +10,7 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import ModelParams
+from lema.utils.saver import load_infer_prob, save_infer_prob
 
 
 def softmax(x, axis=None):
@@ -41,6 +42,8 @@ def infer_prob(
     model_params: ModelParams,
     input: List[List[str]],
     acceptable_tokens: Optional[List[str]] = None,
+    input_filepath: Optional[str] = None,
+    output_filepath: Optional[str] = None,
 ) -> List[List[List[float]]]:
     """Calculates the inference probabilities for the next tokens to be generated.
 
@@ -51,11 +54,18 @@ def infer_prob(
           The function will return the generation probabilities for each of these. If
           not provided (= None), the probabilities for the entire tokenizer's vocabulary
           will be returned.
+        input_filepath: File path to read the inference probabilities from. If provided,
+          this function will directly return these.
+        output_filepath: File path to save the inference probabilities, after being
+          computed, for future reference.
 
     Returns:
         object: A 2D list of shape (num_batches, batch_size). Each item of the 2D list
         is another list of the probabilities (one probability per acceptable token).
     """
+    if input_filepath:
+        return load_infer_prob(input_filepath)
+
     tokenizer = build_tokenizer(model_params)
     token_vocab = set(tokenizer.get_vocab())
     token_id_vocab = set(tokenizer.get_vocab().values())
@@ -135,4 +145,8 @@ def infer_prob(
         token_logits = [token_logits[token_id] for token_id in acceptable_token_ids]
         return softmax(token_logits).tolist()
 
-    return [list(map(reduce_to_acceptable_tokens, batch)) for batch in output]
+    probabilities = [list(map(reduce_to_acceptable_tokens, batch)) for batch in output]
+    if output_filepath:
+        save_infer_prob(output_filepath, probabilities)
+
+    return probabilities
