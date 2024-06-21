@@ -242,7 +242,6 @@ class DataParams:
 
     def __post_init__(self):
         """Verifies params."""
-        print(f"Type of datasets: {type(self.datasets)}, value: {self.datasets}")
         if self.pack:
             if not self.text_col:
                 raise ValueError("`text_col` must be specified if `pack` is enabled.")

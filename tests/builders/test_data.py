@@ -20,19 +20,19 @@ from lema.core.types import (
     TrainingParams,
 )
 
-pytestmark = pytest.mark.parametrize("streaming", [True, False])
+pytestmark = pytest.mark.parametrize("stream", [True, False])
 
 
 def _get_default_config(
     datasets: List[DatasetParams],
-    streaming: bool,
+    stream: bool,
     packing: bool = False,
 ) -> TrainingConfig:
     return TrainingConfig(
         data=DataParams(
             datasets=datasets,
             text_col="question",
-            stream=streaming,
+            stream=stream,
             pack=packing,
         ),
         model=ModelParams(
@@ -48,10 +48,10 @@ def _get_default_config(
 
 def _get_dataset_size(
     dataset: Union[Dataset, IterableDataset, ConstantLengthDataset],
-    streaming: bool,
-    packing=False,
+    stream: bool,
+    packing: bool = False,
 ) -> int:
-    if streaming:
+    if stream:
         if packing:
             assert isinstance(dataset, ConstantLengthDataset)
         else:
@@ -65,7 +65,7 @@ def _get_dataset_size(
         return dataset.num_rows
 
 
-def test_data_single_dataset(streaming: bool):
+def test_data_single_dataset(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -74,14 +74,14 @@ def test_data_single_dataset(streaming: bool):
                 split="test",
             )
         ],
-        streaming,
+        stream,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 100
+    assert _get_dataset_size(dataset, stream) == 100
 
 
-def test_data_multiple_datasets(streaming: bool):
+def test_data_multiple_datasets(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -95,14 +95,14 @@ def test_data_multiple_datasets(streaming: bool):
                 split="test",
             ),
         ],
-        streaming,
+        stream,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 100 * 2  # Duplicated dataset
+    assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 
 
-def test_data_multiple_datasets_local_sample(streaming: bool):
+def test_data_multiple_datasets_local_sample(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -118,14 +118,14 @@ def test_data_multiple_datasets_local_sample(streaming: bool):
                 sample_count=201,  # oversample by 1.
             ),
         ],
-        streaming,
+        stream,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
-    assert _get_dataset_size(dataset, streaming) == 5 + 201
+    assert _get_dataset_size(dataset, stream) == 5 + 201
 
 
-def test_data_multiple_datasets_local_mixed(streaming: bool):
+def test_data_multiple_datasets_local_mixed(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -150,17 +150,17 @@ def test_data_multiple_datasets_local_mixed(streaming: bool):
                 mixture_proportion=0.5,
             ),
         ],
-        streaming,
+        stream,
     )
     config.data.mixture_strategy = "first_exhausted"
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
     # The dataset size should be small. We stop merging when the smallest dataset is
     # exhausted.
-    assert _get_dataset_size(dataset, streaming) == 9
+    assert _get_dataset_size(dataset, stream) == 9
 
 
-def test_data_multiple_datasets_local_mixed_all_exhausted(streaming: bool):
+def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -185,17 +185,18 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(streaming: bool):
                 mixture_proportion=0.5,
             ),
         ],
-        streaming,
+        stream,
     )
     config.data.mixture_strategy = "all_exhausted"
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, seed=1)
     # The dataset size should be larger. We stop merging when all datasets have been
     # exhausted.
-    assert _get_dataset_size(dataset, streaming) == 124
+    assert _get_dataset_size(dataset, stream) == 124
 
 
-def test_data_multiple_datasets_mixed_exception(streaming: bool):
+def test_data_multiple_datasets_mixed_exception(stream: bool):
+    # Expect an exception when the sum of mixture_proportion > 1.0 .
     with pytest.raises(Exception):
         config = _get_default_config(
             [
@@ -221,13 +222,47 @@ def test_data_multiple_datasets_mixed_exception(streaming: bool):
                     mixture_proportion=0.5,
                 ),
             ],
-            streaming,
+            stream,
         )
         config.data.mixture_strategy = "first_exhausted"
 
 
-def test_data_multiple_datasets_packing(streaming: bool):
-    if not streaming:
+def test_data_multiple_datasets_packing(stream: bool):
+    if stream:
+        config = _get_default_config(
+            [
+                DatasetParams(
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
+                    sample_count=50,
+                    mixture_proportion=0.1,
+                ),
+                DatasetParams(
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
+                    sample_count=50,
+                    mixture_proportion=0.4,
+                ),
+                DatasetParams(
+                    dataset_name="tasksource/mmlu",
+                    dataset_config="abstract_algebra",
+                    split="test",
+                    sample_count=50,
+                    mixture_proportion=0.5,
+                ),
+            ],
+            stream,
+            packing=True,
+        )
+        config.data.mixture_strategy = "first_exhausted"
+        tokenizer = build_tokenizer(config.model)
+        dataset = build_dataset(config, tokenizer, seed=1)
+        # The packed dataset should be even smaller.
+        assert _get_dataset_size(dataset, stream, packing=True) == 3
+    else:
+        # Raise an exception as streaming is requried for packing.
         with pytest.raises(Exception):
             _ = _get_default_config(
                 [
@@ -253,39 +288,6 @@ def test_data_multiple_datasets_packing(streaming: bool):
                         mixture_proportion=0.5,
                     ),
                 ],
-                streaming,
+                stream,
                 packing=True,
             )
-    else:
-        config = _get_default_config(
-            [
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.1,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.4,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.5,
-                ),
-            ],
-            streaming,
-            packing=True,
-        )
-        config.data.mixture_strategy = "first_exhausted"
-        tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset(config, tokenizer, seed=1)
-        # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, streaming, packing=True) == 3

@@ -122,87 +122,83 @@ def _mix_datasets(
 
 def _sample_dataset(
     dataset_params: DatasetParams,
-    streaming: bool,
+    stream: bool,
 ) -> DatasetType:
     """Loads and samples the specified dataset."""
-    if dataset_params.sample_count is not None:
-        if streaming:
-            dataset = cast(
-                IterableDataset,
-                load_dataset(
-                    dataset_params.dataset_name,
-                    name=dataset_params.dataset_config,
-                    streaming=streaming,
-                    split=dataset_params.split,
-                ),
-            )
-            generator = _build_iterable_dataset_sampler(
-                dataset, dataset_params.sample_count
-            )
-            return cast(
-                DatasetType, IterableDataset.from_generator(generator, dataset.features)
-            )
-        else:
-            # Cast the ReadInstruction to Any as Huggingface type annotations are not
-            # up to date with their documenation. ReadInstruction can be passed as a
-            # split when loading datasets.
-            read_instructions: Any = ReadInstruction(
-                dataset_params.split, to=dataset_params.sample_count, unit="abs"
-            )
-            dataset = cast(
-                Dataset,
-                load_dataset(
-                    dataset_params.dataset_name,
-                    name=dataset_params.dataset_config,
-                    streaming=streaming,
-                    split=read_instructions,
-                ),
-            )
-            if dataset.num_rows < dataset_params.sample_count:
-                oversampling_copies = int(
-                    dataset_params.sample_count / dataset.num_rows
-                )
-                dataset_list = [
-                    cast(
-                        DatasetType,
-                        load_dataset(
-                            dataset_params.dataset_name,
-                            name=dataset_params.dataset_config,
-                            streaming=streaming,
-                            split=dataset_params.split,
-                        ),
-                    )
-                    for _ in range(oversampling_copies)
-                ]
-                remaining_rows = dataset_params.sample_count % dataset.num_rows
-                if remaining_rows > 0:
-                    split_read_instructions: Any = ReadInstruction(
-                        dataset_params.split, to=remaining_rows, unit="abs"
-                    )
-                    sampled_dataset: DatasetType = cast(
-                        DatasetType,
-                        load_dataset(
-                            dataset_params.dataset_name,
-                            name=dataset_params.dataset_config,
-                            streaming=streaming,
-                            split=split_read_instructions,
-                        ),
-                    )
-                    dataset_list.append(sampled_dataset)
-                return concatenate_datasets(dataset_list)
-            else:
-                return cast(DatasetType, dataset)
-    else:
+    if dataset_params.sample_count is None:
         # No sampling.
         return cast(
             DatasetType,
             load_dataset(
                 dataset_params.dataset_name,
                 name=dataset_params.dataset_config,
-                streaming=streaming,
+                streaming=stream,
                 split=dataset_params.split,
             ),
         )
+    if stream:
+        dataset = cast(
+            IterableDataset,
+            load_dataset(
+                dataset_params.dataset_name,
+                name=dataset_params.dataset_config,
+                streaming=stream,
+                split=dataset_params.split,
+            ),
+        )
+        generator = _build_iterable_dataset_sampler(
+            dataset, dataset_params.sample_count
+        )
+        return cast(
+            DatasetType, IterableDataset.from_generator(generator, dataset.features)
+        )
+    # Cast the ReadInstruction to Any as Huggingface type annotations are not
+    # up to date with their documenation. ReadInstruction can be passed as a
+    # split when loading datasets.
+    read_instructions: Any = ReadInstruction(
+        dataset_params.split, to=dataset_params.sample_count, unit="abs"
+    )
+    dataset = cast(
+        Dataset,
+        load_dataset(
+            dataset_params.dataset_name,
+            name=dataset_params.dataset_config,
+            streaming=stream,
+            split=read_instructions,
+        ),
+    )
+    if dataset.num_rows < dataset_params.sample_count:
+        oversampling_copies = int(dataset_params.sample_count / dataset.num_rows)
+        dataset_list = [
+            cast(
+                DatasetType,
+                load_dataset(
+                    dataset_params.dataset_name,
+                    name=dataset_params.dataset_config,
+                    streaming=stream,
+                    split=dataset_params.split,
+                ),
+            )
+            for _ in range(oversampling_copies)
+        ]
+        remaining_rows = dataset_params.sample_count % dataset.num_rows
+        if remaining_rows > 0:
+            split_read_instructions: Any = ReadInstruction(
+                dataset_params.split, to=remaining_rows, unit="abs"
+            )
+            sampled_dataset: DatasetType = cast(
+                DatasetType,
+                load_dataset(
+                    dataset_params.dataset_name,
+                    name=dataset_params.dataset_config,
+                    streaming=stream,
+                    split=split_read_instructions,
+                ),
+            )
+            dataset_list.append(sampled_dataset)
+        return concatenate_datasets(dataset_list)
+    else:
+        return cast(DatasetType, dataset)
 
 
 def _preprocess_dataset(
@@ -211,15 +207,12 @@ def _preprocess_dataset(
     tokenizer: transformers.PreTrainedTokenizerBase,
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
-    if dataset_params.preprocessing_function_name:
-        preprocessing_fn = build_prompt_generation_fn(
-            dataset_params.preprocessing_function_name, tokenizer
-        )
-        return dataset.map(
-            preprocessing_fn, **dataset_params.preprocessing_function_kwargs
-        )
-    else:
+    if dataset_params.preprocessing_function_name is None:
         return dataset
+    preprocessing_fn = build_prompt_generation_fn(
+        dataset_params.preprocessing_function_name, tokenizer
+    )
+    return dataset.map(preprocessing_fn, **dataset_params.preprocessing_function_kwargs)
 
 
 def _build_iterable_dataset_sampler(dataset: IterableDataset, n: int) -> Callable:
