@@ -7,8 +7,9 @@ model:
   trust_remote_code: True
 
 data:
-  dataset_name: "HuggingFaceFW/fineweb"
-  split: "train"
+  datasets:
+    - dataset_name: "HuggingFaceFW/fineweb"
+      split: "train"
   stream: True
   pack: True
   text_col: "text"

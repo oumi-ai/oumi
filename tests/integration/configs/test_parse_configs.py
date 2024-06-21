@@ -1,9 +1,9 @@
 import os
-from typing import List
+from typing import List, Type
 
 import pytest
 
-from lema.core.types import TrainingConfig
+from lema.core.types import BaseConfig, EvaluationConfig, TrainingConfig
 
 
 def _is_config_file(path: str) -> bool:
@@ -34,7 +34,26 @@ def _get_all_config_paths() -> List[str]:
 
 @pytest.mark.parametrize("config_path", _get_all_config_paths())
 def test_parse_configs(config_path: str):
-    try:
-        _ = TrainingConfig.from_yaml(config_path)
-    except ValueError:
-        raise Exception(f"Failed to parse config: `{config_path}` .")
+    def _can_parse_config(
+        config_path: str, config_class: Type[BaseConfig], allowed_errors: List[str]
+    ) -> bool:
+        try:
+            _ = config_class.from_yaml(config_path)
+            return True
+        except ValueError as exception:
+            return any([msg in str(exception) for msg in allowed_errors])
+
+    # Somes checks involve inspecting the user's hardware. Ignore configs that
+    # fail for that reason.
+    allowed_training_config_errors = ["Flash attention 2"]
+    if _can_parse_config(
+        config_path,
+        TrainingConfig,
+        allowed_training_config_errors,
+    ) or _can_parse_config(
+        config_path,
+        EvaluationConfig,
+        [],
+    ):
+        return
+    raise Exception(f"Failed to parse `{config_path}`.")
