@@ -66,17 +66,19 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
 #
 
 
-def save_infer_prob(write_file: str, probabilities: List[List[List[float]]]):
+def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
     """Save batched probabilities into a csv file."""
-    with open(write_file, "w") as write_obj:
+    with open(output_filepath, "w") as write_obj:
         csv_writer = csv.writer(write_obj)
         csv_writer.writerows(probabilities)
 
 
-def load_infer_prob(read_file: str, num_labels: int = 0) -> List[List[List[float]]]:
+def load_infer_prob(
+    input_filepath: str, num_labels: int = 0
+) -> List[List[List[float]]]:
     """Retrieve batched probabilities from a csv file."""
     try:
-        with open(read_file, "r") as read_obj:
+        with open(input_filepath, "r") as read_obj:
             csv_reader = csv.reader(read_obj)
 
             probabilities = []
@@ -88,22 +90,22 @@ def load_infer_prob(read_file: str, num_labels: int = 0) -> List[List[List[float
                     # Sanity check: probabilities must be in a list.
                     if not isinstance(probs_list, list):
                         raise ValueError(
-                            f"Reading {read_file}: probabilities must be contained in "
-                            f"lists, but instead found {probs_list}."
+                            f"Reading {input_filepath}: probabilities must be contained"
+                            f" in lists, but instead found {probs_list}."
                         )
 
                     # Sanity check: probabilities must be of type `float``.
                     if not all(isinstance(p, float) for p in probs_list):
                         raise ValueError(
-                            f"Reading {read_file}: list items should be of type `float`"
-                            f" (probabilities), but instead found {probs_list}."
+                            f"Reading {input_filepath}: list items should be of type"
+                            f" `float` (probabilities), but instead found {probs_list}."
                         )
 
                     # Sanity check: probability counts must be the same for all entries.
                     num_labels = num_labels or len(probs_list)
                     if num_labels != len(probs_list):
                         raise ValueError(
-                            f"Reading {read_file}: inconsistent number of probabilities"
+                            f"Reading {input_filepath}: inconsistent number of probs"
                             f" across entries: len({probs_list}) != {num_labels}"
                         )
 
@@ -111,4 +113,4 @@ def load_infer_prob(read_file: str, num_labels: int = 0) -> List[List[List[float
                 probabilities.append(probabilities_batch)
             return probabilities
     except FileNotFoundError:
-        raise FileNotFoundError(f"{load_infer_prob}: File {read_file} not found!")
+        raise FileNotFoundError(f"{load_infer_prob}: Path {input_filepath} not found!")

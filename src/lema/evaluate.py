@@ -71,8 +71,8 @@ def evaluate(config: EvaluationConfig) -> None:
         model_params=config.model,
         input=dataset_batched,
         acceptable_tokens=MmluDataset.answer_tokens,
-        read_file=config.generation.read_file,
-        write_file=config.generation.write_file,
+        input_filepath=config.generation.input_filepath,
+        output_filepath=config.generation.output_filepath,
     )
     answer_probabilities = unbatch(answer_probabilities_batched)
 
