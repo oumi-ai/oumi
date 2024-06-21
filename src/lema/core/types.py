@@ -271,8 +271,6 @@ class DataParams:
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mixSum} ."
                 )
-            if not self.stream:
-                raise ValueError("`stream` must be enabled if `pack` is enabled.")
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
