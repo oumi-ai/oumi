@@ -13,7 +13,7 @@ data:
   split: "test"
   stream: False
   pack: False
-  text_col: "text"
+  target_col: "text"
 
 generation:
   max_new_tokens: 25

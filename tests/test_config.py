@@ -10,7 +10,7 @@ def test_config_serialization():
     with tempfile.TemporaryDirectory() as folder:
         original_config = TrainingConfig()
         dataset_params = DatasetParams(dataset_name="my_test_dataset")
-        original_config.data.datasets = [dataset_params]
+        original_config.data.train.datasets = [dataset_params]
         original_config.model.model_name = "my_test_model"
         filename = os.path.join(folder, "test_config.yaml")
         original_config.to_yaml(filename)
@@ -19,8 +19,8 @@ def test_config_serialization():
 
         loaded_config = TrainingConfig.from_yaml(filename)
         assert loaded_config.model.model_name == "my_test_model"
-        assert len(loaded_config.data.datasets) == 1
-        assert loaded_config.data.datasets[0].dataset_name == "my_test_dataset"
+        assert len(loaded_config.data.train.datasets) == 1
+        assert loaded_config.data.train.datasets[0].dataset_name == "my_test_dataset"
         assert original_config == loaded_config
 
 

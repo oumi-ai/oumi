@@ -4,6 +4,7 @@ from lema import train
 from lema.core.types import (
     DataParams,
     DatasetParams,
+    DatasetSplitParams,
     ModelParams,
     TrainerType,
     TrainingConfig,
@@ -15,13 +16,15 @@ def test_train_basic():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                datasets=[
-                    DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
-                    )
-                ],
-                text_col="prompt",
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="yahma/alpaca-cleaned",
+                            preprocessing_function_name="alpaca",
+                        )
+                    ],
+                    target_col="prompt",
+                ),
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
@@ -47,13 +50,15 @@ def test_train_custom():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                datasets=[
-                    DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
-                    )
-                ],
-                text_col="prompt",
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="yahma/alpaca-cleaned",
+                            preprocessing_function_name="alpaca",
+                        )
+                    ],
+                    target_col="prompt",
+                ),
             ),
             model=ModelParams(
                 model_name="learning-machines/sample",
@@ -79,15 +84,17 @@ def test_train_pack():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                datasets=[
-                    DatasetParams(
-                        dataset_name="Salesforce/wikitext",
-                        dataset_config="wikitext-2-raw-v1",
-                    )
-                ],
-                stream=True,
-                pack=True,
-                text_col="text",
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="Salesforce/wikitext",
+                            dataset_config="wikitext-2-raw-v1",
+                        )
+                    ],
+                    stream=True,
+                    pack=True,
+                    target_col="text",
+                ),
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",

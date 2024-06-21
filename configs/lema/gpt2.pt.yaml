@@ -11,7 +11,7 @@ data:
       dataset_config: "wikitext-2-raw-v1"
   stream: True
   pack: True
-  text_col: "text"
+  target_col: "text"
 
 training:
   trainer_type: TRL_SFT

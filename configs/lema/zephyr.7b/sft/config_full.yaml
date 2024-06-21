@@ -21,7 +21,7 @@ data:
         batched: False
   stream: False
   pack: False
-  text_col: "text"
+  target_col: "text"
 
 training:
   optimizer: "adamw_torch"
