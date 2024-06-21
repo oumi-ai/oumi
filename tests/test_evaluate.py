@@ -11,7 +11,7 @@ from lema.core.types import (
 def test_evaluate_basic():
     config: EvaluationConfig = EvaluationConfig(
         data=DataParams(
-            train=DatasetSplitParams(
+            test=DatasetSplitParams(
                 datasets=[DatasetParams(dataset_name="cais/mmlu", split="validation")]
             ),
         ),
