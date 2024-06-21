@@ -31,7 +31,7 @@ def test_train_basic():
                 enable_wandb=False,
                 enable_tensorboard=False,
                 output_dir=output_temp_dir,
-                resume_from_last_checkpoint_if_exists=True,
+                try_resume_from_last_checkpoint=True,
             ),
         )
 

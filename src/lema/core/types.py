@@ -102,7 +102,7 @@ class TrainingParams:
     # w/o loading any intermediate checkpoints.
     # NOTE: if `resume_from_checkpoint` is specified and contains a non-empty path,
     # then this parameter has no effect.
-    resume_from_last_checkpoint_if_exists: bool = False
+    try_resume_from_last_checkpoint: bool = False
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
