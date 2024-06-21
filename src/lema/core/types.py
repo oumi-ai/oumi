@@ -610,6 +610,6 @@ class InferenceConfig(BaseConfig):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DataParams = field(default_factory=DataParams)
+    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)

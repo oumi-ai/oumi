@@ -1,6 +1,5 @@
 from lema import evaluate
 from lema.core.types import (
-    DataParams,
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
@@ -10,10 +9,8 @@ from lema.core.types import (
 
 def test_evaluate_basic():
     config: EvaluationConfig = EvaluationConfig(
-        data=DataParams(
-            test=DatasetSplitParams(
-                datasets=[DatasetParams(dataset_name="cais/mmlu", split="validation")]
-            ),
+        data=DatasetSplitParams(
+            datasets=[DatasetParams(dataset_name="cais/mmlu", split="validation")]
         ),
         model=ModelParams(
             model_name="openai-community/gpt2",
