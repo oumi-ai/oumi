@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -7,6 +8,7 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
@@ -37,6 +39,22 @@ class TrainerType(Enum):
 
     HF = "hf"
     "Generic HuggingFace trainer from `transformers` library."
+
+
+class MixtureStrategy(str, Enum):
+    """Enum representing the supported mixture strategies for datasets."""
+
+    FIRST_EXHAUSTED = "first_exhausted"
+    ALL_EXHAUSTED = "all_exhausted"
+
+    def get_literal_value(self) -> Literal["first_exhausted", "all_exhausted"]:
+        """Returns a literal value of the enum."""
+        if self.value == MixtureStrategy.FIRST_EXHAUSTED:
+            return "first_exhausted"
+        elif self.value == MixtureStrategy.ALL_EXHAUSTED:
+            return "all_exhausted"
+        else:
+            raise ValueError("Unsupported value for MixtureStrategy")
 
 
 @dataclass
@@ -156,19 +174,22 @@ class TrainingParams:
 
 
 @dataclass
-class DataParams:
+class DatasetParams:
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
     dataset_config: Optional[str] = None
     split: str = "train"
-    stream: bool = False
 
-    # Whether to pack the text into constant-length chunks,
-    # each the size of the model's max input length.
-    # This will stream the dataset, and tokenize on the fly
-    # if the dataset isn't already tokenized (i.e. has an `input_ids` column).
-    # Requires `stream` to be set to True.
-    pack: bool = False
+    # The number of examples to sample from the dataset. Must be non-negative. If
+    # `sample_count` is larger than the size of the dataset then the required additional
+    # examples are sampled by looping over the original dataset. Defaults to None.
+    sample_count: Optional[int] = None
+    # The proportion of examples from this dataset relative to other datasets in the
+    # mixture. If specified, all datasets must supply this value. Must be a float in
+    # the range [0, 1.0]. The `mixture_proportion` for all input datasets must sum to 1.
+    # Examples are sampled after the dataset has been sampled using `sample_count` if
+    # specified. Defaults to None.
+    mixture_proportion: Optional[float] = None
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -181,13 +202,52 @@ class DataParams:
         defaults["batched"] = True  # Note the default of huggingface is False.
         return defaults
 
-    # The dataset column name containing the text to train on. Required for SFTTrainer.
-    text_col: Optional[str] = None
     preprocessing_function_name: Optional[str] = None
     preprocessing_function_kwargs: Dict[str, Any] = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
+
+    def __post_init__(self):
+        """Verifies params."""
+        if self.sample_count is not None:
+            if self.sample_count < 0:
+                raise ValueError("`sample_count` must be greater than 0.")
+        if self.mixture_proportion is not None:
+            if self.mixture_proportion < 0:
+                raise ValueError("`mixture_proportion` must be greater than 0.")
+            if self.mixture_proportion > 1:
+                raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
+
+
+@dataclass
+class DataParams:
+    # The input datasets used for training. This will later be split into train, test,
+    # and validation.
+    datasets: List[DatasetParams] = field(default_factory=list)
+    # Whether to pack the text into constant-length chunks,
+    # each the size of the model's max input length.
+    # This will stream the dataset, and tokenize on the fly
+    # if the dataset isn't already tokenized (i.e. has an `input_ids` column).
+    # Requires `stream` to be set to True.
+    pack: bool = False
+    stream: bool = False
+    # The dataset column name containing the text to train on. Required for SFTTrainer.
+    # If specified, all datasets must contain a column with this name.
+    text_col: Optional[str] = None
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    mixture_strategy: str = field(
+        default=MixtureStrategy.FIRST_EXHAUSTED.value,
+        metadata={
+            "help": "The mixture strategy to use when multiple datasets are "
+            f"provided. `{MixtureStrategy.FIRST_EXHAUSTED.value}` will sample from all "
+            "datasets until exactly one dataset is completely represented in the "
+            f"mixture. `{MixtureStrategy.ALL_EXHAUSTED.value}` will sample from all "
+            "datasets until every dataset is completely represented in the "
+            f"mixture. Note that `{MixtureStrategy.ALL_EXHAUSTED.value}` may result in "
+            "significant oversampling. Defaults to "
+            f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
+        },
+    )
 
     def __post_init__(self):
         """Verifies params."""
@@ -196,6 +256,47 @@ class DataParams:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
             if not self.text_col:
                 raise ValueError("`text_col` must be specified if `pack` is enabled.")
+        if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
+            if not all(
+                [dataset.mixture_proportion is not None for dataset in self.datasets]
+            ):
+                raise ValueError(
+                    "If `mixture_proportion` is specified it must be "
+                    " specified for all datasets"
+                )
+            mix_sum = sum(
+                filter(None, [dataset.mixture_proportion for dataset in self.datasets])
+            )
+            if not math.isclose(mix_sum, 1.0):
+                raise ValueError(
+                    "The sum of `mixture_proportion` must be 1.0. "
+                    f"The current sum is {mix_sum} ."
+                )
+        if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
+            if not all(
+                [dataset.mixture_proportion is not None for dataset in self.datasets]
+            ):
+                raise ValueError(
+                    "If `mixture_proportion` is specified it must be "
+                    " specified for all datasets"
+                )
+            mix_sum = sum(
+                filter(None, [dataset.mixture_proportion for dataset in self.datasets])
+            )
+            if not math.isclose(mix_sum, 1.0):
+                raise ValueError(
+                    "The sum of `mixture_proportion` must be 1.0. "
+                    f"The current sum is {mix_sum} ."
+                )
+        if (
+            self.mixture_strategy != MixtureStrategy.ALL_EXHAUSTED
+            and self.mixture_strategy != MixtureStrategy.FIRST_EXHAUSTED
+        ):
+            raise ValueError(
+                "`mixture_strategy` must be one of "
+                f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
+                f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
+            )
 
 
 @dataclass

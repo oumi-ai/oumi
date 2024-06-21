@@ -3,6 +3,7 @@ import tempfile
 from lema import train
 from lema.core.types import (
     DataParams,
+    DatasetParams,
     ModelParams,
     TrainerType,
     TrainingConfig,
@@ -14,8 +15,12 @@ def test_train_basic():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
+                datasets=[
+                    DatasetParams(
+                        dataset_name="yahma/alpaca-cleaned",
+                        preprocessing_function_name="alpaca",
+                    )
+                ],
                 text_col="prompt",
             ),
             model=ModelParams(
@@ -42,8 +47,12 @@ def test_train_custom():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                dataset_name="yahma/alpaca-cleaned",
-                preprocessing_function_name="alpaca",
+                datasets=[
+                    DatasetParams(
+                        dataset_name="yahma/alpaca-cleaned",
+                        preprocessing_function_name="alpaca",
+                    )
+                ],
                 text_col="prompt",
             ),
             model=ModelParams(
@@ -70,8 +79,12 @@ def test_train_pack():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
-                dataset_name="Salesforce/wikitext",
-                dataset_config="wikitext-2-raw-v1",
+                datasets=[
+                    DatasetParams(
+                        dataset_name="Salesforce/wikitext",
+                        dataset_config="wikitext-2-raw-v1",
+                    )
+                ],
                 stream=True,
                 pack=True,
                 text_col="text",

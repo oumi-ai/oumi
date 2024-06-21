@@ -12,15 +12,16 @@ model:
   attn_implementation: "flash_attention_2"
 
 data:
-  dataset_name: "HuggingFaceH4/ultrachat_200k"
-  split: "train_sft"
+  datasets:
+    - dataset_name: "HuggingFaceH4/ultrachat_200k"
+      split: "train_sft"
+      preprocessing_function_name: "trl_sft_ultrachat_200k"
+      preprocessing_function_kwargs:
+        num_proc: 6
+        batched: False
   stream: False
   pack: False
   text_col: "text"
-  preprocessing_function_name: "trl_sft_ultrachat_200k"
-  preprocessing_function_kwargs:
-    num_proc: 6
-    batched: False
 
 training:
   optimizer: "adamw_torch"
