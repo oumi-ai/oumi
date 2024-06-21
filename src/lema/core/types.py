@@ -31,7 +31,6 @@ class TrainerType(Enum):
 
 @dataclass
 class TrainingParams:
-    optimizer: str = "adamw_torch"
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
@@ -61,10 +60,17 @@ class TrainingParams:
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
 
+    # Learning rate schedule.
     learning_rate: float = 5e-05
-    lr_scheduler_type: str = "cosine"  # TODO Update by enumerating *more* options
+    # See possible scheduler types here:
+    # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
+    lr_scheduler_type: str = "cosine"
+    lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
     warmup_ratio: float = 0.0
+    warmup_steps: int = 0
 
+    # Optimizer params.
+    optimizer: str = "adamw_torch"
     weight_decay: float = 0.0
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
@@ -96,16 +102,18 @@ class TrainingParams:
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
             max_steps=self.max_steps,
-            optim=self.optimizer,
             output_dir=self.output_dir,
             per_device_eval_batch_size=self.per_device_eval_batch_size,
             per_device_train_batch_size=self.per_device_train_batch_size,
             push_to_hub=False,
             report_to=self._get_hf_report_to(),
             run_name=self.run_name,
+            optim=self.optimizer,
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
+            lr_scheduler_kwargs=self.lr_scheduler_kwargs,
             warmup_ratio=self.warmup_ratio,
+            warmup_steps=self.warmup_steps,
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
@@ -186,6 +194,9 @@ class ModelParams:
     adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
     model_max_length: Optional[int] = None
+    # Whether to load the pretrained model's weights. Else, the model will be
+    # initialized from the pretrained config.
+    load_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None

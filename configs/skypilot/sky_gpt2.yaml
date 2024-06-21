@@ -32,5 +32,5 @@ run: |
   set -e  # Exit if any command failed.
   torchrun --nnodes 1 --nproc-per-node $SKYPILOT_NUM_GPUS_PER_NODE \
       -m lema.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/lema/gpt2.pt.yaml \
       "training.enable_wandb=true"

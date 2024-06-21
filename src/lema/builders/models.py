@@ -89,15 +89,24 @@ def build_huggingface_model(
     else:
         quantization_config = None
 
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        config=hf_config,
-        torch_dtype=model_params.torch_dtype(),
-        device_map=device_map,
-        pretrained_model_name_or_path=model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
-        quantization_config=quantization_config,
-        **kwargs,
-    )
+    if model_params.load_weights:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            config=hf_config,
+            torch_dtype=model_params.torch_dtype(),
+            device_map=device_map,
+            pretrained_model_name_or_path=model_params.model_name,
+            trust_remote_code=model_params.trust_remote_code,
+            quantization_config=quantization_config,
+            **kwargs,
+        )
+    else:
+        # TODO: What about device_map and quantization_config params?
+        model = transformers.AutoModelForCausalLM.from_config(
+            config=hf_config,
+            torch_dtype=model_params.torch_dtype(),
+            trust_remote_code=model_params.trust_remote_code,
+            **kwargs,
+        )
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model is not None:
