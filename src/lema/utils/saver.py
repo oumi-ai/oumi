@@ -1,4 +1,3 @@
-import ast
 import csv
 from typing import List
 
@@ -85,23 +84,9 @@ def load_infer_prob(
             for batch in csv_reader:
                 probabilities_batch = []
                 for entry in batch:
-                    probs_list = ast.literal_eval(entry)
+                    probs_list = str_to_float_list(entry)
 
-                    # Sanity check: probabilities must be in a list.
-                    if not isinstance(probs_list, list):
-                        raise ValueError(
-                            f"Reading {input_filepath}: probabilities must be contained"
-                            f" in lists, but instead found {probs_list}."
-                        )
-
-                    # Sanity check: probabilities must be of type `float``.
-                    if not all(isinstance(p, float) for p in probs_list):
-                        raise ValueError(
-                            f"Reading {input_filepath}: list items should be of type"
-                            f" `float` (probabilities), but instead found {probs_list}."
-                        )
-
-                    # Sanity check: probability counts must be the same for all entries.
+                    # Number of probabilities must be the same for all entries.
                     num_labels = num_labels or len(probs_list)
                     if num_labels != len(probs_list):
                         raise ValueError(
@@ -114,3 +99,29 @@ def load_infer_prob(
             return probabilities
     except FileNotFoundError:
         raise FileNotFoundError(f"{load_infer_prob}: Path {input_filepath} not found!")
+
+
+def str_to_float_list(input: str) -> List[float]:
+    """Convert an `str` representing a list of `floats` to an actual list of `floats`.
+
+    Example: input: `[1.1, 2.2, 3.3]` => output: [1.1, 2.2, 3.3]
+    """
+    # 1) Get rid of '[' and ']'.
+    if (input[0] != "[") or (input[-1] != "]"):
+        raise ValueError(
+            f"Input `{input}` must start with '[' and end with ']' to represent a list"
+        )
+    input = input[1:-1]
+
+    # 2) Convert string to a list of items.
+    list_of_items = input.split(", ")
+    if not len(list_of_items):
+        raise ValueError(f"List `{list_of_items}` does NOT contain any items")
+
+    # 3) Cast all list items to `float`.
+    try:
+        list_of_floats = [float(item) for item in list_of_items]
+    except ValueError:
+        raise ValueError(f"List `{list_of_items}` should contain probabilities")
+
+    return list_of_floats
