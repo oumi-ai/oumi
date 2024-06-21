@@ -18,19 +18,3 @@ data:
 
 generation:
   max_new_tokens: 25
-
-peft: # TODO: see if needed given that you are using pretrained adapters
-  q_lora: True
-  q_lora_bits: 4
-  lora_r: 16
-  lora_alpha: 16
-  lora_dropout: 0.05
-  lora_target_modules:
-  - q_proj
-  - k_proj
-  - v_proj
-  - o_proj
-  - gate_proj
-  - up_proj
-  - down_proj
-  bnb_4bit_quant_type: "nf4"

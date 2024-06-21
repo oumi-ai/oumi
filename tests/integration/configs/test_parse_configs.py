@@ -1,9 +1,9 @@
 import os
-from typing import List, Type
+from typing import List
 
 import pytest
 
-from lema.core.types import BaseConfig, EvaluationConfig, TrainingConfig
+from lema.core.types import EvaluationConfig, TrainingConfig
 
 
 def _is_config_file(path: str) -> bool:
@@ -17,6 +17,13 @@ def _backtrack_on_path(path, n):
     for _ in range(n):
         output_path = os.path.dirname(output_path)
     return output_path
+
+
+def _foo():
+    try:
+        raise Exception("wow")
+    except Exception as e:
+        return str(e)
 
 
 def _get_all_config_paths() -> List[str]:
@@ -34,26 +41,29 @@ def _get_all_config_paths() -> List[str]:
 
 @pytest.mark.parametrize("config_path", _get_all_config_paths())
 def test_parse_configs(config_path: str):
-    def _can_parse_config(
-        config_path: str, config_class: Type[BaseConfig], allowed_errors: List[str]
-    ) -> bool:
-        try:
-            _ = config_class.from_yaml(config_path)
-            return True
-        except ValueError as exception:
-            return any([msg in str(exception) for msg in allowed_errors])
-
-    # Somes checks involve inspecting the user's hardware. Ignore configs that
-    # fail for that reason.
-    allowed_training_config_errors = ["Flash attention 2"]
-    if _can_parse_config(
-        config_path,
-        TrainingConfig,
-        allowed_training_config_errors,
-    ) or _can_parse_config(
-        config_path,
-        EvaluationConfig,
-        [],
-    ):
+    training_config_error = ""
+    eval_config_error = ""
+    try:
+        _ = TrainingConfig.from_yaml(config_path)
         return
-    raise Exception(f"Failed to parse `{config_path}`.")
+    except Exception as exception:
+        # Somes checks involve inspecting the user's hardware. Ignore configs that
+        # fail for that reason.
+        if "Flash attention 2" in str(exception):
+            return
+        training_config_error = str(exception)
+
+    try:
+        _ = EvaluationConfig.from_yaml(config_path)
+        return
+    except Exception as exception:
+        # Somes checks involve inspecting the user's hardware. Ignore configs that
+        # fail for that reason.
+        if "Flash attention 2" in str(exception):
+            return
+        eval_config_error = str(exception)
+    raise Exception(
+        f"Failed to parse `{config_path}`.\n Training config error: "
+        f"{training_config_error} .\n Evaluation config error: "
+        f"{eval_config_error} ."
+    )
