@@ -2,7 +2,17 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    cast,
+)
 
 import torch
 import transformers
@@ -83,8 +93,16 @@ class TrainingParams:
     # Whether to print model summary e.g., layer names, for informational purposes.
     log_model_summary: bool = False
 
-    # Whether to resume training by loading first the pointed model from this folder
+    # Whether to resume training by loading first the pointed model from this folder.
     resume_from_checkpoint: Optional[str] = None
+
+    # If True, try to find the last checkpoint in "output_dir".
+    # If present, training will resume from the model/optimizer/scheduler states loaded
+    # here. Otherwise (if checkpoint is not present), then training will continue
+    # w/o loading any intermediate checkpoints.
+    # NOTE: if `resume_from_checkpoint` is specified and contains a non-empty path,
+    # then this parameter has no effect.
+    try_resume_from_last_checkpoint: bool = False
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
@@ -220,7 +238,7 @@ class ModelParams:
         if (self.attn_implementation == "flash_attention_2") and (
             self.torch_dtype() not in [torch.bfloat16, torch.float16]
         ):
-            logger.warn(
+            logger.warning(
                 "Cannot use flash_attention_2 with a full-precision "
                 f"({self.torch_dtype()}) model. Ignoring request for using "
                 "flash_attention_2 by setting attn_implementation system's default."
@@ -400,7 +418,7 @@ class TrainingConfig(BaseConfig):
             if (existing_dataset_text_field is not None) and (
                 existing_dataset_text_field != self.data.text_col
             ):
-                logger.warn(
+                logger.warning(
                     "Overriding existing `dataset_text_field` value "
                     f"'{existing_dataset_text_field}' with '{self.data.text_col}'"
                 )
@@ -416,7 +434,7 @@ class TrainingConfig(BaseConfig):
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
             else:
-                logger.warn(
+                logger.warning(
                     f"Ignored model.model_max_length={max_seq_length_value} config "
                     f"parameter for trainer {self.training.trainer_type}."
                 )
@@ -428,7 +446,7 @@ class TrainingConfig(BaseConfig):
                 if (existing_max_seq_length is not None) and (
                     existing_max_seq_length != max_seq_length_value
                 ):
-                    logger.warn(
+                    logger.warning(
                         f"Overriding existing '{max_seq_length_key}' value "
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )

@@ -1,7 +1,8 @@
 import argparse
-from typing import Callable
+from typing import Callable, Optional
 
 from transformers import Trainer
+from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
     build_dataset,
@@ -62,6 +63,26 @@ def main() -> None:
     device_cleanup()
 
 
+def _find_checkpoint_to_resume_from(
+    resume_from_checkpoint: Optional[str],
+    try_resume_from_last_checkpoint: bool,
+    output_dir: str,
+) -> Optional[str]:
+    """Finds and returns the last checkpoint path to be passed to Trainer."""
+    checkpoint_path = None
+    if resume_from_checkpoint:
+        checkpoint_path = resume_from_checkpoint
+    elif try_resume_from_last_checkpoint:
+        checkpoint_path = get_last_checkpoint(output_dir)
+        if not checkpoint_path:
+            logger.warning(f"No checkpoints found under {output_dir}")
+
+    if checkpoint_path:
+        logger.info(f"Resuming training from checkpoint: {checkpoint_path}")
+        return checkpoint_path
+    return None
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     log_versioning_info()
@@ -109,10 +130,19 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     logger.info("Starting training...")
-    trainer.train(resume_from_checkpoint=config.training.resume_from_checkpoint)
+    trainer.train(
+        resume_from_checkpoint=(
+            _find_checkpoint_to_resume_from(
+                config.training.resume_from_checkpoint,
+                config.training.try_resume_from_last_checkpoint,
+                config.training.output_dir,
+            )
+        )
+    )
     logger.info("Training is Complete.")
 
     # Save final checkpoint & training state
+    # FIXME: add conditional saving logic for multi-node runs.
     trainer.save_state()
 
     save_model(
