@@ -26,14 +26,14 @@ pytestmark = pytest.mark.parametrize("stream", [True, False])
 def _get_default_config(
     datasets: List[DatasetParams],
     stream: bool,
-    packing: bool = False,
+    pack: bool = False,
 ) -> TrainingConfig:
     return TrainingConfig(
         data=DataParams(
             datasets=datasets,
             text_col="question",
             stream=stream,
-            pack=packing,
+            pack=pack,
         ),
         model=ModelParams(
             model_name="openai-community/gpt2",
@@ -49,10 +49,10 @@ def _get_default_config(
 def _get_dataset_size(
     dataset: Union[Dataset, IterableDataset, ConstantLengthDataset],
     stream: bool,
-    packing: bool = False,
+    pack: bool = False,
 ) -> int:
     if stream:
-        if packing:
+        if pack:
             assert isinstance(dataset, ConstantLengthDataset)
         else:
             assert isinstance(dataset, IterableDataset)
@@ -254,13 +254,13 @@ def test_data_multiple_datasets_packing(stream: bool):
                 ),
             ],
             stream,
-            packing=True,
+            pack=True,
         )
         config.data.mixture_strategy = "first_exhausted"
         tokenizer = build_tokenizer(config.model)
         dataset = build_dataset(config, tokenizer, seed=1)
         # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, stream, packing=True) == 3
+        assert _get_dataset_size(dataset, stream, pack=True) == 3
     else:
         # Raise an exception as streaming is requried for packing.
         with pytest.raises(Exception):
@@ -289,5 +289,5 @@ def test_data_multiple_datasets_packing(stream: bool):
                     ),
                 ],
                 stream,
-                packing=True,
+                pack=True,
             )
