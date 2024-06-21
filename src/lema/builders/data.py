@@ -58,7 +58,7 @@ def build_dataset(
     seed: Optional[int] = None,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType]:
-    """Builds a dataset for training.
+    """Builds a dataset for the specified split.
 
     Args:
         config: The training config.
@@ -68,11 +68,10 @@ def build_dataset(
         kwargs: Keyword arguments.
 
     Returns:
-        dataset: The built dataset for training.
+        dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
-    # TODO: should return all splits
     datasets = [
         _preprocess_dataset(
             _sample_dataset(dataset_params, dataset_split_params.stream),
