@@ -129,7 +129,7 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
+                dataset_name="cais/mmlu",
                 dataset_config="abstract_algebra",
                 split="test",
                 sample_count=5,

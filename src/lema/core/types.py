@@ -180,8 +180,9 @@ class DatasetParams:
     dataset_config: Optional[str] = None
     split: str = "train"
 
-    # The number of examples to sample from the dataset. Must be non-negative. Allows
-    # oversampling if `sample_count` is larger than the input dataset. Defaults to None.
+    # The number of examples to sample from the dataset. Must be non-negative. If
+    # `sample_count` is larger than the size of the dataset then the required additional
+    # examples are sampled by looping over the original dataset. Defaults to None.
     sample_count: Optional[int] = None
     # The proportion of examples from this dataset relative to other datasets in the
     # mixture. If specified, all datasets must supply this value. Must be a float in
@@ -263,13 +264,13 @@ class DataParams:
                     "If `mixture_proportion` is specified it must be "
                     " specified for all datasets"
                 )
-            mixSum = sum(
+            mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mixSum, 1.0):
+            if not math.isclose(mix_sum, 1.0):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
-                    f"The current sum is {mixSum} ."
+                    f"The current sum is {mix_sum} ."
                 )
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
@@ -279,13 +280,13 @@ class DataParams:
                     "If `mixture_proportion` is specified it must be "
                     " specified for all datasets"
                 )
-            mixSum = sum(
+            mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mixSum, 1.0):
+            if not math.isclose(mix_sum, 1.0):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
-                    f"The current sum is {mixSum} ."
+                    f"The current sum is {mix_sum} ."
                 )
         if (
             self.mixture_strategy != MixtureStrategy.ALL_EXHAUSTED
