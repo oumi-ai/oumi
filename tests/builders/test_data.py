@@ -44,7 +44,7 @@ def _get_default_config(
             model_max_length=1024,
         ),
         training=TrainingParams(
-            trainer_type=TrainerType.TRL_SFT,
+            trainer_type=TrainerType.HF,
             max_steps=3,
         ),
     )
