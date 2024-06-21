@@ -10,6 +10,7 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import ModelParams
+from lema.logging import logger
 from lema.utils.saver import load_infer_prob, save_infer_prob
 
 
@@ -44,6 +45,7 @@ def infer_prob(
     acceptable_tokens: Optional[List[str]] = None,
     input_filepath: Optional[str] = None,
     output_filepath: Optional[str] = None,
+    enable_dp: bool = True,
 ) -> List[List[List[float]]]:
     """Calculates the inference probabilities for the next tokens to be generated.
 
@@ -58,6 +60,7 @@ def infer_prob(
           this function will directly return these.
         output_filepath: File path to save the inference probabilities, after being
           computed, for future reference.
+        enable_dp: Enable DataParallel (DP) execution if multiple GPUs are available.
 
     Returns:
         object: A 2D list of shape (num_batches, batch_size). Each item of the 2D list
@@ -72,6 +75,11 @@ def infer_prob(
 
     model = build_model(model_params)
     model_device = next(model.parameters()).device
+    if enable_dp and torch.cuda.device_count() > 1:
+        logger.info(f"Executing inference in {torch.cuda.device_count()} GPUs.")
+        model = torch.nn.DataParallel(model)
+    elif enable_dp and torch.backends.mps.is_available():
+        logger.warning("DP requested, but NOT possible with `mps` backend.")
 
     # Tokenization of input (batch mode).
     # `input_tok` is a 2D list of tokenized prompts of shape (num_batches, batch_size).
