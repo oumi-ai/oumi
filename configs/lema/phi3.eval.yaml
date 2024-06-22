@@ -8,3 +8,9 @@ data:
   datasets:
     - dataset_name: "cais/mmlu"
       split: "validation"
+
+generation:
+  batch_size: 1
+
+max_evaluations: 100 # Optional, evaluates up to these many examples
+random_seed: 123 # Controls the max_evaluations examples used

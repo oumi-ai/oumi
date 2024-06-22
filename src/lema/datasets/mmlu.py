@@ -105,12 +105,13 @@ class MmluDataset:
             for example in shots  # type: ignore
         )
 
-    def __init__(self, subject: str = "all"):
+    def __init__(self, subject: str = "all", random_seed: Optional[int] = None):
         """Initializes the class MmluDataset."""
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
         self._dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
         self._few_shot_dict: Dict[str, str] = dict()
+        self.random_seed = random_seed
 
     # Instance methods (private).
     def _prompt_template(self, example: Dict[str, Any]) -> str:
@@ -178,7 +179,8 @@ class MmluDataset:
     def _get_dataset(self, split: str, num_entries: Optional[int] = None) -> Dataset:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
-            dataset = dataset.select(range(num_entries))
+            dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
+            dataset = dataset.flatten_indices()  # make contiguous for fast(er) indexing
         return dataset
 
     def _get_formatted_dataset(
@@ -192,6 +194,8 @@ class MmluDataset:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             dataset = dataset.select(range(num_entries))
+            dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
+            dataset = dataset.flatten_indices()
         return [example["answer"] for example in dataset]  # type: ignore
 
     # Instance methods (global).

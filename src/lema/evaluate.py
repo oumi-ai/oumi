@@ -56,7 +56,13 @@ def evaluate(config: EvaluationConfig) -> None:
     # Load the dataset from HuggingFace or a local repository.
     if config.data.datasets[0].dataset_name == "cais/mmlu":
         subject, num_entries = "all", 10  # Hardcoded for testing.
-        mmlu_dataset = MmluDataset(subject=subject)
+
+        if config.max_evaluations is not None:
+            num_entries = (
+                config.max_evaluations
+            )  # TODO use single var. name once testing period is over
+
+        mmlu_dataset = MmluDataset(subject=subject, random_seed=config.random_seed)
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
     else:
