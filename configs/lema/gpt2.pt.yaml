@@ -8,13 +8,15 @@ model:
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  load_weights: False
+  load_pretrained_weights: False
   trust_remote_code: True
 
 data:
-  datasets:
-    dataset_name: "HuggingFaceFW/fineweb-edu"
-    dataset_config: "sample-10BT"
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        dataset_config: "sample-10BT"
+        split: "train"
   stream: True
   pack: True
   target_col: "text"

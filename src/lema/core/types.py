@@ -351,7 +351,7 @@ class ModelParams:
     model_max_length: Optional[int] = None
     # Whether to load the pretrained model's weights. Else, the model will be
     # initialized from the pretrained config.
-    load_weights: bool = True
+    load_pretrained_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None

@@ -89,7 +89,10 @@ def build_huggingface_model(
     else:
         quantization_config = None
 
-    if model_params.load_weights:
+    # Both functions instantiate a model from the config, but the main difference is
+    # `load_pretrained_weights` also loads the weights, and `from_config` initializes
+    # the weights from scratch based on the params in the config and the model class.
+    if model_params.load_pretrained_weights:
         model = transformers.AutoModelForCausalLM.from_pretrained(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
