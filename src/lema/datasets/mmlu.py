@@ -179,6 +179,7 @@ class MmluDataset:
     def _get_dataset(self, split: str, num_entries: Optional[int] = None) -> Dataset:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
+            num_entries = min(num_entries, len(dataset))
             dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
             dataset = dataset.flatten_indices()  # make contiguous for fast(er) indexing
         return dataset
@@ -193,7 +194,7 @@ class MmluDataset:
     def _get_labels(self, split: str, num_entries: Optional[int] = None) -> List[int]:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
-            dataset = dataset.select(range(num_entries))
+            num_entries = min(num_entries, len(dataset))
             dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
             dataset = dataset.flatten_indices()
         return [example["answer"] for example in dataset]  # type: ignore
