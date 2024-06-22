@@ -54,8 +54,8 @@ def evaluate(config: EvaluationConfig) -> None:
         None for now, we will return a relevant class in the future.
     """
     # Load the dataset from HuggingFace or a local repository.
-    if config.data.dataset_name == "cais/mmlu":
-        subject, num_entries = "abstract_algebra", 8  # Hardcoded for testing.
+    if config.data.datasets[0].dataset_name == "cais/mmlu":
+        subject, num_entries = "sociology", 8  # Hardcoded for testing.
         mmlu_dataset = MmluDataset(subject=subject)
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
@@ -64,13 +64,15 @@ def evaluate(config: EvaluationConfig) -> None:
         raise NotImplementedError("Model evaluation only for MMLU for now.")
 
     # Batch the dataset to items of length `batch_size`.
-    dataset_batched = batch(dataset, config.batch_size)
+    dataset_batched = batch(dataset, config.generation.batch_size)
 
     # Run inference and then unbatch the model responses.
     answer_probabilities_batched = infer_prob(
         model_params=config.model,
         input=dataset_batched,
         acceptable_tokens=MmluDataset.answer_tokens,
+        input_filepath=config.generation.input_filepath,
+        output_filepath=config.generation.output_filepath,
     )
     answer_probabilities = unbatch(answer_probabilities_batched)
 
