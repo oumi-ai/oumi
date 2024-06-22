@@ -55,7 +55,7 @@ def evaluate(config: EvaluationConfig) -> None:
     """
     # Load the dataset from HuggingFace or a local repository.
     if config.data.datasets[0].dataset_name == "cais/mmlu":
-        subject, num_entries = "sociology", 8  # Hardcoded for testing.
+        subject, num_entries = "all", 10  # Hardcoded for testing.
         mmlu_dataset = MmluDataset(subject=subject)
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
