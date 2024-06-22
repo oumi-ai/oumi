@@ -27,6 +27,9 @@ envs:
 setup: |
   set -e
   pip install '.[train]'
+  # Required for RunPod as a workaround since nvcc isn't installed
+  # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.

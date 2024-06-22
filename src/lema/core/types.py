@@ -243,7 +243,7 @@ class ModelParams:
         """Checks if flash-attention-2 was requested.
 
         Note: Flash attention 2 paper https://arxiv.org/abs/2307.08691
-        TODO add flash-attention-2 in optional dependecies if we want to
+        TODO add flash-attention-2 in optional dependencies if we want to
         use it frequently (.toml).
         """
         return self.attn_implementation == "flash_attention_2"
