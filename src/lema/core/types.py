@@ -574,3 +574,15 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+
+    max_evaluations: Optional[int] = field(
+        default=None,
+        metadata={"help": "Evaluate only up to max_evaluations samples of dataset."},
+    )
+    random_seed: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Use it to control the selection of the `max_evaluations` "
+            "(subset) of the dataset that will be used for evaluation."
+        },
+    )
