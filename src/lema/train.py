@@ -11,7 +11,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
-from lema.core.types import TrainingConfig
+from lema.core.types import DatasetSplit, TrainingConfig
 from lema.logging import logger
 from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
@@ -114,7 +114,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model.enable_input_require_grads()
 
     # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
@@ -126,7 +126,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
-        **config.data.trainer_kwargs,
+        **config.training.trainer_kwargs,
     )
 
     logger.info("Starting training...")

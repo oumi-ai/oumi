@@ -12,11 +12,12 @@ model:
   trust_remote_code: True
 
 data:
-  dataset_name: "HuggingFaceFW/fineweb-edu"
-  dataset_config: "sample-10BT"
+  datasets:
+    dataset_name: "HuggingFaceFW/fineweb-edu"
+    dataset_config: "sample-10BT"
   stream: True
   pack: True
-  text_col: "text"
+  target_col: "text"
 
 training:
   trainer_type: TRL_SFT

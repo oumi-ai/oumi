@@ -1,10 +1,15 @@
 from lema import evaluate
-from lema.core.types import DataParams, DatasetParams, EvaluationConfig, ModelParams
+from lema.core.types import (
+    DatasetParams,
+    DatasetSplitParams,
+    EvaluationConfig,
+    ModelParams,
+)
 
 
 def test_evaluate_basic():
     config: EvaluationConfig = EvaluationConfig(
-        data=DataParams(
+        data=DatasetSplitParams(
             datasets=[DatasetParams(dataset_name="cais/mmlu", split="validation")]
         ),
         model=ModelParams(
