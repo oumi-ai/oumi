@@ -7,11 +7,13 @@ model:
   trust_remote_code: True
 
 data:
-  dataset_name: "HuggingFaceFW/fineweb"
-  split: "train"
-  stream: True
-  pack: True
-  text_col: "text"
+  train:
+    dataset:
+      - dataset_name: "HuggingFaceFW/fineweb"
+        split: "train"
+    stream: True
+    pack: True
+    target_col: "text"
 
 training:
   # TODO: Re-initialize model weights and add config support.

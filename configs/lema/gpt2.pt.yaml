@@ -6,12 +6,13 @@ model:
   trust_remote_code: True
 
 data:
-  datasets:
-    - dataset_name: "Salesforce/wikitext"
-      dataset_config: "wikitext-2-raw-v1"
-  stream: True
-  pack: True
-  text_col: "text"
+  train:
+    datasets:
+      - dataset_name: "Salesforce/wikitext"
+        dataset_config: "wikitext-2-raw-v1"
+    stream: True
+    pack: True
+    target_col: "text"
 
 training:
   trainer_type: TRL_SFT

@@ -12,19 +12,17 @@ model:
   attn_implementation: "flash_attention_2"
 
 data:
-  datasets:
-    - dataset_name: "HuggingFaceH4/ultrachat_200k"
-      split: "train_sft"
-      preprocessing_function_name: "trl_sft_ultrachat_200k"
-      preprocessing_function_kwargs:
-        num_proc: 6
-        batched: False
-  stream: False
-  pack: False
-  text_col: "text"
-  trainer_kwargs: # TODO discuss necessity
-    dataset_text_field: "text"
-    max_seq_length: ${model.model_max_length}
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/ultrachat_200k"
+        split: "train_sft"
+        preprocessing_function_name: "trl_sft_ultrachat_200k"
+        preprocessing_function_kwargs:
+          num_proc: 6
+          batched: False
+    stream: False
+    pack: False
+    target_col: "text"
 
 
 training:
@@ -48,6 +46,9 @@ training:
   logging_first_step: True
   bf16: True
   resume_from_checkpoint: /workspace/zephyr-7b-sft-qlora/checkpoint-1200 # Optional
+  trainer_kwargs: # TODO discuss necessity
+    dataset_text_field: "text"
+    max_seq_length: ${model.model_max_length}
 
 peft:
   q_lora: True

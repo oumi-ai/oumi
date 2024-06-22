@@ -9,11 +9,13 @@ model:
   attn_implementation: "flash_attention_2"
 
 data:
-  dataset_name: "cais/mmlu"
-  split: "test"
-  stream: False
-  pack: False
-  text_col: "text"
+  train:
+    datasets:
+      - dataset_name: "cais/mmlu"
+        split: "test"
+    stream: False
+    pack: False
+    target_col: "text"
 
 generation:
   max_new_tokens: 25
