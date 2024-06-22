@@ -5,6 +5,7 @@ model:
   trust_remote_code: True
 
 data:
-  datasets:
-    - dataset_name: "cais/mmlu"
-      split: "validation"
+  validation:
+    datasets:
+      - dataset_name: "cais/mmlu"
+        split: "validation"

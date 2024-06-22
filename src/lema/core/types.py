@@ -41,6 +41,17 @@ class TrainerType(Enum):
     "Generic HuggingFace trainer from `transformers` library."
 
 
+#
+# Dataset Splits
+#
+class DatasetSplit(Enum):
+    """Enum representing the split for a dataset."""
+
+    TRAIN = "train"
+    TEST = "test"
+    VALIDATION = "validation"
+
+
 class MixtureStrategy(str, Enum):
     """Enum representing the supported mixture strategies for datasets."""
 
@@ -121,6 +132,8 @@ class TrainingParams:
     # NOTE: if `resume_from_checkpoint` is specified and contains a non-empty path,
     # then this parameter has no effect.
     try_resume_from_last_checkpoint: bool = False
+
+    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
@@ -220,7 +233,7 @@ class DatasetParams:
 
 
 @dataclass
-class DataParams:
+class DatasetSplitParams:
     # The input datasets used for training. This will later be split into train, test,
     # and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
@@ -231,10 +244,10 @@ class DataParams:
     # Requires `stream` to be set to True.
     pack: bool = False
     stream: bool = False
-    # The dataset column name containing the text to train on. Required for SFTTrainer.
-    # If specified, all datasets must contain a column with this name.
-    text_col: Optional[str] = None
-    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    # The dataset column name containing the input for training/testing/validation.
+    # Required for SFTTrainer. If specified, all datasets in this split must contain a
+    # column with this name.
+    target_col: Optional[str] = None
     mixture_strategy: str = field(
         default=MixtureStrategy.FIRST_EXHAUSTED.value,
         metadata={
@@ -254,8 +267,8 @@ class DataParams:
         if self.pack:
             if not self.stream:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
-            if not self.text_col:
-                raise ValueError("`text_col` must be specified if `pack` is enabled.")
+            if not self.target_col:
+                raise ValueError("`target_col` must be specified if `pack` is enabled.")
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
@@ -297,6 +310,29 @@ class DataParams:
                 f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
+
+
+@dataclass
+class DataParams:
+    # The input datasets used for training.
+    train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    # The input datasets used for testing.
+    test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    # The input datasets used for validation.
+    validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
+        """A public getting for individual dataset splits."""
+        if split == DatasetSplit.TRAIN:
+            return self.train
+        elif split == DatasetSplit.TEST:
+            return self.test
+        elif split == DatasetSplit.VALIDATION:
+            return self.validation
+        else:
+            raise ValueError(f"Received invalid split: {split}.")
 
 
 @dataclass
@@ -508,22 +544,25 @@ class TrainingConfig(BaseConfig):
     def __post_init__(self):
         """Verifies/populates params."""
         if self.training.trainer_type == TrainerType.TRL_SFT:
-            if not self.data.text_col:
-                raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
+            if not self.data.train.target_col:
+                raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
 
             # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
             # `SFTTrainer`, and warn users if their value will be overridden.
-            existing_dataset_text_field = self.data.trainer_kwargs.get(
+            existing_dataset_text_field = self.training.trainer_kwargs.get(
                 "dataset_text_field"
             )
             if (existing_dataset_text_field is not None) and (
-                existing_dataset_text_field != self.data.text_col
+                existing_dataset_text_field != self.data.train.target_col
             ):
                 logger.warning(
                     "Overriding existing `dataset_text_field` value "
-                    f"'{existing_dataset_text_field}' with '{self.data.text_col}'"
+                    f"'{existing_dataset_text_field}' with "
+                    f"'{self.data.train.target_col}'"
                 )
-            self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
+            self.training.trainer_kwargs["dataset_text_field"] = (
+                self.data.train.target_col
+            )
 
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
@@ -541,7 +580,7 @@ class TrainingConfig(BaseConfig):
                 )
 
             if max_seq_length_key:
-                existing_max_seq_length = self.data.trainer_kwargs.get(
+                existing_max_seq_length = self.training.trainer_kwargs.get(
                     max_seq_length_key
                 )
                 if (existing_max_seq_length is not None) and (
@@ -551,7 +590,7 @@ class TrainingConfig(BaseConfig):
                         f"Overriding existing '{max_seq_length_key}' value "
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )
-                self.data.trainer_kwargs[max_seq_length_key] = max_seq_length_value
+                self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
 
 
 @dataclass
@@ -571,6 +610,6 @@ class InferenceConfig(BaseConfig):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DataParams = field(default_factory=DataParams)
+    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)

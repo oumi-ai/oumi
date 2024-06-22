@@ -14,6 +14,8 @@ from lema.builders import (
 from lema.core.types import (
     DataParams,
     DatasetParams,
+    DatasetSplit,
+    DatasetSplitParams,
     ModelParams,
     TrainerType,
     TrainingConfig,
@@ -26,24 +28,33 @@ pytestmark = pytest.mark.parametrize("stream", [True, False])
 def _get_default_config(
     datasets: List[DatasetParams],
     stream: bool,
+    split: DatasetSplit,
     pack: bool = False,
 ) -> TrainingConfig:
-    return TrainingConfig(
-        data=DataParams(
-            datasets=datasets,
-            text_col="question",
-            stream=stream,
-            pack=pack,
-        ),
+    dataset_split_params = DatasetSplitParams(
+        datasets=datasets,
+        target_col="question",
+        stream=stream,
+        pack=pack,
+    )
+    base_config = TrainingConfig(
+        data=DataParams(),
         model=ModelParams(
             model_name="openai-community/gpt2",
             model_max_length=1024,
         ),
         training=TrainingParams(
-            trainer_type=TrainerType.TRL_SFT,
+            trainer_type=TrainerType.HF,
             max_steps=3,
         ),
     )
+    if split == DatasetSplit.TRAIN:
+        base_config.data.train = dataset_split_params
+    elif split == DatasetSplit.TEST:
+        base_config.data.test = dataset_split_params
+    elif split == DatasetSplit.VALIDATION:
+        base_config.data.validation = dataset_split_params
+    return base_config
 
 
 def _get_dataset_size(
@@ -75,9 +86,10 @@ def test_data_single_dataset(stream: bool):
             )
         ],
         stream,
+        DatasetSplit.TRAIN,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
     assert _get_dataset_size(dataset, stream) == 100
 
 
@@ -96,9 +108,10 @@ def test_data_multiple_datasets(stream: bool):
             ),
         ],
         stream,
+        DatasetSplit.TEST,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TEST, seed=1)
     assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 
 
@@ -119,9 +132,10 @@ def test_data_multiple_datasets_local_sample(stream: bool):
             ),
         ],
         stream,
+        DatasetSplit.VALIDATION,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION, seed=1)
     assert _get_dataset_size(dataset, stream) == 5 + 201
 
 
@@ -151,10 +165,11 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
             ),
         ],
         stream,
+        DatasetSplit.TRAIN,
     )
-    config.data.mixture_strategy = "first_exhausted"
+    config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
     # The dataset size should be small. We stop merging when the smallest dataset is
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 9
@@ -186,10 +201,11 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
             ),
         ],
         stream,
+        DatasetSplit.TRAIN,
     )
-    config.data.mixture_strategy = "all_exhausted"
+    config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "all_exhausted"
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
     # The dataset size should be larger. We stop merging when all datasets have been
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 124
@@ -223,8 +239,9 @@ def test_data_multiple_datasets_mixed_exception(stream: bool):
                 ),
             ],
             stream,
+            DatasetSplit.TEST,
         )
-        config.data.mixture_strategy = "first_exhausted"
+        config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
 
 
 def test_data_multiple_datasets_packing(stream: bool):
@@ -254,11 +271,12 @@ def test_data_multiple_datasets_packing(stream: bool):
                 ),
             ],
             stream,
+            DatasetSplit.TEST,
             pack=True,
         )
-        config.data.mixture_strategy = "first_exhausted"
+        config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
         tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset(config, tokenizer, seed=1)
+        dataset = build_dataset(config, tokenizer, DatasetSplit.TEST, seed=1)
         # The packed dataset should be even smaller.
         assert _get_dataset_size(dataset, stream, pack=True) == 3
     else:
@@ -289,5 +307,6 @@ def test_data_multiple_datasets_packing(stream: bool):
                     ),
                 ],
                 stream,
+                DatasetSplit.TEST,
                 pack=True,
             )

@@ -11,7 +11,13 @@ from datasets import (
 )
 from trl.trainer import ConstantLengthDataset
 
-from lema.core.types import DataParams, DatasetParams, MixtureStrategy, TrainingConfig
+from lema.core.types import (
+    DatasetParams,
+    DatasetSplit,
+    DatasetSplitParams,
+    MixtureStrategy,
+    TrainingConfig,
+)
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
@@ -48,43 +54,44 @@ def build_prompt_generation_fn(
 def build_dataset(
     config: TrainingConfig,
     tokenizer: transformers.PreTrainedTokenizerBase,
+    dataset_split: DatasetSplit,
     seed: Optional[int] = None,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType]:
-    """Builds a dataset for training.
+    """Builds a dataset for the specified split.
 
     Args:
         config: The training config.
         tokenizer: The tokenizer object to use for preprocessing.
+        dataset_split: The split of the dataset to load.
         seed: If specified, a seed used for random sampling.
         kwargs: Keyword arguments.
 
     Returns:
-        dataset: The built dataset for training.
+        dataset: The built dataset for `dataset_split`.
     """
-    data_params: DataParams = config.data
+    dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
-    # TODO: should return all splits
     datasets = [
         _preprocess_dataset(
-            _sample_dataset(dataset_params, data_params.stream),
+            _sample_dataset(dataset_params, dataset_split_params.stream),
             dataset_params,
             tokenizer,
         )
-        for dataset_params in data_params.datasets
+        for dataset_params in dataset_split_params.datasets
     ]
     mixture_proportions = [
-        dataset.mixture_proportion for dataset in data_params.datasets
+        dataset.mixture_proportion for dataset in dataset_split_params.datasets
     ]
 
     # Interleave datasets using mixture_strategy.
     dataset = _mix_datasets(
         datasets,
         mixture_proportions,
-        data_params.mixture_strategy,
+        dataset_split_params.mixture_strategy,
         seed,
     )
-    if data_params.pack:
+    if dataset_split_params.pack:
         # Fetch max sequence length. If not specified, defaults to 1024.
         dataset_kwargs = {}
         if config.model.model_max_length:
@@ -92,7 +99,7 @@ def build_dataset(
         dataset = ConstantLengthDataset(
             tokenizer,
             dataset,
-            dataset_text_field=data_params.text_col,
+            dataset_text_field=dataset_split_params.target_col,
             **dataset_kwargs,
         )
     return dataset

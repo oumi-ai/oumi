@@ -3,9 +3,10 @@ model:
   trust_remote_code: True
 
 data:
-  datasets:
-    - dataset_name: "mlabonne/orpo-dpo-mix-40k"
-      preprocessing_function_name: "trl_dpo"
+  train:
+    datasets:
+      - dataset_name: "mlabonne/orpo-dpo-mix-40k"
+        preprocessing_function_name: "trl_dpo"
 
 training:
   optimizer: "adamw_torch"
