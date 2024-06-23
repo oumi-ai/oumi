@@ -17,7 +17,6 @@ data:
         preprocessing_function_kwargs:
           num_proc: 6
           batched: False
-    pack: False # TODO - try with True
     target_col: "text"
 
 training:
@@ -43,3 +42,4 @@ training:
   trainer_kwargs:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
+    # packing: True  FIX-ME
