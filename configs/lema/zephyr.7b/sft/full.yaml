@@ -34,7 +34,7 @@ training:
   logging_steps: 25
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
-    use_reentrant: False # So gradients flow from frozen input embedding
+    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
   max_steps: -1
   num_train_epochs: 1
   save_steps: 25
