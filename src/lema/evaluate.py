@@ -55,9 +55,10 @@ def evaluate(config: EvaluationConfig) -> None:
     """
     # Load the dataset from HuggingFace or a local repository.
     if config.data.datasets[0].dataset_name == "cais/mmlu":
-        subject, num_entries = "all", 10  # Hardcoded for testing.
+        subject, num_entries = "sociology", 8  # Hardcoded for testing.
 
         if config.max_evaluations is not None:
+            subject = "all"  # Hardcoded for testing.
             num_entries = (
                 config.max_evaluations
             )  # TODO use single var. name once testing period is over
