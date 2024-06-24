@@ -28,20 +28,6 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-  # - repo: https://github.com/RobertCraigie/pyright-python
-  #   rev: v1.1.368
-  #   hooks:
-  #   - id: pyright
-  #     language: system
-  # - repo: local
-  #   hooks:
-  #   - id: pyright
-  #     name: pyright
-  #     entry: python -m pyright
-  #     language: system
-  #     types: [python]
-  #     pass_filenames: false
-  #     args: [--warnings]
   - repo: local
     hooks:
     - id: pyright
