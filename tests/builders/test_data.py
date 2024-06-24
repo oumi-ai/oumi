@@ -83,7 +83,7 @@ def test_data_single_dataset(stream: bool):
         DatasetSplit.TRAIN,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
     assert _get_dataset_size(dataset, stream) == 100
 
 
@@ -105,7 +105,7 @@ def test_data_multiple_datasets(stream: bool):
         DatasetSplit.TEST,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TEST, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
     assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 
 
@@ -129,8 +129,59 @@ def test_data_multiple_datasets_local_sample(stream: bool):
         DatasetSplit.VALIDATION,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
     assert _get_dataset_size(dataset, stream) == 5 + 201
+
+
+def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
+    config = _get_default_config(
+        [
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+                sample_count=5,
+                shuffle=True,
+                seed=1,
+            ),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+                sample_count=5,
+                shuffle=True,
+                seed=2,
+            ),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+                sample_count=5,
+            ),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+                sample_count=5,
+            ),
+        ],
+        stream,
+        DatasetSplit.VALIDATION,
+    )
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
+    assert _get_dataset_size(dataset, stream) == 20
+    # Read all the data to handle streaming / nonstreaming in a unified manner.
+    data = []
+    for val in dataset:
+        data.append(val)
+    # The third and fourth splits are the same. The first two splits are unique.
+    assert data[0] != data[5]
+    assert data[0] != data[10]
+    assert data[0] != data[15]
+    assert data[5] != data[10]
+    assert data[5] != data[15]
+    assert data[10] == data[15]
 
 
 def test_data_multiple_datasets_local_mixed(stream: bool):
@@ -162,8 +213,9 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
         DatasetSplit.TRAIN,
     )
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
+    config.data.get_split(DatasetSplit.TRAIN).seed = 1
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
     # The dataset size should be small. We stop merging when the smallest dataset is
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 9
@@ -198,8 +250,9 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
         DatasetSplit.TRAIN,
     )
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "all_exhausted"
+    config.data.get_split(DatasetSplit.TRAIN).seed = 1
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=1)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
     # The dataset size should be larger. We stop merging when all datasets have been
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 124
@@ -238,6 +291,45 @@ def test_data_multiple_datasets_mixed_exception(stream: bool):
         config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
 
 
+def test_data_multiple_datasets_different_mix_seeds(stream: bool):
+    datasets = []
+    for seed in range(1, 3):
+        config = _get_default_config(
+            [
+                DatasetParams(
+                    dataset_name="cais/mmlu",
+                    subset="abstract_algebra",
+                    split="test",
+                    sample_count=5,
+                    mixture_proportion=0.1,
+                ),
+                DatasetParams(
+                    dataset_name="tasksource/mmlu",
+                    subset="abstract_algebra",
+                    split="test",
+                    sample_count=50,
+                    mixture_proportion=0.4,
+                ),
+                DatasetParams(
+                    dataset_name="tasksource/mmlu",
+                    subset="abstract_algebra",
+                    split="test",
+                    sample_count=5,
+                    mixture_proportion=0.5,
+                ),
+            ],
+            stream,
+            DatasetSplit.TRAIN,
+        )
+        config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
+        config.data.get_split(DatasetSplit.TRAIN).seed = seed
+        tokenizer = build_tokenizer(config.model)
+        datasets.append(build_dataset(config, tokenizer, DatasetSplit.TRAIN))
+    dataset_a = datasets[0]
+    dataset_b = datasets[1]
+    assert _get_dataset_size(dataset_a, stream) != _get_dataset_size(dataset_b, stream)
+
+
 def test_data_multiple_datasets_packing(stream: bool):
     if stream:
         config = _get_default_config(
@@ -269,8 +361,9 @@ def test_data_multiple_datasets_packing(stream: bool):
             pack=True,
         )
         config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
+        config.data.get_split(DatasetSplit.TEST).seed = 1
         tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset(config, tokenizer, DatasetSplit.TEST, seed=1)
+        dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
         # The packed dataset should be even smaller.
         assert _get_dataset_size(dataset, stream, pack=True) == 3
     else:

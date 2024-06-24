@@ -199,6 +199,11 @@ class DatasetParams:
     # Examples are sampled after the dataset has been sampled using `sample_count` if
     # specified. Defaults to None.
     mixture_proportion: Optional[float] = None
+    # If specified, the dataset is shuffled before any sampling occurs.
+    shuffle: bool = False
+    # The random seed used for shuffling the dataset before sampling, if specified.
+    # If set to `None` shuffling will be non-deterministic.
+    seed: Optional[int] = None
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -208,7 +213,7 @@ class DatasetParams:
         dict: contains the default set params.
         """
         defaults = dict()
-        defaults["batched"] = True  # Note the default of huggingface is False.
+        defaults["batched"] = False  # Note: same default as huggingface data loader.
         return defaults
 
     preprocessing_function_name: Optional[str] = None
@@ -257,6 +262,9 @@ class DatasetSplitParams:
             f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
         },
     )
+    # The random seed used for mixing this dataset split, if specified.
+    # If set to `None` mixing will be non-deterministic.
+    seed: Optional[int] = None
 
     def __post_init__(self):
         """Verifies params."""
