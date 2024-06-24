@@ -19,6 +19,7 @@ from lema.core.types import (
     TrainingConfig,
 )
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
+from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 
@@ -47,6 +48,8 @@ def build_prompt_generation_fn(
         return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
+    elif function_name == "chatqa":
+        return chatqa_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 

@@ -226,7 +226,7 @@ class DatasetParams:
         dict: contains the default set params.
         """
         defaults = dict()
-        defaults["batched"] = True  # Note the default of huggingface is False.
+        defaults["batched"] = False  # Note: same default as huggingface data loader.
         return defaults
 
     preprocessing_function_name: Optional[str] = None
