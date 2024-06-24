@@ -4,13 +4,12 @@ model:
   trust_remote_code: True
 
 data:
-  target_col: "text"
-  datasets:
-    - dataset_name: "nvidia/ChatQA-Training-Data"
-      preprocessing_function_name: "chatqa"
-      subset: "sft"
-      preprocessing_function_kwargs:
-        batched: False
+  train:
+    datasets:
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        preprocessing_function_name: "chatqa"
+        subset: "sft"
+    target_col: "text"
 
 training:
   optimizer: "adamw_torch"

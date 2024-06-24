@@ -294,7 +294,7 @@ class DatasetSplitParams:
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mix_sum, 1.0):
+            if not math.isclose(mix_sum, 1.0, rel_tol=1e-2):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mix_sum} ."
@@ -310,7 +310,7 @@ class DatasetSplitParams:
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mix_sum, 1.0):
+            if not math.isclose(mix_sum, 1.0, rel_tol=1e-2):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mix_sum} ."
