@@ -1,6 +1,7 @@
 import csv
 from typing import List
 
+import pandas as pd
 import transformers
 
 from lema.core.types import TrainingConfig
@@ -26,6 +27,35 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
 
     trainer._save(output_dir, state_dict=state_dict)
     logger.info(f"Model has been saved at {output_dir}.")
+
+
+def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
+    """Save batched probabilities into a parquet file."""
+    df_probs = pd.DataFrame(probabilities)
+    df_probs.to_parquet(output_filepath)
+
+
+def load_infer_prob(
+    input_filepath: str, num_labels: int = 0
+) -> List[List[List[float]]]:
+    """Retrieve batched probabilities from a parquet file."""
+
+    def to_list(probs):
+        """Ensure number of probabilities is the same for all entries."""
+        probs_list = list(probs)
+        nonlocal num_labels
+        num_labels = num_labels or len(probs_list)
+        if num_labels != len(probs_list):
+            raise ValueError(
+                f"Reading {input_filepath}: inconsistent number of probs"
+                f" across entries: len({probs_list}) != {num_labels}"
+            )
+        return probs_list
+
+    df_probs = pd.read_parquet(input_filepath)
+    probabilities = df_probs.values.tolist()
+    probabilities = [[to_list(probs) for probs in batch] for batch in probabilities]
+    return probabilities
 
 
 #  The inference probabilities (`probabilities`) are structured as follows:
@@ -65,14 +95,14 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
 #
 
 
-def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
+def save_infer_prob_csv(output_filepath: str, probabilities: List[List[List[float]]]):
     """Save batched probabilities into a csv file."""
     with open(output_filepath, "w") as write_obj:
         csv_writer = csv.writer(write_obj)
         csv_writer.writerows(probabilities)
 
 
-def load_infer_prob(
+def load_infer_prob_csv(
     input_filepath: str, num_labels: int = 0
 ) -> List[List[List[float]]]:
     """Retrieve batched probabilities from a csv file."""
