@@ -17,9 +17,9 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         dataset_config: "sample-10BT"
         split: "train"
-  stream: True
-  pack: True
-  target_col: "text"
+    stream: True
+    pack: True
+    target_col: "text"
 
 training:
   trainer_type: TRL_SFT

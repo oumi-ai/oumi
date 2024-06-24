@@ -4,12 +4,16 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A100-80GB"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  accelerators: {"A100"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
   # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
   # something like this: {"A40": N}
   any_of:
-    - use_spot: true
+    # - use_spot: true
     - use_spot: false
+
+  disk_size: 200      # Disk size in GB
+  # disk_tier: medium # medium is the default.
+  # region: us-central1  # Uncomment this line to only consider a specific region.
 
 # Upload a working directory to remote ~/sky_workdir.
 workdir: .
@@ -21,7 +25,7 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
   /output_dir_gcs:
-    name: lema-dev-us-west3/gpt2-gcs
+    source: gs://lema-dev-us-central1
     store: gcs
     mode: MOUNT
 
@@ -41,8 +45,10 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  echo "Output dir contents:"
   ls -la /output_dir_gcs/
 
+  echo "Torchrun!"
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -51,6 +57,8 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.max_steps=100" \
+      "training.output_dir=/output_dir_gcs/gpt2.pt/" \
+      "training.max_steps=1000" \
+      "training.per_device_train_batch_size=16" \
       "training.try_resume_from_last_checkpoint=True" \
       "training.enable_wandb=true"
