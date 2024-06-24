@@ -356,7 +356,7 @@ class ModelParams:
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
-    device_map = "auto"
+    device_map: Optional[str] = "auto"
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
