@@ -85,7 +85,17 @@ lema is a learning machines modeling platform that allows you to build and train
 ### 8. Install pre-commit hooks
 
    ```shell
-   pre-commit install
+   pre-commit install  # recommended
+   ```
+
+   If you'd like to only run the pre-commits before a push, you can use:
+   ```shell
+   pre-commit install --install-hooks --hook-type pre-push
+   ```
+
+   Alternatively, you can run the pre-commit hooks manually with:
+   ```shell
+   pre-commit run --all-files
    ```
 
 ### 9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
@@ -170,3 +180,13 @@ For example, for Phi3 DPO model, there are two related sample configs provided:
   * Review and tune other parameters in the config, as described in [FSDP Configuration](https://huggingface.co/docs/transformers/main/en/fsdp#fsdp-configuration) and in [accelerate FSDP usage guide](https://huggingface.co/docs/accelerate/en/usage_guides/fsdp). They control various performance trade-offs.
 
 Then run `sky launch ...` as before.
+
+
+## Troubleshooting
+1. Pre-commit hook errors with vscode
+   - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
+   - To fix this, make sure to start your vscode instance after activating your conda environment.
+     ```shell
+     conda activate lema
+     code .  # inside the lema directory
+     ```
