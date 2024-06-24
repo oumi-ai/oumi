@@ -27,6 +27,9 @@ envs:
 setup: |
   set -e
   pip install '.[train]'
+  # Required for RunPod as a workaround since nvcc isn't installed
+  # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
@@ -34,12 +37,7 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
-      --master-port=8007 \
+  torchrun --nnodes 1 --nproc-per-node $SKYPILOT_NUM_GPUS_PER_NODE \
       -m lema.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/lema/gpt2.pt.yaml \
       "training.enable_wandb=true"

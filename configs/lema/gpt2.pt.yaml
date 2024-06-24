@@ -1,21 +1,46 @@
-# Toy pretraining (PT) config for GPT-2.
+# GPT-2's implementation in nanoGPT: https://github.com/karpathy/build-nanogpt
 
+# Model automatically uses weight tying
 model:
-  model_name: "openai-community/gpt2"
+  model_name: "gpt2"  # 124M params
+  # For local testing.
+  # model_max_length: 128
   model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  load_pretrained_weights: False
   trust_remote_code: True
 
 data:
   train:
     datasets:
-      - dataset_name: "Salesforce/wikitext"
-        dataset_config: "wikitext-2-raw-v1"
-    stream: True
-    pack: True
-    target_col: "text"
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        dataset_config: "sample-10BT"
+        split: "train"
+  stream: True
+  pack: True
+  target_col: "text"
 
 training:
   trainer_type: TRL_SFT
-  max_steps: 2
-  enable_tensorboard: False
+  # For local testing.
+  # per_device_train_batch_size: 2
+  # max_steps: 10
+  # TODO: Should be able to fit batch size 64 w/ 80GB, but can only do ~44. Why?
+  per_device_train_batch_size: 44
+  max_steps: 19073
+  # TODO: Should be reducing memory consumption, but doesn't seem to help.
+  # enable_gradient_checkpointing: True
+
+  # https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py#L349
+  learning_rate: 6.0e-04
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.1
+  warmup_steps: 715
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  weight_decay: 0.1
+
+  run_name: "gpt2_pt"
   output_dir: "output/gpt2.pt"
