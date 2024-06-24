@@ -170,3 +170,13 @@ For example, for Phi3 DPO model, there are two related sample configs provided:
   * Review and tune other parameters in the config, as described in [FSDP Configuration](https://huggingface.co/docs/transformers/main/en/fsdp#fsdp-configuration) and in [accelerate FSDP usage guide](https://huggingface.co/docs/accelerate/en/usage_guides/fsdp). They control various performance trade-offs.
 
 Then run `sky launch ...` as before.
+
+
+## Troubleshooting
+1. Pre-commit hook errors with vscode
+   - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
+   - To fix this, make sure to start your vscode instance after activating your conda environment.
+     ```shell
+     conda activate lema
+     code .  # inside the lema directory
+     ```
