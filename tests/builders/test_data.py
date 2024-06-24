@@ -158,22 +158,30 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
                 split="test",
                 sample_count=5,
             ),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+                sample_count=5,
+            ),
         ],
         stream,
         DatasetSplit.VALIDATION,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
-    assert _get_dataset_size(dataset, stream) == 15
-    # Compare the 1st, 6th, and 11th item in the dataset as they are the start of each
-    # split. The datasets were concatenated.
+    assert _get_dataset_size(dataset, stream) == 20
     # Read all the data to handle streaming / nonstreaming in a unified manner.
     data = []
     for val in dataset:
         data.append(val)
+    # The third and fourth splits are the same. The first two splits are unique.
     assert data[0] != data[5]
-    assert data[5] != data[10]
     assert data[0] != data[10]
+    assert data[0] != data[15]
+    assert data[5] != data[10]
+    assert data[5] != data[15]
+    assert data[10] == data[15]
 
 
 def test_data_multiple_datasets_local_mixed(stream: bool):
