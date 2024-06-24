@@ -94,7 +94,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft
 
-    # Build model.
+    # Build model. test
     model = build_model(
         model_params=config.model,
         peft_params=config.peft if use_peft else None,

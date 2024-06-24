@@ -35,7 +35,16 @@ Homepage = "https://github.com/openlema/lema"
 Issues = "https://github.com/openlema/lema/issues"
 
 [project.optional-dependencies]
-dev = ["black", "isort", "mypy", "pre-commit", "pynvml", "pytest", "ruff"]
+dev = [
+    "black",
+    "isort",
+    "mypy",
+    "pre-commit",
+    "pynvml",
+    "pytest",
+    "ruff",
+    "pyright",
+]
 train = [
     "transformers",
     "trl==0.8.6",
@@ -89,11 +98,12 @@ known-first-party = ["lema"]
 include = ["src/lema/**", "tests/**"]
 exclude = ["src/lema/experimental/**"]
 typeCheckingMode = "basic"
-reportMissingImports = "none"
 pythonVersion = "3.8"
 pythonPlatform = "All"                 # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+reportMissingImports = "none"
+reportAttributeAccessIssue = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
