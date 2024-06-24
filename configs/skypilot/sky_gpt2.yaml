@@ -20,6 +20,10 @@ file_mounts:
   # /artifacts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
+  /output_dir_gcs:
+    name: lema-dev-us-west3/gpt2-gcs
+    store: gcs
+    mode: MOUNT
 
 envs:
   WANDB_PROJECT: lema-train-test
@@ -37,6 +41,8 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  ls -la /output_dir_gcs/
+
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -45,4 +51,5 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
+      "training.max_steps=100" \
       "training.enable_wandb=true"
