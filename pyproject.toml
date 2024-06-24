@@ -89,6 +89,7 @@ known-first-party = ["lema"]
 include = ["src/lema/**", "tests/**"]
 exclude = ["src/lema/experimental/**"]
 typeCheckingMode = "basic"
+reportMissingImports = "none"
 pythonVersion = "3.8"
 pythonPlatform = "All"                 # Include linux, mac, windows
 
