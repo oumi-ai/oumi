@@ -86,7 +86,6 @@ class TrainingParams:
     max_steps: int = -1
     num_train_epochs: int = 3
     save_steps: int = 100
-
     run_name: str = "default"
 
     log_level: str = "info"
@@ -204,7 +203,8 @@ class TrainingParams:
 class DatasetParams:
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
-    dataset_config: Optional[str] = None
+    # The subset of the dataset to load, usually a subfolder within the dataset root.
+    subset: Optional[str] = None
     split: str = "train"
 
     # The number of examples to sample from the dataset. Must be non-negative. If
@@ -362,6 +362,7 @@ class ModelParams:
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
+    device_map: Optional[str] = "auto"
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
