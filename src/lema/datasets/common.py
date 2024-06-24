@@ -4,10 +4,10 @@ from transformers import PreTrainedTokenizerBase
 
 
 def apply_chat_template(
-    samples,
+    samples: dict,
     tokenizer: PreTrainedTokenizerBase,
     task: Literal["sft", "generation"],
-):
+) -> dict:
     """Applies the chat template carried by the tokenizer to the input example.
 
     Args:
