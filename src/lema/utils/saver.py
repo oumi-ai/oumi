@@ -1,13 +1,11 @@
 import csv
 from typing import List
 
-import transformers
-
+from lema.builders import BaseTrainer
 from lema.core.types import TrainingConfig
-from lema.logging import logger
 
 
-def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
+def save_model(config: TrainingConfig, trainer: BaseTrainer) -> None:
     """Saves the model's state dictionary to the specified output directory.
 
     Args:
@@ -17,15 +15,7 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
     Returns:
         None
     """
-    output_dir = config.training.output_dir
-
-    if config.training.use_peft:
-        state_dict = {k: t for k, t in trainer.model.named_parameters() if "lora_" in k}
-    else:
-        state_dict = trainer.model.state_dict()
-
-    trainer._save(output_dir, state_dict=state_dict)
-    logger.info(f"Model has been saved at {output_dir}.")
+    trainer.save_model(config)
 
 
 #  The inference probabilities (`probabilities`) are structured as follows:

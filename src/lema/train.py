@@ -1,10 +1,10 @@
 import argparse
 from typing import Callable, Optional
 
-from transformers import Trainer
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
+    BaseTrainer,
     build_dataset,
     build_model,
     build_peft_model,
@@ -119,7 +119,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
 
     # Train model
-    create_trainer_fn: Callable[..., Trainer] = build_trainer(
+    create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
         config.training.trainer_type
     )
 
