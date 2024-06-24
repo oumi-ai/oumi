@@ -56,8 +56,4 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.output_dir=/output_dir_gcs/gpt2.pt/" \
-      "training.max_steps=1000" \
-      "training.per_device_train_batch_size=16" \
-      "training.try_resume_from_last_checkpoint=True" \
       "training.enable_wandb=true"
