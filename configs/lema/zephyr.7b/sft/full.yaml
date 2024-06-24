@@ -29,7 +29,7 @@ training:
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
   output_dir: "./zephyr-7b-sft-qlora"
-  logging_dir: ${training.output_dir}"/runs"
+  logging_dir: ${training.output_dir}/runs
   logging_first_step: True
   logging_steps: 25
   warmup_ratio: 0.1
