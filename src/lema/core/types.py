@@ -217,6 +217,10 @@ class DatasetParams:
     # Examples are sampled after the dataset has been sampled using `sample_count` if
     # specified. Defaults to None.
     mixture_proportion: Optional[float] = None
+    # If specified, the dataset is shuffled before any sampling occurs.
+    shuffle: bool = False
+    # The random seed used for shuffling the dataset before sampling, if specified.
+    seed: Optional[int] = None
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -275,6 +279,8 @@ class DatasetSplitParams:
             f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
         },
     )
+    # The random seed used for mixing this dataset split, if specified.
+    seed: Optional[int] = None
 
     def __post_init__(self):
         """Verifies params."""
