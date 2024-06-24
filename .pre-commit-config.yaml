@@ -32,22 +32,23 @@ repos:
   #   rev: v1.1.368
   #   hooks:
   #   - id: pyright
-  - repo: local
-    hooks:
-    - id: pyright
-      name: pyright
-      entry: python -m pyright
-      language: system
-      types: [python]
-      pass_filenames: false
-      args: [--warnings]
+  #     language: system
   # - repo: local
   #   hooks:
   #   - id: pyright
   #     name: pyright
   #     entry: python -m pyright
-  #     language: node
+  #     language: system
   #     types: [python]
   #     pass_filenames: false
   #     args: [--warnings]
-  #     additional_dependencies: ["pyright@1.1.368"]
+  - repo: local
+    hooks:
+    - id: pyright
+      name: pyright
+      entry: python -m pyright
+      language: node
+      types: [python]
+      pass_filenames: false
+      args: [--warnings]
+      additional_dependencies: ["pyright@1.1.368"]
