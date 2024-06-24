@@ -1,16 +1,10 @@
 from typing import List, Union
 
 import pytest
-from datasets import (
-    Dataset,
-    IterableDataset,
-)
+from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
-from lema.builders import (
-    build_dataset,
-    build_tokenizer,
-)
+from lema.builders import build_dataset, build_tokenizer
 from lema.core.types import (
     DataParams,
     DatasetParams,
@@ -81,7 +75,7 @@ def test_data_single_dataset(stream: bool):
         [
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
             )
         ],
@@ -98,12 +92,12 @@ def test_data_multiple_datasets(stream: bool):
         [
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
             ),
         ],
@@ -120,13 +114,13 @@ def test_data_multiple_datasets_local_sample(stream: bool):
         [
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=201,  # oversample by 1.
             ),
@@ -144,7 +138,7 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
         [
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 shuffle=True,
@@ -152,7 +146,7 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 shuffle=True,
@@ -160,7 +154,7 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
             ),
@@ -187,21 +181,21 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
         [
             DatasetParams(
                 dataset_name="cais/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
@@ -224,21 +218,21 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
         [
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
-                dataset_config="abstract_algebra",
+                subset="abstract_algebra",
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
@@ -263,21 +257,21 @@ def test_data_multiple_datasets_mixed_exception(stream: bool):
             [
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=5,
                     mixture_proportion=0.5,
@@ -296,21 +290,21 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
             [
                 DatasetParams(
                     dataset_name="cais/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=5,
                     mixture_proportion=0.1,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=5,
                     mixture_proportion=0.5,
@@ -334,21 +328,21 @@ def test_data_multiple_datasets_packing(stream: bool):
             [
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=50,
                     mixture_proportion=0.1,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
                     dataset_name="tasksource/mmlu",
-                    dataset_config="abstract_algebra",
+                    subset="abstract_algebra",
                     split="test",
                     sample_count=50,
                     mixture_proportion=0.5,
@@ -371,21 +365,21 @@ def test_data_multiple_datasets_packing(stream: bool):
                 [
                     DatasetParams(
                         dataset_name="tasksource/mmlu",
-                        dataset_config="abstract_algebra",
+                        subset="abstract_algebra",
                         split="test",
                         sample_count=5,
                         mixture_proportion=0.1,
                     ),
                     DatasetParams(
                         dataset_name="tasksource/mmlu",
-                        dataset_config="abstract_algebra",
+                        subset="abstract_algebra",
                         split="test",
                         sample_count=50,
                         mixture_proportion=0.4,
                     ),
                     DatasetParams(
                         dataset_name="tasksource/mmlu",
-                        dataset_config="abstract_algebra",
+                        subset="abstract_algebra",
                         split="test",
                         sample_count=5,
                         mixture_proportion=0.5,

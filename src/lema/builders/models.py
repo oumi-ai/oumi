@@ -56,8 +56,7 @@ def build_huggingface_model(
     **kwargs,
 ):
     """Downloads and builds the model from the HuggingFace Hub."""
-    # TODO: add device_map to config
-    device_map = "auto"
+    device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
     # "auto" is not compatible with distributed training.
     if device_rank_info.world_size > 1:

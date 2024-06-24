@@ -137,7 +137,7 @@ def _sample_dataset(
             DatasetType,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -150,7 +150,7 @@ def _sample_dataset(
             IterableDataset,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -167,7 +167,7 @@ def _sample_dataset(
         Dataset,
         load_dataset(
             dataset_params.dataset_name,
-            name=dataset_params.dataset_config,
+            name=dataset_params.subset,
             streaming=stream,
             split=dataset_params.split,
         ),
@@ -183,7 +183,7 @@ def _sample_dataset(
             Dataset,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -196,7 +196,7 @@ def _sample_dataset(
             Dataset,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),

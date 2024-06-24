@@ -15,7 +15,7 @@ data:
   train:
     datasets:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
-        dataset_config: "sample-10BT"
+        subset: "sample-10BT"
         split: "train"
     stream: True
     pack: True

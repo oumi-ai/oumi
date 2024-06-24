@@ -88,7 +88,7 @@ def test_train_pack():
                     datasets=[
                         DatasetParams(
                             dataset_name="Salesforce/wikitext",
-                            dataset_config="wikitext-2-raw-v1",
+                            subset="wikitext-2-raw-v1",
                         )
                     ],
                     stream=True,
