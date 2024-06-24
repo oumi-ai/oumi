@@ -41,6 +41,17 @@ class TrainerType(Enum):
     "Generic HuggingFace trainer from `transformers` library."
 
 
+#
+# Dataset Splits
+#
+class DatasetSplit(Enum):
+    """Enum representing the split for a dataset."""
+
+    TRAIN = "train"
+    TEST = "test"
+    VALIDATION = "validation"
+
+
 class MixtureStrategy(str, Enum):
     """Enum representing the supported mixture strategies for datasets."""
 
@@ -59,7 +70,6 @@ class MixtureStrategy(str, Enum):
 
 @dataclass
 class TrainingParams:
-    optimizer: str = "adamw_torch"
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
@@ -89,10 +99,17 @@ class TrainingParams:
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
 
+    # Learning rate schedule.
     learning_rate: float = 5e-05
-    lr_scheduler_type: str = "cosine"  # TODO Update by enumerating *more* options
+    # See possible scheduler types here:
+    # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
+    lr_scheduler_type: str = "cosine"
+    lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
     warmup_ratio: float = 0.0
+    warmup_steps: int = 0
 
+    # Optimizer params.
+    optimizer: str = "adamw_torch"
     weight_decay: float = 0.0
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
@@ -122,6 +139,8 @@ class TrainingParams:
     # then this parameter has no effect.
     try_resume_from_last_checkpoint: bool = False
 
+    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
@@ -132,16 +151,18 @@ class TrainingParams:
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
             max_steps=self.max_steps,
-            optim=self.optimizer,
             output_dir=self.output_dir,
             per_device_eval_batch_size=self.per_device_eval_batch_size,
             per_device_train_batch_size=self.per_device_train_batch_size,
             push_to_hub=False,
             report_to=self._get_hf_report_to(),
             run_name=self.run_name,
+            optim=self.optimizer,
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
+            lr_scheduler_kwargs=self.lr_scheduler_kwargs,
             warmup_ratio=self.warmup_ratio,
+            warmup_steps=self.warmup_steps,
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
@@ -220,7 +241,7 @@ class DatasetParams:
 
 
 @dataclass
-class DataParams:
+class DatasetSplitParams:
     # The input datasets used for training. This will later be split into train, test,
     # and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
@@ -231,10 +252,10 @@ class DataParams:
     # Requires `stream` to be set to True.
     pack: bool = False
     stream: bool = False
-    # The dataset column name containing the text to train on. Required for SFTTrainer.
-    # If specified, all datasets must contain a column with this name.
-    text_col: Optional[str] = None
-    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    # The dataset column name containing the input for training/testing/validation.
+    # Required for SFTTrainer. If specified, all datasets in this split must contain a
+    # column with this name.
+    target_col: Optional[str] = None
     mixture_strategy: str = field(
         default=MixtureStrategy.FIRST_EXHAUSTED.value,
         metadata={
@@ -254,8 +275,8 @@ class DataParams:
         if self.pack:
             if not self.stream:
                 raise ValueError("`stream` must be enabled if `pack` is enabled.")
-            if not self.text_col:
-                raise ValueError("`text_col` must be specified if `pack` is enabled.")
+            if not self.target_col:
+                raise ValueError("`target_col` must be specified if `pack` is enabled.")
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
@@ -300,11 +321,37 @@ class DataParams:
 
 
 @dataclass
+class DataParams:
+    # The input datasets used for training.
+    train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    # The input datasets used for testing.
+    test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    # The input datasets used for validation.
+    validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+
+    def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
+        """A public getting for individual dataset splits."""
+        if split == DatasetSplit.TRAIN:
+            return self.train
+        elif split == DatasetSplit.TEST:
+            return self.test
+        elif split == DatasetSplit.VALIDATION:
+            return self.validation
+        else:
+            raise ValueError(f"Received invalid split: {split}.")
+
+
+@dataclass
 class ModelParams:
     model_name: str = MISSING
     adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
     model_max_length: Optional[int] = None
+    # Whether to load the pretrained model's weights. Else, the model will be
+    # initialized from the pretrained config.
+    load_pretrained_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
     chat_template: Optional[str] = None
@@ -351,7 +398,7 @@ class ModelParams:
         """Checks if flash-attention-2 was requested.
 
         Note: Flash attention 2 paper https://arxiv.org/abs/2307.08691
-        TODO add flash-attention-2 in optional dependecies if we want to
+        TODO add flash-attention-2 in optional dependencies if we want to
         use it frequently (.toml).
         """
         return self.attn_implementation == "flash_attention_2"
@@ -508,22 +555,25 @@ class TrainingConfig(BaseConfig):
     def __post_init__(self):
         """Verifies/populates params."""
         if self.training.trainer_type == TrainerType.TRL_SFT:
-            if not self.data.text_col:
-                raise ValueError("`text_col` must be specified for TRL_SFT Trainer.")
+            if not self.data.train.target_col:
+                raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
 
             # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
             # `SFTTrainer`, and warn users if their value will be overridden.
-            existing_dataset_text_field = self.data.trainer_kwargs.get(
+            existing_dataset_text_field = self.training.trainer_kwargs.get(
                 "dataset_text_field"
             )
             if (existing_dataset_text_field is not None) and (
-                existing_dataset_text_field != self.data.text_col
+                existing_dataset_text_field != self.data.train.target_col
             ):
                 logger.warning(
                     "Overriding existing `dataset_text_field` value "
-                    f"'{existing_dataset_text_field}' with '{self.data.text_col}'"
+                    f"'{existing_dataset_text_field}' with "
+                    f"'{self.data.train.target_col}'"
                 )
-            self.data.trainer_kwargs["dataset_text_field"] = self.data.text_col
+            self.training.trainer_kwargs["dataset_text_field"] = (
+                self.data.train.target_col
+            )
 
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
@@ -541,7 +591,7 @@ class TrainingConfig(BaseConfig):
                 )
 
             if max_seq_length_key:
-                existing_max_seq_length = self.data.trainer_kwargs.get(
+                existing_max_seq_length = self.training.trainer_kwargs.get(
                     max_seq_length_key
                 )
                 if (existing_max_seq_length is not None) and (
@@ -551,7 +601,7 @@ class TrainingConfig(BaseConfig):
                         f"Overriding existing '{max_seq_length_key}' value "
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )
-                self.data.trainer_kwargs[max_seq_length_key] = max_seq_length_value
+                self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
 
 
 @dataclass
@@ -571,6 +621,6 @@ class InferenceConfig(BaseConfig):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DataParams = field(default_factory=DataParams)
+    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
