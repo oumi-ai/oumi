@@ -1,4 +1,4 @@
-## Recipie and HPs used for Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # noqa
+## Recipe and HPs used for Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # noqa
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
