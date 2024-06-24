@@ -5,17 +5,16 @@ from lema.core.types.configs import (
     TrainingConfig,
 )
 from lema.core.types.exceptions import HardwareException
-from lema.core.types.params import (
+from lema.core.types.params.data_params import (
     DataParams,
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
-    ModelParams,
-    PeftParams,
-    TrainerType,
-    TrainingParams,
 )
+from lema.core.types.params.model_params import ModelParams
+from lema.core.types.params.peft_params import PeftParams
+from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
     "DataParams",

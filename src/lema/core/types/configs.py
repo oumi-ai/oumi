@@ -2,14 +2,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from lema.core.types.base_config import BaseConfig
-from lema.core.types.params import (
-    DataParams,
-    DatasetSplitParams,
-    ModelParams,
-    PeftParams,
-    TrainerType,
-    TrainingParams,
-)
+from lema.core.types.params.data_params import DataParams, DatasetSplitParams
+from lema.core.types.params.model_params import ModelParams
+from lema.core.types.params.peft_params import PeftParams
+from lema.core.types.params.training_params import TrainerType, TrainingParams
 from lema.logging import logger
 
 
