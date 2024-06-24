@@ -220,6 +220,7 @@ class DatasetParams:
     # If specified, the dataset is shuffled before any sampling occurs.
     shuffle: bool = False
     # The random seed used for shuffling the dataset before sampling, if specified.
+    # If set to `None` shuffling will be non-deterministic.
     seed: Optional[int] = None
 
     @staticmethod
@@ -280,6 +281,7 @@ class DatasetSplitParams:
         },
     )
     # The random seed used for mixing this dataset split, if specified.
+    # If set to `None` mixing will be non-deterministic.
     seed: Optional[int] = None
 
     def __post_init__(self):

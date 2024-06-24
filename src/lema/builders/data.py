@@ -177,7 +177,7 @@ def _sample_dataset(
             dataset = dataset.shuffle(dataset_params.seed).flatten_indices()
         return cast(DatasetType, dataset.take(dataset_params.sample_count))
     # Oversample the dataset.
-    oversampling_copies = int(dataset_params.sample_count / dataset.num_rows)
+    oversampling_copies = int(dataset_params.sample_count // dataset.num_rows)
     dataset_list = [
         cast(
             Dataset,
