@@ -1,34 +1,17 @@
 import dataclasses
-import logging
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Any,
-    Dict,
-    Iterator,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    cast,
-)
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple
 
 import torch
 import transformers
-from omegaconf import MISSING, OmegaConf
+from omegaconf import MISSING
 from peft.utils.peft_types import TaskType
 from transformers.utils import is_flash_attn_2_available
 
+from lema.core.types.exceptions import HardwareException
 from lema.logging import logger
-
-
-class HardwareException(Exception):
-    """An exception thrown for invalid hardware configurations."""
-
-    pass
 
 
 #
@@ -41,7 +24,6 @@ class TrainerType(Enum):
     "Supervised fine-tuning trainer from `trl` library."
 
     TRL_DPO = "trl_dpo"
-    "Direct preference optimization trainer from `trl` library."
 
     HF = "hf"
     "Generic HuggingFace trainer from `transformers` library."
@@ -476,158 +458,3 @@ class PeftParams:
         """An iterator over field names and values."""
         for param in dataclasses.fields(self):
             yield param.name, getattr(self, param.name)
-
-
-#
-# Configs
-#
-T = TypeVar("T", bound="BaseConfig")
-
-
-@dataclass
-class BaseConfig:
-    def to_yaml(self, config_path: str) -> None:
-        """Saves the configuration to a YAML file."""
-        OmegaConf.save(config=self, f=config_path)
-
-    @classmethod
-    def from_yaml(cls: Type[T], config_path: str) -> T:
-        """Loads a configuration from a YAML file.
-
-        Args:
-            config_path: The path to the YAML file.
-
-        Returns:
-            BaseConfig: The merged configuration object.
-        """
-        schema = OmegaConf.structured(cls)
-        file_config = OmegaConf.load(config_path)
-        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
-        if not isinstance(config, cls):
-            raise TypeError(f"config is not {cls}")
-        return cast(cls, config)
-
-    @classmethod
-    def from_yaml_and_arg_list(
-        cls: Type[T],
-        config_path: Optional[str],
-        arg_list: List[str],
-        logger: Optional[logging.Logger] = None,
-    ) -> T:
-        """Loads a configuration from various sources.
-
-        If both YAML and arguments list are provided, then
-        parameters specified in `arg_list` have higher precedence.
-
-        Args:
-            config_path: The path to the YAML file.
-            arg_list: Command line arguments list.
-            logger: (optional) Logger.
-
-        Returns:
-            BaseConfig: The merged configuration object.
-        """
-        # Start with an empty typed config. This forces OmegaConf to validate
-        # that all other configs are of this structured type as well.
-        all_configs = [OmegaConf.structured(cls)]
-
-        # Override with configuration file if provided.
-        if config_path is not None:
-            all_configs.append(cls.from_yaml(config_path))
-
-        # Override with CLI arguments.
-        all_configs.append(OmegaConf.from_cli(arg_list))
-        try:
-            # Merge and validate configs
-            config = OmegaConf.merge(*all_configs)
-        except Exception:
-            if logger:
-                logger.exception(f"Failed to merge Omega configs: {all_configs}")
-            raise
-
-        config = OmegaConf.to_object(config)
-        if not isinstance(config, cls):
-            raise TypeError(f"config {type(config)} is not {type(cls)}")
-
-        return cast(cls, config)
-
-
-@dataclass
-class TrainingConfig(BaseConfig):
-    data: DataParams = field(default_factory=DataParams)
-    model: ModelParams = field(default_factory=ModelParams)
-    training: TrainingParams = field(default_factory=TrainingParams)
-    peft: PeftParams = field(default_factory=PeftParams)
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if self.training.trainer_type == TrainerType.TRL_SFT:
-            if not self.data.train.target_col:
-                raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
-
-            # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
-            # `SFTTrainer`, and warn users if their value will be overridden.
-            existing_dataset_text_field = self.training.trainer_kwargs.get(
-                "dataset_text_field"
-            )
-            if (existing_dataset_text_field is not None) and (
-                existing_dataset_text_field != self.data.train.target_col
-            ):
-                logger.warning(
-                    "Overriding existing `dataset_text_field` value "
-                    f"'{existing_dataset_text_field}' with "
-                    f"'{self.data.train.target_col}'"
-                )
-            self.training.trainer_kwargs["dataset_text_field"] = (
-                self.data.train.target_col
-            )
-
-        if self.model.model_max_length and self.model.model_max_length > 0:
-            max_seq_length_value = int(self.model.model_max_length)
-            max_seq_length_key = None
-            if self.training.trainer_type == TrainerType.TRL_SFT:
-                max_seq_length_key = "max_seq_length"
-            elif self.training.trainer_type == TrainerType.TRL_DPO:
-                max_seq_length_key = "max_length"
-                # TODO: DPOTrainer also defines "max_prompt_length" and
-                # "max_target_length". How to handle them?
-            else:
-                logger.warning(
-                    f"Ignored model.model_max_length={max_seq_length_value} config "
-                    f"parameter for trainer {self.training.trainer_type}."
-                )
-
-            if max_seq_length_key:
-                existing_max_seq_length = self.training.trainer_kwargs.get(
-                    max_seq_length_key
-                )
-                if (existing_max_seq_length is not None) and (
-                    existing_max_seq_length != max_seq_length_value
-                ):
-                    logger.warning(
-                        f"Overriding existing '{max_seq_length_key}' value "
-                        f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
-                    )
-                self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
-
-
-@dataclass
-class GenerationConfig(BaseConfig):
-    # TODO: Add more parameters to control text generation.
-    max_new_tokens: int = 256
-    batch_size: int = 2
-    input_filepath: Optional[str] = None
-    output_filepath: Optional[str] = None
-
-
-@dataclass
-class InferenceConfig(BaseConfig):
-    model: ModelParams = field(default_factory=ModelParams)
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
-
-
-@dataclass
-class EvaluationConfig(BaseConfig):
-    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    model: ModelParams = field(default_factory=ModelParams)
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
