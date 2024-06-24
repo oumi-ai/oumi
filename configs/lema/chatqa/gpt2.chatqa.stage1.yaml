@@ -4,32 +4,18 @@ model:
   trust_remote_code: True
 
 data:
+  target_col: "text"
   datasets:
     - dataset_name: "nvidia/ChatQA-Training-Data"
       preprocessing_function_name: "chatqa"
       subset: "sft"
       preprocessing_function_kwargs:
         batched: False
-  text_col: "text"
 
 training:
   optimizer: "adamw_torch"
   use_peft: false
-  output_dir: "output/phi3.sft"
+  output_dir: "output/chatqa.stage1"
   trainer_type: "TRL_SFT"
-  per_device_train_batch_size: 2  # Each batch seems to be approx. 1.8GB
+  per_device_train_batch_size: 2
   gradient_accumulation_steps: 8
-
-  # Use for debugging purposes
-  # max_steps: 10
-
-peft:
-  q_lora: False
-  lora_target_modules:
-  - "q_proj"
-  - "k_proj"
-  - "v_proj"
-  - "o_proj"
-  - "gate_proj"
-  - "up_proj"
-  - "down_proj"
