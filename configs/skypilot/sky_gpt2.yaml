@@ -25,12 +25,14 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
-  # Uncomment this line to mount GCS dir: "training.output_dir=/output_dir_gcs/gpt2.pt/"
-  # To resume from the last checkpoint: "training.try_resume_from_last_checkpoint=True"
+  # Uncomment to mount GCS dir as "training.output_dir=/output_dir_gcs/gpt2.pt/"
   # /output_dir_gcs:
   #  source: gs://lema-dev-us-central1
   #  store: gcs
   #  mode: MOUNT
+  #
+  # To resume from the last checkpoint: add this param:
+  # "training.try_resume_from_last_checkpoint=True"
 
 envs:
   WANDB_PROJECT: lema-train-test
