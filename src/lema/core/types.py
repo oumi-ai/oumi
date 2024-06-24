@@ -25,6 +25,12 @@ from transformers.utils import is_flash_attn_2_available
 from lema.logging import logger
 
 
+class HardwareException(Exception):
+    """An exception thrown for invalid hardware configurations."""
+
+    pass
+
+
 #
 # Training Params
 #
@@ -376,7 +382,7 @@ class ModelParams:
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()
         ):
-            raise ValueError(
+            raise HardwareException(
                 "Flash attention 2 was requested but it is not "
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
