@@ -109,9 +109,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if config.training.log_model_summary:
         log_model_summary(model)
 
-    # Enable gradients for input embeddings
+    # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
-        model.enable_input_require_grads()
+        model.gradient_checkpointing_enable(
+            config.training.gradient_checkpointing_kwargs
+        )
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)

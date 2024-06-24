@@ -21,7 +21,7 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.3
+    rev: v0.4.10
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]
@@ -37,4 +37,4 @@ repos:
       types: [python]
       pass_filenames: false
       args: [--warnings]
-      additional_dependencies: ["pyright@1.1.310"]
+      additional_dependencies: ["pyright@1.1.368"]

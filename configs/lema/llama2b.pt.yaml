@@ -8,7 +8,7 @@ model:
 
 data:
   train:
-    dataset:
+    datasets:
       - dataset_name: "HuggingFaceFW/fineweb"
         split: "train"
     stream: True
