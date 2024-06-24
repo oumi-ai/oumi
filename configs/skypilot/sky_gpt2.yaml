@@ -52,4 +52,5 @@ run: |
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
       "training.max_steps=100" \
+      "training.try_resume_from_last_checkpoint=True" \
       "training.enable_wandb=true"
