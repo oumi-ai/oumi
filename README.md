@@ -85,7 +85,17 @@ lema is a learning machines modeling platform that allows you to build and train
 ### 8. Install pre-commit hooks
 
    ```shell
-   pre-commit install
+   pre-commit install  # recommended
+   ```
+
+   If you'd like to only run the pre-commits before a push, you can use:
+   ```shell
+   pre-commit install --install-hooks --hook-type pre-push
+   ```
+
+   Alternatively, you can run the pre-commit hooks manually with:
+   ```shell
+   pre-commit run --all-files
    ```
 
 ### 9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
