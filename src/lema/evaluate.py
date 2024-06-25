@@ -33,7 +33,6 @@ def main() -> None:
     config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
-
     # Run evaluation
     evaluate(config)
 
@@ -63,7 +62,12 @@ def evaluate(config: EvaluationConfig) -> None:
                 config.max_evaluations
             )  # TODO use single var. name once testing period is over
 
-        mmlu_dataset = MmluDataset(subject=subject, random_seed=config.random_seed)
+        mmlu_dataset = MmluDataset(
+            subject=subject,
+            seed=config.seed,
+            use_chat_format=config.model.chat_template is not None,
+        )
+
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
     else:
@@ -71,12 +75,12 @@ def evaluate(config: EvaluationConfig) -> None:
         raise NotImplementedError("Model evaluation only for MMLU for now.")
 
     # Batch the dataset to items of length `batch_size`.
-    dataset_batched = batch(dataset, config.generation.batch_size)
+    dataset_batched = batch(dataset, config.generation.batch_size)  # type: ignore
 
     # Run inference and then unbatch the model responses.
     answer_probabilities_batched = infer_prob(
         model_params=config.model,
-        input=dataset_batched,
+        input=dataset_batched,  # type: ignore
         acceptable_tokens=MmluDataset.answer_tokens,
         input_filepath=config.generation.input_filepath,
         output_filepath=config.generation.output_filepath,

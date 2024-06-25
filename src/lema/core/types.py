@@ -618,7 +618,7 @@ class EvaluationConfig(BaseConfig):
         default=None,
         metadata={"help": "Evaluate only up to max_evaluations samples of dataset."},
     )
-    random_seed: Optional[int] = field(
+    seed: Optional[int] = field(
         default=None,
         metadata={
             "help": "Use it to control the selection of the `max_evaluations` "

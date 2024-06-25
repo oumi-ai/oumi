@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from datasets import Dataset, DatasetDict, load_dataset
 
@@ -105,16 +105,24 @@ class MmluDataset:
             for example in shots  # type: ignore
         )
 
-    def __init__(self, subject: str = "all", random_seed: Optional[int] = None):
+    def __init__(
+        self,
+        subject: str = "all",
+        seed: Optional[int] = None,
+        use_chat_format: Optional[bool] = False,
+    ):
         """Initializes the class MmluDataset."""
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
         self._dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
         self._few_shot_dict: Dict[str, str] = dict()
-        self.random_seed = random_seed
+        self._seed = seed
+        self._use_chat_format = use_chat_format
 
     # Instance methods (private).
-    def _prompt_template(self, example: Dict[str, Any]) -> str:
+    def _prompt_template(
+        self, example: Dict[str, Any]
+    ) -> Union[str, List[Dict[str, str]]]:
         """Generates the prompt template for evaluations.
 
         This template is the "original" MMLU implementation by github.com/ollmer.
@@ -160,13 +168,22 @@ class MmluDataset:
         if subject not in self._few_shot_dict:
             self._update_few_shot_dict(subject)  # Lazy initialization.
 
-        prompt = (
+        prompt_intro = (
             f"The following are multiple choice questions (with answers) "
             f"about {MmluDataset.format_subject(subject)}.\n\n"
         )
-        prompt += self._few_shot_dict[subject]
+        prompt = prompt_intro + self._few_shot_dict[subject]
         prompt += MmluDataset.format_example(example, include_answer=False)
-        return prompt
+
+        # TODO: Investigate more. Current best performer in accuracy is if we pass
+        # the few-shots in the prompt and not use the system message.
+        if self._use_chat_format:
+            return [
+                {"role": "user", "content": prompt},
+                {"role": "system", "content": prompt_intro},
+            ]
+        else:
+            return prompt
 
     def _update_few_shot_dict(self, subject: str, num_shots: int = DEFAULT_NUM_SHOTS):
         """Adds few-shot examples for `subject` in the relevant dictionary."""
@@ -180,32 +197,38 @@ class MmluDataset:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             num_entries = min(num_entries, len(dataset))
-            dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
+            dataset = dataset.shuffle(seed=self._seed).select(range(num_entries))
             dataset = dataset.flatten_indices()  # make contiguous for fast(er) indexing
         return dataset
 
     def _get_formatted_dataset(
         self, split: str, num_entries: Optional[int] = None
-    ) -> List[str]:
+    ) -> Union[List[str], List[List[Dict[str, str]]]]:
         dataset: Dataset = self._get_dataset(split=split, num_entries=num_entries)
-        dataset_formatted: List[str] = list(map(self._prompt_template, dataset))  # type: ignore
+        dataset_formatted: Union[List[str], List[List[Dict[str, str]]]] = list(
+            map(self._prompt_template, dataset)  # type: ignore
+        )
         return dataset_formatted
 
     def _get_labels(self, split: str, num_entries: Optional[int] = None) -> List[int]:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             num_entries = min(num_entries, len(dataset))
-            dataset = dataset.shuffle(seed=self.random_seed).select(range(num_entries))
+            dataset = dataset.shuffle(seed=self._seed).select(range(num_entries))
             dataset = dataset.flatten_indices()
         return [example["answer"] for example in dataset]  # type: ignore
 
     # Instance methods (global).
     # All these will potentially be required by the base `LemaDataset`.
-    def get_test_split(self, num_entries: Optional[int] = None) -> List[str]:
+    def get_test_split(
+        self, num_entries: Optional[int] = None
+    ) -> Union[List[str], List[List[Dict[str, str]]]]:
         """Returns the test split of this dataset."""
         return self._get_formatted_dataset(split="test", num_entries=num_entries)
 
-    def get_validation_split(self, num_entries: Optional[int] = None) -> List[str]:
+    def get_validation_split(
+        self, num_entries: Optional[int] = None
+    ) -> Union[List[str], List[List[Dict[str, str]]]]:
         """Returns the validation split of this dataset."""
         return self._get_formatted_dataset(split="validation", num_entries=num_entries)
 

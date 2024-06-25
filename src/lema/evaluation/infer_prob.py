@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -40,7 +40,7 @@ def most_probable_tokens(
 
 def infer_prob(
     model_params: ModelParams,
-    input: List[List[str]],
+    input: Union[List[List[str]], List[List[Dict[str, str]]]],
     acceptable_tokens: Optional[List[str]] = None,
     input_filepath: Optional[str] = None,
     output_filepath: Optional[str] = None,
@@ -78,11 +78,25 @@ def infer_prob(
     # Each tokenized prompt itself is a class `tokenizers.Encoding`. If the tokenizer is
     # a pure python tokenizer (i.e., not “Fast”), this class behaves just like a python
     # dictionary, which holds the tokenized prompts under the key `input_ids`.
-    input_tok = []
-    for batch in input:
-        input_tok.append(
-            tokenizer(batch, return_tensors="pt", padding=True).to(model_device)
-        )
+    # TODO cleanup if/else logic. If we want to remove the `type: ignore`` we need to
+    # make a type check which will not be cleaner.
+    if model_params.chat_template is not None:
+        input_tok = []
+        for batch in input:
+            input_tok.append(
+                tokenizer.apply_chat_template(
+                    batch,  # type: ignore
+                    return_tensors="pt",
+                    padding=True,
+                    add_generation_prompt=True,
+                ).to(model_device)
+            )
+    else:
+        input_tok = []
+        for batch in input:
+            input_tok.append(
+                tokenizer(batch, return_tensors="pt", padding=True).to(model_device)  # type: ignore
+            )
 
     # Ensure the `acceptable_tokens` are valid.
     if not acceptable_tokens:
@@ -124,7 +138,10 @@ def infer_prob(
     output = []
     for batch_index in tqdm(range(len(input_tok)), desc="Generating Token Logits"):
         with torch.no_grad():
-            token_logits = model(input_tok[batch_index].input_ids)  # type: ignore
+            feed = input_tok[batch_index]
+            if model_params.chat_template is None:
+                feed = feed.input_ids
+            token_logits = model(feed)  # type: ignore
             token_logits = token_logits.logits[:, -1, :].tolist()
 
             # For most tokenizers, the model returns as many probabilities as the number
