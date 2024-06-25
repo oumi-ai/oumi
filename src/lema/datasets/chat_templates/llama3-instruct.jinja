@@ -1,11 +1,12 @@
+{% set role_prefix = '<|start_header_id|>' %}
+{% set role_suffix = '<|end_header_id|>\n\n' %}
+{% set turn_suffix = '<|eot_id|>' %}
+
+{{ bos_token }}
 {% for message in messages %}
-    {% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}
-    {% if loop.index0 == 0 %}
-        {% set content = bos_token + content %}
-    {% endif %}
-    {{ content }}
+    {{ role_prefix + message['role'] + role_suffix + message['content'] | trim + turn_suffix }}
 {% endfor %}
 
 {% if add_generation_prompt %}
-    {{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}
+    {{ role_prefix + 'assistant' + role_suffix }}
 {% endif %}
