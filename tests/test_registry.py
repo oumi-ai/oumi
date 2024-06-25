@@ -45,7 +45,7 @@ def test_registry_failure_get_unregistered_class():
     assert not REGISTRY.get(name="unregistered_class", type=RegistryType.MODEL)
 
     with pytest.raises(KeyError) as exception_info:
-        REGISTRY[("unregistered_class", RegistryType.MODEL)]
+        REGISTRY["unregistered_class", RegistryType.MODEL]
 
     assert "does not exist" in str(exception_info.value)
 
@@ -82,7 +82,7 @@ def test_registry_failure_model_not_present_in_registry():
 
     # Non-existent model (with exception).
     with pytest.raises(KeyError) as exception_info:
-        REGISTRY[("learning-machines/yet_another_dummy", RegistryType.MODEL)]
+        REGISTRY["learning-machines/yet_another_dummy", RegistryType.MODEL]
 
     assert "does not exist" in str(exception_info.value)
 

@@ -48,7 +48,7 @@ def build_lema_model(
     **kwargs,
 ):
     """Builds a custom model from our LeMa registry."""
-    model_class = REGISTRY[(model_params.model_name, RegistryType.MODEL)]
+    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
     model = model_class(**model_params.model_kwargs)
 
     if model_params.load_pretrained_weights:
