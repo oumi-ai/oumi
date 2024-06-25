@@ -73,6 +73,7 @@ def build_huggingface_model(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
         flash_attention_2=model_params.should_use_flash_attention_2,
+        token=model_params.hf_access_token,
     )
 
     if peft_params and peft_params.q_lora:
@@ -99,6 +100,7 @@ def build_huggingface_model(
             pretrained_model_name_or_path=model_params.model_name,
             trust_remote_code=model_params.trust_remote_code,
             quantization_config=quantization_config,
+            token=model_params.hf_access_token,
             **kwargs,
         )
     else:
@@ -107,6 +109,7 @@ def build_huggingface_model(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
             trust_remote_code=model_params.trust_remote_code,
+            token=model_params.hf_access_token,
             **kwargs,
         )
 
@@ -139,6 +142,7 @@ def build_tokenizer(model_params: ModelParams, **kwargs):
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
+        token=model_params.hf_access_token,
         **kwargs,
     )
 

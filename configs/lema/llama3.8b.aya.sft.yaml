@@ -3,10 +3,10 @@ model:
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
+  hf_token: "<insert token here>"
 
 data:
   dataset_name: "CohereForAI/aya_dataset"
-  text_col: "inputs"
   preprocessing_function_name: "aya"
   stream: True
   pack: True

@@ -41,8 +41,6 @@ run: |
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  HF_TOKEN="<insert_token_here>"
-
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
