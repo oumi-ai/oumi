@@ -1,4 +1,4 @@
-# [WIP] Model Definition
+# Model Definition
 
 At a high level, this is the pseudo code for Pytorch training loop:
 
