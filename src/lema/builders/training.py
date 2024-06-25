@@ -12,7 +12,6 @@ class HuggingFaceTrainer(BaseTrainer):
     def __init__(self, hf_trainer: transformers.Trainer):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
-        pass
 
     def train(self, resume_from_checkpoint: Optional[str]) -> None:
         """Trains a model."""
