@@ -2,33 +2,8 @@ import csv
 from typing import List
 
 import pandas as pd
-import transformers
-
-from lema.core.types import TrainingConfig
-from lema.logging import logger
 
 PARQUET_EXTENSION = ".parquet"
-
-
-def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
-    """Saves the model's state dictionary to the specified output directory.
-
-    Args:
-        config (TrainingConfig): The LeMa training config.
-        trainer (transformers.Trainer): The trainer object used for training the model.
-
-    Returns:
-        None
-    """
-    output_dir = config.training.output_dir
-
-    if config.training.use_peft:
-        state_dict = {k: t for k, t in trainer.model.named_parameters() if "lora_" in k}
-    else:
-        state_dict = trainer.model.state_dict()
-
-    trainer._save(output_dir, state_dict=state_dict)
-    logger.info(f"Model has been saved at {output_dir}.")
 
 
 def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
