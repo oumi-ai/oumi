@@ -1,4 +1,3 @@
-from lema.core.types.base_dataset import BaseDataset
 from lema.core.types.base_model import BaseModel
 from lema.core.types.configs import (
     EvaluationConfig,
@@ -19,7 +18,6 @@ from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
-    "BaseDataset",
     "BaseModel",
     "DataParams",
     "DatasetParams",
