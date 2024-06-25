@@ -117,6 +117,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    eval_dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
