@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 import torch
 from omegaconf import MISSING
@@ -23,6 +23,7 @@ class ModelParams:
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"
+    model_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
