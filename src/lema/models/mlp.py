@@ -8,7 +8,9 @@ from lema.core.types.base_model import BaseModel
 
 @registry.register("MlpEncoder", registry.RegistryType.MODEL)
 class MLPEncoder(BaseModel):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(
+        self, input_dim: int = 768, hidden_dim: int = 128, output_dim: int = 10
+    ):
         """Initialize the MLPEncoder.
 
         Args:
