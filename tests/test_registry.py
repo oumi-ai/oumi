@@ -127,7 +127,7 @@ def test_registry_failure_metrics_function_not_present():
 
     # Non-existent function (with exception).
     with pytest.raises(KeyError) as exception_info:
-        REGISTRY["yet_another_dummy", RegistryType.MODEL]
+        REGISTRY["yet_another_dummy", RegistryType.METRICS_FUNCTION]
 
     assert "does not exist" in str(exception_info.value)
 
