@@ -7,11 +7,11 @@ At a high level, this is the pseudo code for Pytorch training loop:
 # The config is immutable and serializable.
 config = load_config()
 
-# The first major compement: LeMaDataset
+# The first major component: LemaDataset
 # A LeMa dataset object implements the pytorch dataset spec.
 # A dataset can be either a map-style dataset (`torch.utils.data.Dataset`, or an iterable-style dataset (`torch.utils.data.IterableDataset`), or both.
 # It can be either streamed, or fully loaded in memory.
-dataset = LeMaDataset(config.data)  # Pytorch Dataset object
+dataset = LemaDataset(config.data)  # Pytorch Dataset object
 
 sample = dataset[0] # Load, preprocess, and individual training sample
 # Each sample contains both the model inputs, and optionally any labels required to compute the loss and/or metrics.
@@ -87,7 +87,7 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
             loss = None
 
         # Can technically be a Tuple or a Dict
-        # [LeMa Decison #4]: Keep free-form args and kwargs at this time.
+        # [LeMa]: Keep free-form args and kwargs at this time.
         # Downstream (more opinionated models) can use structured config file that inherits from a dict.
         return {"outputs": outputs, "loss": loss}
 
