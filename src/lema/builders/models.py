@@ -6,7 +6,7 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from transformers import BitsAndBytesConfig
 
 # FIXME: The following import is NOT used, but is needed to populate the registry.
-import lema.core.models  # noqa: F401
+import lema.models  # noqa: F401
 from lema.core.registry import REGISTRY
 from lema.core.types import ModelParams, PeftParams
 from lema.logging import logger
