@@ -6,7 +6,7 @@ from lema.core import registry
 from lema.core.types.base_model import BaseModel
 
 
-@registry.register("MlpEncoder", registry.RegistryType.MODEL_CONFIG)
+@registry.register("MlpEncoder", registry.RegistryType.MODEL)
 class MLPEncoder(BaseModel):
     def __init__(self, input_dim, hidden_dim, output_dim):
         """Initialize the MLPEncoder.
