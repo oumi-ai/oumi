@@ -1,0 +1,12 @@
+{% set role_prefix = '<|start_header_id|>' %}
+{% set role_suffix = '<|end_header_id|>\n\n' %}
+{% set turn_suffix = '<|eot_id|>' %}
+
+{{ bos_token }}
+{% for message in messages %}
+    {{ role_prefix + message['role'] + role_suffix + message['content'] | trim + turn_suffix }}
+{% endfor %}
+
+{% if add_generation_prompt %}
+    {{ role_prefix + 'assistant' + role_suffix }}
+{% endif %}
