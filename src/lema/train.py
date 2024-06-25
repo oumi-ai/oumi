@@ -117,7 +117,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
-    eval_dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
@@ -151,12 +150,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
     )
     logger.info("Training is Complete.")
-
-    logger.info("Max Memory Usage Before Training: ")
+    
+    logger.info("Max Memory Usage After Training: ")
     print_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state
-    # FIXME: add conditional saving logic for multi-node runs.
     trainer.save_state()
     trainer.save_model(config=config)
 
