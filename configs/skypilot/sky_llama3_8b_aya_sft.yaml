@@ -50,7 +50,7 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/llama3.8b.aya.yaml \
+      -c configs/lema/llama3.8b.aya.sft.yaml \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

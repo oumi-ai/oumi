@@ -1,0 +1,33 @@
+model:
+  model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+data:
+  dataset_name: "CohereForAI/aya_dataset"
+  text_col: "inputs"
+  preprocessing_function_name: "aya"
+  stream: True
+  pack: True
+
+training:
+  optimizer: "adafactor"
+  use_peft: True
+  output_dir: "output/llama3.8b.aya.sft"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: true
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-05
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.1
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  # max_steps: -1
+  # num_train_epochs: 1
+  enable_wandb: True
+
+
+  # Use for debugging purposes
+  max_steps: 20
