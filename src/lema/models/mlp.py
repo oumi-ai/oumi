@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -25,7 +27,12 @@ class MLPEncoder(BaseModel):
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_dim, output_dim)
 
-    def forward(self, input_ids: torch.LongTensor, labels=None):
+    def forward(
+        self,
+        input_ids: torch.LongTensor,
+        labels: Optional[torch.LongTensor] = None,
+        **kwargs,
+    ) -> Dict[str, torch.Tensor]:
         """Forward pass of the MLP model.
 
         Args:
@@ -33,6 +40,7 @@ class MLPEncoder(BaseModel):
                 (batch_size, sequence_length).
             labels (torch.LongTensor, optional): The target labels tensor
                 of shape (batch_size,).
+            **kwargs: Additional keyword arguments.
 
         Returns:
             dict: A dictionary containing the model outputs.

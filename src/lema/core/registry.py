@@ -1,11 +1,11 @@
 from collections import namedtuple
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, Callable, Optional
 
 
 class RegistryType(Enum):
-    MODEL_CONFIG = 1
-    MODEL = 2
+    MODEL_CONFIG = auto()
+    MODEL = auto()
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
