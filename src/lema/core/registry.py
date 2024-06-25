@@ -9,7 +9,6 @@ class RegistryType(Enum):
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
-RegisteredModel = namedtuple("RegisteredModel", ["model_config", "model_class"])
 
 
 class Registry:
