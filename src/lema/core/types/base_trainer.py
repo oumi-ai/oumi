@@ -15,6 +15,8 @@ class BaseTrainer(ABC):
 
         Under distributed environment this is done only for a process with rank 0.
         """
+        # TODO: Define semantics of this method more clearly.
+        # Can it be merged with save_model()?
 
     @abstractmethod
     def save_model(self, config: TrainingConfig) -> None:
