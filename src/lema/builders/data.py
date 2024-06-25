@@ -19,6 +19,9 @@ from lema.core.types import (
 )
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
 from lema.datasets.chatqa import chatqa_preprocessor_fn
+from lema.datasets.prompt_response_sft_preprocessor_factory import (
+    PromptResponseSftPreprocessorFactory,
+)
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 
@@ -41,10 +44,17 @@ def build_prompt_generation_fn(
         ValueError: If the function_name is unknown.
     """
     # TODO: this should be pulled from registry
+    prompt_response_factory = PromptResponseSftPreprocessorFactory(tokenizer)
+
     if function_name == "alpaca":
         return alpaca_preprocessing_fn(tokenizer)
     elif function_name == "trl_sft_ultrachat_200k":
         return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
+    elif function_name == "aya":
+        return prompt_response_factory.get_preprocessing_fn(
+            prompt_key="inputs",
+            response_key="targets",
+        )
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
     elif function_name == "chatqa":
