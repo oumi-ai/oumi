@@ -4,7 +4,6 @@ from typing import Callable, Optional
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
-    BaseTrainer,
     build_dataset,
     build_model,
     build_peft_model,
@@ -12,6 +11,7 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.types import DatasetSplit, TrainingConfig
+from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
 from lema.utils.torch_utils import (
     device_cleanup,
