@@ -1,12 +1,13 @@
+from abc import ABC, abstractmethod
 from typing import Callable, Dict
 
 import torch
 import torch.nn as nn
 
 
-class BaseModel(nn.Module):
+class BaseModel(nn.Module, ABC):
     def __init__(self, **kwargs):
-        """Initializes a new instance of class, and builds the model scaffold.
+        """Initializes a new instance of the model class, and builds the model scaffold.
 
         Note:
             - All model layers should be registered in this method.
@@ -18,6 +19,7 @@ class BaseModel(nn.Module):
         """
         super(BaseModel, self).__init__()
 
+    @abstractmethod
     def forward(self, **kwargs) -> Dict[str, torch.Tensor]:
         """Performs the forward pass of the model.
 
@@ -33,6 +35,7 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def criterion(self) -> Callable:
         """Returns the criterion function used for model training.
 

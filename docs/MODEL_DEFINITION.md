@@ -1,6 +1,6 @@
 # Model Definition
 
-At a high level, this is the pseudo code for Pytorch training loop:
+At a high level, this is the pseudo code for a Pytorch training loop:
 
 ```python
 # The LeMa config defines everything required to train a model.
