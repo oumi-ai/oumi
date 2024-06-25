@@ -1,36 +1,11 @@
-from abc import ABC, abstractmethod
 from typing import Callable, Optional, Type
 
 import transformers
 import trl
 
 from lema.core.types import TrainerType, TrainingConfig
+from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
-
-
-class BaseTrainer(ABC):
-    @abstractmethod
-    def train(self, resume_from_checkpoint: Optional[str]) -> None:
-        """Trains a model."""
-
-    @abstractmethod
-    def save_state(self) -> None:
-        """Saves the Trainer state.
-
-        Under distributed environment this is done only for a process with rank 0.
-        """
-
-    @abstractmethod
-    def save_model(self, config: TrainingConfig) -> None:
-        """Saves the model's state dictionary to the specified output directory.
-
-        Args:
-            config (TrainingConfig): The LeMa training config.
-
-        Returns:
-            None
-        """
-        # TODO: Define semantics of this method more clearly.
 
 
 class HuggingFaceTrainer(BaseTrainer):
