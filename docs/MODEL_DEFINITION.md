@@ -1,21 +1,55 @@
-## Model Definition
+# [WIP] Model Definition
 
-At a high level, this is the data flow in a Pytorch training loop:
-Dataset[idx] -> DataLoader.collate_fn -> Model.forward -> Criterion(model_out, labels) -> loss.backward() -> Optimizer.step()
+At a high level, this is the pseudo code for Pytorch training loop:
 
-1. Dataset: A dataset object that contains the data.
-    - Can either be a MapDataset or an IterableDataset
-    - Only responsible for the business logic of loading, preprocessing the data
-2. DataLoader: A dataloader object that loads the data in batches
-    - Collates the data into batches
-    - Responsible for distributed training support, shuffling, performance, async, resuming, etc.
-3. Model: A model object that takes the data and returns the output
-    - Should be able to directly consume the outputs from the dataloader, with no intermediate steps
-4. Loss: A loss object that takes the output and the labels and returns the loss
-    - Should be able to directly consume the outputs from the model AND the dataloader, with no intermediate steps
-5. Optimizer: An optimizer object that takes the loss and updates the model weights
-6. Training loop: A loop that takes the data, model, loss, optimizer, and trains the model
+```python
+# The LeMa config defines everything required to train a model.
+# The config is immutable and serializable.
+config = load_config()
 
+# The first major compement: LeMaDataset
+# A LeMa dataset object implements the pytorch dataset spec.
+# A dataset can be either a map-style dataset (`torch.utils.data.Dataset`, or an iterable-style dataset (`torch.utils.data.IterableDataset`), or both.
+# It can be either streamed, or fully loaded in memory.
+dataset = LeMaDataset(config.data)  # Pytorch Dataset object
+
+sample = dataset[0] # Load, preprocess, and individual training sample
+# Each sample contains both the model inputs, and optionally any labels required to compute the loss and/or metrics.
+# E.g. {"input_ids": ..., "attention_mask": ..., "labels": ...} or {"image": ..., "labels": ...}
+
+# A dataset can be used with PyTorch-compatible dataloaders directly (`torch.utils.data.DataLoader`)
+# Here we pass the arguments directly, but usually they are defined in config.data.dataloader_kwargs
+dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)  # Pytorch DataLoader object
+
+# The data loader object handles batching, shuffling, sharding, pre-fetching, distributing data over multiple nodes, etc.
+# The data loader returns a batch of samples, which can be directly consumed by the model
+for batch in dataloader:
+    optimizer.zero_grad()
+
+    # In this case, we manually move the batch to the device.
+    # With FSDP, the model wrapper will handle this during the forward function.
+    batch = batch.to(device)
+
+    # The model returns a dict-like object, which contains the model outputs, and optionally the loss. Internally calls model.forward
+    outputs = model(**batch)
+
+    # The loss is computed in the forward via the `model.criterion` attribute, and returned as part of the outputs. E.g. loss = model.criterion(outputs, labels)
+    loss = outputs.loss
+
+    ## Backward pass
+    loss.backward()
+
+    # Everything so-far is process-local, and only involves computations performed locally on the current GPU.
+    # The optimizer is responsible for updating the model weights, and performs any necessary communication between nodes.
+    optimizer.step()
+```
+
+Digging deeper into the model itself, here is a simple model definition. In this example, we define a simple model that consists of two convolutional layers, followed by a fully connected layer.
+
+Each lines is annotated with the relevant information:
+- [LeMa] means this is a LeMa-specific decision, which we can revisit as we see fit.
+- [PT] means this is a Pytorch-specific requirement. We need a strong reason to deviate from this.
+- [HF] means this is a Huggingface-specific requirement. We can revisit if the tradeoff is worth it.
 
 ```python
 # [LeMa] We will use Pytorch as the base library for our models
@@ -25,7 +59,7 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
     def __init__(self, *args, **kwargs):
         # [PT] *args and **kwargs contain all the argments needed to build the model scaffold
         # [PT] weights should not be loaded, or moved to devices at this point
-        super(LeMaModel, self).__init__()
+        super(SimpleModel, self).__init__()
 
         # [LeMa]: Keep free-form args and kwargs at this time.
         # [LeMa] Downstream (more opinionated models) can use structured config file that inherits from a dict.
@@ -66,4 +100,34 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
     # Everything else is optional, convenience stuff!
     # E.g. from_pretrained, save_pretrained, etc.
     #
+```
+
+This same model can then be used by the `Huggingface Trainer` class, which is a high-level API that abstracts away the training loop, and provides a simple interface to train models. In the future, we can consider building our own Trainer class, or Megatron which follows similar conventions.
+
+```python
+from transformers import Trainer, TrainingArguments
+model = SimpleModel()
+
+# Define the training arguments
+training_args = TrainingArguments(
+    output_dir='./results',
+    num_train_epochs=10,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=64,
+    warmup_steps=500,
+    weight_decay=0.01,
+    logging_dir='./logs',
+    logging_steps=10,
+)
+
+# Instantiate the trainer
+trainer = Trainer(
+    model=model,                     # The instantiated model to be trained
+    args=training_args,              # HF Training arguments
+    train_dataset=dataset,           # Training dataset
+    eval_dataset=dataset             # Evaluation dataset
+)
+
+# Train the model
+trainer.train()
 ```

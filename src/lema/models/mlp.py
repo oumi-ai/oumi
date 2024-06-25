@@ -1,4 +1,6 @@
-from typing import Dict, Optional
+"""This module defines the MLPEncoder class, which is a simple text encoder."""
+
+from typing import Callable, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -40,7 +42,8 @@ class MLPEncoder(BaseModel):
                 (batch_size, sequence_length).
             labels (torch.LongTensor, optional): The target labels tensor
                 of shape (batch_size,).
-            **kwargs: Additional keyword arguments.
+            **kwargs: Additional keyword arguments provided by the tokenizer.
+                Not used in this model.
 
         Returns:
             dict: A dictionary containing the model outputs.
@@ -65,7 +68,7 @@ class MLPEncoder(BaseModel):
         return outputs
 
     @property
-    def criterion(self):
+    def criterion(self) -> Callable:
         """Returns the criterion function for the MLP model.
 
         The criterion function is used to compute the loss during training.
