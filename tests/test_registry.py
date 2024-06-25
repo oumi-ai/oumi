@@ -3,6 +3,12 @@ import pytest
 from lema.core.registry import REGISTRY, RegistryType, register
 
 
+@pytest.fixture(autouse=True)
+def cleanup():
+    # Clear the registry before each test.
+    REGISTRY.clear()
+
+
 def test_registry_model_class():
     @register("dummy_class", RegistryType.MODEL)
     class DummyClass:
@@ -91,12 +97,40 @@ def test_registry_failure_model_not_present_in_registry():
     assert REGISTRY.get_model_config(name="learning-machines/dummy2") is None
 
 
-def test_registry_functon():
-    # Note: This is ONLY for testing (NOT valid sample code)!
-    # We need to support a different `RegistryType` for functions in the future.
-    @register("dummy_fn", RegistryType.MODEL)
+def test_registry_metrics_function():
+    @register("dummy_fn", RegistryType.METRICS_FUNCTION)
     def dummy_function():
         pass
 
-    assert REGISTRY.contains("dummy_fn", RegistryType.MODEL)
-    assert REGISTRY.get("dummy_fn", RegistryType.MODEL) == dummy_function
+    @register("number2", RegistryType.METRICS_FUNCTION)
+    def dummy_function2():
+        pass
+
+    assert REGISTRY.contains("dummy_fn", RegistryType.METRICS_FUNCTION)
+    assert REGISTRY.get("dummy_fn", RegistryType.METRICS_FUNCTION) == dummy_function
+
+    assert REGISTRY.contains("number2", RegistryType.METRICS_FUNCTION)
+    assert REGISTRY.get("number2", RegistryType.METRICS_FUNCTION) == dummy_function2
+
+
+def test_registry_failure_metrics_function_not_present():
+    @register("dummy_fn", RegistryType.METRICS_FUNCTION)
+    def dummy_function():
+        pass
+
+    @register("number2", RegistryType.METRICS_FUNCTION)
+    def dummy_function2():
+        pass
+
+    # Non-existent function (without exception).
+    assert REGISTRY.get_model(name="dummy") is None
+
+    # Non-existent function (with exception).
+    with pytest.raises(KeyError) as exception_info:
+        REGISTRY["yet_another_dummy", RegistryType.METRICS_FUNCTION]
+
+    assert "does not exist" in str(exception_info.value)
+
+    # Incomplete function name (without exception).
+    assert REGISTRY.get_model(name="dummy_") is None
+    assert REGISTRY.get_model_config(name="number") is None
