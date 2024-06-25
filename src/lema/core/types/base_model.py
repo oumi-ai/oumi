@@ -1,30 +1,40 @@
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict
 
 import torch
 import torch.nn as nn
 
 
 class BaseModel(nn.Module):
-    def forward(
-        self, model_inputs: torch.Tensor, labels: Optional[torch.Tensor] = None
-    ) -> Dict[str, torch.Tensor]:
-        """Forward pass of the model.
+    def __init__(self, **kwargs):
+        """Initializes a new instance of class, and builds the model scaffold.
+
+        Note:
+            - All model layers should be registered in this method.
+            - The weights should not be loaded or moved to devices at this point.
 
         Args:
-            model_inputs (torch.Tensor): The input tensor to the model.
-            labels (Optional[torch.Tensor]): The labels tensor (optional).
+            **kwargs: should contain all the parameters needed
+                to build the model scaffold.
+        """
+        super(BaseModel, self).__init__()
+
+    def forward(self, **kwargs) -> Dict[str, torch.Tensor]:
+        """Performs the forward pass of the model.
+
+        Optionally computes the loss if the necessary keyword arguments are provided.
+
+        Args:
+            **kwargs: should contain all the parameters needed
+            to perform the forward pass, and compute the loss if needed.
 
         Returns:
-            Dict[str, torch.Tensor]: A dictionary containing the
-                output tensors of the model.
+            A dictionary containing the output tensors.
         """
         raise NotImplementedError
 
     @property
     def criterion(self) -> Callable:
         """Returns the criterion function used for model training.
-
-        This method should be implemented by subclasses.
 
         Returns:
             A callable object representing the criterion function.
