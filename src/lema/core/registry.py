@@ -4,8 +4,8 @@ from typing import Any, Callable, Optional
 
 
 class RegistryType(Enum):
-    MODEL_CONFIG_CLASS = 1
-    MODEL_CLASS = 2
+    MODEL_CONFIG = 1
+    MODEL = 2
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -66,10 +66,8 @@ class Registry:
         self, name: str, except_if_missing: bool = True
     ) -> Optional[RegisteredModel]:
         """Gets a record that corresponds to a registered model."""
-        model_config = self.get(
-            name, RegistryType.MODEL_CONFIG_CLASS, except_if_missing
-        )
-        model_class = self.get(name, RegistryType.MODEL_CLASS, except_if_missing)
+        model_config = self.get(name, RegistryType.MODEL_CONFIG, except_if_missing)
+        model_class = self.get(name, RegistryType.MODEL, except_if_missing)
         if model_config and model_class:
             return RegisteredModel(model_config=model_config, model_class=model_class)
         else:
