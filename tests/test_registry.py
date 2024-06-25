@@ -109,7 +109,7 @@ def test_registry_failure_model_not_present_in_registry():
         test_registry.get_model("learning-machines/dummy")
 
     assert str(exception_info.value) == (
-        "Registry: `learning-machines/dummy` of `RegistryType.MODEL_CONFIG_CLASS` "
+        "Registry: `learning-machines/dummy` of `RegistryType.MODEL_CONFIG` "
         "does not exist."
     )
 
@@ -132,7 +132,7 @@ def test_registry_failure_model_not_present_in_registry():
         test_registry.get_model("learning-machines/dummy1")
 
     assert str(exception_info.value) == (
-        "Registry: `learning-machines/dummy1` of `RegistryType.MODEL_CLASS` "
+        "Registry: `learning-machines/dummy1` of `RegistryType.MODEL` "
         "does not exist."
     )
 
@@ -140,7 +140,7 @@ def test_registry_failure_model_not_present_in_registry():
         test_registry.get_model("learning-machines/dummy2")
 
     assert str(exception_info.value) == (
-        "Registry: `learning-machines/dummy2` of `RegistryType.MODEL_CONFIG_CLASS` "
+        "Registry: `learning-machines/dummy2` of `RegistryType.MODEL_CONFIG` "
         "does not exist."
     )
 
