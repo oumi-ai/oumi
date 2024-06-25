@@ -7,6 +7,8 @@ import transformers
 from lema.core.types import TrainingConfig
 from lema.logging import logger
 
+PARQUET_EXTENSION = ".parquet"
+
 
 def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
     """Saves the model's state dictionary to the specified output directory.
@@ -32,27 +34,26 @@ def save_model(config: TrainingConfig, trainer: transformers.Trainer) -> None:
 def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
     """Save batched probabilities into a parquet file."""
     df_probs = pd.DataFrame(probabilities)
-    df_probs.to_parquet(output_filepath)
+    df_probs.to_parquet(f"{output_filepath}{PARQUET_EXTENSION}")
 
 
-def load_infer_prob(
-    input_filepath: str, num_labels: int = 0
-) -> List[List[List[float]]]:
+def load_infer_prob(input_filepath: str) -> List[List[List[float]]]:
     """Retrieve batched probabilities from a parquet file."""
+    probs_count_in_first_batch = None
 
     def to_list(probs):
         """Ensure number of probabilities is the same for all entries."""
         probs_list = list(probs)
-        nonlocal num_labels
-        num_labels = num_labels or len(probs_list)
-        if num_labels != len(probs_list):
+        nonlocal probs_count_in_first_batch
+        probs_count_in_first_batch = probs_count_in_first_batch or len(probs_list)
+        if probs_count_in_first_batch != len(probs_list):
             raise ValueError(
-                f"Reading {input_filepath}: inconsistent number of probs"
-                f" across entries: len({probs_list}) != {num_labels}"
+                f"Reading `{input_filepath}{PARQUET_EXTENSION}`: inconsistent number of"
+                f"probs across entries: len({probs_list})!={probs_count_in_first_batch}"
             )
         return probs_list
 
-    df_probs = pd.read_parquet(input_filepath)
+    df_probs = pd.read_parquet(f"{input_filepath}{PARQUET_EXTENSION}")
     probabilities = df_probs.values.tolist()
     probabilities = [[to_list(probs) for probs in batch] for batch in probabilities]
     return probabilities
@@ -102,10 +103,9 @@ def save_infer_prob_csv(output_filepath: str, probabilities: List[List[List[floa
         csv_writer.writerows(probabilities)
 
 
-def load_infer_prob_csv(
-    input_filepath: str, num_labels: int = 0
-) -> List[List[List[float]]]:
+def load_infer_prob_csv(input_filepath: str) -> List[List[List[float]]]:
     """Retrieve batched probabilities from a csv file."""
+    probs_count_in_first_batch = None
     try:
         with open(input_filepath, "r") as read_obj:
             csv_reader = csv.reader(read_obj)
@@ -117,11 +117,14 @@ def load_infer_prob_csv(
                     probs_list = str_to_float_list(entry)
 
                     # Number of probabilities must be the same for all entries.
-                    num_labels = num_labels or len(probs_list)
-                    if num_labels != len(probs_list):
+                    probs_count_in_first_batch = probs_count_in_first_batch or len(
+                        probs_list
+                    )
+                    if probs_count_in_first_batch != len(probs_list):
                         raise ValueError(
-                            f"Reading {input_filepath}: inconsistent number of probs"
-                            f" across entries: len({probs_list}) != {num_labels}"
+                            f"Reading {input_filepath}: inconsistent number of probs "
+                            f"across entries: len({probs_list}) != "
+                            f"{probs_count_in_first_batch}"
                         )
 
                     probabilities_batch.append(probs_list)
