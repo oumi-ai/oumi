@@ -23,7 +23,6 @@ class ModelParams:
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"
-    hf_access_token: Optional[str] = None
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""

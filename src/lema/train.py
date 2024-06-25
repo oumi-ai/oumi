@@ -13,6 +13,7 @@ from lema.builders import (
 )
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.logging import logger
+from lema.utils.debugging_utils import print_nvidia_gpu_memory_utilization
 from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
     device_cleanup,
@@ -117,7 +118,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
-    eval_dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
+
+    eval_dataset = None
+    if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
+        eval_dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
@@ -133,6 +137,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         **config.training.trainer_kwargs,
     )
 
+    logger.info("Max Memory Usage Before Training: ")
+    print_nvidia_gpu_memory_utilization()
+
     logger.info("Starting training...")
     trainer.train(
         resume_from_checkpoint=(
@@ -144,6 +151,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
     )
     logger.info("Training is Complete.")
+
+    logger.info("Max Memory Usage Before Training: ")
+    print_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state
     # FIXME: add conditional saving logic for multi-node runs.

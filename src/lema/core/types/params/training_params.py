@@ -47,7 +47,7 @@ class TrainingParams:
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
 
-    eval_strategy: str = "no"
+    eval_strategy: str = "no"  # possible values: "steps", "epoch", "no"
     eval_steps: int = 50
 
     # Learning rate schedule.
