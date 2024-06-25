@@ -1,6 +1,31 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from transformers import PreTrainedTokenizerBase
+
+MESSAGES_KEY = "messages"
+METADATA_KEY = "metadata"
+
+_SYSTEM_ROLE = "system"
+_USER_ROLE = "user"
+_ASSISTANT_ROLE = "assistant"
+_ROLE_KEY = "role"
+_CONTENT_KEY = "content"
+
+
+def convert_prompt_response_to_chat_example(
+    prompt: str, response: str, system_instruction: Optional[str] = None
+) -> dict:
+    """Converts prompt, response, and system instruction into one chat example."""
+    messages = [
+        {_ROLE_KEY: _USER_ROLE, _CONTENT_KEY: prompt},
+        {_ROLE_KEY: _ASSISTANT_ROLE, _CONTENT_KEY: response},
+    ]
+
+    if system_instruction is not None:
+        messages = [
+            {_ROLE_KEY: _SYSTEM_ROLE, _CONTENT_KEY: system_instruction}
+        ] + messages
+    return {MESSAGES_KEY: messages, METADATA_KEY: {}}
 
 
 def apply_chat_template(
