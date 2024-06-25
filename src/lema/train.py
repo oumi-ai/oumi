@@ -117,6 +117,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    eval_dataset = build_dataset(config, tokenizer, DatasetSplit.TEST)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
@@ -128,6 +129,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
+        eval_dataset=eval_dataset,
         **config.training.trainer_kwargs,
     )
 
