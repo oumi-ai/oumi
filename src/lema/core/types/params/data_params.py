@@ -138,7 +138,7 @@ class DatasetSplitParams:
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mix_sum, 1.0):
+            if not self._is_sum_normalized(mix_sum):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mix_sum} ."
@@ -154,7 +154,7 @@ class DatasetSplitParams:
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
-            if not math.isclose(mix_sum, 1.0):
+            if not self._is_sum_normalized(mix_sum):
                 raise ValueError(
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mix_sum} ."
@@ -168,6 +168,9 @@ class DatasetSplitParams:
                 f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
+
+    def _is_sum_normalized(self, mix_sum) -> bool:
+        return math.isclose(mix_sum, 1.0, rel_tol=1e-2)
 
 
 @dataclass
