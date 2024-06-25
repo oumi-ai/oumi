@@ -12,12 +12,13 @@ class BaseTrainer(ABC):
     @abstractmethod
     def train(self, resume_from_checkpoint: Optional[str]) -> None:
         """Trains a model."""
-        pass
 
     @abstractmethod
     def save_state(self) -> None:
-        """Saves state."""
-        pass
+        """Saves the Trainer state.
+
+        Under distributed environment this is done only for a process with rank 0.
+        """
 
     @abstractmethod
     def save_model(self, config: TrainingConfig) -> None:
@@ -29,7 +30,7 @@ class BaseTrainer(ABC):
         Returns:
             None
         """
-        pass
+        # TODO: Define semantics of this method more clearly.
 
 
 class HuggingFaceTrainer(BaseTrainer):
@@ -43,7 +44,13 @@ class HuggingFaceTrainer(BaseTrainer):
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     def save_state(self) -> None:
-        """Saves state."""
+        """See base class.
+
+        Saves the Trainer state, since Trainer.save_model saves only the tokenizer
+        with the model.
+
+        HuggingFace normally writes state into "trainer_state.json" under output_dir.
+        """
         self._hf_trainer.save_state()
 
     def save_model(self, config: TrainingConfig) -> None:
@@ -59,6 +66,10 @@ class HuggingFaceTrainer(BaseTrainer):
         else:
             state_dict = self._hf_trainer.model.state_dict()
 
+        # FIXME: Can we replace the private method `_save()` with
+        # `Trainer.save_model()`?
+        # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
+        # FIXME: Add conditional saving logic for multi-node runs.
         self._hf_trainer._save(output_dir, state_dict=state_dict)
         logger.info(f"Model has been saved at {output_dir}.")
 

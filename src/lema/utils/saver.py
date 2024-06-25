@@ -1,23 +1,6 @@
 import csv
 from typing import List
 
-from lema.builders import BaseTrainer
-from lema.core.types import TrainingConfig
-
-
-def save_model(config: TrainingConfig, trainer: BaseTrainer) -> None:
-    """Saves the model's state dictionary to the specified output directory.
-
-    Args:
-        config (TrainingConfig): The LeMa training config.
-        trainer (transformers.Trainer): The trainer object used for training the model.
-
-    Returns:
-        None
-    """
-    trainer.save_model(config)
-
-
 #  The inference probabilities (`probabilities`) are structured as follows:
 #  (the example below assumes 4 batches of batch_size=2 and, for each of these,
 #   4 probabilities corresponding to the multiple choices A, B, C, D)

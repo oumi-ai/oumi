@@ -13,7 +13,6 @@ from lema.builders import (
 )
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.logging import logger
-from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
@@ -143,14 +142,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
     logger.info("Training is Complete.")
 
-    # Save final checkpoint & training state
-    # FIXME: add conditional saving logic for multi-node runs.
+    # Save final checkpoint & training state.
     trainer.save_state()
-
-    save_model(
-        config=config,
-        trainer=trainer,
-    )
+    trainer.save_model(config=config)
 
 
 if __name__ == "__main__":
