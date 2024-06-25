@@ -60,7 +60,7 @@ class Registry:
         return self.get(name, RegistryType.MODEL_CONFIG)
 
     def get_metrics_function(self, name: str) -> Optional[Callable]:
-        """Gets a record that correspons to a registered metrics function."""
+        """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
 
     #
