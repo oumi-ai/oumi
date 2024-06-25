@@ -38,6 +38,7 @@ def _get_default_config(output_temp_dir):
             model_max_length=128,
             trust_remote_code=False,
             load_pretrained_weights=False,
+            model_kwargs={"input_dim": 50257},  # vocab size of GPT2 tokenizer
         ),
         training=TrainingParams(
             trainer_type=TrainerType.HF,
