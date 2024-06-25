@@ -1,10 +1,9 @@
-from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union, cast
+from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import transformers
 from datasets import (
     Dataset,
     IterableDataset,
-    ReadInstruction,
     concatenate_datasets,
     interleave_datasets,
     load_dataset,
@@ -19,6 +18,7 @@ from lema.core.types import (
     TrainingConfig,
 )
 from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
+from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 
@@ -47,6 +47,8 @@ def build_prompt_generation_fn(
         return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
+    elif function_name == "chatqa":
+        return chatqa_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 
@@ -89,7 +91,7 @@ def build_dataset(
         datasets,
         mixture_proportions,
         dataset_split_params.mixture_strategy,
-        seed,
+        dataset_split_params.seed,
     )
     if dataset_split_params.pack:
         # Fetch max sequence length. If not specified, defaults to 1024.
@@ -134,78 +136,83 @@ def _sample_dataset(
     """Loads and samples the specified dataset."""
     if dataset_params.sample_count is None:
         # No sampling.
-        return cast(
+        dataset = cast(
             DatasetType,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
         )
+        if dataset_params.shuffle:
+            dataset = dataset.shuffle(dataset_params.seed)
+        return dataset
     if stream:
         dataset = cast(
             IterableDataset,
             load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.dataset_config,
+                name=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
         )
+        if dataset_params.shuffle:
+            dataset = dataset.shuffle(dataset_params.seed)
         generator = _build_iterable_dataset_sampler(
             dataset, dataset_params.sample_count
         )
         return cast(
             DatasetType, IterableDataset.from_generator(generator, dataset.features)
         )
-    # Cast the ReadInstruction to Any as Huggingface type annotations are not
-    # up to date with their documenation. ReadInstruction can be passed as a
-    # split when loading datasets.
-    read_instructions: Any = ReadInstruction(
-        dataset_params.split, to=dataset_params.sample_count, unit="abs"
-    )
     dataset = cast(
         Dataset,
         load_dataset(
             dataset_params.dataset_name,
-            name=dataset_params.dataset_config,
+            name=dataset_params.subset,
             streaming=stream,
-            split=read_instructions,
+            split=dataset_params.split,
         ),
     )
-    if dataset.num_rows < dataset_params.sample_count:
-        oversampling_copies = int(dataset_params.sample_count / dataset.num_rows)
-        dataset_list = [
-            cast(
-                DatasetType,
-                load_dataset(
-                    dataset_params.dataset_name,
-                    name=dataset_params.dataset_config,
-                    streaming=stream,
-                    split=dataset_params.split,
-                ),
-            )
-            for _ in range(oversampling_copies)
-        ]
-        remaining_rows = dataset_params.sample_count % dataset.num_rows
-        if remaining_rows > 0:
-            split_read_instructions: Any = ReadInstruction(
-                dataset_params.split, to=remaining_rows, unit="abs"
-            )
-            sampled_dataset: DatasetType = cast(
-                DatasetType,
-                load_dataset(
-                    dataset_params.dataset_name,
-                    name=dataset_params.dataset_config,
-                    streaming=stream,
-                    split=split_read_instructions,
-                ),
-            )
-            dataset_list.append(sampled_dataset)
-        return concatenate_datasets(dataset_list)
-    else:
-        return cast(DatasetType, dataset)
+    if dataset.num_rows >= dataset_params.sample_count:
+        if dataset_params.shuffle:
+            dataset = dataset.shuffle(dataset_params.seed).flatten_indices()
+        return cast(DatasetType, dataset.take(dataset_params.sample_count))
+    # Oversample the dataset.
+    oversampling_copies = int(dataset_params.sample_count // dataset.num_rows)
+    dataset_list = [
+        cast(
+            Dataset,
+            load_dataset(
+                dataset_params.dataset_name,
+                name=dataset_params.subset,
+                streaming=stream,
+                split=dataset_params.split,
+            ),
+        )
+        for _ in range(oversampling_copies)
+    ]
+    remaining_rows = dataset_params.sample_count % dataset.num_rows
+    if remaining_rows > 0:
+        sampled_dataset = cast(
+            Dataset,
+            load_dataset(
+                dataset_params.dataset_name,
+                name=dataset_params.subset,
+                streaming=stream,
+                split=dataset_params.split,
+            ),
+        )
+        if dataset_params.shuffle:
+            sampled_dataset = sampled_dataset.shuffle(dataset_params.seed)
+        dataset_list.append(sampled_dataset.take(remaining_rows))
+    oversampled_dataset = concatenate_datasets(dataset_list)
+    if dataset_params.shuffle:
+        oversampled_dataset = oversampled_dataset.shuffle(
+            dataset_params.seed
+        ).flatten_indices()
+    return cast(DatasetType, oversampled_dataset)
 
 
 def _preprocess_dataset(

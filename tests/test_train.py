@@ -23,7 +23,7 @@ def test_train_basic():
                             preprocessing_function_name="alpaca",
                         )
                     ],
-                    target_col="prompt",
+                    target_col="text",
                 ),
             ),
             model=ModelParams(
@@ -57,7 +57,7 @@ def test_train_custom():
                             preprocessing_function_name="alpaca",
                         )
                     ],
-                    target_col="prompt",
+                    target_col="text",
                 ),
             ),
             model=ModelParams(
@@ -88,7 +88,7 @@ def test_train_pack():
                     datasets=[
                         DatasetParams(
                             dataset_name="Salesforce/wikitext",
-                            dataset_config="wikitext-2-raw-v1",
+                            subset="wikitext-2-raw-v1",
                         )
                     ],
                     stream=True,

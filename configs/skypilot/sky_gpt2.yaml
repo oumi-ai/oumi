@@ -11,6 +11,10 @@ resources:
     - use_spot: true
     - use_spot: false
 
+  disk_size: 200      # Disk size in GB
+  # disk_tier: medium # medium is the default.
+  # region: us-central1  # Uncomment this line to only consider a specific GCP region.
+
 # Upload a working directory to remote ~/sky_workdir.
 workdir: .
 
@@ -21,12 +25,24 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
+  # Uncomment to mount GCS dir (then use as e.g., "training.output_dir=/output_dir_gcs/gpt2.pt/")
+  # /output_dir_gcs:
+  #  source: gs://lema-dev-us-central1
+  #  store: gcs
+  #  mode: MOUNT
+  #
+  # To resume from the last checkpoint: add this param:
+  # "training.try_resume_from_last_checkpoint=True"
+
 envs:
   WANDB_PROJECT: lema-train-test
 
 setup: |
   set -e
   pip install '.[train]'
+  # Required for RunPod as a workaround since nvcc isn't installed
+  # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
@@ -41,5 +57,5 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/lema/gpt2.pt.yaml \
       "training.enable_wandb=true"

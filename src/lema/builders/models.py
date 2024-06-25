@@ -56,8 +56,7 @@ def build_huggingface_model(
     **kwargs,
 ):
     """Downloads and builds the model from the HuggingFace Hub."""
-    # TODO: add device_map to config
-    device_map = "auto"
+    device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
     # "auto" is not compatible with distributed training.
     if device_rank_info.world_size > 1:
@@ -89,15 +88,27 @@ def build_huggingface_model(
     else:
         quantization_config = None
 
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        config=hf_config,
-        torch_dtype=model_params.torch_dtype(),
-        device_map=device_map,
-        pretrained_model_name_or_path=model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
-        quantization_config=quantization_config,
-        **kwargs,
-    )
+    # Both functions instantiate a model from the config, but the main difference is
+    # `load_pretrained_weights` also loads the weights, and `from_config` initializes
+    # the weights from scratch based on the params in the config and the model class.
+    if model_params.load_pretrained_weights:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            config=hf_config,
+            torch_dtype=model_params.torch_dtype(),
+            device_map=device_map,
+            pretrained_model_name_or_path=model_params.model_name,
+            trust_remote_code=model_params.trust_remote_code,
+            quantization_config=quantization_config,
+            **kwargs,
+        )
+    else:
+        # TODO: What about device_map and quantization_config params?
+        model = transformers.AutoModelForCausalLM.from_config(
+            config=hf_config,
+            torch_dtype=model_params.torch_dtype(),
+            trust_remote_code=model_params.trust_remote_code,
+            **kwargs,
+        )
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model is not None:
