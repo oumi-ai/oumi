@@ -7,7 +7,7 @@ from transformers import BitsAndBytesConfig
 
 # FIXME: The following import is NOT used, but is needed to populate the registry.
 import lema.models  # noqa: F401
-from lema.core.registry import REGISTRY
+from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types import ModelParams, PeftParams
 from lema.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
@@ -28,11 +28,12 @@ def build_model(
     Returns:
         model: The built model.
     """
-    custom_model_in_registry = REGISTRY.get_model(
-        name=model_params.model_name, except_if_missing=False
-    )
-    if custom_model_in_registry:
-        return build_custom_model(custom_model_in_registry)
+    if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+        return build_lema_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            *kwargs,
+        )
     else:
         return build_huggingface_model(
             model_params=model_params,
@@ -41,11 +42,23 @@ def build_model(
         )
 
 
-def build_custom_model(custom_model_in_registry):
+def build_lema_model(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+):
     """Builds a custom model from our LeMa registry."""
-    model_config = custom_model_in_registry.model_config
-    model_class = custom_model_in_registry.model_class
-    model = model_class(model_config())
+    model_class = REGISTRY[(model_params.model_name, RegistryType.MODEL)]
+    model = model_class(**model_params.model_kwargs)
+
+    if model_params.load_pretrained_weights:
+        raise NotImplementedError
+
+    if peft_params and peft_params.q_lora:
+        raise NotImplementedError
+
+    if model_params.adapter_model is not None:
+        raise NotImplementedError
 
     return model
 
@@ -58,6 +71,7 @@ def build_huggingface_model(
     """Downloads and builds the model from the HuggingFace Hub."""
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
+
     # "auto" is not compatible with distributed training.
     if device_rank_info.world_size > 1:
         logger.info(

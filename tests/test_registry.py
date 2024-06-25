@@ -1,45 +1,39 @@
 import pytest
 
-from lema.core.registry import RegisteredModel, Registry, RegistryType, register
+from lema.core.registry import REGISTRY, RegisteredModel, RegistryType, register
 
 
 def test_registry_model_class():
-    test_registry = Registry()
-
-    @register("dummy_class", RegistryType.MODEL, test_registry)
+    @register("dummy_class", RegistryType.MODEL)
     class DummyClass:
         pass
 
-    assert test_registry.contains("dummy_class", RegistryType.MODEL)
-    assert not test_registry.contains("dummy_class", RegistryType.MODEL_CONFIG)
-    assert test_registry.get("dummy_class", RegistryType.MODEL) == DummyClass
+    assert REGISTRY.contains("dummy_class", RegistryType.MODEL)
+    assert not REGISTRY.contains("dummy_class", RegistryType.MODEL_CONFIG)
+    assert REGISTRY.get("dummy_class", RegistryType.MODEL) == DummyClass
 
 
 def test_registry_model_config_class():
-    test_registry = Registry()
-
-    @register("dummy_config_class", RegistryType.MODEL_CONFIG, test_registry)
+    @register("dummy_config_class", RegistryType.MODEL_CONFIG)
     class DummyConfigClass:
         pass
 
-    assert test_registry.contains("dummy_config_class", RegistryType.MODEL_CONFIG)
-    assert not test_registry.contains("dummy_config_class", RegistryType.MODEL)
+    assert REGISTRY.contains("dummy_config_class", RegistryType.MODEL_CONFIG)
+    assert not REGISTRY.contains("dummy_config_class", RegistryType.MODEL)
     assert (
-        test_registry.get("dummy_config_class", RegistryType.MODEL_CONFIG)
+        REGISTRY.get("dummy_config_class", RegistryType.MODEL_CONFIG)
         == DummyConfigClass
     )
 
 
 def test_registry_failure_register_class_twice():
-    test_registry = Registry()
-
-    @register("dummy_class", RegistryType.MODEL, test_registry)
+    @register("dummy_class", RegistryType.MODEL)
     class DummyClass:
         pass
 
     with pytest.raises(ValueError) as exception_info:
 
-        @register("dummy_class", RegistryType.MODEL, test_registry)
+        @register("dummy_class", RegistryType.MODEL)
         class AnotherDummyClass:
             pass
 
@@ -51,34 +45,27 @@ def test_registry_failure_register_class_twice():
 
 
 def test_registry_failure_get_unregistered_class():
-    test_registry = Registry()
+    assert not REGISTRY.contains("unregistered_class", RegistryType.MODEL)
+    assert not REGISTRY.get(name="unregistered_class", type=RegistryType.MODEL)
 
-    assert not test_registry.contains("unregistered_class", RegistryType.MODEL)
-    assert not test_registry.get(
-        name="unregistered_class",
-        type=RegistryType.MODEL,
-        except_if_missing=False,
-    )
-    with pytest.raises(ValueError) as exception_info:
-        test_registry.get(name="unregistered_class", type=RegistryType.MODEL)
+    with pytest.raises(KeyError) as exception_info:
+        REGISTRY[("unregistered_class", RegistryType.MODEL)]
 
     assert str(exception_info.value) == (
-        "Registry: `unregistered_class` of `RegistryType.MODEL` " "does not exist."
+        "Registry: `unregistered_class` of `RegistryType.MODEL` does not exist."
     )
 
 
 def test_registry_model():
-    test_registry = Registry()
-
-    @register("learning-machines/dummy", RegistryType.MODEL_CONFIG, test_registry)
+    @register("learning-machines/dummy", RegistryType.MODEL_CONFIG)
     class DummyModelConfig:
         pass
 
-    @register("learning-machines/dummy", RegistryType.MODEL, test_registry)
+    @register("learning-machines/dummy", RegistryType.MODEL)
     class DummyModelClass:
         pass
 
-    custom_model_in_registry = test_registry.get_model("learning-machines/dummy")
+    custom_model_in_registry = REGISTRY.get_model("learning-machines/dummy")
     assert custom_model_in_registry
     assert isinstance(custom_model_in_registry, RegisteredModel)
     model_config = custom_model_in_registry.model_config
@@ -88,25 +75,20 @@ def test_registry_model():
 
 
 def test_registry_failure_model_not_present_in_registry():
-    test_registry = Registry()
-
-    @register("learning-machines/dummy1", RegistryType.MODEL_CONFIG, test_registry)
+    @register("learning-machines/dummy1", RegistryType.MODEL_CONFIG)
     class DummyModelConfig:
         pass
 
-    @register("learning-machines/dummy2", RegistryType.MODEL, test_registry)
+    @register("learning-machines/dummy2", RegistryType.MODEL)
     class DummyModelClass:
         pass
 
     # Non-existent model (without exception).
-    assert (
-        test_registry.get_model(name="learning-machines/dummy", except_if_missing=False)
-        is None
-    )
+    assert REGISTRY.get_model(name="learning-machines/dummy") is None
 
     # Non-existent model (with exception).
     with pytest.raises(ValueError) as exception_info:
-        test_registry.get_model("learning-machines/dummy")
+        REGISTRY.get_model("learning-machines/dummy")
 
     assert str(exception_info.value) == (
         "Registry: `learning-machines/dummy` of `RegistryType.MODEL_CONFIG` "
@@ -114,22 +96,12 @@ def test_registry_failure_model_not_present_in_registry():
     )
 
     # Incomplete model (without exception).
-    assert (
-        test_registry.get_model(
-            name="learning-machines/dummy1", except_if_missing=False
-        )
-        is None
-    )
-    assert (
-        test_registry.get_model(
-            name="learning-machines/dummy2", except_if_missing=False
-        )
-        is None
-    )
+    assert REGISTRY.get_model(name="learning-machines/dummy1") is None
+    assert REGISTRY.get_model(name="learning-machines/dummy2") is None
 
     # Incomplete model (with exception).
     with pytest.raises(ValueError) as exception_info:
-        test_registry.get_model("learning-machines/dummy1")
+        REGISTRY.get_model("learning-machines/dummy1")
 
     assert str(exception_info.value) == (
         "Registry: `learning-machines/dummy1` of `RegistryType.MODEL` "
@@ -137,7 +109,7 @@ def test_registry_failure_model_not_present_in_registry():
     )
 
     with pytest.raises(ValueError) as exception_info:
-        test_registry.get_model("learning-machines/dummy2")
+        REGISTRY.get_model("learning-machines/dummy2")
 
     assert str(exception_info.value) == (
         "Registry: `learning-machines/dummy2` of `RegistryType.MODEL_CONFIG` "
@@ -146,13 +118,11 @@ def test_registry_failure_model_not_present_in_registry():
 
 
 def test_registry_functon():
-    test_registry = Registry()
-
     # Note: This is ONLY for testing (NOT valid sample code)!
     # We need to support a different `RegistryType` for functions in the future.
-    @register("dummy_fn", RegistryType.MODEL, test_registry)
+    @register("dummy_fn", RegistryType.MODEL)
     def dummy_function():
         pass
 
-    assert test_registry.contains("dummy_fn", RegistryType.MODEL)
-    assert test_registry.get("dummy_fn", RegistryType.MODEL) == dummy_function
+    assert REGISTRY.contains("dummy_fn", RegistryType.MODEL)
+    assert REGISTRY.get("dummy_fn", RegistryType.MODEL) == dummy_function
