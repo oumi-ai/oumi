@@ -5,9 +5,8 @@ resources:
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {"A100-80GB"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
-  # To configure single-node, multi-gpu (N GPUs) training, do the following:
-  # 1. Set `accelerators:` above to something like this: {"A40": N}
-  # 2. Set `--nproc-per-node N` in the `run:` command at the bottom of the file.
+  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
+  # something like this: {"A40": N}
   any_of:
     - use_spot: true
     - use_spot: false
@@ -43,6 +42,4 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
-      "training.log_model_summary=True" \
-      "training.max_steps=100" \
       "training.enable_wandb=true"

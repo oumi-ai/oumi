@@ -1,7 +1,6 @@
 import argparse
 from typing import Callable, Optional
 
-from transformers import Trainer
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -11,9 +10,9 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
-from lema.core.types import TrainingConfig
+from lema.core.types import DatasetSplit, TrainingConfig
+from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
-from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
@@ -109,15 +108,17 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if config.training.log_model_summary:
         log_model_summary(model)
 
-    # Enable gradients for input embeddings
+    # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
-        model.enable_input_require_grads()
+        model.gradient_checkpointing_enable(
+            config.training.gradient_checkpointing_kwargs
+        )
 
     # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer)
+    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
 
     # Train model
-    create_trainer_fn: Callable[..., Trainer] = build_trainer(
+    create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
         config.training.trainer_type
     )
 
@@ -126,7 +127,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
-        **config.data.trainer_kwargs,
+        **config.training.trainer_kwargs,
     )
 
     logger.info("Starting training...")
@@ -141,14 +142,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
     logger.info("Training is Complete.")
 
-    # Save final checkpoint & training state
-    # FIXME: add conditional saving logic for multi-node runs.
+    # Save final checkpoint & training state.
     trainer.save_state()
-
-    save_model(
-        config=config,
-        trainer=trainer,
-    )
+    trainer.save_model(config=config)
 
 
 if __name__ == "__main__":
