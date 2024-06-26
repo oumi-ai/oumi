@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from lema.core.types.base_config import BaseConfig
-from lema.core.types.params.data_params import DataParams, DatasetSplitParams
+from lema.core.types.params.data_params import DataParams
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
@@ -85,6 +85,6 @@ class InferenceConfig(BaseConfig):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
