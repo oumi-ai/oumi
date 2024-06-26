@@ -32,7 +32,9 @@ class TrainingParams:
     run_name: str = "default"
 
     # The name of the metrics function in the LeMa registry to use for evaluation
-    # during training.
+    # during training. The method must accept as input a HuggingFace EvalPrediction and
+    # return a dictionary of metrics, with string keys mapping to metric values. A
+    # single metrics_function may compute multiple metrics.
     metrics_function: Optional[str] = None
 
     log_level: str = "info"
