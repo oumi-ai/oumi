@@ -27,8 +27,8 @@ training:
   # per_device_train_batch_size: 2
   # max_steps: 10
   # TODO: Should be able to fit batch size 64 w/ 80GB, but can only do ~44. Why?
-  per_device_train_batch_size: 22
-  max_steps: 100 #19073
+  per_device_train_batch_size: 44
+  max_steps: 19073
   # TODO: Should be reducing memory consumption, but doesn't seem to help.
   # enable_gradient_checkpointing: True
 
