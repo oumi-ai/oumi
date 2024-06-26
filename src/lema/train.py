@@ -14,7 +14,6 @@ from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
 from lema.utils.debugging_utils import print_nvidia_gpu_memory_utilization
-from lema.utils.saver import save_model
 from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
