@@ -146,8 +146,8 @@ class TrainingParams:
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
-            eval_steps=self.eval_steps,
             eval_strategy=self.eval_strategy,
+            eval_steps=self.eval_steps,
         )
 
     def _get_hf_report_to(self) -> List[str]:
