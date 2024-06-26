@@ -99,6 +99,7 @@ class TrainingParams:
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
             max_steps=self.max_steps,
+            num_train_epochs=self.num_train_epochs,
             output_dir=self.output_dir,
             per_device_eval_batch_size=self.per_device_eval_batch_size,
             per_device_train_batch_size=self.per_device_train_batch_size,
