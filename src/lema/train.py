@@ -129,7 +129,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.training.metrics_function
         )
         if not metrics_function:
-            logger.warning(
+            raise KeyError(
                 f"metrics_function `{config.training.metrics_function}` "
                 "was not found in the registry."
             )

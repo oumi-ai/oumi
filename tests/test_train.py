@@ -1,5 +1,7 @@
 import tempfile
 
+import pytest
+
 from lema import train
 from lema.core.types import (
     DataParams,
@@ -44,6 +46,43 @@ def test_train_basic():
         )
 
         train(config)
+
+
+def test_train_unregistered_metrics_function():
+    with pytest.raises(KeyError) as exception_info:
+        with tempfile.TemporaryDirectory() as output_temp_dir:
+            config: TrainingConfig = TrainingConfig(
+                data=DataParams(
+                    train=DatasetSplitParams(
+                        datasets=[
+                            DatasetParams(
+                                dataset_name="yahma/alpaca-cleaned",
+                                preprocessing_function_name="alpaca",
+                            )
+                        ],
+                        target_col="text",
+                    ),
+                ),
+                model=ModelParams(
+                    model_name="openai-community/gpt2",
+                    model_max_length=1024,
+                    trust_remote_code=True,
+                ),
+                training=TrainingParams(
+                    trainer_type=TrainerType.TRL_SFT,
+                    metrics_function="unregistered_function_name",
+                    max_steps=3,
+                    logging_steps=3,
+                    log_model_summary=True,
+                    enable_wandb=False,
+                    enable_tensorboard=False,
+                    output_dir=output_temp_dir,
+                    try_resume_from_last_checkpoint=True,
+                ),
+            )
+
+            train(config)
+    assert "unregistered_function_name" in str(exception_info.value)
 
 
 def test_train_pack():
