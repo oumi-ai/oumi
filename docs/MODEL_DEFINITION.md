@@ -91,7 +91,7 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
         # Downstream (more opinionated models) can use structured config file that inherits from a dict.
         return {"outputs": outputs, "loss": loss}
 
-    @attribute
+    @property
     def criterion(self):
         # [LeMa] Keep loss function as an attribute
         return nn.CrossEntropyLoss()
