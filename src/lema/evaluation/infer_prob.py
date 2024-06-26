@@ -44,6 +44,7 @@ def infer_prob(
     acceptable_tokens: Optional[List[str]] = None,
     input_filepath: Optional[str] = None,
     output_filepath: Optional[str] = None,
+    enable_dp: bool = False,
 ) -> List[List[List[float]]]:
     """Calculates the inference probabilities for the next tokens to be generated.
 
@@ -58,6 +59,7 @@ def infer_prob(
           this function will directly return these.
         output_filepath: File path to save the inference probabilities, after being
           computed, for future reference.
+        enable_dp: Enable DataParallel (DP) execution if multiple GPUs are available.
 
     Returns:
         object: A 2D list of shape (num_batches, batch_size). Each item of the 2D list
@@ -70,7 +72,7 @@ def infer_prob(
     token_vocab = set(tokenizer.get_vocab())
     token_id_vocab = set(tokenizer.get_vocab().values())
 
-    model = build_model(model_params)
+    model = build_model(model_params, enable_dp=enable_dp)
     model_device = next(model.parameters()).device
 
     # Tokenization of input (batch mode).
