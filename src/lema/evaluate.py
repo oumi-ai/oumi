@@ -1,5 +1,7 @@
 import argparse
 
+import torch
+
 from lema.core.types import EvaluationConfig
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
@@ -63,8 +65,21 @@ def evaluate(config: EvaluationConfig) -> None:
         # FIXME: Generalize: Support for multiple datasets.
         raise NotImplementedError("Model evaluation only for MMLU for now.")
 
-    # Batch the dataset to items of length `batch_size`.
-    dataset_batched = batch(dataset, config.generation.batch_size)
+    # Batch the dataset to items of length `batch_size`. If multiple GPUs are available,
+    # multiply the `batch_size` by the number of GPUs, to leverage all available GPUs,
+    # since Data Parallel (DP) will automatically split the batch.
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        enable_dp = True
+        gpu_count = torch.cuda.device_count()
+        batch_size = config.generation.batch_size * gpu_count
+        logger.info(
+            f"Evaluate: The `batch_size` increased from {config.generation.batch_size} "
+            f"to {batch_size}, to leverage the {gpu_count} GPUs available."
+        )
+    else:
+        enable_dp = False
+        batch_size = config.generation.batch_size
+    dataset_batched = batch(dataset, batch_size)
 
     # Run inference and then unbatch the model responses.
     answer_probabilities_batched = infer_prob(
@@ -73,6 +88,7 @@ def evaluate(config: EvaluationConfig) -> None:
         acceptable_tokens=MmluDataset.answer_tokens,
         input_filepath=config.generation.input_filepath,
         output_filepath=config.generation.output_filepath,
+        enable_dp=enable_dp,
     )
     answer_probabilities = unbatch(answer_probabilities_batched)
 

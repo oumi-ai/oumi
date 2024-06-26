@@ -1,3 +1,5 @@
+from lema.logging import logger
+
 try:
     # The library is only useful for NVIDIA GPUs, and
     # may not be installed for other vendors e.g., AMD
@@ -25,6 +27,6 @@ def get_nvidia_gpu_memory_utilization() -> float:
         return 0.0
 
 
-def print_nvidia_gpu_memory_utilization() -> None:
+def log_nvidia_gpu_memory_utilization() -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
-    print(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MB.")
+    logger.info(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MB.")
