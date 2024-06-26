@@ -115,8 +115,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.training.gradient_checkpointing_kwargs
         )
 
-    # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    # Load/preprocess train data
+    train_dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+
+    # Optionally, also load/preprocess validation data
+    if config.training.should_do_eval:
+        eval_dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
     create_trainer_fn: Callable[..., Trainer] = build_trainer(
@@ -127,7 +131,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model=model,
         tokenizer=tokenizer,
         args=config.training.to_hf(),
-        train_dataset=dataset,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset if config.training.should_do_eval else None,
         **config.training.trainer_kwargs,
     )
 

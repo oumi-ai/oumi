@@ -17,6 +17,14 @@ class TrainerType(Enum):
     "Generic HuggingFace trainer from `transformers` library."
 
 
+class IntervalSchedule(Enum):
+    """Enum representing the supported interval schedules for evaluation."""
+
+    NO = "no"
+    STEPS = "steps"
+    EPOCH = "epoch"
+
+
 @dataclass
 class TrainingParams:
     use_peft: bool = False
@@ -45,6 +53,20 @@ class TrainingParams:
     logging_first_step: bool = field(
         default=False,
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
+    )
+
+    eval_steps: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Number of update steps between two evaluations if "
+            "`eval_strategy=steps`. Will default to the same value as "
+            "`logging_steps` if not set."
+        },
+    )
+
+    eval_strategy: str = field(
+        default=IntervalSchedule.NO.value,
+        metadata={"help": "The evaluation strategy to adopt during training."},
     )
 
     # Learning rate schedule.
@@ -123,6 +145,8 @@ class TrainingParams:
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
+            eval_steps=self.eval_steps,
+            eval_strategy=self.eval_strategy,
         )
 
     def _get_hf_report_to(self) -> List[str]:
@@ -140,3 +164,17 @@ class TrainingParams:
         if len(report_to) == 0:
             report_to.append("none")
         return report_to
+
+    def __post_init__(self):
+        """Ensures parameters are within their expected range/values."""
+        if self.eval_strategy not in list(IntervalSchedule._value2member_map_.keys()):
+            raise ValueError(
+                f"'{self.eval_strategy}' is not a valid '{IntervalSchedule.__name__}', "
+                "please select one of "
+                f"{list(IntervalSchedule._value2member_map_.keys())}."
+            )
+
+    @property
+    def should_do_eval(self) -> bool:
+        """Checks if evaluation is expected."""
+        return self.eval_strategy != IntervalSchedule.NO.value

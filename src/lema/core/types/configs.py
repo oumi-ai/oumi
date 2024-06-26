@@ -5,7 +5,11 @@ from lema.core.types.base_config import BaseConfig
 from lema.core.types.params.data_params import DataParams, DatasetSplitParams
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
-from lema.core.types.params.training_params import TrainerType, TrainingParams
+from lema.core.types.params.training_params import (
+    IntervalSchedule,
+    TrainerType,
+    TrainingParams,
+)
 from lema.logging import logger
 
 
@@ -66,6 +70,19 @@ class TrainingConfig(BaseConfig):
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )
                 self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
+
+        # Set to `logging_steps` the `eval_steps` if not specified.
+        if (
+            self.training.eval_strategy == IntervalSchedule.STEPS.value
+            and self.training.eval_steps is None
+        ):
+            self.training.eval_steps = self.training.logging_steps
+
+        if self.training.should_do_eval and len(self.data.validation.datasets) == 0:
+            raise ValueError(
+                "You must specify a validation dataset when you request "
+                f"the '{self.training.eval_strategy}' eval strategy."
+            )
 
 
 @dataclass
