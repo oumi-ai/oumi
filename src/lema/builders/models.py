@@ -30,7 +30,7 @@ def build_model(
         model: The built model.
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
-        return build_lema_model(
+        model = build_lema_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
