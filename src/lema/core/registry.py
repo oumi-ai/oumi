@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional, Tuple
 class RegistryType(Enum):
     MODEL_CONFIG = auto()
     MODEL = auto()
+    METRICS_FUNCTION = auto()
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -57,6 +58,10 @@ class Registry:
     def get_model_config(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered config."""
         return self.get(name, RegistryType.MODEL_CONFIG)
+
+    def get_metrics_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered metrics function."""
+        return self.get(name, RegistryType.METRICS_FUNCTION)
 
     #
     # Private functions

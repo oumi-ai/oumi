@@ -1,4 +1,5 @@
 from lema.core.types.base_model import BaseModel
+from lema.core.types.base_trainer import BaseTrainer
 from lema.core.types.configs import (
     EvaluationConfig,
     GenerationConfig,
@@ -19,6 +20,7 @@ from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
     "BaseModel",
+    "BaseTrainer",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
