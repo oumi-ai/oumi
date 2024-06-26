@@ -26,4 +26,4 @@ def get_nvidia_gpu_memory_utilization() -> float:
 
 def print_nvidia_gpu_memory_utilization() -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
-    logger.debug(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MB.")
+    logger.info(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MB.")
