@@ -126,6 +126,16 @@ def get_device_rank_info() -> DeviceRankInfo:
     )
 
 
+def is_world_process_zero() -> bool:
+    """Whether or not this process is the global main process.
+
+    When training in a distributed fashion on several machines
+    this is only going to be `True` for one process.
+    """
+    device_rank_info: DeviceRankInfo = get_device_rank_info()
+    return device_rank_info.rank <= 0
+
+
 def create_model_summary(model: Any) -> str:
     """Creates a model summary as a free-formed string."""
     lines = ["Model summary:", repr(model), ""]

@@ -6,6 +6,7 @@ import trl
 from lema.core.types import TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
+from lema.utils.torch_utils import is_world_process_zero
 
 
 class HuggingFaceTrainer(BaseTrainer):
@@ -29,6 +30,10 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def save_model(self, config: TrainingConfig) -> None:
         """See base class."""
+        if not is_world_process_zero():
+            # Only save from "master" worker.
+            return
+
         output_dir = config.training.output_dir
 
         if config.training.use_peft:
