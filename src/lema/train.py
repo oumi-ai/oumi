@@ -10,6 +10,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
@@ -122,11 +123,23 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.trainer_type
     )
 
+    metrics_function = None
+    if config.training.metrics_function:
+        metrics_function = REGISTRY.get_metrics_function(
+            config.training.metrics_function
+        )
+        if not metrics_function:
+            logger.warning(
+                f"metrics_function `{config.training.metrics_function}` "
+                "was not found in the registry."
+            )
+
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
         args=config.training.to_hf(),
         train_dataset=dataset,
+        compute_metrics=metrics_function,
         **config.training.trainer_kwargs,
     )
 
