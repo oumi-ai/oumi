@@ -45,7 +45,8 @@ def build_model(
 
     if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
         logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
-        model = torch.nn.DataParallel(model)
+        model_device = torch.device("cuda")
+        model = torch.nn.DataParallel(model).to(model_device)
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
