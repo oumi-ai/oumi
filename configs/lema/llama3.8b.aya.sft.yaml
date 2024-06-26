@@ -30,7 +30,7 @@ training:
   output_dir: "output/llama3.8b.aya.sft"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: true
-  per_device_train_batch_size: 1 # Use bigger if you can.
+  per_device_train_batch_size: 3 # Use bigger if you can.
   gradient_accumulation_steps: 2 # for single GPU, if 8 set to 2
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
