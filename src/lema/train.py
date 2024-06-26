@@ -13,7 +13,7 @@ from lema.builders import (
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.logging import logger
-from lema.utils.debugging_utils import print_nvidia_gpu_memory_utilization
+from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
@@ -137,7 +137,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     logger.info("Max Memory Usage Before Training: ")
-    print_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization()
 
     logger.info("Starting training...")
     trainer.train(
@@ -150,9 +150,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
     )
     logger.info("Training is Complete.")
-    
+
     logger.info("Max Memory Usage After Training: ")
-    print_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state
     trainer.save_state()
