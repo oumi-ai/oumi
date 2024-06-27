@@ -38,5 +38,5 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  python -m lema.train \
-      -c configs/lema/phi3.eval.yaml
+  python -m lema.evaluate \
+      -c configs/lema/phi3.eval.nvidia.yaml
