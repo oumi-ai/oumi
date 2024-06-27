@@ -5,11 +5,9 @@ import torch
 from tqdm import tqdm
 from transformers import PreTrainedTokenizerBase
 
-from lema.builders import (
-    build_model,
-    build_tokenizer,
-)
+from lema.builders import build_model, build_tokenizer
 from lema.core.types import ModelParams
+from lema.logging import logger
 from lema.utils.saver import load_infer_prob, save_infer_prob
 
 
@@ -72,8 +70,24 @@ def infer_prob(
     token_vocab = set(tokenizer.get_vocab())
     token_id_vocab = set(tokenizer.get_vocab().values())
 
+    if enable_dp:
+        if not torch.cuda.is_available():
+            raise ValueError("DataParallel (DP) execution requested but no GPUs found.")
+
+        logger.info(
+            "DataParallel (DP) execution enabled. "
+            "Overriding device_map to default device."
+        )
+        model_params.device_map = "cuda"
+
     model = build_model(model_params, enable_dp=enable_dp)
-    model_device = next(model.parameters()).device
+
+    if enable_dp:
+        # In DP, inputs should be on the default device
+        data_device = model_params.device_map
+    else:
+        # inputs should be in the same device as the model
+        data_device = next(model.parameters()).device
 
     # Tokenization of input (batch mode).
     # `input_tok` is a 2D list of tokenized prompts of shape (num_batches, batch_size).
@@ -82,9 +96,7 @@ def infer_prob(
     # dictionary, which holds the tokenized prompts under the key `input_ids`.
     input_tok = []
     for batch in input:
-        input_tok.append(
-            tokenizer(batch, return_tensors="pt", padding=True).to(model_device)
-        )
+        input_tok.append(tokenizer(batch, return_tensors="pt", padding=True))
 
     # Ensure the `acceptable_tokens` are valid.
     if not acceptable_tokens:
@@ -126,7 +138,8 @@ def infer_prob(
     output = []
     for batch_index in tqdm(range(len(input_tok)), desc="Generating Token Logits"):
         with torch.no_grad():
-            token_logits = model(input_tok[batch_index].input_ids)  # type: ignore
+            inputs = input_tok[batch_index].input_ids.to(data_device)
+            token_logits = model(inputs)  # type: ignore
             token_logits = token_logits.logits[:, -1, :].tolist()
 
             # For most tokenizers, the model returns as many probabilities as the number

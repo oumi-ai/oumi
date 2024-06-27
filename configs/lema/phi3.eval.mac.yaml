@@ -8,3 +8,6 @@ data:
   validation:
     datasets:
       - dataset_name: "cais/mmlu"
+
+generation:
+  batch_size: 2
