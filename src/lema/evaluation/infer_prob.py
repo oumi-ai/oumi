@@ -71,6 +71,9 @@ def infer_prob(
     token_id_vocab = set(tokenizer.get_vocab().values())
 
     if enable_dp:
+        if not torch.cuda.is_available():
+            raise ValueError("DataParallel (DP) execution requested but no GPUs found.")
+
         logger.info(
             "DataParallel (DP) execution enabled. "
             "Overriding device_map to default device."
