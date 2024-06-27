@@ -1,4 +1,5 @@
 import argparse
+from typing import Optional
 
 import torch
 
@@ -40,7 +41,7 @@ def main() -> None:
     evaluate(config)
 
 
-def evaluate(config: EvaluationConfig) -> None:
+def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> None:
     """Evaluate a model using the provided configuration.
 
     Overview:
@@ -51,14 +52,14 @@ def evaluate(config: EvaluationConfig) -> None:
 
     Args:
         config: The desired configuration for evaluation.
+        num_entries: Number of dataset samples to evaluate.
 
     Returns:
         None for now, we will return a relevant class in the future.
     """
     # Load the dataset from HuggingFace or a local repository.
     if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
-        subject, num_entries = "sociology", 8  # Hardcoded for testing.
-        mmlu_dataset = MmluDataset(subject=subject)
+        mmlu_dataset = MmluDataset(subject="all")
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
     else:
@@ -94,7 +95,7 @@ def evaluate(config: EvaluationConfig) -> None:
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
-    logger.info(f"MMLU accuracy for {subject} is {accuracy:.3f}")
+    logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
 if __name__ == "__main__":

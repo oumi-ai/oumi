@@ -68,7 +68,7 @@ SPLITS = [
     "validation"  # For selecting hyperparameters (1,531 questions)
     "test",  # For testing purposes (14,042 questions)
 ]
-DEFAULT_NUM_SHOTS = 5
+DEFAULT_NUM_SHOTS = 0  # Values: 0-5; 0 is consistent with LM Evaluation Harness.
 
 
 # FIXME: Inherit from `LemaDataset`.
@@ -99,6 +99,8 @@ class MmluDataset:
     @classmethod
     def few_shots(cls, dev_data: Dataset, num_shots: int = DEFAULT_NUM_SHOTS) -> str:
         """Returns `num_shots` formatted shots from the provided `dev_data`."""
+        if not num_shots:
+            return ""
         shots: Dataset = dev_data.select(range(num_shots))
         return "".join(
             cls.format_example(example, include_answer=True)  # type: ignore
