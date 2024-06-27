@@ -1,0 +1,42 @@
+name: lema-eval-example
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+resources:
+  # Use 1 of the following GPUs depending on availability. No preference.
+  # To view other GPU types use the following commands:
+  # `sky show-gpus`, `sky show-gpus -a`
+  accelerators: {"A40": 2}
+  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
+  # something like this: {"A40": N}
+
+  disk_size: 200      # Disk size in GB
+  # disk_tier: medium # medium is the default.
+  # region: us-west3  # Uncomment this line to only consider a specific region.
+
+  any_of:
+    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
+    - use_spot: false
+
+# Upload a working directory to remote ~/sky_workdir.
+workdir: .
+
+# Upload local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # mount local netrc file to access private repos
+
+envs:
+  WANDB_PROJECT: lema-eval
+
+setup: |
+  set -e
+  pip install '.[dev,train]'
+
+run: |
+  set -e  # Exit if any command failed.
+
+  # Run some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
+
+  python -m lema.evaluate \
+      -c configs/lema/phi3.eval.nvidia.yaml
