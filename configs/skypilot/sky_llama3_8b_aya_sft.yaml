@@ -15,7 +15,7 @@ resources:
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
-    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
+    - use_spot: true  # See https://github.com/openlema/lema/wiki/Clouds-Setup#spot-vms-on-gcp
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
