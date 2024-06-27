@@ -36,7 +36,7 @@ def _get_default_config(output_temp_dir):
             model_name="MlpEncoder",
             tokenizer_name="gpt2",
             model_max_length=128,
-            trust_remote_code=False,
+            trust_remote_code=True,
             load_pretrained_weights=False,
             model_kwargs={
                 "input_dim": 50257,
