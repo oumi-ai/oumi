@@ -57,10 +57,9 @@ def evaluate(config: EvaluationConfig) -> None:
     """
     # Load the dataset from HuggingFace or a local repository.
     if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
-        subject, num_entries = "sociology", 8  # Hardcoded for testing.
-        mmlu_dataset = MmluDataset(subject=subject)
-        dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
-        answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
+        mmlu_dataset = MmluDataset(subject="all")
+        dataset = mmlu_dataset.get_test_split()
+        answer_indices = mmlu_dataset.get_test_labels()
     else:
         # FIXME: Generalize: Support for multiple datasets.
         raise NotImplementedError("Model evaluation only for MMLU for now.")
@@ -94,7 +93,7 @@ def evaluate(config: EvaluationConfig) -> None:
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
-    logger.info(f"MMLU accuracy for {subject} is {accuracy:.3f}")
+    logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
 if __name__ == "__main__":
