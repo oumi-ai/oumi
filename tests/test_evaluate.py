@@ -26,4 +26,4 @@ def test_evaluate_basic():
         ),
     )
 
-    evaluate(config)
+    evaluate(config, num_entries=4)
