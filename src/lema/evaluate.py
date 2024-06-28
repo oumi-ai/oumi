@@ -1,4 +1,6 @@
 import argparse
+import json
+import os
 from typing import Optional
 
 import torch
@@ -95,6 +97,15 @@ def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> Non
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
+    # Write metrics as a dict of dicts. Benchmarks -> metric names -> metric values.
+    metrics = {
+        "mmlu": {
+            "accuracy": accuracy,
+        }
+    }
+    output_eval_path = os.path.join(config.output_dir, "eval.json")
+    with open(output_eval_path, "w") as f:
+        json.dump(metrics, f)
     logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
