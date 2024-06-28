@@ -1,4 +1,9 @@
 import argparse
+import json
+import os
+from typing import Optional
+
+import torch
 
 from lema.core.types import EvaluationConfig
 from lema.datasets.mmlu import MmluDataset
@@ -38,7 +43,7 @@ def main() -> None:
     evaluate(config)
 
 
-def evaluate(config: EvaluationConfig) -> None:
+def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> None:
     """Evaluate a model using the provided configuration.
 
     Overview:
@@ -49,22 +54,35 @@ def evaluate(config: EvaluationConfig) -> None:
 
     Args:
         config: The desired configuration for evaluation.
+        num_entries: Number of dataset samples to evaluate.
 
     Returns:
         None for now, we will return a relevant class in the future.
     """
     # Load the dataset from HuggingFace or a local repository.
-    if config.data.datasets[0].dataset_name == "cais/mmlu":
-        subject, num_entries = "sociology", 8  # Hardcoded for testing.
-        mmlu_dataset = MmluDataset(subject=subject)
+    if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
+        mmlu_dataset = MmluDataset(subject="all")
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
     else:
         # FIXME: Generalize: Support for multiple datasets.
         raise NotImplementedError("Model evaluation only for MMLU for now.")
 
-    # Batch the dataset to items of length `batch_size`.
-    dataset_batched = batch(dataset, config.generation.batch_size)
+    # Batch the dataset to items of length `batch_size`. If multiple GPUs are available,
+    # multiply the `batch_size` by the number of GPUs, to leverage all available GPUs,
+    # since Data Parallel (DP) will automatically split the batch.
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        enable_dp = True
+        gpu_count = torch.cuda.device_count()
+        batch_size = config.generation.batch_size * gpu_count
+        logger.info(
+            f"Evaluate: The `batch_size` increased from {config.generation.batch_size} "
+            f"to {batch_size}, to leverage the {gpu_count} GPUs available."
+        )
+    else:
+        enable_dp = False
+        batch_size = config.generation.batch_size
+    dataset_batched = batch(dataset, batch_size)
 
     # Run inference and then unbatch the model responses.
     answer_probabilities_batched = infer_prob(
@@ -73,12 +91,22 @@ def evaluate(config: EvaluationConfig) -> None:
         acceptable_tokens=MmluDataset.answer_tokens,
         input_filepath=config.generation.input_filepath,
         output_filepath=config.generation.output_filepath,
+        enable_dp=enable_dp,
     )
     answer_probabilities = unbatch(answer_probabilities_batched)
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
-    logger.info(f"MMLU accuracy for {subject} is {accuracy:.3f}")
+    # Write metrics as a dict of dicts. Benchmarks -> metric names -> metric values.
+    metrics = {
+        "mmlu": {
+            "accuracy": accuracy,
+        }
+    }
+    output_eval_path = os.path.join(config.output_dir, "eval.json")
+    with open(output_eval_path, "w") as f:
+        json.dump(metrics, f)
+    logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
 if __name__ == "__main__":

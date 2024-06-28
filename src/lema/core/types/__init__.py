@@ -1,6 +1,7 @@
 from lema.core.types.base_model import BaseModel
 from lema.core.types.base_trainer import BaseTrainer
 from lema.core.types.configs import (
+    AsyncEvaluationConfig,
     EvaluationConfig,
     GenerationConfig,
     InferenceConfig,
@@ -19,6 +20,7 @@ from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
+    "AsyncEvaluationConfig",
     "BaseModel",
     "BaseTrainer",
     "DataParams",

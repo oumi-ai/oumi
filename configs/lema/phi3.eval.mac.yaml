@@ -8,4 +8,6 @@ data:
   validation:
     datasets:
       - dataset_name: "cais/mmlu"
-        split: "validation"
+
+generation:
+  batch_size: 2

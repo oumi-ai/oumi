@@ -31,6 +31,12 @@ class TrainingParams:
     save_steps: int = 100
     run_name: str = "default"
 
+    # The name of the metrics function in the LeMa registry to use for evaluation
+    # during training. The method must accept as input a HuggingFace EvalPrediction and
+    # return a dictionary of metrics, with string keys mapping to metric values. A
+    # single metrics_function may compute multiple metrics.
+    metrics_function: Optional[str] = None
+
     log_level: str = "info"
     dep_log_level: str = "warning"
 
@@ -46,6 +52,9 @@ class TrainingParams:
         default=False,
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
+
+    eval_strategy: str = "no"  # possible values: "steps", "epoch", "no"
+    eval_steps: int = 50
 
     # Learning rate schedule.
     learning_rate: float = 5e-05
@@ -124,6 +133,8 @@ class TrainingParams:
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
+            evaluation_strategy=self.eval_strategy,
+            eval_steps=self.eval_steps,
         )
 
     def _get_hf_report_to(self) -> List[str]:

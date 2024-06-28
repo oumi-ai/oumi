@@ -63,7 +63,7 @@
             "module": "lema.evaluate",
             "args": [
                 "-c",
-                "configs/lema/phi3.eval.yaml"
+                "configs/lema/phi3.eval.mac.yaml"
             ],
             "justMyCode": true
         },

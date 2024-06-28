@@ -1,6 +1,7 @@
 import os.path as osp
 from typing import Optional
 
+import torch
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
@@ -14,6 +15,7 @@ from lema.utils.torch_utils import get_device_rank_info
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
+    enable_dp: Optional[bool] = False,
     **kwargs,
 ):
     """Builds and returns a model based on the provided LeMa configuration.
@@ -21,23 +23,32 @@ def build_model(
     Args:
         model_params: The configuration object containing the model parameters.
         peft_params: The configuration object containing the peft parameters.
+        enable_dp: Enable DataParallel (DP) execution if multiple GPUs are available.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
         model: The built model.
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
-        return build_lema_model(
+        model = build_lema_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
         )
     else:
-        return build_huggingface_model(
+        model = build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
         )
+
+    if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
+        model = torch.nn.DataParallel(model)
+    elif enable_dp and torch.backends.mps.is_available():
+        logger.warning("DP requested, but NOT possible with `mps` backend.")
+
+    return model
 
 
 def build_lema_model(
@@ -71,7 +82,7 @@ def build_huggingface_model(
     device_rank_info = get_device_rank_info()
 
     # "auto" is not compatible with distributed training.
-    if device_rank_info.world_size > 1:
+    if device_map == "auto" and device_rank_info.world_size > 1:
         logger.info(
             f"Building model for distributed training "
             f"(world_size: {device_rank_info.world_size})..."
