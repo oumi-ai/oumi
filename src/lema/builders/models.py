@@ -115,6 +115,11 @@ def build_huggingface_model(
         )
     else:
         # TODO: What about device_map and quantization_config params?
+        # TODO: Remove, hardcoded for GPT2
+        hf_config.attn_pdrop = 0.0
+        hf_config.embd_pdrop = 0.0
+        hf_config.resid_pdrop = 0.0
+        hf_config.summary_first_dropout = 0.0
         model = transformers.AutoModelForCausalLM.from_config(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
