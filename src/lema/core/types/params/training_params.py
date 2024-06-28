@@ -66,7 +66,7 @@ class TrainingParams:
     warmup_steps: int = 0
 
     # Optimizer params.
-    optimizer: str = "adamw_torch_fused"
+    optimizer: str = "adamw_torch"
     weight_decay: float = 0.0
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999

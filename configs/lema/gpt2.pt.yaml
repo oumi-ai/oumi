@@ -33,6 +33,7 @@ training:
   enable_gradient_checkpointing: False
 
   # https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py#L349
+  optimizer: "adamw_torch_fused"
   learning_rate: 6.0e-04
   lr_scheduler_type: "cosine_with_min_lr"
   lr_scheduler_kwargs:
