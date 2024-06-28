@@ -90,6 +90,8 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    # Where to write computed evaluations.
+    output_dir: str = "output"
 
 
 @dataclass
