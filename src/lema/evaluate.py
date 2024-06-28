@@ -103,6 +103,7 @@ def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> Non
             "accuracy": accuracy,
         }
     }
+    os.makedirs(config.output_dir, exist_ok=True)
     output_eval_path = os.path.join(config.output_dir, "eval.json")
     with open(output_eval_path, "w") as f:
         json.dump(metrics, f)

@@ -14,8 +14,9 @@ from lema.core.types import (
 
 def test_evaluate_basic():
     with tempfile.TemporaryDirectory() as output_temp_dir:
+        nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         config: EvaluationConfig = EvaluationConfig(
-            output_dir=output_temp_dir,
+            output_dir=nested_output_dir,
             data=DataParams(
                 validation=DatasetSplitParams(
                     datasets=[
@@ -33,6 +34,6 @@ def test_evaluate_basic():
         )
 
         evaluate(config, num_entries=4)
-        with open(os.path.join(output_temp_dir, "eval.json"), "r") as f:
+        with open(os.path.join(nested_output_dir, "eval.json"), "r") as f:
             computed_metrics = json.load(f)
             assert computed_metrics["mmlu"]["accuracy"] == 0
