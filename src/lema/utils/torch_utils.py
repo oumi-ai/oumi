@@ -37,6 +37,8 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
 
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
+    if not is_world_process_zero():
+        return
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
     if not torch.cuda.is_available():
         logger.info("CUDA is not available!")
@@ -56,6 +58,8 @@ def log_versioning_info() -> None:
 
 def log_devices_info() -> None:
     """Logs high-level info about all available accelerator devices."""
+    if not is_world_process_zero():
+        return
     if not torch.cuda.is_available():
         logger.info("CUDA is not available!")
         return

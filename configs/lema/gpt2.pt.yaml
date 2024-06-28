@@ -26,13 +26,14 @@ training:
   # For local testing.
   # per_device_train_batch_size: 2
   # max_steps: 10
-  # TODO: Should be able to fit batch size 64 w/ 80GB, but can only do ~44. Why?
-  per_device_train_batch_size: 44
+  per_device_train_batch_size: 64
+  gradient_accumulation_steps: 8  # Disable when running on 8 GPUs
   max_steps: 19073
-  # TODO: Should be reducing memory consumption, but doesn't seem to help.
-  # enable_gradient_checkpointing: True
+  # If enabled, reduces memory consumption by ~3x but causes a 30% training slowdown.
+  enable_gradient_checkpointing: False
 
   # https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py#L349
+  optimizer: "adamw_torch_fused"
   learning_rate: 6.0e-04
   lr_scheduler_type: "cosine_with_min_lr"
   lr_scheduler_kwargs:

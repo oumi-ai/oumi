@@ -22,7 +22,7 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
   # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
+  #   name: lema-dev-private # Not available on Lambda
   #   mode: MOUNT
 
   # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
@@ -41,9 +41,12 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
+  # Required if we make any code changes
+  pip install '.[train]'
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  # "training.output_dir=/output_dir_gcs/wizeng/runs/20240626_gpt2.pt/" \
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -52,4 +55,5 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
+      "training.output_dir=/output_dir_gcs/wizeng/runs/20240628_gpt2_fullrun_drop0.pt/" \
       "training.enable_wandb=true"
