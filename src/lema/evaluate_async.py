@@ -2,11 +2,14 @@ import argparse
 import os
 import re
 import time
+from copy import deepcopy
 from typing import List
 
 from lema import evaluate
 from lema.core.types import AsyncEvaluationConfig
 from lema.logging import logger
+
+_PREFIX_CHECKPOINT_DIR = "checkpoint"
 
 
 def parse_cli():
@@ -42,12 +45,11 @@ def main() -> None:
 def _get_checkpoints(checkpoint_dir: str) -> List[str]:
     """Returns all checkpoints in the target directory."""
     # Modified from HF's transformers.trainer_utils.get_last_checkpoint().
-    PREFIX_CHECKPOINT_DIR = "checkpoint"
-    re_checkpoint = re.compile(r"^" + PREFIX_CHECKPOINT_DIR + r"\-(\d+)$")
-    content = os.listdir(checkpoint_dir)
+    re_checkpoint = re.compile(r"^" + _PREFIX_CHECKPOINT_DIR + r"\-(\d+)$")
+    directory_list = os.listdir(checkpoint_dir)
     return [
         os.path.join(checkpoint_dir, path)
-        for path in content
+        for path in directory_list
         if re_checkpoint.search(path) is not None
         and os.path.isdir(os.path.join(checkpoint_dir, path))
     ]
@@ -82,17 +84,30 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
             retry_count += 1
             time.sleep(config.polling_interval)
             continue
-        checkpoint = unseen_checkpoints.pop()
-        seen_checkpoints.add(checkpoint)
-        output_eval_dir = os.path.join(base_output_dir, os.path.basename(checkpoint))
-        # Update the model to point to the checkpoint.
-        config.evaluation.model.model_name = checkpoint
-        # Update the eval output location.
-        config.evaluation.output_dir = output_eval_dir
-        evaluate(config.evaluation)
+        # Evaluate all unseen checkpoints.
+        while len(unseen_checkpoints) > 0:
+            checkpoint = unseen_checkpoints.pop()
+            seen_checkpoints.add(checkpoint)
+            output_eval_dir = os.path.join(
+                base_output_dir, os.path.basename(checkpoint)
+            )
+            mutable_config = deepcopy(config)
+            # Update the model to point to the checkpoint.
+            mutable_config.evaluation.model.model_name = checkpoint
+            # Update the eval output location.
+            mutable_config.evaluation.output_dir = output_eval_dir
+            logger.info(
+                "Starting evaluation for checkpoint: "
+                f"{os.path.basename(checkpoint)}..."
+            )
+            evaluate(mutable_config.evaluation)
+            logger.info(
+                "Finished evaluation for checkpoint: "
+                f"{os.path.basename(checkpoint)} !"
+            )
         retry_count = 0
         time.sleep(config.polling_interval)
-    logger.warning(f"Retries exceeded `num_retries`: {config.num_retries}. Exiting...")
+    logger.info(f"Retries exceeded `num_retries`: {config.num_retries}. Exiting...")
 
 
 if __name__ == "__main__":
