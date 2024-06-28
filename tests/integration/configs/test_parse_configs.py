@@ -43,7 +43,7 @@ def test_parse_configs(config_path: str):
     error_messages = []
     for config_class in valid_config_classes:
         try:
-            _ = TrainingConfig.from_yaml(config_path)
+            _ = config_class.from_yaml(config_path)
         except (HardwareException, Exception) as exception:
             # Ignore HardwareExceptions.
             if not isinstance(exception, HardwareException):
