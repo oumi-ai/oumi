@@ -7,7 +7,6 @@ evaluation:
     model_max_length: 1024
     torch_dtype_str: "bfloat16"
     attn_implementation: "flash_attention_2"
-    load_pretrained_weights: False
     trust_remote_code: True
 
   data:
