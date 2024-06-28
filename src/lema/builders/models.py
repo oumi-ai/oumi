@@ -44,8 +44,7 @@ def build_model(
 
     if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
         logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
-        model_device = torch.device("cuda")
-        model = torch.nn.DataParallel(model).to(model_device)
+        model = torch.nn.DataParallel(model)
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
@@ -83,7 +82,7 @@ def build_huggingface_model(
     device_rank_info = get_device_rank_info()
 
     # "auto" is not compatible with distributed training.
-    if device_rank_info.world_size > 1:
+    if device_map == "auto" and device_rank_info.world_size > 1:
         logger.info(
             f"Building model for distributed training "
             f"(world_size: {device_rank_info.world_size})..."
