@@ -1,5 +1,5 @@
 evaluation:
-  output_dir: "/output_dir_gcs/matthew/testing/"
+  output_dir: "" # /output_dir_gcs/matthew/testing/
   model:
     model_name: "gpt2"  # 124M params
     # For local testing.
@@ -16,7 +16,7 @@ evaluation:
         - dataset_name: "cais/mmlu"
 
   generation:
-    batch_size: 4
+    batch_size: 32
 
-checkpoints_dir: "/output_dir_gcs/wizeng/runs/20240628_gpt2_fullrun_drop0.pt"
+checkpoints_dir: "" # /output_dir_gcs/wizeng/runs/20240628_gpt2_fullrun_drop0.pt
 polling_interval: 5
