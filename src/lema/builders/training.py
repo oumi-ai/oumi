@@ -1,5 +1,6 @@
 from typing import Callable, Optional, Type
 
+import torch.distributed
 import transformers
 import trl
 
@@ -30,27 +31,30 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def save_model(self, config: TrainingConfig) -> None:
         """See base class."""
-        if not is_world_process_zero():
+        if is_world_process_zero():
             # Only save from "master" worker.
-            return
+            output_dir = config.training.output_dir
 
-        output_dir = config.training.output_dir
+            if config.training.use_peft:
+                state_dict = {
+                    k: t
+                    for k, t in self._hf_trainer.model.named_parameters()
+                    if "lora_" in k
+                }
+            else:
+                state_dict = self._hf_trainer.model.state_dict()
 
-        if config.training.use_peft:
-            state_dict = {
-                k: t
-                for k, t in self._hf_trainer.model.named_parameters()
-                if "lora_" in k
-            }
-        else:
-            state_dict = self._hf_trainer.model.state_dict()
+            # FIXME: Can we replace the private method `_save()` with
+            # `Trainer.save_model()`?
+            # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
+            # FIXME: Add conditional saving logic for multi-node runs.
+            self._hf_trainer._save(output_dir, state_dict=state_dict)
+            logger.info(f"Model has been saved at {output_dir}.")
 
-        # FIXME: Can we replace the private method `_save()` with
-        # `Trainer.save_model()`?
-        # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
-        # FIXME: Add conditional saving logic for multi-node runs.
-        self._hf_trainer._save(output_dir, state_dict=state_dict)
-        logger.info(f"Model has been saved at {output_dir}.")
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            # Make sure all workers are waiting until saving is done
+            # so they continue to other tasks in unison.
+            torch.distributed.barrier()
 
 
 def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
