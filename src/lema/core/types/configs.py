@@ -90,6 +90,8 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    evaluation_framework: str = "lm_harmess"  # possible values: "lm_harmess", "custom"
+    num_shots: int = 0
     # Where to write computed evaluations.
     output_dir: str = "output"
 

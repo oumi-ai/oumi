@@ -1,8 +1,9 @@
 import argparse
 import json
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
+import lm_eval
 import torch
 
 from lema.core.types import EvaluationConfig
@@ -11,6 +12,8 @@ from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.infer_prob import infer_prob
 from lema.logging import logger
 from lema.utils.batching import batch, unbatch
+
+SAVE_FILENAME_JSON = "eval.json"
 
 
 def parse_cli():
@@ -40,10 +43,19 @@ def main() -> None:
     )
 
     # Run evaluation
-    evaluate(config)
+    if config.evaluation_framework == "custom":
+        evaluate_custom(config)
+    elif config.evaluation_framework == "lm_harmess":
+        evaluate_lm_harmess(config)
+    else:
+        raise ValueError(
+            f"Unsupported evaluation framework: {config.evaluation_framework}"
+        )
 
 
-def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> None:
+def evaluate_custom(
+    config: EvaluationConfig, num_entries: Optional[int] = None
+) -> None:
     """Evaluate a model using the provided configuration.
 
     Overview:
@@ -61,7 +73,7 @@ def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> Non
     """
     # Load the dataset from HuggingFace or a local repository.
     if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
-        mmlu_dataset = MmluDataset(subject="all")
+        mmlu_dataset = MmluDataset(subject="all", num_shots=config.num_shots)
         dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
     else:
@@ -97,17 +109,68 @@ def evaluate(config: EvaluationConfig, num_entries: Optional[int] = None) -> Non
 
     # FIXME: Generalize: Support for multiple metrics.
     accuracy = compute_multiple_choice_accuracy(answer_probabilities, answer_indices)
-    # Write metrics as a dict of dicts. Benchmarks -> metric names -> metric values.
-    metrics = {
-        "mmlu": {
-            "accuracy": accuracy,
-        }
-    }
-    os.makedirs(config.output_dir, exist_ok=True)
-    output_eval_path = os.path.join(config.output_dir, "eval.json")
+    if config.output_dir:
+        save_evaluation_results(
+            output_dir=config.output_dir,
+            benchmark_name=config.data.validation.datasets[0].dataset_name,
+            metric_dict={"accuracy": accuracy},
+        )
+    logger.info(f"MMLU accuracy is {accuracy:.3f}")
+
+
+def evaluate_lm_harmess(
+    config: EvaluationConfig, num_entries: Optional[int] = None
+) -> None:
+    """Evaluate a model using the LM Evaluation Harness framework (EleutherAI).
+
+    For detailed documentation, we refer you to the following readme:
+       https://github.com/EleutherAI/lm-evaluation-harness
+
+    Args:
+        config: The desired configuration for evaluation.
+        num_entries: Number of dataset samples to evaluate.
+
+    Returns:
+        None.
+    """
+    benchmark = config.data.validation.datasets[0].dataset_name
+    if torch.cuda.is_available():
+        device = "cuda:0"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        raise ValueError("No GPU available.")
+
+    results = lm_eval.simple_evaluate(
+        model="hf",
+        model_args=f"pretrained={config.model.model_name},trust_remote_code=True",
+        tasks=[benchmark],
+        num_fewshot=config.num_shots,
+        batch_size=config.generation.batch_size,
+        device=device,
+        limit=num_entries,
+    )
+    if config.output_dir:
+        metric_dict: Dict[str, Any] = results["results"][benchmark]  # type: ignore
+        save_evaluation_results(
+            output_dir=config.output_dir,
+            benchmark_name=benchmark,
+            metric_dict=metric_dict,
+        )
+    logger.info(f"{benchmark} metric dictionary is {metric_dict}")
+
+
+def save_evaluation_results(
+    output_dir: str,
+    benchmark_name: str,
+    metric_dict: Dict[str, Any],
+) -> None:
+    """Write metrics as a dict of dicts: Benchmarks -> metric names -> metric values."""
+    metrics = {benchmark_name: metric_dict}
+    os.makedirs(output_dir, exist_ok=True)
+    output_eval_path = os.path.join(output_dir, SAVE_FILENAME_JSON)
     with open(output_eval_path, "w") as f:
         json.dump(metrics, f)
-    logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
 if __name__ == "__main__":
