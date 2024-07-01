@@ -57,13 +57,24 @@
             "justMyCode": true
         },
         {
-            "name": "LeMa - Evaluate From Config Example",
+            "name": "LeMa - Evaluate Custom from Config example",
             "type": "debugpy",
             "request": "launch",
             "module": "lema.evaluate",
             "args": [
                 "-c",
-                "configs/lema/phi3.eval.mac.yaml"
+                "configs/lema/phi3.eval.custom.mac.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "LeMa - Evaluate with LM Harness from Config example",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lema.evaluate",
+            "args": [
+                "-c",
+                "configs/lema/phi3.eval.lm_harness.mac.yaml"
             ],
             "justMyCode": true
         },

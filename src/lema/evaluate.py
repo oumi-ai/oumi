@@ -139,7 +139,8 @@ def evaluate_lm_harmess(
     elif torch.backends.mps.is_available():
         device = "mps"
     else:
-        raise ValueError("No GPU available.")
+        device = "cpu"
+        logger.warning("No GPU available.")
 
     results = lm_eval.simple_evaluate(
         model="hf",

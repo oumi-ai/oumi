@@ -1,0 +1,12 @@
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+
+data:
+  validation:
+    datasets:
+      - dataset_name: "mmlu"
+
+generation:
+  batch_size: 2
+
+evaluation_framework: "lm_harmess"
