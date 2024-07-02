@@ -92,6 +92,7 @@ class EvaluationConfig(BaseConfig):
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     evaluation_framework: str = "lm_harmess"  # possible values: "lm_harmess", "lema"
     num_shots: int = 0
+    num_samples: Optional[int] = None
     # Where to write computed evaluations.
     output_dir: str = "output"
 

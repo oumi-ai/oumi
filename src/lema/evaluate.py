@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import lm_eval
 import torch
@@ -53,7 +53,7 @@ def main() -> None:
         )
 
 
-def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -> None:
+def evaluate_lema(config: EvaluationConfig) -> None:
     """Evaluate a model using the provided configuration.
 
     Overview:
@@ -64,7 +64,6 @@ def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -
 
     Args:
         config: The desired configuration for evaluation.
-        num_entries: Number of dataset samples to evaluate.
 
     Returns:
         None for now, we will return a relevant class in the future.
@@ -72,8 +71,8 @@ def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -
     # Load the dataset from HuggingFace or a local repository.
     if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
         mmlu_dataset = MmluDataset(subject="all", num_shots=config.num_shots)
-        dataset = mmlu_dataset.get_test_split(num_entries=num_entries)
-        answer_indices = mmlu_dataset.get_test_labels(num_entries=num_entries)
+        dataset = mmlu_dataset.get_test_split(num_entries=config.num_samples)
+        answer_indices = mmlu_dataset.get_test_labels(num_entries=config.num_samples)
     else:
         # FIXME: Generalize: Support for multiple datasets.
         raise NotImplementedError("Model evaluation only for MMLU for now.")
@@ -115,9 +114,7 @@ def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -
     logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
-def evaluate_lm_harmess(
-    config: EvaluationConfig, num_entries: Optional[int] = None
-) -> None:
+def evaluate_lm_harmess(config: EvaluationConfig) -> None:
     """Evaluate a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
@@ -125,7 +122,6 @@ def evaluate_lm_harmess(
 
     Args:
         config: The desired configuration for evaluation.
-        num_entries: Number of dataset samples to evaluate.
 
     Returns:
         None.
@@ -149,7 +145,7 @@ def evaluate_lm_harmess(
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
         device=device,
-        limit=num_entries,
+        limit=config.num_samples,
     )
     if config.output_dir:
         metric_dict = results["results"]  # type: ignore

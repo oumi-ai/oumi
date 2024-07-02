@@ -35,9 +35,10 @@ def test_evaluate_lema():
                 trust_remote_code=True,
             ),
             evaluation_framework="lema",
+            num_samples=4,
         )
 
-        evaluate_lema(config, num_entries=4)
+        evaluate_lema(config)
         with open(output_file, mode="r", encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics:
@@ -66,9 +67,10 @@ def test_evaluate_lm_harmess():
                 trust_remote_code=True,
             ),
             evaluation_framework="lm_harmess",
+            num_samples=4,
         )
 
-        evaluate_lm_harmess(config, num_entries=4)
+        evaluate_lm_harmess(config)
         with open(output_file, mode="r", encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics:

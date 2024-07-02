@@ -11,3 +11,4 @@ generation:
   batch_size: 2
 
 evaluation_framework: "lm_harmess"
+num_samples: None
