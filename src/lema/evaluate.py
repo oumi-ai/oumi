@@ -110,8 +110,7 @@ def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -
     if config.output_dir:
         save_evaluation_results(
             output_dir=config.output_dir,
-            benchmark_name=config.data.validation.datasets[0].dataset_name,
-            metric_dict={"accuracy": accuracy},
+            metric_dict={"cais/mmlu": {"accuracy": accuracy}},
         )
     logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
@@ -131,7 +130,7 @@ def evaluate_lm_harmess(
     Returns:
         None.
     """
-    benchmark = config.data.validation.datasets[0].dataset_name
+    benchmarks = [dataset.dataset_name for dataset in config.data.validation.datasets]
     if torch.cuda.is_available():
         device = "cuda:0"
     elif torch.backends.mps.is_available():
@@ -143,33 +142,31 @@ def evaluate_lm_harmess(
     results = lm_eval.simple_evaluate(
         model="hf",
         model_args=f"pretrained={config.model.model_name},trust_remote_code=True",
-        tasks=[benchmark],
+        tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
         device=device,
         limit=num_entries,
     )
     if config.output_dir:
-        metric_dict: Dict[str, Any] = results["results"][benchmark]  # type: ignore
+        metric_dict = results["results"]  # type: ignore
         save_evaluation_results(
             output_dir=config.output_dir,
-            benchmark_name=benchmark,
             metric_dict=metric_dict,
         )
-    logger.info(f"{benchmark} metric dictionary is {metric_dict}")
+    for benchmark in benchmarks:
+        logger.info(f"{benchmark}'s metric dictionary is {metric_dict[benchmark]}")
 
 
 def save_evaluation_results(
     output_dir: str,
-    benchmark_name: str,
     metric_dict: Dict[str, Any],
 ) -> None:
     """Write metrics as a dict of dicts: Benchmarks -> metric names -> metric values."""
-    metrics = {benchmark_name: metric_dict}
     os.makedirs(output_dir, exist_ok=True)
     output_eval_path = os.path.join(output_dir, SAVE_FILENAME_JSON)
     with open(output_eval_path, "w") as f:
-        json.dump(metrics, f)
+        json.dump(metric_dict, f)
 
 
 if __name__ == "__main__":

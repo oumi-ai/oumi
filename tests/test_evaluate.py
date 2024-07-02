@@ -38,7 +38,7 @@ def test_evaluate_lema():
         with open(os.path.join(nested_output_dir, "eval.json"), "r") as f:
             computed_metrics = json.load(f)
             # expected metrics:
-            # {'cais/mmlu': {'accuracy': 0.0}}
+            # {"cais/mmlu": {"accuracy": 0.0}}
             assert computed_metrics["cais/mmlu"]["accuracy"] == 0.0
 
 
@@ -67,12 +67,12 @@ def test_evaluate_lm_harmess():
             computed_metrics = json.load(f)
             # expected metrics:
             # {
-            #    'mmlu':
+            #    "mmlu":
             #    {
-            #       'acc,none': 0.2850877192982456,
-            #       'acc_stderr,none': 0.029854295639440784,
-            #       'alias': 'mmlu'
+            #       "acc,none": 0.2850877192982456,
+            #       "acc_stderr,none": 0.029854295639440784,
+            #       "alias": "mmlu"
             #    }
             # }
-            assert round(computed_metrics["mmlu"]["acc,none"], 2) == 0.29
-            assert round(computed_metrics["mmlu"]["acc_stderr,none"], 2) == 0.03
+            assert round(computed_metrics["mmlu"]["acc,none"], 3) == 0.285
+            assert round(computed_metrics["mmlu"]["acc_stderr,none"], 3) == 0.030
