@@ -30,9 +30,10 @@ def _list_input_files(
 
 def _tokenize_examples(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    target_col: str,
     examples: Dict[str, Any],
 ) -> Dict[str, Any]:
-    batch = tokenizer(examples["text"], return_length=True)
+    batch = tokenizer(examples[target_col], return_length=True)
     token_ids: List[List[int]] = batch.input_ids
     result = examples.copy()
     result["token_ids"] = token_ids
@@ -41,6 +42,7 @@ def _tokenize_examples(
 
 def _tokenize_file(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    target_col: str,
     input_file: pathlib.Path,
     input_format: str,
     output_file: pathlib.Path,
@@ -54,7 +56,7 @@ def _tokenize_file(
         dataset = Dataset.from_parquet(str(input_file), keep_in_memory=True)
     logger.info("Tokenizing the dataset.")
     dataset = dataset.map(
-        functools.partial(_tokenize_examples, tokenizer),
+        functools.partial(_tokenize_examples, tokenizer, target_col),
         batched=True,
         batch_size=128,
         keep_in_memory=True,
@@ -74,6 +76,7 @@ ParsedArgs = NamedTuple(
         ("verbose", bool),
         ("input_paths", List[str]),
         ("input_format", str),
+        ("target_col", str),
         ("output_dir", str),
         ("overwrite", bool),
         ("num_proc", int),
@@ -106,6 +109,12 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         help="Input format.",
     )
     parser.add_argument(
+        "--target_col",
+        type=str,
+        default="",
+        help="Target text column to tokenize.",
+    )
+    parser.add_argument(
         "--output_dir",
         type=str,
         help="Path to the output directory.",
@@ -129,6 +138,7 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
             verbose=args.verbose,
             input_paths=args.input_path,
             input_format=args.input_format,
+            target_col=args.target_col,
             output_dir=args.output_dir,
             overwrite=args.overwrite,
             num_proc=args.num_proc,
@@ -146,6 +156,19 @@ def main() -> None:
         parsed_args.config_path, arg_list, logger=logger
     )
 
+    # Find first non-empty value as target column name.
+    target_col = next(
+        s
+        for s in [
+            parsed_args.target_col,
+            config.data.train.target_col,
+            config.data.validation.target_col,
+            config.data.test.target_col,
+            "text",
+        ]
+        if s
+    )
+
     output_dir: pathlib.Path = pathlib.Path(parsed_args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -161,16 +184,15 @@ def main() -> None:
     if not input_files:
         return
 
-    logger.info("Loading the dataset")
+    logger.info("Loading the dataset...")
     for input_file in tqdm(input_files):
         output_file: pathlib.Path = output_dir / f"{input_file.stem}.parquet"
         if output_file.exists() and not parsed_args.overwrite:
-            logger.error(
-                f"{output_file} already exists. Specify --overwrite to overwrite."
-            )
+            logger.error(f"{output_file} already exists. Specify --overwrite.")
             continue
         _tokenize_file(
             tokenizer,
+            target_col,
             input_file,
             parsed_args.input_format,
             output_file,
@@ -183,7 +205,7 @@ def main() -> None:
 
     end_time = time.time()
     logger.info(
-        f"Finished tokenizing the dataset. Elapsed time: {end_time - start_time} [sec]"
+        f"Finished tokenizing the dataset. Elapsed time: {end_time - start_time} sec!"
     )
 
 

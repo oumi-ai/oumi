@@ -77,7 +77,7 @@
                 "-c",
                 "configs/lema/gpt2.pt.yaml",
                 "--input_path",
-                "/home/user/data/fine-web-edu-10bt/013_00000.parquet",
+                "/home/user/data/fine-web-edu-10bt/001_00000.parquet",
                 "--output_dir",
                 "/home/user/data/output/"
             ]
