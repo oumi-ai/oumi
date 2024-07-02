@@ -41,9 +41,9 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
         Args:
             tokenizer (`transformers.PreTrainedTokenizer`):
-                The processor used for processing the data.
+                The PreTrainedTokenizer used for converting strings to tokens.
             dataset (`dataset.Dataset`):
-                Dataset with text files.
+                Dataset of text samples.
             dataset_text_field (`str`, **optional**):
                 Name of the field in the dataset that contains the text.
                 Used only if `formatting_func` is `None`.
@@ -87,7 +87,6 @@ class PretrainingAsyncTextDataset(IterableDataset):
         self.dataset = dataset
         self.seq_length = seq_length
         self.infinite = infinite
-        self.current_size = 0
         self.append_concat_token = append_concat_token
         self.add_special_tokens = add_special_tokens
         self.shuffle = shuffle
@@ -104,13 +103,10 @@ class PretrainingAsyncTextDataset(IterableDataset):
         else:
             self.formatting_func = formatting_func
 
-        if formatting_func is not None:
             if formatting_func.__code__.co_argcount != 1:
                 logger.warning(
-                    "The passed formatting_func does not have exactly 1 argument. "
-                    "Usually that function should have a single argument `example`"
-                    " which corresponds to the dictionary returned by each element of "
-                    "the dataset. Make sure you know what you are doing."
+                    "The passed formatting_func does not have exactly 1 argument. Note "
+                    "that additional arguments will remain unused."
                 )
 
     def __len__(self):
@@ -148,7 +144,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
                 if self.infinite:
                     iterator = iter(self.dataset)
                     logger.warning(
-                        "The dataset reached end, iterator is reset to the start."
+                        "Reached the end of the dataset, resetting to the start."
                     )
                 else:
                     break
@@ -209,7 +205,6 @@ class PretrainingAsyncTextDataset(IterableDataset):
             _, tensors = self.tokenized_example_queue.get()
             if tensors is None:
                 break
-            self.current_size += 1
             yield tensors
 
         worker_thread.join()
