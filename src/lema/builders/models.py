@@ -1,5 +1,5 @@
 import os.path as osp
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 import transformers
@@ -140,7 +140,9 @@ def build_huggingface_model(
     return model
 
 
-def build_tokenizer(model_params: ModelParams, **kwargs):
+def build_tokenizer(
+    model_params: ModelParams, **kwargs
+) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
     """Builds and returns a tokenizer based on the provided LeMa configuration.
 
     Args:
