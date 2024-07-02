@@ -38,6 +38,7 @@ Issues = "https://github.com/openlema/lema/issues"
 dev = [
     "black",
     "isort",
+    "lm-eval",
     "mypy",
     "pre-commit",
     "pynvml",
@@ -60,6 +61,7 @@ train = [
     "pynvml",
     "accelerate",      # for quantization
     "bitsandbytes",    # for quantization
+    "lm-eval",
 ]
 # TODO: Switch to stable build "skypilot[lambda,runpod]"
 # once RunPod multi-GPU bugfix is included (>0.5.0)
