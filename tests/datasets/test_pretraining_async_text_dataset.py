@@ -1,7 +1,7 @@
 import datasets
 import transformers
 
-from lema.datasets.constant_length_async_dataset import ConstantLengthAsyncDataset
+from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 
 _DATASET_LENGTH = 3
 _BATCH_SIZE = 1
@@ -27,12 +27,12 @@ def test_iter():
         [{"text": "T" * _NUM_TOKENS_PER_SAMPLE}] * _DATASET_LENGTH
     )
     tokenizer = MockTokenizer()
-    dataset = ConstantLengthAsyncDataset(
+    dataset = PretrainingAsyncTextDataset(
         tokenizer=tokenizer,
         dataset=test_dataset,
         formatting_func=lambda x: x,
         seq_length=_SEQ_LEN,
-        num_of_sequences=_BATCH_SIZE * 2,
+        sequence_buffer_size=_BATCH_SIZE * 2,
     )
 
     items = [x for x in dataset]

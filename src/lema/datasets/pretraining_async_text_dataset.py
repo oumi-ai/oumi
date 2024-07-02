@@ -1,7 +1,6 @@
 import queue
 import random
-import time
-from multiprocessing import Process, Queue
+import threading
 from typing import Callable, Optional
 
 import datasets
@@ -16,7 +15,7 @@ _SMALLEST_PRIORITY_VALUE = 0
 _END_PRIORITY_VALUE = _LARGEST_PRIORITY_VALUE + 1
 
 
-class ConstantLengthAsyncDataset(IterableDataset):
+class PretrainingAsyncTextDataset(IterableDataset):
     """Iterable dataset that returns constant length chunks of tokens.
 
     Prefetches, formats, and tokenizes asynchronously from main thread.
@@ -32,7 +31,7 @@ class ConstantLengthAsyncDataset(IterableDataset):
         formatting_func: Optional[Callable] = None,
         infinite: bool = False,
         seq_length: int = 1024,
-        num_of_sequences: int = 1024,
+        sequence_buffer_size: int = 1024,
         eos_token_id: int = 0,
         shuffle: bool = False,
         append_concat_token: bool = True,
@@ -57,7 +56,7 @@ class ConstantLengthAsyncDataset(IterableDataset):
             seq_length (`int`, *optional*, defaults to `1024`):
                 Length of token sequences to return.
                 Should set to global_batch_size * 2 for minimum delay.
-            num_of_sequences (`int`, *optional*, defaults to `1024`):
+            sequence_buffer_size (`int`, *optional*, defaults to `1024`):
                 Number of token sequences to keep in buffer.
             chars_per_token (`int`, *optional*, defaults to `3.6`):
                 Number of characters per token used to estimate number of tokens in
@@ -94,9 +93,11 @@ class ConstantLengthAsyncDataset(IterableDataset):
         self.shuffle = shuffle
 
         if shuffle:
-            self.tokenized_example_queue = queue.PriorityQueue(maxsize=num_of_sequences)
+            self.tokenized_example_queue = queue.PriorityQueue(
+                maxsize=sequence_buffer_size
+            )
         else:
-            self.tokenized_example_queue = Queue(maxsize=num_of_sequences)
+            self.tokenized_example_queue = queue.Queue(maxsize=sequence_buffer_size)
 
         if formatting_func is None:
             self.formatting_func = lambda x: x[dataset_text_field]
@@ -196,15 +197,14 @@ class ConstantLengthAsyncDataset(IterableDataset):
 
         # Signal that there are no more samples, have this be the last value
         self.tokenized_example_queue.put((_END_PRIORITY_VALUE, None))
-        time.sleep(1000)  # sleep to avoid closing the queue
 
     def __iter__(self):
         """Iterates through the dataset with most work on a separate thread."""
         # Set worker thread to daemon so it dies when the program finishes.
-        worker_process = Process(
+        worker_thread = threading.Thread(
             target=self._dataset_iterator_worker, args=(), daemon=True
         )
-        worker_process.start()
+        worker_thread.start()
         while True:
             _, tensors = self.tokenized_example_queue.get()
             if tensors is None:
@@ -212,5 +212,4 @@ class ConstantLengthAsyncDataset(IterableDataset):
             self.current_size += 1
             yield tensors
 
-        worker_process.terminate()
-        worker_process.join()
+        worker_thread.join()
