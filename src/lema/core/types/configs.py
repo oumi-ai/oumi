@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 from omegaconf import MISSING
@@ -9,6 +10,13 @@ from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 from lema.logging import logger
+
+
+class EvaluationFramework(Enum):
+    """Enum representing the evaluation framework to use."""
+
+    LEMA = "lema"
+    LM_HARNESS = "lm_harness"
 
 
 @dataclass
@@ -90,7 +98,7 @@ class EvaluationConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
-    evaluation_framework: str = "lm_harmess"  # possible values: "lm_harmess", "lema"
+    evaluation_framework: EvaluationFramework = EvaluationFramework.LM_HARNESS
     num_shots: Optional[int] = 0
     num_samples: Optional[int] = 0
     # Where to write computed evaluations.

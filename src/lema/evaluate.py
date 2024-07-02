@@ -7,6 +7,7 @@ import lm_eval
 import torch
 
 from lema.core.types import EvaluationConfig
+from lema.core.types.configs import EvaluationFramework
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.infer_prob import infer_prob
@@ -43,10 +44,10 @@ def main() -> None:
     )
 
     # Run evaluation
-    if config.evaluation_framework == "lema":
+    if config.evaluation_framework == EvaluationFramework.LEMA:
         evaluate_lema(config)
-    elif config.evaluation_framework == "lm_harmess":
-        evaluate_lm_harmess(config)
+    elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
+        evaluate_lm_harness(config)
     else:
         raise ValueError(
             f"Unsupported evaluation framework: {config.evaluation_framework}"
@@ -114,7 +115,7 @@ def evaluate_lema(config: EvaluationConfig) -> None:
     logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
 
-def evaluate_lm_harmess(config: EvaluationConfig) -> None:
+def evaluate_lm_harness(config: EvaluationConfig) -> None:
     """Evaluate a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
