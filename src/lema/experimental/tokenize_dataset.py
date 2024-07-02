@@ -22,7 +22,7 @@ def _list_input_files(
 ) -> Iterator[pathlib.Path]:
     for path_str in input_paths:
         path = pathlib.Path(path_str)
-        if path.exists() is False:
+        if not path.exists():
             logger.warning(f"{path} not found and skipped")
             continue
         yield from path.glob(f"*.{input_format}") if path.is_dir() else [path]
@@ -33,7 +33,7 @@ def _tokenize_examples(
     target_col: str,
     examples: Dict[str, Any],
 ) -> Dict[str, Any]:
-    batch = tokenizer(examples[target_col], return_length=True)
+    batch = tokenizer(examples[target_col])
     token_ids: List[List[int]] = batch.input_ids
     result = examples.copy()
     result["token_ids"] = token_ids
@@ -128,7 +128,10 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         "--num_proc",
         type=int,
         default=-1,
-        help="Number of processes for parallel execution.",
+        help=(
+            "Number of processes for parallel execution. "
+            "If -1, then use all available CPU cores."
+        ),
     )
 
     args, unknown = parser.parse_known_args()
