@@ -10,7 +10,6 @@ from tqdm import tqdm
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from lema.builders import (
-    # build_dataset,
     build_tokenizer,
 )
 from lema.core.types import TrainingConfig
@@ -50,7 +49,6 @@ def _tokenize_file(
     logger.info(f"Loading {input_file}.")
     if input_format == "jsonl":
         dataset = Dataset.from_json(str(input_file), keep_in_memory=True)
-    # https://github.com/huggingface/datasets/issues/5531
     else:
         assert input_format == "parquet"
         dataset = Dataset.from_parquet(str(input_file), keep_in_memory=True)
