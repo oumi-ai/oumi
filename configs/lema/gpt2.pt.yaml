@@ -17,8 +17,6 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
-        preprocessing_function_kwargs:
-          num_proc: 4
     stream: True
     pack: True
     target_col: "text"

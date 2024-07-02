@@ -55,5 +55,5 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.max_steps=500" \
+      "training.max_steps=100" \
       "training.enable_wandb=true"
