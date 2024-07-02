@@ -1,8 +1,12 @@
 import queue
 import random
-import threading
+import time
+from multiprocessing import Process, Queue
+from typing import Callable, Optional
 
+import datasets
 import torch
+import transformers
 from torch.utils.data import IterableDataset
 
 from lema.logging import logger
@@ -22,17 +26,17 @@ class ConstantLengthAsyncDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer,
-        dataset,
-        dataset_text_field=None,
-        formatting_func=None,
-        infinite=False,
-        seq_length=1024,
-        num_of_sequences=1024,
-        eos_token_id=0,
-        shuffle=False,
-        append_concat_token=True,
-        add_special_tokens=True,
+        tokenizer: transformers.PreTrainedTokenizer,
+        dataset: datasets.Dataset,
+        dataset_text_field: Optional[str] = None,
+        formatting_func: Optional[Callable] = None,
+        infinite: bool = False,
+        seq_length: int = 1024,
+        num_of_sequences: int = 1024,
+        eos_token_id: int = 0,
+        shuffle: bool = False,
+        append_concat_token: bool = True,
+        add_special_tokens: bool = True,
     ):
         """Iterable dataset that returns constant length chunks of tokens.
 
@@ -71,7 +75,7 @@ class ConstantLengthAsyncDataset(IterableDataset):
         self.tokenizer = tokenizer
 
         if tokenizer.eos_token_id is None:
-            logger.warn(
+            logger.warning(
                 "The passed tokenizer does not have an EOS token. We will use the"
                 " passed eos_token_id instead which corresponds"
                 f" to {eos_token_id}. If this is not the correct EOS token, make sure "
@@ -92,7 +96,7 @@ class ConstantLengthAsyncDataset(IterableDataset):
         if shuffle:
             self.tokenized_example_queue = queue.PriorityQueue(maxsize=num_of_sequences)
         else:
-            self.tokenized_example_queue = queue.Queue(maxsize=num_of_sequences)
+            self.tokenized_example_queue = Queue(maxsize=num_of_sequences)
 
         if formatting_func is None:
             self.formatting_func = lambda x: x[dataset_text_field]
@@ -100,20 +104,20 @@ class ConstantLengthAsyncDataset(IterableDataset):
             self.formatting_func = formatting_func
 
         if formatting_func is not None:
-            if formatting_func.__code__.co_argcount > 1:
-                logger.warn(
-                    "The passed formatting_func has more than one argument. Usually "
-                    "that function should have a single argument `example`"
+            if formatting_func.__code__.co_argcount != 1:
+                logger.warning(
+                    "The passed formatting_func does not have exactly 1 argument. "
+                    "Usually that function should have a single argument `example`"
                     " which corresponds to the dictionary returned by each element of "
                     "the dataset. Make sure you know what you are doing."
                 )
 
     def __len__(self):
-        """Get length of underlying dataset."""
+        """Gets length of underlying dataset."""
         return len(self.dataset)
 
     def _add_example_to_queue(self, example):
-        """Add a single example to the queue."""
+        """Adds a single example to the queue."""
         # Shuffle by using a priority queue with random priority values
         # Note that the tensors themselves are identical,
         # Only the order they are returned is shuffled.
@@ -134,27 +138,25 @@ class ConstantLengthAsyncDataset(IterableDataset):
     def _dataset_iterator_worker(self):
         # TODO: Increase to more than 1 thread
         iterator = iter(self.dataset)
-        more_examples = True
         token_buffer = []
-        while more_examples:
+        while True:
             token_count = len(token_buffer)
             try:
                 formatted_input = self.formatting_func(next(iterator))
             except StopIteration:
                 if self.infinite:
                     iterator = iter(self.dataset)
-                    logger.warn(
+                    logger.warning(
                         "The dataset reached end, iterator is reset to the start."
                     )
                 else:
-                    more_examples = False
                     break
 
             tokenized_input = self.tokenizer(
                 [formatted_input],
                 add_special_tokens=self.add_special_tokens,
                 truncation=False,
-            )["input_ids"][0]
+            )["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
 
             if self.append_concat_token:
                 tokenized_input = tokenized_input + [self.concat_token_id]
@@ -194,14 +196,15 @@ class ConstantLengthAsyncDataset(IterableDataset):
 
         # Signal that there are no more samples, have this be the last value
         self.tokenized_example_queue.put((_END_PRIORITY_VALUE, None))
+        time.sleep(1000)  # sleep to avoid closing the queue
 
     def __iter__(self):
-        """Iterate through the dataset with most work on a separate thread."""
+        """Iterates through the dataset with most work on a separate thread."""
         # Set worker thread to daemon so it dies when the program finishes.
-        worker_thread = threading.Thread(
-            target=self._dataset_iterator_worker, daemon=True
+        worker_process = Process(
+            target=self._dataset_iterator_worker, args=(), daemon=True
         )
-        worker_thread.start()
+        worker_process.start()
         while True:
             _, tensors = self.tokenized_example_queue.get()
             if tensors is None:
@@ -209,4 +212,5 @@ class ConstantLengthAsyncDataset(IterableDataset):
             self.current_size += 1
             yield tensors
 
-        worker_thread.join()
+        worker_process.terminate()
+        worker_process.join()
