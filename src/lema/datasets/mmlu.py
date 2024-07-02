@@ -107,13 +107,13 @@ class MmluDataset:
             for example in shots  # type: ignore
         )
 
-    def __init__(self, subject: str = "all", num_shots: int = DEFAULT_NUM_SHOTS):
+    def __init__(self, subject: str = "all", num_shots: Optional[int] = None):
         """Initializes the class MmluDataset."""
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
         self._dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
         self._few_shot_dict: Dict[str, str] = dict()
-        self._num_shots = num_shots
+        self._num_shots = num_shots if (num_shots is not None) else DEFAULT_NUM_SHOTS
 
     # Instance methods (private).
     def _prompt_template(self, example: Dict[str, Any]) -> str:

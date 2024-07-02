@@ -145,7 +145,7 @@ def evaluate_lm_harmess(config: EvaluationConfig) -> None:
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
         device=device,
-        limit=config.num_samples,
+        limit=config.num_samples if config.num_samples else None,
     )
     if config.output_dir:
         metric_dict = results["results"]  # type: ignore

@@ -13,4 +13,4 @@ generation:
   batch_size: 2
 
 evaluation_framework: "lema"
-num_samples: None
+num_samples: 0
