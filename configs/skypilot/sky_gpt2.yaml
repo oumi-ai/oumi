@@ -55,4 +55,6 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
       "training.enable_wandb=true"

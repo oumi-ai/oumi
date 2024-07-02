@@ -96,6 +96,15 @@ class TrainingParams:
     # then this parameter has no effect.
     try_resume_from_last_checkpoint: bool = False
 
+    # Number of subprocesses to use for data loading (PyTorch only).
+    # 0 means that the data will be loaded in the main process.
+    dataloader_num_workers: int = 0
+
+    # Number of batches loaded in advance by each worker. 2 means there will be
+    # a total of 2 * num_workers batches prefetched across all workers.
+    # Can only be set if dataloader_num_workers >= 1.
+    dataloader_prefetch_factor: Optional[int] = None
+
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
@@ -135,6 +144,8 @@ class TrainingParams:
             resume_from_checkpoint=self.resume_from_checkpoint,
             evaluation_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
+            dataloader_num_workers=self.dataloader_num_workers,
+            dataloader_prefetch_factor=self.dataloader_prefetch_factor,
         )
 
     def _get_hf_report_to(self) -> List[str]:
