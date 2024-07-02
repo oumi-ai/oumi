@@ -10,11 +10,14 @@ from lema.core.types import (
     EvaluationConfig,
     ModelParams,
 )
+from lema.evaluate import SAVE_FILENAME_JSON
 
 
 def test_evaluate_lema():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
+        output_file = os.path.join(nested_output_dir, SAVE_FILENAME_JSON)
+
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
             data=DataParams(
@@ -35,7 +38,7 @@ def test_evaluate_lema():
         )
 
         evaluate_lema(config, num_entries=4)
-        with open(os.path.join(nested_output_dir, "eval.json"), "r") as f:
+        with open(output_file, mode="r", encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics:
             # {"cais/mmlu": {"accuracy": 0.0}}
@@ -45,6 +48,8 @@ def test_evaluate_lema():
 def test_evaluate_lm_harmess():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
+        output_file = os.path.join(nested_output_dir, SAVE_FILENAME_JSON)
+
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
             data=DataParams(
@@ -58,12 +63,13 @@ def test_evaluate_lm_harmess():
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
+                trust_remote_code=True,
             ),
             evaluation_framework="lm_harmess",
         )
 
         evaluate_lm_harmess(config, num_entries=4)
-        with open(os.path.join(nested_output_dir, "eval.json"), "r") as f:
+        with open(output_file, mode="r", encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics:
             # {

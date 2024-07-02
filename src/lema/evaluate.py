@@ -141,7 +141,10 @@ def evaluate_lm_harmess(
 
     results = lm_eval.simple_evaluate(
         model="hf",
-        model_args=f"pretrained={config.model.model_name},trust_remote_code=True",
+        model_args=(
+            f"pretrained={config.model.model_name},"
+            f"trust_remote_code={config.model.trust_remote_code}"
+        ),
         tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
@@ -165,7 +168,7 @@ def save_evaluation_results(
     """Write metrics as a dict of dicts: Benchmarks -> metric names -> metric values."""
     os.makedirs(output_dir, exist_ok=True)
     output_eval_path = os.path.join(output_dir, SAVE_FILENAME_JSON)
-    with open(output_eval_path, "w") as f:
+    with open(output_eval_path, mode="w", encoding="utf-8") as f:
         json.dump(metric_dict, f)
 
 
