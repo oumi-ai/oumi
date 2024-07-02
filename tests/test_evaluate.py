@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 
-from lema import evaluate_custom, evaluate_lm_harmess
+from lema import evaluate_lema, evaluate_lm_harmess
 from lema.core.types import (
     DataParams,
     DatasetParams,
@@ -12,7 +12,7 @@ from lema.core.types import (
 )
 
 
-def test_evaluate_custom():
+def test_evaluate_lema():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         config: EvaluationConfig = EvaluationConfig(
@@ -31,10 +31,10 @@ def test_evaluate_custom():
                 model_name="openai-community/gpt2",
                 trust_remote_code=True,
             ),
-            evaluation_framework="custom",
+            evaluation_framework="lema",
         )
 
-        evaluate_custom(config, num_entries=4)
+        evaluate_lema(config, num_entries=4)
         with open(os.path.join(nested_output_dir, "eval.json"), "r") as f:
             computed_metrics = json.load(f)
             # expected metrics:

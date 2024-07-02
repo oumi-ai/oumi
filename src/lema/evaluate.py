@@ -43,8 +43,8 @@ def main() -> None:
     )
 
     # Run evaluation
-    if config.evaluation_framework == "custom":
-        evaluate_custom(config)
+    if config.evaluation_framework == "lema":
+        evaluate_lema(config)
     elif config.evaluation_framework == "lm_harmess":
         evaluate_lm_harmess(config)
     else:
@@ -53,9 +53,7 @@ def main() -> None:
         )
 
 
-def evaluate_custom(
-    config: EvaluationConfig, num_entries: Optional[int] = None
-) -> None:
+def evaluate_lema(config: EvaluationConfig, num_entries: Optional[int] = None) -> None:
     """Evaluate a model using the provided configuration.
 
     Overview:
