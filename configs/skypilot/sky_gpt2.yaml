@@ -55,5 +55,4 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.output_dir=/output_dir_gcs/wizeng/runs/20240628_gpt2_fullrun_drop0.pt/" \
       "training.enable_wandb=true"
