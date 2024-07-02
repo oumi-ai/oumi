@@ -41,8 +41,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
-  # Required if we make any code changes.
-  pip install -e '.'
+  # Required if we make any code changes
+  pip install '.[train]'
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
@@ -55,5 +55,4 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.max_steps=100" \
       "training.enable_wandb=true"
