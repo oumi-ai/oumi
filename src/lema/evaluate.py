@@ -44,6 +44,18 @@ def main() -> None:
     )
 
     # Run evaluation
+    evaluate(config)
+
+
+def evaluate(config: EvaluationConfig) -> None:
+    """Evaluates a model using the provided configuration.
+
+    Args:
+        config: The desired configuration for evaluation.
+
+    Returns:
+        None.
+    """
     if config.evaluation_framework == EvaluationFramework.LEMA:
         evaluate_lema(config)
     elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
