@@ -146,6 +146,7 @@ class TrainingParams:
             eval_steps=self.eval_steps,
             dataloader_num_workers=self.dataloader_num_workers,
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            ddp_find_unused_parameters=False,
         )
 
     def _get_hf_report_to(self) -> List[str]:
