@@ -1,4 +1,10 @@
-## Recipe and HPs used for Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # noqa
+## Recipe and HPs used for Zephyr.7B:
+## https://huggingface.co/alignment-handbook/zephyr-7b-sft-full
+## Works for training with 4, 80GB A-100, GPUS.
+## Adjust per_device_train_batch_size & gradient_accumulation_steps for a different
+## setup.
+
+#TODO change gradient_accumulation_steps (=1) as default when 8-80s are available.
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
@@ -17,7 +23,7 @@ data:
         shuffle: True
         seed: 42
         preprocessing_function_kwargs:
-          num_proc: 6
+          num_proc: 12
           batched: False
     target_col: "text"
 
@@ -26,8 +32,8 @@ training:
   use_peft: False
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4  # single GPU training
-  gradient_accumulation_steps: 16 # effective batch-size should be 64
+  per_device_train_batch_size: 16  # fits in 80GB-RAM GPU
+  gradient_accumulation_steps: 2   # effective batch-size should be 128=16x(4)x2
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
   output_dir: "output/zephyr-7b-sft-full"
@@ -40,8 +46,9 @@ training:
   max_steps: -1
   num_train_epochs: 1
   save_steps: 100
+  bf16: True
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_kwargs:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
-    packing: True # Enable for faster training
+    packing: True # Enabled for faster training
