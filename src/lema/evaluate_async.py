@@ -13,7 +13,7 @@ _PREFIX_CHECKPOINT_DIR = "checkpoint"
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and return the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"

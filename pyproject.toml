@@ -38,7 +38,6 @@ Issues = "https://github.com/openlema/lema/issues"
 dev = [
     "black",
     "isort",
-    "lm-eval",
     "mypy",
     "pre-commit",
     "pynvml",
