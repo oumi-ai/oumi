@@ -1,7 +1,6 @@
 import argparse
 from typing import Callable, Optional
 
-import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -107,17 +106,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
         )
-
-    # Attempt to compile the forward pass of the model.
-    # `model = torch.compile(model)` doesn't work, maybe due to errors w/ HF datasets.
-    if config.model.compile:
-        try:
-            model.forward = torch.compile(model.forward)
-            logger.info("Compiled forward pass of model.")
-        except Exception as e:
-            logger.warning(
-                f"Unable to compile model, will use uncompiled model. Error: {e}"
-            )
 
     if config.training.log_model_summary:
         log_model_summary(model)
