@@ -113,8 +113,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if config.model.compile:
         try:
             model.forward = torch.compile(model.forward)
-            # Send test input through model to trigger compilation before training.
-            # model(['test'])
             logger.info("Compiled forward pass of model.")
         except Exception as e:
             logger.warning(

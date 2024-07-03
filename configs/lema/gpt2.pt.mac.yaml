@@ -1,4 +1,4 @@
-# Dumbed-down GPT-2 implementation for local testing on Mac.
+# Simplified GPT-2 config for local testing on Mac.
 
 # Model automatically uses weight tying
 model:
