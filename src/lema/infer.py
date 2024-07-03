@@ -4,6 +4,7 @@ from typing import List
 import peft
 import torch
 from tqdm import tqdm
+from transformers import BatchEncoding
 
 from lema.builders import (
     build_model,
@@ -94,15 +95,18 @@ def infer(
     model_device = next(model.parameters()).device
 
     # Tokenization of input (in place, batch mode).
+    input_batches: List[BatchEncoding] = [BatchEncoding()] * len(input)
     for batch_index, batch in enumerate(input):
         batch_tokenized = tokenizer(batch, return_tensors="pt", padding=True)
         batch_tokenized = batch_tokenized.to(model_device)
-        input[batch_index] = batch_tokenized
+        input_batches[batch_index] = batch_tokenized
 
     # Generate model outputs (batch mode).
     output = []
-    for batch_index in tqdm(range(len(input)), desc="Generating Model Responses"):
-        batch = input[batch_index]
+    for batch_index in tqdm(
+        range(len(input_batches)), desc="Generating Model Responses"
+    ):
+        batch = input_batches[batch_index]
         output.append(
             model.generate(**batch, max_new_tokens=generation_config.max_new_tokens)
         )
@@ -114,7 +118,7 @@ def infer(
         if exclude_prompt_from_reponse:
             new_batch_data = []
             for reponse_index, response in enumerate(batch.data):
-                prompt = input[batch_index]["input_ids"][reponse_index]  # type: ignore
+                prompt = input_batches[batch_index]["input_ids"][reponse_index]  # type: ignore
                 assert prompt.tolist() == response[: len(prompt)].tolist()
                 new_batch_data.append(response[len(prompt) :])
             batch.data = torch.stack(new_batch_data, dim=0)

@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 from typing import List
 
-from lema import evaluate
+from lema import evaluate_lema
 from lema.core.types import AsyncEvaluationConfig
 from lema.logging import logger
 
@@ -91,16 +91,16 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
             output_eval_dir = os.path.join(
                 base_output_dir, os.path.basename(checkpoint)
             )
-            mutable_config = deepcopy(config)
+            mutable_evaluation_config = deepcopy(config.evaluation)
             # Update the model to point to the checkpoint.
-            mutable_config.evaluation.model.model_name = checkpoint
+            mutable_evaluation_config.model.model_name = checkpoint
             # Update the eval output location.
-            mutable_config.evaluation.output_dir = output_eval_dir
+            mutable_evaluation_config.output_dir = output_eval_dir
             logger.info(
                 "Starting evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)}..."
             )
-            evaluate(mutable_config.evaluation)
+            evaluate_lema(mutable_evaluation_config)
             logger.info(
                 "Finished evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)} !"

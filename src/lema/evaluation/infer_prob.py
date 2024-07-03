@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -109,7 +109,9 @@ def infer_prob(
                 raise ValueError(f"Token `{token}` NOT found in vocabulary")
 
     # Tokenization of acceptable outputs (i.e. next token to be generated).
-    acceptable_token_ids = tokenizer.convert_tokens_to_ids(acceptable_tokens)
+    acceptable_token_ids = cast(
+        List[int], tokenizer.convert_tokens_to_ids(acceptable_tokens)
+    )
     for token_id in acceptable_token_ids:
         if token_id not in token_id_vocab:
             # For sanity checking, we need to ensure that the encoded tokens (ids) exist

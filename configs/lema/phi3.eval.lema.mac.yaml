@@ -11,3 +11,6 @@ data:
 
 generation:
   batch_size: 2
+
+evaluation_framework: LEMA
+num_samples: 0
