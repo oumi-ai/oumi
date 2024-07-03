@@ -2,7 +2,6 @@ import argparse
 from typing import Callable, Optional
 
 import torch
-from torch.profiler import ProfilerActivity, profile, record_function
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -168,34 +167,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_memory_utilization()
 
     logger.info("Starting training...")
-    run_profile = False
-    if run_profile:
-        with profile(
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True
-        ) as prof:
-            with record_function("model_inference"):
-                trainer.train(
-                    resume_from_checkpoint=(
-                        _find_checkpoint_to_resume_from(
-                            config.training.resume_from_checkpoint,
-                            config.training.try_resume_from_last_checkpoint,
-                            config.training.output_dir,
-                        )
-                    )
-                )
-
-        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-        prof.export_chrome_trace("trace.json")
-    else:
-        trainer.train(
-            resume_from_checkpoint=(
-                _find_checkpoint_to_resume_from(
-                    config.training.resume_from_checkpoint,
-                    config.training.try_resume_from_last_checkpoint,
-                    config.training.output_dir,
-                )
+    trainer.train(
+        resume_from_checkpoint=(
+            _find_checkpoint_to_resume_from(
+                config.training.resume_from_checkpoint,
+                config.training.try_resume_from_last_checkpoint,
+                config.training.output_dir,
             )
         )
+    )
     logger.info("Training is Complete.")
 
     logger.info("Max Memory Usage Before Training: ")
