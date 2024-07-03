@@ -116,7 +116,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             logger.info("Compiled forward pass of model.")
         except Exception as e:
             logger.warning(
-                "Unable to compile model, will use uncompiled model. " f"Error: {e}"
+                f"Unable to compile model, will use uncompiled model. Error: {e}"
             )
 
     if config.training.log_model_summary:
