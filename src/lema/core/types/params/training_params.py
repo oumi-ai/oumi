@@ -105,6 +105,11 @@ class TrainingParams:
     # Can only be set if dataloader_num_workers >= 1.
     dataloader_prefetch_factor: Optional[int] = None
 
+    # When using distributed training, the value of the flag `find_unused_parameters`
+    # passed to `DistributedDataParallel`. Will default to `False` if gradient
+    # checkpointing is used, `True` otherwise.
+    ddp_find_unused_parameters: Optional[bool] = None
+
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
@@ -146,6 +151,7 @@ class TrainingParams:
             eval_steps=self.eval_steps,
             dataloader_num_workers=self.dataloader_num_workers,
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            ddp_find_unused_parameters=self.ddp_find_unused_parameters,
         )
 
     def _get_hf_report_to(self) -> List[str]:
