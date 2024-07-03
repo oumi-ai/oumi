@@ -39,7 +39,7 @@
             "module": "lema.train",
             "args": [
                 "-c",
-                "configs/lema/gpt2.pt.yaml"
+                "configs/lema/gpt2.pt.mac.yaml"
             ],
             "justMyCode": true
         },
