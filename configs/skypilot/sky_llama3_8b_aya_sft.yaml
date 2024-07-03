@@ -50,6 +50,7 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama3.8b.aya.sft.yaml \
+      "training.run_name='llama3.8b.aya.sft.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

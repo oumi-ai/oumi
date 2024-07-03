@@ -49,6 +49,7 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
+      "training.run_name='phi3.dpo.nvidia.24g.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

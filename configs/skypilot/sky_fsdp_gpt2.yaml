@@ -36,6 +36,7 @@ run: |
       --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
+      "training.run_name='gpt2.pt.fsdp.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
