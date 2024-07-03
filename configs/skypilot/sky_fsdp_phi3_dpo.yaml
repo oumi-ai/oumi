@@ -36,6 +36,7 @@ run: |
       --config_file configs/accelerate/sample_fsdp_phi3_dpo.yaml \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
+      "training.run_name='phi3.dpo.nvidia.24g.fsdp.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
