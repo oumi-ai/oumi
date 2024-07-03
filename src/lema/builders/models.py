@@ -48,6 +48,17 @@ def build_model(
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
+    # Attempt to compile the forward pass of the model.
+    # `model = torch.compile(model)` doesn't work, maybe due to errors w/ HF datasets.
+    if model_params.compile:
+        try:
+            model.forward = torch.compile(model.forward)
+            logger.info("Compiled forward pass of model.")
+        except Exception as e:
+            logger.warning(
+                f"Unable to compile model, will use uncompiled model. Error: {e}"
+            )
+
     return model
 
 

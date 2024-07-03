@@ -18,7 +18,7 @@ SAVE_FILENAME_JSON = "eval.json"
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and return the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
@@ -55,7 +55,7 @@ def main() -> None:
 
 
 def evaluate_lema(config: EvaluationConfig) -> None:
-    """Evaluate a model using the provided configuration.
+    """Evaluates a model using the provided configuration.
 
     Overview:
         This is a hardcoded function, intending to provide a starting point for our
@@ -116,7 +116,7 @@ def evaluate_lema(config: EvaluationConfig) -> None:
 
 
 def evaluate_lm_harness(config: EvaluationConfig) -> None:
-    """Evaluate a model using the LM Evaluation Harness framework (EleutherAI).
+    """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
        https://github.com/EleutherAI/lm-evaluation-harness
@@ -162,7 +162,7 @@ def save_evaluation_results(
     output_dir: str,
     metric_dict: Dict[str, Any],
 ) -> None:
-    """Write metrics as a dict of dicts: Benchmarks -> metric names -> metric values."""
+    """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
     os.makedirs(output_dir, exist_ok=True)
     output_eval_path = os.path.join(output_dir, SAVE_FILENAME_JSON)
     with open(output_eval_path, mode="w", encoding="utf-8") as f:
