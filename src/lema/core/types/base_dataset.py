@@ -173,6 +173,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         split: Optional[str] = None,
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
+        return_tensors: bool = True,
         text_col: str = "text",
         **kwargs,
     ) -> None:
@@ -184,7 +185,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self.task = task
         self.text_col = text_col
         self._tokenizer = tokenizer
-
+        self.return_tensors = "pt" if return_tensors else "np"
         self.data = self._load_data()
 
     #
@@ -266,6 +267,10 @@ class BaseSftDataset(BaseMapDataset, ABC):
             samples,  # type: ignore
             tokenize=tokenize,
             return_dict=tokenize,
+            return_tensors=self.return_tensors,
+            max_length=self._tokenizer.model_max_length,
+            truncation=True,
+            padding=True,
             add_generation_prompt=(self.task == "generation"),
         )
 
@@ -334,5 +339,31 @@ class AlpacaDataset(BaseSftDataset):
             messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
         messages.append(Message(role=Role.USER, content=user_prompt))
         messages.append(Message(role=Role.ASSISTANT, content=model_output))
+
+        return Conversation(messages=messages)
+
+
+class ChatQADataset(BaseSftDataset):
+    default_dataset = "nvidia/ChatQA-Training-Data"
+
+    supported_datasets = {"nvidia/ChatQA-Training-Data"}
+
+    def format_inputs(self, example: Union[dict, pd.Series]) -> Conversation:
+        """Preprocesses the inputs of the example and returns a dictionary.
+
+        Args:
+            example (dict): The example containing the input and instruction.
+
+        Returns:
+            dict: The preprocessed inputs as a dictionary.
+
+        """
+        messages = []
+
+        for message in example["messages"]:
+            messages.append(Message(role=message["role"], content=message["content"]))
+
+        for response in example["answers"]:
+            messages.append({"role": Role.ASSISTANT, "content": response})
 
         return Conversation(messages=messages)
