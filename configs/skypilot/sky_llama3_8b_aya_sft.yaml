@@ -6,7 +6,7 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A100-80GB-SXM"}
+  accelerators: {"A100-80GB"}
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # Set `accelerators:` above to something like this: {"A40": N}
 
@@ -35,12 +35,16 @@ setup: |
   set -e
   pip install '.[train]'
   FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install bitsandbytes
+
 
 run: |
   set -e  # Exit if any command failed.
 
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
+
+  export HF_TOKEN=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
 
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
@@ -51,7 +55,9 @@ run: |
       -m lema.train \
       -c configs/lema/llama3.8b.aya.sft.yaml \
       "training.output_dir=train/" \
-      "training.enable_wandb=true" \
+      "training.enable_wandb=false" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=true" \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
       "training.logging_steps=10"
