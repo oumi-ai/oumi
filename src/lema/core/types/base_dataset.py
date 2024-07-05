@@ -156,7 +156,7 @@ class BaseMapDataset(Dataset, ABC):
         return pd.read_parquet(path)
 
 
-class BaseSftDataset(BaseMapDataset, ABC):
+class BaseLMSftDataset(BaseMapDataset, ABC):
     """In-memory dataset for SFT data.
 
     The SFT datasets are expected to be in the following format:
@@ -287,11 +287,11 @@ class BaseSftDataset(BaseMapDataset, ABC):
 #
 # Custon Dataset
 #
-class LemaSftDataset(BaseSftDataset):
+class LemaSftDataset(BaseLMSftDataset):
     pass
 
 
-class AlpacaDataset(BaseSftDataset):
+class AlpacaDataset(BaseLMSftDataset):
     system_prompt = (
         "Below is an instruction that describes a task, "
         "paired with an input that provides further context. "
@@ -345,7 +345,7 @@ class AlpacaDataset(BaseSftDataset):
         return Conversation(messages=messages)
 
 
-class ChatQADataset(BaseSftDataset):
+class ChatQADataset(BaseLMSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
 
     supported_datasets = {"nvidia/ChatQA-Training-Data"}
