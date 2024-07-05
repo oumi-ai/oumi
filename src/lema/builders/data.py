@@ -11,7 +11,7 @@ from lema.core.types import (
     MixtureStrategy,
     TrainingConfig,
 )
-from lema.core.types.base_dataset import AlpacaDataset
+from lema.datasets.alpaca import AlpacaDataset
 from lema.datasets.prompt_response_sft_preprocessor_factory import (
     PromptResponseSftPreprocessorFactory,
 )
