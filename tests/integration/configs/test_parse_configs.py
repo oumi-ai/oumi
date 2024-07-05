@@ -4,7 +4,12 @@ from typing import List
 
 import pytest
 
-from lema.core.types import EvaluationConfig, HardwareException, TrainingConfig
+from lema.core.types import (
+    AsyncEvaluationConfig,
+    EvaluationConfig,
+    HardwareException,
+    TrainingConfig,
+)
 
 
 def _is_config_file(path: str) -> bool:
@@ -30,21 +35,19 @@ def _get_all_config_paths() -> List[str]:
 
 @pytest.mark.parametrize("config_path", _get_all_config_paths())
 def test_parse_configs(config_path: str):
-    training_config_error = ""
-    eval_config_error = ""
-    try:
-        _ = TrainingConfig.from_yaml(config_path)
-    except (HardwareException, Exception) as exception:
-        # Ignore HardwareExceptions.
-        if not isinstance(exception, HardwareException):
-            training_config_error = str(exception)
-    try:
-        _ = EvaluationConfig.from_yaml(config_path)
-    except (HardwareException, Exception) as exception:
-        # Ignore HardwareExceptions.
-        if not isinstance(exception, HardwareException):
-            eval_config_error = str(exception)
-    assert (len(training_config_error) == 0) or (len(eval_config_error) == 0), (
-        f"Training config error: {training_config_error} . Evaluation config error: "
-        f"{eval_config_error} ."
-    )
+    valid_config_classes = [
+        TrainingConfig,
+        EvaluationConfig,
+        AsyncEvaluationConfig,
+    ]
+    error_messages = []
+    for config_class in valid_config_classes:
+        try:
+            _ = config_class.from_yaml(config_path)
+        except (HardwareException, Exception) as exception:
+            # Ignore HardwareExceptions.
+            if not isinstance(exception, HardwareException):
+                error_messages.append(
+                    f"Error parsing {config_class.__name__}: {str(exception)}. "
+                )
+    assert len(error_messages) != len(valid_config_classes), "".join(error_messages)

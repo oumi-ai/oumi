@@ -39,6 +39,12 @@ class TrainingParams:
     save_steps: int = 100
     run_name: str = "default"
 
+    # The name of the metrics function in the LeMa registry to use for evaluation
+    # during training. The method must accept as input a HuggingFace EvalPrediction and
+    # return a dictionary of metrics, with string keys mapping to metric values. A
+    # single metrics_function may compute multiple metrics.
+    metrics_function: Optional[str] = None
+
     log_level: str = "info"
     dep_log_level: str = "warning"
 
@@ -109,6 +115,20 @@ class TrainingParams:
     # then this parameter has no effect.
     try_resume_from_last_checkpoint: bool = False
 
+    # Number of subprocesses to use for data loading (PyTorch only).
+    # 0 means that the data will be loaded in the main process.
+    dataloader_num_workers: int = 0
+
+    # Number of batches loaded in advance by each worker. 2 means there will be
+    # a total of 2 * num_workers batches prefetched across all workers.
+    # Can only be set if dataloader_num_workers >= 1.
+    dataloader_prefetch_factor: Optional[int] = None
+
+    # When using distributed training, the value of the flag `find_unused_parameters`
+    # passed to `DistributedDataParallel`. Will default to `False` if gradient
+    # checkpointing is used, `True` otherwise.
+    ddp_find_unused_parameters: Optional[bool] = None
+
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
@@ -146,8 +166,11 @@ class TrainingParams:
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
-            eval_strategy=self.eval_strategy,
+            evaluation_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
+            dataloader_num_workers=self.dataloader_num_workers,
+            dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            ddp_find_unused_parameters=self.ddp_find_unused_parameters,
         )
 
     def _get_hf_report_to(self) -> List[str]:

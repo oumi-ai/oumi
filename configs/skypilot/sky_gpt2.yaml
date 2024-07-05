@@ -22,17 +22,11 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
   # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
+  #   name: lema-dev-private # Not available on Lambda
   #   mode: MOUNT
 
-  # Uncomment to mount GCS dir (then use as e.g., "training.output_dir=/output_dir_gcs/gpt2.pt/")
-  # /output_dir_gcs:
-  #  source: gs://lema-dev-us-central1
-  #  store: gcs
-  #  mode: MOUNT
-  #
-  # To resume from the last checkpoint: add this param:
-  # "training.try_resume_from_last_checkpoint=True"
+  # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
+  # for documentation on using GCS buckets.
 
 envs:
   WANDB_PROJECT: lema-train-test
@@ -44,12 +38,20 @@ setup: |
   # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
   pip install flash-attn --no-build-isolation
 
+  # Uncomment to install gsutil on RunPod
+  # curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  # echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+  # sudo apt-get update && sudo apt-get install google-cloud-cli
+
 run: |
   set -e  # Exit if any command failed.
 
+  # Required if we make any code changes
+  pip install '.[train]'
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  # "training.output_dir=/output_dir_gcs/wizeng/runs/20240626_gpt2.pt/" \
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -58,4 +60,8 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
+      "training.run_name='gpt2.pt.${SKYPILOT_TASK_ID}'" \
+      "training.ddp_find_unused_parameters=false" \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
       "training.enable_wandb=true"

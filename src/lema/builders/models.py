@@ -1,5 +1,5 @@
 import os.path as osp
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 import transformers
@@ -44,10 +44,20 @@ def build_model(
 
     if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
         logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
-        model_device = torch.device("cuda")
-        model = torch.nn.DataParallel(model).to(model_device)
+        model = torch.nn.DataParallel(model)
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
+
+    # Attempt to compile the forward pass of the model.
+    # `model = torch.compile(model)` doesn't work, maybe due to errors w/ HF datasets.
+    if model_params.compile:
+        try:
+            model.forward = torch.compile(model.forward)
+            logger.info("Compiled forward pass of model.")
+        except Exception as e:
+            logger.warning(
+                f"Unable to compile model, will use uncompiled model. Error: {e}"
+            )
 
     return model
 
@@ -83,7 +93,7 @@ def build_huggingface_model(
     device_rank_info = get_device_rank_info()
 
     # "auto" is not compatible with distributed training.
-    if device_rank_info.world_size > 1:
+    if device_map == "auto" and device_rank_info.world_size > 1:
         logger.info(
             f"Building model for distributed training "
             f"(world_size: {device_rank_info.world_size})..."
@@ -141,7 +151,9 @@ def build_huggingface_model(
     return model
 
 
-def build_tokenizer(model_params: ModelParams, **kwargs):
+def build_tokenizer(
+    model_params: ModelParams, **kwargs
+) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
     """Builds and returns a tokenizer based on the provided LeMa configuration.
 
     Args:

@@ -1,8 +1,11 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
+from omegaconf import MISSING
+
 from lema.core.types.base_config import BaseConfig
-from lema.core.types.params.data_params import DataParams, DatasetSplitParams
+from lema.core.types.params.data_params import DataParams
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import (
@@ -11,6 +14,13 @@ from lema.core.types.params.training_params import (
     TrainingParams,
 )
 from lema.logging import logger
+
+
+class EvaluationFramework(Enum):
+    """Enum representing the evaluation framework to use."""
+
+    LEMA = "lema"
+    LM_HARNESS = "lm_harness"
 
 
 @dataclass
@@ -102,6 +112,54 @@ class InferenceConfig(BaseConfig):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    data: DataParams = field(default_factory=DataParams)
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    evaluation_framework: EvaluationFramework = EvaluationFramework.LM_HARNESS
+    # Number of few-shot examples (with responses) to add in the prompt, in order to
+    # teach the model how to respond to the specific dataset's prompts.
+    num_shots: Optional[int] = 0
+    # Number of samples/examples to evaluate from this dataset. Mostly for debugging, in
+    # order to reduce the runtime. If set to `0`: the entire dataset is evaluated.
+    num_samples: Optional[int] = 0
+    # Where to write computed evaluations.
+    output_dir: str = "output"
+
+    def __post_init__(self):
+        """Verifies params."""
+        if not isinstance(self.evaluation_framework, EvaluationFramework):
+            raise ValueError(
+                "`evaluation_framework` must belong to class `EvaluationFramework`."
+            )
+        if self.evaluation_framework not in list(EvaluationFramework):
+            raise ValueError(
+                f"Unknown `evaluation_framework` value: {self.evaluation_framework}."
+            )
+        if self.num_shots and self.num_shots < 0:
+            raise ValueError("`num_shots` must be non-negative.")
+        if self.num_samples and self.num_samples < 0:
+            raise ValueError("`num_samples` must be non-negative.")
+
+
+@dataclass
+class AsyncEvaluationConfig(BaseConfig):
+    evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+
+    # The directory to poll for new checkpoints.
+    checkpoints_dir: str = MISSING
+
+    # The time in seconds between the end of the previous evaluation and the start of
+    # the next polling attempt. Cannot be negative.
+    polling_interval: float = MISSING
+
+    # The number of times to retry polling before exiting the current job.
+    # A retry occurs when the job reads the target directory but cannot find a new
+    # model checkpoint to evaluate. Defaults to 5. Cannot be negative.
+    num_retries: int = 5
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if self.polling_interval < 0:
+            raise ValueError("`polling_interval` must be non-negative.")
+        if self.num_retries < 0:
+            raise ValueError("`num_retries` must be non-negative.")
