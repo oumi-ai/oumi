@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "SkyPilot task ID: ${SKYPILOT_TASK_ID}"
+echo "SkyPilot cluster: ${SKYPILOT_CLUSTER_INFO}"
 echo "Current dir: $(pwd)"
 echo "SkyPilot node IPs: ${SKYPILOT_NODE_IPS}"
 echo ""
