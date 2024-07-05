@@ -20,6 +20,9 @@ class ModelParams:
     load_pretrained_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
+    # Whether to (attempt to) compile the model.
+    # Currently we only try to compile the forward pass.
+    compile: bool = False
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"

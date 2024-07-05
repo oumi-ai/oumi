@@ -39,4 +39,4 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   python -m lema.evaluate \
-      -c configs/lema/phi3.eval.nvidia.yaml
+      -c configs/lema/phi3.eval.lema.nvidia.yaml

@@ -5,15 +5,15 @@ import time
 from copy import deepcopy
 from typing import List
 
-from lema import evaluate
 from lema.core.types import AsyncEvaluationConfig
+from lema.evaluate import evaluate
 from lema.logging import logger
 
 _PREFIX_CHECKPOINT_DIR = "checkpoint"
 
 
 def parse_cli():
-    """Parse command line arguments and return the configuration filename."""
+    """Parses command line arguments and return the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--config", default=None, help="Path to the configuration file"
@@ -91,16 +91,16 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
             output_eval_dir = os.path.join(
                 base_output_dir, os.path.basename(checkpoint)
             )
-            mutable_config = deepcopy(config)
+            mutable_evaluation_config = deepcopy(config.evaluation)
             # Update the model to point to the checkpoint.
-            mutable_config.evaluation.model.model_name = checkpoint
+            mutable_evaluation_config.model.model_name = checkpoint
             # Update the eval output location.
-            mutable_config.evaluation.output_dir = output_eval_dir
+            mutable_evaluation_config.output_dir = output_eval_dir
             logger.info(
                 "Starting evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)}..."
             )
-            evaluate(mutable_config.evaluation)
+            evaluate(mutable_evaluation_config)
             logger.info(
                 "Finished evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)} !"

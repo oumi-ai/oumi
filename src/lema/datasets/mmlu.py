@@ -97,7 +97,7 @@ class MmluDataset:
         return prompt
 
     @classmethod
-    def few_shots(cls, dev_data: Dataset, num_shots: int = DEFAULT_NUM_SHOTS) -> str:
+    def few_shots(cls, dev_data: Dataset, num_shots: int) -> str:
         """Returns `num_shots` formatted shots from the provided `dev_data`."""
         if not num_shots:
             return ""
@@ -107,12 +107,13 @@ class MmluDataset:
             for example in shots  # type: ignore
         )
 
-    def __init__(self, subject: str = "all"):
+    def __init__(self, subject: str = "all", num_shots: Optional[int] = None):
         """Initializes the class MmluDataset."""
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
         self._dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
         self._few_shot_dict: Dict[str, str] = dict()
+        self._num_shots = num_shots if (num_shots is not None) else DEFAULT_NUM_SHOTS
 
     # Instance methods (private).
     def _prompt_template(self, example: Dict[str, Any]) -> str:
@@ -169,12 +170,12 @@ class MmluDataset:
         prompt += MmluDataset.format_example(example, include_answer=False)
         return prompt
 
-    def _update_few_shot_dict(self, subject: str, num_shots: int = DEFAULT_NUM_SHOTS):
+    def _update_few_shot_dict(self, subject: str):
         """Adds few-shot examples for `subject` in the relevant dictionary."""
         assert subject in SUBJECTS
         dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
         dev_dataset: Dataset = dataset_dict["dev"]
-        few_shots = MmluDataset.few_shots(dev_dataset, num_shots)
+        few_shots = MmluDataset.few_shots(dev_dataset, self._num_shots)
         self._few_shot_dict[subject] = few_shots
 
     def _get_dataset(self, split: str, num_entries: Optional[int] = None) -> Dataset:
