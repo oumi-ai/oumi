@@ -48,7 +48,7 @@ class BaseMapDataset(Dataset, ABC):
     #
     # Main API
     #
-    def __getitem__(self, idx: int) -> Union[Conversation, dict]:
+    def __getitem__(self, idx: int) -> dict:
         """Gets the item at the specified index.
 
         Args:
