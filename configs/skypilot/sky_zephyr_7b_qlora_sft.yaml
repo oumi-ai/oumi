@@ -31,6 +31,8 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
+  HF_TOKEN: null # forces the user to pass it
+  LEMA_RUN_NAME: "zephyr.7b.sft.qlora"
 
 setup: |
   set -e
@@ -51,8 +53,8 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/zephyr.7b/sft/qlora.yaml \
-      "training.run_name='zephyr.7b.sft.qlora.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=false" \
-      "training.output_dir=/output_dir_gcs/panos/output/zephyr.7b/sft/qlora"
+      "training.output_dir=/output_dir_gcs/panos/output/${LEMA_RUN_NAME}"
