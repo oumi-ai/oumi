@@ -38,7 +38,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[all]'
+  pip install -e '.[all]'
   FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
 
 run: |
