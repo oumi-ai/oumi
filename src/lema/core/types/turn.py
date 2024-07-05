@@ -22,13 +22,13 @@ class Conversation(pydantic.BaseModel):
     messages: List[Message]
     metadata: Dict[str, str] = {}
 
-    def __getitem__(self, item):
+    def __getitem__(self, idx: int) -> Message:
         """Get the message at the specified index.
 
         Args:
-            item (int): The index of the message to retrieve.
+            idx (int): The index of the message to retrieve.
 
         Returns:
             Any: The message at the specified index.
         """
-        return self.messages[item]
+        return self.messages[idx]

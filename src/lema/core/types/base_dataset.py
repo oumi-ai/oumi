@@ -296,7 +296,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
 
 
 #
-# Custon Dataset
+# Custom Dataset
 #
 class LemaSftDataset(BaseLMSftDataset):
     pass
