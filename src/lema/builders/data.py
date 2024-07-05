@@ -5,6 +5,7 @@ import datasets
 import transformers
 from trl.trainer import ConstantLengthDataset
 
+from lema.core.registry import REGISTRY
 from lema.core.types import (
     DatasetParams,
     DatasetSplit,
@@ -12,7 +13,7 @@ from lema.core.types import (
     MixtureStrategy,
     TrainingConfig,
 )
-from lema.datasets.alpaca import AlpacaDataset, alpaca_preprocessing_fn
+from lema.datasets.alpaca import alpaca_preprocessing_fn
 from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.prompt_response_sft_preprocessor_factory import (
     PromptResponseSftPreprocessorFactory,
@@ -210,7 +211,10 @@ def _preprocess_dataset(
     """Applies preprocessing to a dataset given an optional preprocessing function."""
     if (
         dataset_params.preprocessing_function_name is None
-        or dataset_params.dataset_name in ({"yahma/alpaca-cleaned", "tatsu-lab/alpaca"})
+        or REGISTRY.get_dataset(
+            dataset_params.dataset_name, subset=dataset_params.subset
+        )
+        is not None
     ):
         return dataset
     preprocessing_fn = build_prompt_generation_fn(
@@ -247,15 +251,19 @@ def _load_dataset(
     datasets.IterableDataset,
 ]:
     """Loads a dataset with the specified name and subset."""
-    if not stream and dataset_params.dataset_name in (
-        {"yahma/alpaca-cleaned", "tatsu-lab/alpaca"}
-    ):
-        dataset = AlpacaDataset(
-            split=dataset_params.split,
-            subset=dataset_params.subset,
-            tokenizer=tokenizer,
+    if not stream:
+        # Streaming is not supported yet for custom datasets.
+        dataset_cls = REGISTRY.get_dataset(
+            dataset_params.dataset_name, subset=dataset_params.subset
         )
-        return dataset.to_hf()
+
+        if dataset_cls is not None:
+            dataset = dataset_cls(
+                split=dataset_params.split,
+                subset=dataset_params.subset,
+                tokenizer=tokenizer,
+            )
+            return dataset.to_hf()
 
     return datasets.load_dataset(
         dataset_params.dataset_name,
