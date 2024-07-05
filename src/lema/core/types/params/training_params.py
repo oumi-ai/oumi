@@ -98,12 +98,12 @@ class TrainingParams:
 
     # Number of subprocesses to use for data loading (PyTorch only).
     # 0 means that the data will be loaded in the main process.
-    dataloader_num_workers: int = 0
+    dataloader_num_workers: int = 2
 
     # Number of batches loaded in advance by each worker. 2 means there will be
     # a total of 2 * num_workers batches prefetched across all workers.
     # Can only be set if dataloader_num_workers >= 1.
-    dataloader_prefetch_factor: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = 4
 
     # When using distributed training, the value of the flag `find_unused_parameters`
     # passed to `DistributedDataParallel`. Will default to `False` if gradient
