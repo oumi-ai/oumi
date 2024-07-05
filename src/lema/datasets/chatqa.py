@@ -12,6 +12,7 @@ from lema.datasets.common import apply_chat_template
 @register_dataset("nvidia/ChatQA-Training-Data")
 class ChatQADataset(BaseLMSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
+    default_subset = "sft"
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.

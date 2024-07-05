@@ -24,7 +24,7 @@ class BaseMapDataset(Dataset, ABC):
         self,
         *,
         dataset_name_or_path: Optional[str],
-        subset: Optional[str],
+        subset: Optional[str] = None,
         split: Optional[str] = None,
         **kwargs,
     ) -> None:
@@ -137,7 +137,7 @@ class BaseMapDataset(Dataset, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        splits_or_dataset = datasets.load_dataset(path=path)
+        splits_or_dataset = datasets.load_dataset(path=path, name=self.dataset_subset)
 
         if isinstance(
             splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
