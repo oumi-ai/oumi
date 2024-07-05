@@ -75,7 +75,15 @@ def build_dataset(
 
     datasets = [
         _preprocess_dataset(
-            _sample_dataset(dataset_params, dataset_split_params.stream),
+            _sample_dataset(
+                _load_dataset(
+                    dataset_params=dataset_params,
+                    stream=dataset_split_params.stream,
+                    tokenizer=tokenizer,
+                ),
+                dataset_params=dataset_params,
+                stream=dataset_split_params.stream,
+            ),
             dataset_params,
             tokenizer,
         )
@@ -129,34 +137,24 @@ def _mix_datasets(
 
 
 def _sample_dataset(
+    dataset: Union[
+        datasets.DatasetDict,
+        datasets.Dataset,
+        datasets.IterableDatasetDict,
+        datasets.IterableDataset,
+    ],
     dataset_params: DatasetParams,
     stream: bool,
 ) -> DatasetType:
     """Loads and samples the specified dataset."""
     if dataset_params.sample_count is None:
         # No sampling.
-        dataset = cast(
-            DatasetType,
-            _load_dataset(
-                dataset_params.dataset_name,
-                subset=dataset_params.subset,
-                streaming=stream,
-                split=dataset_params.split,
-            ),
-        )
+        dataset = cast(DatasetType, dataset)
         if dataset_params.shuffle:
             dataset = dataset.shuffle(dataset_params.seed)
         return dataset
     if stream:
-        dataset = cast(
-            datasets.IterableDataset,
-            _load_dataset(
-                dataset_params.dataset_name,
-                subset=dataset_params.subset,
-                streaming=stream,
-                split=dataset_params.split,
-            ),
-        )
+        dataset = cast(datasets.IterableDataset, dataset)
         if dataset_params.shuffle:
             dataset = dataset.shuffle(dataset_params.seed)
         generator = _build_iterable_dataset_sampler(
@@ -166,44 +164,17 @@ def _sample_dataset(
             DatasetType,
             datasets.IterableDataset.from_generator(generator, dataset.features),
         )
-    dataset = cast(
-        datasets.Dataset,
-        _load_dataset(
-            dataset_params.dataset_name,
-            subset=dataset_params.subset,
-            streaming=stream,
-            split=dataset_params.split,
-        ),
-    )
+    dataset = cast(datasets.Dataset, dataset)
     if dataset.num_rows >= dataset_params.sample_count:
         if dataset_params.shuffle:
             dataset = dataset.shuffle(dataset_params.seed).flatten_indices()
         return cast(DatasetType, dataset.take(dataset_params.sample_count))
     # Oversample the dataset.
     oversampling_copies = int(dataset_params.sample_count // dataset.num_rows)
-    dataset_list = [
-        cast(
-            datasets.Dataset,
-            _load_dataset(
-                dataset_params.dataset_name,
-                subset=dataset_params.subset,
-                streaming=stream,
-                split=dataset_params.split,
-            ),
-        )
-        for _ in range(oversampling_copies)
-    ]
+    dataset_list = [cast(datasets.Dataset, dataset) for _ in range(oversampling_copies)]
     remaining_rows = dataset_params.sample_count % dataset.num_rows
     if remaining_rows > 0:
-        sampled_dataset = cast(
-            datasets.Dataset,
-            _load_dataset(
-                dataset_params.dataset_name,
-                subset=dataset_params.subset,
-                streaming=stream,
-                split=dataset_params.split,
-            ),
-        )
+        sampled_dataset = cast(datasets.Dataset, dataset)
         if dataset_params.shuffle:
             sampled_dataset = sampled_dataset.shuffle(dataset_params.seed)
         dataset_list.append(sampled_dataset.take(remaining_rows))
@@ -221,7 +192,10 @@ def _preprocess_dataset(
     tokenizer: transformers.PreTrainedTokenizerBase,
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
-    if dataset_params.preprocessing_function_name is None:
+    if (
+        dataset_params.preprocessing_function_name is None
+        or dataset_params.dataset_name in ({"yahma/alpaca-cleaned", "tatsu-lab/alpaca"})
+    ):
         return dataset
     preprocessing_fn = build_prompt_generation_fn(
         dataset_params.preprocessing_function_name, tokenizer
@@ -247,10 +221,9 @@ def _build_iterable_dataset_sampler(
 
 
 def _load_dataset(
-    dataset_name: str,
-    subset: Optional[str] = None,
-    streaming: bool = False,
-    split: Optional[str] = None,
+    dataset_params: DatasetParams,
+    stream: bool = False,
+    tokenizer: Optional[transformers.PreTrainedTokenizerBase] = None,
 ) -> Union[
     datasets.DatasetDict,
     datasets.Dataset,
@@ -258,13 +231,19 @@ def _load_dataset(
     datasets.IterableDataset,
 ]:
     """Loads a dataset with the specified name and subset."""
-    if not streaming and dataset_name in ({"yahma/alpaca-cleaned", "tatsu-lab/alpaca"}):
-        dataset = AlpacaDataset(split=split, subset=subset)
+    if not stream and dataset_params.dataset_name in (
+        {"yahma/alpaca-cleaned", "tatsu-lab/alpaca"}
+    ):
+        dataset = AlpacaDataset(
+            split=dataset_params.split,
+            subset=dataset_params.subset,
+            tokenizer=tokenizer,
+        )
         return dataset.to_hf()
 
     return datasets.load_dataset(
-        dataset_name,
-        name=subset,
-        streaming=streaming,
-        split=split,
+        dataset_params.dataset_name,
+        name=dataset_params.subset,
+        split=dataset_params.split,
+        streaming=stream,
     )
