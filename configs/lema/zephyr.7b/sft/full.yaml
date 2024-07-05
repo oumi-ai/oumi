@@ -1,10 +1,8 @@
 ## Recipe and HPs used for Zephyr.7B:
 ## https://huggingface.co/alignment-handbook/zephyr-7b-sft-full
 
-## Works for training with 4, 80GB A-100, GPUS.
+## Setup for training with 8, 80GB A-100, GPUS.
 ## Adjust per_device_train_batch_size & gradient_accumulation_steps for your setup.
-
-#TODO change bsize, grad_accumulation_steps (=1) to defaults when 8-80s are available.
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
@@ -32,8 +30,8 @@ training:
   use_peft: False
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 2   # Alignment uses 16 and 80GB-RAM GPU TODO: ours-OOM
-  gradient_accumulation_steps: 16  # Effective batch-size should be 128=16x(4)x2
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1  # Effective batch-size is 128=16x(1)x8
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
   output_dir: "output/zephyr-7b-sft-full"
