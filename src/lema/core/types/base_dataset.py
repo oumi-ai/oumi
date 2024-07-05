@@ -58,7 +58,7 @@ class BaseMapDataset(Dataset, ABC):
             dict: The item at the specified index.
         """
         sample = self.raw(idx)
-        processed = self.preprocess_inputs(sample)
+        processed = self.transform(sample)
         return processed
 
     def __len__(self) -> int:
@@ -84,7 +84,7 @@ class BaseMapDataset(Dataset, ABC):
     # Abstract Methods
     #
     @abstractmethod
-    def preprocess_inputs(self, sample: Union[dict, pd.Series]) -> dict:
+    def transform(self, sample: Union[dict, pd.Series]) -> dict:
         """Preprocesses the inputs in the given sample.
 
         Args:
@@ -214,13 +214,13 @@ class BaseSftDataset(BaseMapDataset, ABC):
             str: The conversation at the specified index.
         """
         sample = self.raw(idx)
-        return self.format_inputs(sample)
+        return self.transform_conversation(sample)
 
     #
     # Abstract Methods
     #
     @abstractmethod
-    def format_inputs(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
@@ -235,9 +235,9 @@ class BaseSftDataset(BaseMapDataset, ABC):
     #
     # Pre-processing
     #
-    def preprocess_inputs(self, sample: pd.Series) -> Union[dict, pd.Series]:
+    def transform(self, sample: pd.Series) -> Union[dict, pd.Series]:
         """Preprocesses the inputs in the given sample."""
-        return self.tokenize(self.format_inputs(sample))
+        return self.tokenize(self.transform_conversation(sample))
 
     def tokenize(
         self,
@@ -313,7 +313,7 @@ class AlpacaDataset(BaseSftDataset):
 
         super().__init__(**kwargs)
 
-    def format_inputs(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
