@@ -1,13 +1,7 @@
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
+import datasets
 import transformers
-from datasets import (
-    Dataset,
-    IterableDataset,
-    concatenate_datasets,
-    interleave_datasets,
-    load_dataset,
-)
 from trl.trainer import ConstantLengthDataset
 
 from lema.core.types import (
@@ -17,15 +11,14 @@ from lema.core.types import (
     MixtureStrategy,
     TrainingConfig,
 )
-from lema.datasets.alpaca import alpaca_preprocessing_fn  # TODO: pull from registry
-from lema.datasets.chatqa import chatqa_preprocessor_fn
+from lema.core.types.base_dataset import AlpacaDataset
 from lema.datasets.prompt_response_sft_preprocessor_factory import (
     PromptResponseSftPreprocessorFactory,
 )
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 
-DatasetType = TypeVar("DatasetType", Dataset, IterableDataset)
+DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
 
 def build_prompt_generation_fn(
@@ -46,9 +39,7 @@ def build_prompt_generation_fn(
     # TODO: this should be pulled from registry
     prompt_response_factory = PromptResponseSftPreprocessorFactory(tokenizer)
 
-    if function_name == "alpaca":
-        return alpaca_preprocessing_fn(tokenizer)
-    elif function_name == "trl_sft_ultrachat_200k":
+    if function_name == "trl_sft_ultrachat_200k":
         return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
     elif function_name == "aya":
         return prompt_response_factory.get_preprocessing_fn(
@@ -57,8 +48,6 @@ def build_prompt_generation_fn(
         )
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
-    elif function_name == "chatqa":
-        return chatqa_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 
@@ -126,12 +115,12 @@ def _mix_datasets(
     """Joins multiple datasets using the provided `mixture_strategy`."""
     if any([proportion is None for proportion in mixture_proportions]):
         # All datasets should be concatenated when no proportion is specified.
-        return concatenate_datasets(dataset_list)
+        return datasets.concatenate_datasets(dataset_list)
     else:
         # All mixture_proportions are not None.
         mixture_proportions = cast(List[float], mixture_proportions)
         # Interleave datasets using the specified proportions and mixture strategy.
-        return interleave_datasets(
+        return datasets.interleave_datasets(
             dataset_list,
             probabilities=mixture_proportions,
             seed=seed,
@@ -148,9 +137,9 @@ def _sample_dataset(
         # No sampling.
         dataset = cast(
             DatasetType,
-            load_dataset(
+            _load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.subset,
+                subset=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -160,10 +149,10 @@ def _sample_dataset(
         return dataset
     if stream:
         dataset = cast(
-            IterableDataset,
-            load_dataset(
+            datasets.IterableDataset,
+            _load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.subset,
+                subset=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -174,13 +163,14 @@ def _sample_dataset(
             dataset, dataset_params.sample_count
         )
         return cast(
-            DatasetType, IterableDataset.from_generator(generator, dataset.features)
+            DatasetType,
+            datasets.IterableDataset.from_generator(generator, dataset.features),
         )
     dataset = cast(
-        Dataset,
-        load_dataset(
+        datasets.Dataset,
+        _load_dataset(
             dataset_params.dataset_name,
-            name=dataset_params.subset,
+            subset=dataset_params.subset,
             streaming=stream,
             split=dataset_params.split,
         ),
@@ -193,10 +183,10 @@ def _sample_dataset(
     oversampling_copies = int(dataset_params.sample_count // dataset.num_rows)
     dataset_list = [
         cast(
-            Dataset,
-            load_dataset(
+            datasets.Dataset,
+            _load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.subset,
+                subset=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -206,10 +196,10 @@ def _sample_dataset(
     remaining_rows = dataset_params.sample_count % dataset.num_rows
     if remaining_rows > 0:
         sampled_dataset = cast(
-            Dataset,
-            load_dataset(
+            datasets.Dataset,
+            _load_dataset(
                 dataset_params.dataset_name,
-                name=dataset_params.subset,
+                subset=dataset_params.subset,
                 streaming=stream,
                 split=dataset_params.split,
             ),
@@ -217,7 +207,7 @@ def _sample_dataset(
         if dataset_params.shuffle:
             sampled_dataset = sampled_dataset.shuffle(dataset_params.seed)
         dataset_list.append(sampled_dataset.take(remaining_rows))
-    oversampled_dataset = concatenate_datasets(dataset_list)
+    oversampled_dataset = datasets.concatenate_datasets(dataset_list)
     if dataset_params.shuffle:
         oversampled_dataset = oversampled_dataset.shuffle(
             dataset_params.seed
@@ -239,7 +229,9 @@ def _preprocess_dataset(
     return dataset.map(preprocessing_fn, **dataset_params.preprocessing_function_kwargs)
 
 
-def _build_iterable_dataset_sampler(dataset: IterableDataset, n: int) -> Callable:
+def _build_iterable_dataset_sampler(
+    dataset: datasets.IterableDataset, n: int
+) -> Callable:
     """Returns a generator that supports oversampling an IterableDataset."""
 
     def _generator():
@@ -252,3 +244,27 @@ def _build_iterable_dataset_sampler(dataset: IterableDataset, n: int) -> Callabl
                     break
 
     return _generator
+
+
+def _load_dataset(
+    dataset_name: str,
+    subset: Optional[str] = None,
+    streaming: bool = False,
+    split: Optional[str] = None,
+) -> Union[
+    datasets.DatasetDict,
+    datasets.Dataset,
+    datasets.IterableDatasetDict,
+    datasets.IterableDataset,
+]:
+    """Loads a dataset with the specified name and subset."""
+    if not streaming and dataset_name in ({"yahma/alpaca-cleaned", "tatsu-lab/alpaca"}):
+        dataset = AlpacaDataset(split=split, subset=subset)
+        return dataset.to_hf()
+
+    return datasets.load_dataset(
+        dataset_name,
+        name=subset,
+        streaming=streaming,
+        split=split,
+    )

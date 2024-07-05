@@ -80,6 +80,17 @@ class BaseMapDataset(Dataset, ABC):
         """
         return self.data.iloc[idx]
 
+    def as_generator(self):
+        """Returns a generator for the dataset."""
+        for idx in range(len(self)):
+            yield self[idx]
+
+    def to_hf(self) -> datasets.Dataset:
+        """Converts the dataset to a Hugging Face dataset."""
+        return cast(
+            datasets.Dataset, datasets.Dataset.from_generator(self.as_generator)
+        )
+
     #
     # Abstract Methods
     #
