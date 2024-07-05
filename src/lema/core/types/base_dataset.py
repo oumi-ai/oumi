@@ -1,5 +1,5 @@
 import os
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
 
 import datasets
@@ -83,6 +83,7 @@ class BaseMapDataset(Dataset, ABC):
     #
     # Abstract Methods
     #
+    @abstractmethod
     def preprocess_inputs(self, sample: Union[dict, pd.Series]) -> dict:
         """Preprocesses the inputs in the given sample.
 
@@ -218,6 +219,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
     #
     # Abstract Methods
     #
+    @abstractmethod
     def format_inputs(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
