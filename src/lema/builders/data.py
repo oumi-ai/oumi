@@ -216,6 +216,7 @@ def _preprocess_dataset(
         )
         is not None
     ):
+        # Custom datasets handle pre-processing internally.
         return dataset
     preprocessing_fn = build_prompt_generation_fn(
         dataset_params.preprocessing_function_name, tokenizer
