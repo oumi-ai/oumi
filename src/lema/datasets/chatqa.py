@@ -3,15 +3,15 @@ from typing import Callable, Dict, Union
 import pandas as pd
 from transformers import PreTrainedTokenizerBase
 
+from lema.core.registry import register_dataset
 from lema.core.types.base_dataset import BaseLMSftDataset
 from lema.core.types.turn import Conversation, Message, Role
 from lema.datasets.common import apply_chat_template
 
 
+@register_dataset("nvidia/ChatQA-Training-Data")
 class ChatQADataset(BaseLMSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
-
-    supported_datasets = {"nvidia/ChatQA-Training-Data"}
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.

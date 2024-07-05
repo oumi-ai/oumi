@@ -3,11 +3,14 @@ from typing import Callable, Dict, Union, cast
 import pandas as pd
 from transformers import PreTrainedTokenizerBase
 
+from lema.core.registry import register_dataset
 from lema.core.types.base_dataset import BaseLMSftDataset
 from lema.core.types.turn import Conversation, Message, Role
 from lema.datasets.common import apply_chat_template
 
 
+@register_dataset("yahma/alpaca-cleaned")
+@register_dataset("tatsu-lab/alpaca")
 class AlpacaDataset(BaseLMSftDataset):
     system_prompt = (
         "Below is an instruction that describes a task, "
@@ -16,8 +19,6 @@ class AlpacaDataset(BaseLMSftDataset):
     )
 
     default_dataset = "tatsu-lab/alpaca"
-
-    supported_datasets = {"yahma/alpaca-cleaned", "tatsu-lab/alpaca"}
 
     def __init__(
         self,

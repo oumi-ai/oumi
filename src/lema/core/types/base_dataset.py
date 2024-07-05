@@ -18,12 +18,13 @@ class BaseMapDataset(Dataset, ABC):
     data: pd.DataFrame
     dataset_name_or_path: str
     default_dataset: Optional[str] = None
-    supported_datasets = {}
+    default_subset: Optional[str] = None
 
     def __init__(
         self,
         *,
         dataset_name_or_path: Optional[str],
+        subset: Optional[str],
         split: Optional[str] = None,
         **kwargs,
     ) -> None:
@@ -43,6 +44,7 @@ class BaseMapDataset(Dataset, ABC):
             )
 
         self.dataset_name_or_path = dataset_name_or_path
+        self.dataset_subset = subset or self.default_subset
         self.split = split
 
     #
