@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+import pydantic
 
 
 class Role(Enum):
@@ -11,13 +11,13 @@ class Role(Enum):
     TOOL = "tool"
 
 
-class Message(BaseModel):
+class Message(pydantic.BaseModel):
     id: Optional[str] = None
     content: str
     role: Role
 
 
-class Conversation(BaseModel):
+class Conversation(pydantic.BaseModel):
     conversation_id: Optional[str] = None
     messages: List[Message]
     metadata: Dict[str, str] = {}
