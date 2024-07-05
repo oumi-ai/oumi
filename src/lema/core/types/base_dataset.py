@@ -173,7 +173,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         split: Optional[str] = None,
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
-        return_tensors: bool = True,
+        return_tensors: bool = False,
         text_col: str = "text",
         **kwargs,
     ) -> None:
@@ -185,7 +185,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self.task = task
         self.text_col = text_col
         self._tokenizer = tokenizer
-        self.return_tensors = "pt" if return_tensors else "np"
+        self.return_tensors = "pt" if return_tensors else None
         self.data = self._load_data()
 
     #
