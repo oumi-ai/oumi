@@ -1,5 +1,6 @@
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union, cast
 
+import datasets
 import pandas as pd
 from transformers import PreTrainedTokenizerBase
 
@@ -110,6 +111,33 @@ class ChatqaDataset(BaseLMSftDataset):
         messages.append({"role": Role.ASSISTANT, "content": response})
 
         return Conversation(messages=messages)
+
+
+@register_dataset("nvidia/ChatQA-Training-Data", subset="tatqa-arithmetic")
+@register_dataset("nvidia/ChatQA-Training-Data", subset="tatqa-others")
+class ChatqaTatqaOthersDataset(ChatqaDataset):
+    """ChatQA Subclass to handle tatqa subsets.
+
+    The tatqa subsets require loading a specific file
+        the dataset repository.
+    """
+
+    default_subset = "tatqa-arithmetic"
+
+    def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
+        if self.dataset_subset == "tatqa-arithmetic":
+            filename = "tatqa/train_arithmetic.json"
+        else:
+            filename = "tatqa/train_others.json"
+
+        if self.split is not None and self.split != "train":
+            raise ValueError("Only the `train` split is supported for this dataset.")
+
+        dataset = datasets.load_dataset(
+            self.dataset_name_or_path, data_files={"train": filename}
+        )
+        dataset = cast(datasets.DatasetDict, dataset)
+        return cast(pd.DataFrame, dataset["train"].to_pandas())
 
 
 #
