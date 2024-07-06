@@ -123,7 +123,7 @@ class ChatqaDataset(BaseLMSftDataset):
 class ChatqaTatqaDataset(ChatqaDataset):
     """ChatQA Subclass to handle tatqa subsets.
 
-    The tatqa subsets require loading a specific file
+    The tatqa subsets require loading a specific file from
     the dataset repository, thus requiring us to override the
     default loading behavior.
     """
