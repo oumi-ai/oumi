@@ -120,7 +120,7 @@ class ChatqaDataset(BaseLMSftDataset):
 
 @register_dataset("nvidia/ChatQA-Training-Data", subset="tatqa-arithmetic")
 @register_dataset("nvidia/ChatQA-Training-Data", subset="tatqa-others")
-class ChatqaTatqaOthersDataset(ChatqaDataset):
+class ChatqaTatqaDataset(ChatqaDataset):
     """ChatQA Subclass to handle tatqa subsets.
 
     The tatqa subsets require loading a specific file
