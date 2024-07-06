@@ -16,13 +16,13 @@ data:
         mixture_proportion: 0.095
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "quoref"
-        mixture_proportion: 0.026
+        mixture_proportion: 0.025 # Original: 0.26
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "ropes"
         mixture_proportion: 0.026
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "squad1.1"
-        mixture_proportion: 0.095
+        mixture_proportion: 0.09 # Original: 0.95
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "squad2.0"
         mixture_proportion: 0.095
@@ -40,7 +40,7 @@ data:
         mixture_proportion: 0.27  # Original: 0.3
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "sft"
-        mixture_proportion: 0.103  # Original: 0.2
+        mixture_proportion: 0.1  # Original: 0.2
 
 training:
   optimizer: "adamw_torch"

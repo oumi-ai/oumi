@@ -170,7 +170,9 @@ class DatasetSplitParams:
             )
 
     def _is_sum_normalized(self, mix_sum) -> bool:
-        return math.isclose(mix_sum, 1.0, rel_tol=1e-2)
+        # Note: the underlying interleave implementation requires
+        # the mixture proportions to sum to 1.0.
+        return math.isclose(mix_sum, 1.0)
 
 
 @dataclass
