@@ -65,35 +65,49 @@ class ChatqaDataset(BaseLMSftDataset):
         """
         messages = []
 
-        has_context = raw_conversation.get("document") is not None
-
-        # Most subsets contain a system message
+        # Step 1. Add system message. Most subsets contain one.
         system_message = self._get_system_message()
         if system_message:
             messages.append(Message(role=Role.SYSTEM, content=system_message))
 
-        # If the sample has a context, we add a system prompt
-        # to only use information from the context to answer the question
+        # Step 2. Add grounding context and system instruction
+        has_context = raw_conversation.get("document") is not None
         if has_context:
+            # Step 2.1. If the sample has a context, we add a system prompt
+            # to only use information from the context to answer the question
             context_message = (
                 "Only use the information from the user "
                 "provided context to answer the question."
             )
             messages.append(Message(role=Role.SYSTEM, content=context_message))
 
-            # Add context document, wrapped in <context> tags
+            # Step 2.2. Add context document, wrapped in <context> tags
             # Note: This is not part of the original dataset
             # but is added to make the context more explicit.
             document = f"<context>{raw_conversation['document']}</document>"
             messages.append(Message(role=Role.USER, content=document))
 
-        # Add user question
+        # Step 3. Add conversation history
+        # Can contain one or multiple user/assistant turns.
         for message in raw_conversation["messages"]:
             messages.append(Message(role=message["role"], content=message["content"]))
 
-        # Add assistant responses
-        for response in raw_conversation["answers"]:
-            messages.append({"role": Role.ASSISTANT, "content": response})
+        # Step 4. Add final assistant response, which is encoded differently
+        # depending on the subset.
+        if self.dataset_subset == "narrativeqa":
+            # `narrativeqa` contains an array of arrays of strings
+            # Note: All rows contain two answers.
+            # We arbitrarily use the first one answer.
+            response = raw_conversation["answers"][0][0]
+        elif self.dataset_subset in ("squad1.1", "squad2.0"):
+            # `squad1.1` and `squad2.0` contain a list of dicts
+            # All rows contain a single answer.
+            response = raw_conversation["answers"][0]["text"]
+        else:
+            # All other subsets contain a list of strings
+            # All rows contain a single answer.
+            response = raw_conversation["answers"][0]
+        messages.append({"role": Role.ASSISTANT, "content": response})
 
         return Conversation(messages=messages)
 
