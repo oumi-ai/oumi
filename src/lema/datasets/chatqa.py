@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Union, cast
+from typing import Callable, Dict, Optional, Union
 
 import pandas as pd
 from transformers import PreTrainedTokenizerBase
@@ -10,7 +10,7 @@ from lema.datasets.common import apply_chat_template
 
 
 @register_dataset("nvidia/ChatQA-Training-Data")
-class ChatqaSftDataset(BaseLMSftDataset):
+class ChatqaDataset(BaseLMSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
     default_subset = "sft"
 
@@ -76,11 +76,16 @@ class ChatqaSftDataset(BaseLMSftDataset):
         # to only use information from the context to answer the question
         if has_context:
             context_message = (
-                "Use only the information from the context to answer the question."
+                "Only use the information from the user "
+                "provided context to answer the question."
             )
-            document = cast(str, raw_conversation["document"])
             messages.append(Message(role=Role.SYSTEM, content=context_message))
-            messages.append(Message(role=Role.SYSTEM, content=document))
+
+            # Add context document, wrapped in <context> tags
+            # Note: This is not part of the original dataset
+            # but is added to make the context more explicit.
+            document = f"<context>{raw_conversation['document']}</document>"
+            messages.append(Message(role=Role.USER, content=document))
 
         # Add user question
         for message in raw_conversation["messages"]:
