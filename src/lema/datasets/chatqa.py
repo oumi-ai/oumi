@@ -23,6 +23,11 @@ class ChatqaDataset(BaseLMSftDataset):
             return "Please give a full and complete answer for the question."
 
         if self.dataset_subset in ("tatqa-arithmetic", "tatqa"):
+            # Note: `tatqa` is a combination of `tatqa-arithmetic` and `tatqa-others
+            # We use the same prompt as tqta-arithmetic for both as it's larger
+            # (8k vs 3k) Samples.
+            # Preferably, each dataset should be loaded separately instead of loading
+            # the combined `tatqa` subset.
             return (
                 "Answer the following question with a number "
                 "from context or the math arithmetic"
@@ -119,7 +124,8 @@ class ChatqaTatqaOthersDataset(ChatqaDataset):
     """ChatQA Subclass to handle tatqa subsets.
 
     The tatqa subsets require loading a specific file
-        the dataset repository.
+    the dataset repository, thus requiring us to override the
+    default loading behavior.
     """
 
     default_subset = "tatqa-arithmetic"
