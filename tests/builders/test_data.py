@@ -17,6 +17,8 @@ from lema.core.types import (
 )
 from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 
+pytestmark = pytest.mark.parametrize("stream", [True, False])
+
 
 def _get_default_config(
     datasets: List[DatasetParams],

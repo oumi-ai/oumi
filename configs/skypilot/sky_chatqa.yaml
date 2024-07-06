@@ -1,4 +1,4 @@
-name: debug-chatqa
+name: debug-chatqa-stage2
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
@@ -57,9 +57,10 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/chatqa/gpt2.chatqa.stage1.yaml \
+      -c configs/lema/chatqa/gpt2.chatqa.stage2.yaml \
       "training.run_name='chatqa.state1.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
+      "training.include_performance_metrics=true" \
       "training.enable_wandb=true"
