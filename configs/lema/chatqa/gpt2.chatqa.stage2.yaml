@@ -9,49 +9,38 @@ data:
     mixture_strategy: first_exhausted
     datasets:
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "drop"
         mixture_proportion: 0.069
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "narrativeqa"
         mixture_proportion: 0.095
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "quoref"
         mixture_proportion: 0.026
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "ropes"
         mixture_proportion: 0.026
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "squad1.1"
         mixture_proportion: 0.095
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "squad2.0"
         mixture_proportion: 0.095
+      # - dataset_name: "nvidia/ChatQA-Training-Data"
+      #   subset: "newsqa"
+      #   mixture_proportion: 0.095
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
-        subset: "newsqa"
-        mixture_proportion: 0.095
-      - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "tatqa-arithmetic"
         mixture_proportion: 0.15
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "tatqa-others"
         mixture_proportion: 0.08
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "synthetic_convqa"
         mixture_proportion: 0.27  # Original: 0.3
-      # - dataset_name: "nvidia/ChatQA-Training-Data"
-      #   preprocessing_function_name: "chatqa"
-      #   subset: "synthetic_convqa"
-      #   mixture_proportion: 0.2
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "sft"
+        mixture_proportion: 0.103  # Original: 0.2
 
 training:
   optimizer: "adamw_torch"

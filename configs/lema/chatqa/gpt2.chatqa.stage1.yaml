@@ -7,7 +7,6 @@ data:
   train:
     datasets:
       - dataset_name: "nvidia/ChatQA-Training-Data"
-        preprocessing_function_name: "chatqa"
         subset: "sft"
     target_col: "text"
 
