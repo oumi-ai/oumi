@@ -23,8 +23,8 @@ class ChatqaDataset(BaseLMSftDataset):
             return "Please give a full and complete answer for the question."
 
         if self.dataset_subset in ("tatqa-arithmetic", "tatqa"):
-            # Note: `tatqa` is a combination of `tatqa-arithmetic` and `tatqa-others
-            # We use the same prompt as tqta-arithmetic for both as it's larger
+            # Note: `tatqa` is a combination of `tatqa-arithmetic` and `tatqa-others``
+            # Here we use the same prompt as tqta-arithmetic for both as it's larger
             # (8k vs 3k) Samples.
             # Preferably, each dataset should be loaded separately instead of loading
             # the combined `tatqa` subset.
