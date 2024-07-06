@@ -285,7 +285,6 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
             return_tensors=self.return_tensors,
             max_length=self._tokenizer.model_max_length,
             truncation=True,
-            padding=True,
             add_generation_prompt=(self.task == "generation"),
         )
 

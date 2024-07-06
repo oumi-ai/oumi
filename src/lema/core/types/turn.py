@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 import pydantic
 
 
-class Role(Enum):
+class Role(str, Enum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
