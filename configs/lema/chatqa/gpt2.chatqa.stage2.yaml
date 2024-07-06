@@ -1,11 +1,15 @@
 model:
-  model_name: "openai-community/gpt2"
+  #model_name: "meta-llama/Meta-Llama-3-8B"
+  #torch_dtype_str: "bfloat16"
+  #attn_implementation: "flash_attention_2"
+  model_name: "gpt2"
   torch_dtype_str: "float16"
   trust_remote_code: True
+  model_max_length: 8192
 
 data:
   train:
-    target_col: "prompt"
+    target_col: "text"
     mixture_strategy: first_exhausted
     datasets:
       - dataset_name: "nvidia/ChatQA-Training-Data"
@@ -43,9 +47,17 @@ data:
         mixture_proportion: 0.1  # Original: 0.2
 
 training:
-  optimizer: "adamw_torch"
-  use_peft: false
-  output_dir: "output/chatqa.stage2"
   trainer_type: "TRL_SFT"
+
+  output_dir: "output/chatqa.stage1"
+  save_steps: 200
+
+  #optimizer: "adamw_torch_fused"
+  optimizer: "adamw"
+  learning_rate: 0.000005
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.00000001
+
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 8
