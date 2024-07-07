@@ -16,7 +16,7 @@ _PROFILER_SUB_DIR = "profiler"
 def _configure_torch_profile_save_dir(
     params: ProfilerParams, training_output_dir: Optional[str]
 ) -> ProfilerParams:
-    """Auto-generates ProfilerParams.saved_dir if not specified explictly."""
+    """Auto-generates ProfilerParams.saved_dir if not specified explicitly."""
     if not params.save_dir and training_output_dir:
         params.save_dir = str(pathlib.Path(training_output_dir) / _PROFILER_SUB_DIR)
     return params
