@@ -25,16 +25,11 @@ file_mounts:
   #   name: lema-dev-private # Not available on Lambda
   #   mode: MOUNT
 
-  /output_dir_gcs:
-    source: gs://lema-dev-us-central1
-    store: gcs
-    mode: MOUNT
   # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
   # for documentation on using GCS buckets.
 
 envs:
   WANDB_PROJECT: lema-train-test
-  LEMA_RUN_NAME: "profile.gpt2.pt.2xA100.50steps"
 
 setup: |
   set -e
@@ -65,17 +60,8 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.max_steps=50" \
-      "training.save_steps=10" \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir=/output_dir_gcs/nikolai/runs/${LEMA_RUN_NAME}/" \
-      "training.profiler.enable_cpu_profiling=true" \
-      "training.profiler.enable_cuda_profiling=true" \
+      "training.run_name='gpt2.pt.${SKYPILOT_TASK_ID}'" \
+      "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
-      "training.include_performance_metrics=true" \
-      "training.ddp_find_unused_parameters=false" \
-      "training.try_resume_from_last_checkpoint=false" \
       "training.enable_wandb=true"
-
-# sky launch --cloud GCP --env LEMA_RUN_NAME=profile.gpt2.pt.2xA100.50steps --use-spot --num-nodes 1 --gpus "A100:2" --cluster xrdaukar-prof-lema-cluster configs/skypilot/sky_gpt2.yaml

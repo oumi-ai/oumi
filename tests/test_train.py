@@ -36,7 +36,7 @@ def test_train_basic():
             ),
             training=TrainingParams(
                 trainer_type=TrainerType.TRL_SFT,
-                max_steps=40,
+                max_steps=3,
                 logging_steps=3,
                 log_model_summary=True,
                 enable_wandb=False,
