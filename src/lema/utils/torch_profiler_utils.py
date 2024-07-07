@@ -159,7 +159,7 @@ def torch_profile(
             import traceback
 
             logger.error(
-                _PROFILER_LOG_PREFIX
+                f"{_PROFILER_LOG_PREFIX}"
                 + "".join(traceback.format_exception(None, e, e.__traceback__))
             )
             raise
