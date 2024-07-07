@@ -7,6 +7,8 @@ import torch
 from lema.core.types.params.profiler_params import ProfilerParams
 from lema.logging import logger
 
+_PROFILER_PREFIX = "PROF:"
+
 
 @contextmanager
 def torch_profile(
@@ -24,10 +26,17 @@ def torch_profile(
 
     if not profile_activities:
         # Nothing to profile. Return noop/null context.
+        logger.info(f"{_PROFILER_PREFIX} profiler disabled!")
         yield
         return
 
     save_dir = save_dir or params.save_dir
+
+    logger.info(f"{_PROFILER_PREFIX} Starting profiling...")
+    logger.info(f"{_PROFILER_PREFIX} Save dir: {save_dir}")
+    logger.info(f"{_PROFILER_PREFIX} Output prefix: {out_prefix}")
+    logger.info(f"{_PROFILER_PREFIX} Function: {record_function_name}")
+    logger.info(f"{_PROFILER_PREFIX} Params: {params}")
 
     with torch.profiler.profile(
         activities=profile_activities,
@@ -45,11 +54,14 @@ def torch_profile(
             with torch.profiler.record_function(record_function_name):
                 yield
         except Exception as e:
-            # Exit if the inner function raises an error
+            # The inner function raised an error
             import traceback
 
-            print("".join(traceback.format_exception(None, e, e.__traceback__)))
-            exit(1)
+            logger.error(
+                _PROFILER_PREFIX
+                + "".join(traceback.format_exception(None, e, e.__traceback__))
+            )
+            raise
 
     save_dir_path: Optional[pathlib.Path] = pathlib.Path(save_dir) if save_dir else None
     if save_dir_path:
@@ -84,14 +96,15 @@ def torch_profile(
                 f"\n{prof_table}\n"
             )
             if save_dir_path:
-                file_name: pathlib.Path = (
+                file_path: pathlib.Path = (
                     save_dir_path / f"{out_prefix}{sort_key}{group_by_shape_tag}.txt"
                 )
-                with file_name.open("w") as f:
+                with file_path.open("w") as f:
                     f.write(prof_table)
 
     if save_dir_path:
         file_name: pathlib.Path = save_dir_path / f"{out_prefix}trace.json"
+        logger.info(f"Exporting profiler Chrome trace to {file_name} ...")
         prof.export_chrome_trace(file_name.as_posix())
 
     return
