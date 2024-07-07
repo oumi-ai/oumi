@@ -68,7 +68,7 @@ def _on_trace_ready(
         for sort_key in sort_by:
             prof_table = prof_avgs.table(sort_by=sort_key, row_limit=params.row_limit)
             logger.info(
-                f"{_PROFILER_LOG_PREFIX}: {sort_key} "
+                f"{_PROFILER_LOG_PREFIX} {sort_key} "
                 f"[group_by_shape={group_by_input_shape}]"
                 f"\n{prof_table}\n"
             )
