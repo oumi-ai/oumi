@@ -113,10 +113,6 @@ class PretrainingAsyncTextDataset(IterableDataset):
                     "that additional arguments will remain unused."
                 )
 
-    def __len__(self):
-        """Gets length of underlying dataset."""
-        return len(self.dataset)
-
     def _add_example_to_queue(self, example):
         """Adds a single example to the queue."""
         # Shuffle by using a priority queue with random priority values
