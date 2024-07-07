@@ -114,7 +114,7 @@ class TrainingParams:
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # Parametrs for perfomance profiling.
+    # Parameters for performance profiling.
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
     def to_hf(self):
