@@ -1,14 +1,20 @@
 from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+@dataclass
 class ProfilerParams:
     save_dir: str = field(
         default="",
-        metadata={"help": "Directory where the profile data will be saved to."},
+        metadata={
+            "help": (
+                "Directory where the profile data will be saved to. "
+                "If not specified and profiling is enabled, then "
+                "the `profiler` sub-dir will be used under `output_dir`."
+            )
+        },
     )
     enable_cpu_profiling: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": (
                 "Whether to profile CPU activity. "
@@ -17,7 +23,7 @@ class ProfilerParams:
         },
     )
     enable_cuda_profiling: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": (
                 "Whether to profile CUDA. "
@@ -61,6 +67,9 @@ class ProfilerParams:
     row_limit: int = field(
         default=20,
         metadata={
-            "help": ("Max number of rows to include into profiling report tables.")
+            "help": (
+                "Max number of rows to include into profiling report tables."
+                "Set to -1 to make it unlimited."
+            )
         },
     )

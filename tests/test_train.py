@@ -8,6 +8,7 @@ from lema.core.types import (
     DatasetParams,
     DatasetSplitParams,
     ModelParams,
+    ProfilerParams,
     TrainerType,
     TrainingConfig,
     TrainingParams,
@@ -15,37 +16,40 @@ from lema.core.types import (
 
 
 def test_train_basic():
-    with tempfile.TemporaryDirectory() as output_temp_dir:
-        config: TrainingConfig = TrainingConfig(
-            data=DataParams(
-                train=DatasetSplitParams(
-                    datasets=[
-                        DatasetParams(
-                            dataset_name="yahma/alpaca-cleaned",
-                            preprocessing_function_name="alpaca",
-                        )
-                    ],
-                    target_col="text",
-                ),
+    # with tempfile.TemporaryDirectory() as output_temp_dir:
+    config: TrainingConfig = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="yahma/alpaca-cleaned",
+                        preprocessing_function_name="alpaca",
+                    )
+                ],
+                target_col="text",
             ),
-            model=ModelParams(
-                model_name="openai-community/gpt2",
-                model_max_length=1024,
-                trust_remote_code=True,
+        ),
+        model=ModelParams(
+            model_name="openai-community/gpt2",
+            model_max_length=1024,
+            trust_remote_code=True,
+        ),
+        training=TrainingParams(
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=40,
+            logging_steps=3,
+            log_model_summary=True,
+            enable_wandb=False,
+            enable_tensorboard=False,
+            output_dir="/tmp/tmp5_f2s8xi/",
+            try_resume_from_last_checkpoint=True,
+            profiler=ProfilerParams(
+                enable_cpu_profiling=True, enable_cuda_profiling=True
             ),
-            training=TrainingParams(
-                trainer_type=TrainerType.TRL_SFT,
-                max_steps=3,
-                logging_steps=3,
-                log_model_summary=True,
-                enable_wandb=False,
-                enable_tensorboard=False,
-                output_dir=output_temp_dir,
-                try_resume_from_last_checkpoint=True,
-            ),
-        )
+        ),
+    )
 
-        train(config)
+    train(config)
 
 
 def test_train_unregistered_metrics_function():
