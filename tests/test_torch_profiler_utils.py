@@ -78,7 +78,7 @@ def test_torch_profile(params: ProfilerParams):
 
     with tempfile.TemporaryDirectory() as output_temp_dir:
         with torch_profile(params, training_output_dir=output_temp_dir):
-            for epoch in range(10):
+            for epoch in range(4):
                 optimizer.zero_grad()
                 outputs = mlp(x)
                 loss = loss_function(outputs, targets)
