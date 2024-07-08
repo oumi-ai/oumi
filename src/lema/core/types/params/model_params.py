@@ -41,7 +41,7 @@ class ModelParams:
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
-    def to_lm_harness(self):
+    def to_lm_harness(self) -> Dict[str, Any]:
         """Converts LeMa's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
@@ -49,6 +49,7 @@ class ModelParams:
         }
         if self.attn_implementation:
             model_args_dict["attn_implementation"] = self.attn_implementation
+        return model_args_dict
 
     def __post_init__(self):
         """Verifies params."""
