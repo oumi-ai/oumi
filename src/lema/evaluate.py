@@ -44,6 +44,18 @@ def main() -> None:
     )
 
     # Run evaluation
+    evaluate(config)
+
+
+def evaluate(config: EvaluationConfig) -> None:
+    """Evaluates a model using the provided configuration.
+
+    Args:
+        config: The desired configuration for evaluation.
+
+    Returns:
+        None.
+    """
     if config.evaluation_framework == EvaluationFramework.LEMA:
         evaluate_lema(config)
     elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
@@ -138,10 +150,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     results = lm_eval.simple_evaluate(
         model="hf",
-        model_args=(
-            f"pretrained={config.model.model_name},"
-            f"trust_remote_code={config.model.trust_remote_code}"
-        ),
+        model_args=config.model.to_lm_harness(),
         tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,

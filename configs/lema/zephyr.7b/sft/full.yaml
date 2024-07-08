@@ -1,4 +1,8 @@
-## Recipe and HPs used for Zephyr.7B: https://huggingface.co/alignment-handbook/zephyr-7b-sft-full # noqa
+## Recipe and HPs used for Zephyr.7B:
+## https://huggingface.co/alignment-handbook/zephyr-7b-sft-full
+
+## Setup for training with 8, 80GB A-100, GPUS.
+## Adjust per_device_train_batch_size & gradient_accumulation_steps for your setup.
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
@@ -14,21 +18,23 @@ data:
       - dataset_name: "HuggingFaceH4/ultrachat_200k"
         split: "train_sft"
         preprocessing_function_name: "trl_sft_ultrachat_200k"
+        shuffle: True
+        seed: 42
         preprocessing_function_kwargs:
-          num_proc: 6
+          num_proc: 12
           batched: False
     target_col: "text"
 
 training:
   optimizer: "adamw_torch"
-  use_peft: True
+  use_peft: False
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1 # Use bigger if you can.
-  gradient_accumulation_steps: 16 # for single GPU, if 8 set to 2
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1  # Effective batch-size is 128=16x(1)x8
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
-  output_dir: "./zephyr-7b-sft-qlora"
+  output_dir: "output/zephyr-7b-sft-full"
   logging_dir: ${training.output_dir}/runs
   logging_first_step: True
   logging_steps: 25
@@ -37,9 +43,10 @@ training:
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
   max_steps: -1
   num_train_epochs: 1
-  save_steps: 25
+  save_steps: 100
+  bf16: True
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_kwargs:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
-    # packing: True  FIX-ME
+    packing: True # Enabled for faster training

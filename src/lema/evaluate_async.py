@@ -5,8 +5,8 @@ import time
 from copy import deepcopy
 from typing import List
 
-from lema import evaluate_lema
 from lema.core.types import AsyncEvaluationConfig
+from lema.evaluate import evaluate
 from lema.logging import logger
 
 _PREFIX_CHECKPOINT_DIR = "checkpoint"
@@ -100,7 +100,7 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
                 "Starting evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)}..."
             )
-            evaluate_lema(mutable_evaluation_config)
+            evaluate(mutable_evaluation_config)
             logger.info(
                 "Finished evaluation for checkpoint: "
                 f"{os.path.basename(checkpoint)} !"

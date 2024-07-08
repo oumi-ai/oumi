@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 import transformers
 
+from lema.core.types.params.profiler_params import ProfilerParams
+
 
 class TrainerType(Enum):
     """Enum representing the supported trainers."""
@@ -115,6 +117,9 @@ class TrainingParams:
     max_grad_norm: float = 1.0
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    # Parameters for performance profiling.
+    profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""

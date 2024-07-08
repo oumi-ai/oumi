@@ -42,4 +42,5 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
+      "training.run_name='llama2b.pt.${SKYPILOT_TASK_ID}'" \
       "training.enable_wandb=true"

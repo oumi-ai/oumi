@@ -1,4 +1,4 @@
-name: llama3-8b-aya-sft
+name: lema-train-example
 
 num_nodes: 1 # Set it to N for multi-node training.
 
@@ -6,40 +6,45 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A100-80GB-SXM": 8}
-  # To configure single-node, multi-gpu (N GPUs) training, do the following:
-  # Set `accelerators:` above to something like this: {"A40": N}
+  accelerators: {"A100-80GB": 8}
 
-  disk_size: 500      # Disk size in GB
+  disk_size: 200      # Disk size in GB
   # disk_tier: medium # medium is the default.
-  # region: us-west3  # Uncomment this line to only consider a specific region.
+  # region: us-west1  # Uncomment this line to only consider a specific region.
 
   any_of:
-    - use_spot: true  # See https://github.com/openlema/lema/wiki/Clouds-Setup#spot-vms-on-gcp
+    - use_spot: true
     - use_spot: false
 
 # Upload a working directory to remote ~/sky_workdir.
 workdir: .
 
-# Upload local files.
+# Mount GPC-Bucket (E.g., to save the checkpoints)
 file_mounts:
+
+  /output_dir_gcs:
+    source: gs://lema-dev-us-central1
+    store: gcs
+    mode: MOUNT
+
+  # Upload local files.
   ~/.netrc: ~/.netrc # mount local netrc file to access private repos
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
   WANDB_PROJECT: lema-train-test
+  HF_TOKEN: null # forces the user to pass it
+  LEMA_RUN_NAME: "zephyr.7b.sft.full"
+
 
 setup: |
   set -e
-  pip install '.[train]'
+  pip install '.[all]'
   FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
 
-  # Runs some checks, and export "LEMA_*" env vars
+  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   torchrun \
@@ -49,10 +54,9 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m lema.train \
-      -c configs/lema/llama3.8b.aya.sft.yaml \
-      "training.run_name='llama3.8b.aya.sft.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir=train/" \
-      "training.enable_wandb=false" \
+      -c configs/lema/zephyr.7b/sft/full.yaml \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=true" \
-      "training.logging_steps=10"
+      "training.output_dir=/output_dir_gcs/panos/output/${LEMA_RUN_NAME}" \
+      "training.include_performance_metrics=false"
