@@ -44,7 +44,6 @@ class HuggingFaceTrainer(BaseTrainer):
                 # FIXME: Can we replace the private method `_save()` with
                 # `Trainer.save_model()`?
                 # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
-                # FIXME: Add conditional saving logic for multi-node runs.
                 self._hf_trainer._save(output_dir, state_dict=state_dict)
             else:
                 self._hf_trainer.save_model(output_dir)
