@@ -25,7 +25,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: transformers.PreTrainedTokenizer,
+        tokenizer: transformers.PreTrainedTokenizerBase,
         dataset: datasets.Dataset,
         dataset_text_field: Optional[str] = None,
         formatting_func: Optional[Callable] = None,
@@ -40,7 +40,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         """Iterable dataset that returns constant length chunks of tokens.
 
         Args:
-            tokenizer (`transformers.PreTrainedTokenizer`):
+            tokenizer (`transformers.PreTrainedTokenizerBase`):
                 The PreTrainedTokenizer used for converting strings to tokens.
             dataset (`dataset.Dataset`):
                 Dataset of text samples.
@@ -146,6 +146,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
                     logger.warning(
                         "Reached the end of the dataset, resetting to the start."
                     )
+                    continue
                 else:
                     break
 

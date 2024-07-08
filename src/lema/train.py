@@ -1,6 +1,7 @@
 import argparse
 from typing import Callable, Optional
 
+import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -64,6 +65,15 @@ def main() -> None:
     device_cleanup()
 
 
+def _get_total_num_samples(dataset_to_count):
+    total_samples = 0
+    # After tokenization
+    for _ in dataset_to_count:
+        total_samples += 1
+
+    return total_samples
+
+
 def _find_checkpoint_to_resume_from(
     resume_from_checkpoint: Optional[str],
     try_resume_from_last_checkpoint: bool,
@@ -118,6 +128,24 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+
+    # Set max_steps if not specified and streaming is enabled.
+    if config.training.max_steps == -1 and config.data.train.stream:
+        # FIXME: Underlying HF Dataset throws errors after iterating through it.
+        # Create another dataset to specifically calculate the total number of samples.
+        # build_dataset is cheap, but iterating through is expensive.
+        total_samples = _get_total_num_samples(
+            build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+        )
+        num_gpus = torch.cuda.device_count()
+        global_batch_size = (
+            num_gpus
+            * config.training.gradient_accumulation_steps
+            * config.training.per_device_train_batch_size
+        )
+        config.training.max_steps = (
+            total_samples // global_batch_size
+        ) * config.training.num_train_epochs
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:

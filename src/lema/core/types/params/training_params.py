@@ -110,6 +110,10 @@ class TrainingParams:
     # checkpointing is used, `True` otherwise.
     ddp_find_unused_parameters: Optional[bool] = None
 
+    # Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
+    # can destabilize training.
+    max_grad_norm: float = 1.0
+
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def to_hf(self):
@@ -152,6 +156,7 @@ class TrainingParams:
             dataloader_num_workers=self.dataloader_num_workers,
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
+            max_grad_norm=self.max_grad_norm,
         )
 
     def _get_hf_report_to(self) -> List[str]:
