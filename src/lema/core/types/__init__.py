@@ -17,6 +17,7 @@ from lema.core.types.params.data_params import (
 )
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
+from lema.core.types.params.profiler_params import ProfilerParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "MixtureStrategy",
     "ModelParams",
     "PeftParams",
+    "ProfilerParams",
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
