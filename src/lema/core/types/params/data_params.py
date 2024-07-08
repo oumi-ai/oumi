@@ -123,6 +123,9 @@ class DatasetSplitParams:
     def __post_init__(self):
         """Verifies params."""
         if self.pack:
+            # TODO: why is this check necessary?
+            if not self.stream:
+                raise ValueError("`stream` must be enabled if `pack` is enabled.")
             if not self.target_col:
                 raise ValueError("`target_col` must be specified if `pack` is enabled.")
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
