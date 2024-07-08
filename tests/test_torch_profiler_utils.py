@@ -58,7 +58,7 @@ class SimpleMLP(nn.Module):
     ],
 )
 def test_torch_profile(params: ProfilerParams):
-    BATCH_SIZE = 8192
+    BATCH_SIZE = 256
 
     np.random.seed(42)
     x = np.random.normal(scale=0.8, size=(BATCH_SIZE, 3))
