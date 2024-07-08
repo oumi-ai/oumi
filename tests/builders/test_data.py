@@ -2,8 +2,6 @@ from typing import List, Union
 
 import pytest
 from datasets import Dataset, IterableDataset
-from trl.trainer import ConstantLengthDataset
-
 from lema.builders import build_dataset, build_tokenizer
 from lema.core.types import (
     DataParams,
@@ -15,6 +13,8 @@ from lema.core.types import (
     TrainingConfig,
     TrainingParams,
 )
+from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from trl.trainer import ConstantLengthDataset
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
 
@@ -52,15 +52,19 @@ def _get_default_config(
 
 
 def _get_dataset_size(
-    dataset: Union[Dataset, IterableDataset, ConstantLengthDataset],
+    dataset: Union[
+        Dataset, IterableDataset, ConstantLengthDataset, PretrainingAsyncTextDataset
+    ],
     stream: bool,
     pack: bool = False,
 ) -> int:
     if stream:
         if pack:
-            assert isinstance(dataset, ConstantLengthDataset)
+            assert isinstance(
+                dataset, (ConstantLengthDataset, PretrainingAsyncTextDataset)
+            )
         else:
-            assert isinstance(dataset, IterableDataset)
+            assert isinstance(dataset, (IterableDataset))
         example_count = 0
         for _ in dataset:
             example_count += 1

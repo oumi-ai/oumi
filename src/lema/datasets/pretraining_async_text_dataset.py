@@ -3,12 +3,12 @@ import random
 import threading
 from typing import Callable, Optional
 
-import datasets
 import torch
 import transformers
+from lema.logging import logger
 from torch.utils.data import IterableDataset
 
-from lema.logging import logger
+import datasets
 
 _LARGEST_PRIORITY_VALUE = 2**20
 _SMALLEST_PRIORITY_VALUE = 0
@@ -25,7 +25,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: transformers.PreTrainedTokenizer,
+        tokenizer: transformers.PreTrainedTokenizerBase,
         dataset: datasets.Dataset,
         dataset_text_field: Optional[str] = None,
         formatting_func: Optional[Callable] = None,
@@ -36,6 +36,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         shuffle: bool = False,
         append_concat_token: bool = True,
         add_special_tokens: bool = True,
+        pretokenized: bool = False,
     ):
         """Iterable dataset that returns constant length chunks of tokens.
 
@@ -70,6 +71,8 @@ class PretrainingAsyncTextDataset(IterableDataset):
                 If true, appends `eos_token_id` at the end of each sample being packed.
             add_special_tokens (`bool`, *optional*, defaults to True):
                 If true, tokenizers adds special tokens to each sample being packed.
+            pretokenized (`bool`, *optional*, defaults to False):
+                If true, the dataset is already tokenized and formatted.
         """
         self.tokenizer = tokenizer
 
@@ -90,6 +93,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         self.append_concat_token = append_concat_token
         self.add_special_tokens = add_special_tokens
         self.shuffle = shuffle
+        self.pretokenized = pretokenized
 
         if shuffle:
             self.tokenized_example_queue = queue.PriorityQueue(
@@ -108,10 +112,6 @@ class PretrainingAsyncTextDataset(IterableDataset):
                     "The passed formatting_func does not have exactly 1 argument. Note "
                     "that additional arguments will remain unused."
                 )
-
-    def __len__(self):
-        """Gets length of underlying dataset."""
-        return len(self.dataset)
 
     def _add_example_to_queue(self, example):
         """Adds a single example to the queue."""
@@ -133,27 +133,33 @@ class PretrainingAsyncTextDataset(IterableDataset):
         )
 
     def _dataset_iterator_worker(self):
-        # TODO: Increase to more than 1 thread
         iterator = iter(self.dataset)
         token_buffer = []
         while True:
             token_count = len(token_buffer)
             try:
-                formatted_input = self.formatting_func(next(iterator))
+                next_sample = next(iterator)
             except StopIteration:
                 if self.infinite:
                     iterator = iter(self.dataset)
                     logger.warning(
                         "Reached the end of the dataset, resetting to the start."
                     )
+
+                    continue
                 else:
                     break
 
-            tokenized_input = self.tokenizer(
-                [formatted_input],
-                add_special_tokens=self.add_special_tokens,
-                truncation=False,
-            )["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
+            if not self.pretokenized:
+                formatted_input = self.formatting_func(next_sample)
+                tokenized_input = self.tokenizer(
+                    [formatted_input],
+                    add_special_tokens=self.add_special_tokens,
+                    truncation=False,
+                )
+                tokenized_input = tokenized_input["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
+            else:
+                tokenized_input = next_sample["input_ids"]  # type: ignore - Returns Sequence[EncodingFast]
 
             if self.append_concat_token:
                 tokenized_input = tokenized_input + [self.concat_token_id]
