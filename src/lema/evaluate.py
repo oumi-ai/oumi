@@ -148,16 +148,9 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         device = "cpu"
         logger.warning("No GPU available.")
 
-    model_args_dict = {
-        "pretrained": config.model.model_name,
-        "trust_remote_code": bool(config.model.trust_remote_code),
-    }
-    if config.model.attn_implementation:
-        model_args_dict["attn_implementation"] = config.model.attn_implementation
-
     results = lm_eval.simple_evaluate(
         model="hf",
-        model_args=model_args_dict,
+        model_args=config.model.to_lm_harness(),
         tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
