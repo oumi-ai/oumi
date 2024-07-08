@@ -1,4 +1,4 @@
-name: debug-chatqa-stage2
+name: chatqa-stage2-nopack
 
 resources:
   # Use 1 of the following GPUs depending on availability. No preference.
@@ -11,7 +11,7 @@ resources:
     - use_spot: true
     - use_spot: false
 
-  disk_size: 200      # Disk size in GB
+  disk_size: 1000      # Disk size in GB
   # disk_tier: medium # medium is the default.
   # region: us-central1  # Uncomment this line to only consider a specific GCP region.
 
@@ -58,7 +58,7 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/chatqa/gpt2.chatqa.stage2.yaml \
-      "training.run_name='chatqa.state1.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='chatqa.stage2.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \

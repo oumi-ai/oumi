@@ -20,7 +20,7 @@ data:
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "sft"
     target_col: "text"
-    pack: True
+    pack: False
     stream: False
 
 training:
@@ -29,8 +29,9 @@ training:
   output_dir: "output/chatqa.stage1"
   logging_dir: ${training.output_dir}/runs
   logging_first_step: True
-  logging_steps: 10
-  # save_steps: 200
+  logging_steps: 50
+  save_steps: 500
+  num_train_epochs: 3
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
