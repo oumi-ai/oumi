@@ -18,7 +18,10 @@ def _get_all_sft_datasets_private_key() -> List[str]:
     return datasets
 
 
-@pytest.skip("This test is very time consuming, and should be run manually.")
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 @pytest.mark.parametrize("dataset_key", _get_all_sft_datasets_private_key())
 def test_sft_datasets(dataset_key: str):
     dataset_cls = REGISTRY._registry[(dataset_key, RegistryType.DATASET)]
