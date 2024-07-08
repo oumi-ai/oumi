@@ -137,7 +137,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         total_samples = _get_total_num_samples(
             build_dataset(config, tokenizer, DatasetSplit.TRAIN)
         )
-        # Assume 1 worker for non-GPU runs.
         num_workers = config.training.trainer_num_workers
         global_batch_size = (
             num_workers
