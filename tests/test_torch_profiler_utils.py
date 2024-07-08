@@ -60,7 +60,10 @@ class SimpleMLP(nn.Module):
 def test_torch_profile(params: ProfilerParams):
     BATCH_SIZE = 256
 
+    # Initialize a seed to improve test determinism.
     np.random.seed(42)
+    # Generate random 3D points, centered around the origin (0,0,0)
+    # using Gaussian distribution.
     x = np.random.normal(scale=0.8, size=(BATCH_SIZE, 3))
     targets = np.square(x)
     targets = targets[:, 0] + targets[:, 1] + targets[:, 2]

@@ -10,7 +10,7 @@ from lema.logging import logger
 from lema.utils.torch_utils import DeviceRankInfo, get_device_rank_info
 
 _PROFILER_LOG_PREFIX = "PROF:"
-_PROFILER_SUB_DIR = "profiler"
+_PROFILER_DEFAULT_SUB_DIR = "profiler"
 
 
 def _configure_torch_profile_save_dir(
@@ -18,7 +18,9 @@ def _configure_torch_profile_save_dir(
 ) -> ProfilerParams:
     """Auto-generates ProfilerParams.saved_dir if not specified explicitly."""
     if not params.save_dir and training_output_dir:
-        params.save_dir = str(pathlib.Path(training_output_dir) / _PROFILER_SUB_DIR)
+        params.save_dir = str(
+            pathlib.Path(training_output_dir) / _PROFILER_DEFAULT_SUB_DIR
+        )
     return params
 
 
@@ -62,6 +64,9 @@ def _on_trace_ready(
                     "self_cuda_memory_usage",
                 ]
             )
+    # if `params.record_shapes` is True, then also generate reports with breakdowns
+    # by tensor shapes. Otherwise (the default), only produce profiling reports
+    # without shape breakdowns (less verbose).
     for group_by_input_shape in [False] + ([True] if params.record_shapes else []):
         group_by_shape_tag = "_by_shape" if group_by_input_shape else ""
         prof_avgs = prof.key_averages(group_by_input_shape=group_by_input_shape)

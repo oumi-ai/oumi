@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 @dataclass
 class ProfilerParams:
-    save_dir: str = field(
-        default="",
+    save_dir: Optional[str] = field(
+        default=None,
         metadata={
             "help": (
-                "Directory where the profile data will be saved to. "
+                "Directory where the profiling data will be saved to. "
                 "If not specified and profiling is enabled, then "
                 "the `profiler` sub-dir will be used under `output_dir`."
             )
@@ -34,16 +35,16 @@ class ProfilerParams:
     # TODO: Add schedule params
     record_shapes: bool = field(
         default=False,
-        metadata={"help": ("Save information about operator’s input shapes.")},
+        metadata={"help": "Save information about operator’s input shapes."},
     )
     profile_memory: bool = field(
         default=False,
-        metadata={"help": ("Track tensor memory allocation/deallocation.")},
+        metadata={"help": "Track tensor memory allocation/deallocation."},
     )
     with_stack: bool = field(
         default=False,
         metadata={
-            "help": ("Record source information (file and line number) for the ops.")
+            "help": "Record source information (file and line number) for the ops."
         },
     )
     with_flops: bool = field(
