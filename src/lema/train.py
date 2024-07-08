@@ -1,7 +1,6 @@
 import argparse
 from typing import Callable, Optional
 
-import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -132,15 +131,16 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Set max_steps if not specified and streaming is enabled.
     if config.training.max_steps == -1 and config.data.train.stream:
-        # FIXME: Underlying HF Dataset throws errors after iterating through it.
+        # FIXME: Underlying HF Dataset throws errors after iterating through it once.
         # Create another dataset to specifically calculate the total number of samples.
-        # build_dataset is cheap, but iterating through is expensive.
+        # build_dataset is cheap for streaming datasets.
         total_samples = _get_total_num_samples(
             build_dataset(config, tokenizer, DatasetSplit.TRAIN)
         )
-        num_gpus = torch.cuda.device_count()
+        # Assume 1 worker for non-GPU runs.
+        num_workers = config.training.trainer_num_workers
         global_batch_size = (
-            num_gpus
+            num_workers
             * config.training.gradient_accumulation_steps
             * config.training.per_device_train_batch_size
         )
