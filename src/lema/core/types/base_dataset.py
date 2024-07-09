@@ -71,7 +71,7 @@ class BaseMapDataset(Dataset, ABC):
         """
         return len(self.data)
 
-    def raw(self, idx: int) -> Union[dict, pd.Series]:
+    def raw(self, idx: int) -> pd.Series:
         """Returns the raw data at the specified index.
 
         Args:
@@ -97,7 +97,7 @@ class BaseMapDataset(Dataset, ABC):
     # Abstract Methods
     #
     @abstractmethod
-    def transform(self, sample: Union[dict, pd.Series]) -> dict:
+    def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample.
 
         Args:
