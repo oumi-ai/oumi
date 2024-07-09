@@ -164,7 +164,7 @@ def _sample_dataset(
     dataset_params: DatasetParams,
     stream: bool,
 ) -> DatasetType:
-    """Loads and samples the specified dataset."""
+    """Samples the specified dataset."""
     if dataset_params.sample_count is None:
         # No sampling.
         dataset = cast(DatasetType, dataset)
@@ -244,7 +244,7 @@ def _build_iterable_dataset_sampler(
 
 def _load_dataset(
     dataset_params: DatasetParams,
-    stream: bool = False,
+    stream: bool,
     tokenizer: Optional[transformers.PreTrainedTokenizerBase] = None,
 ) -> Union[
     datasets.DatasetDict,
@@ -255,12 +255,12 @@ def _load_dataset(
     """Loads a dataset with the specified name and subset."""
     if not stream:
         # Streaming is not supported yet for custom datasets.
-        dataset_cls = REGISTRY.get_dataset(
+        dataset_class = REGISTRY.get_dataset(
             dataset_params.dataset_name, subset=dataset_params.subset
         )
 
-        if dataset_cls is not None:
-            dataset = dataset_cls(
+        if dataset_class is not None:
+            dataset = dataset_class(
                 split=dataset_params.split,
                 subset=dataset_params.subset,
                 tokenizer=tokenizer,
