@@ -34,6 +34,8 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-eval
+  # The HellaSwag dataset requires trusted code to be enabled.
+  HF_DATASETS_TRUST_REMOTE_CODE: 1
 
 setup: |
   set -e
@@ -47,7 +49,5 @@ run: |
 
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
-  # The HellaSwag dataset requires trusted code to be enabled.
-  export HF_DATASETS_TRUST_REMOTE_CODE=1
   python -m lema.evaluate_async \
       -c configs/lema/gpt2.asynceval.nvidia.yaml
