@@ -15,5 +15,5 @@ rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete . ${POLARIS_USER}@polari
 # Run a command on Polaris over the same SSH tunnel.
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov << EOF
   cd /home/${POLARIS_USER}/${OUTPUT_DIR}
-  ls
+  qsub ./configs/polaris/jobs/example_job.sh
 EOF
