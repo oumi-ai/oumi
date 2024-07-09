@@ -120,10 +120,8 @@ class BaseMapDataset(Dataset, ABC):
         if os.path.exists(self.dataset_name_or_path):
             if self.dataset_name_or_path.endswith(".jsonl"):
                 return self._load_jsonl_dataset(self.dataset_name_or_path)
-
             elif self.dataset_name_or_path.endswith(".parquet"):
                 return self._load_parquet_dataset(self.dataset_name_or_path)
-
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
@@ -196,11 +194,30 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
             dataset_name_or_path=dataset_name_or_path, split=split, **kwargs
         )
 
-        self.task = task
-        self.text_col = text_col
+        self._task = task
+        self._text_col = text_col
         self._tokenizer = tokenizer
-        self.return_tensors = "pt" if return_tensors else None
+        self._return_tensors = "pt" if return_tensors else None
         self.data = self._load_data()
+
+    #
+    # Properties
+    #
+    @property
+    def text_col(self) -> str:
+        """Gets the text target column.
+
+        The generated text will be stored in this column.
+        """
+        return self._text_col
+
+    @property
+    def task(self) -> str:
+        """Gets the task mode for the dataset.
+
+        The generated prompt is often different for generation vs SFT tasks.
+        """
+        return self._task
 
     #
     # Main API
@@ -282,7 +299,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
             samples,  # type: ignore
             tokenize=tokenize,
             return_dict=tokenize,
-            return_tensors=self.return_tensors,
+            return_tensors=self._return_tensors,
             max_length=self._tokenizer.model_max_length,
             truncation=True,
             add_generation_prompt=(self.task == "generation"),
