@@ -41,6 +41,16 @@ class ModelParams:
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
+    def to_lm_harness(self) -> Dict[str, Any]:
+        """Converts LeMa's ModelParams to LM Harness model arguments."""
+        model_args_dict = {
+            "pretrained": self.model_name,
+            "trust_remote_code": self.trust_remote_code,
+        }
+        if self.attn_implementation:
+            model_args_dict["attn_implementation"] = self.attn_implementation
+        return model_args_dict
+
     def __post_init__(self):
         """Verifies params."""
         # check if flash-attention-2 is requested and supported

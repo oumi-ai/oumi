@@ -41,14 +41,13 @@ class HuggingFaceTrainer(BaseTrainer):
                     for k, t in self._hf_trainer.model.named_parameters()
                     if "lora_" in k
                 }
+                # FIXME: Can we replace the private method `_save()` with
+                # `Trainer.save_model()`?
+                # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
+                self._hf_trainer._save(output_dir, state_dict=state_dict)
             else:
-                state_dict = self._hf_trainer.model.state_dict()
+                self._hf_trainer.save_model(output_dir)
 
-            # FIXME: Can we replace the private method `_save()` with
-            # `Trainer.save_model()`?
-            # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
-            # FIXME: Add conditional saving logic for multi-node runs.
-            self._hf_trainer._save(output_dir, state_dict=state_dict)
             logger.info(f"Model has been saved at {output_dir}.")
 
         if torch.distributed.is_available() and torch.distributed.is_initialized():
