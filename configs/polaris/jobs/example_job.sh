@@ -12,7 +12,7 @@ set -e
 # Change to the directory where the job was submitted.
 cd ${PBS_O_WORKDIR}
 
-# Run several checks and export "LEMA_*" env vars
+# Run several checks and export "LEMA_*" env vars.
 source ./configs/polaris/polaris_init.sh
 
 # Set up default modules.

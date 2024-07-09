@@ -12,7 +12,7 @@ ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 10s" ${POLARIS_USER}@
 # Copy files to Polaris over the same SSH tunnel.
 rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete . ${POLARIS_USER}@polaris.alcf.anl.gov:/home/${POLARIS_USER}/${OUTPUT_DIR}/
 
-# Run a command on Polaris over the same SSH tunnel.
+# Submit a job on Polaris over the same SSH tunnel.
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov << EOF
   cd /home/${POLARIS_USER}/${OUTPUT_DIR}
   qsub ./configs/polaris/jobs/example_job.sh
