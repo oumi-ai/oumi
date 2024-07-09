@@ -265,7 +265,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
     #
     # Pre-processing
     #
-    def transform(self, sample: pd.Series) -> Union[dict, pd.Series]:
+    def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(self.transform_conversation(sample))
 
