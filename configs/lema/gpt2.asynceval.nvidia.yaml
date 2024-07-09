@@ -1,5 +1,6 @@
 evaluation:
-  output_dir: "" # /output_dir_gcs/matthew/testing/
+  evaluation_framework: "LM_HARNESS"
+  output_dir: "" # "/output_dir_gcs/matthew/gpt2.pt.4xA10080GB.5000steps/hellaswag/"
   model:
     model_name: "gpt2"  # 124M params
     # For local testing.
@@ -12,10 +13,11 @@ evaluation:
   data:
     validation:
       datasets:
-        - dataset_name: "cais/mmlu"
+        - dataset_name: "hellaswag"
+        #  - dataset_name: "mmlu"
 
   generation:
     batch_size: 32
 
-checkpoints_dir: "" # /output_dir_gcs/wizeng/runs/20240628_gpt2_fullrun_drop0.pt
+checkpoints_dir: "" # "/output_dir_gcs/nikolai/runs/gpt2.pt.4xA10080GB.5000steps/"
 polling_interval: 5
