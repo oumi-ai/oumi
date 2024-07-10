@@ -10,10 +10,9 @@ model:
   attn_implementation: "flash_attention_2"
 
 data:
-  validation:
-    datasets:
-      - dataset_name: "mmlu"
-        split: "test"
+  datasets:
+    - dataset_name: "mmlu"
+      split: "test"
 
 generation:
   batch_size: 32
