@@ -6,8 +6,6 @@
 #PBS -l filesystems=home:eagle
 #PBS -q debug
 #PBS -A community_ai
-#PBS -o logs/
-#PBS -e logs/
 
 set -e
 
