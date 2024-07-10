@@ -15,6 +15,8 @@ from lema.builders import (
 from lema.core.types import TrainingConfig
 from lema.logging import logger
 
+_TOKEN_IDS_COLUMN_NAME = "input_ids"  # The common convention.
+
 
 def _list_input_files(
     input_paths: List[str],
@@ -36,7 +38,7 @@ def _tokenize_examples(
     batch = tokenizer(examples[target_col])
     token_ids: List[List[int]] = batch.input_ids
     result = examples.copy()
-    result["token_ids"] = token_ids
+    result[_TOKEN_IDS_COLUMN_NAME] = token_ids
     return result
 
 
