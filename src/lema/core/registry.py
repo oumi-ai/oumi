@@ -7,6 +7,7 @@ class RegistryType(Enum):
     MODEL_CONFIG = auto()
     MODEL = auto()
     METRICS_FUNCTION = auto()
+    DATASET = auto()
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -63,6 +64,19 @@ class Registry:
         """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
 
+    def get_dataset(
+        self, name: str, subset: Optional[str] = None
+    ) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered dataset."""
+        if subset:
+            # If a subset is provided, first check for subset-specific dataset.
+            # If not found, try to get the dataset directly.
+            dataset_cls = self.get(f"{name}/{subset}", RegistryType.DATASET)
+            if dataset_cls is not None:
+                return dataset_cls
+
+        return self.get(name, RegistryType.DATASET)
+
     #
     # Private functions
     #
@@ -112,6 +126,26 @@ def register(registry_name: str, registry_type: RegistryType) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target `obj`."""
         REGISTRY.register(name=registry_name, type=registry_type, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_dataset(registry_name: str, subset: Optional[str] = None) -> Callable:
+    """Returns function to register decorated `obj` in the LeMa global registry.
+
+    Args:
+        registry_name: The name that the object should be registered with.
+        subset: The type of object we are registering.
+
+    Returns:
+        Decorator function to register the target object.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        full_name = f"{registry_name}/{subset}" if subset else registry_name
+        REGISTRY.register(name=full_name, type=RegistryType.DATASET, value=obj)
         return obj
 
     return decorator_register
