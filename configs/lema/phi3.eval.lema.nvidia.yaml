@@ -5,9 +5,8 @@ model:
   trust_remote_code: True
 
 data:
-  validation:
-    datasets:
-      - dataset_name: "cais/mmlu"
+  datasets:
+    - dataset_name: "cais/mmlu"
 
 generation:
   batch_size: 32

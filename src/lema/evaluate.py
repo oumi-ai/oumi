@@ -82,7 +82,7 @@ def evaluate_lema(config: EvaluationConfig) -> None:
         None for now, we will return a relevant class in the future.
     """
     # Load the dataset from HuggingFace or a local repository.
-    if config.data.validation.datasets[0].dataset_name == "cais/mmlu":
+    if config.data.datasets[0].dataset_name == "cais/mmlu":
         mmlu_dataset = MmluDataset(subject="all", num_shots=config.num_shots)
         dataset = mmlu_dataset.get_test_split(num_entries=config.num_samples)
         answer_indices = mmlu_dataset.get_test_labels(num_entries=config.num_samples)
@@ -139,7 +139,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
-    benchmarks = [dataset.dataset_name for dataset in config.data.validation.datasets]
+    benchmarks = [dataset.dataset_name for dataset in config.data.datasets]
     if torch.cuda.is_available():
         device = "cuda:0"
     elif torch.backends.mps.is_available():

@@ -3,9 +3,8 @@ model:
   trust_remote_code: True
 
 data:
-  validation:
-    datasets:
-      - dataset_name: "mmlu"
+  datasets:
+    - dataset_name: "mmlu"
 
 generation:
   batch_size: 2
