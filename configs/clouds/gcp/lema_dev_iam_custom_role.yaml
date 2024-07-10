@@ -78,5 +78,6 @@ includedPermissions:
 # https://skypilot.readthedocs.io/en/latest/cloud-setup/cloud-permissions/gcp.html
 # https://cloud.google.com/iam/docs/creating-custom-roles#gcloud
 
-# gcloud iam roles create lemaCoreDeveloper --project=lema-dev --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
+# gcloud iam roles create lemaCoreDeveloper --project=PROJECT_ID --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
+# gcloud iam roles create lemaCoreDeveloper --organization=ORGANIZATION --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
 # name: projects/lema-dev/roles/lemaCoreDeveloper
