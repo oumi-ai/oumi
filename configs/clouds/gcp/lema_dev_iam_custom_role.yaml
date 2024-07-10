@@ -80,4 +80,4 @@ includedPermissions:
 
 # gcloud iam roles create lemaCoreDeveloper --project=PROJECT_ID --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
 # gcloud iam roles create lemaCoreDeveloper --organization=ORGANIZATION --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
-# name: projects/lema-dev/roles/lemaCoreDeveloper
+# name: projects/PROJECT_ID/roles/lemaCoreDeveloper
