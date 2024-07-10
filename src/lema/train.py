@@ -1,4 +1,5 @@
 import argparse
+import pathlib
 from typing import Callable, Optional
 
 from transformers.trainer_utils import get_last_checkpoint
@@ -85,10 +86,27 @@ def _find_checkpoint_to_resume_from(
     return None
 
 
+def _ensure_training_output_dir_exists(output_dir: str) -> None:
+    if not output_dir:
+        raise ValueError("training.output_dir is not specified!")
+    output_dir_path: pathlib.Path = pathlib.Path(output_dir)
+    if output_dir_path.exists():
+        if not output_dir_path.is_dir():
+            raise ValueError(f"training.output_dir='{output_dir}' is not a directory!")
+    else:
+        logger.info(f"Creating output dir: {output_dir}...")
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+    logger.info(
+        f"Training output dir absolute path : {str(output_dir_path.absolute())}"
+    )
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     log_versioning_info()
     log_devices_info()
+
+    _ensure_training_output_dir_exists(config.training.output_dir)
 
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)

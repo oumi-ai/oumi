@@ -1,3 +1,4 @@
+import pathlib
 import tempfile
 
 import pytest
@@ -16,6 +17,7 @@ from lema.core.types import (
 
 def test_train_basic():
     with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
                 train=DatasetSplitParams(
@@ -40,7 +42,7 @@ def test_train_basic():
                 log_model_summary=True,
                 enable_wandb=False,
                 enable_tensorboard=False,
-                output_dir=output_temp_dir,
+                output_dir=output_training_dir,
                 try_resume_from_last_checkpoint=True,
             ),
         )
@@ -51,6 +53,7 @@ def test_train_basic():
 def test_train_unregistered_metrics_function():
     with pytest.raises(KeyError) as exception_info:
         with tempfile.TemporaryDirectory() as output_temp_dir:
+            output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
             config: TrainingConfig = TrainingConfig(
                 data=DataParams(
                     train=DatasetSplitParams(
@@ -76,7 +79,7 @@ def test_train_unregistered_metrics_function():
                     log_model_summary=True,
                     enable_wandb=False,
                     enable_tensorboard=False,
-                    output_dir=output_temp_dir,
+                    output_dir=output_training_dir,
                     try_resume_from_last_checkpoint=True,
                 ),
             )
