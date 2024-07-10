@@ -71,8 +71,8 @@ def test_train_unregistered_metrics_function():
                 training=TrainingParams(
                     trainer_type=TrainerType.TRL_SFT,
                     metrics_function="unregistered_function_name",
-                    max_steps=3,
-                    logging_steps=3,
+                    max_steps=2,
+                    logging_steps=2,
                     log_model_summary=True,
                     enable_wandb=False,
                     enable_tensorboard=False,

@@ -150,10 +150,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     results = lm_eval.simple_evaluate(
         model="hf",
-        model_args=(
-            f"pretrained={config.model.model_name},"
-            f"trust_remote_code={config.model.trust_remote_code}"
-        ),
+        model_args=config.model.to_lm_harness(),
         tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=config.generation.batch_size,
