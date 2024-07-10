@@ -95,7 +95,7 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
             raise ValueError(f"training.output_dir='{output_dir}' is not a directory!")
     else:
         logger.info(f"Creating output dir: {output_dir}...")
-        output_dir_path.mkdir(parents=True)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
     logger.info(
         f"Training output dir absolute path : {str(output_dir_path.absolute())}"
     )
