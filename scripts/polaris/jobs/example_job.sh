@@ -22,13 +22,10 @@ module use /soft/modulefiles
 module load conda
 conda activate base
 
-# Clean up old virtual environments.
-rm -r ./venv
-
 # Set up a virtual python environment.
-mkdir -p ./venv/example_environment
-python3 -m venv ./venv/example_environment --system-site-packages
-source ./venv/example_environment/bin/activate
+mkdir -p ./worker_venv/example_environment
+python3 -m venv ./worker_venv/example_environment --system-site-packages
+source ./worker_venv/example_environment/bin/activate
 
 python3 -m pip install -e '.[train]'
 
