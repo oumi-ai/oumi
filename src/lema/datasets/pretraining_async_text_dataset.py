@@ -72,7 +72,8 @@ class PretrainingAsyncTextDataset(IterableDataset):
             add_special_tokens (`bool`, *optional*, defaults to True):
                 If true, tokenizers adds special tokens to each sample being packed.
             pretokenized (`bool`, *optional*, defaults to False):
-                If true, the dataset is already tokenized and formatted.
+                If true, the dataset is already tokenized and formatted, and each sample
+                is expected to have an "input_ids" field.
         """
         self.tokenizer = tokenizer
 
@@ -159,6 +160,11 @@ class PretrainingAsyncTextDataset(IterableDataset):
                 )
                 tokenized_input = tokenized_input["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
             else:
+                if "input_ids" not in next_sample:
+                    raise ValueError(
+                        "The dataset is pretokenized but does not have an 'input_ids' "
+                        "field."
+                    )
                 tokenized_input = next_sample["input_ids"]  # type: ignore - Returns Sequence[EncodingFast]
 
             if self.append_concat_token:
