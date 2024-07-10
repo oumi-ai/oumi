@@ -1,5 +1,5 @@
 title: "LeMa Core Developer"
-description: "Custom IAM role for LeMa core team developers"
+description: "Custom IAM role for SkyPilot Service Accounts used by LeMa core team developers"
 stage: "ALPHA"
 includedPermissions:
 - compute.disks.create
