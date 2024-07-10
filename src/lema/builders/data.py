@@ -1,3 +1,4 @@
+import copy
 import warnings
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
@@ -189,7 +190,10 @@ def _sample_dataset(
         return cast(DatasetType, dataset.take(dataset_params.sample_count))
     # Oversample the dataset.
     oversampling_copies = int(dataset_params.sample_count // dataset.num_rows)
-    dataset_list = [cast(datasets.Dataset, dataset) for _ in range(oversampling_copies)]
+    dataset_list = [
+        cast(datasets.Dataset, copy.deepcopy(dataset))
+        for _ in range(oversampling_copies)
+    ]
     remaining_rows = dataset_params.sample_count % dataset.num_rows
     if remaining_rows > 0:
         sampled_dataset = cast(datasets.Dataset, dataset)
