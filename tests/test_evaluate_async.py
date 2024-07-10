@@ -4,7 +4,6 @@ import tempfile
 from lema import evaluate_async
 from lema.core.types import (
     AsyncEvaluationConfig,
-    DataParams,
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
@@ -18,15 +17,13 @@ def test_evaluate_async_polling_interval():
         config: AsyncEvaluationConfig = AsyncEvaluationConfig(
             evaluation=EvaluationConfig(
                 output_dir=output_temp_dir,
-                data=DataParams(
-                    validation=DatasetSplitParams(
-                        datasets=[
-                            DatasetParams(
-                                dataset_name="cais/mmlu",
-                            )
-                        ],
-                        target_col="text",
-                    ),
+                data=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="cais/mmlu",
+                        )
+                    ],
+                    target_col="text",
                 ),
                 model=ModelParams(
                     model_name="openai-community/gpt2",

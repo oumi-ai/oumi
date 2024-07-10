@@ -4,7 +4,6 @@ import tempfile
 
 from lema import evaluate_lema, evaluate_lm_harness
 from lema.core.types import (
-    DataParams,
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
@@ -21,15 +20,13 @@ def test_evaluate_lema():
 
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
-            data=DataParams(
-                validation=DatasetSplitParams(
-                    datasets=[
-                        DatasetParams(
-                            dataset_name="cais/mmlu",
-                        )
-                    ],
-                    target_col="text",
-                ),
+            data=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="cais/mmlu",
+                    )
+                ],
+                target_col="text",
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
@@ -54,14 +51,12 @@ def test_evaluate_lm_harness():
 
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
-            data=DataParams(
-                validation=DatasetSplitParams(
-                    datasets=[
-                        DatasetParams(
-                            dataset_name="mmlu",
-                        )
-                    ],
-                ),
+            data=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="mmlu",
+                    )
+                ],
             ),
             model=ModelParams(
                 model_name="openai-community/gpt2",
