@@ -3,12 +3,12 @@ import random
 import threading
 from typing import Callable, Optional
 
+import datasets
 import torch
 import transformers
-from lema.logging import logger
 from torch.utils.data import IterableDataset
 
-import datasets
+from lema.logging import logger
 
 _LARGEST_PRIORITY_VALUE = 2**20
 _SMALLEST_PRIORITY_VALUE = 0
