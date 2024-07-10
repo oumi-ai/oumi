@@ -116,9 +116,6 @@ class TrainingParams:
     # can destabilize training.
     max_grad_norm: float = 1.0
 
-    # Number of workers/GPUs to use for the trainer.
-    trainer_num_workers: int = 1
-
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Parameters for performance profiling.

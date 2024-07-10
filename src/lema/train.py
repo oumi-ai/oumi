@@ -129,24 +129,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
 
-    # Set max_steps if not specified and streaming is enabled.
-    if config.training.max_steps == -1 and config.data.train.stream:
-        # FIXME: Underlying HF Dataset throws errors after iterating through it once.
-        # Create another dataset to specifically calculate the total number of samples.
-        # build_dataset is cheap for streaming datasets.
-        total_samples = _get_total_num_samples(
-            build_dataset(config, tokenizer, DatasetSplit.TRAIN)
-        )
-        num_workers = config.training.trainer_num_workers
-        global_batch_size = (
-            num_workers
-            * config.training.gradient_accumulation_steps
-            * config.training.per_device_train_batch_size
-        )
-        config.training.max_steps = (
-            total_samples // global_batch_size
-        ) * config.training.num_train_epochs
-
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)

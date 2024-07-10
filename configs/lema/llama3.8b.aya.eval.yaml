@@ -1,0 +1,17 @@
+model:
+  model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  attn_implementation: "flash_attention_2"
+
+data:
+  validation:
+    datasets:
+      - dataset_name: "m_mmlu"
+
+generation:
+  batch_size: 8
+
+evaluation_framework: LM_HARNESS
+num_samples: 0

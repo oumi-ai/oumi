@@ -50,7 +50,8 @@ training:
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
-  num_train_epochs: 1
+  # Need to specify max steps for streaming datasets.
+  max_steps: 178
   save_steps: 36
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_num_workers: 8  # Set to number of GPUs
