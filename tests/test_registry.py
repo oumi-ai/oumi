@@ -1,6 +1,6 @@
 import pytest
 
-from lema.core.registry import REGISTRY, RegistryType, register
+from lema.core.registry import REGISTRY, RegistryType, register, register_dataset
 
 
 @pytest.fixture(autouse=True)
@@ -134,3 +134,37 @@ def test_registry_failure_metrics_function_not_present():
     # Incomplete function name (without exception).
     assert REGISTRY.get_model(name="dummy_") is None
     assert REGISTRY.get_model_config(name="number") is None
+
+
+def test_registry_datasets():
+    dataset_name = "test_dataset"
+    subset_name = "test_subset"
+
+    @register_dataset(dataset_name)
+    class TestDataset:
+        pass
+
+    @register_dataset(dataset_name, subset=subset_name)
+    class TestDatasetSubset:
+        pass
+
+    # Dataset class should be registered.
+    # If no subset is specified, the main dataset class should be returned.
+    dataset_class = REGISTRY.get_dataset(dataset_name)
+    assert dataset_class is not None
+    assert dataset_class == TestDataset
+
+    # Getting a dataset class for a registered subset
+    # If a subset is specificed, we should get the subset class if one was registered
+    dataset_subset_class = REGISTRY.get_dataset(dataset_name, subset=subset_name)
+    assert dataset_subset_class is not None
+    assert dataset_subset_class == TestDatasetSubset
+
+    # Getting a dataset class for a non-registered subset
+    # In this case we should get the main class
+    dataset_subset_class = REGISTRY.get_dataset(
+        dataset_name, subset="non_existent_subset"
+    )
+    assert dataset_subset_class is not None
+    # If a subset is specificed, we should get the subset class if one was registered
+    assert dataset_subset_class == TestDataset
