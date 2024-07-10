@@ -90,7 +90,6 @@ def test_train_unregistered_metrics_function():
 
 def test_train_pack():
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
                 train=DatasetSplitParams(
@@ -118,7 +117,7 @@ def test_train_pack():
                 logging_steps=1,
                 enable_wandb=False,
                 enable_tensorboard=False,
-                output_dir=output_training_dir,
+                output_dir=output_temp_dir,
             ),
         )
 
