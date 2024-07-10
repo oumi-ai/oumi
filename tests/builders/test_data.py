@@ -2,6 +2,8 @@ from typing import List, Union
 
 import pytest
 from datasets import Dataset, IterableDataset
+from trl.trainer import ConstantLengthDataset
+
 from lema.builders import build_dataset, build_tokenizer
 from lema.core.types import (
     DataParams,
@@ -14,7 +16,6 @@ from lema.core.types import (
     TrainingParams,
 )
 from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
-from trl.trainer import ConstantLengthDataset
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
 
