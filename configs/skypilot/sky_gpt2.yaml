@@ -30,6 +30,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
+  LEMA_RUN_NAME: gpt2.pt
 
 setup: |
   set -e
@@ -60,7 +61,7 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
-      "training.run_name='gpt2.pt.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
