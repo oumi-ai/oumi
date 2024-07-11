@@ -23,6 +23,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
+  LEMA_RUN_NAME: llama2b.pt
 
 setup: |
   set -e
@@ -42,5 +43,5 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
-      "training.run_name='llama2b.pt.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.enable_wandb=true"
