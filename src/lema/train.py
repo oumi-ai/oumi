@@ -106,6 +106,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_versioning_info()
     log_devices_info()
 
+    logger.info(f"Starting training: {config}\n")
+
     _ensure_training_output_dir_exists(config.training.output_dir)
 
     # Initialize model and tokenizer

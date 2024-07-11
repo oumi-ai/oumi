@@ -58,5 +58,8 @@ run: |
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
-      "training.output_dir=/output_dir_gcs/panos/output/${LEMA_RUN_NAME}" \
-      "training.include_performance_metrics=false"
+      "training.output_dir=/output_dir_gcs/nikolai/zephyr/${LEMA_RUN_NAME}" \
+      "training.include_performance_metrics=false" \
+      "training.per_device_train_batch_size=1" \
+      "training.per_device_eval_batch_size=1" \
+      "training.gradient_accumulation_steps=16"
