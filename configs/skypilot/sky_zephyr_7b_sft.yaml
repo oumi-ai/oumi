@@ -8,7 +8,7 @@ resources:
   # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {"A100-80GB": 8}
 
-  disk_size: 200      # Disk size in GB
+  # disk_size: 200      # Disk size in GB
   # disk_tier: medium # medium is the default.
   # region: us-west1  # Uncomment this line to only consider a specific region.
 
@@ -23,9 +23,9 @@ workdir: .
 file_mounts:
 
   /output_dir_gcs:
-    source: gs://lema-dev-us-central1
-    store: gcs
-    mode: MOUNT
+   source: gs://lema-dev-us-central1
+   store: gcs
+   mode: MOUNT
 
   # Upload local files.
   ~/.netrc: ~/.netrc # mount local netrc file to access private repos
@@ -59,7 +59,4 @@ run: |
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
       "training.output_dir=/output_dir_gcs/nikolai/zephyr/${LEMA_RUN_NAME}" \
-      "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=1" \
-      "training.per_device_eval_batch_size=1" \
-      "training.gradient_accumulation_steps=16"
+      "training.include_performance_metrics=false"
