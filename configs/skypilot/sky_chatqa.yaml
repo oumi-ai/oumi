@@ -30,7 +30,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
-  HF_TOKEN: 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
+  HF_TOKEN: null # forces the user to pass it
   LEMA_RUN_NAME: chatqa.stage2
 
 setup: |
