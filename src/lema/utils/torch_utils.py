@@ -4,6 +4,7 @@ from typing import Any, NamedTuple, Optional
 import numpy as np
 import torch
 
+from lema.core.types import TrainingConfig
 from lema.logging import logger
 from lema.utils.debugging_utils import get_nvidia_gpu_memory_utilization
 
@@ -33,6 +34,13 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
     """
     if torch.cuda.is_available():
         torch.cuda.set_per_process_memory_fraction(percent)
+
+
+def log_training_config(config: TrainingConfig) -> None:
+    """Logs training config."""
+    if not is_world_process_zero():
+        return
+    logger.info(f"TrainingConfig: {config}")
 
 
 def log_versioning_info() -> None:

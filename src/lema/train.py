@@ -22,6 +22,7 @@ from lema.utils.torch_utils import (
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
+    log_training_config,
     log_versioning_info,
 )
 
@@ -105,6 +106,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     log_versioning_info()
     log_devices_info()
+    log_training_config(config)
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
