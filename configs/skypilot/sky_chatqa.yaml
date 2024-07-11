@@ -31,6 +31,7 @@ file_mounts:
 envs:
   WANDB_PROJECT: lema-train-test
   HF_TOKEN: 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
+  LEMA_RUN_NAME: chatqa.stage2
 
 setup: |
   set -e
@@ -58,7 +59,7 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/chatqa/gpt2.chatqa.stage2.yaml \
-      "training.run_name='chatqa.stage2.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
