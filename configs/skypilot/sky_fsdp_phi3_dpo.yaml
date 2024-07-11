@@ -24,6 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
+  LEMA_RUN_NAME: phi3.dpo.nvidia.24g.fsdp
 
 setup: |
   set -e
@@ -36,7 +37,7 @@ run: |
       --config_file configs/accelerate/sample_fsdp_phi3_dpo.yaml \
       -m lema.train \
       -c configs/lema/phi3.dpo.nvidia.24g.yaml \
-      "training.run_name='phi3.dpo.nvidia.24g.fsdp.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \
