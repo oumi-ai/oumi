@@ -103,6 +103,7 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
+    logger.info(f"Starting training with config: {config}")
     log_versioning_info()
     log_devices_info()
 
