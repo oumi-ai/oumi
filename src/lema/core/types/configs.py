@@ -106,7 +106,7 @@ class EvaluationConfig(BaseConfig):
     num_shots: Optional[int] = None
     # Number of samples/examples to evaluate from this dataset. Mostly for debugging, in
     # order to reduce the runtime. If not set (None): the entire dataset is evaluated.
-    # If set, this must be a possitive integer or an exception will be thrown.
+    # If set, this must be a positive integer.
     num_samples: Optional[int] = None
     # Where to write computed evaluations.
     output_dir: str = "output"
