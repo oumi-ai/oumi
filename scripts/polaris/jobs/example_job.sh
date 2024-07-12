@@ -40,6 +40,8 @@ torchrun \
     -m lema.train \
     -c configs/lema/gpt2.pt.yaml \
     "training.run_name='gpt2.pt.${PBS_JOBID}'" \
+    "training.max_steps=100" \
+    "training.include_performance_metrics=true" \
     "training.ddp_find_unused_parameters=false" \
     "training.dataloader_num_workers=2" \
     "training.dataloader_prefetch_factor=4" \
