@@ -7,7 +7,6 @@ data:
     - dataset_name: "mmlu"
 
 generation:
-  batch_size: 2
+  batch_size: 0  # This will let LM HARNESS decide.
 
 evaluation_framework: LM_HARNESS
-num_samples: 0
