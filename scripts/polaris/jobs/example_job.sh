@@ -4,7 +4,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:10:00
 #PBS -l filesystems=home:eagle
-#PBS -q debug
+#PBS -q debug-scaling
 #PBS -A community_ai
 #PBS -o /eagle/community_ai/jobs/logs/
 #PBS -e /eagle/community_ai/jobs/logs/
@@ -23,6 +23,7 @@ module use /soft/modulefiles
 # Set up conda.
 module load conda
 conda activate base
+# conda activate /eagle/community_ai/nikg/miniconda3/envs/base-clone
 
 # Set up a virtual python environment.
 mkdir -p ./worker_venv/example_environment
