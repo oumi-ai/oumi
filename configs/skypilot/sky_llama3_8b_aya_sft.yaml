@@ -42,6 +42,8 @@ run: |
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  export TOKENIZERS_PARALLELISM=true
+
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -55,4 +57,6 @@ run: |
       "training.enable_wandb=false" \
       "training.enable_tensorboard=true" \
       "training.include_performance_metrics=true" \
+      "training.dataloader_num_workers=1" \
+      "training.dataloader_prefetch_factor=1024" \
       "training.logging_steps=10"

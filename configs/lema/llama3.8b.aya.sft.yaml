@@ -54,7 +54,6 @@ training:
   max_steps: 178
   save_steps: 36
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
-  trainer_num_workers: 8  # Set to number of GPUs
   trainer_kwargs:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
