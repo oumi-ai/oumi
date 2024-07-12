@@ -153,10 +153,10 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         model="hf",
         model_args=config.model.to_lm_harness(),
         tasks=benchmarks,  # type: ignore
-        num_fewshot=config.num_shots if config.num_shots else None,
+        num_fewshot=config.num_shots,
         batch_size=batch_size,
         device=device,
-        limit=config.num_samples if config.num_samples else None,
+        limit=config.num_samples,
         log_samples=False,
     )
     if config.output_dir:
