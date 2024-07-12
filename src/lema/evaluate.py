@@ -139,7 +139,6 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
-    benchmarks = [dataset.dataset_name for dataset in config.data.datasets]
     if torch.cuda.is_available():
         device = "cuda:0"
     elif torch.backends.mps.is_available():
@@ -148,14 +147,17 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         device = "cpu"
         logger.warning("No GPU available.")
 
+    benchmarks = [dataset.dataset_name for dataset in config.data.datasets]
+    batch_size = config.generation.batch_size if config.generation.batch_size else None
     results = lm_eval.simple_evaluate(
         model="hf",
         model_args=config.model.to_lm_harness(),
         tasks=benchmarks,  # type: ignore
         num_fewshot=config.num_shots,
-        batch_size=config.generation.batch_size,
+        batch_size=batch_size,
         device=device,
-        limit=config.num_samples if config.num_samples else None,
+        limit=config.num_samples,
+        log_samples=False,
     )
     if config.output_dir:
         metric_dict = results["results"]  # type: ignore
