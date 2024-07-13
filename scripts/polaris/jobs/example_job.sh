@@ -31,7 +31,7 @@ source ./worker_venv/example_environment/bin/activate
 
 python3 -m pip install -e '.[train]'
 
-torchrun \
+python3 -m torch.distributed.launch \
     --nnodes=${LEMA_NUM_NODES} \
     --node-rank=${PBS_NODENUM} \
     --nproc-per-node=4 \
