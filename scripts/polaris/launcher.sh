@@ -37,8 +37,7 @@ fi
 ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${POLARIS_USER}@polaris.alcf.anl.gov
 
 # Copy files to Polaris over the same SSH tunnel.
-# --filter='- .*/' excludes folders starting with a dot.
-rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY} --filter='- .*/'
+rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
 
 # Submit a job on Polaris over the same SSH tunnel.
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov << EOF
