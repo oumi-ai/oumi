@@ -42,5 +42,12 @@ rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete ${SOURCE_DIRECTORY} ${PO
 # Submit a job on Polaris over the same SSH tunnel.
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov << EOF
   cd ${COPY_DIRECTORY}
+  module use /soft/modulefiles
+  module load conda
+  conda activate base
+  mkdir -p ./worker_venv/example_environment
+  python3 -m venv ./worker_venv/example_environment --system-site-packages
+  source ./worker_venv/example_environment/bin/activate
+  python3 -m pip install -e '.[train]'
   qsub ${JOB_PATH}
 EOF
