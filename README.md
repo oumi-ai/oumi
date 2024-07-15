@@ -147,13 +147,15 @@ sky show-gpus
 To launch a job on the cloud, you can use the following command:
 ```shell
 # edit the configs/skypilot/sky.yaml file to your needs
-sky launch -c lema-cluster configs/skypilot/sky.yaml
+sky launch -c lema-cluster -i 10 configs/skypilot/sky.yaml
 ```
 
-Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually, or use the following to automatically take it down after 10 minutes of inactivity:
+Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down lema-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
 ```shell
 sky autostop lema-cluster -i 10
 ```
+
+Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).
 
 ### Multi-GPU Training on a single node
 
