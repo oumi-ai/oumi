@@ -31,6 +31,8 @@ source ./worker_venv/example_environment/bin/activate
 
 python3 -m pip install -e '.[train]'
 
+# Using torch.distributed.launch instead of torchrun as there
+# is a known issue with torchrun and virtual python environments.
 python3 -m torch.distributed.launch \
     --nnodes=${LEMA_NUM_NODES} \
     --node-rank=${PBS_NODENUM} \
@@ -45,3 +47,4 @@ python3 -m torch.distributed.launch \
     "training.ddp_find_unused_parameters=false" \
     "training.dataloader_num_workers=2" \
     "training.dataloader_prefetch_factor=4" \
+    "training.per_device_train_batch_size=32" \
