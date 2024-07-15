@@ -155,7 +155,7 @@ Remember to stop the cluster when you are done to avoid extra charges. You can e
 sky autostop lema-cluster -i 10
 ```
 
-Altarnatively, you can inlclde `-i 10` into your `sky launch` command (as shown above).
+Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).
 
 ### Multi-GPU Training on a single node
 
