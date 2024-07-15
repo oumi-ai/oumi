@@ -24,12 +24,8 @@ module use /soft/modulefiles
 module load conda
 conda activate base
 
-# Set up a virtual python environment.
-mkdir -p ./worker_venv/example_environment
-python3 -m venv ./worker_venv/example_environment --system-site-packages
+# Activate the virtual python environment with LeMa installed.
 source ./worker_venv/example_environment/bin/activate
-
-python3 -m pip install -e '.[train]'
 
 # Using torch.distributed.launch instead of torchrun as there
 # is a known issue with torchrun and virtual python environments.
