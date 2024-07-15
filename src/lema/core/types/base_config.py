@@ -6,6 +6,17 @@ from omegaconf import OmegaConf
 
 T = TypeVar("T", bound="BaseConfig")
 
+_CLI_IGNORED_PREFIXES = ["--local-rank"]
+
+
+def _filter_ignored_args(arg_list: List[str]) -> List[str]:
+    """Filters out ignored CLI arguments."""
+    return [
+        arg
+        for arg in arg_list
+        if not any(arg.startswith(prefix) for prefix in _CLI_IGNORED_PREFIXES)
+    ]
+
 
 @dataclass
 class BaseConfig:
@@ -57,6 +68,9 @@ class BaseConfig:
         # Override with configuration file if provided.
         if config_path is not None:
             all_configs.append(cls.from_yaml(config_path))
+
+        # Filter out CLI arguments that should be ignored.
+        arg_list = _filter_ignored_args(arg_list)
 
         # Override with CLI arguments.
         all_configs.append(OmegaConf.from_cli(arg_list))
