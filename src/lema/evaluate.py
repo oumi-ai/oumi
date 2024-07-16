@@ -198,6 +198,7 @@ def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
         None.
     """
     # Identify the relevant benchmark group.
+    assert len(config.data.datasets) == 1
     if config.data.datasets[0].dataset_name == HUGGINGFACE_LEADERBOARD_V1:
         benchmark_configs = BENCHMARK_CONFIGS[HUGGINGFACE_LEADERBOARD_V1]
     else:
