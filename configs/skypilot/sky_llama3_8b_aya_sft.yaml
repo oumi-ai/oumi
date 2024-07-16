@@ -31,6 +31,7 @@ file_mounts:
 envs:
   WANDB_PROJECT: lema-train-test
   LEMA_RUN_NAME: llama3.8b.aya.sft
+  TOKENIZERS_PARALLELISM: true
 
 setup: |
   set -e
@@ -42,8 +43,6 @@ run: |
 
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
-
-  export TOKENIZERS_PARALLELISM=true
 
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
