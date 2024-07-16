@@ -48,16 +48,9 @@ def build_model(
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
-    # Attempt to compile the forward pass of the model.
-    # `model = torch.compile(model)` doesn't work, maybe due to errors w/ HF datasets.
-    if model_params.compile:
-        try:
-            model.forward = torch.compile(model.forward)
-            logger.info("Compiled forward pass of model.")
-        except Exception as e:
-            logger.warning(
-                f"Unable to compile model, will use uncompiled model. Error: {e}"
-            )
+    # if model_params.compile:
+    #     model = torch.compile(model)
+    #     logger.info("Enabled model compilation.")
 
     return model
 
@@ -108,6 +101,14 @@ def build_huggingface_model(
         trust_remote_code=model_params.trust_remote_code,
         flash_attention_2=model_params.should_use_flash_attention_2,
     )
+
+    # Zeros out dropout probabilities, effectively removing it as a model layer.
+    # We assume any attribute with "drop" in the name and a float value is a dropout
+    # param. For example, there is `attn_pdrop` and `summary_first_dropout` for GPT2.
+    if model_params.remove_dropout:
+        for k, v in vars(hf_config).items():
+            if "drop" in k and isinstance(v, float):
+                setattr(hf_config, k, 0.0)
 
     if peft_params and peft_params.q_lora:
         # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always

@@ -117,9 +117,10 @@ class TrainingParams:
     # Parameters for performance profiling.
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
-    def to_hf(self):
+    def to_hf(self, compile: bool = False):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
+            torch_compile=compile,
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,

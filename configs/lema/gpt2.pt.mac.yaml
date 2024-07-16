@@ -5,6 +5,7 @@ model:
   model_name: "gpt2"  # 124M params
   model_max_length: 128
   torch_dtype_str: "bfloat16"
+  remove_dropout: True
   load_pretrained_weights: False
   trust_remote_code: True
 
