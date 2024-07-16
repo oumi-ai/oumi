@@ -29,6 +29,7 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
         console_handler.setLevel(level.upper())
 
         logger.addHandler(console_handler)
+        logger.propagate = False
     else:
         logger = logging.getLogger(name)
 
