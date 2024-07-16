@@ -36,6 +36,9 @@ file_mounts:
 envs:
   WANDB_PROJECT: lema-eval
 
+  # HF datasets require trusting remote code to be enabled.
+  HF_DATASETS_TRUST_REMOTE_CODE: 1
+
 setup: |
   set -e
   pip install '.[train]'
