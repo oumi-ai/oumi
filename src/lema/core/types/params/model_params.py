@@ -23,14 +23,16 @@ class ModelParams:
     # Whether to (attempt to) compile the model.
     # Currently we only try to compile the forward pass.
     compile: bool = False
-    # Experimental. Zeros out dropout probability in the model config, which is non-zero
-    # by default for some HF models (ex. GPT2). Dropout is normally not used for LLM
-    # training, and also hinders the effectiveness of model compilation.
-    remove_dropout: bool = False
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    # EXPERIMENTAL. Zeros out dropout probability in the model config, which is non-zero
+    # by default for some HF models (ex. GPT2). Dropout is normally not used for LLM
+    # training, and also hinders the effectiveness of model compilation. We assume any
+    # attribute with "drop" in the name and a float value is a dropout param.
+    disable_dropout: bool = False
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""

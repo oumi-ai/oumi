@@ -12,6 +12,28 @@ from lema.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
 
 
+def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
+    """Detects dropout probabilities in config and sets them to 0.0.
+
+    This essentially removes the dropout layer, which can aid the compiled model's
+    speed. We assume any attribute with "drop" in the name and a float value is a
+    dropout param. For example, this includes `attn_pdrop` and `summary_first_dropout`
+    for GPT2.
+
+    Args:
+        hf_config: The HuggingFace model config.
+    """
+    drop_attrs = []
+    for k, v in vars(hf_config).items():
+        if "drop" in k and isinstance(v, float):
+            setattr(hf_config, k, 0.0)
+            drop_attrs.append(k)
+    logger.info(
+        "Detected the following dropout attributes and set their values to 0.:",
+        drop_attrs,
+    )
+
+
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -102,13 +124,9 @@ def build_huggingface_model(
         flash_attention_2=model_params.should_use_flash_attention_2,
     )
 
-    # Zeros out dropout probabilities, effectively removing it as a model layer.
-    # We assume any attribute with "drop" in the name and a float value is a dropout
-    # param. For example, there is `attn_pdrop` and `summary_first_dropout` for GPT2.
-    if model_params.remove_dropout:
-        for k, v in vars(hf_config).items():
-            if "drop" in k and isinstance(v, float):
-                setattr(hf_config, k, 0.0)
+    # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
+    if model_params.disable_dropout:
+        _disable_dropout(hf_config)
 
     if peft_params and peft_params.q_lora:
         # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always

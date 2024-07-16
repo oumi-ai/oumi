@@ -7,7 +7,7 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
   compile: True
-  remove_dropout: True
+  disable_dropout: True
   load_pretrained_weights: False
   trust_remote_code: True
 
