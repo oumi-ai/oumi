@@ -69,7 +69,7 @@ def test_train_native_pt_model_from_api():
         training_args = config.training.to_hf()
 
         trainer = Trainer(
-            model=model,
+            model=model,  # type: ignore
             tokenizer=tokenizer,
             args=training_args,
             train_dataset=dataset,

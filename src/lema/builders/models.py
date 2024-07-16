@@ -48,9 +48,9 @@ def build_model(
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
-    # if model_params.compile:
-    #     model = torch.compile(model)
-    #     logger.info("Enabled model compilation.")
+    if model_params.compile:
+        model = torch.compile(model)
+        logger.info("Enabled model compilation.")
 
     return model
 
