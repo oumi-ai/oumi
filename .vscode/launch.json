@@ -74,7 +74,7 @@
             "module": "lema.evaluate",
             "args": [
                 "-c",
-                "configs/lema/phi3.eval.lm_harness.mac.yaml"
+                "configs/lema/phi3.eval.lm_harness.yaml"
             ],
             "justMyCode": true
         },

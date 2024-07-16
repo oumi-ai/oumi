@@ -4,7 +4,7 @@ model:
 
 data:
   datasets:
-    - dataset_name: "mmlu"
+    - dataset_name: "huggingface_leaderboard_v1"
 
 generation:
   batch_size: 0  # This will let LM HARNESS decide.
