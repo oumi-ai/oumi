@@ -69,7 +69,6 @@ def log_devices_info() -> None:
     if not is_world_process_zero():
         return
     if not torch.cuda.is_available():
-        logger.info("CUDA is not available!")
         return
 
     num_devices = torch.cuda.device_count()
