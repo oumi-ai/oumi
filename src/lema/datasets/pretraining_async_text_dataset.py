@@ -41,7 +41,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         """Iterable dataset that returns constant length chunks of tokens.
 
         Args:
-            tokenizer (`transformers.PreTrainedTokenizer`):
+            tokenizer (`transformers.PreTrainedTokenizerBase`):
                 The PreTrainedTokenizer used for converting strings to tokens.
             dataset (`dataset.Dataset`):
                 Dataset of text samples.
