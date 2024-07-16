@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import time
+from copy import deepcopy
 from typing import Any, Dict
 
 import lm_eval
@@ -10,11 +12,15 @@ from lema.core.types import EvaluationConfig
 from lema.core.types.configs import EvaluationFramework
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
+from lema.evaluation.huggingface_leaderboard import (
+    BENCHMARK_CONFIGS,
+    HUGGINGFACE_LEADERBOARD_V1,
+)
 from lema.evaluation.infer_prob import infer_prob
 from lema.logging import logger
 from lema.utils.batching import batch, unbatch
 
-SAVE_FILENAME_JSON = "eval.json"
+SAVE_FILENAME_JSON = "eval.{benchmark_name}.json"
 
 
 def parse_cli():
@@ -59,7 +65,13 @@ def evaluate(config: EvaluationConfig) -> None:
     if config.evaluation_framework == EvaluationFramework.LEMA:
         evaluate_lema(config)
     elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
-        evaluate_lm_harness(config)
+        if (
+            len(config.data.datasets) == 1
+            and config.data.datasets[0].dataset_name == HUGGINGFACE_LEADERBOARD_V1
+        ):
+            evaluate_lm_harness_leaderboard(config)
+        else:
+            evaluate_lm_harness(config)
     else:
         raise ValueError(
             f"Unsupported evaluation framework: {config.evaluation_framework}"
@@ -122,7 +134,8 @@ def evaluate_lema(config: EvaluationConfig) -> None:
     if config.output_dir:
         save_evaluation_results(
             output_dir=config.output_dir,
-            metric_dict={"cais/mmlu": {"accuracy": accuracy}},
+            benchmark_name="mmlu",
+            metric_dict={"accuracy": accuracy},
         )
     logger.info(f"MMLU accuracy is {accuracy:.3f}")
 
@@ -147,36 +160,69 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         device = "cpu"
         logger.warning("No GPU available.")
 
-    benchmarks = [dataset.dataset_name for dataset in config.data.datasets]
+    benchmark_names = [dataset.dataset_name for dataset in config.data.datasets]
     batch_size = config.generation.batch_size if config.generation.batch_size else None
+
+    start_time = time.time()
     results = lm_eval.simple_evaluate(
         model="hf",
         model_args=config.model.to_lm_harness(),
-        tasks=benchmarks,  # type: ignore
+        tasks=benchmark_names,  # type: ignore
         num_fewshot=config.num_shots,
         batch_size=batch_size,
         device=device,
         limit=config.num_samples,
         log_samples=False,
     )
-    if config.output_dir:
-        metric_dict = results["results"]  # type: ignore
-        save_evaluation_results(
-            output_dir=config.output_dir,
-            metric_dict=metric_dict,
-        )
-    for benchmark in benchmarks:
-        logger.info(f"{benchmark}'s metric dictionary is {metric_dict[benchmark]}")
+    elapsed_time_sec = time.time() - start_time
+
+    for benchmark_name in benchmark_names:
+        metric_dict = results["results"][benchmark_name]  # type: ignore
+        metric_dict["elapsed_time_sec"] = elapsed_time_sec
+        if config.output_dir:
+            save_evaluation_results(
+                output_dir=config.output_dir,
+                benchmark_name=benchmark_name,
+                metric_dict=metric_dict,
+            )
+        logger.info(f"{benchmark_name}'s metric dictionary is {metric_dict}")
+
+
+def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
+    """Evaluates a model using LM Evaluation Harness and the HF leaderboard benchmarks.
+
+    Args:
+        config: The desired configuration for evaluation.
+
+    Returns:
+        None.
+    """
+    # Identify the relevant benchmark group.
+    assert len(config.data.datasets) == 1
+    if config.data.datasets[0].dataset_name == HUGGINGFACE_LEADERBOARD_V1:
+        benchmark_configs = BENCHMARK_CONFIGS[HUGGINGFACE_LEADERBOARD_V1]
+    else:
+        raise NotImplementedError("Only HuggingFace Leaderboard V1 supported for now.")
+
+    # Evaluate each benchmark in the group.
+    for benchmark_config in benchmark_configs:
+        mutable_config = deepcopy(config)
+        mutable_config.data.datasets[0].dataset_name = benchmark_config.name
+        mutable_config.num_shots = benchmark_config.num_shots
+        mutable_config.num_samples = benchmark_config.num_samples
+        evaluate_lm_harness(mutable_config)
 
 
 def save_evaluation_results(
     output_dir: str,
+    benchmark_name: str,
     metric_dict: Dict[str, Any],
 ) -> None:
     """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
     os.makedirs(output_dir, exist_ok=True)
-    output_eval_path = os.path.join(output_dir, SAVE_FILENAME_JSON)
-    with open(output_eval_path, mode="w", encoding="utf-8") as f:
+    output_filename = SAVE_FILENAME_JSON.format(benchmark_name=benchmark_name)
+    output_path = os.path.join(output_dir, output_filename)
+    with open(output_path, mode="w", encoding="utf-8") as f:
         json.dump(metric_dict, f)
 
 
