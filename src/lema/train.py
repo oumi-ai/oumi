@@ -110,11 +110,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
-    # For training, we'll use HF's `TrainingArguments.torch_compile` arg instead of
-    # compiling the model ourselves.
-    compile = config.model.compile
-    config.model.compile = False
-
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
 
@@ -168,7 +163,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
-        args=config.training.to_hf(compile),
+        args=config.training.to_hf(),
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,

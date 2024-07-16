@@ -81,6 +81,10 @@ class TrainingParams:
     # of 32-bit training. Requires Ampere or higher NVIDIA architecture
     # or using CPU or Ascend NPU.
 
+    # Whether to JIT compile the model. This param is used instead of
+    # `ModelParams.compile` for training.
+    compile: bool = False
+
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
@@ -117,10 +121,9 @@ class TrainingParams:
     # Parameters for performance profiling.
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
-    def to_hf(self, compile: bool = False):
+    def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         return transformers.TrainingArguments(
-            torch_compile=compile,
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -150,6 +153,7 @@ class TrainingParams:
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.fp16,
             bf16=self.bf16,
+            torch_compile=self.compile,
             save_steps=self.save_steps,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
