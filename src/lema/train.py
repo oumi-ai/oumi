@@ -67,15 +67,6 @@ def main() -> None:
     device_cleanup()
 
 
-def _get_total_num_samples(dataset_to_count):
-    total_samples = 0
-    # After tokenization
-    for _ in dataset_to_count:
-        total_samples += 1
-
-    return total_samples
-
-
 def _find_checkpoint_to_resume_from(
     resume_from_checkpoint: Optional[str],
     try_resume_from_last_checkpoint: bool,
