@@ -14,8 +14,8 @@ from lema.builders import (
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
-from lema.logging import logger
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
+from lema.utils.logging import logger
 from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
     device_cleanup,

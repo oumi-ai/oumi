@@ -5,8 +5,8 @@ import numpy as np
 import torch
 
 from lema.core.types import TrainingConfig
-from lema.logging import logger
 from lema.utils.debugging_utils import get_nvidia_gpu_memory_utilization
+from lema.utils.logging import logger
 
 
 def device_cleanup() -> None:

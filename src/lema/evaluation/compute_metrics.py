@@ -3,7 +3,7 @@ from typing import List, Optional
 
 import numpy as np
 
-from lema.logging import logger
+from lema.utils.logging import logger
 
 
 def compute_multiple_choice_accuracy(

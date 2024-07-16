@@ -8,7 +8,7 @@ from transformers import BitsAndBytesConfig
 
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types import ModelParams, PeftParams
-from lema.logging import logger
+from lema.utils.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
 
 

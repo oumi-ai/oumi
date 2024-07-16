@@ -11,7 +11,7 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
-from lema.logging import logger
+from lema.utils.logging import logger
 
 
 def parse_cli():

@@ -10,7 +10,7 @@ from typing import Callable, Dict, Literal
 
 from transformers import PreTrainedTokenizerBase
 
-import lema.logging
+import lema.utils.logging
 
 
 def maybe_insert_system_message(messages, tokenizer):
@@ -44,7 +44,7 @@ def maybe_insert_system_message(messages, tokenizer):
     if "system" in chat_template or "<|im_start|>" in chat_template:
         messages.insert(0, {"role": "system", "content": ""})
     else:
-        lema.logging.logger.warning(
+        lema.utils.logging.logger.warning(
             "Requested to add an empty system message using a template."
         )
 
