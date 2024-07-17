@@ -14,7 +14,7 @@ class BaseCloud(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cluster(self, name) -> BaseCluster:
+    def get_cluster(self, name: str) -> BaseCluster:
         """Gets the cluster with the specified name."""
         raise NotImplementedError
 
