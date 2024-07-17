@@ -8,6 +8,7 @@ from lema.logging import logger
 
 _TFLOPS = "tflops"
 _DEVICE_SPECS = {
+    # https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-us-nvidia-1758950-r4-web.pdf
     "NVIDIA A100-PCIE-40GB": {
         _TFLOPS: {
             torch.float32: 19.5,
@@ -36,6 +37,7 @@ _DEVICE_SPECS = {
             torch.bfloat16: 312.0,
         }
     },
+    # https://www.nvidia.com/content/PDF/nvidia-ampere-ga-102-gpu-architecture-whitepaper-v2.1.pdf
     "NVIDIA GeForce RTX 3090": {
         _TFLOPS: {
             torch.float32: 35.6,
@@ -44,6 +46,7 @@ _DEVICE_SPECS = {
         },
     },
     # Only used for testing purposes
+    # https://cloud.google.com/tpu/docs/v4
     "TPUv4": {
         _TFLOPS: {
             torch.float16: 275,
