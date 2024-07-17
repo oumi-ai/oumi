@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Dict, Optional
 
 from omegaconf import MISSING
 
 from lema.core.types.base_config import BaseConfig
 from lema.core.types.params.data_params import DataParams, DatasetSplitParams
 from lema.core.types.params.model_params import ModelParams
+from lema.core.types.params.node_params import NodeParams, StorageMount
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 from lema.utils.logging import logger
@@ -149,3 +150,47 @@ class AsyncEvaluationConfig(BaseConfig):
             raise ValueError("`polling_interval` must be non-negative.")
         if self.num_retries < 0:
             raise ValueError("`num_retries` must be non-negative.")
+
+
+@dataclass
+class JobConfig(BaseConfig):
+    """Configuration for launching jobs on a cluster."""
+
+    # Job name (optional). Only used for display purposes.
+    name: Optional[str] = None
+
+    # The user that the job will run as (optional). Required only for Polaris.
+    user: Optional[str] = None
+
+    # The local directory containing the scripts required to execute this job.
+    # This directory will be copied to the remote node before the job is executed.
+    working_dir: str = MISSING
+
+    # The number of nodes to use for the job. Defaults to 1.
+    num_nodes: int = 1
+
+    # The resources required for each node in the job.
+    resources: NodeParams = field(default_factory=NodeParams)
+
+    # The environment variables to set on the node.
+    envs: Dict[str, str] = field(default_factory=dict)
+
+    # File mounts to attach to the node.
+    # For mounting (copying) local directories, the key is the file path on the remote
+    # and the value is the local path.
+    # The keys of `file_mounts` cannot be shared with `storage_mounts`.
+    file_mounts: Dict[str, str] = field(default_factory=dict)
+
+    # Storage system mounts to attach to the node.
+    # For mounting remote storage solutions, the key is the file path on the remote
+    # and the value is a StorageMount.
+    # The keys of `storage_mounts` cannot be shared with `file_mounts`.
+    storage_mounts: Dict[str, StorageMount] = field(default_factory=dict)
+
+    # The setup script to run on every node. Optional.
+    # `setup` will always be executed before `run`.
+    # ex) pip install -r requirements.txt
+    setup: Optional[str] = None
+
+    # The script to run on every node. Required. Runs after `setup`.
+    run: str = MISSING
