@@ -4,8 +4,6 @@ from typing import Optional
 
 import torch
 
-from lema.logging import logger
-
 _TFLOPS = "tflops"
 _DEVICE_SPECS = {
     # https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-us-nvidia-1758950-r4-web.pdf
@@ -86,7 +84,6 @@ def _get_model_flops_per_token(
     backward_flops = 4 * num_params
     attention_flops = 0
     if num_layers and num_attention_heads and attention_head_size and sequence_length:
-        logger.info("Adding attention FLOPs.")
         attention_flops = (
             sequence_length
             * num_layers
@@ -97,8 +94,6 @@ def _get_model_flops_per_token(
 
     rematerialization_flops = 0
     if add_rematerialization:
-        logger.info("Adding rematerialization FLOPs.")
-
         # FIXME: Needs to be calculated based on checkpointing configuration
         # 73% of forward and all of attention
         # PaLM paper mentions 75%, but the calculated value requires 73%, paper error?
