@@ -1,7 +1,25 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
 
 from omegaconf import MISSING
+
+
+class DiskTier(Enum):
+    """Enum representing the supported disk tiers."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    BEST = "best"
+
+
+class CloudType(Enum):
+    """Enum representing the supported cloud types."""
+
+    RUNPOD = "runpod"
+    GCP = "gcp"
+    POLARIS = "polaris"
 
 
 @dataclass
@@ -10,10 +28,10 @@ class StorageMount:
 
     # The remote path to mount the local path to (Required).
     # e.g. 'gs://bucket/path' for GCS, 's3://bucket/path' for S3, or 'r2://path' for R2.
-    source: str
+    source: str = MISSING
 
     # The remote storage solution (Required). Must be one of 's3', 'gcs' or 'r2'.
-    store: str
+    store: str = MISSING
 
 
 @dataclass
@@ -21,7 +39,7 @@ class NodeParams:
     """Resources required for a single node in a job."""
 
     # The cloud used to run the job (required).
-    cloud: str = MISSING
+    cloud: CloudType = MISSING
 
     # The region to use (optional). Supported values vary by environment.
     region: Optional[str] = None
@@ -52,4 +70,4 @@ class NodeParams:
 
     # Disk tier to use for OS (optional).
     # Could be one of 'low', 'medium', 'high' or 'best' (default: 'medium').
-    disk_tier: str = "medium"
+    disk_tier: DiskTier = DiskTier.MEDIUM
