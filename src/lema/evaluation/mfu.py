@@ -121,7 +121,7 @@ def calculate_mfu(
     if num_tokens <= 0:
         raise ValueError(f"Must have a positive number of tokens: {num_tokens}")
     if delta_time_seconds <= 0:
-        raise ValueError(f"Must have a positive time: {delta_time_seconds}")
+        raise ValueError(f"Must have a positive delta time: {delta_time_seconds}")
 
     model_flops_per_token = _get_model_flops_per_token(
         num_params,

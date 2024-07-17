@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import pytest
 import torch
@@ -6,142 +6,144 @@ import torch
 from lema.evaluation.mfu import calculate_mfu
 
 
+class MfuTestParams(NamedTuple):
+    device_name: str
+    num_devices: int
+    dtype: torch.dtype
+    num_params: int
+    num_tokens: int
+    delta_time_seconds: float
+    expected_mfu: float
+    num_layers: Optional[int]
+    num_attention_heads: Optional[int]
+    attention_head_size: Optional[int]
+    sequence_length: Optional[int]
+    add_rematerialization: bool
+
+
 @pytest.mark.parametrize(
-    "device_name,num_devices,dtype,num_params,num_tokens,delta_time_seconds,expected_mfu,num_layers,num_attention_heads,attention_head_size,sequence_length,add_rematerialization",
+    "params",
     [
-        (
-            "NVIDIA A100-SXM4-80GB",
-            1,
-            torch.bfloat16,
-            124e6,
-            178000,
-            1.0,
-            0.424,
-            None,
-            None,
-            None,
-            None,
-            False,
+        MfuTestParams(
+            device_name="NVIDIA A100-SXM4-80GB",
+            num_devices=1,
+            dtype=torch.bfloat16,
+            num_params=int(124e6),
+            num_tokens=178000,
+            delta_time_seconds=1.0,
+            expected_mfu=0.424,
+            num_layers=None,
+            num_attention_heads=None,
+            attention_head_size=None,
+            sequence_length=None,
+            add_rematerialization=False,
         ),  # nanogpt, model only
-        (
-            "NVIDIA A100-SXM4-80GB",
-            1,
-            torch.bfloat16,
-            124e6,
-            178000,
-            1.0,
-            0.489,
-            12,
-            12,
-            64,
-            1024,
-            False,
+        MfuTestParams(
+            device_name="NVIDIA A100-SXM4-80GB",
+            num_devices=1,
+            dtype=torch.bfloat16,
+            num_params=int(124e6),
+            num_tokens=178000,
+            delta_time_seconds=1.0,
+            expected_mfu=0.489,
+            num_layers=12,
+            num_attention_heads=12,
+            attention_head_size=64,
+            sequence_length=1024,
+            add_rematerialization=False,
         ),  # nanogpt, model + attention
-        (
-            "NVIDIA A100-SXM4-80GB",
-            2240,
-            torch.bfloat16,
-            530e9,
-            65400,
-            1.0,
-            0.298,
-            None,
-            None,
-            None,
-            None,
-            False,
+        MfuTestParams(
+            device_name="NVIDIA A100-SXM4-80GB",
+            num_devices=2240,
+            dtype=torch.bfloat16,
+            num_params=int(530e9),
+            num_tokens=65400,
+            delta_time_seconds=1.0,
+            expected_mfu=0.298,
+            num_layers=None,
+            num_attention_heads=None,
+            attention_head_size=None,
+            sequence_length=None,
+            add_rematerialization=False,
         ),  # MT-NLG 530B, model only
-        (
-            "NVIDIA A100-SXM4-80GB",
-            2240,
-            torch.bfloat16,
-            530e9,
-            65400,
-            1.0,
-            0.306,
-            105,
-            128,
-            256,
-            2048,
-            False,
+        MfuTestParams(
+            device_name="NVIDIA A100-SXM4-80GB",
+            num_devices=2240,
+            dtype=torch.bfloat16,
+            num_params=int(530e9),
+            num_tokens=65400,
+            delta_time_seconds=1.0,
+            expected_mfu=0.306,
+            num_layers=105,
+            num_attention_heads=128,
+            attention_head_size=256,
+            sequence_length=2048,
+            add_rematerialization=False,
         ),  # MT-NLG 530B, model + attention
-        (
-            "TPUv4",
-            6144,
-            torch.bfloat16,
-            540e9,
-            238300,
-            1.0,
-            0.457,
-            None,
-            48,
-            256,
-            2048,
-            False,
+        MfuTestParams(
+            device_name="TPUv4",
+            num_devices=6144,
+            dtype=torch.bfloat16,
+            num_params=int(540e9),
+            num_tokens=238300,
+            delta_time_seconds=1.0,
+            expected_mfu=0.457,
+            num_layers=None,
+            num_attention_heads=48,
+            attention_head_size=256,
+            sequence_length=2048,
+            add_rematerialization=False,
         ),  # PaLM 540B, model only
-        (
-            "TPUv4",
-            6144,
-            torch.bfloat16,
-            540e9,
-            238300,
-            1.0,
-            0.462,
-            118,
-            48,
-            256,
-            2048,
-            False,
+        MfuTestParams(
+            device_name="TPUv4",
+            num_devices=6144,
+            dtype=torch.bfloat16,
+            num_params=int(540e9),
+            num_tokens=238300,
+            delta_time_seconds=1.0,
+            expected_mfu=0.462,
+            num_layers=118,
+            num_attention_heads=48,
+            attention_head_size=256,
+            sequence_length=2048,
+            add_rematerialization=False,
         ),  # PaLM 540B, model + attention
-        (
-            "TPUv4",
-            6144,
-            torch.bfloat16,
-            540e9,
-            238300,
-            1.0,
-            0.578,
-            118,
-            48,
-            256,
-            2048,
-            True,
+        MfuTestParams(
+            device_name="TPUv4",
+            num_devices=6144,
+            dtype=torch.bfloat16,
+            num_params=int(540e9),
+            num_tokens=238300,
+            delta_time_seconds=1.0,
+            expected_mfu=0.578,
+            num_layers=118,
+            num_attention_heads=48,
+            attention_head_size=256,
+            sequence_length=2048,
+            add_rematerialization=True,
         ),  # PaLM 540B, model + attention + rematerialization
     ],
 )
-def test_mfu_parametric(
-    device_name: str,
-    num_devices: int,
-    dtype: torch.dtype,
-    num_params: int,
-    num_tokens: int,
-    delta_time_seconds: float,
-    expected_mfu: float,
-    num_layers: Optional[int],
-    num_attention_heads: Optional[int],
-    attention_head_size: Optional[int],
-    sequence_length: Optional[int],
-    add_rematerialization: bool,
-):
+def test_mfu_parametric(params: MfuTestParams):
     mfu = calculate_mfu(
-        device_name=device_name,
-        num_devices=num_devices,
-        dtype=dtype,
-        num_params=num_params,
-        num_tokens=num_tokens,
-        delta_time_seconds=delta_time_seconds,
-        num_layers=num_layers,
-        num_attention_heads=num_attention_heads,
-        attention_head_size=attention_head_size,
-        sequence_length=sequence_length,
-        add_rematerialization=add_rematerialization,
+        device_name=params.device_name,
+        num_devices=params.num_devices,
+        dtype=params.dtype,
+        num_params=params.num_params,
+        num_tokens=params.num_tokens,
+        delta_time_seconds=params.delta_time_seconds,
+        num_layers=params.num_layers,
+        num_attention_heads=params.num_attention_heads,
+        attention_head_size=params.attention_head_size,
+        sequence_length=params.sequence_length,
+        add_rematerialization=params.add_rematerialization,
     )
 
-    assert abs(mfu - expected_mfu) < 2e-3
+    assert abs(mfu - params.expected_mfu) < 2e-3
 
 
 def test_mfu_bad_device():
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as exception_info:
         calculate_mfu(
             device_name="BadDevice",
             num_devices=1,
@@ -150,10 +152,11 @@ def test_mfu_bad_device():
             num_tokens=178000,
             delta_time_seconds=1.0,
         )
+    assert "BadDevice" in str(exception_info.value)
 
 
 def test_mfu_bad_dtype():
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as exception_info:
         calculate_mfu(
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=1,
@@ -162,10 +165,11 @@ def test_mfu_bad_dtype():
             num_tokens=178000,
             delta_time_seconds=1.0,
         )
+    assert "torch.int8" in str(exception_info.value)
 
 
 def test_mfu_bad_num_devices():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         calculate_mfu(
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=0,
@@ -174,10 +178,11 @@ def test_mfu_bad_num_devices():
             num_tokens=178000,
             delta_time_seconds=1.0,
         )
+    assert "Must have a positive number of devices" in str(exception_info.value)
 
 
 def test_mfu_bad_num_tokens():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         calculate_mfu(
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=1,
@@ -186,10 +191,11 @@ def test_mfu_bad_num_tokens():
             num_tokens=0,
             delta_time_seconds=1.0,
         )
+    assert "Must have a positive number of tokens" in str(exception_info.value)
 
 
 def test_mfu_bad_delta_time_seconds():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         calculate_mfu(
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=1,
@@ -198,10 +204,11 @@ def test_mfu_bad_delta_time_seconds():
             num_tokens=178000,
             delta_time_seconds=0,
         )
+    assert "Must have a positive delta time" in str(exception_info.value)
 
 
 def test_mfu_bad_num_params():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         calculate_mfu(
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=1,
@@ -210,3 +217,4 @@ def test_mfu_bad_num_params():
             num_tokens=178000,
             delta_time_seconds=1.0,
         )
+    assert "Must have a positive number of model params" in str(exception_info.value)
