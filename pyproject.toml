@@ -24,7 +24,12 @@ classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
 ]
+# TODO: Switch to stable build "skypilot[gcp,runpod]"
+# once RunPod multi-GPU bugfix is included (>0.5.0)
+# https://github.com/skypilot-org/skypilot/pull/3291/files
 dependencies = [
+    "skypilot-nightly[gcp,runpod]",
+    "google-api-python-client",        # To enable GCP in Skypilot
     "torch",
     "transformers",
     "numpy<2.0.0",  # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
@@ -63,13 +68,8 @@ train = [
     "lm-eval",
     "pydantic",
 ]
-# TODO: Switch to stable build "skypilot[lambda,runpod]"
-# once RunPod multi-GPU bugfix is included (>0.5.0)
-# https://github.com/skypilot-org/skypilot/pull/3291/files
 cloud = [
-    "skypilot-nightly[lambda,runpod]",
     "google-api-core>=2.19.0",
-    "google-api-python-client",        # To enable GCP in Skypilot
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
