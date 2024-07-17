@@ -157,10 +157,10 @@ class JobConfig(BaseConfig):
     """Configuration for launching jobs on a cluster."""
 
     # Job name (optional). Only used for display purposes.
-    name: str = ""
+    name: Optional[str] = None
 
     # The user that the job will run as (optional). Required only for Polaris.
-    user: str = ""
+    user: Optional[str] = None
 
     # The local directory containing the scripts required to execute this job.
     # This directory will be copied to the remote node before the job is executed.

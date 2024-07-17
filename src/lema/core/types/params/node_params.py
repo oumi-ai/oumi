@@ -24,24 +24,24 @@ class NodeParams:
     cloud: str = MISSING
 
     # The region to use (optional). Supported values vary by environment.
-    region: str = ""
+    region: Optional[str] = None
 
     # The zone to use (optional). Supported values vary by environment.
-    zone: str = ""
+    zone: Optional[str] = None
 
     # Accelerator type (optional). Supported values vary by environment.
     # For GCP you may specify the accelerator name and count, e.g. "V100:4".
-    accelerators: str = ""
+    accelerators: Optional[str] = None
 
     # Number of vCPUs to use per node (optional).
-    cpus: str = ""
+    cpus: Optional[int] = None
 
-    # Memory to use per node (optional).
-    memory: str = ""
+    # Memory to allocate per node in GiB (optional).
+    memory: Optional[int] = None
 
     # Instance type to use (optional). Supported values vary by environment.
     # The instance type is automatically inferred if `accelerators` is specified.
-    instance_type: str = ""
+    instance_type: Optional[str] = None
 
     # Whether the cluster should use spot instances (optional).
     # If unspecified, defaults to False (on-demand instances).
