@@ -52,4 +52,4 @@ class NodeParams:
 
     # Disk tier to use for OS (optional).
     # Could be one of 'low', 'medium', 'high' or 'best' (default: 'medium').
-    disk_tier: Optional[str] = None
+    disk_tier: str = "medium"

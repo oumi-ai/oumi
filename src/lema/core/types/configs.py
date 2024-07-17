@@ -156,13 +156,20 @@ class AsyncEvaluationConfig(BaseConfig):
 class JobConfig(BaseConfig):
     """Configuration for launching jobs on a cluster."""
 
-    # Job name (required).
-    name: str = MISSING
+    # Job name (optional). Only used for display purposes.
+    name: str = ""
 
     # The user that the job will run as (optional). Required only for Polaris.
     user: str = ""
+
+    # The local directory containing the scripts required to execute this job.
+    # This directory will be copied to the remote node before the job is executed.
     working_dir: str = MISSING
+
+    # The number of nodes to use for the job. Defaults to 1.
     num_nodes: int = 1
+
+    # The resources required for each node in the job.
     resources: NodeParams = field(default_factory=NodeParams)
 
     # The environment variables to set on the node.
