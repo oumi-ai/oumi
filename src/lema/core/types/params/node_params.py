@@ -47,7 +47,7 @@ class NodeParams:
     # If unspecified, defaults to False (on-demand instances).
     use_spot: bool = False
 
-    # Disk size in GB to allocate for OS (mounted at /). Ignored by Polaris. Optional.
+    # Disk size in GiB to allocate for OS (mounted at /). Ignored by Polaris. Optional.
     disk_size: Optional[int] = None
 
     # Disk tier to use for OS (optional).
