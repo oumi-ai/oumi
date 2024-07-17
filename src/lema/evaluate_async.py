@@ -7,7 +7,7 @@ from typing import List
 
 from lema.core.types import AsyncEvaluationConfig
 from lema.evaluate import evaluate
-from lema.logging import logger
+from lema.utils.logging import logger
 
 _PREFIX_CHECKPOINT_DIR = "checkpoint"
 

@@ -2,10 +2,10 @@ from lema import models
 from lema.evaluate import evaluate_lema, evaluate_lm_harness
 from lema.evaluate_async import evaluate_async
 from lema.infer import infer, infer_interactive
-from lema.logging import configure_dependency_warnings
 from lema.train import train
+from lema.utils import logging
 
-configure_dependency_warnings()
+logging.configure_dependency_warnings()
 
 
 __all__ = [

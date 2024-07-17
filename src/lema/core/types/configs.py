@@ -9,7 +9,7 @@ from lema.core.types.params.data_params import DataParams, DatasetSplitParams
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
-from lema.logging import logger
+from lema.utils.logging import logger
 
 
 class EvaluationFramework(Enum):

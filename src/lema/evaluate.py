@@ -17,8 +17,8 @@ from lema.evaluation.huggingface_leaderboard import (
     HUGGINGFACE_LEADERBOARD_V1,
 )
 from lema.evaluation.infer_prob import infer_prob
-from lema.logging import logger
 from lema.utils.batching import batch, unbatch
+from lema.utils.logging import logger
 
 SAVE_FILENAME_JSON = "eval.{benchmark_name}.json"
 

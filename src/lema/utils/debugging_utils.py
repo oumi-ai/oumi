@@ -1,4 +1,4 @@
-from lema.logging import logger
+from lema.utils.logging import logger
 
 try:
     # The library is only useful for NVIDIA GPUs, and
