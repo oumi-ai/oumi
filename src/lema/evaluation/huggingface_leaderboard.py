@@ -10,7 +10,7 @@ BENCHMARK_CONFIGS = {
         BenchmarkConfig("arc_challenge", 25, None),
         BenchmarkConfig("winogrande", 5, None),
         BenchmarkConfig("hellaswag", 10, None),
-        BenchmarkConfig("gsm8k", 5, None),
-        BenchmarkConfig("truthfulqa", 0, None),
+        BenchmarkConfig("truthfulqa_mc2", 0, None),
+        # BenchmarkConfig("gsm8k", 5, None),  # Temporarily removed due to runtime 2h10m
     ],
 }
