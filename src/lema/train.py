@@ -21,7 +21,7 @@ from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import logger
 from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
-    count_parameters,
+    count_model_parameters,
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
@@ -174,7 +174,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         if not torch.cuda.is_available():
             logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         else:
-            num_params = count_parameters(model).all_params
+            num_params = count_model_parameters(model).all_params
             logger.info(f"Number of model parameters: {num_params}")
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
