@@ -1,7 +1,9 @@
 import argparse
 import pathlib
+import time
 from typing import Callable, Optional
 
+import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -11,6 +13,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
@@ -18,6 +21,7 @@ from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import logger
 from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
+    count_model_parameters,
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
@@ -107,6 +111,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_versioning_info()
     log_devices_info()
     log_training_config(config)
+    start_time = time.time()
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
@@ -160,6 +165,25 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 "was not found in the registry."
             )
 
+    training_callbacks = []
+    if config.training.include_performance_metrics:
+        if config.model.model_max_length is None:
+            raise ValueError(
+                "model_max_length must be set to log performance information."
+            )
+        if not torch.cuda.is_available():
+            logger.warning("MFU logging is only supported on GPU. Skipping callback.")
+        else:
+            num_params = count_model_parameters(model).all_params
+            logger.info(f"Number of model parameters: {num_params}")
+            mfu_callback = MfuTrainerCallback(
+                dtype=model.dtype,
+                num_params=num_params,
+                start_time_seconds=start_time,
+                sequence_length=config.model.model_max_length,
+            )
+            training_callbacks.append(mfu_callback)
+
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
@@ -167,6 +191,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
+        callbacks=training_callbacks,
         **config.training.trainer_kwargs,
     )
 

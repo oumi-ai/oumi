@@ -167,6 +167,33 @@ def log_model_summary(model) -> None:
     logger.info(create_model_summary(model))
 
 
+class ModelParameterCount(NamedTuple):
+    all_params: int
+    trainable_params: int
+
+
+def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
+    """Counts the number of parameters in a model.
+
+    Args:
+        model: The torch-implemented neural network.
+
+    Returns:
+        A tuple of (total_parameters, trainable_parameters).
+    """
+    trainable_params = 0
+    all_params = 0
+    for _, param in model.named_parameters():
+        all_params += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+
+    return ModelParameterCount(
+        all_params=all_params,
+        trainable_params=trainable_params,
+    )
+
+
 def log_trainable_parameters(model: torch.nn.Module) -> None:
     """Logs the number of trainable parameters of the model.
 
@@ -176,15 +203,12 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
     Note: original code:
     https://github.com/huggingface/peft/blob/main/examples/fp4_finetuning/finetune_fp4_opt_bnb_peft.py
     """
-    trainable_params = 0
-    all_param = 0
-    for _, param in model.named_parameters():
-        all_param += param.numel()
-        if param.requires_grad:
-            trainable_params += param.numel()
+    params = count_model_parameters(model)
+    all_params = params.all_params
+    trainable_params = params.trainable_params
     logger.info(
         (
-            f"Trainable params: {trainable_params} || All params: {all_param} "
-            f"|| Trainable%: {100 * trainable_params / all_param :.4f}"
+            f"Trainable params: {trainable_params} || All params: {all_params} "
+            f"|| Trainable%: {100 * trainable_params / all_params :.4f}"
         )
     )
