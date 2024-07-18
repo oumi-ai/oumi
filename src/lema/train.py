@@ -193,10 +193,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
-    # Save final checkpoint & training state
-    # FIXME: add conditional saving logic for multi-node runs.
+    # Save final checkpoint & training state.
     trainer.save_state()
-    trainer.save_model(config=config)
+    if config.training.save_model:
+        trainer.save_model(config=config)
 
 
 if __name__ == "__main__":
