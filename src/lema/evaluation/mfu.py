@@ -180,7 +180,7 @@ class MfuTrainerCallback(TrainerCallback):
         self.num_params = num_params
         self.program_start_time = program_start_time
         self.time_for_train_steps = 0.0
-        self.prev_tokens_seen = 0
+        self.tokens_seen_so_far = 0
         self.sequence_length = sequence_length
         self.num_layers = num_layers
         self.num_attention_heads = num_attention_heads
@@ -193,7 +193,7 @@ class MfuTrainerCallback(TrainerCallback):
         # Assume all devices are identical
         self.device_name = torch.cuda.get_device_name(0)
 
-        self.step_count = 0
+        self.steps_since_last_log = 0
 
     def on_step_begin(
         self,
@@ -226,7 +226,7 @@ class MfuTrainerCallback(TrainerCallback):
 
         # Keep track of only the training step time for "ideal" MFU
         self.time_for_train_steps += delta_time_seconds
-        self.step_count += 1
+        self.steps_since_last_log += 1
 
     def on_log(
         self,
@@ -248,9 +248,9 @@ class MfuTrainerCallback(TrainerCallback):
             * args.per_device_train_batch_size
             * self.num_devices
             * self.sequence_length
-            * self.step_count
+            * self.steps_since_last_log
         )
-        total_tokens = self.prev_tokens_seen + tokens_since_last_log
+        total_tokens = self.tokens_seen_so_far + tokens_since_last_log
 
         ideal_mfu = calculate_mfu(
             device_name=self.device_name,
@@ -284,5 +284,5 @@ class MfuTrainerCallback(TrainerCallback):
             kwargs["logs"]["Tokens Seen"] = total_tokens
 
         # Cleanup values
-        self.prev_tokens_seen = total_tokens
-        self.step_count = 0
+        self.tokens_seen_so_far = total_tokens
+        self.steps_since_last_log = 0
