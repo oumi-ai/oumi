@@ -14,8 +14,8 @@ class DiskTier(Enum):
     BEST = "best"
 
 
-class CloudType(Enum):
-    """Enum representing the supported cloud types."""
+class SupportedCloud(Enum):
+    """Enum representing the supported clouds."""
 
     RUNPOD = "runpod"
     GCP = "gcp"
@@ -39,7 +39,7 @@ class NodeParams:
     """Resources required for a single node in a job."""
 
     # The cloud used to run the job (required).
-    cloud: CloudType = MISSING
+    cloud: SupportedCloud = MISSING
 
     # The region to use (optional). Supported values vary by environment.
     region: Optional[str] = None
