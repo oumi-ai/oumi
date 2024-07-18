@@ -51,9 +51,19 @@ printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH"
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $varsStr" << 'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2
   cd ${COPY_DIRECTORY}
+
+  # Set up Conda env if it doesn't exist and activate it.
   module use /soft/modulefiles
   module load conda
+  if [ ! -d /home/$USER/miniconda3/envs/lema ]; then
+      echo "Creating LeMa Conda environment... -----------------------------------------"
+      conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/lema
+      # Install flash-attn manually since it's not in our pyproject.toml.
+      conda activate /home/$USER/miniconda3/envs/lema
+      pip install flash-attn --no-build-isolation
+  fi
   conda activate /home/$USER/miniconda3/envs/lema
+
   echo "Installing packages... -----------------------------------------"
   pip install -e '.[train]'
   echo "Submitting job... -----------------------------------------"
@@ -62,9 +72,10 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
   JOB_ID=$(qsub -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   echo "Job id: ${JOB_ID}"
+
   echo
   echo "All jobs:"
-  qstat -us $USER
+  qstat -s -u $USER
   echo
   echo "To view error logs, run (on Polaris):"
   echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
