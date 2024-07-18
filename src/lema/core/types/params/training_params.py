@@ -30,9 +30,9 @@ class TrainingParams:
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
     num_train_epochs: int = 3
-    # Save model at the end of every epoch.
+    # Save a checkpoint at the end of every epoch.
     save_epoch: bool = False
-    # Save model every `save_steps`. If both `save_steps` and
+    # Save a checkpoint every `save_steps`. If both `save_steps` and
     # `save_epoch` are set, then `save_steps` takes precedence.
     save_steps: int = 100
     # Whether to save model at the end of training. Should normally be `True`
