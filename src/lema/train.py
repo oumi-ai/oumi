@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+import time
 from typing import Callable, Optional
 
 from transformers.trainer_utils import get_last_checkpoint
@@ -14,6 +15,7 @@ from lema.builders import (
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
+from lema.evaluation.mfu import MfuTrainerCallback
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import logger
 from lema.utils.torch_profiler_utils import torch_profile
@@ -107,6 +109,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_versioning_info()
     log_devices_info()
     log_training_config(config)
+    start_time = time.time()
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
@@ -160,6 +163,19 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 "was not found in the registry."
             )
 
+    sequence_length = (
+        config.model.model_max_length
+        if config.model.model_max_length is not None
+        else 1024
+    )
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"Number of model parameters: {num_params}")
+    mfu_callback = MfuTrainerCallback(
+        dtype=model.dtype,
+        num_params=num_params,
+        program_start_time=start_time,
+        sequence_length=sequence_length,
+    )
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
@@ -167,6 +183,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
+        callbacks=[mfu_callback],
         **config.training.trainer_kwargs,
     )
 
