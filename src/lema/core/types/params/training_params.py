@@ -33,11 +33,11 @@ class TrainingParams:
     # Save model at the end of every epoch.
     save_epoch: bool = False
     # Save model every `save_steps`. If both `save_steps` and
-    # `save_epoch` are set, then `save_steps` is effective.
+    # `save_epoch` are set, then `save_steps` takes precedence.
     save_steps: int = 100
-    # Whether to save model at the end of training. Should normally be True
-    # but in some cases you may wan to disable it e.g., if saving a large model
-    # takes a long of time and you want to quickly test training speed/metrics.
+    # Whether to save model at the end of training. Should normally be `True`
+    # but in some cases you may want to disable it e.g., if saving a large model
+    # takes a long time, and you want to quickly test training speed/metrics.
     save_model: bool = True
 
     run_name: str = "default"
