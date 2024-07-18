@@ -9,6 +9,8 @@ model:
   disable_dropout: True
   load_pretrained_weights: False
   trust_remote_code: True
+  model_kwargs:
+    disable_dropout: True
 
 data:
   train:

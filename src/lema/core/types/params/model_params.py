@@ -28,16 +28,6 @@ class ModelParams:
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # EXPERIMENTAL PARAMS ------------------------
-
-    # Zeros out dropout probability in the model config, which is non-zero
-    # by default for some HF models (ex. GPT2). Dropout is normally not used for LLM
-    # training, and also hinders the effectiveness of model compilation. We assume any
-    # attribute with "drop" in the name and a float value is a dropout param.
-    disable_dropout: bool = False
-
-    # END EXPERIMENTAL PARAMS --------------------
-
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
         if self.torch_dtype_str in ["f64", "float64", "double"]:

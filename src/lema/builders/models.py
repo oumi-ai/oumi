@@ -16,9 +16,10 @@ def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
     """Detects dropout probabilities in config and sets them to 0.0.
 
     This essentially removes the dropout layer, which can aid the compiled model's
-    speed. We assume any attribute with "drop" in the name and a float value is a
-    dropout param. For example, this includes `attn_pdrop` and `summary_first_dropout`
-    for GPT2.
+    speed. Dropout is normally not used for LLM training, and also hinders the
+    effectiveness of model compilation. We assume any attribute with "drop" in the name
+    and a float value is a dropout param. For example, this includes `attn_pdrop` and
+    `summary_first_dropout` for GPT2.
 
     Args:
         hf_config: The HuggingFace model config.
@@ -124,8 +125,9 @@ def build_huggingface_model(
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
-    if model_params.disable_dropout:
+    if model_params.model_kwargs.get("disable_dropout"):
         _disable_dropout(hf_config)
+        del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
         # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
