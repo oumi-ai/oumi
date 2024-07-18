@@ -30,7 +30,16 @@ class TrainingParams:
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
     num_train_epochs: int = 3
+    # Save a checkpoint at the end of every epoch.
+    save_epoch: bool = False
+    # Save a checkpoint every `save_steps`. If both `save_steps` and
+    # `save_epoch` are set, then `save_steps` takes precedence.
     save_steps: int = 100
+    # Whether to save model at the end of training. Should normally be `True`
+    # but in some cases you may want to disable it e.g., if saving a large model
+    # takes a long time, and you want to quickly test training speed/metrics.
+    save_model: bool = True
+
     run_name: str = "default"
 
     # The name of the metrics function in the LeMa registry to use for evaluation
@@ -123,6 +132,12 @@ class TrainingParams:
 
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
+        save_strategy: str = "no"
+        if self.save_epoch:
+            save_strategy = "epoch"
+        if self.save_steps > 0:
+            save_strategy = "steps"
+
         return transformers.TrainingArguments(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -154,6 +169,7 @@ class TrainingParams:
             fp16=self.fp16,
             bf16=self.bf16,
             save_steps=self.save_steps,
+            save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
             evaluation_strategy=self.eval_strategy,
