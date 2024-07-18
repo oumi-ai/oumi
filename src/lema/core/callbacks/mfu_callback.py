@@ -159,7 +159,6 @@ class MfuTrainerCallback(TrainerCallback):
         if "logs" in kwargs:
             kwargs["logs"]["Ideal MFU"] = ideal_mfu
             kwargs["logs"]["Actual MFU"] = actual_mfu
-            kwargs["logs"]["Tokens Seen"] = total_tokens
 
         # Cleanup values
         self.tokens_seen_so_far = total_tokens
