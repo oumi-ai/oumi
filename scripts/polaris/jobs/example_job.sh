@@ -22,14 +22,13 @@ module use /soft/modulefiles
 
 # Set up conda.
 module load conda
-conda activate base
 
-# Activate the virtual python environment with LeMa installed.
-source ./worker_venv/example_environment/bin/activate
+# Activate the LeMa Conda environment.
+conda activate /home/$USER/miniconda3/envs/lema
 
-# Using torch.distributed.launch instead of torchrun as there
-# is a known issue with torchrun and virtual python environments.
-python3 -m torch.distributed.launch \
+# Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
+# 4 gradient accumulation steps.
+torchrun \
     --nnodes=${LEMA_NUM_NODES} \
     --node-rank=${PBS_NODENUM} \
     --nproc-per-node=4 \
@@ -44,3 +43,4 @@ python3 -m torch.distributed.launch \
     "training.dataloader_num_workers=2" \
     "training.dataloader_prefetch_factor=4" \
     "training.per_device_train_batch_size=32" \
+    "training.gradient_accumulation_steps=4"
