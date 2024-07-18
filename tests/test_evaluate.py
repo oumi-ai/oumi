@@ -39,7 +39,7 @@ def test_evaluate_lema():
         )
 
         evaluate_lema(config)
-        with open(output_file, mode="r", encoding="utf-8") as f:
+        with open(output_file, encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics: {"accuracy": 0.0}
             assert computed_metrics["accuracy"] == 0.0
@@ -70,7 +70,7 @@ def test_evaluate_lm_harness():
         )
 
         evaluate_lm_harness(config)
-        with open(output_file, mode="r", encoding="utf-8") as f:
+        with open(output_file, encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics:
             # {

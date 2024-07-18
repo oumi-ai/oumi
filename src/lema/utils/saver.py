@@ -82,7 +82,7 @@ def load_infer_prob_csv(input_filepath: str) -> List[List[List[float]]]:
     """Retrieve batched probabilities from a csv file."""
     probs_count_in_first_batch = None
     try:
-        with open(input_filepath, "r") as read_obj:
+        with open(input_filepath) as read_obj:
             csv_reader = csv.reader(read_obj)
 
             probabilities = []
