@@ -11,7 +11,7 @@ from transformers.trainer_callback import (
     TrainingArguments,
 )
 
-from lema.evaluation.mfu import calculate_mfu
+from lema.performance.mfu import calculate_mfu
 from lema.utils.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
 
