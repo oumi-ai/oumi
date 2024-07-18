@@ -39,16 +39,16 @@ _DEVICE_SPECS = {
     "NVIDIA GeForce RTX 3090": {
         _TFLOPS: {
             torch.float32: 35.6,
-            torch.float16: 71,
-            torch.bfloat16: 71,
+            torch.float16: 71.0,
+            torch.bfloat16: 71.0,
         },
     },
     # Only used for testing purposes
     # https://cloud.google.com/tpu/docs/v4
     "TPUv4": {
         _TFLOPS: {
-            torch.float16: 275,
-            torch.bfloat16: 275,
+            torch.float16: 275.0,
+            torch.bfloat16: 275.0,
         },
     },
 }

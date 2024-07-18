@@ -4,24 +4,34 @@ model:
   model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  compile: False # TODO: Try with compilation enabled.
+  load_pretrained_weights: False
   trust_remote_code: True
 
 data:
   train:
     datasets:
-      - dataset_name: "HuggingFaceFW/fineweb"
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        subset: "sample-10BT"
         split: "train"
     stream: True
     pack: True
     target_col: "text"
 
 training:
-  # TODO: Re-initialize model weights and add config support.
   trainer_type: TRL_SFT
-  max_steps: 100
-  per_device_train_batch_size: 8  # Uses 75GB GPU memory.
+  save_steps: 500
+  per_device_train_batch_size: 2 # Uses 32 GB memory
+  gradient_accumulation_steps: 4
+
+  # If enabled, reduces memory consumption by ~3x but causes a 30% training slowdown.
+  enable_gradient_checkpointing: False # TODO: Try with checkpointing and larger batch size
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  optimizer: "adamw_torch_fused"
+
   logging_steps: 10
   log_model_summary: True
-  enable_tensorboard: False
   output_dir: "output/llama2b.pt"
   include_performance_metrics: True
