@@ -57,11 +57,14 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   echo "Installing packages... -----------------------------------------"
   pip install -e '.[train]'
   echo "Submitting job... -----------------------------------------"
+  # Create a logs directory for the user if it doesn't exist.
+  # This directory must exist for the run to work, as Polaris won't create them.
+  mkdir -p /eagle/community_ai/jobs/logs/$USER/
   JOB_ID=$(qsub -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   echo "Job id: ${JOB_ID}"
   echo
   echo "All jobs:"
-  qstat -u $USER
+  qstat -us $USER
   echo
   echo "To view error logs, run (on Polaris):"
   echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
