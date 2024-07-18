@@ -41,7 +41,6 @@ echo "Copying files to Polaris... -----------------------------------------"
 rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
 --exclude-from ${SOURCE_DIRECTORY}/.gitignore \
 --exclude tests \
---exclude .git \
 ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
 
 # Submit a job on Polaris over the same SSH tunnel.
@@ -57,15 +56,15 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   conda activate /home/$USER/miniconda3/envs/lema
   echo "Installing packages... -----------------------------------------"
   pip install -e '.[train]'
-  pip install flash-attn --no-build-isolation
   echo "Submitting job... -----------------------------------------"
   JOB_ID=$(qsub -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   echo "Job id: ${JOB_ID}"
+  echo
   echo "All jobs:"
   qstat -u $USER
   echo
-  echo "To view error logs, run:"
+  echo "To view error logs, run (on Polaris):"
   echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
-  echo "To view output logs, run:"
+  echo "To view output logs, run (on Polaris):"
   echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.OU"
 EOF
