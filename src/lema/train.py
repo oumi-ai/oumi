@@ -32,6 +32,7 @@ from lema.utils.torch_utils import (
 
 _START_TIME = -1.0
 
+
 def parse_cli():
     """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
@@ -45,6 +46,7 @@ def parse_cli():
     )
     args, unknown = parser.parse_known_args()
     return args.config, args.verbose, unknown
+
 
 def main() -> None:
     """Main entry point for training LeMa.
