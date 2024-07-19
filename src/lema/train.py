@@ -181,6 +181,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 num_params=num_params,
                 start_time_seconds=start_time,
                 sequence_length=config.model.model_max_length,
+                add_rematerialization=config.training.enable_gradient_checkpointing,
             )
             training_callbacks.append(mfu_callback)
 
