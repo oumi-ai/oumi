@@ -150,7 +150,7 @@ class MfuTrainerCallback(TrainerCallback):
         total_tokens = self._tokens_seen_so_far + tokens_since_last_log
 
         # MFU using only the time spent on training steps (excluding the first step).
-        step_mfu = calculate_mfu(
+        train_step_mfu = calculate_mfu(
             device_name=self._device_name,
             num_devices=self._num_devices,
             dtype=self._dtype,
@@ -178,7 +178,7 @@ class MfuTrainerCallback(TrainerCallback):
             add_rematerialization=self._add_rematerialization,
         )
         if _LOGS_KWARG in kwargs:
-            kwargs[_LOGS_KWARG][_TRAIN_STEP_MFU] = step_mfu
+            kwargs[_LOGS_KWARG][_TRAIN_STEP_MFU] = train_step_mfu
             kwargs[_LOGS_KWARG][_TRAIN_MFU] = train_mfu
 
         # Cleanup values
