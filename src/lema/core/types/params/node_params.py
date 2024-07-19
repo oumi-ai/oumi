@@ -14,14 +14,6 @@ class DiskTier(Enum):
     BEST = "best"
 
 
-class SupportedCloud(Enum):
-    """Enum representing the supported clouds."""
-
-    RUNPOD = "runpod"
-    GCP = "gcp"
-    POLARIS = "polaris"
-
-
 @dataclass
 class StorageMount:
     """A storage system mount to attach to a node."""
@@ -39,7 +31,8 @@ class NodeParams:
     """Resources required for a single node in a job."""
 
     # The cloud used to run the job (required).
-    cloud: SupportedCloud = MISSING
+    # Currently supported values are 'gcp', 'runpod', and 'polaris'.
+    cloud: str = MISSING
 
     # The region to use (optional). Supported values vary by environment.
     region: Optional[str] = None

@@ -5,7 +5,6 @@ import sky
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import SupportedCloud
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster
 
@@ -15,9 +14,9 @@ T = TypeVar("T")
 class SkyCloud(BaseCloud):
     """A resource pool capable of creating clusters using Sky Pilot."""
 
-    def __init__(self, backend: SupportedCloud, client: SkyClient):
+    def __init__(self, cloud: str, client: SkyClient):
         """Initializes a new instance of the SkyCloud class."""
-        self._backend = backend
+        self._cloud = cloud
         self._client = client
 
     def _get_clusters_by_class(self, cloud_class: Type[T]) -> List[BaseCluster]:
@@ -44,8 +43,8 @@ class SkyCloud(BaseCloud):
 
     def list_clusters(self) -> List[BaseCluster]:
         """List the active clusters on this cloud."""
-        if self._backend == SupportedCloud.GCP:
+        if self._cloud == self._client.get_gcp_cloud_name():
             return self._get_clusters_by_class(sky.clouds.GCP)
-        elif self._backend == SupportedCloud.RUNPOD:
+        elif self._cloud == self._client.get_runpod_cloud_name():
             return self._get_clusters_by_class(sky.clouds.RunPod)
-        raise ValueError(f"Unsupported cloud: {self._backend}")
+        raise ValueError(f"Unsupported cloud: {self._cloud}")

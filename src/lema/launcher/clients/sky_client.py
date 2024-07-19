@@ -4,14 +4,13 @@ import sky
 import sky.data
 
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import SupportedCloud
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
     """Returns the sky.Cloud object from the JobConfig."""
-    if job.resources.cloud == SupportedCloud.GCP:
+    if job.resources.cloud == SkyClient().get_gcp_cloud_name():
         return sky.clouds.GCP()
-    elif job.resources.cloud == SupportedCloud.RUNPOD:
+    elif job.resources.cloud == SkyClient().get_runpod_cloud_name():
         return sky.clouds.RunPod()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
@@ -58,6 +57,14 @@ def _convert_job_to_task(job: JobConfig) -> sky.Task:
 
 class SkyClient:
     """A wrapped client for communicating with Sky Pilot."""
+
+    def get_gcp_cloud_name(self) -> str:
+        """Gets the name of the GCP cloud."""
+        return "gcp"
+
+    def get_runpod_cloud_name(self) -> str:
+        """Gets the name of the RunPod cloud."""
+        return "runpod"
 
     def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> str:
         """Creates a cluster and starts the provided Job.
