@@ -125,3 +125,14 @@ def global_leader_only(*args, **kwds):
     else:
         yield
         barrier(*args, **kwds)
+
+
+@contextmanager
+def global_leader_first(*args, **kwds):
+    """Context manager for global leader first operations."""
+    if is_world_process_zero():
+        yield
+        barrier(*args, **kwds)
+    else:
+        barrier(*args, **kwds)
+        yield
