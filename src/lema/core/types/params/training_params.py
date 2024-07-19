@@ -81,7 +81,7 @@ class TrainingParams:
     # of 32-bit training. Requires Ampere or higher NVIDIA architecture
     # or using CPU or Ascend NPU.
 
-    # Whether to JIT compile the model. This param is used instead of
+    # Whether to JIT compile the model. This param should be used instead of
     # `ModelParams.compile` for training.
     compile: bool = False
 
