@@ -115,7 +115,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
-    # Initialize model and tokenizer
+    # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
 
     # Are we supporting PEFT?
