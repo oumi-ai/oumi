@@ -1,3 +1,4 @@
+import functools
 import os
 from contextlib import contextmanager
 from typing import NamedTuple, Optional
@@ -94,45 +95,82 @@ def barrier(group: Optional[dist.ProcessGroup] = None, monitored: bool = False) 
 #
 # Context Managers
 #
-@contextmanager
-def local_leader_only(*args, **kwds):
-    """Context manager for local leader only operations."""
-    if is_local_process_zero():
-        yield
-        barrier(*args, **kwds)
-    else:
-        barrier(*args, **kwds)
-        yield None
+# @contextmanager
+# def local_leader_only(*args, **kwargs):
+#     """Context manager for local leader only operations."""
+#     if is_local_process_zero():
+#         yield
+#         barrier(*args, **kwargs)
+#     else:
+#         barrier(*args, **kwargs)
+#         yield False
+
+
+def local_leader_only(*barrier_args, **barrier_kwargs):
+    """Decorator for local leaders only operations."""
+
+    def decorator(user_function):
+        @functools.wraps(user_function)
+        def wrapper(*args, **kwargs):
+            if is_local_process_zero():
+                # Execute the user function
+                result = user_function(*args, **kwargs)
+
+                # Sync back with all processed before resuming
+                barrier(*barrier_args, **barrier_kwargs)
+                return result
+            else:
+                # User function is not called
+                # Wait for the local leader to finish
+                barrier(*barrier_args, **barrier_kwargs)
+                return None
+
+        return wrapper
+
+    return decorator
 
 
 @contextmanager
-def local_leader_first(*args, **kwds):
+def local_leader_first(*args, **kwargs):
     """Context manager for local leader first operations."""
     if is_local_process_zero():
         yield
-        barrier(*args, **kwds)
+        barrier(*args, **kwargs)
     else:
-        barrier(*args, **kwds)
+        barrier(*args, **kwargs)
         yield
+
+
+def global_leader_only(*barrier_args, **barrier_kwargs):
+    """Decorator for global leader only operations."""
+
+    def decorator(user_function):
+        @functools.wraps(user_function)
+        def wrapper(*args, **kwargs):
+            if is_world_process_zero():
+                # Execute the user function
+                result = user_function(*args, **kwargs)
+
+                # Sync back with all processed before resuming
+                barrier(*barrier_args, **barrier_kwargs)
+                return result
+            else:
+                # User function is not called
+                # Wait for the global leader to finish
+                barrier(*barrier_args, **barrier_kwargs)
+                return None
+
+        return wrapper
+
+    return decorator
 
 
 @contextmanager
-def global_leader_only(*args, **kwds):
-    """Context manager for global leader only operations."""
-    if is_world_process_zero():
-        barrier(*args, **kwds)
-        yield
-    else:
-        yield
-        barrier(*args, **kwds)
-
-
-@contextmanager
-def global_leader_first(*args, **kwds):
+def global_leader_first(*args, **kwargs):
     """Context manager for global leader first operations."""
     if is_world_process_zero():
         yield
-        barrier(*args, **kwds)
+        barrier(*args, **kwargs)
     else:
-        barrier(*args, **kwds)
+        barrier(*args, **kwargs)
         yield
