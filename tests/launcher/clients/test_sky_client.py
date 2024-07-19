@@ -52,14 +52,12 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 def test_sky_client_gcp_name():
     client = SkyClient()
-    name = client.get_gcp_cloud_name()
-    assert name == "gcp"
+    assert client.SupportedClouds.GCP.value == "gcp"
 
 
 def test_sky_client_runpod_name():
     client = SkyClient()
-    name = client.get_runpod_cloud_name()
-    assert name == "runpod"
+    assert client.SupportedClouds.RUNPOD.value == "runpod"
 
 
 def test_sky_client_launch(mock_sky_data_storage):
