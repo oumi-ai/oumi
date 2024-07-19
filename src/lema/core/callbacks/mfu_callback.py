@@ -121,8 +121,8 @@ class MfuTrainerCallback(TrainerCallback):
             return
 
         now = time.time()
-        delta_time_seconds_actual = now - self._time_of_first_step
-        delta_time_seconds_ideal = self._time_for_train_steps
+        delta_time_seconds_train = now - self._time_of_first_step
+        delta_time_seconds_step = self._time_for_train_steps
 
         tokens_since_last_log = (
             args.gradient_accumulation_steps
@@ -134,13 +134,13 @@ class MfuTrainerCallback(TrainerCallback):
         total_tokens = self._tokens_seen_so_far + tokens_since_last_log
 
         # MFU using only the time spent on training steps.
-        ideal_mfu = calculate_mfu(
+        step_mfu = calculate_mfu(
             device_name=self._device_name,
             num_devices=self._num_devices,
             dtype=self._dtype,
             num_params=self._num_params,
             num_tokens=total_tokens,
-            delta_time_seconds=delta_time_seconds_ideal,
+            delta_time_seconds=delta_time_seconds_step,
             num_layers=self._num_layers,
             num_attention_heads=self._num_attention_heads,
             attention_head_size=self._attention_head_size,
@@ -148,13 +148,13 @@ class MfuTrainerCallback(TrainerCallback):
             add_rematerialization=self._add_rematerialization,
         )
         # MFU using the time since training started.
-        actual_mfu = calculate_mfu(
+        train_mfu = calculate_mfu(
             device_name=self._device_name,
             num_devices=self._num_devices,
             dtype=self._dtype,
             num_params=self._num_params,
             num_tokens=total_tokens,
-            delta_time_seconds=delta_time_seconds_actual,
+            delta_time_seconds=delta_time_seconds_train,
             num_layers=self._num_layers,
             num_attention_heads=self._num_attention_heads,
             attention_head_size=self._attention_head_size,
@@ -162,8 +162,8 @@ class MfuTrainerCallback(TrainerCallback):
             add_rematerialization=self._add_rematerialization,
         )
         if "logs" in kwargs:
-            kwargs["logs"]["Ideal MFU"] = ideal_mfu
-            kwargs["logs"]["Actual MFU"] = actual_mfu
+            kwargs["logs"]["Step MFU"] = step_mfu
+            kwargs["logs"]["Train MFU"] = train_mfu
 
         # Cleanup values
         self._tokens_seen_so_far = total_tokens
