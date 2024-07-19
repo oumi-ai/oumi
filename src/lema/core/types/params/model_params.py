@@ -20,8 +20,8 @@ class ModelParams:
     load_pretrained_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
-    # Whether to (attempt to) compile the model.
-    # Currently we only try to compile the forward pass.
+    # Whether to JIT compile the model. For training, do not set this param, and instead
+    # set `TrainingParams.compile`.
     compile: bool = False
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None
@@ -53,7 +53,7 @@ class ModelParams:
 
     def __post_init__(self):
         """Verifies params."""
-        # check if flash-attention-2 is requested and supported
+        # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()
         ):
@@ -63,7 +63,7 @@ class ModelParams:
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
             )
 
-        # check if flash-attention-2 is requested with half-precision
+        # Check if flash-attention-2 is requested with half-precision
         if (self.attn_implementation == "flash_attention_2") and (
             self.torch_dtype() not in [torch.bfloat16, torch.float16]
         ):

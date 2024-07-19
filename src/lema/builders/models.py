@@ -1,7 +1,8 @@
 import os.path as osp
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 import torch
+import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
@@ -12,12 +13,34 @@ from lema.utils.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
 
 
+def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
+    """Detects dropout probabilities in config and sets them to 0.0.
+
+    This essentially removes the dropout layer, which can aid the compiled model's
+    speed. Dropout is normally not used for LLM training, and also hinders the
+    effectiveness of model compilation. We assume any attribute with "drop" in the name
+    and a float value is a dropout param. For example, this includes `attn_pdrop` and
+    `summary_first_dropout` for GPT2.
+
+    Args:
+        hf_config: The HuggingFace model config.
+    """
+    drop_attrs = []
+    for k, v in vars(hf_config).items():
+        if "drop" in k and isinstance(v, float):
+            setattr(hf_config, k, 0.0)
+            drop_attrs.append(k)
+    logger.info(
+        f"Found these dropout attributes and set their values to 0.0: {drop_attrs}"
+    )
+
+
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     enable_dp: Optional[bool] = False,
     **kwargs,
-):
+) -> nn.Module:
     """Builds and returns a model based on the provided LeMa configuration.
 
     Args:
@@ -48,16 +71,11 @@ def build_model(
     elif enable_dp and torch.backends.mps.is_available():
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
-    # Attempt to compile the forward pass of the model.
-    # `model = torch.compile(model)` doesn't work, maybe due to errors w/ HF datasets.
     if model_params.compile:
-        try:
-            model.forward = torch.compile(model.forward)
-            logger.info("Compiled forward pass of model.")
-        except Exception as e:
-            logger.warning(
-                f"Unable to compile model, will use uncompiled model. Error: {e}"
-            )
+        # The output type of torch.compile is Callable, but when I test it it's of type
+        # nn.Module. We cast it so that this function can have a useful return type.
+        model = cast(nn.Module, torch.compile(model))
+        logger.info("Enabled model compilation.")
 
     return model
 
@@ -66,7 +84,7 @@ def build_lema_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
-):
+) -> nn.Module:
     """Builds a custom model from our LeMa registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
     model = model_class(**model_params.model_kwargs)
@@ -87,7 +105,7 @@ def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
-):
+) -> nn.Module:
     """Downloads and builds the model from the HuggingFace Hub."""
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
@@ -108,6 +126,11 @@ def build_huggingface_model(
         trust_remote_code=model_params.trust_remote_code,
         flash_attention_2=model_params.should_use_flash_attention_2,
     )
+
+    # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
+    if model_params.model_kwargs.get("disable_dropout"):
+        _disable_dropout(hf_config)
+        del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
         # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always

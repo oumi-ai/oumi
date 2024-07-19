@@ -34,11 +34,13 @@ class TrainingParams:
     save_epoch: bool = False
     # Save a checkpoint every `save_steps`. If both `save_steps` and
     # `save_epoch` are set, then `save_steps` takes precedence.
+    # To disable saving checkpoints during training,
+    # set `save_steps` to `0` and `save_epoch` to `False`.
     save_steps: int = 100
     # Whether to save model at the end of training. Should normally be `True`
     # but in some cases you may want to disable it e.g., if saving a large model
     # takes a long time, and you want to quickly test training speed/metrics.
-    save_model: bool = True
+    save_final_model: bool = True
 
     run_name: str = "default"
 
@@ -89,6 +91,10 @@ class TrainingParams:
     bf16: bool = False  # Whether to use bf16 16-bit (mixed) precision training instead
     # of 32-bit training. Requires Ampere or higher NVIDIA architecture
     # or using CPU or Ascend NPU.
+
+    # Whether to JIT compile the model. This param should be used instead of
+    # `ModelParams.compile` for training.
+    compile: bool = False
 
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
@@ -168,6 +174,7 @@ class TrainingParams:
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.fp16,
             bf16=self.bf16,
+            torch_compile=self.compile,
             save_steps=self.save_steps,
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,

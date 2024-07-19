@@ -13,7 +13,7 @@ config = load_config()
 # It can be either streamed, or fully loaded in memory.
 dataset = LemaDataset(config.data)  # Pytorch Dataset object
 
-sample = dataset[0] # Load, preprocess, and individual training sample
+sample = dataset[0] # Load and preprocess an individual training sample
 # Each sample contains both the model inputs, and optionally any labels required to compute the loss and/or metrics.
 # E.g. {"input_ids": ..., "attention_mask": ..., "labels": ...} or {"image": ..., "labels": ...}
 
