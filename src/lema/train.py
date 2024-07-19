@@ -118,7 +118,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     start_time = time.time()
 
-    # Initialize model and tokenizer
+    # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
 
     # Are we supporting PEFT?

@@ -29,11 +29,16 @@ class TrainingConfig(BaseConfig):
 
     def __post_init__(self):
         """Verifies/populates params."""
+        if self.model.compile:
+            raise ValueError(
+                "Use `training.compile` instead of `model.compile` to "
+                "enable model compilation during training."
+            )
         if self.training.trainer_type == TrainerType.TRL_SFT:
             if not self.data.train.target_col:
                 raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
 
-            # Set `dataset_text_field` in `trainer_kwargs` since it's requried for
+            # Set `dataset_text_field` in `trainer_kwargs` since it's required for
             # `SFTTrainer`, and warn users if their value will be overridden.
             existing_dataset_text_field = self.training.trainer_kwargs.get(
                 "dataset_text_field"
