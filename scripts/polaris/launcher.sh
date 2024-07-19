@@ -36,18 +36,49 @@ fi
 # This tunnel will close automatically after 5 minutes of inactivity.
 ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${POLARIS_USER}@polaris.alcf.anl.gov
 
-# Copy files to Polaris over the same SSH tunnel.
-rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
+# Copy files to Polaris over the same SSH tunnel, excluding unnecessary ones.
+echo "Copying files to Polaris... -----------------------------------------"
+rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
+--exclude-from ${SOURCE_DIRECTORY}/.gitignore \
+--exclude tests \
+${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
 
 # Submit a job on Polaris over the same SSH tunnel.
-ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov << EOF
+echo "Setting up environment and submitting job on Polaris..."
+# Save the variables to pass to the remote script.
+printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH"
+# We need to properly escape the remote script due to the qsub command substitution.
+ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $varsStr" << 'EOF'
+  COPY_DIRECTORY=$1; JOB_PATH=$2
   cd ${COPY_DIRECTORY}
+
+  # Set up Conda env if it doesn't exist and activate it.
   module use /soft/modulefiles
   module load conda
-  conda activate base
-  mkdir -p ./worker_venv/example_environment
-  python3 -m venv ./worker_venv/example_environment --system-site-packages
-  source ./worker_venv/example_environment/bin/activate
-  python3 -m pip install -e '.[train]'
-  qsub ${JOB_PATH}
+  if [ ! -d /home/$USER/miniconda3/envs/lema ]; then
+      echo "Creating LeMa Conda environment... -----------------------------------------"
+      conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/lema
+      # Install flash-attn manually since it's not in our pyproject.toml.
+      conda activate /home/$USER/miniconda3/envs/lema
+      pip install flash-attn --no-build-isolation
+  fi
+  conda activate /home/$USER/miniconda3/envs/lema
+
+  echo "Installing packages... -----------------------------------------"
+  pip install -e '.[train]'
+  echo "Submitting job... -----------------------------------------"
+  # Create a logs directory for the user if it doesn't exist.
+  # This directory must exist for the run to work, as Polaris won't create them.
+  mkdir -p /eagle/community_ai/jobs/logs/$USER/
+  JOB_ID=$(qsub -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
+  echo "Job id: ${JOB_ID}"
+
+  echo
+  echo "All jobs:"
+  qstat -s -u $USER
+  echo
+  echo "To view error logs, run (on Polaris):"
+  echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
+  echo "To view output logs, run (on Polaris):"
+  echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.OU"
 EOF

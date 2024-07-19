@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
 
 from lema.core.types.turn import Conversation
-from lema.logging import logger
+from lema.utils.logging import logger
 
 
 #

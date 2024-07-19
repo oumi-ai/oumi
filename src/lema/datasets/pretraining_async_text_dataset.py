@@ -8,7 +8,7 @@ import torch
 import transformers
 from torch.utils.data import IterableDataset
 
-from lema.logging import logger
+from lema.utils.logging import logger
 
 _LARGEST_PRIORITY_VALUE = 2**20
 _SMALLEST_PRIORITY_VALUE = 0

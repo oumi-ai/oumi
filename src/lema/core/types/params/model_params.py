@@ -6,7 +6,7 @@ from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
 from lema.core.types.exceptions import HardwareException
-from lema.logging import logger
+from lema.utils.logging import logger
 
 
 @dataclass

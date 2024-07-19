@@ -7,7 +7,7 @@ from transformers import PreTrainedTokenizerBase
 
 from lema.builders import build_model, build_tokenizer
 from lema.core.types import ModelParams
-from lema.logging import logger
+from lema.utils.logging import logger
 from lema.utils.saver import load_infer_prob, save_infer_prob
 
 
