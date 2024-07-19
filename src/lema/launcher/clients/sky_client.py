@@ -7,7 +7,7 @@ from lema.core.types.configs import JobConfig
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
-    """Returns the sky.Cloud object from the JobConfig."""
+    """Return the sky.Cloud object from the JobConfig."""
     if job.resources.cloud == SkyClient().get_gcp_cloud_name():
         return sky.clouds.GCP()
     elif job.resources.cloud == SkyClient().get_runpod_cloud_name():
@@ -15,8 +15,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
-def _get_sky_strorage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Storage]:
-    """Returns the sky.StorageMount objects from the JobConfig."""
+def _get_sky_storage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Storage]:
+    """Return the sky.StorageMount objects from the JobConfig."""
     sky_mounts = {}
     for k, v in job.storage_mounts.items():
         storage_mount = sky.data.Storage(
@@ -27,7 +27,7 @@ def _get_sky_strorage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Stor
 
 
 def _convert_job_to_task(job: JobConfig) -> sky.Task:
-    """Converts a JobConfig to a sky.Task."""
+    """Convert a JobConfig to a sky.Task."""
     sky_cloud = _get_sky_cloud_from_job(job)
     resources = sky.Resources(
         cloud=sky_cloud,
@@ -50,7 +50,7 @@ def _convert_job_to_task(job: JobConfig) -> sky.Task:
         num_nodes=job.num_nodes,
     )
     sky_task.set_file_mounts(job.file_mounts)
-    sky_task.set_storage_mounts(_get_sky_strorage_mounts_from_job(job))
+    sky_task.set_storage_mounts(_get_sky_storage_mounts_from_job(job))
     sky_task.set_resources(resources)
     return sky_task
 
@@ -59,15 +59,15 @@ class SkyClient:
     """A wrapped client for communicating with Sky Pilot."""
 
     def get_gcp_cloud_name(self) -> str:
-        """Gets the name of the GCP cloud."""
+        """Get the name of the GCP cloud."""
         return "gcp"
 
     def get_runpod_cloud_name(self) -> str:
-        """Gets the name of the RunPod cloud."""
+        """Get the name of the RunPod cloud."""
         return "runpod"
 
     def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> str:
-        """Creates a cluster and starts the provided Job.
+        """Create a cluster and start the provided Job.
 
         Args:
             job: The job to execute on the cluster.
@@ -82,7 +82,7 @@ class SkyClient:
         return resource_handle.name
 
     def status(self) -> List[Dict[str, Any]]:
-        """Gets a list of cluster statuses.
+        """Get a list of cluster statuses.
 
         Returns:
             A list of dictionaries, each containing the status of a cluster.
@@ -125,7 +125,7 @@ class SkyClient:
         return str(job_id)
 
     def down(self, cluster_name: str) -> None:
-        """Tears down the target cluster.
+        """Tear down the target cluster.
 
         Args:
             cluster_name: The name of the cluster to tear down.
