@@ -11,6 +11,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.distributed import global_leader_only, local_leader_only
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
@@ -104,11 +105,12 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
-    log_versioning_info()
-    log_devices_info()
-    log_training_config(config)
+    with local_leader_only():
+        log_versioning_info()
+        log_devices_info()
+        log_training_config(config)
 
-    _ensure_training_output_dir_exists(config.training.output_dir)
+        _ensure_training_output_dir_exists(config.training.output_dir)
 
     # Initialize model and tokenizer
     tokenizer = build_tokenizer(config.model)
@@ -129,7 +131,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     if config.training.log_model_summary:
-        log_model_summary(model)
+        with local_leader_only():
+            log_model_summary(model)
 
     # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
@@ -194,9 +197,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state.
-    trainer.save_state()
-    if config.training.save_model:
-        trainer.save_model(config=config)
+    with global_leader_only():
+        trainer.save_state()
+        if config.training.save_model:
+            trainer.save_model(config=config)
 
 
 if __name__ == "__main__":

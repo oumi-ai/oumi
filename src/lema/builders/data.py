@@ -6,6 +6,7 @@ import datasets
 import transformers
 from trl.trainer import ConstantLengthDataset
 
+from lema.core.distributed import local_leader_first
 from lema.core.registry import REGISTRY
 from lema.core.types import (
     DatasetParams,
@@ -246,6 +247,7 @@ def _build_iterable_dataset_sampler(
     return _generator
 
 
+@local_leader_first()
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
