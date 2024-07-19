@@ -60,6 +60,11 @@ def test_sky_client_runpod_name():
     assert client.SupportedClouds.RUNPOD.value == "runpod"
 
 
+def test_sky_client_lambda_name():
+    client = SkyClient()
+    assert client.SupportedClouds.LAMBDA.value == "lambda"
+
+
 def test_sky_client_launch(mock_sky_data_storage):
     with patch("sky.launch") as mock_launch:
         job = _get_default_job("gcp")
@@ -118,6 +123,16 @@ def test_sky_client_exec(mock_sky_data_storage):
         job_id = client.exec(job, "mycluster")
         mock_exec.assert_called_once_with(ANY, "mycluster")
         assert job_id == "1"
+
+
+def test_sky_client_exec_runtime_error(mock_sky_data_storage):
+    with pytest.raises(RuntimeError):
+        with patch("sky.exec") as mock_exec:
+            mock_resource_handle = Mock()
+            mock_exec.return_value = (None, mock_resource_handle)
+            client = SkyClient()
+            job = _get_default_job("gcp")
+            _ = client.exec(job, "mycluster")
 
 
 def test_sky_client_down():
