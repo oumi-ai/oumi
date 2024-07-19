@@ -13,6 +13,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
         return sky.clouds.GCP()
     elif job.resources.cloud == SkyClient.SupportedClouds.RUNPOD.value:
         return sky.clouds.RunPod()
+    elif job.resources.cloud == SkyClient.SupportedClouds.LAMBDA.value:
+        return sky.clouds.Lambda()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -64,6 +66,7 @@ class SkyClient:
 
         GCP = "gcp"
         RUNPOD = "runpod"
+        LAMBDA = "lambda"
 
     def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> str:
         """Creates a cluster and starts the provided Job.
@@ -120,7 +123,7 @@ class SkyClient:
         """
         job_id, _ = sky.exec(_convert_job_to_task(job), cluster_name)
         if job_id is None:
-            raise ValueError("Failed to submit job.")
+            raise RuntimeError("Failed to submit job.")
         return str(job_id)
 
     def down(self, cluster_name: str) -> None:
