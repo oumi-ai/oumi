@@ -212,3 +212,46 @@ def test_global_leader_only_should_do_work(
                 pytest.fail("This should not be executed")
 
             test_function_should_not_execute()
+
+
+@pytest.mark.parametrize(
+    "tested_decorator",
+    [local_leader_first, global_leader_first],
+)
+def test_decorators_with_distributed(
+    tested_decorator,
+    mock_work_function,
+    mock_lema_barrier,
+    mock_torch_barrier,
+):
+    # The decorated function should be executed
+    # exaclty once and call barrier exactly once
+    # for both leaders and workers
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=2, rank=0, local_world_size=2, local_rank=0
+    )
+
+    with assert_function_called(mock_lema_barrier, times=1):
+        with assert_function_called(mock_work_function, times=1):
+
+            @tested_decorator()
+            def test_function():
+                # This should be executed
+                mock_work_function()
+
+            test_function()
+
+    # Worker node
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=2, rank=1, local_world_size=2, local_rank=1
+    )
+
+    with assert_function_called(mock_lema_barrier, times=1):
+        with assert_function_called(mock_work_function, times=1):
+
+            @tested_decorator()
+            def test_function():
+                # This should be executed
+                mock_work_function()
+
+            test_function()
