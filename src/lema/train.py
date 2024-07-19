@@ -46,6 +46,9 @@ def parse_cli():
     return args.config, args.verbose, unknown
 
 
+_START_TIME = -1
+
+
 def main() -> None:
     """Main entry point for training LeMa.
 
@@ -55,6 +58,7 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
+    _START_TIME = time.time()
     # Load configuration
     config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
@@ -111,7 +115,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_versioning_info()
     log_devices_info()
     log_training_config(config)
-    start_time = time.time()
 
     _ensure_training_output_dir_exists(config.training.output_dir)
 
@@ -179,7 +182,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
                 num_params=num_params,
-                start_time_seconds=start_time,
                 sequence_length=config.model.model_max_length,
             )
             training_callbacks.append(mfu_callback)
@@ -198,6 +200,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
+    logger.info(f"Training init time: {time.time() - _START_TIME:.2f}s")
     logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,

@@ -15,6 +15,13 @@ from lema.performance.mfu import calculate_mfu
 from lema.utils.logging import logger
 from lema.utils.torch_utils import get_device_rank_info
 
+_LOGS_KWARG = "logs"
+
+# MFU using only the time between on_step_start and on_step_end (except the first step)
+_TRAIN_STEP_MFU = "Train Step MFU"
+# MFU using the time since training started (except the first step)
+_TRAIN_MFU = "Train MFU"
+
 
 class MfuTrainerCallback(TrainerCallback):
     """Trainer callback to calculate the MFU of the model during training.
@@ -26,7 +33,6 @@ class MfuTrainerCallback(TrainerCallback):
         self,
         dtype: torch.dtype,
         num_params: int,
-        start_time_seconds: float,
         sequence_length: int,
         num_layers: Optional[int] = None,
         num_attention_heads: Optional[int] = None,
@@ -47,7 +53,7 @@ class MfuTrainerCallback(TrainerCallback):
         """
         self._dtype = dtype
         self._num_params = num_params
-        self._start_time_seconds = start_time_seconds
+        self._time_of_second_step: Optional[float] = None
         self._time_for_train_steps = 0.0
         self._tokens_seen_so_far = 0
         self._sequence_length = sequence_length
@@ -56,6 +62,8 @@ class MfuTrainerCallback(TrainerCallback):
         self._attention_head_size = attention_head_size
         self._sequence_length = sequence_length
         self._add_rematerialization = add_rematerialization
+        self._first_step_finished = False
+        self._steps_since_last_log = 0
 
         device_rank_info = get_device_rank_info()
         self._num_devices = device_rank_info.world_size
@@ -68,8 +76,6 @@ class MfuTrainerCallback(TrainerCallback):
         logger.info(f"MFU device name: {self._device_name}")
         if self._device_name == "CPU":
             logger.warning("MFU is not supported on CPU, the callback will do nothing.")
-
-        self.steps_since_last_log = 0
 
     def _callback_disabled(self, state: TrainerState) -> bool:
         """Check if the callback should be disabled."""
@@ -86,7 +92,17 @@ class MfuTrainerCallback(TrainerCallback):
         if self._callback_disabled(state):
             return
 
-        self.step_start_time = time.time()
+        self._step_start_time = time.time()
+        if not self._first_step_finished:
+            # Calculate the number of tokens processed per step during the first step
+            self._tokens_per_step = (
+                args.gradient_accumulation_steps
+                * args.per_device_train_batch_size
+                * self._num_devices
+                * self._sequence_length
+            )
+        else:
+            self._time_of_second_step = self._step_start_time
 
     def on_step_end(
         self,
@@ -102,11 +118,15 @@ class MfuTrainerCallback(TrainerCallback):
         if self._callback_disabled(state):
             return
 
-        delta_time_seconds = time.time() - self.step_start_time
-
         # Keep track of only the training step time for "ideal" MFU
+        delta_time_seconds = time.time() - self._step_start_time
+        if not self._first_step_finished:
+            self._first_step_finished = True
+            logger.info(f"First step time: {delta_time_seconds:.2f}s")
+            return
+
         self._time_for_train_steps += delta_time_seconds
-        self.steps_since_last_log += 1
+        self._steps_since_last_log += 1
 
     def on_log(
         self,
@@ -119,51 +139,48 @@ class MfuTrainerCallback(TrainerCallback):
         if self._callback_disabled(state):
             return
 
-        now = time.time()
-        delta_time_seconds_actual = now - self._start_time_seconds
-        delta_time_seconds_ideal = self._time_for_train_steps
+        # Avoid logging until after the first step.
+        if self._time_of_second_step is None:
+            return
 
-        tokens_since_last_log = (
-            args.gradient_accumulation_steps
-            * args.per_device_train_batch_size
-            * self._num_devices
-            * self._sequence_length
-            * self.steps_since_last_log
-        )
+        delta_time_seconds_train = time.time() - self._time_of_second_step
+        delta_time_seconds_step = self._time_for_train_steps
+
+        tokens_since_last_log = self._tokens_per_step * self._steps_since_last_log
         total_tokens = self._tokens_seen_so_far + tokens_since_last_log
 
-        # MFU using only the time spent on training steps.
-        ideal_mfu = calculate_mfu(
+        # MFU using only the time spent on training steps (excluding the first step).
+        train_step_mfu = calculate_mfu(
             device_name=self._device_name,
             num_devices=self._num_devices,
             dtype=self._dtype,
             num_params=self._num_params,
             num_tokens=total_tokens,
-            delta_time_seconds=delta_time_seconds_ideal,
+            delta_time_seconds=delta_time_seconds_step,
             num_layers=self._num_layers,
             num_attention_heads=self._num_attention_heads,
             attention_head_size=self._attention_head_size,
             sequence_length=self._sequence_length,
             add_rematerialization=self._add_rematerialization,
         )
-        # MFU using the time since training started.
-        actual_mfu = calculate_mfu(
+        # MFU using the time since training started (excluding the first step).
+        train_mfu = calculate_mfu(
             device_name=self._device_name,
             num_devices=self._num_devices,
             dtype=self._dtype,
             num_params=self._num_params,
             num_tokens=total_tokens,
-            delta_time_seconds=delta_time_seconds_actual,
+            delta_time_seconds=delta_time_seconds_train,
             num_layers=self._num_layers,
             num_attention_heads=self._num_attention_heads,
             attention_head_size=self._attention_head_size,
             sequence_length=self._sequence_length,
             add_rematerialization=self._add_rematerialization,
         )
-        if "logs" in kwargs:
-            kwargs["logs"]["Ideal MFU"] = ideal_mfu
-            kwargs["logs"]["Actual MFU"] = actual_mfu
+        if _LOGS_KWARG in kwargs:
+            kwargs[_LOGS_KWARG][_TRAIN_STEP_MFU] = train_step_mfu
+            kwargs[_LOGS_KWARG][_TRAIN_MFU] = train_mfu
 
         # Cleanup values
         self._tokens_seen_so_far = total_tokens
-        self.steps_since_last_log = 0
+        self._steps_since_last_log = 0
