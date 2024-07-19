@@ -69,8 +69,7 @@ def test_train_native_pt_model_from_api():
         training_args = config.training.to_hf()
 
         trainer = Trainer(
-            # Disable type checking here as build_model's return type is complicated.
-            model=model,  # type: ignore
+            model=model,
             tokenizer=tokenizer,
             args=training_args,
             train_dataset=dataset,

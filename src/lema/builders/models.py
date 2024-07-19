@@ -1,7 +1,8 @@
 import os.path as osp
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 import torch
+import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
@@ -39,7 +40,7 @@ def build_model(
     peft_params: Optional[PeftParams] = None,
     enable_dp: Optional[bool] = False,
     **kwargs,
-):
+) -> nn.Module:
     """Builds and returns a model based on the provided LeMa configuration.
 
     Args:
@@ -71,7 +72,9 @@ def build_model(
         logger.warning("DP requested, but NOT possible with `mps` backend.")
 
     if model_params.compile:
-        model = torch.compile(model)
+        # The output type of torch.compile is Callable, but when I test it it's of type
+        # nn.Module. We cast it so that this function can have a useful return type.
+        model = cast(nn.Module, torch.compile(model))
         logger.info("Enabled model compilation.")
 
     return model
@@ -81,7 +84,7 @@ def build_lema_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
-):
+) -> nn.Module:
     """Builds a custom model from our LeMa registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
     model = model_class(**model_params.model_kwargs)
@@ -102,7 +105,7 @@ def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
-):
+) -> nn.Module:
     """Downloads and builds the model from the HuggingFace Hub."""
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
