@@ -7,7 +7,7 @@ from lema.core.types.configs import JobConfig
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
-    """Return the sky.Cloud object from the JobConfig."""
+    """Returns the sky.Cloud object from the JobConfig."""
     if job.resources.cloud == SkyClient().get_gcp_cloud_name():
         return sky.clouds.GCP()
     elif job.resources.cloud == SkyClient().get_runpod_cloud_name():
@@ -16,7 +16,7 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
 
 
 def _get_sky_storage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Storage]:
-    """Return the sky.StorageMount objects from the JobConfig."""
+    """Returns the sky.StorageMount objects from the JobConfig."""
     sky_mounts = {}
     for k, v in job.storage_mounts.items():
         storage_mount = sky.data.Storage(
@@ -27,7 +27,7 @@ def _get_sky_storage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Stora
 
 
 def _convert_job_to_task(job: JobConfig) -> sky.Task:
-    """Convert a JobConfig to a sky.Task."""
+    """Converts a JobConfig to a sky.Task."""
     sky_cloud = _get_sky_cloud_from_job(job)
     resources = sky.Resources(
         cloud=sky_cloud,
@@ -59,15 +59,15 @@ class SkyClient:
     """A wrapped client for communicating with Sky Pilot."""
 
     def get_gcp_cloud_name(self) -> str:
-        """Get the name of the GCP cloud."""
+        """Gets the name of the GCP cloud."""
         return "gcp"
 
     def get_runpod_cloud_name(self) -> str:
-        """Get the name of the RunPod cloud."""
+        """Gets the name of the RunPod cloud."""
         return "runpod"
 
     def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> str:
-        """Create a cluster and start the provided Job.
+        """Creates a cluster and starts the provided Job.
 
         Args:
             job: The job to execute on the cluster.
@@ -82,7 +82,7 @@ class SkyClient:
         return resource_handle.name
 
     def status(self) -> List[Dict[str, Any]]:
-        """Get a list of cluster statuses.
+        """Gets a list of cluster statuses.
 
         Returns:
             A list of dictionaries, each containing the status of a cluster.
@@ -90,7 +90,7 @@ class SkyClient:
         return sky.status()
 
     def queue(self, cluster_name: str) -> List[dict]:
-        """Get the job queue of a cluster.
+        """Gets the job queue of a cluster.
 
         Args:
             cluster_name: The name of the cluster to get the queue for.
@@ -101,7 +101,7 @@ class SkyClient:
         return sky.queue(cluster_name)
 
     def cancel(self, cluster_name: str, job_id: str) -> None:
-        """Get the job queue of a cluster.
+        """Gets the job queue of a cluster.
 
         Args:
             cluster_name: The name of the cluster to cancel the job on.
@@ -110,7 +110,7 @@ class SkyClient:
         sky.cancel(cluster_name, int(job_id))
 
     def exec(self, job: JobConfig, cluster_name: str) -> str:
-        """Execute the specified job on the target cluster.
+        """Executes the specified job on the target cluster.
 
         Args:
             job: The job to execute.
@@ -125,7 +125,7 @@ class SkyClient:
         return str(job_id)
 
     def down(self, cluster_name: str) -> None:
-        """Tear down the target cluster.
+        """Tears down the target cluster.
 
         Args:
             cluster_name: The name of the cluster to tear down.
