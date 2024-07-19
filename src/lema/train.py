@@ -220,7 +220,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Save final checkpoint & training state.
     trainer.save_state()
-    if config.training.save_model:
+    if config.training.save_final_model:
         trainer.save_model(config=config)
 
 

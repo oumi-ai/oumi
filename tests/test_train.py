@@ -44,7 +44,7 @@ def test_train_basic():
                 enable_tensorboard=False,
                 output_dir=output_training_dir,
                 try_resume_from_last_checkpoint=True,
-                save_model=True,
+                save_final_model=True,
             ),
         )
 
@@ -82,7 +82,7 @@ def test_train_unregistered_metrics_function():
                     enable_tensorboard=False,
                     output_dir=output_training_dir,
                     try_resume_from_last_checkpoint=True,
-                    save_model=False,
+                    save_final_model=False,
                 ),
             )
 
