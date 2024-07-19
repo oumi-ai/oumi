@@ -26,7 +26,6 @@ class MfuTrainerCallback(TrainerCallback):
         self,
         dtype: torch.dtype,
         num_params: int,
-        start_time_seconds: float,
         sequence_length: int,
         num_layers: Optional[int] = None,
         num_attention_heads: Optional[int] = None,
@@ -47,7 +46,7 @@ class MfuTrainerCallback(TrainerCallback):
         """
         self._dtype = dtype
         self._num_params = num_params
-        self._start_time_seconds = start_time_seconds
+        self._time_of_first_step = -1
         self._time_for_train_steps = 0.0
         self._tokens_seen_so_far = 0
         self._sequence_length = sequence_length
@@ -86,7 +85,9 @@ class MfuTrainerCallback(TrainerCallback):
         if self._callback_disabled(state):
             return
 
-        self.step_start_time = time.time()
+        self._step_start_time = time.time()
+        if self._time_of_first_step == -1:
+            self._time_of_first_step = self._step_start_time
 
     def on_step_end(
         self,
@@ -102,7 +103,7 @@ class MfuTrainerCallback(TrainerCallback):
         if self._callback_disabled(state):
             return
 
-        delta_time_seconds = time.time() - self.step_start_time
+        delta_time_seconds = time.time() - self._step_start_time
 
         # Keep track of only the training step time for "ideal" MFU
         self._time_for_train_steps += delta_time_seconds
@@ -120,7 +121,7 @@ class MfuTrainerCallback(TrainerCallback):
             return
 
         now = time.time()
-        delta_time_seconds_actual = now - self._start_time_seconds
+        delta_time_seconds_actual = now - self._time_of_first_step
         delta_time_seconds_ideal = self._time_for_train_steps
 
         tokens_since_last_log = (
