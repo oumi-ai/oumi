@@ -101,7 +101,9 @@ class MfuTrainerCallback(TrainerCallback):
                 * self._num_devices
                 * self._sequence_length
             )
-        else:
+            return
+
+        if self._time_of_second_step is None:
             self._time_of_second_step = self._step_start_time
 
     def on_step_end(
