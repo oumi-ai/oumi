@@ -6,9 +6,10 @@ model:
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  compile: False
   load_pretrained_weights: False
   trust_remote_code: True
+  model_kwargs:
+    disable_dropout: True
 
 data:
   train:
@@ -41,6 +42,7 @@ training:
   adam_beta1: 0.9
   adam_beta2: 0.95
   weight_decay: 0.1
+  compile: True
 
   run_name: "gpt2_pt"
   output_dir: "output/gpt2.pt"

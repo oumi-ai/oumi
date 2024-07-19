@@ -92,6 +92,10 @@ class TrainingParams:
     # of 32-bit training. Requires Ampere or higher NVIDIA architecture
     # or using CPU or Ascend NPU.
 
+    # Whether to JIT compile the model. This param should be used instead of
+    # `ModelParams.compile` for training.
+    compile: bool = False
+
     # Whether to include performance metrics e.g., tokens stats
     include_performance_metrics: Optional[bool] = None
 
@@ -170,6 +174,7 @@ class TrainingParams:
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.fp16,
             bf16=self.bf16,
+            torch_compile=self.compile,
             save_steps=self.save_steps,
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,

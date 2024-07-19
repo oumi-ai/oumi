@@ -8,6 +8,7 @@ evaluation:
     model_max_length: 1024
     torch_dtype_str: "bfloat16"
     attn_implementation: "flash_attention_2"
+    compile: True
     trust_remote_code: True
 
   data:
@@ -18,5 +19,5 @@ evaluation:
   generation:
     batch_size: 32
 
-checkpoints_dir: "" # "/output_dir_gcs/nikolai/runs/gpt2.pt.4xA10080GB.5000steps/"
+checkpoints_dir: "" # "/output_dir_gcs/wizeng/runs/20240703_gpt2_fullrun_drop0.pt/"
 polling_interval: 5
