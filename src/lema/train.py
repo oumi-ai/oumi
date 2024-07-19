@@ -197,7 +197,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
-    logger.info(f"Start time: {_START_TIME}")
     logger.info(f"Training init time: {time.time() - _START_TIME}s")
     logger.info("Starting training...")
     with torch_profile(
