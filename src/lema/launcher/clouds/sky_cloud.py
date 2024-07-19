@@ -1,46 +1,37 @@
-from typing import List, Optional
+from typing import List, Optional, Type, TypeVar
 
 import sky
-import sky.data
 
-import lema.launcher.utils.sky_utils as sky_utils
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster
 from lema.core.types.configs import JobConfig
 from lema.core.types.params.node_params import SupportedCloud
+from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster
+
+T = TypeVar("T")
 
 
 class SkyCloud(BaseCloud):
-    """Base class for a resource pool capable of creating clusters."""
+    """A resource pool capable of creating clusters using Sky Pilot."""
 
-    def __init__(self, backend: SupportedCloud):
+    def __init__(self, backend: SupportedCloud, client: SkyClient):
         """Initializes a new instance of the SkyCloud class."""
         self._backend = backend
+        self._client = client
 
-    def _get_gcp_clusters(self) -> List[BaseCluster]:
+    def _get_clusters_by_class(self, cloud_class: Type[T]) -> List[BaseCluster]:
         """Gets the GCP clusters."""
         return [
-            SkyCluster(cluster.name)
-            for cluster in sky.status()
-            if isinstance(cluster["handle"].launched_resources.cloud, sky.clouds.GCP)
-        ]
-
-    def _get_runpod_clusters(self) -> List[BaseCluster]:
-        """Gets the RunPod clusters."""
-        return [
-            SkyCluster(cluster.name)
-            for cluster in sky.status()
-            if isinstance(cluster["handle"].launched_resources.cloud, sky.clouds.RunPod)
+            SkyCluster(cluster["name"], self._client)
+            for cluster in self._client.status()
+            if isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
         ]
 
     def up_cluster(self, job: JobConfig, name: Optional[str]) -> BaseCluster:
         """Creates a cluster and starts the provided Job."""
-        _, resource_handle = sky.launch(
-            sky_utils.convert_job_to_task(job), cluster_name=name
-        )
-        resource_handle.launched_resources
-        return SkyCluster(resource_handle.name)
+        cluster_name = self._client.launch(job, name)
+        return SkyCluster(cluster_name, self._client)
 
     def get_cluster(self, name) -> BaseCluster:
         """Gets the cluster with the specified name."""
@@ -54,7 +45,7 @@ class SkyCloud(BaseCloud):
     def list_clusters(self) -> List[BaseCluster]:
         """List the active clusters on this cloud."""
         if self._backend == SupportedCloud.GCP:
-            return self._get_gcp_clusters()
+            return self._get_clusters_by_class(sky.clouds.GCP)
         elif self._backend == SupportedCloud.RUNPOD:
-            return self._get_runpod_clusters()
+            return self._get_clusters_by_class(sky.clouds.RunPod)
         raise ValueError(f"Unsupported cloud: {self._backend}")

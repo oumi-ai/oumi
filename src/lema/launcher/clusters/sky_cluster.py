@@ -1,18 +1,17 @@
 from typing import List, Optional
 
-import sky
-
-import lema.launcher.utils.sky_utils as sky_utils
 from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
+from lema.launcher.clients.sky_client import SkyClient
 
 
 class SkyCluster(BaseCluster):
     """A cluster implementation backed by Sky Pilot."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, client: SkyClient) -> None:
         """Initializes a new instance of the SkyCluster class."""
         self._name = name
+        self._client = client
 
     def _convert_sky_job_to_status(self, sky_job: dict) -> JobStatus:
         """Converts a sky job to a JobStatus."""
@@ -41,11 +40,14 @@ class SkyCluster(BaseCluster):
 
     def get_jobs(self) -> List[JobStatus]:
         """List the jobs on this cluster."""
-        return [self._convert_sky_job_to_status(job) for job in sky.queue(self.name())]
+        return [
+            self._convert_sky_job_to_status(job)
+            for job in self._client.queue(self.name())
+        ]
 
     def stop_job(self, job_id: str) -> JobStatus:
         """Stop the specified job on this cluster."""
-        sky.cancel(self.name(), int(job_id))
+        self._client.cancel(self.name(), job_id)
         job = self.get_job(job_id)
         if job is None:
             raise ValueError(f"Job {job_id} not found.")
@@ -53,15 +55,12 @@ class SkyCluster(BaseCluster):
 
     def run_job(self, job: JobConfig) -> JobStatus:
         """Run the specified job on this cluster."""
-        sky_job = sky_utils.convert_job_to_task(job)
-        job_id, _ = sky.exec(sky_job, self.name())
-        if job_id is None:
-            raise ValueError("Failed to submit job.")
-        job_status = self.get_job(str(job_id))
+        job_id = self._client.exec(job, self.name())
+        job_status = self.get_job(job_id)
         if job_status is None:
             raise ValueError(f"Job {job_id} not found after submission.")
         return job_status
 
     def down(self) -> None:
         """Tears down the current cluster."""
-        sky.down(self.name())
+        self._client.down(self.name())
