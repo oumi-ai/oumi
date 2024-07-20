@@ -14,6 +14,7 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.distributed import is_local_process_zero, is_world_process_zero
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
@@ -111,11 +112,12 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
-    log_versioning_info()
-    log_devices_info()
-    log_training_config(config)
 
-    _ensure_training_output_dir_exists(config.training.output_dir)
+    if is_local_process_zero():
+        log_versioning_info()
+        log_devices_info()
+        log_training_config(config)
+        _ensure_training_output_dir_exists(config.training.output_dir)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
@@ -136,7 +138,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     if config.training.log_model_summary:
-        log_model_summary(model)
+        if is_local_process_zero():
+            log_model_summary(model)
 
     # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
@@ -222,9 +225,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state.
-    trainer.save_state()
-    if config.training.save_final_model:
-        trainer.save_model(config=config)
+    if is_world_process_zero():
+        trainer.save_state()
+        if config.training.save_final_model:
+            trainer.save_model(config=config)
 
 
 if __name__ == "__main__":

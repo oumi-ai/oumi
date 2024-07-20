@@ -1,4 +1,3 @@
-import os
 from typing import Any, NamedTuple, Optional
 
 import numpy as np
@@ -38,15 +37,11 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
 
 def log_training_config(config: TrainingConfig) -> None:
     """Logs training config."""
-    if not is_world_process_zero():
-        return
     logger.info(f"TrainingConfig: {config}")
 
 
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
-    if not is_world_process_zero():
-        return
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
     if not torch.cuda.is_available():
         logger.info("CUDA is not available!")
@@ -66,8 +61,6 @@ def log_versioning_info() -> None:
 
 def log_devices_info() -> None:
     """Logs high-level info about all available accelerator devices."""
-    if not is_world_process_zero():
-        return
     if not torch.cuda.is_available():
         return
 
@@ -91,60 +84,6 @@ def log_devices_info() -> None:
             f"Allocated: {_mem_to_gb(mem_allocated)}GB "
             f"Cached: {_mem_to_gb(mem_reserved)}GB]"
         )
-
-
-DeviceRankInfo = NamedTuple(
-    "DeviceRankInfo",
-    [
-        ("world_size", int),
-        ("rank", int),
-        ("local_world_size", int),
-        ("local_rank", int),
-    ],
-)
-
-
-def get_device_rank_info() -> DeviceRankInfo:
-    """Returns device rank and world size."""
-    world_size = int(os.environ.get("WORLD_SIZE", 1))
-    if world_size <= 0:
-        raise ValueError(f"WORLD_SIZE must be positive. Actual: {world_size}.")
-    rank = int(os.environ.get("RANK", 0))
-    if rank < 0 or rank >= world_size:
-        raise ValueError(
-            f"RANK must be within this range [0, {world_size}). Actual: {rank}."
-        )
-    local_world_size = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
-    if local_world_size <= 0 or local_world_size > world_size:
-        raise ValueError(
-            f"LOCAL_WORLD_SIZE must be within this range [1, {world_size}]. "
-            f"Actual: {local_world_size}."
-        )
-    # Per https://pytorch.org/docs/stable/elastic/run.html
-    # NEVER hard code any assumptions about the stable-ness of ranks or
-    # some correlation between RANK and LOCAL_RANK.
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if local_rank < 0 or local_rank >= local_world_size:
-        raise ValueError(
-            f"LOCAL_RANK must be within this range [0, {local_world_size}). "
-            f"Actual: {local_rank}."
-        )
-    return DeviceRankInfo(
-        world_size=world_size,
-        rank=rank,
-        local_world_size=local_world_size,
-        local_rank=local_rank,
-    )
-
-
-def is_world_process_zero() -> bool:
-    """Whether or not this process is the global main process.
-
-    When training in a distributed fashion on several machines
-    this is only going to be `True` for one process.
-    """
-    device_rank_info: DeviceRankInfo = get_device_rank_info()
-    return device_rank_info.rank <= 0
 
 
 def create_model_summary(model: Any) -> str:

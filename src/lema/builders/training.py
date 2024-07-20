@@ -4,10 +4,10 @@ import torch.distributed
 import transformers
 import trl
 
+from lema.core.distributed import is_world_process_zero
 from lema.core.types import TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.logging import logger
-from lema.utils.torch_utils import is_world_process_zero
 
 
 class HuggingFaceTrainer(BaseTrainer):

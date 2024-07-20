@@ -11,9 +11,9 @@ from transformers.trainer_callback import (
     TrainingArguments,
 )
 
+from lema.core.distributed import get_device_rank_info
 from lema.performance.mfu import calculate_mfu
 from lema.utils.logging import logger
-from lema.utils.torch_utils import get_device_rank_info
 
 _LOGS_KWARG = "logs"
 
