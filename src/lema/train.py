@@ -1,7 +1,9 @@
 import argparse
 import pathlib
+import time
 from typing import Callable, Optional
 
+import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
@@ -11,6 +13,8 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.distributed import is_local_process_zero, is_world_process_zero
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
@@ -18,6 +22,7 @@ from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import logger
 from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
+    count_model_parameters,
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
@@ -25,6 +30,8 @@ from lema.utils.torch_utils import (
     log_training_config,
     log_versioning_info,
 )
+
+_START_TIME = -1.0
 
 
 def parse_cli():
@@ -104,13 +111,15 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
-    log_versioning_info()
-    log_devices_info()
-    log_training_config(config)
+    _START_TIME = time.time()
 
-    _ensure_training_output_dir_exists(config.training.output_dir)
+    if is_local_process_zero():
+        log_versioning_info()
+        log_devices_info()
+        log_training_config(config)
+        _ensure_training_output_dir_exists(config.training.output_dir)
 
-    # Initialize model and tokenizer
+    # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
 
     # Are we supporting PEFT?
@@ -129,7 +138,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     if config.training.log_model_summary:
-        log_model_summary(model)
+        if is_local_process_zero():
+            log_model_summary(model)
 
     # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
@@ -160,6 +170,25 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 "was not found in the registry."
             )
 
+    training_callbacks = []
+    if config.training.include_performance_metrics:
+        if config.model.model_max_length is None:
+            raise ValueError(
+                "model_max_length must be set to log performance information."
+            )
+        if not torch.cuda.is_available():
+            logger.warning("MFU logging is only supported on GPU. Skipping callback.")
+        else:
+            num_params = count_model_parameters(model).all_params
+            logger.info(f"Number of model parameters: {num_params}")
+            mfu_callback = MfuTrainerCallback(
+                dtype=model.dtype,
+                num_params=num_params,
+                sequence_length=config.model.model_max_length,
+                add_rematerialization=config.training.enable_gradient_checkpointing,
+            )
+            training_callbacks.append(mfu_callback)
+
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
@@ -167,12 +196,14 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
+        callbacks=training_callbacks,
         **config.training.trainer_kwargs,
     )
 
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
+    logger.info(f"Training init time: {time.time() - _START_TIME}s")
     logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
@@ -194,9 +225,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state.
-    trainer.save_state()
-    if config.training.save_model:
-        trainer.save_model(config=config)
+    if is_world_process_zero():
+        trainer.save_state()
+        if config.training.save_final_model:
+            trainer.save_model(config=config)
 
 
 if __name__ == "__main__":

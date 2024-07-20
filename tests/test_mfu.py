@@ -3,7 +3,7 @@ from typing import NamedTuple, Optional
 import pytest
 import torch
 
-from lema.evaluation.mfu import calculate_mfu
+from lema.performance.mfu import calculate_mfu
 
 
 class MfuTestParams(NamedTuple):
