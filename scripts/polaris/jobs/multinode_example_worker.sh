@@ -8,7 +8,7 @@ echo "PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
 echo "PMI_RANK: $PMI_RANK"
 echo "NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
 echo "NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
-
+echo "NCCL_DEBUG: $NCCL_DEBUG"
 nvidia-smi -L
 echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
 
@@ -26,7 +26,7 @@ torchrun \
     "training.max_steps=50" \
     "training.save_steps=0" \
     "training.save_final_model=False" \
-    "training.per_device_train_batch_size=12" \
+    "training.per_device_train_batch_size=8" \
     "training.gradient_accumulation_steps=4" \
     "training.output_dir=output/llama2b.pt/" \
     "training.dataloader_num_workers=2" \
