@@ -31,6 +31,8 @@ from lema.utils.torch_utils import (
     log_versioning_info,
 )
 
+_START_TIME = -1.0
+
 
 def parse_cli():
     """Parses command line arguments and returns the configuration filename."""
@@ -109,14 +111,14 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
+    _START_TIME = time.time()
+
     if is_local_process_zero():
         log_versioning_info()
         log_devices_info()
         log_training_config(config)
 
         _ensure_training_output_dir_exists(config.training.output_dir)
-
-    start_time = time.time()
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
@@ -183,8 +185,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
                 num_params=num_params,
-                start_time_seconds=start_time,
                 sequence_length=config.model.model_max_length,
+                add_rematerialization=config.training.enable_gradient_checkpointing,
             )
             training_callbacks.append(mfu_callback)
 
@@ -202,6 +204,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
+    logger.info(f"Training init time: {time.time() - _START_TIME}s")
     logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
