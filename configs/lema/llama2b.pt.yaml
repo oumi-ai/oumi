@@ -22,11 +22,11 @@ data:
 training:
   trainer_type: TRL_SFT
   save_steps: 500
-  per_device_train_batch_size: 2 # Uses 32 GB memory
+  per_device_train_batch_size: 12 # Uses ~94% of 40GB VRAM
   gradient_accumulation_steps: 4
 
-  # If enabled, reduces memory consumption by ~3x but causes a 30% training slowdown.
-  enable_gradient_checkpointing: False # TODO: Try with checkpointing and larger batch size
+  # If enabled, reduces VRAM consumption at the expense of gradients re-computation
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   optimizer: "adamw_torch_fused"
