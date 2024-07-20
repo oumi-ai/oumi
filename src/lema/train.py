@@ -30,6 +30,8 @@ from lema.utils.torch_utils import (
     log_versioning_info,
 )
 
+_START_TIME = -1.0
+
 
 def parse_cli():
     """Parses command line arguments and returns the configuration filename."""
@@ -46,9 +48,6 @@ def parse_cli():
     return args.config, args.verbose, unknown
 
 
-_START_TIME = -1
-
-
 def main() -> None:
     """Main entry point for training LeMa.
 
@@ -58,7 +57,6 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
-    _START_TIME = time.time()
     # Load configuration
     config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
@@ -112,6 +110,7 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
+    _START_TIME = time.time()
     log_versioning_info()
     log_devices_info()
     log_training_config(config)
@@ -200,7 +199,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
-    logger.info(f"Training init time: {time.time() - _START_TIME:.2f}s")
+    logger.info(f"Training init time: {time.time() - _START_TIME}s")
     logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
