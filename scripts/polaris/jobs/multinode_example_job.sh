@@ -31,8 +31,8 @@ echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
 
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
-# export NCCL_COLLNET_ENABLE=1
-# export NCCL_NET_GDR_LEVEL=PHB
+export NCCL_COLLNET_ENABLE=1
+export NCCL_NET_GDR_LEVEL=PHB
 # export NCCL_DEBUG=INFO # WARN
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
