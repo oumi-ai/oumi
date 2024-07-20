@@ -54,5 +54,5 @@ run: |
       "training.dataloader_prefetch_factor=4" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
-      "training.try_resume_from_last_checkpoint=false" \
+      "training.try_resume_from_last_checkpoint=true" \
       "training.enable_wandb=true"
