@@ -26,7 +26,7 @@ torchrun \
     "training.max_steps=50" \
     "training.save_steps=0" \
     "training.save_final_model=False" \
-    "training.per_device_train_batch_size=8" \
+    "training.per_device_train_batch_size=2" \
     "training.gradient_accumulation_steps=4" \
     "training.output_dir=output/llama2b.pt/" \
     "training.dataloader_num_workers=2" \
