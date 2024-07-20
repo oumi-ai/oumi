@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -l select=2:system=polaris
+#PBS -l select=1:system=polaris
 #PBS -l place=scatter
 #PBS -l walltime=00:30:00
 #PBS -l filesystems=home:eagle
@@ -33,6 +33,7 @@ echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 export NCCL_COLLNET_ENABLE=1
 export NCCL_NET_GDR_LEVEL=PHB
+# export NCCL_DEBUG=INFO # WARN
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
 NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)

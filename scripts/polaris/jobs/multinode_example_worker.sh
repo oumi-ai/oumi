@@ -12,7 +12,6 @@ echo "NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
 nvidia-smi -L
 echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
 
-# export NCCL_DEBUG=INFO
 
 torchrun \
     --nnodes=${LEMA_NUM_NODES} \
