@@ -7,7 +7,7 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
-from lema.core.distributed import get_device_rank_info, local_leader_first
+from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types import ModelParams, PeftParams
 from lema.utils.logging import logger
@@ -35,7 +35,6 @@ def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
     )
 
 
-@local_leader_first()
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -81,7 +80,6 @@ def build_model(
     return model
 
 
-@local_leader_first()
 def build_lema_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -103,7 +101,6 @@ def build_lema_model(
     return model
 
 
-@local_leader_first()
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -177,7 +174,6 @@ def build_huggingface_model(
     return model
 
 
-@local_leader_first()
 def build_tokenizer(
     model_params: ModelParams, **kwargs
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
