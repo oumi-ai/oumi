@@ -18,7 +18,16 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: check-toml
       - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
       - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: name-tests-test
+        args: [--pytest-test-first]
+      - id: no-commit-to-branch
+        args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.10
@@ -38,3 +47,12 @@ repos:
       pass_filenames: false
       args: [--warnings]
       additional_dependencies: ["pyright@1.1.368"]
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.16.0
+    hooks:
+    -   id: pyupgrade
+        args: [--py38-plus]
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.16.1
+    hooks:
+      - id: gitleaks

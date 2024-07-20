@@ -5,17 +5,15 @@ from typing import NamedTuple, Optional
 
 import torch.distributed as dist
 
+
+#
 # Types
 #
-DeviceRankInfo = NamedTuple(
-    "DeviceRankInfo",
-    [
-        ("world_size", int),
-        ("rank", int),
-        ("local_world_size", int),
-        ("local_rank", int),
-    ],
-)
+class DeviceRankInfo(NamedTuple):
+    world_size: int
+    rank: int
+    local_world_size: int
+    local_rank: int
 
 
 #
