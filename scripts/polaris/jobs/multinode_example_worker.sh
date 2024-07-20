@@ -20,8 +20,8 @@ torchrun \
     -m lema.train \
     -c configs/lema/llama2b.pt.yaml \
     "model.compile=false" \
-    "training.run_name='polaris.llama2b.pt.1xA10040GB.200steps.bs2.gas4.v100.${PBS_JOBID}'" \
-    "training.max_steps=100" \
+    "training.run_name='polaris.llama2b.pt.${PBS_JOBID}'" \
+    "training.max_steps=50" \
     "training.save_steps=0" \
     "training.save_final_model=False" \
     "training.per_device_train_batch_size=2" \
