@@ -44,15 +44,27 @@ def get_device_rank_info() -> DeviceRankInfo:
             f"LOCAL_RANK must be within this range [0, {local_world_size}). "
             f"Actual: {local_rank}."
         )
-    if world_size > 1 and not (dist.is_available() and dist.is_initialized()):
-        raise RuntimeError
-
     return DeviceRankInfo(
         world_size=world_size,
         rank=rank,
         local_world_size=local_world_size,
         local_rank=local_rank,
     )
+
+
+def verify_torch_distributed_initialized_if_needed() -> None:
+    """Checks if torch.dist iis initialized if WORLD_SIZE> 1."""
+    device_rank_info: DeviceRankInfo = get_device_rank_info()
+    world_size = device_rank_info.world_size
+    if world_size > 1 and not (dist.is_available() and dist.is_initialized()):
+        raise RuntimeError(
+            f"Word size {world_size} is greater than 1, "
+            "while distributed torch isn't available/initialized ("
+            f"available: {dist.is_available()}, "
+            f"initialized: {dist.is_initialized()}, "
+            f"{device_rank_info}"
+            ")"
+        )
 
 
 def is_world_process_zero() -> bool:

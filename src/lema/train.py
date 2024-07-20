@@ -14,7 +14,11 @@ from lema.builders import (
     build_trainer,
 )
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
-from lema.core.distributed import is_local_process_zero, is_world_process_zero
+from lema.core.distributed import (
+    is_local_process_zero,
+    is_world_process_zero,
+    verify_torch_distributed_initialized_if_needed,
+)
 from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
@@ -210,6 +214,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
     ):
+        verify_torch_distributed_initialized_if_needed()
         trainer.train(
             resume_from_checkpoint=(
                 _find_checkpoint_to_resume_from(
