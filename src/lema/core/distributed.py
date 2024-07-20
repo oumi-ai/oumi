@@ -92,20 +92,6 @@ def barrier(group: Optional[dist.ProcessGroup] = None, monitored: bool = False) 
     return
 
 
-#
-# Context Managers
-#
-# @contextmanager
-# def local_leader_only(*args, **kwargs):
-#     """Context manager for local leader only operations."""
-#     if is_local_process_zero():
-#         yield
-#         barrier(*args, **kwargs)
-#     else:
-#         barrier(*args, **kwargs)
-#         yield False
-
-
 def local_leader_only(*barrier_args, **barrier_kwargs):
     """Decorator for local leaders only operations."""
 
@@ -141,23 +127,23 @@ def local_leader_first(*args, **kwargs):
         yield
 
 
-def global_leader_only(*barrier_args, **barrier_kwargs):
+def global_leader_only(*args, **kwargs):
     """Decorator for global leader only operations."""
 
     def decorator(user_function):
         @functools.wraps(user_function)
-        def wrapper(*args, **kwargs):
+        def wrapper(*user_fn_args, **user_fn_kwargs):
             if is_world_process_zero():
                 # Execute the user function
-                result = user_function(*args, **kwargs)
+                result = user_function(*user_fn_args, **user_fn_kwargs)
 
                 # Sync back with all processed before resuming
-                barrier(*barrier_args, **barrier_kwargs)
+                barrier(*args, **kwargs)
                 return result
             else:
                 # User function is not called
                 # Wait for the global leader to finish
-                barrier(*barrier_args, **barrier_kwargs)
+                barrier(*args, **kwargs)
                 return None
 
         return wrapper
