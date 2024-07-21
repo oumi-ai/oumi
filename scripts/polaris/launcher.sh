@@ -1,10 +1,14 @@
 #!/bin/bash
 
+POLARIS_QUEUES=("debug" "debug-scaling" "preemptable")
+
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -u username -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
+   echo "Usage: $0 -u username -q debug -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
    echo -e "\t-u The username on Polaris."
+   echo -e "\t-q The Polaris queue to use (${POLARIS_QUEUES[@]})."
+   echo -e "\t-n The number of Polaris nodes to use."
    echo -e "\t-s The source directory to copy. Defaults to the current directory."
    echo -e "\t-d The destination directory on Polaris to copy local files."
    echo -e "\t-j The local path to your job."
@@ -14,10 +18,15 @@ helpFunction()
 # Default values.
 SOURCE_DIRECTORY="."
 
+POLARIS_QUEUE="debug-scaling"
+POLARIS_NODES=1
+
 while getopts "u:s:d:j:" opt
 do
    case "$opt" in
       u ) POLARIS_USER="$OPTARG" ;;
+      q ) POLARIS_QUEUE="$OPTARG" ;;
+      n ) POLARIS_NODES="$OPTARG" ;;
       s ) SOURCE_DIRECTORY="$OPTARG" ;;
       d ) COPY_DIRECTORY="$OPTARG" ;;
       j ) JOB_PATH="$OPTARG" ;;
@@ -26,9 +35,27 @@ do
 done
 
 # Print a help message if parameters are empty.
-if [ -z "$POLARIS_USER" ] || [ -z "$COPY_DIRECTORY" ] || [ -z "$JOB_PATH" ] || [ -z "$SOURCE_DIRECTORY" ]
+if [ -z "$POLARIS_USER" ] || [ -z "$POLARIS_QUEUE" ] || [ -z "$POLARIS_NODES" ]
 then
-   echo "Some or all required parameters are empty";
+   echo "Some or all required parameters are empty:";
+   echo -e "\tPOLARIS_USER: $POLARIS_USER";
+   echo -e "\tPOLARIS_QUEUE: $POLARIS_QUEUE";
+   echo -e "\tPOLARIS_NODES: $POLARIS_NODES";
+   helpFunction
+fi
+
+if [ -n "$POLARIS_NODES" -gt 0]
+then
+   echo "The number of Polaris nodes ($POLARIS_NODES) must be positive";
+   helpFunction
+fi
+
+if [ -z "$COPY_DIRECTORY" ] || [ -z "$JOB_PATH" ] || [ -z "$SOURCE_DIRECTORY" ]
+then
+   echo "Some or all required parameters are empty:";
+   echo -e "\tCOPY_DIRECTORY: $COPY_DIRECTORY";
+   echo -e "\tJOB_PATH: $JOB_PATH";
+   echo -e "\tSOURCE_DIRECTORY: $SOURCE_DIRECTORY";
    helpFunction
 fi
 
@@ -70,7 +97,14 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Polaris won't create them.
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
-  JOB_ID=$(qsub -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
+  echo "qsub -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH}"
+  # JOB_ID=$(qsub -l "select=${POLARIS_NODES}:system=polaris" -q "${POLARIS_QUEUE}" -o "/eagle/community_ai/jobs/logs/$USER/" -e "/eagle/community_ai/jobs/logs/$USER/" ${JOB_PATH})
+  QSUB_RESULT=$?
+  if [ QSUB_RESULT -ne 0 ] || [ -z "$JOB_ID" ]
+  then
+      echo "Job submission ('qsub') failed with error code: $QSUB_RESULT"
+      exit 1
+  fi
   echo "Job id: ${JOB_ID}"
 
   echo
