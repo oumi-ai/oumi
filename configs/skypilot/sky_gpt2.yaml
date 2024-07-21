@@ -65,8 +65,6 @@ run: |
       "training.max_steps=100" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
       "training.enable_wandb=true"
-
-
-# "training.dataloader_num_workers=2" \
-# "training.dataloader_prefetch_factor=4" \
