@@ -42,6 +42,7 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -58,3 +59,5 @@ run: |
       "training.per_device_train_batch_size=4" \
       "training.max_steps=20" \
       "training.logging_steps=10"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

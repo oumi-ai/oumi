@@ -52,7 +52,7 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  # "training.output_dir=/output_dir_gcs/wizeng/runs/20240626_gpt2.pt/" \
+  set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -68,3 +68,5 @@ run: |
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.enable_wandb=true"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

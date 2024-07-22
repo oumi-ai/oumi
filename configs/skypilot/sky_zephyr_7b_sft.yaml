@@ -47,6 +47,7 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -60,3 +61,5 @@ run: |
       "training.enable_tensorboard=true" \
       "training.output_dir=/output_dir_gcs/nikolai/zephyr/${LEMA_RUN_NAME}" \
       "training.include_performance_metrics=false"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -24,6 +24,7 @@ file_mounts:
 envs:
   WANDB_PROJECT: lema-train-test
   LEMA_RUN_NAME: llama2b.pt.fsdp
+  ACCELERATE_LOG_LEVEL: info
 
 setup: |
   set -e
@@ -37,10 +38,11 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
-      --num_processes ${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --num_processes $((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
@@ -55,7 +57,10 @@ run: |
       "training.gradient_accumulation_steps=16" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
+      "training.log_model_summary=false" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \
       "training.enable_wandb=true"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -44,6 +44,7 @@ run: |
   # Runs some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -60,3 +61,5 @@ run: |
       "training.dataloader_num_workers=1" \
       "training.dataloader_prefetch_factor=1024" \
       "training.logging_steps=10"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
