@@ -1,17 +1,13 @@
 """Based on MFU from PaLM paper: https://arxiv.org/pdf/2204.02311."""
 
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import torch
-from transformers.trainer_callback import (
-    TrainerCallback,
-    TrainerControl,
-    TrainerState,
-    TrainingArguments,
-)
+import transformers
 
-from lema.core.distributed import get_device_rank_info
+from lema.core.distributed import get_device_rank_info, is_world_process_zero
+from lema.core.types import TrainingParams
 from lema.performance.mfu import calculate_mfu
 from lema.utils.logging import logger
 
@@ -23,7 +19,7 @@ _TRAIN_STEP_MFU = "Train Step MFU"
 _TRAIN_MFU = "Train MFU"
 
 
-class MfuTrainerCallback(TrainerCallback):
+class MfuTrainerCallback(transformers.TrainerCallback):
     """Trainer callback to calculate the MFU of the model during training.
 
     Should be compatible with all trainers that inherit from transformers.Trainer.
@@ -67,6 +63,7 @@ class MfuTrainerCallback(TrainerCallback):
 
         device_rank_info = get_device_rank_info()
         self._num_devices = device_rank_info.world_size
+        self._is_world_rank_zero = is_world_process_zero()
         logger.info(f"MFU number of devices: {self._num_devices}")
         # Assume all devices are identical
         self._device_name = "CPU"
@@ -77,19 +74,19 @@ class MfuTrainerCallback(TrainerCallback):
         if self._device_name == "CPU":
             logger.warning("MFU is not supported on CPU, the callback will do nothing.")
 
-    def _callback_disabled(self, state: TrainerState) -> bool:
+    def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
-        return not state.is_world_process_zero or self._device_name == "CPU"
+        return not self._is_world_rank_zero or self._device_name == "CPU"
 
     def on_step_begin(
         self,
-        args: TrainingArguments,
-        state: TrainerState,
-        control: TrainerControl,
+        args: Union[transformers.TrainingArguments, TrainingParams],
+        state: Optional[transformers.TrainerState] = None,
+        control: Optional[transformers.TrainerControl] = None,
         **kwargs,
     ):
         """Event called at the beginning of each train step."""
-        if self._callback_disabled(state):
+        if self._callback_disabled():
             return
 
         self._step_start_time = time.time()
@@ -108,16 +105,16 @@ class MfuTrainerCallback(TrainerCallback):
 
     def on_step_end(
         self,
-        args: TrainingArguments,
-        state: TrainerState,
-        control: TrainerControl,
+        args: Union[transformers.TrainingArguments, TrainingParams],
+        state: Optional[transformers.TrainerState] = None,
+        control: Optional[transformers.TrainerControl] = None,
         **kwargs,
     ):
         """Event called at the end of each train step.
 
         Note that this will be called after all gradient accumulation substeps.
         """
-        if self._callback_disabled(state):
+        if self._callback_disabled():
             return
 
         # Keep track of only the training step time for "ideal" MFU
@@ -132,13 +129,13 @@ class MfuTrainerCallback(TrainerCallback):
 
     def on_log(
         self,
-        args: TrainingArguments,
-        state: TrainerState,
-        control: TrainerControl,
+        args: Union[transformers.TrainingArguments, TrainingParams],
+        state: Optional[transformers.TrainerState] = None,
+        control: Optional[transformers.TrainerControl] = None,
         **kwargs,
     ):
         """Event called after logging the last logs."""
-        if self._callback_disabled(state):
+        if self._callback_disabled():
             return
 
         # Avoid logging until after the first step.
