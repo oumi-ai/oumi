@@ -13,13 +13,13 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.builders.metrics import build_metrics_function
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     is_local_process_zero,
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.registry import REGISTRY
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
@@ -163,16 +163,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.trainer_type
     )
 
-    metrics_function = None
-    if config.training.metrics_function:
-        metrics_function = REGISTRY.get_metrics_function(
-            config.training.metrics_function
-        )
-        if not metrics_function:
-            raise KeyError(
-                f"metrics_function `{config.training.metrics_function}` "
-                "was not found in the registry."
-            )
+    metrics_function = build_metrics_function(config.training)
 
     training_callbacks = []
     if config.training.include_performance_metrics:
@@ -196,7 +187,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
-        args=config.training.to_hf(),
+        args=config.training,
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
