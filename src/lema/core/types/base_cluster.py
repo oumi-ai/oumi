@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from lema.core.types.configs import JobConfig
 
@@ -28,7 +28,6 @@ class JobStatus:
 class BaseCluster(ABC):
     """Base class for a compute cluster (job queue)."""
 
-    @property
     @abstractmethod
     def name(self) -> str:
         """Gets the name of the cluster."""
@@ -36,22 +35,22 @@ class BaseCluster(ABC):
 
     @abstractmethod
     def get_job(self) -> JobStatus:
-        """Gets the jobs on this cluster."""
+        """Gets the jobs on this cluster if it exists, else returns None."""
         raise NotImplementedError
 
     @abstractmethod
     def get_jobs(self) -> List[JobStatus]:
-        """List the jobs on this cluster."""
+        """Lists the jobs on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
     def stop_job(self, job: str) -> JobStatus:
-        """Stop the specified job on this cluster."""
+        """Stops the specified job on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
-    def run_job(self, job: JobConfig) -> JobStatus:
-        """Run the specified job on this cluster."""
+    def run_job(self, job: JobConfig) -> Optional[JobStatus]:
+        """Runs the specified job on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
