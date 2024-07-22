@@ -32,7 +32,7 @@ class SkyCluster(BaseCluster):
         return self._name
 
     def get_job(self, job_id: str) -> Optional[JobStatus]:
-        """Gets the job on this cluster."""
+        """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
                 return job

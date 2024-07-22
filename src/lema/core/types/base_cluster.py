@@ -35,7 +35,7 @@ class BaseCluster(ABC):
 
     @abstractmethod
     def get_job(self) -> JobStatus:
-        """Gets the jobs on this cluster."""
+        """Gets the jobs on this cluster if it exists, else returns None."""
         raise NotImplementedError
 
     @abstractmethod
