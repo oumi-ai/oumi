@@ -8,12 +8,12 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
     build_dataset,
+    build_metrics_function,
     build_model,
     build_peft_model,
     build_tokenizer,
     build_trainer,
 )
-from lema.builders.metrics import build_metrics_function
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     is_local_process_zero,
