@@ -68,6 +68,5 @@ run: |
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.enable_wandb=true"
-  set +x  # Turn-off printing
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

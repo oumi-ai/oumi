@@ -62,6 +62,5 @@ run: |
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \
       "training.enable_wandb=true"
-  set +x  # Turn-off printing
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

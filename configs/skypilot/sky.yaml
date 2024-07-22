@@ -59,6 +59,5 @@ run: |
       "training.per_device_train_batch_size=4" \
       "training.max_steps=20" \
       "training.logging_steps=10"
-  set +x  # Turn-off printing
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

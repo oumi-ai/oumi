@@ -61,6 +61,5 @@ run: |
       "training.dataloader_num_workers=1" \
       "training.dataloader_prefetch_factor=1024" \
       "training.logging_steps=10"
-  set +x  # Turn-off printing
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
