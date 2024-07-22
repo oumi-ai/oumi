@@ -167,7 +167,7 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    # FIXME You may have to uncomment the line below to enable FSDP mode:
+    # FIXME You may have to uncomment the line below to in FSDP mode:
     # model.config.use_cache = False
     #
     # Context:
