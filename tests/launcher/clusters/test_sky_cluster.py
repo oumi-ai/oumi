@@ -1,19 +1,20 @@
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, Mock
 
 import pytest
 
+from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
 from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
+from lema.launcher.clusters.sky_cluster import SkyCluster
 
 
 #
 # Fixtures
 #
 @pytest.fixture
-def mock_sky_data_storage():
-    with patch("sky.data.Storage") as mock_storage:
-        yield mock_storage
+def mock_sky_client():
+    yield Mock(spec=SkyClient)
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -50,80 +51,186 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_sky_client_gcp_name():
-    client = SkyClient()
-    name = client.get_gcp_cloud_name()
-    assert name == "gcp"
+def test_sky_cluster_name(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    assert cluster.name() == "mycluster"
 
 
-def test_sky_client_runpod_name():
-    client = SkyClient()
-    name = client.get_runpod_cloud_name()
-    assert name == "runpod"
+def test_sky_cluster_get_job_valid_id(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "myjob2",
+            "job_name": "some name",
+            "status": "running",
+        },
+        {
+            "job_id": "myjob",
+            "job_name": "some name",
+            "status": "running",
+        },
+        {
+            "job_id": "myjob3",
+            "job_name": "some name",
+            "status": "running",
+        },
+    ]
+    job = cluster.get_job("myjob")
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    assert job is not None
+    assert job.id == "myjob"
 
 
-def test_sky_client_launch(mock_sky_data_storage):
-    with patch("sky.launch") as mock_launch:
-        job = _get_default_job("gcp")
-        mock_resource_handle = Mock()
-        mock_resource_handle.name = "mycluster"
-        mock_launch.return_value = (1, mock_resource_handle)
-        client = SkyClient()
-        cluster_name = client.launch(job)
-        assert cluster_name == "mycluster"
-        mock_launch.assert_called_once()
+def test_sky_cluster_get_job_invalid_id_empty(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = []
+    job = cluster.get_job("myjob")
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    assert job is None
 
 
-def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
-    with patch("sky.launch") as mock_launch:
-        job = _get_default_job("gcp")
-        mock_resource_handle = Mock()
-        mock_resource_handle.name = "cluster_name"
-        mock_launch.return_value = (1, mock_resource_handle)
-        client = SkyClient()
-        cluster_name = client.launch(job, "cluster_name")
-        assert cluster_name == "cluster_name"
-        mock_launch.assert_called_once_with(ANY, cluster_name="cluster_name")
+def test_sky_cluster_get_job_invalid_id_nonempty(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "wrong_id",
+            "job_name": "some name",
+            "status": "running",
+        }
+    ]
+    job = cluster.get_job("myjob")
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    assert job is None
 
 
-def test_sky_client_status():
-    with patch("sky.status") as mock_status:
-        mock_status.return_value = [{"name": "mycluster"}]
-        client = SkyClient()
-        status = client.status()
-        mock_status.assert_called_once()
-        assert status == [{"name": "mycluster"}]
+def test_sky_cluster_get_jobs_nonempty(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "myjob2",
+            "job_name": "some name",
+            "status": "running",
+        },
+        {
+            "job_id": "myjob",
+            "job_name": "r",
+            "status": "stopped",
+        },
+        {
+            "job_id": "myjob3",
+            "job_name": "so",
+            "status": "failed",
+        },
+    ]
+    jobs = cluster.get_jobs()
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    expected_jobs = [
+        JobStatus(
+            id="myjob2",
+            name="some name",
+            status="running",
+            metadata="",
+            cluster="mycluster",
+        ),
+        JobStatus(
+            id="myjob",
+            name="r",
+            status="stopped",
+            metadata="",
+            cluster="mycluster",
+        ),
+        JobStatus(
+            id="myjob3",
+            name="so",
+            status="failed",
+            metadata="",
+            cluster="mycluster",
+        ),
+    ]
+    assert jobs == expected_jobs
 
 
-def test_sky_client_queue():
-    with patch("sky.queue") as mock_queue:
-        mock_queue.return_value = [{"name": "myjob"}]
-        client = SkyClient()
-        queue = client.queue("mycluster")
-        mock_queue.assert_called_once_with("mycluster")
-        assert queue == [{"name": "myjob"}]
+def test_sky_cluster_get_jobs_empty(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = []
+    jobs = cluster.get_jobs()
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    expected_jobs = []
+    assert jobs == expected_jobs
 
 
-def test_sky_client_cancel():
-    with patch("sky.cancel") as mock_cancel:
-        client = SkyClient()
-        client.cancel("mycluster", "1")
-        mock_cancel.assert_called_once_with("mycluster", 1)
+def test_sky_cluster_stop_job(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "myjobid",
+            "job_name": "some name",
+            "status": "failed",
+        }
+    ]
+    job_status = cluster.stop_job("myjobid")
+    expected_status = JobStatus(
+        id="myjobid",
+        name="some name",
+        status="failed",
+        metadata="",
+        cluster="mycluster",
+    )
+    mock_sky_client.cancel.assert_called_once_with("mycluster", "myjobid")
+    assert job_status == expected_status
 
 
-def test_sky_client_exec(mock_sky_data_storage):
-    with patch("sky.exec") as mock_exec:
-        mock_resource_handle = Mock()
-        mock_exec.return_value = (1, mock_resource_handle)
-        client = SkyClient()
-        job = _get_default_job("gcp")
-        job_id = client.exec(job, "mycluster")
-        mock_exec.assert_called_once_with(ANY, "mycluster")
-        assert job_id == "1"
+def test_sky_cluster_stop_job_fails(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "wrong_job",
+            "job_name": "some name",
+            "status": "failed",
+        }
+    ]
+    with pytest.raises(RuntimeError):
+        _ = cluster.stop_job("myjobid")
 
 
-def test_sky_client_down():
-    with patch("sky.down") as mock_down:
-        client = SkyClient()
-        client.down("mycluster")
-        mock_down.assert_called_once_with("mycluster")
+def test_sky_cluster_run_job(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.exec.return_value = "new_job_id"
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "new_job_id",
+            "job_name": "some name",
+            "status": "queued",
+        }
+    ]
+    expected_status = JobStatus(
+        id="new_job_id",
+        name="some name",
+        status="queued",
+        metadata="",
+        cluster="mycluster",
+    )
+    job_status = cluster.run_job(_get_default_job("gcp"))
+    mock_sky_client.exec.assert_called_once_with(ANY, "mycluster")
+    mock_sky_client.queue.assert_called_once_with("mycluster")
+    assert job_status == expected_status
+
+
+def test_sky_cluster_run_job_fails(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    mock_sky_client.exec.return_value = "new_job_id"
+    mock_sky_client.queue.return_value = [
+        {
+            "job_id": "wrong_id",
+            "job_name": "some name",
+            "status": "queued",
+        }
+    ]
+    with pytest.raises(RuntimeError):
+        _ = cluster.run_job(_get_default_job("gcp"))
+
+
+def test_sky_cluster_down(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    cluster.down()
+    mock_sky_client.down.assert_called_once_with("mycluster")

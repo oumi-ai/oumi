@@ -50,7 +50,7 @@ class SkyCluster(BaseCluster):
         self._client.cancel(self.name(), job_id)
         job = self.get_job(job_id)
         if job is None:
-            raise ValueError(f"Job {job_id} not found.")
+            raise RuntimeError(f"Job {job_id} not found.")
         return job
 
     def run_job(self, job: JobConfig) -> JobStatus:
@@ -58,7 +58,7 @@ class SkyCluster(BaseCluster):
         job_id = self._client.exec(job, self.name())
         job_status = self.get_job(job_id)
         if job_status is None:
-            raise ValueError(f"Job {job_id} not found after submission.")
+            raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
 
     def down(self) -> None:
