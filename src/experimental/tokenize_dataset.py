@@ -71,19 +71,15 @@ def _tokenize_file(
     logger.info(f"Finished writing the tokenized to {output_file}.")
 
 
-ParsedArgs = NamedTuple(
-    "ParsedArgs",
-    [
-        ("config_path", str),
-        ("verbose", bool),
-        ("input_paths", List[str]),
-        ("input_format", str),
-        ("target_col", str),
-        ("output_dir", str),
-        ("overwrite", bool),
-        ("num_proc", int),
-    ],
-)
+class ParsedArgs(NamedTuple):
+    config_path: str
+    verbose: bool
+    input_paths: List[str]
+    input_format: str
+    target_col: str
+    output_dir: str
+    overwrite: bool
+    num_proc: int
 
 
 def parse_cli() -> Tuple[ParsedArgs, List[str]]:

@@ -22,7 +22,7 @@ class MLPEncoder(BaseModel):
             hidden_dim (int): The hidden dimension.
             output_dim (int): The output dimension.
         """
-        super(MLPEncoder, self).__init__()
+        super().__init__()
 
         self.embedding = nn.Embedding(input_dim, hidden_dim)
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)

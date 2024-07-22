@@ -17,7 +17,7 @@ class BaseModel(nn.Module, ABC):
             **kwargs: should contain all the parameters needed
                 to build the model scaffold.
         """
-        super(BaseModel, self).__init__()
+        super().__init__()
 
     @abstractmethod
     def forward(self, **kwargs) -> Dict[str, torch.Tensor]:

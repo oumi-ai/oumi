@@ -7,10 +7,10 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
+from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types import ModelParams, PeftParams
 from lema.utils.logging import logger
-from lema.utils.torch_utils import get_device_rank_info
 
 
 def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
@@ -166,6 +166,13 @@ def build_huggingface_model(
             trust_remote_code=model_params.trust_remote_code,
             **kwargs,
         )
+
+    # FIXME You may have to uncomment the following line in FSDP mode:
+    # model.config.use_cache = False
+    #
+    # Context:
+    # https://github.com/huggingface/transformers/issues/28499
+    # TODO Find a better way to handle it
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model is not None:

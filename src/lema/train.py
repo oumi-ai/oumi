@@ -8,13 +8,18 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
     build_dataset,
+    build_metrics_function,
     build_model,
     build_peft_model,
     build_tokenizer,
     build_trainer,
 )
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
-from lema.core.registry import REGISTRY
+from lema.core.distributed import (
+    is_local_process_zero,
+    is_world_process_zero,
+    verify_torch_distributed_initialized_if_needed,
+)
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
@@ -29,6 +34,8 @@ from lema.utils.torch_utils import (
     log_training_config,
     log_versioning_info,
 )
+
+_START_TIME = -1.0
 
 
 def parse_cli():
@@ -46,9 +53,6 @@ def parse_cli():
     return args.config, args.verbose, unknown
 
 
-_START_TIME = -1
-
-
 def main() -> None:
     """Main entry point for training LeMa.
 
@@ -58,7 +62,6 @@ def main() -> None:
     2. [Optional] Arguments provided in a yaml config file
     3. Default arguments values defined in the data class
     """
-    _START_TIME = time.time()
     # Load configuration
     config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
@@ -112,11 +115,13 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
-    log_versioning_info()
-    log_devices_info()
-    log_training_config(config)
+    _START_TIME = time.time()
 
-    _ensure_training_output_dir_exists(config.training.output_dir)
+    if is_local_process_zero():
+        log_versioning_info()
+        log_devices_info()
+        log_training_config(config)
+        _ensure_training_output_dir_exists(config.training.output_dir)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
@@ -137,7 +142,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     if config.training.log_model_summary:
-        log_model_summary(model)
+        if is_local_process_zero():
+            log_model_summary(model)
 
     # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
@@ -157,16 +163,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.trainer_type
     )
 
-    metrics_function = None
-    if config.training.metrics_function:
-        metrics_function = REGISTRY.get_metrics_function(
-            config.training.metrics_function
-        )
-        if not metrics_function:
-            raise KeyError(
-                f"metrics_function `{config.training.metrics_function}` "
-                "was not found in the registry."
-            )
+    metrics_function = build_metrics_function(config.training)
 
     training_callbacks = []
     if config.training.include_performance_metrics:
@@ -183,13 +180,14 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 dtype=model.dtype,
                 num_params=num_params,
                 sequence_length=config.model.model_max_length,
+                add_rematerialization=config.training.enable_gradient_checkpointing,
             )
             training_callbacks.append(mfu_callback)
 
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
-        args=config.training.to_hf(),
+        args=config.training,
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
@@ -200,13 +198,14 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Max Memory Usage Before Training: ")
     log_nvidia_gpu_memory_utilization()
 
-    logger.info(f"Training init time: {time.time() - _START_TIME:.2f}s")
+    logger.info(f"Training init time: {time.time() - _START_TIME}s")
     logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
     ):
+        verify_torch_distributed_initialized_if_needed()
         trainer.train(
             resume_from_checkpoint=(
                 _find_checkpoint_to_resume_from(
@@ -222,9 +221,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state.
-    trainer.save_state()
-    if config.training.save_final_model:
-        trainer.save_model(config=config)
+    if is_world_process_zero():
+        trainer.save_state()
+        if config.training.save_final_model:
+            trainer.save_model(config=config)
 
 
 if __name__ == "__main__":

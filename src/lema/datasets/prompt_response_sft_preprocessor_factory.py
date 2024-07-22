@@ -8,7 +8,7 @@ from lema.datasets.common import (
 )
 
 
-class PromptResponseSftPreprocessorFactory(object):
+class PromptResponseSftPreprocessorFactory:
     """Constructs the preprocessing function for datasets of prompt-response pairs."""
 
     def __init__(self, tokenizer: PreTrainedTokenizerBase):
