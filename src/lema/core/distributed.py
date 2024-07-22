@@ -53,12 +53,12 @@ def get_device_rank_info() -> DeviceRankInfo:
 
 
 def verify_torch_distributed_initialized_if_needed() -> None:
-    """Checks if torch.dist iis initialized if WORLD_SIZE> 1."""
+    """Checks if torch.dist is initialized if WORLD_SIZE> 1."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     world_size = device_rank_info.world_size
     if world_size > 1 and not (dist.is_available() and dist.is_initialized()):
         raise RuntimeError(
-            f"Word size {world_size} is greater than 1, "
+            f"World size {world_size} is greater than 1, "
             "while distributed torch isn't available/initialized ("
             f"available: {dist.is_available()}, "
             f"initialized: {dist.is_initialized()}, "
