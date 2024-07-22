@@ -39,14 +39,14 @@ class SkyCluster(BaseCluster):
         return None
 
     def get_jobs(self) -> List[JobStatus]:
-        """List the jobs on this cluster."""
+        """Lists the jobs on this cluster."""
         return [
             self._convert_sky_job_to_status(job)
             for job in self._client.queue(self.name())
         ]
 
     def stop_job(self, job_id: str) -> JobStatus:
-        """Stop the specified job on this cluster."""
+        """Stops the specified job on this cluster."""
         self._client.cancel(self.name(), job_id)
         job = self.get_job(job_id)
         if job is None:
@@ -54,7 +54,7 @@ class SkyCluster(BaseCluster):
         return job
 
     def run_job(self, job: JobConfig) -> JobStatus:
-        """Run the specified job on this cluster."""
+        """Runs the specified job on this cluster."""
         job_id = self._client.exec(job, self.name())
         job_status = self.get_job(job_id)
         if job_status is None:

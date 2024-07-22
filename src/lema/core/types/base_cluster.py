@@ -40,17 +40,17 @@ class BaseCluster(ABC):
 
     @abstractmethod
     def get_jobs(self) -> List[JobStatus]:
-        """List the jobs on this cluster."""
+        """Lists the jobs on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
     def stop_job(self, job: str) -> JobStatus:
-        """Stop the specified job on this cluster."""
+        """Stops the specified job on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
     def run_job(self, job: JobConfig) -> Optional[JobStatus]:
-        """Run the specified job on this cluster."""
+        """Runs the specified job on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
