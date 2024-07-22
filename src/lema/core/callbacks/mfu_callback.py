@@ -6,12 +6,6 @@ from typing import Optional, Union
 import torch
 import transformers
 
-# from transformers.trainer_callback import (
-#     TrainerCallback,
-#     TrainerControl,
-#     TrainerState,
-#     TrainingArguments,
-# )
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.core.types import TrainingParams
 from lema.performance.mfu import calculate_mfu
