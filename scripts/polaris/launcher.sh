@@ -103,7 +103,7 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
 
   set -x  # Print qsub command
-  JOB_ID=$(qsub -j oe -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
+  JOB_ID=$(qsub -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   QSUB_RESULT=$?
   set +x  # Turn-off printing
 
