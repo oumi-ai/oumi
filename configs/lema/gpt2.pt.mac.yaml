@@ -2,7 +2,7 @@
 
 # Model automatically uses weight tying
 model:
-  model_name: "gpt2"  # 124M params
+  model_name: "gpt2" # 124M params
   model_max_length: 128
   torch_dtype_str: "bfloat16"
   load_pretrained_weights: False
