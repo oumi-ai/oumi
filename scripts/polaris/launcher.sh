@@ -1,13 +1,13 @@
 #!/bin/bash
 
-POLARIS_QUEUES=("debug" "debug-scaling" "preemptable")
+ALLOWED_POLARIS_QUEUES=("debug" "debug-scaling" "preemptable")
 
 helpFunction()
 {
    echo ""
    echo "Usage: $0 -u username -q debug -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
    echo -e "\t-u The username on Polaris."
-   echo -e "\t-q The Polaris queue to use (${POLARIS_QUEUES[@]})."
+   echo -e "\t-q The Polaris queue to use (${ALLOWED_POLARIS_QUEUES[@]})."
    echo -e "\t-n The number of Polaris nodes to use."
    echo -e "\t-s The source directory to copy. Defaults to the current directory."
    echo -e "\t-d The destination directory on Polaris to copy local files."
@@ -21,7 +21,7 @@ SOURCE_DIRECTORY="."
 POLARIS_QUEUE="debug-scaling"
 POLARIS_NODES=1
 
-while getopts "u:s:d:j:" opt
+while getopts "u:q:n:s:d:j:" opt
 do
    case "$opt" in
       u ) POLARIS_USER="$OPTARG" ;;
@@ -44,10 +44,14 @@ then
    helpFunction
 fi
 
-if [ -n "$POLARIS_NODES" -gt 0]
-then
+if ! test "$POLARIS_NODES" -gt 0; then
    echo "The number of Polaris nodes ($POLARIS_NODES) must be positive";
    helpFunction
+fi
+
+if ! (echo "${ALLOWED_POLARIS_QUEUES[@]}" | grep -q -w "${POLARIS_QUEUE}"); then
+    echo "Polaris queue ${POLARIS_QUEUE} is not allowed. Valid values: ${ALLOWED_POLARIS_QUEUES[@]}"
+    helpFunction
 fi
 
 if [ -z "$COPY_DIRECTORY" ] || [ -z "$JOB_PATH" ] || [ -z "$SOURCE_DIRECTORY" ]
@@ -73,10 +77,10 @@ ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
 # Submit a job on Polaris over the same SSH tunnel.
 echo "Setting up environment and submitting job on Polaris..."
 # Save the variables to pass to the remote script.
-printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH"
+printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$POLARIS_NODES" "$POLARIS_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
 ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $varsStr" << 'EOF'
-  COPY_DIRECTORY=$1; JOB_PATH=$2
+  COPY_DIRECTORY=$1; JOB_PATH=$2; POLARIS_NODES=$3; POLARIS_QUEUE=$4
   cd ${COPY_DIRECTORY}
 
   # Set up Conda env if it doesn't exist and activate it.
@@ -97,12 +101,15 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Polaris won't create them.
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
-  echo "qsub -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH}"
-  # JOB_ID=$(qsub -l "select=${POLARIS_NODES}:system=polaris" -q "${POLARIS_QUEUE}" -o "/eagle/community_ai/jobs/logs/$USER/" -e "/eagle/community_ai/jobs/logs/$USER/" ${JOB_PATH})
+
+  set -x  # Print qsub command
+  JOB_ID=$(qsub -j oe -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   QSUB_RESULT=$?
-  if [ QSUB_RESULT -ne 0 ] || [ -z "$JOB_ID" ]
+  set +x  # Turn-off printing
+
+  if (test "$QSUB_RESULT" -ne 0) || [ -z "$JOB_ID" ]
   then
-      echo "Job submission ('qsub') failed with error code: $QSUB_RESULT"
+      echo "Job submission ('qsub') failed with eror code: $QSUB_RESULT"
       exit 1
   fi
   echo "Job id: ${JOB_ID}"
