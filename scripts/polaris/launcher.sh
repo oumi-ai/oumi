@@ -102,7 +102,7 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   # This directory must exist for the run to work, as Polaris won't create them.
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
 
-  set -x  # Print qsub command
+  set -x  # Print qsub command with expanded variables
   JOB_ID=$(qsub -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   QSUB_RESULT=$?
   set +x  # Turn-off printing
@@ -119,7 +119,7 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   qstat -s -u $USER
   echo
   echo "To view error logs, run (on Polaris):"
-  echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
+  echo "tail -n 100 -f /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
   echo "To view output logs, run (on Polaris):"
-  echo "cat /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.OU"
+  echo "tail -n 100 -f /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.OU"
 EOF
