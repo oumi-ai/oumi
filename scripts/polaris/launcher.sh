@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ALLOWED_POLARIS_QUEUES=("debug" "debug-scaling" "preemptable")
+ALLOWED_POLARIS_QUEUES=("debug" "debug-scaling" "preemptable" "prod")
 
 helpFunction()
 {
