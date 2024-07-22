@@ -167,6 +167,13 @@ def build_huggingface_model(
             **kwargs,
         )
 
+    # FIXME You may have to uncomment the following line in FSDP mode:
+    # model.config.use_cache = False
+    #
+    # Context:
+    # https://github.com/huggingface/transformers/issues/28499
+    # TODO Find a better way to handle it
+
     # Load pretrained PEFT adapters
     if model_params.adapter_model is not None:
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
