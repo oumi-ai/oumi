@@ -32,7 +32,16 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
+
+  # Run some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
+
   accelerate launch \
+      --num_machines ${LEMA_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --num_processes ${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/sample_fsdp_phi3_dpo.yaml \
       -m lema.train \
