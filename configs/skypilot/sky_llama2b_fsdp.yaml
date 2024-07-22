@@ -38,7 +38,7 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   accelerate launch \
-      --use_fsdp \
+      --use_fsdp --num_processes=4 \
       --config_file configs/accelerate/sample_fsdp_llama3.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \

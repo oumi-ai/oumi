@@ -167,6 +167,8 @@ def build_huggingface_model(
             **kwargs,
         )
 
+    model.config.use_cache = False
+
     # Load pretrained PEFT adapters
     if model_params.adapter_model is not None:
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
