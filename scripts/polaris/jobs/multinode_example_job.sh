@@ -39,5 +39,7 @@ NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
 NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
 
 
-mpiexec --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
+#FIXME Should we set --envall, --noenvall, or only pass specific env vars?
+mpiexec --verbose \
+    --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
     ./scripts/polaris/jobs/multinode_example_worker.sh

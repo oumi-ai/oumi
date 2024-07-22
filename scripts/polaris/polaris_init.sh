@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "Polaris job ID: ${PBS_JOBID}"
+echo "Running on host: `hostname`"
 echo "Polaris queue: ${PBS_QUEUE}"
 echo "Current dir: $(pwd)"
 echo "Work dir: ${PBS_O_WORKDIR}"
