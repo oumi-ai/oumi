@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from lema.core.types.configs import JobConfig
 
@@ -28,7 +28,6 @@ class JobStatus:
 class BaseCluster(ABC):
     """Base class for a compute cluster (job queue)."""
 
-    @property
     @abstractmethod
     def name(self) -> str:
         """Gets the name of the cluster."""
@@ -50,7 +49,7 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_job(self, job: JobConfig) -> JobStatus:
+    def run_job(self, job: JobConfig) -> Optional[JobStatus]:
         """Run the specified job on this cluster."""
         raise NotImplementedError
 
