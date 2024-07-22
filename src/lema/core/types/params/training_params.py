@@ -18,6 +18,9 @@ class TrainerType(Enum):
     HF = "hf"
     "Generic HuggingFace trainer from `transformers` library."
 
+    LEMA = "lema"
+    "Custom generic trainer implementation."
+
 
 @dataclass
 class TrainingParams:
@@ -179,7 +182,7 @@ class TrainingParams:
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
-            evaluation_strategy=self.eval_strategy,
+            eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
             dataloader_num_workers=self.dataloader_num_workers,
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,

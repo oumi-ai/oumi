@@ -51,6 +51,15 @@ _DEVICE_SPECS = {
             torch.bfloat16: 275.0,
         },
     },
+    # https://www.nvidia.com/en-us/data-center/l4/
+    # Note that values in that page are shown with sparsity.
+    "NVIDIA L4": {
+        _TFLOPS: {
+            torch.float32: 60.0,
+            torch.float16: 121.0,
+            torch.bfloat16: 121.0,
+        },
+    },
 }
 
 
