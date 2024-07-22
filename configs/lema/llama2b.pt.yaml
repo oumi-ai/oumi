@@ -23,7 +23,7 @@ training:
   trainer_type: TRL_SFT
   save_steps: 500
   per_device_train_batch_size: 2 # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 128
 
   # If enabled, reduces VRAM consumption at the expense of gradients re-computation
   enable_gradient_checkpointing: False
