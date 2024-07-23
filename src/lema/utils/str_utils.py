@@ -3,7 +3,7 @@ import re
 
 
 def sanitize_run_name(run_name: str) -> str:
-    """Computes a sanitized version of run name.
+    """Computes a sanitized version of wandb run name.
 
     A valid run name may only contain alphanumeric characters, dashes, underscores,
     and dots, with length not exceeding max limit.
@@ -14,9 +14,9 @@ def sanitize_run_name(run_name: str) -> str:
     if not run_name:
         return run_name
 
-    # Technically, tehn limit is 128, but we limit ourselves to 100
-    # because the system may generate artifacty names e.g., by prepending a prefix
-    # (e.g., "model-") to our original run name, which is also subject
+    # Technically, the limit is 128 chars, but we limit to 100 characters
+    # because the system may generate aux artifact names e.g., by prepending a prefix
+    # (e.g., "model-") to our original run name, which are also subject
     # to max 128 chars limit.
     _MAX_RUN_NAME_LENGTH = 100
 
