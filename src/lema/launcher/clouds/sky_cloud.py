@@ -20,7 +20,7 @@ class SkyCloud(BaseCloud):
         self._client = client
 
     def _get_clusters_by_class(self, cloud_class: Type[T]) -> List[BaseCluster]:
-        """Gets the GCP clusters."""
+        """Gets the appropriate clusters of type T."""
         return [
             SkyCluster(cluster["name"], self._client)
             for cluster in self._client.status()
