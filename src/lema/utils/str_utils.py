@@ -1,6 +1,8 @@
 import hashlib
 import re
 
+from lema.utils.logging import logger
+
 
 def sanitize_run_name(run_name: str) -> str:
     """Computes a sanitized version of wandb run name.
@@ -25,4 +27,7 @@ def sanitize_run_name(run_name: str) -> str:
     if len(result) > _MAX_RUN_NAME_LENGTH:
         suffix = "..." + hashlib.shake_128(run_name.encode("utf-8")).hexdigest(8)
         result = result[0 : (_MAX_RUN_NAME_LENGTH - len(suffix))] + suffix
+
+    if result != run_name:
+        logger.warning(f"Run name '{run_name}' got sanitized to '{result}'")
     return result
