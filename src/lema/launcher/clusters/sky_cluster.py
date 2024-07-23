@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
@@ -12,6 +12,12 @@ class SkyCluster(BaseCluster):
         """Initializes a new instance of the SkyCluster class."""
         self._name = name
         self._client = client
+
+    def __eq__(self, other: Any) -> bool:
+        """Checks if two SkyClusters are equal."""
+        if not isinstance(other, SkyCluster):
+            return False
+        return self.name() == other.name()
 
     def _convert_sky_job_to_status(self, sky_job: dict) -> JobStatus:
         """Converts a sky job to a JobStatus."""

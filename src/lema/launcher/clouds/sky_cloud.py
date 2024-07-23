@@ -32,21 +32,20 @@ class SkyCloud(BaseCloud):
         cluster_name = self._client.launch(job, name)
         return SkyCluster(cluster_name, self._client)
 
-    def get_cluster(self, name) -> BaseCluster:
+    def get_cluster(self, name) -> Optional[BaseCluster]:
         """Gets the cluster with the specified name."""
         clusters = self.list_clusters()
         for cluster in clusters:
-            print(cluster)
-            if cluster.name == name:
+            if cluster.name() == name:
                 return cluster
-        raise ValueError(f"Cluster {name} not found.")
+        return None
 
     def list_clusters(self) -> List[BaseCluster]:
         """List the active clusters on this cloud."""
-        if self._cloud_name == self._client.SupportedClouds.GCP.value:
+        if self._cloud_name == SkyClient.SupportedClouds.GCP.value:
             return self._get_clusters_by_class(sky.clouds.GCP)
-        elif self._cloud_name == self._client.SupportedClouds.RUNPOD.value:
+        elif self._cloud_name == SkyClient.SupportedClouds.RUNPOD.value:
             return self._get_clusters_by_class(sky.clouds.RunPod)
-        elif self._cloud_name == self._client.SupportedClouds.LAMBDA.value:
+        elif self._cloud_name == SkyClient.SupportedClouds.LAMBDA.value:
             return self._get_clusters_by_class(sky.clouds.Lambda)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
