@@ -1,3 +1,4 @@
+from pprint import pformat
 from typing import Any, NamedTuple, Optional
 
 import numpy as np
@@ -37,7 +38,7 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
 
 def log_training_config(config: TrainingConfig) -> None:
     """Logs training config."""
-    logger.info(f"TrainingConfig: {config}")
+    logger.info(f"TrainingConfig: {pformat(config)}")
 
 
 def log_versioning_info() -> None:
