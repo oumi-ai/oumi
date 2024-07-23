@@ -20,5 +20,5 @@ class BaseCloud(ABC):
 
     @abstractmethod
     def list_clusters(self) -> List[BaseCluster]:
-        """List the active clusters on this cloud."""
+        """Lists the active clusters on this cloud."""
         raise NotImplementedError

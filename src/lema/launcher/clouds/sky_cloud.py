@@ -41,7 +41,7 @@ class SkyCloud(BaseCloud):
         return None
 
     def list_clusters(self) -> List[BaseCluster]:
-        """List the active clusters on this cloud."""
+        """Lists the active clusters on this cloud."""
         if self._cloud_name == SkyClient.SupportedClouds.GCP.value:
             return self._get_clusters_by_class(sky.clouds.GCP)
         elif self._cloud_name == SkyClient.SupportedClouds.RUNPOD.value:
