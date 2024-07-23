@@ -12,8 +12,11 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "HuggingFaceFW/fineweb-edu"
-        subset: "sample-10BT"
+      # - dataset_name: "HuggingFaceFW/fineweb-edu"
+      #  subset: "sample-10BT"
+      #  split: "train"
+      - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
+        subset: "default"
         split: "train"
     stream: True
     pack: True
