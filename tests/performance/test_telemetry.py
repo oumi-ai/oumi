@@ -4,12 +4,15 @@ import pytest
 import torch
 
 from lema.performance.telemetry import (
-    CUDATimerContext,
+    CudaTimerContext,
     TelemetryTracker,
     TimerContext,
 )
 
 
+#
+# Timer
+#
 def test_timer_context():
     measurements = []
     with TimerContext("test_timer", measurements):
@@ -32,10 +35,13 @@ def test_timer_context_as_decorator():
     assert 0.09 < measurements[0] < 0.11
 
 
+#
+# Cuda Timer
+#
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_cuda_timer_context():
     measurements = []
-    with CUDATimerContext("test_cuda_timer", measurements):
+    with CudaTimerContext("test_cuda_timer", measurements):
         time.sleep(0.1)
 
     assert len(measurements) == 1
@@ -46,7 +52,7 @@ def test_cuda_timer_context():
 def test_cuda_timer_context_as_decorator():
     measurements = []
 
-    @CUDATimerContext("test_cuda_decorator", measurements)
+    @CudaTimerContext("test_cuda_decorator", measurements)
     def sample_cuda_function():
         time.sleep(0.1)
 
@@ -56,6 +62,9 @@ def test_cuda_timer_context_as_decorator():
     assert measurements[0] > 0
 
 
+#
+# Telemetry Tracker
+#
 def test_telemetry_tracker_timer():
     tracker = TelemetryTracker()
 

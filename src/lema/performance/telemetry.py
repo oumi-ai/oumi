@@ -6,11 +6,15 @@ from typing import Any, Callable, Dict, List, Optional, cast
 
 import torch
 
+from lema.utils.logging import get_logger
+
+LOGGER = get_logger("lema.telemetry")
+
 
 class TimerContext(ContextDecorator):
-    """A context manager and decorator for timing code execution."""
+    """A context manager and decorator for timing CPU code execution."""
 
-    def __init__(self, name: str, measurements: List[float]):
+    def __init__(self, name: str, measurements: Optional[List[float]] = None):
         """Initialize a TimerContext object.
 
         Args:
@@ -18,7 +22,7 @@ class TimerContext(ContextDecorator):
             measurements: A list to store the timing measurements.
         """
         self.name = name
-        self.measurements = measurements
+        self.measurements = measurements if measurements is not None else []
         self.start_time: Optional[float] = None
 
     def __enter__(self) -> "TimerContext":
@@ -35,32 +39,37 @@ class TimerContext(ContextDecorator):
         return False
 
 
-class CUDATimerContext(ContextDecorator):
-    """A context manager and decorator for benchmarking CUDA operations."""
+class CudaTimerContext(ContextDecorator):
+    """A context manager and decorator for timing CUDA operations."""
 
     def __init__(
         self,
         name: str,
-        measurements: List[float],
+        measurements: Optional[List[float]] = None,
     ):
-        """Initialize a CUDATimerContext object.
+        """Initialize a CudaTimerContext object.
 
         Args:
             name: The name of the timer.
             measurements: A list to store the timing measurements.
         """
         self.name = name
-        self.measurements = measurements
-        self.start_event = cast(torch.cuda.Event, torch.cuda.Event(enable_timing=True))
-        self.end_event = cast(torch.cuda.Event, torch.cuda.Event(enable_timing=True))
+        self.measurements = measurements if measurements is not None else []
+        self.start_event = self._get_new_cuda_event()
+        self.end_event = self._get_new_cuda_event()
 
         # Debugging flags
         self.pre_synchronize: bool = False
         self.post_synchronize: bool = False
 
-    def __enter__(self) -> "CUDATimerContext":
+    def _get_new_cuda_event(self) -> torch.cuda.Event:
+        """Returns a CUDA event."""
+        return cast(torch.cuda.Event, torch.cuda.Event(enable_timing=True))
+
+    def __enter__(self) -> "CudaTimerContext":
         """Start the CUDA benchmark."""
         if not torch.cuda.is_available():
+            LOGGER.debug("CUDA is not available. Skipping CUDA benchmark.")
             return self
 
         if self.pre_synchronize:
@@ -71,6 +80,10 @@ class CUDATimerContext(ContextDecorator):
 
     def __exit__(self, *exc) -> bool:
         """Stops the CUDA timer and record the elapsed time."""
+        if not torch.cuda.is_available():
+            LOGGER.debug("CUDA is not available. Skipping CUDA benchmark.")
+            return False
+
         assert self.end_event is not None
         self.end_event.record()
 
@@ -85,31 +98,40 @@ class CUDATimerContext(ContextDecorator):
         return False
 
 
-def gpu_memory_logger(func: Callable) -> Callable:
+def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Callable:
     """Decorator function that logs the GPU memory usage of a given function.
 
     Args:
-        func: The function to be decorated.
+        user_function (Callable): The function to be decorated.
+        synchronize (bool, optional): Flag indicating whether to synchronize
+          GPU operations before measuring memory usage. Defaults to True.
 
     Returns:
-        The decorated function.
+        Callable: The decorated function.
     """
 
-    @wraps(func)
+    @wraps(user_function)
     def wrapper(*args, **kwargs):
         if not torch.cuda.is_available():
             print("CUDA is not available. GPU memory usage cannot be logged.")
-            return func(*args, **kwargs)
+            return user_function(*args, **kwargs)
 
-        torch.cuda.synchronize()
+        if synchronize:
+            torch.cuda.synchronize()
+
         start_memory = torch.cuda.memory_allocated()
 
-        result = func(*args, **kwargs)
+        result = user_function(*args, **kwargs)
 
-        torch.cuda.synchronize()
+        if synchronize:
+            torch.cuda.synchronize()
+
         end_memory = torch.cuda.memory_allocated()
         memory_diff = end_memory - start_memory
-        print(f"{func.__name__} used {memory_diff / 1024**2:.2f} MB of GPU memory")
+        LOGGER.debug(
+            f"{user_function.__name__} used {memory_diff / 1024**2:.2f} MB "
+            "of GPU memory."
+        )
 
         return result
 
@@ -127,7 +149,7 @@ class TelemetryTracker:
         self.start_time = time.perf_counter()
 
     def timer(self, name: str) -> TimerContext:
-        """Create a timer with the given name.
+        """Creates a timer with the given name.
 
         Args:
             name: The name of the timer.
@@ -142,18 +164,18 @@ class TelemetryTracker:
     def cuda_benchmark(
         self,
         name: str,
-    ) -> CUDATimerContext:
+    ) -> CudaTimerContext:
         """Creates a CUDA benchmark with the given name.
 
         Args:
             name: The name of the benchmark.
 
         Returns:
-            A CUDATimerContext object.
+            A CudaTimerContext object.
         """
         if name not in self.cuda_measurements:
             self.cuda_measurements[name] = []
-        return CUDATimerContext(
+        return CudaTimerContext(
             name,
             self.cuda_measurements[name],
         )
@@ -187,7 +209,7 @@ class TelemetryTracker:
         summary = {
             "total_time": total_time,
             "timers": {},
-            "cuda_benchmarks": {},
+            "cuda_timers": {},
             "gpu_memory": self.gpu_memory,
         }
 
@@ -208,7 +230,7 @@ class TelemetryTracker:
             )
 
         for name, measurements in self.cuda_measurements.items():
-            summary["cuda_benchmarks"][name] = {
+            summary["cuda_timers"][name] = {
                 "mean": statistics.mean(measurements),
                 "median": statistics.median(measurements),
                 "std_dev": statistics.stdev(measurements)
@@ -224,33 +246,33 @@ class TelemetryTracker:
     def print_summary(self) -> None:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
-        print("Telemetry Summary:")
-        print(f"Total time: {summary['total_time']:.2f} seconds")
+        LOGGER.info("Telemetry Summary:")
+        LOGGER.info(f"Total time: {summary['total_time']:.2f} seconds")
 
         if summary["timers"]:
-            print("\nCPU Timers:")
+            LOGGER.info("\nCPU Timers:")
             for name, stats in summary["timers"].items():
-                print(f"  {name}:")
-                print(f"    Total: {stats['total']:.6f} seconds")
-                print(f"    Mean: {stats['mean']:.6f} seconds")
-                print(f"    Median: {stats['median']:.6f} seconds")
-                print(f"    Std Dev: {stats['std_dev']:.6f} seconds")
-                print(f"    Min: {stats['min']:.6f} seconds")
-                print(f"    Max: {stats['max']:.6f} seconds")
-                print(f"    Count: {stats['count']}")
-                print(f"    Percentage of total time: {stats['percentage']:.2f}%")
+                LOGGER.info(f"\t{name}:")
+                LOGGER.info(f"\t\tTotal: {stats['total']:.6f} seconds")
+                LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
+                LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
+                LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
+                LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
+                LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
+                LOGGER.info(f"\t\tCount: {stats['count']}")
+                LOGGER.info(f"\t\tPercentage of total time: {stats['percentage']:.2f}%")
 
-        if summary["cuda_benchmarks"]:
-            print("\nCUDA Benchmarks:")
-            for name, stats in summary["cuda_benchmarks"].items():
-                print(f"  {name}:")
-                print(f"    Mean: {stats['mean']:.6f} seconds")
-                print(f"    Median: {stats['median']:.6f} seconds")
-                print(f"    Std Dev: {stats['std_dev']:.6f} seconds")
-                print(f"    Min: {stats['min']:.6f} seconds")
-                print(f"    Max: {stats['max']:.6f} seconds")
-                print(f"    Count: {stats['count']}")
+        if summary["cuda_timers"]:
+            LOGGER.info("\nCUDA Timers:")
+            for name, stats in summary["cuda_timers"].items():
+                LOGGER.info(f"\t{name}:")
+                LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
+                LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
+                LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
+                LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
+                LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
+                LOGGER.info(f"\t\tCount: {stats['count']}")
 
         if summary["gpu_memory"]:
             max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
-            print(f"\nPeak GPU memory usage: {max_memory:.2f} MB")
+            LOGGER.info(f"\nPeak GPU memory usage: {max_memory:.2f} MB")
