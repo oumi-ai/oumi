@@ -16,6 +16,7 @@ echo "${LOG_PREFIX} NCCL_DEBUG: $NCCL_DEBUG"
 echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 echo "${LOG_PREFIX} ***ENV END***"
 
+
 ALLOWED_TRAINING_MODES=("ddp" "fsdp")
 
 helpFunction()
@@ -47,6 +48,13 @@ if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
     helpFunction
 fi
 
+# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
+TRAIN_DATASETS="data.train.datasets=
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
+  subset: \"default\"
+  split: \"train\"
+"
+
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
     set -x  # Print "torchrun" command with expanded variables
@@ -59,6 +67,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -m lema.train \
         -c configs/lema/llama2b.pt.yaml \
         "model.compile=false" \
+        "$TRAIN_DATASETS" \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.max_steps=20" \
         "training.save_steps=0" \
@@ -85,6 +94,7 @@ else
       --config_file configs/accelerate/sample_fsdp_llama3.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
+      "$TRAIN_DATASETS" \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
