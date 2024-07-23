@@ -15,6 +15,10 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
+      # Polaris copy of the dataset:
+      # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
+      #   subset: "default"
+      #   split: "train"
     stream: True
     pack: True
     target_col: "text"
