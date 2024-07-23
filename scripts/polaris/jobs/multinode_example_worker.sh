@@ -13,6 +13,13 @@ nvidia-smi -L
 echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
 
 set -x  # Print "torchrun" command with expanded variables
+
+TRAIN_DATASETS="data.train.datasets=
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
+  subset: \"default\"
+  split: \"train\"
+"
+
 torchrun \
     --nnodes=${LEMA_NUM_NODES} \
     --node-rank=${PMI_RANK:=0} \
@@ -22,6 +29,7 @@ torchrun \
     -m lema.train \
     -c configs/lema/llama2b.pt.yaml \
     "model.compile=false" \
+    "$TRAIN_DATASETS" \
     "training.run_name='polaris.llama2b.pt.${PBS_JOBID}'" \
     "training.max_steps=20" \
     "training.save_steps=0" \
