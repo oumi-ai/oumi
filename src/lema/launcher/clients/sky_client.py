@@ -81,7 +81,7 @@ class SkyClient:
         _, resource_handle = sky.launch(
             _convert_job_to_task(job), cluster_name=cluster_name
         )
-        return resource_handle.name
+        return resource_handle.cluster_name
 
     def status(self) -> List[Dict[str, Any]]:
         """Gets a list of cluster statuses.

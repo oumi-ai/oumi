@@ -69,7 +69,7 @@ def test_sky_client_launch(mock_sky_data_storage):
     with patch("sky.launch") as mock_launch:
         job = _get_default_job("gcp")
         mock_resource_handle = Mock()
-        mock_resource_handle.name = "mycluster"
+        mock_resource_handle.cluster_name = "mycluster"
         mock_launch.return_value = (1, mock_resource_handle)
         client = SkyClient()
         cluster_name = client.launch(job)
@@ -81,7 +81,7 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
     with patch("sky.launch") as mock_launch:
         job = _get_default_job("gcp")
         mock_resource_handle = Mock()
-        mock_resource_handle.name = "cluster_name"
+        mock_resource_handle.cluster_name = "cluster_name"
         mock_launch.return_value = (1, mock_resource_handle)
         client = SkyClient()
         cluster_name = client.launch(job, "cluster_name")
