@@ -12,7 +12,9 @@ echo "NCCL_DEBUG: $NCCL_DEBUG"
 nvidia-smi -L
 echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
 
-set -x  # Print "torchrun" command with expanded variablestrain_datasets="data.train.datasets=
+set -x  # Print "torchrun" command with expanded variables
+
+train_datasets="data.train.datasets=
 - dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
   subset: \"default\"
   split: \"train\"
