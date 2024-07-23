@@ -77,16 +77,16 @@ def test_telemetry_tracker_timer():
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_telemetry_tracker_cuda_benchmark():
+def test_telemetry_tracker_cuda_timer():
     tracker = TelemetryTracker()
 
-    with tracker.cuda_benchmark("test_cuda_operation"):
+    with tracker.cuda_timer("test_cuda_operation"):
         torch.cuda.synchronize()
         time.sleep(0.1)
 
     summary = tracker.get_summary()
-    assert "test_cuda_operation" in summary["cuda_benchmarks"]
-    assert summary["cuda_benchmarks"]["test_cuda_operation"]["mean"] > 0
+    assert "test_cuda_operation" in summary["cuda_timers"]
+    assert summary["cuda_timers"]["test_cuda_operation"]["mean"] > 0
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")

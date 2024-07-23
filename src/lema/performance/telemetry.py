@@ -161,7 +161,7 @@ class TelemetryTracker:
             self.measurements[name] = []
         return TimerContext(name, self.measurements[name])
 
-    def cuda_benchmark(
+    def cuda_timer(
         self,
         name: str,
     ) -> CudaTimerContext:
