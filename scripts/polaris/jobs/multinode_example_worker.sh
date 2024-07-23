@@ -1,16 +1,20 @@
 #!/bin/bash
 
-echo "***ENV BEGIN (PMI_RANK: $PMI_RANK)***"
-echo "LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
-echo "LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
-echo "LEMA_NUM_NODES: $LEMA_NUM_NODES"
-echo "PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
-echo "PMI_RANK: $PMI_RANK"
-echo "NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
-echo "NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
-echo "NCCL_DEBUG: $NCCL_DEBUG"
+POLARIS_NODE_RANK=${PMI_RANK:=0}
+POLARIS_GPUS_PER_NODE=4
+LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
+
+echo "${LOG_PREFIX} ***ENV BEGIN***"
+echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
+echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
+echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
+echo "${LOG_PREFIX} PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
+echo "${LOG_PREFIX} PMI_RANK: $PMI_RANK"
+echo "${LOG_PREFIX} NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
+echo "${LOG_PREFIX} NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
+echo "${LOG_PREFIX} NCCL_DEBUG: $NCCL_DEBUG"
 nvidia-smi -L
-echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
+echo "${LOG_PREFIX} ***ENV END***"
 
 ALLOWED_TRAINING_MODES=("ddp" "fsdp")
 
@@ -43,9 +47,7 @@ if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
     helpFunction
 fi
 
-POLARIS_NODE_RANK=${PMI_RANK:=0}
-POLARIS_GPUS_PER_NODE=4
-
+echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
     set -x  # Print "torchrun" command with expanded variables
     torchrun \
@@ -98,4 +100,4 @@ else
       "training.enable_wandb=true"
 fi
 
-echo "Node ${POLARIS_NODE_RANK} is all done!"
+echo "${LOG_PREFIX} All done!"
