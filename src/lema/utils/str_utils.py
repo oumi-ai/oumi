@@ -20,6 +20,7 @@ def sanitize_run_name(run_name: str) -> str:
     # to max 128 chars limit.
     _MAX_RUN_NAME_LENGTH = 100
 
+    # Replace all unsupported characters with '_'.
     result = re.sub("[^a-zA-Z0-9\\_\\-\\.]", "_", run_name)
     if len(result) > _MAX_RUN_NAME_LENGTH:
         suffix = "..." + hashlib.shake_128(run_name.encode("utf-8")).hexdigest(8)
