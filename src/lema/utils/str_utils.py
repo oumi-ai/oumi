@@ -6,7 +6,7 @@ def sanitize_run_name(run_name: str) -> str:
     """Computes a sanitized version of run name.
 
     A valid run name may only contain alphanumeric characters, dashes, underscores,
-    and dots, with length not exceeding 128 characters.
+    and dots, with length not exceeding max limit.
 
     Args:
         run_name: The original raw value of run name.
@@ -14,7 +14,11 @@ def sanitize_run_name(run_name: str) -> str:
     if not run_name:
         return run_name
 
-    _MAX_RUN_NAME_LENGTH = 128
+    # Technically, tehn limit is 128, but we limit ourselves to 100
+    # because the system may generate artifacty names e.g., by prepending a prefix
+    # (e.g., "model-") to our original run name, which is also subject
+    # to max 128 chars limit.
+    _MAX_RUN_NAME_LENGTH = 100
 
     result = re.sub("[^a-zA-Z0-9\\_\\-\\.]", "_", run_name)
     if len(result) > _MAX_RUN_NAME_LENGTH:
