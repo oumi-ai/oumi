@@ -15,7 +15,7 @@ class BaseCloud(ABC):
 
     @abstractmethod
     def get_cluster(self, name: str) -> Optional[BaseCluster]:
-        """Gets the cluster with the specified name."""
+        """Gets the cluster with the specified name, or None if not found."""
         raise NotImplementedError
 
     @abstractmethod
