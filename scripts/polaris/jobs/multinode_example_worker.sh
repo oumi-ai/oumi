@@ -12,7 +12,7 @@ echo "NCCL_DEBUG: $NCCL_DEBUG"
 nvidia-smi -L
 echo "***ENV END (Host: $HOSTNAME, PMI_RANK: $PMI_RANK)***"
 
-
+set -x  # Print "torchrun" command with expanded variables
 torchrun \
     --nnodes=${LEMA_NUM_NODES} \
     --node-rank=${PMI_RANK:=0} \
@@ -35,3 +35,5 @@ torchrun \
     "training.ddp_find_unused_parameters=false" \
     "training.try_resume_from_last_checkpoint=false" \
     "training.enable_wandb=true"
+
+echo "Node ${PMI_RANK:=0} is all done!"
