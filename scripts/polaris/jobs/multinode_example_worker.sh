@@ -29,7 +29,7 @@ helpFunction()
 # Default values.
 TRAINING_MODE="ddp"
 
-while getopts "m" opt
+while getopts "m:" opt
 do
    case "$opt" in
       m ) TRAINING_MODE="$OPTARG" ;;
