@@ -14,11 +14,11 @@ class BaseCloud(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cluster(self, name: str) -> BaseCluster:
-        """Gets the cluster with the specified name."""
+    def get_cluster(self, name: str) -> Optional[BaseCluster]:
+        """Gets the cluster with the specified name, or None if not found."""
         raise NotImplementedError
 
     @abstractmethod
     def list_clusters(self) -> List[BaseCluster]:
-        """List the active clusters on this cloud."""
+        """Lists the active clusters on this cloud."""
         raise NotImplementedError
