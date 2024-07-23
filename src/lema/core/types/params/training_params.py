@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import transformers
 
 from lema.core.types.params.profiler_params import ProfilerParams
+from lema.utils.str_utils import sanitize_run_name
 
 
 class TrainerType(Enum):
@@ -205,3 +206,7 @@ class TrainingParams:
         if len(report_to) == 0:
             report_to.append("none")
         return report_to
+
+    def __post_init__(self):
+        """Verifies params."""
+        self.run_name = sanitize_run_name(self.run_name)
