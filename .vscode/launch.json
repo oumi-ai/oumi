@@ -44,6 +44,22 @@
             "justMyCode": true
         },
         {
+            "name": "Lema Distributed",
+            "type": "debugpy",
+            "module": "torch.distributed.run",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "args": [
+                "--standalone",
+                "--nproc_per_node",
+                "4",
+                "-m",
+                "lema.train",
+                "-c",
+                "configs/lema/gpt2.pt.yaml"
+            ]
+        },
+        {
             "name": "LeMa - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",

@@ -1,9 +1,18 @@
 import functools
 import os
 from contextlib import contextmanager
-from typing import NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
+import torch
 import torch.distributed as dist
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    BackwardPrefetch,
+    CPUOffload,
+    MixedPrecision,
+)
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from torch.nn.parallel import DistributedDataParallel
 
 
 #
@@ -85,6 +94,16 @@ def is_local_process_zero() -> bool:
     """
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     return device_rank_info.local_rank == 0
+
+
+def is_distributed() -> bool:
+    """Whether or not the training is distributed.
+
+    Returns:
+        bool: True if the training is distributed, False otherwise.
+    """
+    device_rank_info: DeviceRankInfo = get_device_rank_info()
+    return device_rank_info.world_size > 1
 
 
 #
@@ -170,3 +189,95 @@ def global_leader_first(*args, **kwargs):
     else:
         barrier(*args, **kwargs)
         yield
+
+
+#
+# Distributed Initialization
+#
+def init_distributed(backend: str = "nccl"):
+    """Initialize the distributed environment."""
+    device_rank_info: DeviceRankInfo = get_device_rank_info()
+    dist.init_process_group(backend=backend)
+    torch.cuda.set_device(int(device_rank_info.local_rank))
+
+
+def cleanup_distributed():
+    """Clean up the distributed environment."""
+    dist.destroy_process_group()
+
+
+#
+# FSDP and DDP
+#
+def get_default_fsdp_wrapping_policy(model: torch.nn.Module):
+    """Get the FSDP wrapping policy based on the model size.
+
+    Note: this is a naive policy that wraps layers if they have
+    more than 100k parameters.
+
+    Args:
+        model: The PyTorch model.
+
+    Returns:
+        The FSDP wrapping policy.
+
+    """
+    return size_based_auto_wrap_policy(
+        model, min_num_params=100000, recurse=True, nonwrapped_numel=0
+    )
+
+
+def get_default_fsdp_mixed_precision():
+    """Get the FSDP mixed precision settings.
+
+    Returns:
+        MixedPrecision: An object containing the default FSDP mixed precision settings.
+    """
+    return MixedPrecision(
+        param_dtype=torch.bfloat16,
+        reduce_dtype=torch.bfloat16,
+        buffer_dtype=torch.bfloat16,
+    )
+
+
+def prepare_model_for_distributed(
+    model: torch.nn.Module, use_fsdp: bool, fsdp_config: Optional[Dict[str, Any]] = None
+) -> torch.nn.Module:
+    """Wrap the model for distributed training (DDP or FSDP).
+
+    Args:
+        model (torch.nn.Module): The model to be wrapped.
+        use_fsdp (bool): Whether to use FSDP for distributed training.
+        fsdp_config (Optional[Dict[str, Any]], optional):
+            Configuration options for FSDP. Defaults to None.
+
+    Returns:
+        torch.nn.Module: The wrapped model for distributed training.
+    """
+    device_rank_info = get_device_rank_info()
+
+    if use_fsdp:
+        fsdp_config = fsdp_config or {}
+        wrapping_policy = fsdp_config.get(
+            "wrapping_policy", get_default_fsdp_wrapping_policy(model)
+        )
+        mixed_precision = fsdp_config.get(
+            "mixed_precision", get_default_fsdp_mixed_precision()
+        )
+
+        model = FSDP(
+            model,
+            auto_wrap_policy=wrapping_policy,
+            mixed_precision=mixed_precision,
+            device_id=torch.cuda.current_device(),
+            cpu_offload=CPUOffload(offload_params=False),
+            backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+            limit_all_gathers=True,
+        )
+    else:
+        model = DistributedDataParallel(
+            model,
+            device_ids=[device_rank_info.local_rank],
+        )
+
+    return model
