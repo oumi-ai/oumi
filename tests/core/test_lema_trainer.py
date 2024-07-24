@@ -37,14 +37,6 @@ def mock_dataset():
 
 @pytest.fixture
 def mock_dataloader():
-    # dataloader = MagicMock(spec=DataLoader)
-    # tensor = torch.tensor([1, 2, 3])
-    # dataloader.__iter__ = MagicMock(
-    #     return_value=[{"input_ids": tensor, "labels": tensor}]
-    # )
-    # return dataloader
-
-    # Define a sample batch
     sample_batch = {
         "input_ids": torch.randint(0, 1000, (4, 768)),
         "attention_mask": torch.ones(4, 768),
@@ -111,14 +103,11 @@ def test_trainer_initialization(
     assert isinstance(trainer.train_dataloader, DataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
     assert trainer.device == "mps"
-    # test model device == trainer device
 
 
 def test_get_total_training_steps(trainer):
     if trainer.args.max_steps is not None:
         assert trainer._get_total_training_steps() == trainer.args.max_steps
-
-    # TODO: handle other cases
 
 
 @patch("lema.core.distributed.is_world_process_zero", return_value=True)
