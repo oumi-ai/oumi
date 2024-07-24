@@ -62,11 +62,11 @@ infer:
 	$(CONDA_RUN) python -m lema.infer $(ARGS)
 
 skyssh:
-	$(CONDA_RUN) sky launch $(ARGS) --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
+	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	ssh "${USERNAME}-dev"
 
 skycode:
-	$(CONDA_RUN) sky launch $(ARGS) --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
+	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
 .PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode
