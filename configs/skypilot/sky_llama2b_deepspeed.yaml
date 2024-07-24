@@ -10,6 +10,7 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
+  region: us-east1  # Uncomment this line to only consider a specific GCP region.
 
 # Upload a working directory to remote ~/sky_workdir.
 workdir: .
@@ -23,7 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
-  LEMA_RUN_NAME: llama2b.pt.fsdp
+  LEMA_RUN_NAME: llama2b.pt.deepspeed
   ACCELERATE_LOG_LEVEL: info
 
 setup: |
@@ -35,7 +36,6 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
-  pip install '.[train]'
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
@@ -46,15 +46,15 @@ run: |
       --num_processes $((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
-      --use_fsdp \
-      --config_file configs/accelerate/sample_fsdp_llama3.yaml \
+      --use_deepspeed \
+      --config_file configs/accelerate/sample_deepspeed_llama3.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
-      "training.per_device_train_batch_size=116" \
+      "training.per_device_train_batch_size=8" \
       "training.gradient_accumulation_steps=4" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
