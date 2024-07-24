@@ -1,3 +1,4 @@
+import math
 import time
 
 import pytest
@@ -19,7 +20,7 @@ def test_timer_context():
         time.sleep(0.1)
 
     assert len(measurements) == 1
-    assert 0.09 < measurements[0] < 0.11
+    assert math.isclose(0.1, measurements[0], rel_tol=0.1)
 
 
 def test_timer_context_as_decorator():

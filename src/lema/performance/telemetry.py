@@ -42,11 +42,7 @@ class TimerContext(ContextDecorator):
 class CudaTimerContext(ContextDecorator):
     """A context manager and decorator for timing CUDA operations."""
 
-    def __init__(
-        self,
-        name: str,
-        measurements: Optional[List[float]] = None,
-    ):
+    def __init__(self, name: str, measurements: Optional[List[float]] = None):
         """Initialize a CudaTimerContext object.
 
         Args:
@@ -113,7 +109,7 @@ def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Call
     @wraps(user_function)
     def wrapper(*args, **kwargs):
         if not torch.cuda.is_available():
-            print("CUDA is not available. GPU memory usage cannot be logged.")
+            LOGGER.debug("CUDA is not available. GPU memory usage cannot be logged.")
             return user_function(*args, **kwargs)
 
         if synchronize:
@@ -187,7 +183,7 @@ class TelemetryTracker:
             custom_logger: A custom logging function. If None, store in self.gpu_memory.
         """
         if not torch.cuda.is_available():
-            print("CUDA is not available. GPU memory usage cannot be logged.")
+            LOGGER.debug("CUDA is not available. GPU memory usage cannot be logged.")
             return
 
         memory_allocated = torch.cuda.memory_allocated() / 1024**2  # Convert to MB
