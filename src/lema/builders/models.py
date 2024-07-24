@@ -65,6 +65,7 @@ def build_model(
             *kwargs,
         )
 
+    # TODO: OPE-214 - Deprecate DP support in model builder
     if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
         logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
         model = torch.nn.DataParallel(model)
