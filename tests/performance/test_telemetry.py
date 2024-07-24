@@ -33,7 +33,7 @@ def test_timer_context_as_decorator():
     sample_function()
 
     assert len(measurements) == 1
-    assert 0.09 < measurements[0] < 0.11
+    assert math.isclose(0.1, measurements[0], rel_tol=0.1)
 
 
 #
@@ -74,7 +74,7 @@ def test_telemetry_tracker_timer():
 
     summary = tracker.get_summary()
     assert "test_operation" in summary["timers"]
-    assert 0.09 < summary["timers"]["test_operation"]["total"] < 0.11
+    assert math.isclose(0.1, summary["timers"]["test_operation"]["total"], rel_tol=0.1)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")

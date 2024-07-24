@@ -15,7 +15,7 @@ class TimerContext(ContextDecorator):
     """A context manager and decorator for timing CPU code execution."""
 
     def __init__(self, name: str, measurements: Optional[List[float]] = None):
-        """Initialize a TimerContext object.
+        """Initializes a TimerContext object.
 
         Args:
             name: The name of the timer.
@@ -26,12 +26,12 @@ class TimerContext(ContextDecorator):
         self.start_time: Optional[float] = None
 
     def __enter__(self) -> "TimerContext":
-        """Start the timer."""
+        """Starts the timer."""
         self.start_time = time.perf_counter()
         return self
 
     def __exit__(self, *exc) -> bool:
-        """Stop the timer and record the elapsed time."""
+        """Stops the timer and records the elapsed time."""
         if self.start_time is not None:
             elapsed_time = time.perf_counter() - self.start_time
             self.measurements.append(elapsed_time)
@@ -43,7 +43,7 @@ class CudaTimerContext(ContextDecorator):
     """A context manager and decorator for timing CUDA operations."""
 
     def __init__(self, name: str, measurements: Optional[List[float]] = None):
-        """Initialize a CudaTimerContext object.
+        """Initializes a CudaTimerContext object.
 
         Args:
             name: The name of the timer.
@@ -63,7 +63,7 @@ class CudaTimerContext(ContextDecorator):
         return cast(torch.cuda.Event, torch.cuda.Event(enable_timing=True))
 
     def __enter__(self) -> "CudaTimerContext":
-        """Start the CUDA benchmark."""
+        """Starts the CUDA timer."""
         if not torch.cuda.is_available():
             LOGGER.debug("CUDA is not available. Skipping CUDA benchmark.")
             return self
@@ -75,7 +75,7 @@ class CudaTimerContext(ContextDecorator):
         return self
 
     def __exit__(self, *exc) -> bool:
-        """Stops the CUDA timer and record the elapsed time."""
+        """Stops the CUDA timer and records the elapsed time."""
         if not torch.cuda.is_available():
             LOGGER.debug("CUDA is not available. Skipping CUDA benchmark.")
             return False
@@ -98,12 +98,12 @@ def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Call
     """Decorator function that logs the GPU memory usage of a given function.
 
     Args:
-        user_function (Callable): The function to be decorated.
-        synchronize (bool, optional): Flag indicating whether to synchronize
+        user_function: The function to be decorated.
+        synchronize: Flag indicating whether to synchronize
           GPU operations before measuring memory usage. Defaults to True.
 
     Returns:
-        Callable: The decorated function.
+        The decorated function.
     """
 
     @wraps(user_function)
