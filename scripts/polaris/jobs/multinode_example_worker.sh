@@ -2,6 +2,7 @@
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
 POLARIS_GPUS_PER_NODE=4
+POLARIS_DATALOADER_WORKERS="$((2*${POLARIS_GPUS_PER_NODE}))" # Should scale with #GPUs per node.
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
@@ -80,7 +81,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "training.per_device_train_batch_size=2" \
         "training.gradient_accumulation_steps=128" \
         "training.output_dir=output/llama2b.pt/" \
-        "training.dataloader_num_workers=2" \
+        "training.dataloader_num_workers=${POLARIS_DATALOADER_WORKERS}" \
         "training.dataloader_prefetch_factor=4" \
         "training.log_model_summary=false" \
         "training.include_performance_metrics=true" \
@@ -106,7 +107,7 @@ else
       "training.save_final_model=false" \
       "training.per_device_train_batch_size=16" \
       "training.gradient_accumulation_steps=16" \
-      "training.dataloader_num_workers=2" \
+      "training.dataloader_num_workers=${POLARIS_DATALOADER_WORKERS}" \
       "training.dataloader_prefetch_factor=4" \
       "training.log_model_summary=false" \
       "training.include_performance_metrics=true" \
