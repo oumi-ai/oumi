@@ -16,6 +16,9 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def train(self, resume_from_checkpoint: Optional[str]) -> None:
         """Trains a model."""
+        logger.info(
+            f"Starting training with transformers=={transformers.__version__}..."
+        )
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     def save_state(self) -> None:
