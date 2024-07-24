@@ -16,10 +16,6 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def train(self, resume_from_checkpoint: Optional[str]) -> None:
         """Trains a model."""
-        # TODO: catch , OOM error, show helpful debug info
-        logger.info(
-            f"Starting training with transformers=={transformers.__version__}..."
-        )
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     def save_state(self) -> None:
@@ -34,6 +30,7 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def save_model(self, config: TrainingConfig) -> None:
         """See base class."""
+        # TODO: OPE-213 use safetensors to save model
         if is_world_process_zero():
             # Only save from "master" worker.
             output_dir = config.training.output_dir
