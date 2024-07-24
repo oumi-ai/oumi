@@ -26,6 +26,12 @@ module load conda
 # Activate the LeMa Conda environment.
 conda activate /home/$USER/miniconda3/envs/lema
 
+TRAIN_DATASETS="data.train.datasets=
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
+  subset: \"default\"
+  split: \"train\"
+"
+
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
 # 4 gradient accumulation steps.
 torchrun \
@@ -37,6 +43,7 @@ torchrun \
     -m lema.train \
     -c configs/lema/gpt2.pt.yaml \
     "training.run_name='gpt2.pt.${PBS_JOBID}'" \
+    "$TRAIN_DATASETS" \
     "training.max_steps=100" \
     "training.include_performance_metrics=true" \
     "training.ddp_find_unused_parameters=false" \
