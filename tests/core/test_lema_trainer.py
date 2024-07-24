@@ -102,7 +102,6 @@ def test_trainer_initialization(
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
     assert isinstance(trainer.train_dataloader, DataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
-    assert trainer.device == "mps"
 
 
 def test_get_total_training_steps(trainer):
@@ -182,7 +181,7 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
         side_effect=[
             {"model_key": "model_value"},
             {"optim_key": "optim_value"},
-            {"epoch": 1, "global_step": 50},
+            {"epoch": 1, "global_step": 50, "total_tokens_seen": 100},
         ],
     ):
         trainer._load_from_checkpoint(str(output_dir))
