@@ -35,7 +35,6 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
 
-  pip install '.[train]'
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
