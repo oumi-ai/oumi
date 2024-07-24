@@ -99,6 +99,9 @@ class DatasetSplitParams:
     # Requires `stream` to be set to True.
     pack: bool = False
     stream: bool = False
+    # Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthText
+    # Dataset class.
+    use_async_dataset_experimental: bool = False
     # The dataset column name containing the input for training/testing/validation.
     # Required for SFTTrainer. If specified, all datasets in this split must contain a
     # column with this name.

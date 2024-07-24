@@ -72,12 +72,14 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -m lema.train \
         -c configs/lema/llama2b.pt.yaml \
         "model.compile=false" \
+        "data.train.use_async_dataset_experimental=true" \
         "$TRAIN_DATASETS" \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.max_steps=20" \
         "training.save_steps=0" \
         "training.save_final_model=False" \
-        "training.per_device_train_batch_size=2" \
+        "training.optimizer='adafactor'" \
+        "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=128" \
         "training.output_dir=output/llama2b.pt/" \
         "training.dataloader_num_workers=2" \
