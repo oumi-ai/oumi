@@ -8,6 +8,8 @@ model:
   compile: False # TODO: Try with compilation enabled.
   load_pretrained_weights: False
   trust_remote_code: True
+  # model_kwargs:
+  #  disable_dropout: True
 
 data:
   train:
@@ -34,6 +36,7 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: False
   optimizer: "adamw_torch_fused"
+  # compile: True
 
   logging_steps: 10
   log_model_summary: True

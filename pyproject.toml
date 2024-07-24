@@ -51,7 +51,7 @@ dev = [
     "pyright",
 ]
 train = [
-    "transformers",
+    "transformers>=4.43.1",
     "trl==0.8.6",
     "peft",
     "datasets",
