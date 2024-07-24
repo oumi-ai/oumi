@@ -113,7 +113,7 @@ def test_get_total_training_steps(trainer):
 @patch("lema.core.distributed.is_world_process_zero", return_value=True)
 def test_train(mock_is_world_process_zero, trainer):
     trainer._train_epoch = MagicMock()
-    trainer.save_model = MagicMock()
+    trainer.save_state = MagicMock()
     trainer.evaluate = MagicMock()
 
     trainer.args.eval_strategy = "epoch"
@@ -121,7 +121,7 @@ def test_train(mock_is_world_process_zero, trainer):
     trainer.train()
 
     assert trainer._train_epoch.call_count == trainer.args.num_train_epochs
-    assert trainer.save_model.call_count == trainer.args.num_train_epochs
+    assert trainer.save_state.call_count == trainer.args.num_train_epochs
     assert trainer.evaluate.call_count == trainer.args.num_train_epochs
 
 
