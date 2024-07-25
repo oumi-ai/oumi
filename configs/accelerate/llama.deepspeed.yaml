@@ -15,6 +15,7 @@
 compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
+# These values are fetched from HF TrainingArguments.
   gradient_accumulation_steps: "auto"
   gradient_clipping: "auto"
   offload_optimizer_device: none
