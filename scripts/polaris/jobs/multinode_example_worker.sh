@@ -71,7 +71,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         --master-port=8007 \
         -m lema.train \
         -c configs/lema/llama2b.pt.yaml \
-        "data.train.use_async_dataset_experimental=true" \
+        "data.train.experimental_use_async_dataset=true" \
         "$TRAIN_DATASETS" \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.max_steps=20" \

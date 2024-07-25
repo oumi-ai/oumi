@@ -122,7 +122,7 @@ class DatasetSplitParams:
 
     # EXPERIMENTAL PARAMS -------------------------
     # Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
-    use_async_dataset_experimental: bool = False
+    experimental_use_async_dataset: bool = False
     # END EXPERIMENTAL PARAMS --------------------
 
     def __post_init__(self):

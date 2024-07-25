@@ -125,7 +125,7 @@ def build_dataset(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.use_async_dataset_experimental:
+        if dataset_split_params.experimental_use_async_dataset:
             dataset = PretrainingAsyncTextDataset(
                 tokenizer,
                 dataset,
