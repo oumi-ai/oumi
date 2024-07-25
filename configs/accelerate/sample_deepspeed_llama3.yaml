@@ -1,0 +1,38 @@
+# Sample command:
+# accelerate launch \
+#   --use_deepspeed \
+#   --config_file configs/accelerate/sample_deepspeed_llama3.yaml \
+#   -m lema.train \
+#   -c configs/lema/llama2b.pt.yaml \
+#   "training.output_dir=/tmp/train/" \
+#   "training.enable_wandb=false" \
+#   "training.enable_tensorboard=false" \
+#   "training.include_performance_metrics=true" \
+#   "training.max_steps=100" \
+#   "training.logging_steps=10"
+
+# TODO: hierarchical partitioning
+compute_environment: LOCAL_MACHINE
+debug: false
+deepspeed_config:
+  gradient_accumulation_steps: 4
+  gradient_clipping: 1.0
+  offload_optimizer_device: none
+  offload_param_device: none
+  zero3_init_flag: true # TODO: Try false
+  zero3_save_16bit_model: true
+  zero_stage: 3
+distributed_type: DEEPSPEED
+downcast_bf16: no
+enable_cpu_affinity: false
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 4
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false

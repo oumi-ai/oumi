@@ -1,0 +1,69 @@
+name: lema-train-example
+
+resources:
+  # Use 1 of the following GPUs depending on availability. No preference.
+  # To view other GPU types use the following commands:
+  # `sky show-gpus`, `sky show-gpus -a`
+  accelerators: {"A100": 4}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
+  # something like this: {"A40": N}
+  any_of:
+    - use_spot: true
+    - use_spot: false
+  region: us-east1  # Uncomment this line to only consider a specific GCP region.
+
+# Upload a working directory to remote ~/sky_workdir.
+workdir: .
+
+# Upload local files.
+file_mounts:
+  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  # /artifacts:
+  #   name: lema-dev-private # Not available on lambda
+  #   mode: MOUNT
+
+envs:
+  WANDB_PROJECT: lema-train-test
+  LEMA_RUN_NAME: llama2b.pt.deepspeed
+  ACCELERATE_LOG_LEVEL: info
+
+setup: |
+  set -e
+  pip install '.[train]'
+  # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install flash-attn --no-build-isolation
+
+run: |
+  set -e  # Exit if any command failed.
+
+  # Run some checks, and export "LEMA_*" env vars
+  source ./configs/skypilot/sky_init.sh
+  pip install '.[train]'
+
+  set -x  # Print "accelerate launch" command with expanded variables
+  accelerate launch \
+      --num_machines ${LEMA_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --num_processes $((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
+      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_port 8007 \
+      --use_deepspeed \
+      --config_file configs/accelerate/sample_deepspeed_llama3.yaml \
+      -m lema.train \
+      -c configs/lema/llama2b.pt.yaml \
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.max_steps=20" \
+      "training.save_steps=0" \
+      "training.save_final_model=false" \
+      "training.per_device_train_batch_size=8" \
+      "training.gradient_accumulation_steps=4" \
+      "training.enable_gradient_checkpointing=true" \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
+      "training.log_model_summary=false" \
+      "training.include_performance_metrics=true" \
+      "training.ddp_find_unused_parameters=false" \
+      "training.try_resume_from_last_checkpoint=false" \
+      "training.enable_wandb=true"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

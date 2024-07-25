@@ -65,6 +65,7 @@ train = [
     "pynvml",
     "accelerate",      # for quantization
     "bitsandbytes",    # for quantization
+    "deepspeed",
     "lm-eval",
     "pydantic",
 ]
