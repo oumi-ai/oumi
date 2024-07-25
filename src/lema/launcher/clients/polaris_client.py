@@ -31,8 +31,10 @@ class PolarisClient:
     class SupportedQueues(Enum):
         """Enum representing the supported queues on Polaris."""
 
+        DEMAND = "demand"
         DEBUG = "debug"
         DEBUG_SCALING = "debug-scaling"
+        PREEMPTABLE = "preemptable"
         PROD = "prod"
 
     _CD_PATTERN = r"cd\s+(.*?)($|\s)"

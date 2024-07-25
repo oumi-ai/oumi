@@ -75,6 +75,34 @@ def test_polaris_client_submit_job_debug(mock_fabric, mock_auth):
     assert result == "2032"
 
 
+def test_polaris_client_submit_job_demand(mock_fabric, mock_auth):
+    mock_connection = Mock(spec=Connection)
+    mock_fabric.side_effect = [mock_connection]
+    mock_command = Mock()
+    mock_connection.run.return_value = mock_command
+    mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    client = PolarisClient("user")
+    result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEMAND, None)
+    mock_connection.run.assert_called_with(
+        "qsub -l select=2:system=polaris -q demand  ./job.sh"
+    )
+    assert result == "2032"
+
+
+def test_polaris_client_submit_job_preemptable(mock_fabric, mock_auth):
+    mock_connection = Mock(spec=Connection)
+    mock_fabric.side_effect = [mock_connection]
+    mock_command = Mock()
+    mock_connection.run.return_value = mock_command
+    mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    client = PolarisClient("user")
+    result = client.submit_job("./job.sh", 2, client.SupportedQueues.PREEMPTABLE, None)
+    mock_connection.run.assert_called_with(
+        "qsub -l select=2:system=polaris -q preemptable  ./job.sh"
+    )
+    assert result == "2032"
+
+
 def test_polaris_client_submit_job_debug_name(mock_fabric, mock_auth):
     mock_connection = Mock(spec=Connection)
     mock_fabric.side_effect = [mock_connection]
