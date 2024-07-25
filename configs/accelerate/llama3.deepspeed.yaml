@@ -15,8 +15,8 @@
 compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
-  gradient_accumulation_steps: 4
-  gradient_clipping: 1.0
+  gradient_accumulation_steps: "auto"
+  gradient_clipping: "auto"
   offload_optimizer_device: none
   offload_param_device: none
   zero3_init_flag: true # TODO: Try false
