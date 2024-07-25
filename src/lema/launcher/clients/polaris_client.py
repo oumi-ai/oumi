@@ -137,19 +137,30 @@ class PolarisClient:
         return new_connection
 
     @retry_auth
-    def submit_job(self, job_path: str, node_count: int, queue: SupportedQueues) -> str:
+    def submit_job(
+        self,
+        job_path: str,
+        node_count: int,
+        queue: SupportedQueues,
+        name: Optional[str],
+    ) -> str:
         """Submits the specified job script to Polaris.
 
         Args:
             job_path: The path to the job script to submit.
             node_count: The number of nodes to use for the job.
             queue: The name of the queue to submit the job to.
+            name: The name of the job (optional).
 
         Returns:
             The ID of the submitted job.
         """
+        optional_name_args = ""
+        if name:
+            optional_name_args = f"-N {name}"
         result = self._connection.run(
-            f"qsub -l select={node_count}:system=polaris -q {queue.value} {job_path}"
+            f"qsub -l select={node_count}:system=polaris "
+            f"-q {queue.value} {optional_name_args} {job_path}"
         )
         if not result:
             raise RuntimeError("Failed to submit job. " f"stderr: {result.stderr}")
@@ -162,22 +173,27 @@ class PolarisClient:
         Returns:
             A list of dictionaries, each containing the status of a cluster.
         """
-        command = f"qstat -s -x -w -u {self._user} -q {queue.value}"
+        command = f"qstat -s -x -w -u {self._user}"
         result = self._connection.run(command)
         if not result:
             raise RuntimeError("Failed to list jobs. " f"stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
+        jobs = []
+        # Non-empty responses should have at least 4 lines.
+        if len(lines) < 4:
+            return jobs
         metadata_header = lines[1:4]
         job_lines = lines[4:]
         line_number = 0
-        jobs = []
         while line_number < len(job_lines) - 1:
             line = job_lines[line_number]
             # Every second line is metadata.
             metadata_line = job_lines[line_number + 1]
             job_metadata = "\n".join(metadata_header + [line, metadata_line])
-            jobs.append(self._split_status_line(line, job_metadata))
+            status = self._split_status_line(line, job_metadata)
+            if status.cluster == queue.value:
+                jobs.append(status)
             line_number += 2
         if line_number != len(job_lines):
             raise RuntimeError("At least one job status was not parsed.")
