@@ -1,7 +1,7 @@
 # Sample command:
 # accelerate launch \
 #   --use_deepspeed \
-#   --config_file configs/accelerate/sample_deepspeed_llama3.yaml \
+#   --config_file configs/accelerate/llama.deepspeed.yaml \
 #   -m lema.train \
 #   -c configs/lema/llama2b.pt.yaml \
 #   "training.output_dir=/tmp/train/" \
