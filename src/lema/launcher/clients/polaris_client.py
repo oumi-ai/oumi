@@ -133,7 +133,7 @@ class PolarisClient:
         result = self._connection.run(command)
         if not result:
             raise RuntimeError(
-                f"Failed to run command: {command} " f"stderr: {result.stderr}"
+                f"Failed to run command: {command} . stderr: {result.stderr}"
             )
         return self.run_commands(remaining_commands)
 
@@ -176,7 +176,7 @@ class PolarisClient:
             f"-q {queue.value} {optional_name_args} {job_path}"
         )
         if not result:
-            raise RuntimeError("Failed to submit job. " f"stderr: {result.stderr}")
+            raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
         return self._get_short_job_id(result.stdout.strip())
 
     @retry_auth
@@ -189,7 +189,7 @@ class PolarisClient:
         command = f"qstat -s -x -w -u {self._user}"
         result = self._connection.run(command)
         if not result:
-            raise RuntimeError("Failed to list jobs. " f"stderr: {result.stderr}")
+            raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
         jobs = []
@@ -243,7 +243,7 @@ class PolarisClient:
         command = f"qdel {job_id}"
         result = self._connection.run(command)
         if not result:
-            raise RuntimeError("Failed to cancel job. " f"stderr: {result.stderr}")
+            raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
 
     @retry_auth
@@ -273,4 +273,4 @@ class PolarisClient:
             rsync_opts=rsync_opts or "",
         )
         if not result:
-            raise RuntimeError("Rsync failed. " f"stderr: {result.stderr}")
+            raise RuntimeError(f"Rsync failed. stderr: {result.stderr}")
