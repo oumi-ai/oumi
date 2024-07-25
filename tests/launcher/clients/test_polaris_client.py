@@ -393,5 +393,86 @@ def test_polaris_client_cancel_job_not_found_success(mock_fabric, mock_auth):
     assert job_status is None
 
 
-# cancel_job
-# run_commands
+def test_polaris_client_run_commands_success(mock_fabric, mock_auth):
+    mock_connection = Mock(spec=Connection)
+    mock_fabric.side_effect = [mock_connection]
+    mock_first_command = Mock()
+    mock_fourth_command = Mock()
+    mock_final_command = Mock()
+    mock_connection.run.side_effect = [
+        mock_first_command,
+        mock_fourth_command,
+        mock_final_command,
+    ]
+    mock_second_command = MagicMock()
+    mock_third_command = MagicMock()
+    mock_fifth_command = MagicMock()
+    mock_connection.cd.side_effect = [
+        mock_second_command,
+        mock_third_command,
+        mock_fifth_command,
+    ]
+    mock_third_command.run.side_effect = [mock_fourth_command]
+    mock_fifth_command.run.side_effect = [mock_final_command]
+    commands = [
+        "first command",
+        "cd second/command",
+        "cd third/command",
+        "fourth command",
+        "cd fifth/command",
+        "final command",
+    ]
+    client = PolarisClient("user")
+    client.run_commands(commands)
+    mock_connection.cd.assert_has_calls(
+        [
+            call("second/command"),
+            call("third/command"),
+            call("fifth/command"),
+        ]
+    )
+    mock_connection.run.assert_has_calls(
+        [
+            call("first command"),
+            call("fourth command"),
+            call("final command"),
+        ]
+    )
+
+
+def test_polaris_client_run_commands_success_empty(mock_fabric, mock_auth):
+    mock_connection = Mock(spec=Connection)
+    mock_fabric.side_effect = [mock_connection]
+    client = PolarisClient("user")
+    client.run_commands([])
+    mock_connection.cd.never_called()
+    mock_connection.run.never_called()
+
+
+def test_polaris_client_run_commands_fails(mock_fabric, mock_auth):
+    with pytest.raises(RuntimeError):
+        mock_connection = Mock(spec=Connection)
+        mock_fabric.side_effect = [mock_connection]
+        mock_first_command = Mock()
+        mock_fourth_command = MagicMock()
+        mock_fourth_command.__bool__.return_value = False
+        mock_connection.run.side_effect = [mock_first_command, mock_fourth_command]
+        mock_second_command = MagicMock()
+        mock_third_command = MagicMock()
+        mock_fifth_command = MagicMock()
+        mock_connection.cd.side_effect = [
+            mock_second_command,
+            mock_third_command,
+            mock_fifth_command,
+        ]
+        mock_third_command.run.side_effect = [mock_fourth_command]
+        commands = [
+            "first command",
+            "cd second/command",
+            "cd third/command",
+            "fourth command",
+            "cd fifth/command",
+            "final command",
+        ]
+        client = PolarisClient("user")
+        client.run_commands(commands)

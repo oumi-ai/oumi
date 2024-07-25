@@ -112,17 +112,18 @@ class PolarisClient:
         if len(commands) == 0:
             return
         command = commands[0]
+        remaining_commands = commands[1:]
         match = re.search(self._CD_PATTERN, command)
         if match:
             location = match.group(1)
             with self._connection.cd(location):
-                self.run_commands(commands[1:])
+                return self.run_commands(remaining_commands)
         result = self._connection.run(command)
         if not result:
             raise RuntimeError(
                 f"Failed to run command: {command} " f"stderr: {result.stderr}"
             )
-        self.run_commands(commands[1:])
+        return self.run_commands(remaining_commands)
 
     def refresh_creds(self, close_connection=False) -> Connection:
         """Refreshes the credentials for the client."""
