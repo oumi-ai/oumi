@@ -30,8 +30,14 @@ class PolarisClient:
     """A client for communicating with Polaris at ALCF."""
 
     class SupportedQueues(Enum):
-        """Enum representing the supported queues on Polaris."""
+        """Enum representing the supported queues on Polaris.
 
+        For more details, see:
+        https://docs.alcf.anl.gov/polaris/running-jobs/#queues
+        """
+
+        # The demand queue can only be used with explicit permission from ALCF.
+        # Do not use this queue unless you have been granted permission.
         DEMAND = "demand"
         DEBUG = "debug"
         DEBUG_SCALING = "debug-scaling"
@@ -74,7 +80,10 @@ class PolarisClient:
         """
         fields = re.sub(" +", " ", line.strip()).split(" ")
         if len(fields) != 11:
-            raise ValueError(f"Invalid status line: {line}")
+            raise ValueError(
+                f"Invalid status line: {line}. "
+                f"Expected 11 fields, but found {len(fields)}."
+            )
         return JobStatus(
             id=self._get_short_job_id(fields[0]),
             name=fields[3],
