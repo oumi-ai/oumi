@@ -19,7 +19,7 @@ def retry_auth(user_function):
             return user_function(self, *args, **kwargs)
         except EOFError:
             logger.warning("Connection closed. Reconnecting...")
-            self._connection = self.refresh_creds()
+            self._connection = self.refresh_creds(close_connection=True)
             return user_function(self, *args, **kwargs)
 
     return wrapper
@@ -124,9 +124,9 @@ class PolarisClient:
             )
         self.run_commands(commands[1:])
 
-    def refresh_creds(self) -> Connection:
+    def refresh_creds(self, close_connection=False) -> Connection:
         """Refreshes the credentials for the client."""
-        if self._connection:
+        if close_connection:
             self._connection.close()
         new_connection = Connection(
             "polaris.alcf.anl.gov",
@@ -149,7 +149,7 @@ class PolarisClient:
             The ID of the submitted job.
         """
         result = self._connection.run(
-            f"qsub -l select={node_count}:system=polaris -q ${queue.value} {job_path}"
+            f"qsub -l select={node_count}:system=polaris -q {queue.value} {job_path}"
         )
         if not result:
             raise RuntimeError("Failed to submit job. " f"stderr: {result.stderr}")
