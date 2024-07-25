@@ -6,8 +6,8 @@
 #PBS -l filesystems=home:eagle
 #PBS -q debug-scaling
 #PBS -A community_ai
-#PBS -o /eagle/community_ai/jobs/logs/
-#PBS -e /eagle/community_ai/jobs/logs/
+#PBS -o /eagle/community_ai/jobs/logs/wizeng
+#PBS -e /eagle/community_ai/jobs/logs/wizeng
 
 set -e
 

@@ -22,7 +22,7 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("ddp" "fsdp")
+ALLOWED_TRAINING_MODES=("ddp" "fsdp", "deepspeed")
 
 helpFunction()
 {
@@ -88,6 +88,36 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "training.ddp_find_unused_parameters=false" \
         "training.try_resume_from_last_checkpoint=false" \
         "training.enable_wandb=true"
+elif [ "$TRAINING_MODE" == "deepspeed" ]; then
+    set -x  # Print "accelerate" command with expanded variables
+    accelerate launch \
+      --num_machines ${LEMA_NUM_NODES} \
+      --machine_rank ${POLARIS_NODE_RANK} \
+      --num_processes $((${LEMA_NUM_NODES} * ${POLARIS_GPUS_PER_NODE})) \
+      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_port 8007 \
+      --use_deepspeed \
+      --config_file configs/accelerate/llama.deepspeed.yaml \
+      -m lema.train \
+      -c configs/lema/llama2b.pt.yaml \
+      "data.train.experimental_use_async_dataset=true" \
+      "$TRAIN_DATASETS" \
+      "training.run_name='polaris.llama2b.deepspeed.${PBS_JOBID}'" \
+      "training.max_steps=20" \
+      "training.save_steps=0" \
+      "training.save_final_model=false" \
+      "training.optimizer='adafactor'" \
+      "training.enable_gradient_checkpointing=true" \
+      "training.per_device_train_batch_size=14" \
+      "training.gradient_accumulation_steps=19" \
+      "training.dataloader_num_workers=2" \
+      "training.dataloader_prefetch_factor=4" \
+      "training.bf16=true" \
+      "training.log_model_summary=false" \
+      "training.include_performance_metrics=true" \
+      "training.ddp_find_unused_parameters=false" \
+      "training.try_resume_from_last_checkpoint=false" \
+      "training.enable_wandb=true"
 else
     set -x  # Print "accelerate" command with expanded variables
     accelerate launch \
@@ -107,6 +137,7 @@ else
       "training.save_steps=0" \
       "training.save_final_model=false" \
       "training.optimizer='adafactor'" \
+      "training.enable_gradient_checkpointing=true" \
       "training.per_device_train_batch_size=14" \
       "training.gradient_accumulation_steps=19" \
       "training.dataloader_num_workers=2" \

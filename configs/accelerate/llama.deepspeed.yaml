@@ -23,7 +23,7 @@ deepspeed_config:
   offload_optimizer_device: none
   offload_param_device: none
   zero3_init_flag: true # TODO: Try false
-  zero3_save_16bit_model: true
+  zero3_save_16bit_model: true # TODO: Try false
   zero_stage: 3
 distributed_type: DEEPSPEED
 downcast_bf16: no
