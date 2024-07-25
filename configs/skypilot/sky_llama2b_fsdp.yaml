@@ -67,32 +67,3 @@ run: |
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-
-# ----
-# Bassline (main)
-# No gradient checkpointing
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=llama2b.pt.FSDP.HYBRID.1node.4xA10040GB.20steps.bs12.gas16.tc.v600 --num-nodes 1 --gpus "A100:4" --use-spot --cluster xrdaukar-1node4gpu-01-lema-cluster  configs/skypilot/sky_llama2b_fsdp.yaml
-# 'Train Step MFU': 0.4926110953741452, 'Train MFU': 0.49200319771761136
-#                    total_flos 7.600297676583731e+16
-#                   train/epoch 1.0
-#             train/global_step 20
-#               train/grad_norm 1.19966
-#           train/learning_rate 0.0
-#                    train/loss 8.5737
-#   train/num_input_tokens_seen 31457280
-# train/train_tokens_per_second 12821.295
-#                    train_loss 9.28232
-#                 train_runtime 613.3796
-#      train_samples_per_second 25.042
-#        train_steps_per_second 0.033
-# https://wandb.ai/lema-train-test/lema-train-test/runs/81h0bxuv
-
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=llama2b.pt.FSDP.HYBRID.1node.4xA10040GB.20steps.bs12.gas16.tc.gckpt.v601 --num-nodes 1 --gpus "A100:4" --use-spot --cluster xrdaukar-1node4gpu-01-lema-cluster  configs/skypilot/sky_llama2b_fsdp.yaml
-
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=llama2b.pt.FSDP.HYBRID.1node.4xA10040GB.20steps.bs16.gas16.tc.gckpt.v602 --num-nodes 1 --gpus "A100:4" --use-spot --cluster xrdaukar-1node4gpu-02-lema-cluster  configs/skypilot/sky_llama2b_fsdp.yaml
-
-
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=llama2b.pt.FSDP.HYBRID.1node.4xA10040GB.20steps.bs16.gas16.tc.gckpt.newbase.v603 --num-nodes 1 --gpus "A100:4" --use-spot --cluster xrdaukar-1node4gpu-01-lema-cluster  configs/skypilot/sky_llama2b_fsdp.yaml
-
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=llama2b.pt.FSDP.HYBRID.1node.4xA10040GB.20steps.bs14.gas19.tc.gckpt.newbase.v604 --num-nodes 1 --gpus "A100:4" --use-spot --cluster xrdaukar-1node4gpu-02-lema-cluster  configs/skypilot/sky_llama2b_fsdp.yaml

@@ -107,8 +107,8 @@ else
       "training.save_steps=0" \
       "training.save_final_model=false" \
       "training.optimizer='adafactor'" \
-      "training.per_device_train_batch_size=16" \
-      "training.gradient_accumulation_steps=16" \
+      "training.per_device_train_batch_size=14" \
+      "training.gradient_accumulation_steps=19" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.log_model_summary=false" \
