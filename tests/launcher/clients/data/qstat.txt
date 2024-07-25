@@ -37,3 +37,15 @@ Job ID                         Username        Queue           Jobname         S
    Job run at Wed Jul 24 at 22:44 on (x3006c0s1b1n0:ncpus=64) and finished
 2037048.polaris-pbs-01.hsn.cm* matthew         debug           testname             --     1    64    --  00:10 F 00:00:01
    Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+123.polaris-pbs-01.hsn.cm* matthew         small           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+234.polaris-pbs-01.hsn.cm* matthew         medium           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+345.polaris-pbs-01.hsn.cm* matthew         large           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+456.polaris-pbs-01.hsn.cm* matthew         backfill-small           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+567.polaris-pbs-01.hsn.cm* matthew         backfill-medium           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+678.polaris-pbs-01.hsn.cm* matthew         backfill-large           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished

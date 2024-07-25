@@ -253,7 +253,7 @@ def test_polaris_client_list_jobs_success_debug_scaling(mock_fabric, mock_auth):
     assert job_ids == expected_ids
 
 
-def test_polaris_client_list_jobs_success_prod_empty(mock_fabric, mock_auth):
+def test_polaris_client_list_jobs_success_prod(mock_fabric, mock_auth):
     mock_connection = Mock(spec=Connection)
     mock_fabric.side_effect = [mock_connection]
     mock_command = Mock()
@@ -263,7 +263,14 @@ def test_polaris_client_list_jobs_success_prod_empty(mock_fabric, mock_auth):
     job_list = client.list_jobs(client.SupportedQueues.PROD)
     mock_connection.run.assert_called_with("qstat -s -x -w -u user")
     job_ids = [job.id for job in job_list]
-    expected_ids = []
+    expected_ids = [
+        "123",
+        "234",
+        "345",
+        "456",
+        "567",
+        "678",
+    ]
     assert job_ids == expected_ids
 
 

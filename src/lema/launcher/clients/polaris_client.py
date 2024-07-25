@@ -46,6 +46,15 @@ class PolarisClient:
 
     _CD_PATTERN = r"cd\s+(.*?)($|\s)"
 
+    _PROD_QUEUES = {
+        "small",
+        "medium",
+        "large",
+        "backfill-small",
+        "backfill-medium",
+        "backfill-large",
+    }
+
     def __init__(self, user: str):
         """Initializes a new instance of the PolarisClient class.
 
@@ -206,6 +215,11 @@ class PolarisClient:
             job_metadata = "\n".join(metadata_header + [line, metadata_line])
             status = self._split_status_line(line, job_metadata)
             if status.cluster == queue.value:
+                jobs.append(status)
+            elif (
+                queue == self.SupportedQueues.PROD
+                and status.cluster in self._PROD_QUEUES
+            ):
                 jobs.append(status)
             line_number += 2
         if line_number != len(job_lines):
