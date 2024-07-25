@@ -2,6 +2,8 @@ import logging
 import warnings
 from typing import Union
 
+from lema.core.distributed import get_device_rank_info
+
 
 def get_logger(name: str, level: str = "info") -> logging.Logger:
     """Gets a logger instance with the specified name and log level.
@@ -17,10 +19,13 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
         logger = logging.getLogger(name)
         logger.setLevel(level.upper())
 
-        # Default log format
+        rank = get_device_rank_info()
+
         formatter = logging.Formatter(
-            "[%(asctime)s][%(name)s][%(levelname)s]"
-            "[%(filename)s:%(lineno)s] %(message)s"
+            "[%(asctime)s][%(name)s]"
+            f"[rank{rank.rank}]"
+            "[pid:%(process)d][%(threadName)s]"
+            "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
         )
 
         # Add a console handler to the logger
