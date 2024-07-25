@@ -97,7 +97,7 @@ else
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/accelerate/sample_fsdp_llama3.yaml \
+      --config_file configs/accelerate/llama.fsdp.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "data.train.experimental_use_async_dataset=true" \

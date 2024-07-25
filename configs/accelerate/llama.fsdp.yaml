@@ -1,14 +1,13 @@
 # Sample command:
 # accelerate launch \
 #   --use_fsdp \
-#   --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
+#   --config_file configs/accelerate/llama.fsdp.yaml \
 #   -m lema.train \
-#   -c configs/lema/gpt2.pt.yaml \
+#   -c configs/lema/llama3.8b.aya.sft.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \
 #   "training.include_performance_metrics=true" \
-#   "training.per_device_train_batch_size=8" \
 #   "training.max_steps=100" \
 #   "training.logging_steps=10"
 
@@ -18,22 +17,22 @@ distributed_type: FSDP
 downcast_bf16: 'no'
 enable_cpu_affinity: false
 fsdp_config:
-  fsdp_activation_checkpointing: false
+  fsdp_activation_checkpointing: true
   fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
   fsdp_backward_prefetch: BACKWARD_PRE
   fsdp_cpu_ram_efficient_loading: true
   fsdp_forward_prefetch: true
   fsdp_offload_params: false
-  fsdp_sharding_strategy: FULL_SHARD
+  fsdp_sharding_strategy: HYBRID_SHARD
   fsdp_state_dict_type: FULL_STATE_DICT
   fsdp_sync_module_states: true
-  fsdp_transformer_layer_cls_to_wrap: GPT2Block
+  fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
   fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
-mixed_precision: 'no'
+mixed_precision: 'bf16'
 num_machines: 1
-num_processes: 2
+num_processes: 4
 rdzv_backend: static
 same_network: true
 tpu_env: []

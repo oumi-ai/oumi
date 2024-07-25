@@ -1,7 +1,7 @@
 # Sample command:
 # accelerate launch \
 #   --use_deepspeed \
-#   --config_file configs/accelerate/sample_deepspeed_llama3.yaml \
+#   --config_file configs/accelerate/llama.deepspeed.yaml \
 #   -m lema.train \
 #   -c configs/lema/llama2b.pt.yaml \
 #   "training.output_dir=/tmp/train/" \
@@ -15,8 +15,11 @@
 compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
-  gradient_accumulation_steps: 4
-  gradient_clipping: 1.0
+# If set to auto, will fetch from HF TrainingArguments.
+# Otherwise, the values provided must match those in TrainingArguments.
+# TODO: Set these values when using Lema Trainer, since we're not using the HF Trainer.
+  gradient_accumulation_steps: "auto"
+  gradient_clipping: "auto"
   offload_optimizer_device: none
   offload_param_device: none
   zero3_init_flag: true # TODO: Try false
