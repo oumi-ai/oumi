@@ -7,7 +7,7 @@ resources:
   accelerators: {"A40": 2} # "A40", "A10", "A10g", "A100-80GB-SXM"
   # To configure single-node, multi-gpu (N GPUs) training, do the following:
   # 1. Set `accelerators:` above to something like this: {"A40": N}
-  # 2. Set `num_processes: N` in configs/accelerate/sample_fsdp.yaml
+  # 2. Set `num_processes: N` in configs/accelerate/gpt2.fsdp.yaml
   any_of:
     - use_spot: true
     - use_spot: false
@@ -45,7 +45,7 @@ run: |
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/accelerate/sample_fsdp_gpt2.yaml \
+      --config_file configs/accelerate/gpt2.fsdp.yaml \
       -m lema.train \
       -c configs/lema/gpt2.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \

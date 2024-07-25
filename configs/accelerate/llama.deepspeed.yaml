@@ -15,7 +15,9 @@
 compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
-# These values are fetched from HF TrainingArguments.
+# If set to auto, will fetch from HF TrainingArguments.
+# Otherwise, the values provided must match those in TrainingArguments.
+# TODO: Set these values when using Lema Trainer, since we're not using the HF Trainer.
   gradient_accumulation_steps: "auto"
   gradient_clipping: "auto"
   offload_optimizer_device: none
