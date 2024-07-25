@@ -1,7 +1,7 @@
 import os
 import time
 from pprint import pformat
-from typing import Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import torch
 import torch.amp
@@ -33,7 +33,7 @@ class Trainer(BaseTrainer):
         self,
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
-        args: TrainingParams,
+        params: TrainingParams,
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
@@ -42,15 +42,12 @@ class Trainer(BaseTrainer):
         """Initializes the LeMa trainer."""
         self.model = model
         self.tokenizer = tokenizer
-        self.args = args
+        self.params = params
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
 
         # TODO: OPE-215 - add support for gradient clipping
         self.max_norm: float = 1.0
-
-        # Sanity checks
-        assert self.args.gradient_accumulation_steps > 0
 
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
@@ -63,7 +60,7 @@ class Trainer(BaseTrainer):
             device_type=self.device_type, enabled=True, dtype=torch.bfloat16
         )
 
-        if args.compile:
+        if params.compile:
             if model.is_compiled:
                 self.log("Model is already compiled. Skipping compilation.")
             else:
@@ -98,8 +95,8 @@ class Trainer(BaseTrainer):
         # TODO: OPE-221 - add builder for optimizers
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
-            lr=self.args.learning_rate,
-            weight_decay=self.args.weight_decay,
+            lr=self.params.learning_rate,
+            weight_decay=self.params.weight_decay,
             fused=False,
         )
 
@@ -134,15 +131,15 @@ class Trainer(BaseTrainer):
             desc="Training",
             disable=not is_world_process_zero(),
         ) as progress_bar:
-            for epoch in range(self.epoch, self.args.num_train_epochs):
+            for epoch in range(self.epoch, self.params.num_train_epochs):
                 self._train_epoch(progress_bar)
 
-                if self.args.save_epoch:
+                if self.params.save_epoch:
                     self.save_state()
 
                 if (
                     self.eval_dataloader
-                    and self.args.eval_strategy == "epoch"
+                    and self.params.eval_strategy == "epoch"
                     and is_world_process_zero()
                 ):
                     # TODO: OPE-223 - only the global leader is used for evaluation
@@ -166,7 +163,7 @@ class Trainer(BaseTrainer):
         data_iter = iter(self.train_dataloader)
 
         while True:
-            if micro_step % self.args.gradient_accumulation_steps == 0:
+            if micro_step % self.params.gradient_accumulation_steps == 0:
                 self.process_callbacks("on_step_begin")
 
             with self.telemetry.timer("fetching batch"):
@@ -181,6 +178,7 @@ class Trainer(BaseTrainer):
                     k: v.to(self.device, non_blocking=True) for k, v in batch.items()
                 }
 
+            # TODO: OPE-225 - add detailed logging metrics
             # with self.telemetry.timer("computing tokens"):
             #     num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
 
@@ -191,10 +189,10 @@ class Trainer(BaseTrainer):
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 # self.model.require_backward_grad_sync = (
                 #     micro_step + 1
-                # ) % self.args.gradient_accumulation_steps == 0
+                # ) % self.params.gradient_accumulation_steps == 0
 
                 outputs = self.model(**batch)
-                loss = outputs["loss"] / self.args.gradient_accumulation_steps
+                loss = outputs["loss"] / self.params.gradient_accumulation_steps
                 # assert loss.dtype is torch.bfloat16
                 # assert outputs["logits"].dtype is torch.bfloat16
                 # assert self.model.dtype is torch.bfloat16
@@ -202,7 +200,7 @@ class Trainer(BaseTrainer):
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()
 
-            if (micro_step + 1) % self.args.gradient_accumulation_steps == 0:
+            if (micro_step + 1) % self.params.gradient_accumulation_steps == 0:
                 with self.telemetry.timer("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
@@ -215,27 +213,25 @@ class Trainer(BaseTrainer):
                 self.global_step += 1
                 progress_bar.update(1)
 
-                if self.global_step % self.args.logging_steps == 0:
+                if self.global_step % self.params.logging_steps == 0:
                     # TODO: OPE-225 - add detailed logging metrics
-                    self.log(
-                        f"Step {self.global_step}: "
-                        f"loss = {loss.item() * self.args.gradient_accumulation_steps}"
-                    )
+                    loss_value = loss.item() * self.params.gradient_accumulation_steps
+                    self.log(f"Step {self.global_step}: loss = {loss_value}")
                     logs = self.process_callbacks("on_log")
                     self.log(pformat(logs))
                     if is_local_process_zero():
                         self.telemetry.print_summary()
 
                 if (
-                    self.args.save_steps > 0
-                    and self.global_step % self.args.save_steps == 0
+                    self.params.save_steps > 0
+                    and self.global_step % self.params.save_steps == 0
                 ):
                     self.save_state()
 
                 if (
                     self.eval_dataloader
-                    and self.args.eval_steps > 0
-                    and self.global_step % self.args.eval_steps == 0
+                    and self.params.eval_steps > 0
+                    and self.global_step % self.params.eval_steps == 0
                     and is_world_process_zero()
                 ):
                     # TODO: OPE-223 - only the global leader is used for evaluation
@@ -245,14 +241,14 @@ class Trainer(BaseTrainer):
 
                 self.process_callbacks("on_step_end")
 
-            if self.global_step >= self.args.max_steps:
+            if self.global_step >= self.params.max_steps:
                 break
 
             micro_step += 1
 
     def _get_total_training_steps(self):
         # TODO: handle num_epochs, len(dataset), etc
-        return self.args.max_steps
+        return self.params.max_steps
 
     #
     # Evaluation
@@ -292,15 +288,15 @@ class Trainer(BaseTrainer):
         """Returns the training dataloader."""
         prefetch_factor = (
             None
-            if self.args.dataloader_num_workers == 0
-            else self.args.dataloader_prefetch_factor
+            if self.params.dataloader_num_workers == 0
+            else self.params.dataloader_prefetch_factor
         )
 
         return DataLoader(
             self.train_dataset,
-            batch_size=self.args.per_device_train_batch_size,
+            batch_size=self.params.per_device_train_batch_size,
             shuffle=False,  # TODO: OPE-224 add sampler
-            num_workers=self.args.dataloader_num_workers,
+            num_workers=self.params.dataloader_num_workers,
             pin_memory=True,
             prefetch_factor=prefetch_factor,
             pin_memory_device=self.device,
@@ -313,16 +309,16 @@ class Trainer(BaseTrainer):
 
         return DataLoader(
             self.eval_dataset,
-            batch_size=self.args.per_device_eval_batch_size,
+            batch_size=self.params.per_device_eval_batch_size,
             shuffle=False,
-            num_workers=self.args.dataloader_num_workers,
+            num_workers=self.params.dataloader_num_workers,
         )
 
     #
     # Checkpointing
     #
     def save_model(self, config: TrainingConfig):
-        """Saves the model and optimizer state."""
+        """Saves the model."""
         if is_world_process_zero():
             output_dir = config.training.output_dir
             os.makedirs(output_dir, exist_ok=True)
@@ -331,7 +327,7 @@ class Trainer(BaseTrainer):
 
     def save_state(self):
         """Saves the model and optimizer state."""
-        output_dir = self.args.output_dir
+        output_dir = self.params.output_dir
 
         if is_world_process_zero():
             os.makedirs(output_dir, exist_ok=True)
@@ -366,6 +362,7 @@ class Trainer(BaseTrainer):
         if os.path.exists(trainer_state_path):
             trainer_state = torch.load(trainer_state_path, map_location=self.device)
             # TODO: OPE-222 - add dataclass for trainer state
+            # TODO: OPE-103 - save / reload dataloader state
             self.epoch = trainer_state["epoch"]
             self.global_step = trainer_state["global_step"]
             self.total_tokens_seen = trainer_state["total_tokens_seen"]
@@ -383,7 +380,7 @@ class Trainer(BaseTrainer):
     #
     # Handle callbacks
     #
-    def process_callbacks(self, event):
+    def process_callbacks(self, event: str) -> Optional[Dict[str, Any]]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
@@ -394,6 +391,6 @@ class Trainer(BaseTrainer):
         for callback in self.callbacks:
             if hasattr(callback, event):
                 action = getattr(callback, event)
-                action(args=self.args, state=None, control=None, logs=logs)
+                action(args=self.params, state=None, control=None, logs=logs)
 
         return logs

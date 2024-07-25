@@ -56,7 +56,7 @@ def mock_optimizer():
 
 
 @pytest.fixture
-def mock_args():
+def mock_params():
     args = MagicMock(spec=TrainingParams)
     args.gradient_accumulation_steps = 1
     args.compile = False
@@ -78,11 +78,11 @@ def mock_args():
 
 
 @pytest.fixture
-def trainer(model, mock_tokenizer, mock_args, mock_dataset):
+def trainer(model, mock_tokenizer, mock_params, mock_dataset):
     return Trainer(
         model=model,
         tokenizer=mock_tokenizer,
-        args=mock_args,
+        params=mock_params,
         train_dataset=mock_dataset,
         eval_dataset=mock_dataset,
     )
@@ -92,11 +92,11 @@ def trainer(model, mock_tokenizer, mock_args, mock_dataset):
 # Tests
 #
 def test_trainer_initialization(
-    trainer, model, mock_tokenizer, mock_args, mock_dataset
+    trainer, model, mock_tokenizer, mock_params, mock_dataset
 ):
     assert trainer.model == model
     assert trainer.tokenizer == mock_tokenizer
-    assert trainer.args == mock_args
+    assert trainer.params == mock_params
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
@@ -105,8 +105,8 @@ def test_trainer_initialization(
 
 
 def test_get_total_training_steps(trainer):
-    if trainer.args.max_steps is not None:
-        assert trainer._get_total_training_steps() == trainer.args.max_steps
+    if trainer.params.max_steps is not None:
+        assert trainer._get_total_training_steps() == trainer.params.max_steps
 
 
 @patch("lema.core.distributed.is_world_process_zero", return_value=True)
@@ -115,13 +115,13 @@ def test_train(mock_is_world_process_zero, trainer):
     trainer.save_state = MagicMock()
     trainer.evaluate = MagicMock()
 
-    trainer.args.eval_strategy = "epoch"
+    trainer.params.eval_strategy = "epoch"
 
     trainer.train()
 
-    assert trainer._train_epoch.call_count == trainer.args.num_train_epochs
-    assert trainer.save_state.call_count == trainer.args.num_train_epochs
-    assert trainer.evaluate.call_count == trainer.args.num_train_epochs
+    assert trainer._train_epoch.call_count == trainer.params.num_train_epochs
+    assert trainer.save_state.call_count == trainer.params.num_train_epochs
+    assert trainer.evaluate.call_count == trainer.params.num_train_epochs
 
 
 def test_train_epoch(trainer, mock_dataloader):
@@ -165,7 +165,7 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
 
     trainer.model = mock_model
     trainer.optimizer = mock_optimizer
-    trainer.args.output_dir = str(output_dir)
+    trainer.params.output_dir = str(output_dir)
 
     trainer.model.state_dict = MagicMock(return_value={"model_key": "model_value"})
     trainer.optimizer.state_dict = MagicMock(return_value={"optim_key": "optim_value"})
@@ -195,13 +195,13 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
 def test_get_train_dataloader(trainer):
     dataloader = trainer._get_train_dataloader()
     assert isinstance(dataloader, DataLoader)
-    assert dataloader.batch_size == trainer.args.per_device_train_batch_size
+    assert dataloader.batch_size == trainer.params.per_device_train_batch_size
 
 
 def test_get_eval_dataloader(trainer):
     dataloader = trainer._get_eval_dataloader()
     assert isinstance(dataloader, DataLoader)
-    assert dataloader.batch_size == trainer.args.per_device_eval_batch_size
+    assert dataloader.batch_size == trainer.params.per_device_eval_batch_size
 
 
 def test_process_callbacks(trainer):
@@ -221,7 +221,7 @@ def test_cuda_initialization():
     trainer = Trainer(
         model=MagicMock(spec=torch.nn.Module),
         tokenizer=MagicMock(spec=PreTrainedTokenizerBase),
-        args=mock_args(),
+        params=mock_params(),
         train_dataset=MagicMock(spec=Dataset),
         eval_dataset=MagicMock(spec=Dataset),
     )
@@ -230,12 +230,12 @@ def test_cuda_initialization():
 
 
 @pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
-def test_mps_initialization(model, mock_tokenizer, mock_args, mock_dataset):
+def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu, "Model should initially be on CPU"
     trainer = Trainer(
         model=model,
         tokenizer=mock_tokenizer,
-        args=mock_args,
+        params=mock_params,
         train_dataset=mock_dataset,
         eval_dataset=None,
     )

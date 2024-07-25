@@ -1,4 +1,6 @@
 #!/bin/bash
+# Script to benchmark different trainers and model configurations
+# and compare their performance.
 
 set -xe
 
