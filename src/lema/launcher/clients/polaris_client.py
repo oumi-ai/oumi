@@ -2,9 +2,10 @@ import functools
 import re
 from enum import Enum
 from getpass import getpass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fabric import Connection
+from patchwork.transfers import rsync
 
 from lema.core.types.base_cluster import JobStatus
 from lema.utils.logging import logger
@@ -235,3 +236,32 @@ class PolarisClient:
         if not result:
             raise RuntimeError("Failed to cancel job. " f"stderr: {result.stderr}")
         return self.get_job(job_id, queue)
+
+    @retry_auth
+    def rsync(
+        self,
+        source: str,
+        destination: str,
+        delete: bool,
+        exclude: Optional[Union[str, List[str]]],
+        rsync_opts: Optional[str],
+    ) -> None:
+        """Rsyncs the source to the destination.
+
+        Args:
+            source: The source to rsync.
+            destination: The destination to rsync to.
+            delete: Whether to delete extraneous files from the destination.
+            exclude: Patterns to exclude from the rsync.
+            rsync_opts: Additional options to pass to rsync.
+        """
+        result = rsync(
+            c=self._connection,
+            source=source,
+            target=destination,
+            exclude=exclude,
+            delete=delete,
+            rsync_opts=rsync_opts or "",
+        )
+        if not result:
+            raise RuntimeError("Rsync failed. " f"stderr: {result.stderr}")
