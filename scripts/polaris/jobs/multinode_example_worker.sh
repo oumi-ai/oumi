@@ -100,13 +100,15 @@ else
       --config_file configs/accelerate/sample_fsdp_llama3.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
+      "data.train.experimental_use_async_dataset=true" \
       "$TRAIN_DATASETS" \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
-      "training.per_device_train_batch_size=16" \
-      "training.gradient_accumulation_steps=16" \
+      "training.optimizer='adafactor'" \
+      "training.per_device_train_batch_size=14" \
+      "training.gradient_accumulation_steps=19" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.log_model_summary=false" \
