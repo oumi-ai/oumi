@@ -8,6 +8,8 @@ model:
   compile: False # TODO: Try with compilation enabled.
   load_pretrained_weights: False
   trust_remote_code: True
+  model_kwargs:
+    disable_dropout: True
 
 data:
   train:
@@ -15,6 +17,10 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
+      # Polaris copy of the dataset:
+      # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
+      #   subset: "default"
+      #   split: "train"
     stream: True
     pack: True
     target_col: "text"
@@ -30,8 +36,9 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: False
   optimizer: "adamw_torch_fused"
+  compile: True
 
   logging_steps: 10
-  log_model_summary: True
+  log_model_summary: False
   output_dir: "output/llama2b.pt"
   include_performance_metrics: True

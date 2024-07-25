@@ -120,6 +120,11 @@ class DatasetSplitParams:
     # If set to `None` mixing will be non-deterministic.
     seed: Optional[int] = None
 
+    # EXPERIMENTAL PARAMS -------------------------
+    # Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+    experimental_use_async_dataset: bool = False
+    # END EXPERIMENTAL PARAMS --------------------
+
     def __post_init__(self):
         """Verifies params."""
         if self.pack:

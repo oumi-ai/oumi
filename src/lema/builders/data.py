@@ -16,6 +16,7 @@ from lema.core.types import (
 )
 from lema.datasets.alpaca import alpaca_preprocessing_fn
 from lema.datasets.chatqa import chatqa_preprocessor_fn
+from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 from lema.datasets.prompt_response_sft_preprocessor_factory import (
     PromptResponseSftPreprocessorFactory,
 )
@@ -76,7 +77,7 @@ def build_dataset(
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
     **kwargs,
-) -> Union[ConstantLengthDataset, DatasetType]:
+) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset for the specified split.
 
     Args:
@@ -124,12 +125,21 @@ def build_dataset(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        dataset = ConstantLengthDataset(
-            tokenizer,
-            dataset,
-            dataset_text_field=dataset_split_params.target_col,
-            **dataset_kwargs,
-        )
+        if dataset_split_params.experimental_use_async_dataset:
+            dataset = PretrainingAsyncTextDataset(
+                tokenizer,
+                dataset,
+                dataset_text_field=dataset_split_params.target_col,
+                **dataset_kwargs,
+            )
+        else:
+            dataset = ConstantLengthDataset(
+                tokenizer,
+                dataset,
+                dataset_text_field=dataset_split_params.target_col,
+                **dataset_kwargs,
+            )
+
     return dataset
 
 
