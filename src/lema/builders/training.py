@@ -1,3 +1,4 @@
+import warnings
 from typing import Callable, Type, cast
 
 import transformers
@@ -44,6 +45,9 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
     elif trainer_type == TrainerType.HF:
         return _create_hf_builder_fn(transformers.Trainer)
     elif trainer_type == TrainerType.LEMA:
+        warnings.warn(
+            "LEMA trainer is still in development model. Please use HF trainer for now."
+        )
         return lambda *args, **kwargs: LemaTrainer(*args, **kwargs)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
