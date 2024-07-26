@@ -21,7 +21,7 @@ file_mounts:
   #   mode: MOUNT
 
   /dataset_parent_dir:
-    source: gs://lema-dev-europe-west4/lema-dev-europe-west4/datasets/fineweb-edu/
+    source: gs://lema-dev-europe-west4/
     store: gcs
     mode: MOUNT
 
@@ -38,12 +38,12 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
-  export INPUT_DATA="/dataset_parent_dir/sample-10BT/"
+  export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT/"
   echo "INPUT_DATA: $INPUT_DATA. Content: $(ls -l $INPUT_DATA)"
   echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
   echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
 
-  export OUTPUT_DATA="/dataset_parent_dir/pretokenized-sample-10BT/"
+  export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/pretokenized-sample-10BT/"
   mkdir -p "$OUTPUT_DATA/train"
 
   set -x # Enable command tracing.
@@ -57,3 +57,5 @@ run: |
     --overwrite false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=pretokenize.v01 --num-nodes 1 --use-spot --cluster xrdaukar-cpu-01-lema-cluster src/experimental/pretokenize/sky.yaml

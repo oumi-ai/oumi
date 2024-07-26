@@ -53,6 +53,8 @@ def _tokenize_file(
     logger.info(f"Loading {input_file}.")
     if input_format == "jsonl":
         dataset = Dataset.from_json(str(input_file), keep_in_memory=True)
+    elif input_format == "arrow":
+        dataset = Dataset.from_file(str(input_file), in_memory=True)
     else:
         assert input_format == "parquet"
         dataset = Dataset.from_parquet(str(input_file), keep_in_memory=True)
@@ -103,7 +105,7 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         "--input_format",
         type=str,
         default="parquet",
-        choices=["jsonl", "parquet"],
+        choices=["jsonl", "parquet", "arrow"],
         help="Input format.",
     )
     parser.add_argument(
