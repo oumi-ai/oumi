@@ -210,3 +210,6 @@ class TrainingParams:
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
+
+        if self.gradient_accumulation_steps < 1:
+            raise ValueError("gradient_accumulation_steps must be >= 1.")
