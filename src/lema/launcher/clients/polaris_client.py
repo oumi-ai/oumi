@@ -139,7 +139,7 @@ class PolarisClient:
             location = match.group(1)
             with self._connection.cd(location):
                 return self.run_commands(remaining_commands)
-        result = self._connection.run(command)
+        result = self._connection.run(command, warn=True)
         if not result:
             raise RuntimeError(
                 f"Failed to run command: {command} . stderr: {result.stderr}"
@@ -182,7 +182,8 @@ class PolarisClient:
             optional_name_args = f"-N {name}"
         result = self._connection.run(
             f"qsub -l select={node_count}:system=polaris "
-            f"-q {queue.value} {optional_name_args} {job_path}"
+            f"-q {queue.value} {optional_name_args} {job_path}",
+            warn=True,
         )
         if not result:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
@@ -196,7 +197,7 @@ class PolarisClient:
             A list of dictionaries, each containing the status of a cluster.
         """
         command = f"qstat -s -x -w -u {self._user}"
-        result = self._connection.run(command)
+        result = self._connection.run(command, warn=True)
         if not result:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
@@ -255,7 +256,7 @@ class PolarisClient:
             The job status if found, None otherwise.
         """
         command = f"qdel {job_id}"
-        result = self._connection.run(command)
+        result = self._connection.run(command, warn=True)
         if not result:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
