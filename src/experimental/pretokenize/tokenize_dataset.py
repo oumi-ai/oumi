@@ -192,9 +192,7 @@ def main() -> None:
 
     logger.info(f"Loading the dataset ({len(input_files)} files)...")
     for input_file in tqdm(input_files):
-        output_file: pathlib.Path = output_dir / f"{input_file.name}"
-        if input_file.suffix == ".jsonl":
-            output_file: pathlib.Path = output_dir / f"{input_file.stem}.parquet"
+        output_file: pathlib.Path = output_dir / f"{input_file.stem}.parquet"
 
         if output_file.exists() and not parsed_args.overwrite:
             logger.error(f"{output_file} already exists. Specify --overwrite.")
