@@ -56,7 +56,6 @@ class CudaTimerContext(ContextDecorator):
 
         # Debugging flags
         self.pre_synchronize: bool = False
-        self.post_synchronize: bool = False
 
     def _get_new_cuda_event(self) -> torch.cuda.Event:
         """Returns a CUDA event."""
@@ -83,8 +82,9 @@ class CudaTimerContext(ContextDecorator):
         assert self.end_event is not None
         self.end_event.record()
 
-        if self.post_synchronize:
-            torch.cuda.synchronize()
+        # TODO: OPE-226 - implement async timers
+        # We need to sync here as we read the elapsed time soon after.
+        torch.cuda.synchronize()
 
         elapsed_time = (
             self.start_event.elapsed_time(self.end_event) / 1000
