@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 
+from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
     is_distributed,
@@ -88,13 +89,7 @@ class Trainer(BaseTrainer):
 
         # TODO: OPE-220 - init wandb, tensorboard, etc
 
-        # TODO: OPE-221 - add builder for optimizers
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=self.params.learning_rate,
-            weight_decay=self.params.weight_decay,
-            fused=False,
-        )
+        self.optimizer = build_optimizer(self.model, self.params)
 
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
