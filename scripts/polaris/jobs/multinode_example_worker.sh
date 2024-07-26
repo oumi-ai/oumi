@@ -133,7 +133,7 @@ else
       "data.train.experimental_use_async_dataset=true" \
       "$TRAIN_DATASETS" \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
-      "training.max_steps=20" \
+      "training.max_steps=10" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
       "training.optimizer='adafactor'" \
