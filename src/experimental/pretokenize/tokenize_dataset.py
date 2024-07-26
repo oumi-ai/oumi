@@ -112,7 +112,7 @@ def _tokenize_dataset(
     )
 
     logger.info(f"Writing the tokenized dataset to {output_dataset_path}.")
-    dataset.save_to_disk(output_dataset_path)
+    dataset.save_to_disk(str(output_dataset_path), max_shard_size="1GB")
     logger.info(f"Finished writing to {output_dataset_path}.")
 
 
