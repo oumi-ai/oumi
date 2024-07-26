@@ -49,13 +49,14 @@ def _tokenize_dataset_impl(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
     target_col: str,
     num_proc: int,
+    keep_in_memory: bool,
 ) -> DatasetType:
     logger.info("Tokenizing the dataset...")
     dataset = dataset.map(
         functools.partial(_tokenize_examples, tokenizer, target_col),
         batched=True,
         batch_size=128,
-        keep_in_memory=True,
+        keep_in_memory=keep_in_memory,
         num_proc=num_proc,
     )
     logger.info("Finished tokenizing the dataset.")
@@ -80,7 +81,11 @@ def _tokenize_file(
         dataset = datasets.Dataset.from_parquet(str(input_file), keep_in_memory=True)
 
     dataset = _tokenize_dataset_impl(
-        cast(datasets.Dataset, dataset), tokenizer, target_col, num_proc
+        cast(datasets.Dataset, dataset),
+        tokenizer,
+        target_col,
+        num_proc=num_proc,
+        keep_in_memory=True,
     )
 
     logger.info(f"Writing the tokenized data to {output_parquet_file}.")
@@ -99,7 +104,11 @@ def _tokenize_dataset(
     dataset = datasets.Dataset.load_from_disk(str(input_dataset_path))
 
     dataset = _tokenize_dataset_impl(
-        cast(datasets.Dataset, dataset), tokenizer, target_col, num_proc
+        cast(datasets.Dataset, dataset),
+        tokenizer,
+        target_col,
+        num_proc=num_proc,
+        keep_in_memory=False,
     )
 
     logger.info(f"Writing the tokenized dataset to {output_dataset_path}.")
@@ -204,7 +213,6 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
 
 def main() -> None:
     """Main function."""
-    datasets.disable_caching()
     parsed_args, arg_list = parse_cli()
 
     logger.info(f"Parsed arguments: {parsed_args}")
@@ -250,8 +258,8 @@ def main() -> None:
             output_dir,
             num_proc=num_proc,
         )
-
     else:
+        datasets.disable_caching()
         input_files: list[pathlib.Path] = list(
             sorted(_list_input_files(parsed_args.input_paths, parsed_args.input_format))
         )

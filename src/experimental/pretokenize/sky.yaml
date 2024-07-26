@@ -45,7 +45,7 @@ run: |
   echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
   echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
 
-  export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hfds_pretokenized-sample-10BT"
+  export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
 
   set -x # Enable command tracing.
   mkdir -p "$OUTPUT_DATA/train"
