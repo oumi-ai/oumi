@@ -4,7 +4,7 @@
 name: pretokenize-example
 
 resources:
-  cpus: "64+"
+  cpus: "32+"
   memory: "64+"
   disk_size: 200      # Disk size in GB
   region: europe-west4
