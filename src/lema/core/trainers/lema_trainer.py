@@ -45,9 +45,7 @@ class Trainer(BaseTrainer):
         self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
-
-        # TODO: OPE-215 - add support for gradient clipping
-        self.max_norm: float = 1.0
+        self.max_norm: float = args.max_grad_norm
 
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
