@@ -1,4 +1,6 @@
+import uuid
 from functools import reduce
+from pathlib import Path
 from typing import Any, List, Optional
 
 from lema.core.types.base_cluster import BaseCluster, JobStatus
@@ -157,6 +159,18 @@ class PolarisCluster(BaseCluster):
         Returns:
             The job status.
         """
+        _validate_job_config(job)
+        job_name = job.name or uuid.uuid1().hex
+        remote_working_dir = Path("/home/") / str(job.user) / "lema_launcher" / job_name
+        # Copy the working directory to Polaris /home/ system.
+        self._client.rsync(
+            source=job.working_dir,
+            destination=str(remote_working_dir),
+            delete=True,
+            exclude="tests",
+            rsync_opts=f"-avz --exclude-from {job.working_dir}/.gitignore",
+        )
+
         job_id = self._client.submit_job(
             "script_path",
             job.num_nodes,
