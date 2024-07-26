@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, cast
 
 import torch
 import torch.amp
-from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
@@ -33,7 +32,7 @@ class Trainer(BaseTrainer):
         self,
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
-        params: TrainingParams,
+        args: TrainingParams,
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
@@ -42,7 +41,7 @@ class Trainer(BaseTrainer):
         """Initializes the LeMa trainer."""
         self.model = model
         self.tokenizer = tokenizer
-        self.params = params
+        self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
 
@@ -60,14 +59,11 @@ class Trainer(BaseTrainer):
             device_type=self.device_type, enabled=True, dtype=torch.bfloat16
         )
 
-        if params.compile:
-            if model.is_compiled:
-                self.log("Model is already compiled. Skipping compilation.")
-            else:
-                self.log("Compiling model...")
-                model = cast(torch.nn.Module, torch.compile(model))
+        if self.params.compile:
+            self.log("Compiling model...")
+            model = cast(torch.nn.Module, torch.compile(model))
 
-        self.scaler = GradScaler(enabled=False)
+        self.scaler = torch.amp.GradScaler(device=self.device_type, enabled=False)
 
         device_info = get_device_rank_info()
 
@@ -109,6 +105,7 @@ class Trainer(BaseTrainer):
         self.total_tokens_seen = 0
 
         self.telemetry = TelemetryTracker()
+        self.start_time = time.perf_counter()
 
     #
     # Training
@@ -151,6 +148,9 @@ class Trainer(BaseTrainer):
 
                 if self.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
+                    self.log(
+                        f"Training runtime: {time.perf_counter() - self.start_time}s"
+                    )
                     break
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
@@ -179,17 +179,17 @@ class Trainer(BaseTrainer):
                 }
 
             # TODO: OPE-225 - add detailed logging metrics
-            # with self.telemetry.timer("computing tokens"):
-            #     num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
+            with self.telemetry.timer("computing tokens"):
+                num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
 
-            # with self.telemetry.timer("syncing to cpu"):
-            #     num_tokens = num_tokens.item()
-            #     self.total_tokens_seen += num_tokens
+            with self.telemetry.timer("syncing to cpu"):
+                num_tokens = num_tokens.item()
+                self.total_tokens_seen += num_tokens
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
-                # self.model.require_backward_grad_sync = (
-                #     micro_step + 1
-                # ) % self.params.gradient_accumulation_steps == 0
+                self.model.require_backward_grad_sync = (  # type: ignore
+                    micro_step + 1
+                ) % self.params.gradient_accumulation_steps == 0
 
                 outputs = self.model(**batch)
                 loss = outputs["loss"] / self.params.gradient_accumulation_steps
@@ -213,12 +213,25 @@ class Trainer(BaseTrainer):
                 self.global_step += 1
                 progress_bar.update(1)
 
+                self.process_callbacks("on_step_end")
+
                 if self.global_step % self.params.logging_steps == 0:
                     # TODO: OPE-225 - add detailed logging metrics
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
                     self.log(f"Step {self.global_step}: loss = {loss_value}")
                     logs = self.process_callbacks("on_log")
                     self.log(pformat(logs))
+                    self.log(f"Total tokens seen: {self.total_tokens_seen}")
+                    elapsed = time.perf_counter() - self.start_time
+                    self.log(f"Steps per second: {self.global_step / elapsed} step/s")
+                    self.log(
+                        f"Tokens per second: {self.total_tokens_seen / elapsed} tok/s"
+                    )
+                    self.log(
+                        f"Tokens per step per GPU: "
+                        f"{self.total_tokens_seen / self.global_step} tok/step/gpu"
+                    )
+
                     if is_local_process_zero():
                         self.telemetry.print_summary()
 
@@ -238,8 +251,6 @@ class Trainer(BaseTrainer):
                     # To enable distributed evaluation, th eval function needs
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
-
-                self.process_callbacks("on_step_end")
 
             if self.global_step >= self.params.max_steps:
                 break

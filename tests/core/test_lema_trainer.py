@@ -25,7 +25,9 @@ def mock_model():
 
 @pytest.fixture
 def mock_tokenizer():
-    return MagicMock(spec=PreTrainedTokenizerBase)
+    mock = MagicMock(spec=PreTrainedTokenizerBase)
+    mock.pad_token_id = 0
+    return mock
 
 
 @pytest.fixture
@@ -82,7 +84,7 @@ def trainer(model, mock_tokenizer, mock_params, mock_dataset):
     return Trainer(
         model=model,
         tokenizer=mock_tokenizer,
-        params=mock_params,
+        args=mock_params,
         train_dataset=mock_dataset,
         eval_dataset=mock_dataset,
     )
@@ -221,7 +223,7 @@ def test_cuda_initialization():
     trainer = Trainer(
         model=MagicMock(spec=torch.nn.Module),
         tokenizer=MagicMock(spec=PreTrainedTokenizerBase),
-        params=mock_params(),
+        args=mock_params(),
         train_dataset=MagicMock(spec=Dataset),
         eval_dataset=MagicMock(spec=Dataset),
     )
@@ -235,7 +237,7 @@ def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     trainer = Trainer(
         model=model,
         tokenizer=mock_tokenizer,
-        params=mock_params,
+        args=mock_params,
         train_dataset=mock_dataset,
         eval_dataset=None,
     )
