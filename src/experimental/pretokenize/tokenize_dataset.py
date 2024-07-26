@@ -13,7 +13,7 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.types import TrainingConfig
-from lema.logging import logger
+from lema.utils.logging import logger
 
 _TOKEN_IDS_COLUMN_NAME = "input_ids"  # The common convention.
 
@@ -155,6 +155,9 @@ def main() -> None:
     disable_caching()
     parsed_args, arg_list = parse_cli()
 
+    logger.info(f"Parsed arguments: {parsed_args}")
+    logger.info(f"Unknown arguments: {arg_list}")
+
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         parsed_args.config_path, arg_list, logger=logger
     )
@@ -181,13 +184,13 @@ def main() -> None:
 
     tokenizer = build_tokenizer(config.model)
 
-    input_files: list[pathlib.Path] = sorted(
-        _list_input_files(parsed_args.input_paths, parsed_args.input_format)
+    input_files: list[pathlib.Path] = list(
+        sorted(_list_input_files(parsed_args.input_paths, parsed_args.input_format))
     )
     if not input_files:
         return
 
-    logger.info("Loading the dataset...")
+    logger.info(f"Loading the dataset ({len(input_files)} files)...")
     for input_file in tqdm(input_files):
         output_file: pathlib.Path = output_dir / f"{input_file.stem}.parquet"
         if output_file.exists() and not parsed_args.overwrite:
