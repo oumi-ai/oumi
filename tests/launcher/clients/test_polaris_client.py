@@ -76,7 +76,8 @@ def test_polaris_client_submit_job_debug(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEBUG, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q debug  ./job.sh"
+        "qsub -l select=2:system=polaris -q debug  ./job.sh",
+        warn=True,
     )
     assert result == "2032"
 
@@ -90,7 +91,8 @@ def test_polaris_client_submit_job_demand(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEMAND, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q demand  ./job.sh"
+        "qsub -l select=2:system=polaris -q demand  ./job.sh",
+        warn=True,
     )
     assert result == "2032"
 
@@ -104,7 +106,8 @@ def test_polaris_client_submit_job_preemptable(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.PREEMPTABLE, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q preemptable  ./job.sh"
+        "qsub -l select=2:system=polaris -q preemptable  ./job.sh",
+        warn=True,
     )
     assert result == "2032"
 
@@ -118,7 +121,8 @@ def test_polaris_client_submit_job_debug_name(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEBUG, "somename")
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q debug -N somename ./job.sh"
+        "qsub -l select=2:system=polaris -q debug -N somename ./job.sh",
+        warn=True,
     )
     assert result == "2032"
 
@@ -137,7 +141,8 @@ def test_polaris_client_submit_job_debug_scaling(mock_fabric, mock_auth):
         None,
     )
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q debug-scaling  ./job.sh"
+        "qsub -l select=2:system=polaris -q debug-scaling  ./job.sh",
+        warn=True,
     )
     assert result == "2032341411"
 
@@ -151,7 +156,8 @@ def test_polaris_client_submit_job_prod(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q prod  ./job.sh"
+        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+        warn=True,
     )
     assert result == "3141592653"
 
@@ -165,7 +171,8 @@ def test_polaris_client_submit_job_invalid_job_format(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q prod  ./job.sh"
+        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+        warn=True,
     )
     assert result == "3141592653polaris-pbs-01"
 
@@ -196,11 +203,13 @@ def test_polaris_client_submit_job_retry_auth(mock_fabric, mock_auth):
     client = PolarisClient("user")
     result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
     mock_connection.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q prod  ./job.sh"
+        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+        warn=True,
     )
     mock_connection.close.assert_called_once()
     mock_connection2.run.assert_called_with(
-        "qsub -l select=2:system=polaris -q prod  ./job.sh"
+        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+        warn=True,
     )
     mock_connection2.open.assert_called_once()
     assert result == "-pbs-01"
@@ -214,7 +223,7 @@ def test_polaris_client_list_jobs_success_debug(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     job_ids = [job.id for job in job_list]
     expected_ids = [
         "2017611",
@@ -244,7 +253,7 @@ def test_polaris_client_list_jobs_success_debug_scaling(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG_SCALING)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     job_ids = [job.id for job in job_list]
     expected_ids = [
         "2029871",
@@ -261,7 +270,7 @@ def test_polaris_client_list_jobs_success_prod(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.PROD)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     job_ids = [job.id for job in job_list]
     expected_ids = [
         "123",
@@ -282,7 +291,7 @@ def test_polaris_client_list_jobs_handles_empty_string(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     job_ids = [job.id for job in job_list]
     expected_ids = []
     assert job_ids == expected_ids
@@ -308,7 +317,7 @@ def test_polaris_client_get_job_success(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_status = client.get_job("2017652", client.SupportedQueues.DEBUG)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     expected_status = JobStatus(
         id="2017652",
         name="example_job.sh",
@@ -338,7 +347,7 @@ def test_polaris_client_get_job_not_found(mock_fabric, mock_auth):
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_status = client.get_job("2017652", client.SupportedQueues.DEBUG_SCALING)
-    mock_connection.run.assert_called_with("qstat -s -x -w -u user")
+    mock_connection.run.assert_called_with("qstat -s -x -w -u user", warn=True)
     assert job_status is None
 
 
@@ -366,8 +375,8 @@ def test_polaris_client_cancel_success(mock_fabric, mock_auth):
     job_status = client.cancel("2017652", client.SupportedQueues.DEBUG)
     mock_connection.run.assert_has_calls(
         [
-            call("qdel 2017652"),
-            call("qstat -s -x -w -u user"),
+            call("qdel 2017652", warn=True),
+            call("qstat -s -x -w -u user", warn=True),
         ]
     )
     expected_status = JobStatus(
@@ -427,8 +436,8 @@ def test_polaris_client_cancel_job_not_found_success(mock_fabric, mock_auth):
     job_status = client.cancel("2017652", client.SupportedQueues.PROD)
     mock_connection.run.assert_has_calls(
         [
-            call("qdel 2017652"),
-            call("qstat -s -x -w -u user"),
+            call("qdel 2017652", warn=True),
+            call("qstat -s -x -w -u user", warn=True),
         ]
     )
     assert job_status is None
@@ -474,9 +483,9 @@ def test_polaris_client_run_commands_success(mock_fabric, mock_auth):
     )
     mock_connection.run.assert_has_calls(
         [
-            call("first command"),
-            call("fourth command"),
-            call("final command"),
+            call("first command", warn=True),
+            call("fourth command", warn=True),
+            call("final command", warn=True),
         ]
     )
 
