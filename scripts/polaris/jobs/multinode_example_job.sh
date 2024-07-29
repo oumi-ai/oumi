@@ -6,8 +6,8 @@
 #PBS -l filesystems=home:eagle
 #PBS -q debug-scaling
 #PBS -A community_ai
-#PBS -o /eagle/community_ai/jobs/logs/wizeng
-#PBS -e /eagle/community_ai/jobs/logs/wizeng
+#PBS -o /eagle/community_ai/jobs/logs/
+#PBS -e /eagle/community_ai/jobs/logs/
 
 set -e
 
@@ -43,6 +43,6 @@ NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per no
 set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
     --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
-    ./scripts/polaris/jobs/multinode_example_worker.sh -m deepspeed
+    ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
 
 echo "Polaris job is all done!"
