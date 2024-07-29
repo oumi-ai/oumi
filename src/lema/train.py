@@ -18,6 +18,9 @@ from lema.builders import (
 )
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
+    cleanup_distributed,
+    init_distributed,
+    is_distributed,
     is_local_process_zero,
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
@@ -118,6 +121,9 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
+
+    if is_distributed():
+        init_distributed()
 
     if is_local_process_zero():
         log_versioning_info()
@@ -230,6 +236,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         trainer.save_state()
         if config.training.save_final_model:
             trainer.save_model(config=config)
+
+    if is_distributed():
+        cleanup_distributed()
 
 
 if __name__ == "__main__":

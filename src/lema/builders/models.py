@@ -65,6 +65,7 @@ def build_model(
             *kwargs,
         )
 
+    # TODO: OPE-214 - Deprecate DP support in model builder
     if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
         logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
         model = torch.nn.DataParallel(model)
@@ -167,11 +168,10 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    # FIXME You may have to uncomment the following line in FSDP mode:
-    # model.config.use_cache = False
-    #
-    # Context:
-    # https://github.com/huggingface/transformers/issues/28499
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+
     # TODO Find a better way to handle it
 
     # Load pretrained PEFT adapters
