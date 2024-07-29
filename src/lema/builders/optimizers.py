@@ -50,7 +50,6 @@ def build_optimizer(
             lr=config.learning_rate,
             momentum=config.sgd_momentum,
             weight_decay=config.weight_decay,
-            fused=fused_available,
         )
     elif optimizer_name == "adafactor":
         return Adafactor(
