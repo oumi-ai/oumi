@@ -6,8 +6,6 @@ from typing import Callable, Optional
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
-from lema.core.trainers.hf_trainer import HuggingFaceTrainer
-
 from lema.builders import (
     build_dataset,
     build_metrics_function,
@@ -25,6 +23,7 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
+from lema.core.trainers.hf_trainer import HuggingFaceTrainer
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization

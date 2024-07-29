@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import torch.distributed
 import transformers
@@ -62,7 +62,7 @@ class HuggingFaceTrainer(BaseTrainer):
         """See base class."""
 
         # Incredibly ugly, but this is the only way to add callbacks that add metrics
-        # to wandb. Transformers trainer has no public method of allowing us to control 
+        # to wandb. Transformers trainer has no public method of allowing us to control
         # the order callbacks are called.
         training_callbacks = (
             transformers.trainer.DEFAULT_CALLBACKS

@@ -129,21 +129,21 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.modules.sparse.Embedding):
             # Embedding layers appear in named_parameters with ".weight" at the end
-            embedding_layer_names.append(name + '.weight')
+            embedding_layer_names.append(name + ".weight")
 
     for name, param in model.named_parameters():
         param_count = param.numel()
         all_params += param_count
         if param.requires_grad:
             trainable_params += param_count
-        
+
         if name in embedding_layer_names:
             embedding_params += param_count
 
     return ModelParameterCount(
         all_params=all_params,
         trainable_params=trainable_params,
-        embedding_params=embedding_params
+        embedding_params=embedding_params,
     )
 
 
