@@ -1,3 +1,4 @@
+import re
 import uuid
 from functools import reduce
 from pathlib import Path
@@ -26,6 +27,27 @@ def _last_pbs_line(script: List[str]) -> int:
         )
         + 1
     )
+
+
+def _get_logging_directories(script: str) -> List[str]:
+    """Gets the logging directories from the script.
+
+    Parses the provided script for commands starting with `#PBS -o`, `#PBS -e`,
+    `#PBS -oe`, `#PBS -eo`, or `#PBS -doe`.
+
+    Args:
+        script: The script to extract logging directories from.
+
+    Returns:
+        A list of logging directories.
+    """
+    logging_pattern = r"#PBS\s+-[oe|eo|doe|o|e]\s+(.*)"
+    logging_dirs = []
+    for line in script.split("\n"):
+        match = re.match(logging_pattern, line.strip())
+        if match:
+            logging_dirs.append(match.group(1))
+    return logging_dirs
 
 
 def _create_job_script(job: JobConfig) -> str:
@@ -203,7 +225,7 @@ class PolarisCluster(BaseCluster):
             "module use /soft/modulefiles",
             "module load conda",
             f'! test -d "{lema_env_path}"',
-            'echo "Creating LeMa Conda environment... --------------------------------"'
+            'echo "Creating LeMa Conda environment... -------------------------------"',
             f"conda create -y python=3.11 --prefix ${lema_env_path}",
             f"conda activate {lema_env_path}",
             "pip install flash-attn --no-build-isolation",
@@ -216,7 +238,7 @@ class PolarisCluster(BaseCluster):
             "module use /soft/modulefiles",
             "module load conda",
             f"conda activate {lema_env_path}",
-            'echo "Installing packages... -----------------------------------------"',
+            'echo "Installing packages... -------------------------------------------"',
             "pip install -e '.[train]'",
         ]
         self._client.run_commands([" && ".join(setup_cmds)])
@@ -231,9 +253,18 @@ class PolarisCluster(BaseCluster):
             )
         # Create the job script by merging envs, setup, and run commands.
         job_script = _create_job_script(job)
-
+        script_path = remote_working_dir / "lema_job.sh"
+        self._client.put(job_script, str(script_path))
+        # Set the proper CHMOD permissions.
+        self._client.run_commands([f"chmod a+x {script_path}"])
+        # Set up logging directories.
+        logging_dirs = _get_logging_directories(job_script)
+        loggin_dir_cmds = [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
+        if loggin_dir_cmds:
+            self._client.run_commands(loggin_dir_cmds)
+        # Submit the job.
         job_id = self._client.submit_job(
-            job_script,
+            str(script_path),
             job.num_nodes,
             self._queue,
             job.name,
