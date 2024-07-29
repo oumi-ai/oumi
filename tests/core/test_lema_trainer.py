@@ -76,6 +76,11 @@ def mock_params():
     args.eval_strategy = "steps"
     args.eval_steps = 50
     args.output_dir = "/tmp/test_output"
+    args.optimizer = "adamw"
+    args.learning_rate = 0.001
+    args.adam_epsilon = 1e-8
+    args.adam_beta1 = 0.9
+    args.adam_beta2 = 0.999
     return args
 
 

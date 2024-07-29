@@ -1,0 +1,51 @@
+
+polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov:
+                                                                                                   Req'd  Req'd   Elap
+Job ID                         Username        Queue           Jobname         SessID   NDS  TSK   Memory Time  S Time
+------------------------------ --------------- --------------- --------------- -------- ---- ----- ------ ----- - -----
+2017611.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh       --     1    64    --  00:10 F  --
+   job held, too many failed attempts to run and terminated
+2017643.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh       --     1    64    --  00:10 F  --
+   Not Running: Not enough free nodes available and terminated
+2017652.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2354947    1    64    --  00:10 F 00:00:43
+   Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and failed
+2017654.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2356268    1    64    --  00:10 F 00:00:42
+   Job run at Wed Jul 10 at 23:33 on (x3006c0s19b1n0:ncpus=64) and failed
+2018469.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh    504718    1    64    --  00:10 F 00:00:44
+   Job run at Thu Jul 11 at 16:26 on (x3004c0s37b0n0:ncpus=64) and failed
+2019593.polaris-pbs-01.hsn.cm* matthew         debug           STDIN            3388155    1    64    --  00:30 F 00:08:03
+   Job run at Fri Jul 12 at 20:03 on (x3006c0s1b0n0:ncpus=64) and finished
+2019726.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2679904    1    64    --  00:10 F 00:00:15
+   Job run at Fri Jul 12 at 22:49 on (x3004c0s37b0n0:ncpus=64) and failed
+2019730.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   1429704    1    64    --  00:10 F 00:00:42
+   Job run at Fri Jul 12 at 22:53 on (x3005c0s25b0n0:ncpus=64) and failed
+2019731.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh    240650    1    64    --  00:10 F 00:00:52
+   Job run at Fri Jul 12 at 22:58 on (x3004c0s1b0n0:ncpus=64) and failed
+2019743.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   1687572    1    64    --  00:10 F 00:00:36
+   Job run at Fri Jul 12 at 23:20 on (x3003c0s1b1n0:ncpus=64) and failed
+2019765.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   1910950    1    64    --  00:10 F 00:01:03
+   Job run at Fri Jul 12 at 23:53 on (x3003c0s1b0n0:ncpus=64) and failed
+2019769.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2518164    1    64    --  00:10 F 00:01:35
+   Job run at Sat Jul 13 at 00:09 on (x3004c0s7b1n0:ncpus=64) and failed
+2021153.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   3449703    1    64    --  00:10 F 00:01:12
+   Job run at Mon Jul 15 at 17:31 on (x3006c0s25b1n0:ncpus=64) and failed
+2029871.polaris-pbs-01.hsn.cm* matthew         debug-scaling   example_job.sh       --     2   128    --  00:10 F 00:00:00
+   Job run at Fri Jul 19 at 23:03 on (x3005c0s19b1n0:ncpus=64)+(x3005c0s7b0n0:ncpus=64) and finished
+2029885.polaris-pbs-01.hsn.cm* matthew         debug-scaling   example_job.sh       --     2   128    --  00:10 F 00:00:01
+   Job run at Fri Jul 19 at 23:15 on (x3005c0s31b1n0:ncpus=64)+(x3005c0s37b0n0:ncpus=64) and finished
+2037042.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh       --     1    64    --  00:10 F 00:00:00
+   Job run at Wed Jul 24 at 22:44 on (x3006c0s1b1n0:ncpus=64) and finished
+2037048.polaris-pbs-01.hsn.cm* matthew         debug           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+123.polaris-pbs-01.hsn.cm* matthew         small           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+234.polaris-pbs-01.hsn.cm* matthew         medium           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+345.polaris-pbs-01.hsn.cm* matthew         large           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+456.polaris-pbs-01.hsn.cm* matthew         backfill-small           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+567.polaris-pbs-01.hsn.cm* matthew         backfill-medium           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished
+678.polaris-pbs-01.hsn.cm* matthew         backfill-large           testname             --     1    64    --  00:10 F 00:00:01
+   Job run at Wed Jul 24 at 22:50 on (x3006c0s1b1n0:ncpus=64) and finished

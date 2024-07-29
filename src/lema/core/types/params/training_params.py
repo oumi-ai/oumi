@@ -88,6 +88,7 @@ class TrainingParams:
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     adam_epsilon: float = 1e-08
+    sgd_momentum: float = 0.9
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
