@@ -1,4 +1,5 @@
 import functools
+import io
 import re
 from enum import Enum
 from getpass import getpass
@@ -289,3 +290,13 @@ class PolarisClient:
         )
         if not result:
             raise RuntimeError(f"Rsync failed. stderr: {result.stderr}")
+
+    @retry_auth
+    def put(self, file_contents: str, destination: str) -> None:
+        """Puts the specified file contents to the remote path.
+
+        Args:
+            file_contents: The contents of the file to write.
+            destination: The remote path to write the file to.
+        """
+        self._connection.put(io.StringIO(file_contents), destination)

@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
 from fabric import Connection
@@ -565,4 +565,32 @@ def test_polaris_client_rsync_failure(mock_fabric, mock_auth, mock_patchwork):
             delete=True,
             exclude=["foo", "bar"],
             rsync_opts="-avz",
+        )
+
+
+def test_polaris_client_put_success(mock_fabric, mock_auth, mock_patchwork):
+    mock_connection = Mock(spec=Connection)
+    mock_fabric.side_effect = [mock_connection]
+    mock_command = Mock()
+    mock_connection.put.return_value = mock_command
+    client = PolarisClient("user")
+    client.put(
+        file_contents="file contents",
+        destination="destination",
+    )
+    mock_connection.put.assert_called_once_with(
+        ANY,
+        "destination",
+    )
+
+
+def test_polaris_client_put_failure(mock_fabric, mock_auth, mock_patchwork):
+    with pytest.raises(RuntimeError):
+        mock_connection = Mock(spec=Connection)
+        mock_fabric.side_effect = [mock_connection]
+        mock_connection.put.side_effect = [RuntimeError]
+        client = PolarisClient("user")
+        client.put(
+            file_contents="file contents",
+            destination="destination",
         )
