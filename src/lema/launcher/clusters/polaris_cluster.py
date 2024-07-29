@@ -9,6 +9,25 @@ from lema.launcher.clients.polaris_client import PolarisClient
 from lema.utils.logging import logger
 
 
+def _last_pbs_line(script: List[str]) -> int:
+    """Finds the last PBS instruction line in the script.
+
+    Args:
+        script: The lines of the script.
+
+    Returns:
+        The index of the last PBS instruction line. -1 if not found.
+    """
+    return (
+        reduce(
+            lambda acc, val: val[0] if val[1].startswith("#PBS") else acc,
+            enumerate(script),
+            -1,
+        )
+        + 1
+    )
+
+
 def _create_job_script(job: JobConfig) -> str:
     """Creates a job script for the specified job.
 
@@ -18,26 +37,33 @@ def _create_job_script(job: JobConfig) -> str:
     Returns:
         The script as a string.
     """
+    setup_lines = [] if not job.setup else job.setup.strip().split("\n")
     run_lines = job.run.strip().split("\n")
-    # Find the last PBS instruction line. Return -1 if not found.
-    last_pbs = (
-        reduce(
-            lambda acc, val: val[0] if val[1].startswith("#PBS") else acc,
-            enumerate(run_lines),
-            -1,
-        )
-        + 1
-    )
+    # Find the last PBS instruction line.
+    last_run_pbs = _last_pbs_line(run_lines)
+    last_setup_pbs = _last_pbs_line(setup_lines)
     # Inject environment variables into the script after PBS instructions.
     env_lines = [f"export {key}={value}" for key, value in job.envs.items()]
     # Pad the environment variables with newlines.
     env_lines = [""] + env_lines + [""] if env_lines else []
-    run_lines = run_lines[:last_pbs] + env_lines + run_lines[last_pbs:]
+    # Generate the job script.
+    # The script should have the following structure:
+    # 1. PBS instructions from Setup and Run commands (in that order).
+    # 2. Environment variables.
+    # 3. Setup commands.
+    # 4. Run commands.
+    output_lines = (
+        setup_lines[:last_setup_pbs]
+        + run_lines[:last_run_pbs]
+        + env_lines
+        + setup_lines[last_setup_pbs:]
+        + run_lines[last_run_pbs:]
+    )
     # Always start the script with #!/bin/bash.
     script_prefix = "#!/bin/bash"
-    if len(run_lines) > 0:
-        if not run_lines[0].startswith("script_prefix"):
-            run_lines.insert(0, script_prefix)
+    if len(output_lines) > 0:
+        if not output_lines[0].startswith("script_prefix"):
+            output_lines.insert(0, script_prefix)
     # Join each line. Always end the script with a new line.
     return "\n".join(run_lines) + "\n"
 
@@ -161,7 +187,8 @@ class PolarisCluster(BaseCluster):
         """
         _validate_job_config(job)
         job_name = job.name or uuid.uuid1().hex
-        remote_working_dir = Path("/home/") / str(job.user) / "lema_launcher" / job_name
+        user = str(job.user)
+        remote_working_dir = Path(f"/home/{user}/lema_launcher/{job_name}")
         # Copy the working directory to Polaris /home/ system.
         self._client.rsync(
             source=job.working_dir,
@@ -170,9 +197,43 @@ class PolarisCluster(BaseCluster):
             exclude="tests",
             rsync_opts=f"-avz --exclude-from {job.working_dir}/.gitignore",
         )
+        # Check if lema is installed in a conda env. If not, install it.
+        lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
+        conda_cmds = [
+            "module use /soft/modulefiles",
+            "module load conda",
+            f'! test -d "{lema_env_path}"',
+            'echo "Creating LeMa Conda environment... --------------------------------"'
+            f"conda create -y python=3.11 --prefix ${lema_env_path}",
+            f"conda activate {lema_env_path}",
+            "pip install flash-attn --no-build-isolation",
+        ]
+        # Run all commands in the same context.
+        self._client.run_commands([" && ".join(conda_cmds)])
+        # Install LeMa requirements.
+        setup_cmds = [
+            "cd {remote_working_dir}",
+            "module use /soft/modulefiles",
+            "module load conda",
+            f"conda activate {lema_env_path}",
+            'echo "Installing packages... -----------------------------------------"',
+            "pip install -e '.[train]'",
+        ]
+        self._client.run_commands([" && ".join(setup_cmds)])
+        # Copy all file mounts.
+        for remote_path, local_path in job.file_mounts.items():
+            self._client.rsync(
+                source=local_path,
+                destination=remote_path,
+                delete=True,
+                exclude=None,
+                rsync_opts="-avz",
+            )
+        # Create the job script by merging envs, setup, and run commands.
+        job_script = _create_job_script(job)
 
         job_id = self._client.submit_job(
-            "script_path",
+            job_script,
             job.num_nodes,
             self._queue,
             job.name,
