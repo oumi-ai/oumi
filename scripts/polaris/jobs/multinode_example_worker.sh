@@ -107,9 +107,9 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       "training.save_steps=0" \
       "training.save_final_model=false" \
       "training.optimizer='adafactor'" \
-      "training.enable_gradient_checkpointing=true" \
-      "training.per_device_train_batch_size=14" \
-      "training.gradient_accumulation_steps=19" \
+      "training.enable_gradient_checkpointing=false" \
+      "training.per_device_train_batch_size=4" \
+      "training.gradient_accumulation_steps=4" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.bf16=true" \
@@ -133,7 +133,7 @@ else
       "data.train.experimental_use_async_dataset=true" \
       "$TRAIN_DATASETS" \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
-      "training.max_steps=10" \
+      "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
       "training.optimizer='adafactor'" \
