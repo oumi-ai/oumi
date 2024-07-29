@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 import torch.distributed
 import transformers
@@ -57,3 +57,18 @@ class HuggingFaceTrainer(BaseTrainer):
             # Make sure all workers are waiting until saving is done
             # so they continue to other tasks in unison.
             torch.distributed.barrier()
+    
+    def add_callbacks(self, callbacks: List[transformers.TrainerCallback]) -> None:
+        """See base class."""
+
+        # Incredibly ugly, but this is the only way to add callbacks that add metrics
+        # to wandb. Transformers trainer has no public method of allowing us to control 
+        # the order callbacks are called.
+        training_callbacks = (
+            transformers.trainer.DEFAULT_CALLBACKS
+            + callbacks
+            + self._hf_trainer.callback_handler.callbacks[1:]
+        )
+        self._hf_trainer.callback_handler.callbacks = []
+        for c in training_callbacks:
+            self._hf_trainer.add_callback(c)
