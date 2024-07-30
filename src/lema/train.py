@@ -1,8 +1,10 @@
 import argparse
 import pathlib
+import random
 import time
 from typing import Callable, Optional
 
+import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -68,12 +70,13 @@ def main() -> None:
     # Load configuration
     config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
-    limit_per_process_memory()
-    device_cleanup()
-
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+
+    limit_per_process_memory()
+    device_cleanup()
+    set_random_seeds(config.training.seed if hasattr(config.training, "seed") else 42)
 
     # Run training
     train(config)
@@ -114,6 +117,14 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
     logger.info(
         f"Training output dir absolute path : {str(output_dir_path.absolute())}"
     )
+
+
+def set_random_seeds(seed: int = 42):
+    """Set random seeds for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
