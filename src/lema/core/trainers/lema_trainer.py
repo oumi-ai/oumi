@@ -112,7 +112,6 @@ class Trainer(BaseTrainer):
     #
     # Training
     #
-
     def train(self, resume_from_checkpoint: Optional[str] = None):
         """Trains the model."""
         if resume_from_checkpoint:
@@ -221,9 +220,9 @@ class Trainer(BaseTrainer):
                     # Log metrics
 
                     elapsed = time.perf_counter() - self.start_time
-
+                    loss_value = loss.item() * self.params.gradient_accumulation_steps
                     metrics = {
-                        "loss": loss.item() * self.params.gradient_accumulation_steps,
+                        "train/loss": loss_value,
                         "learning_rate": self.optimizer.param_groups[0]["lr"],
                         "epoch": self.state.epoch,
                         "global_step": self.state.global_step,
@@ -291,9 +290,10 @@ class Trainer(BaseTrainer):
         eval_loss = sum(eval_losses) / len(eval_losses)
         perplexity = torch.exp(torch.tensor(eval_loss))
 
-        results = {"eval_loss": eval_loss, "perplexity": perplexity.item()}
+        results = {"val/val_loss": eval_loss, "val/perplexity": perplexity.item()}
 
-        self.log(f"Evaluation results: {results}")
+        self.log("Finished evaluation.")
+        self.log_metrics(results, self.state.global_step)
 
         self.model.train()
         return results
