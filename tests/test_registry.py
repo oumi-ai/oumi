@@ -9,6 +9,16 @@ def cleanup():
     REGISTRY.clear()
 
 
+def test_registry_cloud_builder():
+    @register("dummy_class", RegistryType.CLOUD)
+    class DummyClass:
+        pass
+
+    assert REGISTRY.contains("dummy_class", RegistryType.CLOUD)
+    assert REGISTRY.get("dummy_class", RegistryType.CLOUD) == DummyClass
+    assert not REGISTRY.contains("some_other_class", RegistryType.CLOUD)
+
+
 def test_registry_model_class():
     @register("dummy_class", RegistryType.MODEL)
     class DummyClass:

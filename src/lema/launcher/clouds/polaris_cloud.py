@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from lema.core.registry import register_cloud_builder
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster
 from lema.core.types.configs import JobConfig
@@ -124,3 +125,9 @@ class PolarisCloud(BaseCloud):
     def list_clusters(self) -> List[BaseCluster]:
         """Lists the active clusters on this cloud."""
         return list(self._clusters.values())
+
+
+@register_cloud_builder("polaris")
+def polaris_cloud_builder() -> PolarisCloud:
+    """Builds a PolarisCloud instance."""
+    return PolarisCloud()

@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import pytest
 import sky
 
+from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.configs import JobConfig
 from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
@@ -346,3 +347,15 @@ def test_sky_cloud_get_cluster_failure_empty(mock_sky_client):
     cluster = cloud.get_cluster("gcp_cluster")
     mock_sky_client.status.assert_called_once()
     assert cluster is None
+
+
+def test_runpod_cloud_builder_registered():
+    assert REGISTRY.contains("runpod", RegistryType.CLOUD)
+
+
+def test_gcp_cloud_builder_registered():
+    assert REGISTRY.contains("gcp", RegistryType.CLOUD)
+
+
+def test_lambda_cloud_builder_registered():
+    assert REGISTRY.contains("lambda", RegistryType.CLOUD)

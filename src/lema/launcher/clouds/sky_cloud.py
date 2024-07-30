@@ -2,6 +2,7 @@ from typing import List, Optional, Type, TypeVar
 
 import sky
 
+from lema.core.registry import register_cloud_builder
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster
 from lema.core.types.configs import JobConfig
@@ -49,3 +50,21 @@ class SkyCloud(BaseCloud):
         elif self._cloud_name == SkyClient.SupportedClouds.LAMBDA.value:
             return self._get_clusters_by_class(sky.clouds.Lambda)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
+
+
+@register_cloud_builder("runpod")
+def runpod_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for runpod."""
+    return SkyCloud(SkyClient.SupportedClouds.RUNPOD.value, SkyClient())
+
+
+@register_cloud_builder("gcp")
+def gcp_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for Google Cloud Platform."""
+    return SkyCloud(SkyClient.SupportedClouds.GCP.value, SkyClient())
+
+
+@register_cloud_builder("lambda")
+def lambda_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for Lambda."""
+    return SkyCloud(SkyClient.SupportedClouds.LAMBDA.value, SkyClient())
