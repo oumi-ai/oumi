@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 from pprint import pformat
 from typing import Any, Dict, List, Optional, cast
 
@@ -440,12 +441,16 @@ class Trainer(BaseTrainer):
         self.log(f"Logging to {self.params.output_dir}")
 
         if self.params.enable_wandb:
-            wandb.init(project="lema", name=self.params.run_name)
+            project_name = os.environ.get("WANDB_PROJECT", "lema")
+            self.log(f"Logging to Weights and Biases project: '{project_name}'")
+            wandb.init(project=project_name, name=self.params.run_name)
             wandb.watch(self.model)
 
         if self.params.enable_tensorboard:
+            self.log(f"Logging to Weights and Biases project: '{project_name}'")
+            tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
             self.tensorboard_writer = tensorboard.SummaryWriter(
-                log_dir=self.params.logging_dir
+                log_dir=tensorboard_folder
             )
         else:
             self.tensorboard_writer = None
