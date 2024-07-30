@@ -157,7 +157,7 @@ def register_cloud_builder(registry_name: str) -> Callable:
 
     Use this decorator to register cloud builder functions in the global registry.
     A cloud builder function is a function that accepts no arguments and returns an
-    instance of a class the implements the `BaseCloud` interface.
+    instance of a class that implements the `BaseCloud` interface.
 
     Args:
         registry_name: The name that the builder should be registered with.
