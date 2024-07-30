@@ -46,7 +46,7 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
                 training_callbacks = (
                     [transformers.trainer_callback.DefaultFlowCallback]
                     + callbacks
-                    # Skip the first callback, which is the default callback added above.
+                    # Skip the first callback, which is the DefaultFlowCallback above.
                     + trainer._hf_trainer.callback_handler.callbacks[1:]
                 )
                 trainer._hf_trainer.callback_handler.callbacks = []
