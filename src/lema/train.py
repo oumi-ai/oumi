@@ -80,10 +80,6 @@ def main() -> None:
     device_cleanup()
     set_random_seeds(config.training.seed)
 
-    # Configure logging to file
-    log_dir = os.path.join(config.training.output_dir, "logs")
-    configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
-
     # Run training
     train(config)
 
@@ -162,6 +158,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
         log_devices_info()
         log_training_config(config)
         _ensure_training_output_dir_exists(config.training.output_dir)
+
+    # Configure logging to file
+    log_dir = os.path.join(config.training.output_dir, "logs")
+    configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
