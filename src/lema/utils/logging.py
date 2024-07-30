@@ -1,5 +1,4 @@
 import logging
-import os
 import warnings
 from pathlib import Path
 from typing import Optional, Union
@@ -60,10 +59,10 @@ def configure_logger(
 
     # Add a file handler if log_dir is provided
     if log_dir:
-        os.makedirs(log_dir, exist_ok=True)
-        file_handler = logging.FileHandler(
-            os.path.join(log_dir, f"rank_{rank.rank:04d}.log")
-        )
+        log_dir = Path(log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_dir / f"rank_{rank.rank:04d}.log")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level.upper())
         logger.addHandler(file_handler)
