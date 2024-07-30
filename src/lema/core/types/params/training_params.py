@@ -193,6 +193,7 @@ class TrainingParams:
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             seed=self.seed,
+            data_seed=self.seed,  # TODO: OPE-224 check if per worker
         )
 
     def _get_hf_report_to(self) -> List[str]:
