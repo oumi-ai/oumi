@@ -77,7 +77,7 @@ def main() -> None:
 
     limit_per_process_memory()
     device_cleanup()
-    set_random_seeds(config.training.seed if hasattr(config.training, "seed") else 42)
+    set_random_seeds(config.training.seed)
 
     # Run training
     train(config)
