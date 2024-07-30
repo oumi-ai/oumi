@@ -1,4 +1,17 @@
+from typing import Optional
+
 import torch
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import (
+    CosineAnnealingLR,
+    CosineAnnealingWarmRestarts,
+    CyclicLR,
+    ExponentialLR,
+    MultiStepLR,
+    OneCycleLR,
+    ReduceLROnPlateau,
+    StepLR,
+)
 from transformers.optimization import Adafactor
 
 from lema.core.types import TrainingParams
@@ -62,3 +75,68 @@ def build_optimizer(
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
+
+
+def build_lr_scheduler(
+    optimizer: Optimizer,
+    training_params: TrainingParams,
+    num_training_steps: Optional[int] = None,
+) -> Optional[torch.optim.lr_scheduler.LRScheduler]:
+    """Builds a learning rate scheduler based on the provided training parameters.
+
+    Args:
+        optimizer: The optimizer for which to build the learning rate scheduler.
+        training_params: The training parameters containing lr scheduler configuration.
+        num_training_steps: The total number of training steps
+            (required for some schedulers).
+
+    Returns:
+        A learning rate scheduler or None if no scheduler is specified.
+    """
+    # class SchedulerType(ExplicitEnum):
+    #     LINEAR = "linear"
+    #     COSINE = "cosine"
+    #     COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    #     POLYNOMIAL = "polynomial"
+    #     CONSTANT = "constant"
+    #     CONSTANT_WITH_WARMUP = "constant_with_warmup"
+    #     INVERSE_SQRT = "inverse_sqrt"
+    #     REDUCE_ON_PLATEAU = "reduce_lr_on_plateau"
+    #     COSINE_WITH_MIN_LR = "cosine_with_min_lr"
+    #     WARMUP_STABLE_DECAY = "warmup_stable_decay"
+
+    scheduler_type = training_params.lr_scheduler_type.lower()
+    scheduler_kwargs = training_params.lr_scheduler_kwargs
+
+    if scheduler_type == "constantlr" or scheduler_type == "constant":
+        return None  # No scheduler needed for constant learning rate
+
+    if scheduler_type == "steplr":
+        return StepLR(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "multisteplr":
+        return MultiStepLR(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "exponentiallr":
+        return ExponentialLR(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "cosineannealinglr":
+        return CosineAnnealingLR(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "reducelronplateau":
+        return ReduceLROnPlateau(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "cycliclr":
+        return CyclicLR(optimizer, **scheduler_kwargs)
+
+    if scheduler_type == "onecyclelr":
+        if num_training_steps is None:
+            raise ValueError(
+                "num_training_steps must be provided for OneCycleLR scheduler"
+            )
+        return OneCycleLR(optimizer, total_steps=num_training_steps, **scheduler_kwargs)
+
+    if scheduler_type == "cosineannealingwarmrestarts":
+        return CosineAnnealingWarmRestarts(optimizer, **scheduler_kwargs)
+
+    raise ValueError(f"Unsupported learning rate scheduler: {scheduler_type}")
