@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+from pathlib import Path
 from typing import Optional, Union
 
 from lema.core.distributed import get_device_rank_info
@@ -9,7 +10,7 @@ from lema.core.distributed import get_device_rank_info
 def get_logger(
     name: str,
     level: str = "info",
-    log_dir: Optional[str] = None,
+    log_dir: Optional[Union[str, Path]] = None,
 ) -> logging.Logger:
     """Gets a logger instance with the specified name and log level.
 
@@ -31,7 +32,7 @@ def get_logger(
 def configure_logger(
     name: str,
     level: str = "info",
-    log_dir: Optional[str] = None,
+    log_dir: Optional[Union[str, Path]] = None,
 ) -> None:
     """Configures a logger with the specified name and log level."""
     logger = logging.getLogger(name)
