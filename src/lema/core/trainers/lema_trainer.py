@@ -3,6 +3,7 @@ import time
 from pprint import pformat
 from typing import Any, Dict, List, Optional, cast
 
+import pydantic
 import torch
 import torch.amp
 from torch.utils.data import DataLoader, Dataset
@@ -21,11 +22,18 @@ from lema.core.distributed import (
 from lema.core.types import TrainingConfig, TrainingParams
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.telemetry import TelemetryTracker
+from lema.utils.io_utils import load_json, save_json
 from lema.utils.logging import logger
 from lema.utils.torch_utils import log_trainable_parameters
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
+
+
+class TrainingState(pydantic.BaseModel):
+    epoch: int = 0
+    global_step: int = 0
+    total_tokens_seen: int = 0
 
 
 class Trainer(BaseTrainer):
@@ -92,10 +100,7 @@ class Trainer(BaseTrainer):
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
 
-        # TODO: OPE-222 - add dataclass for training state
-        self.global_step = 0
-        self.epoch = 0
-        self.total_tokens_seen = 0
+        self.state = TrainingState()
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
@@ -121,7 +126,7 @@ class Trainer(BaseTrainer):
             desc="Training",
             disable=not is_world_process_zero(),
         ) as progress_bar:
-            for epoch in range(self.epoch, self.params.num_train_epochs):
+            for epoch in range(self.state.epoch, self.params.num_train_epochs):
                 self._train_epoch(progress_bar)
 
                 if self.params.save_epoch:
@@ -137,9 +142,9 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-                self.epoch += 1
+                self.state.epoch += 1
 
-                if self.global_step >= total_steps:
+                if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
                     self.log(
                         f"Training runtime: {time.perf_counter() - self.start_time}s"
@@ -177,7 +182,7 @@ class Trainer(BaseTrainer):
 
             with self.telemetry.timer("syncing to cpu"):
                 num_tokens = num_tokens.item()
-                self.total_tokens_seen += num_tokens
+                self.state.total_tokens_seen += num_tokens
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
@@ -203,26 +208,30 @@ class Trainer(BaseTrainer):
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
 
-                self.global_step += 1
+                self.state.global_step += 1
                 progress_bar.update(1)
 
                 self.process_callbacks("on_step_end")
 
-                if self.global_step % self.params.logging_steps == 0:
+                if self.state.global_step % self.params.logging_steps == 0:
                     # TODO: OPE-225 - add detailed logging metrics
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
-                    self.log(f"Step {self.global_step}: loss = {loss_value}")
+                    self.log(f"Step {self.state.global_step}: loss = {loss_value}")
                     logs = self.process_callbacks("on_log")
                     self.log(pformat(logs))
-                    self.log(f"Total tokens seen: {self.total_tokens_seen}")
+                    self.log(f"Total tokens seen: {self.state.total_tokens_seen}")
                     elapsed = time.perf_counter() - self.start_time
-                    self.log(f"Steps per second: {self.global_step / elapsed} step/s")
                     self.log(
-                        f"Tokens per second: {self.total_tokens_seen / elapsed} tok/s"
+                        f"Steps per second: {self.state.global_step / elapsed} step/s"
+                    )
+                    self.log(
+                        f"Tokens per second: {self.state.total_tokens_seen / elapsed}"
+                        " tok/s"
                     )
                     self.log(
                         f"Tokens per step per GPU: "
-                        f"{self.total_tokens_seen / self.global_step} tok/step/gpu"
+                        f"{self.state.total_tokens_seen / self.state.global_step}"
+                        " tok/step/gpu"
                     )
 
                     if is_local_process_zero():
@@ -230,14 +239,14 @@ class Trainer(BaseTrainer):
 
                 if (
                     self.params.save_steps > 0
-                    and self.global_step % self.params.save_steps == 0
+                    and self.state.global_step % self.params.save_steps == 0
                 ):
                     self.save_state()
 
                 if (
                     self.eval_dataloader
                     and self.params.eval_steps > 0
-                    and self.global_step % self.params.eval_steps == 0
+                    and self.state.global_step % self.params.eval_steps == 0
                     and is_world_process_zero()
                 ):
                     # TODO: OPE-223 - only the global leader is used for evaluation
@@ -245,7 +254,7 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-            if self.global_step >= self.params.max_steps:
+            if self.state.global_step >= self.params.max_steps:
                 break
 
             micro_step += 1
@@ -340,14 +349,10 @@ class Trainer(BaseTrainer):
             torch.save(
                 self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
             )
-            # TODO: OPE-222 - add dataclass for trainer state
-            torch.save(
-                {
-                    "epoch": self.epoch,
-                    "global_step": self.global_step,
-                    "total_tokens_seen": self.total_tokens_seen,
-                },
-                os.path.join(output_dir, "trainer_state.pt"),
+
+            save_json(
+                data=self.state.model_dump(),
+                filename=os.path.join(output_dir, "trainer_state.json"),
             )
             logger.info(f"Model saved to {output_dir}")
 
@@ -355,7 +360,7 @@ class Trainer(BaseTrainer):
         """Loads the model and optimizer state from a checkpoint."""
         model_path = os.path.join(checkpoint_dir, "model.pt")
         optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
-        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.pt")
+        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
@@ -364,12 +369,11 @@ class Trainer(BaseTrainer):
                 torch.load(optimizer_path, map_location=self.device)
             )
         if os.path.exists(trainer_state_path):
-            trainer_state = torch.load(trainer_state_path, map_location=self.device)
-            # TODO: OPE-222 - add dataclass for trainer state
-            # TODO: OPE-103 - save / reload dataloader state
-            self.epoch = trainer_state["epoch"]
-            self.global_step = trainer_state["global_step"]
-            self.total_tokens_seen = trainer_state["total_tokens_seen"]
+            self.state = TrainingState.model_validate(
+                load_json(trainer_state_path), strict=True
+            )
+
+        # TODO: OPE-103 - save / reload dataloader state
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
 

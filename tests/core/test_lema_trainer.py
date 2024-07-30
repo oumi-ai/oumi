@@ -195,8 +195,8 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
 
     assert trainer.model.load_state_dict.called
     assert trainer.optimizer.load_state_dict.called
-    assert trainer.epoch == 1
-    assert trainer.global_step == 50
+    assert trainer.state.epoch == 1
+    assert trainer.state.global_step == 50
 
 
 def test_get_train_dataloader(trainer):
