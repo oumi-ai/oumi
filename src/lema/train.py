@@ -23,7 +23,6 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.trainers.hf_trainer import HuggingFaceTrainer
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
@@ -182,7 +181,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
             logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         else:
             num_total_params = count_model_parameters(model)
-            num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
+            num_mfu_params = (
+                num_total_params.all_params - num_total_params.embedding_params
+            )
             logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
             # Ignore attention and rematerialization to ensure metric matches most
             # common implementations.

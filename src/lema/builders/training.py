@@ -35,7 +35,9 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
             if training_args is not None:
                 # if set, convert to HuggingFace Trainer args format
                 training_args = cast(TrainingParams, training_args)
-            trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=training_args.to_hf()))
+            trainer = HuggingFaceTrainer(
+                cls(*args, **kwargs, args=training_args.to_hf())
+            )
             if callbacks:
                 # TODO(OPE-250): Define generalizable callback abstraction
                 # Incredibly ugly, but this is the only way to add callbacks that add
