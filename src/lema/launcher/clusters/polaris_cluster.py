@@ -180,7 +180,10 @@ class PolarisCluster(BaseCluster):
 
     def get_jobs(self) -> List[JobStatus]:
         """Lists the jobs on this cluster."""
-        return self._client.list_jobs(self._queue)
+        jobs = self._client.list_jobs(self._queue)
+        for job in jobs:
+            job.cluster = self._name
+        return jobs
 
     def stop_job(self, job_id: str) -> JobStatus:
         """Stops the specified job on this cluster."""
