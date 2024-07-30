@@ -25,7 +25,7 @@ help:
 	@echo "  evaluate    - Run evaluation"
 	@echo "  infer       - Run inference"
 	@echo "  skyssh      - Launch a cloud VM with SSH config"
-	@echo "  skycode      - Launch a vscode remote session on a cloud VM"
+	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
 
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
