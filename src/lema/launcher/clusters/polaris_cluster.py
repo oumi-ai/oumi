@@ -19,13 +19,10 @@ def _last_pbs_line(script: List[str]) -> int:
     Returns:
         The index of the last PBS instruction line. -1 if not found.
     """
-    return (
-        reduce(
-            lambda acc, val: val[0] if val[1].startswith("#PBS") else acc,
-            enumerate(script),
-            -1,
-        )
-        + 1
+    return reduce(
+        lambda acc, val: val[0] if val[1].startswith("#PBS") else acc,
+        enumerate(script),
+        -1,
     )
 
 
@@ -62,8 +59,8 @@ def _create_job_script(job: JobConfig) -> str:
     setup_lines = [] if not job.setup else job.setup.strip().split("\n")
     run_lines = job.run.strip().split("\n")
     # Find the last PBS instruction line.
-    last_run_pbs = _last_pbs_line(run_lines)
-    last_setup_pbs = _last_pbs_line(setup_lines)
+    last_run_pbs = _last_pbs_line(run_lines) + 1
+    last_setup_pbs = _last_pbs_line(setup_lines) + 1
     # Inject environment variables into the script after PBS instructions.
     env_lines = [f"export {key}={value}" for key, value in job.envs.items()]
     # Pad the environment variables with newlines.
@@ -87,7 +84,7 @@ def _create_job_script(job: JobConfig) -> str:
         if not output_lines[0].startswith("script_prefix"):
             output_lines.insert(0, script_prefix)
     # Join each line. Always end the script with a new line.
-    return "\n".join(run_lines) + "\n"
+    return "\n".join(output_lines) + "\n"
 
 
 def _validate_job_config(job: JobConfig) -> None:
@@ -229,7 +226,7 @@ class PolarisCluster(BaseCluster):
             "module load conda",
             f'! test -d "{lema_env_path}"',
             'echo "Creating LeMa Conda environment... -------------------------------"',
-            f"conda create -y python=3.11 --prefix ${lema_env_path}",
+            f"conda create -y python=3.11 --prefix {lema_env_path}",
             f"conda activate {lema_env_path}",
             "pip install flash-attn --no-build-isolation",
         ]
@@ -237,7 +234,7 @@ class PolarisCluster(BaseCluster):
         self._client.run_commands([" && ".join(conda_cmds)])
         # Install LeMa requirements.
         setup_cmds = [
-            "cd {remote_working_dir}",
+            f"cd {remote_working_dir}",
             "module use /soft/modulefiles",
             "module load conda",
             f"conda activate {lema_env_path}",
