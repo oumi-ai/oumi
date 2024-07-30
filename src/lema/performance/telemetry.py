@@ -150,6 +150,9 @@ class TelemetryTracker:
         """Initializes the TelemetryTracker object."""
         self.state = TelemetryState()
 
+    #
+    # Context Managers
+    #
     def timer(self, name: str) -> TimerContext:
         """Creates a timer with the given name.
 
@@ -195,6 +198,9 @@ class TelemetryTracker:
         else:
             self.state.gpu_memory.append(memory_info)
 
+    #
+    # Summary
+    #
     def get_summary(self) -> Dict[str, Any]:
         """Returns a summary of the telemetry statistics.
 
@@ -218,22 +224,6 @@ class TelemetryTracker:
 
         return summary
 
-    def _calculate_stats(
-        self, measurements: List[float], total_time: Optional[float] = None
-    ) -> Dict[str, float]:
-        stats = {
-            "total": sum(measurements),
-            "mean": statistics.mean(measurements),
-            "median": statistics.median(measurements),
-            "std_dev": statistics.stdev(measurements) if len(measurements) > 1 else 0,
-            "min": min(measurements),
-            "max": max(measurements),
-            "count": len(measurements),
-        }
-        if total_time:
-            stats["percentage"] = (stats["total"] / total_time) * 100
-        return stats
-
     def print_summary(self) -> None:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
@@ -254,6 +244,36 @@ class TelemetryTracker:
             max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
             LOGGER.info(f"\nPeak GPU memory usage: {max_memory:.2f} MB")
 
+    #
+    # State Management
+    #
+    def state_dict(self) -> dict:
+        """Returns the TelemetryState as a dict."""
+        return self.state.model_dump()
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        """Loads TelemetryState from state_dict."""
+        self.state = TelemetryState.model_validate(state_dict, strict=True)
+
+    #
+    # Helper Methods
+    #
+    def _calculate_stats(
+        self, measurements: List[float], total_time: Optional[float] = None
+    ) -> Dict[str, float]:
+        stats = {
+            "total": sum(measurements),
+            "mean": statistics.mean(measurements),
+            "median": statistics.median(measurements),
+            "std_dev": statistics.stdev(measurements) if len(measurements) > 1 else 0,
+            "min": min(measurements),
+            "max": max(measurements),
+            "count": len(measurements),
+        }
+        if total_time:
+            stats["percentage"] = (stats["total"] / total_time) * 100
+        return stats
+
     def _log_timer_stats(
         self, name: str, stats: Dict[str, float], is_cuda: bool = False
     ) -> None:
@@ -266,11 +286,3 @@ class TelemetryTracker:
         LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
         LOGGER.info(f"\t\tCount: {stats['count']}")
         LOGGER.info(f"\t\tPercentage of total time: {stats['percentage']:.2f}%")
-
-    def state_dict(self) -> dict:
-        """Returns the TelemetryState as a dict."""
-        return self.state.model_dump()
-
-    def load_state_dict(self, state_dict: dict) -> None:
-        """Loads TelemetryState from state_dict."""
-        self.state = TelemetryState.model_validate(state_dict, strict=True)
