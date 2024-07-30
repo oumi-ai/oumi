@@ -92,6 +92,8 @@ class TrainingParams:
     adam_epsilon: float = 1e-08
     sgd_momentum: float = 0.9
 
+    # `use_reentrant` is a required parameter and is recommended to be set to False.
+    # See: https://pytorch.org/docs/stable/checkpoint.html
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     fp16: bool = False  # 16-bit (mixed) precision training instead of 32-bit training
