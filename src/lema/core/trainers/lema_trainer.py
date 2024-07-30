@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, cast
 import pydantic
 import torch
 import torch.amp
+import torch.utils.tensorboard as tensorboard
+import wandb
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
@@ -13,6 +15,7 @@ from transformers import PreTrainedTokenizerBase, TrainerCallback
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
+    global_leader_only,
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
@@ -104,6 +107,7 @@ class Trainer(BaseTrainer):
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
+        self._init_logging()
 
     #
     # Training
@@ -393,6 +397,16 @@ class Trainer(BaseTrainer):
         """Logs a message if the process is the local process zero."""
         logger.info(message)
 
+    @global_leader_only()
+    def log_metrics(self, metrics, step):
+        """Logs metrics to wandb and tensorboard."""
+        if self.params.enable_wandb:
+            wandb.log(metrics, step=self.state.global_step)
+
+        if self.params.enable_tensorboard and self.tensorboard_writer:
+            for key, value in metrics.items():
+                self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
+
     #
     # Handle callbacks
     #
@@ -410,3 +424,23 @@ class Trainer(BaseTrainer):
                 action(args=self.params, state=None, control=None, logs=logs)
 
         return logs
+
+    def _init_logging(
+        self,
+    ):
+        """Initializes logging."""
+        if not is_world_process_zero():
+            return
+
+        self.log(f"Logging to {self.params.output_dir}")
+
+        if self.params.enable_wandb:
+            wandb.init(project="lema", name=self.params.run_name)
+            wandb.watch(self.model)
+
+        if self.params.enable_tensorboard:
+            self.tensorboard_writer = tensorboard.SummaryWriter(
+                log_dir=self.params.logging_dir
+            )
+        else:
+            self.tensorboard_writer = None
