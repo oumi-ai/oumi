@@ -61,7 +61,7 @@ def configure_logger(
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
         file_handler = logging.FileHandler(
-            os.path.join(log_dir, f"rank_{rank.rank}.log")
+            os.path.join(log_dir, f"rank_{rank.rank:04d}.log")
         )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level.upper())
