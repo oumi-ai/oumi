@@ -88,6 +88,7 @@ class TrainingParams:
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     adam_epsilon: float = 1e-08
+    sgd_momentum: float = 0.9
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
@@ -210,3 +211,6 @@ class TrainingParams:
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
+
+        if self.gradient_accumulation_steps < 1:
+            raise ValueError("gradient_accumulation_steps must be >= 1.")

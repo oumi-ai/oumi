@@ -110,6 +110,7 @@ def log_model_summary(model) -> None:
 class ModelParameterCount(NamedTuple):
     all_params: int
     trainable_params: int
+    embedding_params: int
 
 
 def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
@@ -123,14 +124,26 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     """
     trainable_params = 0
     all_params = 0
-    for _, param in model.named_parameters():
-        all_params += param.numel()
+    embedding_params = 0
+    embedding_layer_names = []
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Embedding):
+            # Embedding layers appear in named_parameters with ".weight" at the end
+            embedding_layer_names.append(name + ".weight")
+
+    for name, param in model.named_parameters():
+        param_count = param.numel()
+        all_params += param_count
         if param.requires_grad:
-            trainable_params += param.numel()
+            trainable_params += param_count
+
+        if name in embedding_layer_names:
+            embedding_params += param_count
 
     return ModelParameterCount(
         all_params=all_params,
         trainable_params=trainable_params,
+        embedding_params=embedding_params,
     )
 
 

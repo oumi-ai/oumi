@@ -16,6 +16,9 @@ from lema.builders import (
 )
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
+    cleanup_distributed,
+    init_distributed,
+    is_distributed,
     is_local_process_zero,
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
@@ -117,6 +120,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
+    if is_distributed():
+        init_distributed()
+
     if is_local_process_zero():
         log_versioning_info()
         log_devices_info()
@@ -174,13 +180,17 @@ def train(config: TrainingConfig, **kwargs) -> None:
         if not torch.cuda.is_available():
             logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         else:
-            num_params = count_model_parameters(model).all_params
-            logger.info(f"Number of model parameters: {num_params}")
+            num_total_params = count_model_parameters(model)
+            num_mfu_params = (
+                num_total_params.all_params - num_total_params.embedding_params
+            )
+            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+            # Ignore attention and rematerialization to ensure metric matches most
+            # common implementations.
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
-                num_params=num_params,
+                num_params=num_mfu_params,
                 sequence_length=config.model.model_max_length,
-                add_rematerialization=config.training.enable_gradient_checkpointing,
             )
             training_callbacks.append(mfu_callback)
 
@@ -225,6 +235,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         trainer.save_state()
         if config.training.save_final_model:
             trainer.save_model(config=config)
+
+    if is_distributed():
+        cleanup_distributed()
 
 
 if __name__ == "__main__":

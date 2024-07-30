@@ -4,7 +4,7 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A100-80GB"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  accelerators: {"A100"}
   # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
   # something like this: {"A40": N}
   any_of:
