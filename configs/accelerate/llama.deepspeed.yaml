@@ -17,6 +17,9 @@ deepspeed_config:
   zero3_init_flag: true
   # If value is set "auto", will be automatically inferred from model, HF configs, etc.
   # `zero_hpz_partition_size=4` enables hierarchical partioning, with 4 GPUs per node.
+  # For details about the DeepSpeed config file, see:
+  # https://huggingface.co/docs/accelerate/en/usage_guides/deepspeed#deepspeed-config-file
+  # https://www.deepspeed.ai/docs/config-json/
   deepspeed_config_file: "configs/accelerate/deepspeed_config.json"
 distributed_type: DEEPSPEED
 downcast_bf16: no
