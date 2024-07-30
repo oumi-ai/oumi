@@ -218,25 +218,25 @@ class Trainer(BaseTrainer):
                 self.process_callbacks("on_step_end")
 
                 if self.state.global_step % self.params.logging_steps == 0:
-                    # TODO: OPE-225 - add detailed logging metrics
-                    loss_value = loss.item() * self.params.gradient_accumulation_steps
-                    self.log(f"Step {self.state.global_step}: loss = {loss_value}")
-                    logs = self.process_callbacks("on_log")
-                    self.log(pformat(logs))
-                    self.log(f"Total tokens seen: {self.state.total_tokens_seen}")
+                    # Log metrics
+
                     elapsed = time.perf_counter() - self.start_time
-                    self.log(
-                        f"Steps per second: {self.state.global_step / elapsed} step/s"
-                    )
-                    self.log(
-                        f"Tokens per second: {self.state.total_tokens_seen / elapsed}"
-                        " tok/s"
-                    )
-                    self.log(
-                        f"Tokens per step per GPU: "
-                        f"{self.state.total_tokens_seen / self.state.global_step}"
-                        " tok/step/gpu"
-                    )
+
+                    metrics = {
+                        "loss": loss.item() * self.params.gradient_accumulation_steps,
+                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "epoch": self.state.epoch,
+                        "global_step": self.state.global_step,
+                        "total_tokens_seen": self.state.total_tokens_seen,
+                        "global_steps_per_second": self.state.global_step / elapsed,
+                        "tokens_per_second": self.state.total_tokens_seen / elapsed,
+                        "tokens_per_step_per_gpu": self.state.total_tokens_seen
+                        / self.state.global_step,
+                    }
+                    callback_metrics = self.process_callbacks("on_log")
+                    metrics.update(callback_metrics)
+
+                    self.log_metrics(metrics, self.state.global_step)
 
                     if is_local_process_zero():
                         self.telemetry.print_summary()
@@ -400,9 +400,14 @@ class Trainer(BaseTrainer):
     @global_leader_only()
     def log_metrics(self, metrics, step):
         """Logs metrics to wandb and tensorboard."""
+        # Log to console and log file
+        self.log(pformat(metrics))
+
+        # Log to Weights and Biases
         if self.params.enable_wandb:
             wandb.log(metrics, step=self.state.global_step)
 
+        # Log to tensorboard
         if self.params.enable_tensorboard and self.tensorboard_writer:
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
@@ -410,13 +415,13 @@ class Trainer(BaseTrainer):
     #
     # Handle callbacks
     #
-    def process_callbacks(self, event: str) -> Optional[Dict[str, Any]]:
+    def process_callbacks(self, event: str) -> Dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
         Just here to unblock debugging with our MfuCallback
         """
-        logs = {} if event == "on_log" else None
+        logs = {}
 
         for callback in self.callbacks:
             if hasattr(callback, event):
