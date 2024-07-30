@@ -1,16 +1,20 @@
 import logging
+import os
 import warnings
-from typing import Union
+from typing import Optional, Union
 
 from lema.core.distributed import get_device_rank_info
 
 
-def get_logger(name: str, level: str = "info") -> logging.Logger:
+def get_logger(
+    name: str, level: str = "info", log_dir: Optional[str] = None
+) -> logging.Logger:
     """Gets a logger instance with the specified name and log level.
 
     Args:
-        name (str): The name of the logger.
-        level (str, optional): The log level to set for the logger. Defaults to "info".
+        name : The name of the logger.
+        level (optional): The log level to set for the logger. Defaults to "info".
+        log_dir (optional): Directory to store log files. Defaults to None.
 
     Returns:
         logging.Logger: The logger instance.
@@ -32,8 +36,18 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         console_handler.setLevel(level.upper())
-
         logger.addHandler(console_handler)
+
+        # Add a file handler if log_dir is provided
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+            file_handler = logging.FileHandler(
+                os.path.join(log_dir, f"rank_{rank.rank}.log")
+            )
+            file_handler.setFormatter(formatter)
+            file_handler.setLevel(level.upper())
+            logger.addHandler(file_handler)
+
         logger.propagate = False
     else:
         logger = logging.getLogger(name)
