@@ -31,10 +31,28 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
     ) -> Callable[..., BaseTrainer]:
         def _init_hf_trainer(*args, **kwargs) -> BaseTrainer:
             training_args = kwargs.pop("args", None)
+            callbacks = kwargs.pop("callbacks", [])
             if training_args is not None:
                 # if set, convert to HuggingFace Trainer args format
                 training_args = cast(TrainingParams, training_args)
-            return HuggingFaceTrainer(cls(*args, **kwargs, args=training_args.to_hf()))
+            trainer = HuggingFaceTrainer(
+                cls(*args, **kwargs, args=training_args.to_hf())
+            )
+            if callbacks:
+                # TODO(OPE-250): Define generalizable callback abstraction
+                # Incredibly ugly, but this is the only way to add callbacks that add
+                # metrics to wandb. Transformers trainer has no public method of
+                # allowing us to control the order callbacks are called.
+                training_callbacks = (
+                    [transformers.trainer_callback.DefaultFlowCallback]
+                    + callbacks
+                    # Skip the first callback, which is the DefaultFlowCallback above.
+                    + trainer._hf_trainer.callback_handler.callbacks[1:]
+                )
+                trainer._hf_trainer.callback_handler.callbacks = []
+                for c in training_callbacks:
+                    trainer._hf_trainer.add_callback(c)
+            return trainer
 
         return _init_hf_trainer
 

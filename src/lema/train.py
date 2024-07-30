@@ -180,13 +180,17 @@ def train(config: TrainingConfig, **kwargs) -> None:
         if not torch.cuda.is_available():
             logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         else:
-            num_params = count_model_parameters(model).all_params
-            logger.info(f"Number of model parameters: {num_params}")
+            num_total_params = count_model_parameters(model)
+            num_mfu_params = (
+                num_total_params.all_params - num_total_params.embedding_params
+            )
+            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+            # Ignore attention and rematerialization to ensure metric matches most
+            # common implementations.
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
-                num_params=num_params,
+                num_params=num_mfu_params,
                 sequence_length=config.model.model_max_length,
-                add_rematerialization=config.training.enable_gradient_checkpointing,
             )
             training_callbacks.append(mfu_callback)
 

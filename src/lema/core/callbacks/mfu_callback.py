@@ -14,9 +14,9 @@ from lema.utils.logging import logger
 _LOGS_KWARG = "logs"
 
 # MFU using only the time between on_step_start and on_step_end (except the first step)
-_TRAIN_STEP_MFU = "Train Step MFU"
+_TRAIN_STEP_MFU = "train_step_mfu"
 # MFU using the time since training started (except the first step)
-_TRAIN_MFU = "Train MFU"
+_TRAIN_MFU = "train_mfu"
 
 
 class MfuTrainerCallback(transformers.TrainerCallback):
