@@ -4,11 +4,20 @@ from contextlib import ContextDecorator
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, cast
 
+import pydantic
 import torch
 
 from lema.utils.logging import get_logger
 
 LOGGER = get_logger("lema.telemetry")
+
+
+class TelemetryState(pydantic.BaseModel):
+    measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
+    # TODO: OPE-226 - implement async timers
+    cuda_measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
+    gpu_memory: List[Dict[str, float]] = pydantic.Field(default_factory=list)
+    start_time: float = pydantic.Field(default_factory=time.perf_counter)
 
 
 class TimerContext(ContextDecorator):
@@ -139,11 +148,11 @@ class TelemetryTracker:
 
     def __init__(self):
         """Initializes the TelemetryTracker object."""
-        self.measurements: Dict[str, List[float]] = {}
-        self.cuda_measurements: Dict[str, List[float]] = {}
-        self.gpu_memory: List[Dict[str, float]] = []
-        self.start_time = time.perf_counter()
+        self.state = TelemetryState()
 
+    #
+    # Context Managers
+    #
     def timer(self, name: str) -> TimerContext:
         """Creates a timer with the given name.
 
@@ -153,14 +162,11 @@ class TelemetryTracker:
         Returns:
             A TimerContext object.
         """
-        if name not in self.measurements:
-            self.measurements[name] = []
-        return TimerContext(name, self.measurements[name])
+        if name not in self.state.measurements:
+            self.state.measurements[name] = []
+        return TimerContext(name, self.state.measurements[name])
 
-    def cuda_timer(
-        self,
-        name: str,
-    ) -> CudaTimerContext:
+    def cuda_timer(self, name: str) -> CudaTimerContext:
         """Creates a CUDA benchmark with the given name.
 
         Args:
@@ -169,12 +175,9 @@ class TelemetryTracker:
         Returns:
             A CudaTimerContext object.
         """
-        if name not in self.cuda_measurements:
-            self.cuda_measurements[name] = []
-        return CudaTimerContext(
-            name,
-            self.cuda_measurements[name],
-        )
+        if name not in self.state.cuda_measurements:
+            self.state.cuda_measurements[name] = []
+        return CudaTimerContext(name, self.state.cuda_measurements[name])
 
     def log_gpu_memory(self, custom_logger: Optional[Callable] = None) -> None:
         """Logs the GPU memory usage.
@@ -193,49 +196,31 @@ class TelemetryTracker:
         if custom_logger:
             custom_logger(memory_info)
         else:
-            self.gpu_memory.append(memory_info)
+            self.state.gpu_memory.append(memory_info)
 
+    #
+    # Summary
+    #
     def get_summary(self) -> Dict[str, Any]:
         """Returns a summary of the telemetry statistics.
 
         Returns:
             A dictionary containing the summary statistics.
         """
-        total_time = time.perf_counter() - self.start_time
+        total_time = time.perf_counter() - self.state.start_time
+
         summary = {
             "total_time": total_time,
             "timers": {},
             "cuda_timers": {},
-            "gpu_memory": self.gpu_memory,
+            "gpu_memory": self.state.gpu_memory,
         }
 
-        for name, measurements in self.measurements.items():
-            summary["timers"][name] = {
-                "total": sum(measurements),
-                "mean": statistics.mean(measurements),
-                "median": statistics.median(measurements),
-                "std_dev": statistics.stdev(measurements)
-                if len(measurements) > 1
-                else 0,
-                "min": min(measurements),
-                "max": max(measurements),
-                "count": len(measurements),
-            }
-            summary["timers"][name]["percentage"] = (
-                summary["timers"][name]["total"] / total_time * 100
-            )
+        for name, measurements in self.state.measurements.items():
+            summary["timers"][name] = self._calculate_stats(measurements, total_time)
 
-        for name, measurements in self.cuda_measurements.items():
-            summary["cuda_timers"][name] = {
-                "mean": statistics.mean(measurements),
-                "median": statistics.median(measurements),
-                "std_dev": statistics.stdev(measurements)
-                if len(measurements) > 1
-                else 0,
-                "min": min(measurements),
-                "max": max(measurements),
-                "count": len(measurements),
-            }
+        for name, measurements in self.state.cuda_measurements.items():
+            summary["cuda_timers"][name] = self._calculate_stats(measurements)
 
         return summary
 
@@ -248,27 +233,56 @@ class TelemetryTracker:
         if summary["timers"]:
             LOGGER.info("\nCPU Timers:")
             for name, stats in summary["timers"].items():
-                LOGGER.info(f"\t{name}:")
-                LOGGER.info(f"\t\tTotal: {stats['total']:.6f} seconds")
-                LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
-                LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
-                LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
-                LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
-                LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
-                LOGGER.info(f"\t\tCount: {stats['count']}")
-                LOGGER.info(f"\t\tPercentage of total time: {stats['percentage']:.2f}%")
+                self._log_timer_stats(name, stats)
 
         if summary["cuda_timers"]:
             LOGGER.info("\nCUDA Timers:")
             for name, stats in summary["cuda_timers"].items():
-                LOGGER.info(f"\t{name}:")
-                LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
-                LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
-                LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
-                LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
-                LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
-                LOGGER.info(f"\t\tCount: {stats['count']}")
+                self._log_timer_stats(name, stats)
 
         if summary["gpu_memory"]:
             max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
             LOGGER.info(f"\nPeak GPU memory usage: {max_memory:.2f} MB")
+
+    #
+    # State Management
+    #
+    def state_dict(self) -> dict:
+        """Returns the TelemetryState as a dict."""
+        return self.state.model_dump()
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        """Loads TelemetryState from state_dict."""
+        self.state = TelemetryState.model_validate(state_dict, strict=True)
+
+    #
+    # Helper Methods
+    #
+    def _calculate_stats(
+        self, measurements: List[float], total_time: Optional[float] = None
+    ) -> Dict[str, float]:
+        stats = {
+            "total": sum(measurements),
+            "mean": statistics.mean(measurements),
+            "median": statistics.median(measurements),
+            "std_dev": statistics.stdev(measurements) if len(measurements) > 1 else 0,
+            "min": min(measurements),
+            "max": max(measurements),
+            "count": len(measurements),
+        }
+        if total_time:
+            stats["percentage"] = (stats["total"] / total_time) * 100
+        return stats
+
+    def _log_timer_stats(
+        self, name: str, stats: Dict[str, float], is_cuda: bool = False
+    ) -> None:
+        LOGGER.info(f"\t{name}:")
+        LOGGER.info(f"\t\tTotal: {stats['total']:.6f} seconds")
+        LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
+        LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
+        LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
+        LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
+        LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
+        LOGGER.info(f"\t\tCount: {stats['count']}")
+        LOGGER.info(f"\t\tPercentage of total time: {stats['percentage']:.2f}%")

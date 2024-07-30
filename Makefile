@@ -18,13 +18,14 @@ help:
 	@echo "  upgrade     - Upgrade project dependencies"
 	@echo "  clean       - Remove generated files and directories"
 	@echo "  check       - Run pre-commit hooks"
+	@echo "  torchfix    - Run TorchFix static analysis"
 	@echo "  format      - Run code formatter"
 	@echo "  test        - Run tests"
 	@echo "  train       - Run training"
 	@echo "  evaluate    - Run evaluation"
 	@echo "  infer       - Run inference"
 	@echo "  skyssh      - Launch a cloud VM with SSH config"
-	@echo "  skyssh      - Launch a vscode remote session on a cloud VM"
+	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
 
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
@@ -45,6 +46,9 @@ clean:
 
 check:
 	$(CONDA_RUN) pre-commit run --all-files
+
+torchfix:
+	$(CONDA_RUN) torchfix --select ALL .
 
 format:
 	$(CONDA_RUN) ruff format $(SRC_DIR) $(TEST_DIR)
