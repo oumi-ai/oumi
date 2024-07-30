@@ -4,10 +4,11 @@ from typing import Any, Callable, Optional, Tuple
 
 
 class RegistryType(Enum):
+    CLOUD = auto()
+    DATASET = auto()
+    METRICS_FUNCTION = auto()
     MODEL_CONFIG = auto()
     MODEL = auto()
-    METRICS_FUNCTION = auto()
-    DATASET = auto()
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -146,6 +147,28 @@ def register_dataset(registry_name: str, subset: Optional[str] = None) -> Callab
         """Decorator to register its target `obj`."""
         full_name = f"{registry_name}/{subset}" if subset else registry_name
         REGISTRY.register(name=full_name, type=RegistryType.DATASET, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_cloud_builder(registry_name: str) -> Callable:
+    """Returns a function to register decorated builder in the LeMa global registry.
+
+    Use this decorator to register cloud builder functions in the global registry.
+    A cloud builder function is a function that accepts no arguments and returns an
+    instance of a class that implements the `BaseCloud` interface.
+
+    Args:
+        registry_name: The name that the builder should be registered with.
+
+    Returns:
+        Decorator function to register the target builder.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target builder."""
+        REGISTRY.register(name=registry_name, type=RegistryType.CLOUD, value=obj)
         return obj
 
     return decorator_register

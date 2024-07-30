@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.configs import JobConfig
 from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
 from lema.launcher.clients.polaris_client import PolarisClient
@@ -193,3 +194,7 @@ def test_polaris_cloud_get_cluster_fails(mock_polaris_client):
     cloud.up_cluster(_get_default_job("polaris"), "debug.user")
     cloud.initialize_clusters("me")
     assert cloud.get_cluster("nonexistent") is None
+
+
+def test_polaris_cloud_builder_registered():
+    assert REGISTRY.contains("polaris", RegistryType.CLOUD)
