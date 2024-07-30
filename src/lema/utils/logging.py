@@ -1,44 +1,73 @@
 import logging
 import warnings
-from typing import Union
+from pathlib import Path
+from typing import Optional, Union
 
 from lema.core.distributed import get_device_rank_info
 
 
-def get_logger(name: str, level: str = "info") -> logging.Logger:
+def get_logger(
+    name: str,
+    level: str = "info",
+    log_dir: Optional[Union[str, Path]] = None,
+) -> logging.Logger:
     """Gets a logger instance with the specified name and log level.
 
     Args:
-        name (str): The name of the logger.
-        level (str, optional): The log level to set for the logger. Defaults to "info".
+        name : The name of the logger.
+        level (optional): The log level to set for the logger. Defaults to "info".
+        log_dir (optional): Directory to store log files. Defaults to None.
 
     Returns:
         logging.Logger: The logger instance.
     """
     if name not in logging.Logger.manager.loggerDict:
-        logger = logging.getLogger(name)
-        logger.setLevel(level.upper())
+        configure_logger(name, level=level, log_dir=log_dir)
 
-        rank = get_device_rank_info()
-
-        formatter = logging.Formatter(
-            "[%(asctime)s][%(name)s]"
-            f"[rank{rank.rank}]"
-            "[pid:%(process)d][%(threadName)s]"
-            "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
-        )
-
-        # Add a console handler to the logger
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(level.upper())
-
-        logger.addHandler(console_handler)
-        logger.propagate = False
-    else:
-        logger = logging.getLogger(name)
-
+    logger = logging.getLogger(name)
     return logger
+
+
+def configure_logger(
+    name: str,
+    level: str = "info",
+    log_dir: Optional[Union[str, Path]] = None,
+) -> None:
+    """Configures a logger with the specified name and log level."""
+    logger = logging.getLogger(name)
+
+    # Remove any existing handlers
+    logger.handlers = []
+
+    # Configure the logger
+    logger.setLevel(level.upper())
+
+    rank = get_device_rank_info()
+
+    formatter = logging.Formatter(
+        "[%(asctime)s][%(name)s]"
+        f"[rank{rank.rank}]"
+        "[pid:%(process)d][%(threadName)s]"
+        "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
+    )
+
+    # Add a console handler to the logger
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(level.upper())
+    logger.addHandler(console_handler)
+
+    # Add a file handler if log_dir is provided
+    if log_dir:
+        log_dir = Path(log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_dir / f"rank_{rank.rank:04d}.log")
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(level.upper())
+        logger.addHandler(file_handler)
+
+    logger.propagate = False
 
 
 def update_logger_level(name: str, level: str = "info") -> None:
@@ -48,7 +77,7 @@ def update_logger_level(name: str, level: str = "info") -> None:
         name (str): The logger instance to update.
         level (str, optional): The log level to set for the logger. Defaults to "info".
     """
-    logger = logging.getLogger(name)
+    logger = get_logger(name, level=level)
     logger.setLevel(level.upper())
 
     for handler in logger.handlers:
