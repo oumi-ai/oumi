@@ -399,7 +399,7 @@ class Trainer(BaseTrainer):
         logger.info(message)
 
     @global_leader_only()
-    def log_metrics(self, metrics, step):
+    def log_metrics(self, metrics: Dict[str, Any], step: int) -> None:
         """Logs metrics to wandb and tensorboard."""
         # Log to console and log file
         self.log(pformat(metrics))
@@ -433,7 +433,7 @@ class Trainer(BaseTrainer):
 
     def _init_logging(
         self,
-    ):
+    ) -> None:
         """Initializes logging."""
         if not is_world_process_zero():
             return
