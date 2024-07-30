@@ -354,6 +354,11 @@ class Trainer(BaseTrainer):
                 data=self.state.model_dump(),
                 filename=os.path.join(output_dir, "trainer_state.json"),
             )
+
+            save_json(
+                data=self.telemetry.state_dict(),
+                filename=os.path.join(output_dir, "telemetry_state.json"),
+            )
             logger.info(f"Model saved to {output_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dir: str):
@@ -361,6 +366,7 @@ class Trainer(BaseTrainer):
         model_path = os.path.join(checkpoint_dir, "model.pt")
         optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
         trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
+        telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
@@ -372,6 +378,8 @@ class Trainer(BaseTrainer):
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
             )
+        if os.path.exists(telemetry_state_path):
+            self.telemetry.load_state_dict(load_json(telemetry_state_path))
 
         # TODO: OPE-103 - save / reload dataloader state
 
