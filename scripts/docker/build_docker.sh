@@ -3,7 +3,7 @@
 
 set -xe
 
-DOCKER_HUB="gcr.io/lema/lema"
+DOCKER_HUB="TBD" # OPE-251
 VERSION=latest
 
 echo "Building docker image $DOCKER_HUB:$VERSION"
