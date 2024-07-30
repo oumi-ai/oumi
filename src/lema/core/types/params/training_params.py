@@ -45,6 +45,8 @@ class TrainingParams:
     # but in some cases you may want to disable it e.g., if saving a large model
     # takes a long time, and you want to quickly test training speed/metrics.
     save_final_model: bool = True
+    # Random seed, passed to the trainer and to all downstream dependencies
+    seed: int = 42
 
     run_name: str = "default"
 
@@ -190,6 +192,8 @@ class TrainingParams:
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
+            seed=self.seed,
+            data_seed=self.seed,  # TODO: OPE-224 check if per worker
         )
 
     def _get_hf_report_to(self) -> List[str]:
