@@ -1,4 +1,4 @@
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -374,6 +374,112 @@ def test_sky_cluster_run_job(mock_polaris_client):
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
+    )
+    mock_polaris_client.list_jobs.assert_called_once_with(
+        PolarisClient.SupportedQueues.DEBUG
+    )
+    assert job_status == expected_status
+
+
+def test_sky_cluster_run_job_no_name(mock_polaris_client):
+    cluster = PolarisCluster("debug.name", mock_polaris_client)
+    mock_polaris_client.submit_job.return_value = "1234"
+    mock_polaris_client.list_jobs.return_value = [
+        JobStatus(
+            id="1234",
+            name="some name",
+            status="queued",
+            metadata="",
+            cluster="mycluster",
+        )
+    ]
+    expected_status = JobStatus(
+        id="1234",
+        name="some name",
+        status="queued",
+        metadata="",
+        cluster="debug.name",
+    )
+    job = _get_default_job("polaris")
+    job.name = None
+    with patch("lema.launcher.clusters.polaris_cluster.uuid") as mock_uuid:
+        mock_hex = Mock()
+        mock_hex.hex = "1-2-3"
+        mock_uuid.uuid1.return_value = mock_hex
+        job_status = cluster.run_job(job)
+    mock_polaris_client.rsync.assert_has_calls(
+        [
+            call(
+                source="./",
+                destination="/home/user/lema_launcher/1-2-3",
+                delete=True,
+                exclude="tests",
+                rsync_opts="-avz --exclude-from .//.gitignore",
+            ),
+            call(
+                source="~/local/path.bar",
+                destination="~/home/remote/path.bar",
+                delete=True,
+                exclude=None,
+                rsync_opts="-avz",
+            ),
+            call(
+                source="~/local/path2.txt",
+                destination="~/home/remote/path2.txt",
+                delete=True,
+                exclude=None,
+                rsync_opts="-avz",
+            ),
+        ],
+    )
+    mock_polaris_client.run_commands.assert_has_calls(
+        [
+            call(
+                [
+                    "module use /soft/modulefiles && "
+                    "module load conda && "
+                    '! test -d "/home/$USER/miniconda3/envs/lema" && '
+                    'echo "Creating LeMa Conda environment... ------------------------'
+                    '-------"'
+                    " && conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema"
+                    " && conda activate /home/$USER/miniconda3/envs/lema && "
+                    "pip install flash-attn --no-build-isolation"
+                ]
+            ),
+            call(
+                [
+                    "cd /home/user/lema_launcher/1-2-3 && "
+                    "module use /soft/modulefiles && "
+                    "module load conda && "
+                    "conda activate /home/$USER/miniconda3/envs/lema && "
+                    'echo "Installing packages... ------------------------------------'
+                    '-------"'
+                    " && pip install -e '.[train]'"
+                ]
+            ),
+            call(["chmod a+x /home/user/lema_launcher/1-2-3/lema_job.sh"]),
+            call(
+                [
+                    "mkdir -p some/log",
+                    "mkdir -p run/log",
+                ]
+            ),
+        ]
+    )
+    job_script = (
+        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "export var1=val1\n\n"
+        "pip install -r requirements.txt\n./hello_world.sh\n"
+    )
+    mock_polaris_client.put.assert_called_once_with(
+        job_script, "/home/user/lema_launcher/1-2-3/lema_job.sh"
+    )
+    mock_polaris_client.submit_job.assert_called_once_with(
+        "/home/user/lema_launcher/1-2-3/lema_job.sh",
+        2,
+        PolarisClient.SupportedQueues.DEBUG,
+        "1-2-3",
     )
     mock_polaris_client.list_jobs.assert_called_once_with(
         PolarisClient.SupportedQueues.DEBUG

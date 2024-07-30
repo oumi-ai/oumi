@@ -267,7 +267,7 @@ class PolarisCluster(BaseCluster):
             str(script_path),
             job.num_nodes,
             self._queue,
-            job.name,
+            job_name,
         )
         job_status = self.get_job(job_id)
         if job_status is None:
