@@ -32,9 +32,9 @@ dependencies = [
     "patchwork",
     "torch",
     "transformers",
-    "numpy<2.0.0",  # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
+    "numpy<2.0.0",                         # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
     "skypilot-nightly[gcp,lambda,runpod]",
-    "google-api-python-client",        # To enable GCP in Skypilot
+    "google-api-python-client",            # To enable GCP in Skypilot
 ]
 
 [project.urls]
@@ -51,6 +51,7 @@ dev = [
     "pytest",
     "ruff",
     "pyright",
+    "torchfix",
 ]
 train = [
     "transformers>=4.43.1",
@@ -62,11 +63,11 @@ train = [
     "torchmetrics",
     "tensorboard",
     "wandb",
-    "sentencepiece",   # for phi-3
-    "flash-attention", # for phi-3
+    "sentencepiece",        # for phi-3
+    "flash-attention",      # for phi-3
     "pynvml",
-    "accelerate",      # for quantization
-    "bitsandbytes",    # for quantization
+    "accelerate",           # for quantization
+    "bitsandbytes",         # for quantization
     "deepspeed",
     "lm-eval",
     "pydantic",
