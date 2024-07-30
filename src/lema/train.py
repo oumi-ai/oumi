@@ -181,7 +181,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         else:
             num_params = count_model_parameters(model).all_params
-            logger.info(f"Number of model parameters: {num_params}")
+            logger.info(f"Number of model parameters: {num_params:,}")
             mfu_callback = MfuTrainerCallback(
                 dtype=model.dtype,
                 num_params=num_params,

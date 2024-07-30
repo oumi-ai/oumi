@@ -64,15 +64,13 @@ TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
 training.max_steps=20
 training.save_steps=0
 training.save_final_model=false
-training.output_dir=\"output/llama2b.pt/\"
 training.dataloader_num_workers=2
 training.dataloader_prefetch_factor=4
 training.log_model_summary=false
 training.include_performance_metrics=true
 training.ddp_find_unused_parameters=false
 training.try_resume_from_last_checkpoint=false
-training.enable_wandb=true
-"
+training.enable_wandb=true"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
@@ -86,7 +84,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -m lema.train \
         -c configs/lema/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
-        "$TRAINING_PARAMS" \
+        $TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.optimizer='adafactor'" \
         "training.per_device_train_batch_size=4" \
@@ -104,9 +102,10 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
-      "$TRAINING_PARAMS" \
+      $TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.deepspeed.${PBS_JOBID}'" \
       "training.optimizer='adafactor'" \
+      "training.enable_gradient_checkpointing=false" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
       "training.bf16=true"
@@ -123,7 +122,7 @@ else
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
-      "$TRAINING_PARAMS" \
+      $TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
       "training.optimizer='adafactor'" \
       "training.per_device_train_batch_size=14" \
