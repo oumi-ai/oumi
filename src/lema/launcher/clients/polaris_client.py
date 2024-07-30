@@ -154,7 +154,9 @@ class PolarisClient:
         new_connection = Connection(
             "polaris.alcf.anl.gov",
             user=self._user,
-            connect_kwargs={"password": getpass(prompt="Polaris password: ")},
+            connect_kwargs={
+                "password": getpass(prompt=f"Polaris password for {self._user}: ")
+            },
         )
         new_connection.open()
         return new_connection
