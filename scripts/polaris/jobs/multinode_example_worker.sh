@@ -60,7 +60,9 @@ TRAIN_DATASETS="data.train.datasets=
   split: \"train\"
 "
 
-TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
+# Training params shared between the different training modes, and likely
+# don't need to be modified during experimentation.
+SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
 training.max_steps=20
 training.save_steps=0
 training.save_final_model=false
@@ -84,7 +86,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -m lema.train \
         -c configs/lema/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
-        $TRAINING_PARAMS \
+        $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.optimizer='adafactor'" \
         "training.per_device_train_batch_size=4" \
@@ -102,7 +104,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
-      $TRAINING_PARAMS \
+      $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.deepspeed.${PBS_JOBID}'" \
       "training.optimizer='adafactor'" \
       "training.enable_gradient_checkpointing=false" \
@@ -122,7 +124,7 @@ else
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
-      $TRAINING_PARAMS \
+      $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
       "training.optimizer='adafactor'" \
       "training.per_device_train_batch_size=14" \
