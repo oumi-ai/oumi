@@ -1,8 +1,10 @@
 import argparse
 import pathlib
+import random
 import time
 from typing import Callable, Optional
 
+import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -17,6 +19,7 @@ from lema.builders import (
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     cleanup_distributed,
+    get_device_rank_info,
     init_distributed,
     is_distributed,
     is_local_process_zero,
@@ -68,12 +71,13 @@ def main() -> None:
     # Load configuration
     config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
 
-    limit_per_process_memory()
-    device_cleanup()
-
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+
+    limit_per_process_memory()
+    device_cleanup()
+    set_random_seeds(config.training.seed)
 
     # Run training
     train(config)
@@ -114,6 +118,31 @@ def _ensure_training_output_dir_exists(output_dir: str) -> None:
     logger.info(
         f"Training output dir absolute path : {str(output_dir_path.absolute())}"
     )
+
+
+def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
+    """Set random seeds for reproducibility.
+
+    Each worker will have a different seed to ensure that each worker
+    starts with a different random state.
+
+    Args:
+        seed: The seed value to set for random number generators.
+        set_deterministic: Whether to set deterministic mode for CUDA operations.
+    """
+    device_info = get_device_rank_info()
+
+    local_seed = seed + device_info.rank
+
+    logger.info(f"Setting random seed to {local_seed} on rank {device_info.rank}.")
+    random.seed(local_seed)
+    np.random.seed(local_seed)
+    torch.manual_seed(local_seed)
+    torch.cuda.manual_seed(local_seed)
+
+    if set_deterministic:
+        logger.info("Setting deterministic mode for CUDA operations.")
+        torch.backends.cudnn.deterministic = True
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
