@@ -127,7 +127,7 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     embedding_params = 0
     embedding_layer_names = []
     for name, module in model.named_modules():
-        if isinstance(module, torch.nn.modules.sparse.Embedding):
+        if isinstance(module, torch.nn.Embedding):
             # Embedding layers appear in named_parameters with ".weight" at the end
             embedding_layer_names.append(name + ".weight")
 
