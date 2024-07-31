@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from lema.core.types.base_cluster import BaseCluster
+from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
 
 
@@ -9,7 +9,7 @@ class BaseCloud(ABC):
     """Base class for resource pool capable of creating clusters."""
 
     @abstractmethod
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> BaseCluster:
+    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         raise NotImplementedError
 

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from lema.core.registry import register_cloud_builder
 from lema.core.types.base_cloud import BaseCloud
-from lema.core.types.base_cluster import BaseCluster
+from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
@@ -94,7 +94,7 @@ class PolarisCloud(BaseCloud):
             clusters.append(cluster)
         return clusters
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> BaseCluster:
+    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")
@@ -112,7 +112,11 @@ class PolarisCloud(BaseCloud):
                 "No cluster name provided. Using default queue: "
                 f"{PolarisClient.SupportedQueues.PROD.value}."
             )
-        return self._get_or_create_cluster(cluster_info.name())
+        cluster = self._get_or_create_cluster(cluster_info.name())
+        job_status = cluster.run_job(job)
+        if not job_status:
+            raise RuntimeError("Failed to start job.")
+        return job_status
 
     def get_cluster(self, name) -> Optional[BaseCluster]:
         """Gets the cluster with the specified name, or None if not found."""

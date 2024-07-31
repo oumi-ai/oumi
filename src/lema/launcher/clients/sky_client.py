@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import sky
 import sky.data
 
+from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
 
 
@@ -68,7 +69,7 @@ class SkyClient:
         RUNPOD = "runpod"
         LAMBDA = "lambda"
 
-    def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> str:
+    def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> JobStatus:
         """Creates a cluster and starts the provided Job.
 
         Args:
@@ -76,12 +77,20 @@ class SkyClient:
             cluster_name: The name of the cluster to create.
 
         Returns:
-            The name of the created cluster as a string.
+            A JobStatus with only `id` and `cluster` populated.
         """
-        _, resource_handle = sky.launch(
+        job_id, resource_handle = sky.launch(
             _convert_job_to_task(job), cluster_name=cluster_name
         )
-        return resource_handle.cluster_name
+        if job_id is None or resource_handle is None:
+            raise RuntimeError("Failed to launch job.")
+        return JobStatus(
+            name="",
+            id=str(job_id),
+            cluster=resource_handle.cluster_name,
+            status="",
+            metadata="",
+        )
 
     def status(self) -> List[Dict[str, Any]]:
         """Gets a list of cluster statuses.
