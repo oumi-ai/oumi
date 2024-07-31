@@ -39,7 +39,9 @@ class SkyCloud(BaseCloud):
     def get_cluster(self, name) -> Optional[BaseCluster]:
         """Gets the cluster with the specified name, or None if not found."""
         clusters = self.list_clusters()
+        print(name)
         for cluster in clusters:
+            print(cluster.name())
             if cluster.name() == name:
                 return cluster
         return None
