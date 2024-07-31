@@ -73,7 +73,7 @@ def test_launcher_get_cloud(mock_registry):
 
 
 def test_launcher_get_cloud_missing_value(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         sky_mock = Mock(spec=BaseCloud)
         polaris_mock = Mock(spec=BaseCloud)
 
@@ -90,18 +90,20 @@ def test_launcher_get_cloud_missing_value(mock_registry):
         }
         launcher = Launcher()
         launcher.get_cloud(_get_default_job("lambda"))
+    assert "not found in the registry." in str(exception_info.value)
 
 
 def test_launcher_get_cloud_empty(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         mock_registry.get_all.return_value = {}
         mock_registry.get.return_value = None
         launcher = Launcher()
         launcher.get_cloud(_get_default_job("sky"))
+    assert "not found in the registry." in str(exception_info.value)
 
 
 def test_launcher_get_cloud_by_name_missing_value(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         sky_mock = Mock(spec=BaseCloud)
         polaris_mock = Mock(spec=BaseCloud)
 
@@ -118,14 +120,16 @@ def test_launcher_get_cloud_by_name_missing_value(mock_registry):
         mock_registry.get.return_value = None
         launcher = Launcher()
         _ = launcher.get_cloud_by_name("lambda")
+    assert "not found in the registry." in str(exception_info.value)
 
 
 def test_launcher_get_cloud_by_name_empty(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         mock_registry.get_all.return_value = {}
         mock_registry.get.return_value = None
         launcher = Launcher()
         _ = launcher.get_cloud_by_name("lambda")
+    assert "not found in the registry." in str(exception_info.value)
 
 
 def test_launcher_up_succeeds(mock_registry):
@@ -183,7 +187,7 @@ def test_launcher_up_succeeds_no_name(mock_registry):
 
 
 def test_launcher_up_inavlid_cluster(mock_registry):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError) as exception_info:
         mock_cloud = Mock(spec=BaseCloud)
 
         def _builder():
@@ -204,6 +208,7 @@ def test_launcher_up_inavlid_cluster(mock_registry):
         launcher = Launcher()
         job = _get_default_job("custom")
         launcher.up(job, None)
+    assert "not found" in str(exception_info.value)
 
 
 def test_launcher_run_succeeds(mock_registry):
@@ -234,7 +239,7 @@ def test_launcher_run_succeeds(mock_registry):
 
 
 def test_launcher_run_fails(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         mock_cloud = Mock(spec=BaseCloud)
 
         def _builder():
@@ -247,6 +252,7 @@ def test_launcher_run_fails(mock_registry):
         launcher = Launcher()
         job = _get_default_job("custom")
         launcher.run(job, "custom")
+    assert "not found" in str(exception_info.value)
 
 
 def test_launcher_stop_succeeds(mock_registry):
@@ -276,7 +282,7 @@ def test_launcher_stop_succeeds(mock_registry):
 
 
 def test_launcher_stop_fails(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         mock_cloud = Mock(spec=BaseCloud)
 
         def _builder():
@@ -288,6 +294,7 @@ def test_launcher_stop_fails(mock_registry):
         mock_cloud.get_cluster.return_value = None
         launcher = Launcher()
         launcher.stop("1", "cloud", "cluster")
+    assert "not found" in str(exception_info.value)
 
 
 def test_launcher_down_succeeds(mock_registry):
@@ -308,7 +315,7 @@ def test_launcher_down_succeeds(mock_registry):
 
 
 def test_launcher_down_fails(mock_registry):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exception_info:
         mock_cloud = Mock(spec=BaseCloud)
 
         def _builder():
@@ -320,6 +327,7 @@ def test_launcher_down_fails(mock_registry):
         mock_cloud.get_cluster.return_value = None
         launcher = Launcher()
         launcher.down("cloud", "cluster")
+    assert "not found" in str(exception_info.value)
 
 
 def test_launcher_status_multiple_clouds(mock_registry):
