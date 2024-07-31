@@ -291,7 +291,7 @@ class Trainer(BaseTrainer):
         eval_loss = sum(eval_losses) / len(eval_losses)
         perplexity = torch.exp(torch.tensor(eval_loss))
 
-        results = {"val/val_loss": eval_loss, "val/perplexity": perplexity.item()}
+        results = {"val/loss": eval_loss, "val/perplexity": perplexity.item()}
 
         self.log("Finished evaluation.")
         self.log_metrics(results, self.state.global_step)

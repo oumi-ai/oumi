@@ -81,6 +81,8 @@ def mock_params():
     args.adam_epsilon = 1e-8
     args.adam_beta1 = 0.9
     args.adam_beta2 = 0.999
+    args.enable_wandb = False
+    args.enable_tensorboard = False
     return args
 
 
@@ -160,8 +162,8 @@ def test_evaluate(trainer, mock_dataloader):
 
     results = trainer.evaluate()
 
-    assert "eval_loss" in results
-    assert "perplexity" in results
+    assert "val/loss" in results
+    assert "val/perplexity" in results
     assert trainer.model.eval.call_count == 1
     assert trainer.model.forward.call_count > 0
 
