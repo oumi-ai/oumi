@@ -47,7 +47,7 @@ DUMMY_DATASET_MATRIX = {
 # Main
 #
 def main(args):
-    """Run the DataLoader benchmark in distributed mode."""
+    """Runs the DataLoader benchmark in distributed mode."""
     if is_distributed():
         logger.info("Benchmarking in distributed mode...")
         init_distributed()
@@ -155,14 +155,14 @@ def main(args):
 def _generate_config_combinations(
     variable_params: Dict[str, List[Any]],
 ) -> List[Dict[str, Any]]:
-    """Generate a list of configs based on a list of variable parameters."""
+    """Generates a list of configs based on a list of variable parameters."""
     keys, values = zip(*variable_params.items())
     configurations = [dict(zip(keys, v)) for v in itertools.product(*values)]
     return [{**conf} for conf in configurations]
 
 
 def _load_dataset(dataset_fn, *args, **kwargs) -> Tuple[float, Any]:
-    """Measure the time taken to initialize a dataset using the given dataset function.
+    """Measures the time taken to initialize a dataset using the given dataset function.
 
     Parameters:
         dataset_fn (callable): The function used to create the dataset.
@@ -190,7 +190,7 @@ def _benchmark_dataloader_epoch(
     max_steps: Optional[int] = None,
     **kwargs,
 ) -> Dict[str, Any]:
-    """Measure the time taken to iterate over a DataLoader for one epoch."""
+    """Measures the time taken to iterate over a DataLoader for one epoch."""
     if use_distributed_sampler:
         sampler = DistributedSampler(dataset)
     else:
