@@ -22,7 +22,7 @@ class ConfigurableDebugDataset(Dataset):
             dataset_size: The size of the dataset.
             feature_dim: The dimension of each feature.
             data_type: The data type of the dataset.
-                Supported values are "float32" and "float16".
+                Supported values are "float32", "float16", and "bfloat16".
             num_classes: The number of classes in the dataset.
             preprocessing_time_ms: The time taken for preprocessing
                 in milliseconds.
