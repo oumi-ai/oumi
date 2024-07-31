@@ -22,7 +22,7 @@ def _get_default_job(cloud: str) -> JobConfig:
         cloud=cloud,
         region="us-central1",
         zone=None,
-        accelerators="A100-80",
+        accelerators="A100-80GB",
         cpus=4,
         memory=64,
         instance_type=None,
