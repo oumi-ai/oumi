@@ -29,7 +29,7 @@ from lema.core.distributed import (
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
-from lema.utils.logging import logger
+from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -157,6 +157,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
         log_devices_info()
         log_training_config(config)
         _ensure_training_output_dir_exists(config.training.output_dir)
+
+    # Configure logging to file
+    log_dir = pathlib.Path(config.training.output_dir) / "logs"
+    configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)

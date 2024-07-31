@@ -1,10 +1,14 @@
 import os
 import time
+from pathlib import Path
 from pprint import pformat
 from typing import Any, Dict, List, Optional, cast
 
+import pydantic
 import torch
 import torch.amp
+import torch.utils.tensorboard as tensorboard
+import wandb
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
@@ -12,6 +16,7 @@ from transformers import PreTrainedTokenizerBase, TrainerCallback
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
+    global_leader_only,
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
@@ -21,11 +26,18 @@ from lema.core.distributed import (
 from lema.core.types import TrainingConfig, TrainingParams
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.telemetry import TelemetryTracker
+from lema.utils.io_utils import load_json, save_json
 from lema.utils.logging import logger
 from lema.utils.torch_utils import log_trainable_parameters
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
+
+
+class TrainingState(pydantic.BaseModel):
+    epoch: int = 0
+    global_step: int = 0
+    total_tokens_seen: int = 0
 
 
 class Trainer(BaseTrainer):
@@ -92,18 +104,15 @@ class Trainer(BaseTrainer):
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
 
-        # TODO: OPE-222 - add dataclass for training state
-        self.global_step = 0
-        self.epoch = 0
-        self.total_tokens_seen = 0
+        self.state = TrainingState()
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
+        self._init_logging()
 
     #
     # Training
     #
-
     def train(self, resume_from_checkpoint: Optional[str] = None):
         """Trains the model."""
         if resume_from_checkpoint:
@@ -121,7 +130,7 @@ class Trainer(BaseTrainer):
             desc="Training",
             disable=not is_world_process_zero(),
         ) as progress_bar:
-            for epoch in range(self.epoch, self.params.num_train_epochs):
+            for epoch in range(self.state.epoch, self.params.num_train_epochs):
                 self._train_epoch(progress_bar)
 
                 if self.params.save_epoch:
@@ -137,9 +146,9 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-                self.epoch += 1
+                self.state.epoch += 1
 
-                if self.global_step >= total_steps:
+                if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
                     self.log(
                         f"Training runtime: {time.perf_counter() - self.start_time}s"
@@ -177,7 +186,7 @@ class Trainer(BaseTrainer):
 
             with self.telemetry.timer("syncing to cpu"):
                 num_tokens = num_tokens.item()
-                self.total_tokens_seen += num_tokens
+                self.state.total_tokens_seen += num_tokens
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
@@ -203,41 +212,45 @@ class Trainer(BaseTrainer):
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
 
-                self.global_step += 1
+                self.state.global_step += 1
                 progress_bar.update(1)
 
                 self.process_callbacks("on_step_end")
 
-                if self.global_step % self.params.logging_steps == 0:
-                    # TODO: OPE-225 - add detailed logging metrics
-                    loss_value = loss.item() * self.params.gradient_accumulation_steps
-                    self.log(f"Step {self.global_step}: loss = {loss_value}")
-                    logs = self.process_callbacks("on_log")
-                    self.log(pformat(logs))
-                    self.log(f"Total tokens seen: {self.total_tokens_seen}")
+                if self.state.global_step % self.params.logging_steps == 0:
+                    # Log metrics
+
                     elapsed = time.perf_counter() - self.start_time
-                    self.log(f"Steps per second: {self.global_step / elapsed} step/s")
-                    self.log(
-                        f"Tokens per second: {self.total_tokens_seen / elapsed} tok/s"
-                    )
-                    self.log(
-                        f"Tokens per step per GPU: "
-                        f"{self.total_tokens_seen / self.global_step} tok/step/gpu"
-                    )
+                    loss_value = loss.item() * self.params.gradient_accumulation_steps
+                    metrics = {
+                        "train/loss": loss_value,
+                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "epoch": self.state.epoch,
+                        "global_step": self.state.global_step,
+                        "total_tokens_seen": self.state.total_tokens_seen,
+                        "global_steps_per_second": self.state.global_step / elapsed,
+                        "tokens_per_second": self.state.total_tokens_seen / elapsed,
+                        "tokens_per_step_per_gpu": self.state.total_tokens_seen
+                        / self.state.global_step,
+                    }
+                    callback_metrics = self.process_callbacks("on_log")
+                    metrics.update(callback_metrics)
+
+                    self.log_metrics(metrics, self.state.global_step)
 
                     if is_local_process_zero():
                         self.telemetry.print_summary()
 
                 if (
                     self.params.save_steps > 0
-                    and self.global_step % self.params.save_steps == 0
+                    and self.state.global_step % self.params.save_steps == 0
                 ):
                     self.save_state()
 
                 if (
                     self.eval_dataloader
                     and self.params.eval_steps > 0
-                    and self.global_step % self.params.eval_steps == 0
+                    and self.state.global_step % self.params.eval_steps == 0
                     and is_world_process_zero()
                 ):
                     # TODO: OPE-223 - only the global leader is used for evaluation
@@ -245,7 +258,7 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-            if self.global_step >= self.params.max_steps:
+            if self.state.global_step >= self.params.max_steps:
                 break
 
             micro_step += 1
@@ -278,9 +291,10 @@ class Trainer(BaseTrainer):
         eval_loss = sum(eval_losses) / len(eval_losses)
         perplexity = torch.exp(torch.tensor(eval_loss))
 
-        results = {"eval_loss": eval_loss, "perplexity": perplexity.item()}
+        results = {"val/loss": eval_loss, "val/perplexity": perplexity.item()}
 
-        self.log(f"Evaluation results: {results}")
+        self.log("Finished evaluation.")
+        self.log_metrics(results, self.state.global_step)
 
         self.model.train()
         return results
@@ -340,14 +354,15 @@ class Trainer(BaseTrainer):
             torch.save(
                 self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
             )
-            # TODO: OPE-222 - add dataclass for trainer state
-            torch.save(
-                {
-                    "epoch": self.epoch,
-                    "global_step": self.global_step,
-                    "total_tokens_seen": self.total_tokens_seen,
-                },
-                os.path.join(output_dir, "trainer_state.pt"),
+
+            save_json(
+                data=self.state.model_dump(),
+                filename=os.path.join(output_dir, "trainer_state.json"),
+            )
+
+            save_json(
+                data=self.telemetry.state_dict(),
+                filename=os.path.join(output_dir, "telemetry_state.json"),
             )
             logger.info(f"Model saved to {output_dir}")
 
@@ -355,7 +370,8 @@ class Trainer(BaseTrainer):
         """Loads the model and optimizer state from a checkpoint."""
         model_path = os.path.join(checkpoint_dir, "model.pt")
         optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
-        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.pt")
+        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
+        telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
@@ -364,12 +380,13 @@ class Trainer(BaseTrainer):
                 torch.load(optimizer_path, map_location=self.device)
             )
         if os.path.exists(trainer_state_path):
-            trainer_state = torch.load(trainer_state_path, map_location=self.device)
-            # TODO: OPE-222 - add dataclass for trainer state
-            # TODO: OPE-103 - save / reload dataloader state
-            self.epoch = trainer_state["epoch"]
-            self.global_step = trainer_state["global_step"]
-            self.total_tokens_seen = trainer_state["total_tokens_seen"]
+            self.state = TrainingState.model_validate(
+                load_json(trainer_state_path), strict=True
+            )
+        if os.path.exists(telemetry_state_path):
+            self.telemetry.load_state_dict(load_json(telemetry_state_path))
+
+        # TODO: OPE-103 - save / reload dataloader state
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
 
@@ -381,16 +398,31 @@ class Trainer(BaseTrainer):
         """Logs a message if the process is the local process zero."""
         logger.info(message)
 
+    @global_leader_only()
+    def log_metrics(self, metrics: Dict[str, Any], step: int) -> None:
+        """Logs metrics to wandb and tensorboard."""
+        # Log to console and log file
+        self.log(pformat(metrics))
+
+        # Log to Weights and Biases
+        if self.params.enable_wandb:
+            wandb.log(metrics, step=self.state.global_step)
+
+        # Log to tensorboard
+        if self.params.enable_tensorboard and self.tensorboard_writer:
+            for key, value in metrics.items():
+                self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
+
     #
     # Handle callbacks
     #
-    def process_callbacks(self, event: str) -> Optional[Dict[str, Any]]:
+    def process_callbacks(self, event: str) -> Dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
         Just here to unblock debugging with our MfuCallback
         """
-        logs = {} if event == "on_log" else None
+        logs = {}
 
         for callback in self.callbacks:
             if hasattr(callback, event):
@@ -398,3 +430,27 @@ class Trainer(BaseTrainer):
                 action(args=self.params, state=None, control=None, logs=logs)
 
         return logs
+
+    def _init_logging(
+        self,
+    ) -> None:
+        """Initializes logging."""
+        if not is_world_process_zero():
+            return
+
+        self.log(f"Logging to {self.params.output_dir}")
+
+        if self.params.enable_wandb:
+            project_name = os.environ.get("WANDB_PROJECT", "lema")
+            self.log(f"Logging to Weights and Biases project: '{project_name}'")
+            wandb.init(project=project_name, name=self.params.run_name)
+            wandb.watch(self.model)
+
+        if self.params.enable_tensorboard:
+            self.log(f"Logging to Weights and Biases project: '{project_name}'")
+            tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
+            self.tensorboard_writer = tensorboard.SummaryWriter(
+                log_dir=tensorboard_folder
+            )
+        else:
+            self.tensorboard_writer = None

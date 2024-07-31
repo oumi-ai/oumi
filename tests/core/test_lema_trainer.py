@@ -81,6 +81,8 @@ def mock_params():
     args.adam_epsilon = 1e-8
     args.adam_beta1 = 0.9
     args.adam_beta2 = 0.999
+    args.enable_wandb = False
+    args.enable_tensorboard = False
     return args
 
 
@@ -160,8 +162,8 @@ def test_evaluate(trainer, mock_dataloader):
 
     results = trainer.evaluate()
 
-    assert "eval_loss" in results
-    assert "perplexity" in results
+    assert "val/loss" in results
+    assert "val/perplexity" in results
     assert trainer.model.eval.call_count == 1
     assert trainer.model.forward.call_count > 0
 
@@ -176,27 +178,28 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
 
     trainer.model.state_dict = MagicMock(return_value={"model_key": "model_value"})
     trainer.optimizer.state_dict = MagicMock(return_value={"optim_key": "optim_value"})
+    trainer.state.epoch = 1
+    trainer.state.global_step = 50
 
     trainer.save_state()
 
     assert (output_dir / "model.pt").exists()
     assert (output_dir / "optimizer.pt").exists()
-    assert (output_dir / "trainer_state.pt").exists()
+    assert (output_dir / "trainer_state.json").exists()
 
     with patch(
         "torch.load",
         side_effect=[
             {"model_key": "model_value"},
             {"optim_key": "optim_value"},
-            {"epoch": 1, "global_step": 50, "total_tokens_seen": 100},
         ],
     ):
         trainer._load_from_checkpoint(str(output_dir))
 
     assert trainer.model.load_state_dict.called
     assert trainer.optimizer.load_state_dict.called
-    assert trainer.epoch == 1
-    assert trainer.global_step == 50
+    assert trainer.state.epoch == 1
+    assert trainer.state.global_step == 50
 
 
 def test_get_train_dataloader(trainer):
