@@ -1,6 +1,6 @@
 # Sample command:
 # accelerate launch \
-#   --use_fsdp \
+#   --multi-gpu \
 #   --config_file configs/accelerate/llama.ddp.yaml \
 #   -m lema.train \
 #   -c configs/lema/llama3.8b.aya.sft.yaml \
