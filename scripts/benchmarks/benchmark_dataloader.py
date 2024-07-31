@@ -5,6 +5,7 @@ from pathlib import Path as Pathlib
 from pprint import pformat
 from typing import Any, Dict, List, Optional, Tuple
 
+import datasets as hf_datasets
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchMapDataset
@@ -42,6 +43,9 @@ DUMMY_DATASET_MATRIX = {
     "sequence_length": [128, 1024],
     "preprocess_time_ms": [0, 1, 5],  # simulate per item preprocesing time
 }
+
+# Disable pre-processing caching for HF datasets
+hf_datasets.disable_caching()
 
 
 #
