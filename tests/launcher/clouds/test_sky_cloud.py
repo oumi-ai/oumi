@@ -1,9 +1,10 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 import sky
 
 from lema.core.registry import REGISTRY, RegistryType
+from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
 from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
@@ -17,6 +18,12 @@ from lema.launcher.clusters.sky_cluster import SkyCluster
 @pytest.fixture
 def mock_sky_client():
     yield Mock(spec=SkyClient)
+
+
+@pytest.fixture
+def mock_sky_cluster():
+    with patch("lema.launcher.clouds.sky_cloud.SkyCluster") as cluster:
+        yield cluster
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -53,22 +60,98 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_sky_cloud_up_cluster(mock_sky_client):
+def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
+    expected_job_status = JobStatus(
+        name="",
+        id="1",
+        cluster="new_cluster_name",
+        status="",
+        metadata="",
+    )
+    mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
+    mock_gcp_handler = Mock()
+    mock_gcp_handler.launched_resources = Mock()
+    mock_gcp_handler.launched_resources.cloud = mock_gcp_cluster
+    mock_sky_gcp = Mock(spec=SkyCluster)
+    mock_sky_gcp.name.return_value = "new_cluster_name"
+    mock_sky_gcp.get_job.return_value = expected_job_status
+
+    mock_runpod_cluster = Mock(spec=sky.clouds.RunPod)
+    mock_runpod_handler = Mock()
+    mock_runpod_handler.launched_resources = Mock()
+    mock_runpod_handler.launched_resources.cloud = mock_runpod_cluster
+    mock_sky_runpod = Mock(spec=SkyCluster)
+    mock_sky_runpod.name.return_value = "runpod_cluster"
+
+    mock_lambda_cluster = Mock(spec=sky.clouds.Lambda)
+    mock_lambda_handler = Mock()
+    mock_lambda_handler.launched_resources = Mock()
+    mock_lambda_handler.launched_resources.cloud = mock_lambda_cluster
+    mock_sky_lambda = Mock(spec=SkyCluster)
+    mock_sky_lambda.name.return_value = "lambda_cluster"
+    mock_sky_cluster.side_effect = [
+        mock_sky_gcp,
+        mock_sky_runpod,
+        mock_sky_lambda,
+    ]
+    mock_sky_client.status.return_value = [
+        {"name": "new_cluster_name", "status": "RUNNING", "handle": mock_gcp_handler},
+        {"name": "runpod_cluster", "status": "RUNNING", "handle": mock_runpod_handler},
+        {"name": "lambda_cluster", "status": "RUNNING", "handle": mock_lambda_handler},
+    ]
+    mock_sky_client.launch.return_value = expected_job_status
     cloud = SkyCloud("gcp", mock_sky_client)
-    mock_sky_client.launch.return_value = "new_cluster_name"
-    cluster = cloud.up_cluster(_get_default_job("gcp"), "new_cluster_name")
+    job_status = cloud.up_cluster(_get_default_job("gcp"), "new_cluster_name")
     mock_sky_client.launch.assert_called_once_with(
         _get_default_job("gcp"), "new_cluster_name"
     )
-    assert cluster.name() == "new_cluster_name"
+    assert job_status == expected_job_status
 
 
-def test_sky_cloud_up_cluster_no_name(mock_sky_client):
+def test_sky_cloud_up_cluster_no_name(mock_sky_client, mock_sky_cluster):
+    expected_job_status = JobStatus(
+        name="",
+        id="1",
+        cluster="new_cluster_name",
+        status="",
+        metadata="",
+    )
+    mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
+    mock_gcp_handler = Mock()
+    mock_gcp_handler.launched_resources = Mock()
+    mock_gcp_handler.launched_resources.cloud = mock_gcp_cluster
+    mock_sky_gcp = Mock(spec=SkyCluster)
+    mock_sky_gcp.name.return_value = "new_cluster_name"
+    mock_sky_gcp.get_job.return_value = expected_job_status
+
+    mock_runpod_cluster = Mock(spec=sky.clouds.RunPod)
+    mock_runpod_handler = Mock()
+    mock_runpod_handler.launched_resources = Mock()
+    mock_runpod_handler.launched_resources.cloud = mock_runpod_cluster
+    mock_sky_runpod = Mock(spec=SkyCluster)
+    mock_sky_runpod.name.return_value = "runpod_cluster"
+
+    mock_lambda_cluster = Mock(spec=sky.clouds.Lambda)
+    mock_lambda_handler = Mock()
+    mock_lambda_handler.launched_resources = Mock()
+    mock_lambda_handler.launched_resources.cloud = mock_lambda_cluster
+    mock_sky_lambda = Mock(spec=SkyCluster)
+    mock_sky_lambda.name.return_value = "lambda_cluster"
+    mock_sky_cluster.side_effect = [
+        mock_sky_gcp,
+        mock_sky_runpod,
+        mock_sky_lambda,
+    ]
+    mock_sky_client.status.return_value = [
+        {"name": "new_cluster_name", "status": "RUNNING", "handle": mock_gcp_handler},
+        {"name": "runpod_cluster", "status": "RUNNING", "handle": mock_runpod_handler},
+        {"name": "lambda_cluster", "status": "RUNNING", "handle": mock_lambda_handler},
+    ]
+    mock_sky_client.launch.return_value = expected_job_status
     cloud = SkyCloud("gcp", mock_sky_client)
-    mock_sky_client.launch.return_value = "new_cluster_name"
-    cluster = cloud.up_cluster(_get_default_job("gcp"), None)
+    job_status = cloud.up_cluster(_get_default_job("gcp"), None)
     mock_sky_client.launch.assert_called_once_with(_get_default_job("gcp"), None)
-    assert cluster.name() == "new_cluster_name"
+    assert job_status == expected_job_status
 
 
 def test_sky_cloud_list_clusters_gcp(mock_sky_client):
