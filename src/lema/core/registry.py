@@ -50,6 +50,14 @@ class Registry:
         registry_key = RegistryKey(name, type)
         return self._registry.get(registry_key)
 
+    def get_all(self, type: RegistryType) -> dict:
+        """Gets all records of a specific type."""
+        return {
+            key.name: value
+            for key, value in self._registry.items()
+            if key.registry_type == type
+        }
+
     #
     # Convenience public function wrappers.
     #

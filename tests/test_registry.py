@@ -10,13 +10,42 @@ def cleanup():
 
 
 def test_registry_cloud_builder():
-    @register("dummy_class", RegistryType.CLOUD)
     class DummyClass:
         pass
 
+    @register("dummy_class", RegistryType.CLOUD)
+    def dummy_builder():
+        return DummyClass()
+
     assert REGISTRY.contains("dummy_class", RegistryType.CLOUD)
-    assert REGISTRY.get("dummy_class", RegistryType.CLOUD) == DummyClass
+    assert REGISTRY.get("dummy_class", RegistryType.CLOUD) == dummy_builder
     assert not REGISTRY.contains("some_other_class", RegistryType.CLOUD)
+
+
+def test_registry_cloud_builder_get_all():
+    class DummyClass:
+        pass
+
+    @register("dummy_class", RegistryType.CLOUD)
+    def dummy_builder():
+        return DummyClass()
+
+    class SomeClass:
+        pass
+
+    @register("another_one", RegistryType.CLOUD)
+    def another_builder():
+        return SomeClass()
+
+    class LastClass:
+        pass
+
+    @register("finally", RegistryType.CLOUD)
+    def last_builder():
+        return LastClass()
+
+    all_builders = REGISTRY.get_all(RegistryType.CLOUD).values()
+    assert list(all_builders) == [dummy_builder, another_builder, last_builder]
 
 
 def test_registry_model_class():
