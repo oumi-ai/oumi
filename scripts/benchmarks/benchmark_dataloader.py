@@ -143,8 +143,12 @@ def main(args):
     # Save results
     #
     if is_world_process_zero():
-        # flatten results for all workers.
-        combined_results = [item for sublist in gathered_results for item in sublist]  # type: ignore
+        # combined_results contains results for each worker, indexed by rank
+        # each worker results is a list of dicts, one per tested config
+        # each test config result dict contains {metric1: value1, ...}
+        combined_results = {
+            rank: results for rank, results in enumerate(gathered_results)
+        }
 
         output_folder = Pathlib(args.output)
         output_folder.mkdir(exist_ok=True, parents=True)
