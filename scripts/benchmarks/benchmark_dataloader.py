@@ -147,13 +147,13 @@ def main(args):
         # each worker results is a list of dicts, one per tested config
         # each test config result dict contains {metric1: value1, ...}
         combined_results = {
-            rank: results for rank, results in enumerate(gathered_results)
+            f"rank{rank}": results for rank, results in enumerate(gathered_results)
         }
 
         output_folder = Pathlib(args.output)
         output_folder.mkdir(exist_ok=True, parents=True)
         save_json(
-            data={"combined_results": combined_results},
+            data=combined_results,
             filename=output_folder / "benchmark_results.json",
         )
         logger.info(f"Benchmark completed. Saved results to: '{args.output}'")
