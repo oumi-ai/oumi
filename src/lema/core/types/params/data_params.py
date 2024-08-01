@@ -58,6 +58,8 @@ class DatasetParams:
     # The random seed used for shuffling the dataset before sampling, if specified.
     # If set to `None` shuffling will be non-deterministic.
     seed: Optional[int] = None
+    # The size of the shuffle buffer used for shuffling the dataset before sampling.
+    shuffle_buffer_size: int = 1000
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
