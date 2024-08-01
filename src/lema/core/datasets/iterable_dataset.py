@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import datasets
 import torch
@@ -94,28 +94,56 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
         tokenizer: PreTrainedTokenizerBase,
         seq_length: int,
         dataset_text_field: str = "text",
+        append_concat_token: bool = True,
+        add_special_tokens: bool = True,
         **kwargs,
     ):
         """Initializes a new instance of the BasePretrainingIterableDataset class."""
-        super().__init__(**kwargs)
+        if append_concat_token and tokenizer.eos_token_id is None:
+            raise ValueError(
+                "Tokenizer must have an EOS token if append_concat_token is enabled."
+            )
+
+        self.concat_token_id = tokenizer.eos_token_id if append_concat_token else None
+
         self.tokenizer = tokenizer
         self.seq_length = seq_length
         self.dataset_text_field = dataset_text_field
+        self.append_concat_token = append_concat_token
+        self.add_special_tokens = add_special_tokens
+
+        super().__init__(**kwargs)
 
     def __iter__(self):
         """Iterates over the dataset."""
         buffer = []
         for sample in self.data:
-            buffer.extend(self.tokenize(sample[self.dataset_text_field]))
+            if self.append_concat_token:
+                buffer.append(self.concat_token_id)
+            buffer.extend(self.transform(sample[self.dataset_text_field]))
             while len(buffer) >= self.seq_length:
-                yield self.create_sample(buffer[: self.seq_length])
+                yield self._create_sample(buffer[: self.seq_length])
                 buffer = buffer[self.seq_length :]
 
-    def tokenize(self, text: str) -> list:
-        """Tokenizes the given text."""
-        return self.tokenizer.encode(text)
+    def transform(self, sample: Any) -> List[int]:
+        """Preprocesses the inputs in the given sample."""
+        return self.tokenize(sample)
 
-    def create_sample(self, tokens: list) -> Dict[str, torch.Tensor]:
+    def tokenize(self, text: str) -> List[int]:
+        """Tokenizes the given text.
+
+        Should not apply any padding/truncation to allow for packing.
+        """
+        return self.tokenizer.encode(
+            text=text,
+            return_tensors=None,
+            max_length=None,
+            padding=False,
+            truncation=False,
+            add_special_tokens=self.add_special_tokens,
+        )
+
+    def _create_sample(self, tokens: list) -> Dict[str, torch.Tensor]:
         """Creates a sample from the given tokens."""
         input_ids = torch.tensor(tokens)
         attention_mask = torch.ones_like(input_ids)
