@@ -69,9 +69,25 @@ def build_dataset(
                 dataset_split_params.mixture_strategy
                 == MixtureStrategy.FIRST_EXHAUSTED.value
             ):
+                # Yields one element at a time from each input Iterable DataPipes
+                # one element from the 1st input DataPipe, then one element
+                # from the 2nd DataPipe in the next iteration, etc.
+                # It ends when the shortest input DataPipe is exhausted.
                 combined_datapipe = dp.iter.Multiplexer(*datapipes)
-            else:
+            elif (
+                dataset_split_params.mixture_strategy
+                == MixtureStrategy.ALL_EXHAUSTED.value
+            ):
+                # Yields one element at a time from each input Iterable DataPipes:
+                # one element from the 1st input DataPipe, then one element
+                # from the 2nd DataPipe in the next iteration, etc.
+                # Ends when all input DataPipes are exhausted.
                 combined_datapipe = MultiplexerLongest(*datapipes)
+            else:
+                raise ValueError(
+                    "Unsupported mixture strategy: "
+                    f"{dataset_split_params.mixture_strategy}"
+                )
         else:
             # All mixture_proportions are not None.
             mixture_proportions = cast(List[float], mixture_proportions)
@@ -79,11 +95,16 @@ def build_dataset(
                 datapipe: mixture_proportion
                 for mixture_proportion, datapipe in zip(mixture_proportions, datapipes)
             }
+            # We need to cast here as SampleMultiplexer expects a torchdata.IterDataPipe
+            # and not torch.utils.data.IterDataPipe. This is a temporary workaround
+            # until torchdata is updated to use torch.utils.data.IterDataPipe or
+            # SampleMultiplexer is moved to torch.utils.data
             combined_datapipe = SampleMultiplexer(mixture, seed=seed)  # type: ignore
     else:
         combined_datapipe = datapipes[0]
 
     # Apply packing if needed
+    # TODO: handle pre-packed datasets, non-iterable datasets
     # if dataset_split_params.pack:
     #     combined_datapipe = combined_datapipe.batch(config.model.model_max_length)
     #     combined_datapipe = combined_datapipe.map(
@@ -112,14 +133,22 @@ def _load_dataset(
         )
 
         if isinstance(dataset, MapDataPipe):
+            # TODO: should we keep map datasets as is?
             return MapToIterConverterIterDataPipe(dataset)
         else:
             return dataset
 
     # If not a custom dataset, try loading from Hugging Face
-    return HuggingFaceHubReader(
-        dataset=dataset_params.dataset_name,
-        name=dataset_params.subset,
-        split=dataset_params.split,
-        streaming=stream,
-    )  # type: ignore
+    # We need to cast here as HuggingFaceHubReader inherits from torchdata.IterDataPipe
+    # and not torch.utils.data.IterDataPipe. This is a temporary workaround until
+    # torchdata is updated to use torch.utils.data.IterDataPipe or HuggingFaceHubReader
+    # is moved to torch.utils.data
+    return cast(
+        IterDataPipe,
+        HuggingFaceHubReader(
+            dataset=dataset_params.dataset_name,
+            name=dataset_params.subset,
+            split=dataset_params.split,
+            streaming=stream,
+        ),
+    )
