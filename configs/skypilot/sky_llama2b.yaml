@@ -64,8 +64,3 @@ run: |
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-
-# 1 node 4 GPUs:
-# torchrun:
-# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.tr.1node.4xA10040GB.torchcompile.v200 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
