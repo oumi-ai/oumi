@@ -119,7 +119,7 @@ def test_buffer_handling(tokenizer):
         len(dataset.tokenize(item["text"])) for item in dataset._load_data()
     )
     expected_samples = total_tokens // 20
-    assert len(samples) <= expected_samples
+    assert len(samples) == expected_samples
 
 
 def test_disk_dataset(tokenizer, create_sample_data):
@@ -153,5 +153,5 @@ def test_disk_dataset(tokenizer, create_sample_data):
         if f.endswith(".json")
     )
     expected_samples = total_tokens // 50
-    assert len(samples) <= expected_samples
+    assert len(samples) == expected_samples
     assert len(samples) >= num_files  # At least one sample per file
