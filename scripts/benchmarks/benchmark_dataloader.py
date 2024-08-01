@@ -22,7 +22,7 @@ from lema.core.distributed import (
     is_world_process_zero,
 )
 from lema.core.types import DatasetSplit, TrainingConfig
-from lema.datasets.debug import ConfigurableTextPretrainingDataset
+from lema.datasets.debug import DebugPretrainingDataset
 from lema.utils.io_utils import save_json
 from lema.utils.logging import logger, update_logger_level
 
@@ -114,7 +114,7 @@ def main(args):
     ):
         if args.dummy:
             init_time, dataset = _load_dataset(
-                ConfigurableTextPretrainingDataset, **benchmark_config["dataset_params"]
+                DebugPretrainingDataset, **benchmark_config["dataset_params"]
             )
             metadata["init_time"] = init_time
 

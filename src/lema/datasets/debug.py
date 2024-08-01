@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class ConfigurableClassificationDataset(Dataset):
+class DebugClassificationDataset(Dataset):
     def __init__(
         self,
         dataset_size: int = 1000,
@@ -14,7 +14,7 @@ class ConfigurableClassificationDataset(Dataset):
         preprocessing_time_ms: float = 0,
         **kwargs,
     ):
-        """Initialize a ConfigurableClassificationDataset.
+        """Initialize a DebugClassificationDataset.
 
         This dataset generates random data and labels for debugging purposes.
 
@@ -60,7 +60,7 @@ class ConfigurableClassificationDataset(Dataset):
         return {"features": self.data[idx], "labels": self.labels[idx]}
 
 
-class ConfigurableTextPretrainingDataset(Dataset):
+class DebugPretrainingDataset(Dataset):
     def __init__(
         self,
         dataset_size: int = 1000,
@@ -69,7 +69,7 @@ class ConfigurableTextPretrainingDataset(Dataset):
         preprocessing_time_ms: float = 0,
         **kwargs,
     ):
-        """Initializes a ConfigurableTextPretrainingDataset.
+        """Initializes a DebugPretrainingDataset.
 
         Args:
             dataset_size: The size of the dataset.
