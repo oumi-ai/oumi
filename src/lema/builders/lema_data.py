@@ -1,13 +1,17 @@
 from typing import List, Optional, cast
 
-import torchdata.datapipes as dp
+import torch.utils.data.datapipes as dp
 import transformers
+from torch.utils.data import IterDataPipe, MapDataPipe
+from torchdata.datapipes.iter import HuggingFaceHubReader, SampleMultiplexer
+from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
 
 from lema.core.registry import REGISTRY
 from lema.core.types import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
+    MixtureStrategy,
     TrainingConfig,
 )
 
@@ -18,7 +22,7 @@ def build_dataset(
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
     **kwargs,
-) -> dp.iter.IterDataPipe:
+) -> IterDataPipe:
     """Builds a dataset for the specified split.
 
     Args:
@@ -33,7 +37,7 @@ def build_dataset(
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
-    datapipes: List[dp.iter.IterDataPipe] = []
+    datapipes: List[IterDataPipe] = []
 
     for dataset_params in dataset_split_params.datasets:
         # Load the dataset
@@ -63,7 +67,16 @@ def build_dataset(
 
         if any([proportion is None for proportion in mixture_proportions]):
             # All datasets should be concatenated when no proportion is specified.
-            combined_datapipe = dp.iter.Multiplexer(datapipes)
+
+            if (
+                dataset_split_params.mixture_strategy
+                == MixtureStrategy.FIRST_EXHAUSTED.value
+            ):
+                combined_datapipe = dp.iter.Multiplexer(*datapipes)
+            else:
+                # TODO: implement multiplexer with longest strategy
+                # for now just concat
+                combined_datapipe = dp.iter.Concater(*datapipes)
         else:
             # All mixture_proportions are not None.
             mixture_proportions = cast(List[float], mixture_proportions)
@@ -71,7 +84,7 @@ def build_dataset(
                 datapipe: mixture_proportion
                 for mixture_proportion, datapipe in zip(mixture_proportions, datapipes)
             }
-            combined_datapipe = dp.iter.SampleMultiplexer(mixture, seed=seed)
+            combined_datapipe = SampleMultiplexer(mixture, seed=seed)  # type: ignore
     else:
         combined_datapipe = datapipes[0]
 
@@ -82,14 +95,14 @@ def build_dataset(
     #         functools.partial(pack_tokens, tokenizer=tokenizer)
     #     )
 
-    return cast(dp.iter.IterDataPipe, combined_datapipe)
+    return cast(IterDataPipe, combined_datapipe)
 
 
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
     tokenizer: Optional[transformers.PreTrainedTokenizerBase] = None,
-) -> dp.iter.IterDataPipe:
+) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY
     dataset_class = REGISTRY.get_dataset(
@@ -103,12 +116,16 @@ def _load_dataset(
             subset=dataset_params.subset,
             tokenizer=tokenizer,
         )
-        return dataset.to_iter_datapipe()
+
+        if isinstance(dataset, MapDataPipe):
+            return MapToIterConverterIterDataPipe(dataset)
+        else:
+            return dataset
 
     # If not a custom dataset, try loading from Hugging Face
-    return dp.iter.HuggingFaceHubReader(
+    return HuggingFaceHubReader(
         dataset=dataset_params.dataset_name,
         name=dataset_params.subset,
         split=dataset_params.split,
         streaming=stream,
-    )
+    )  # type: ignore
