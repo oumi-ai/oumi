@@ -12,7 +12,7 @@ from lema.utils.logging import logger
 
 
 #
-# Base Map Dataset
+# Abstract Map Dataset
 #
 class BaseMapDataset(MapDataPipe, ABC):
     data: pd.DataFrame

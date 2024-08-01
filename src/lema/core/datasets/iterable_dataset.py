@@ -9,6 +9,9 @@ from transformers import PreTrainedTokenizerBase
 from lema.utils.logging import logger
 
 
+#
+# Abstract Iterable Dataset
+#
 class BaseIterableDataset(IterDataPipe, abc.ABC):
     data: Iterable[Any]
     dataset_name_or_path: str
@@ -23,7 +26,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         split: Optional[str] = None,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseDataset class."""
+        """Initializes a new instance of the BaseIterableDataset class."""
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
@@ -43,11 +46,25 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.split = split
         self.data = self._load_data()
 
+    #
+    # Main API
+    #
     def __iter__(self):
         """Iterates over the dataset."""
         for item in self.data:
             yield self.transform(item)
 
+    def iter_raw(self):
+        """Iterates over the raw dataset."""
+        yield from self.data
+
+    def to_hf(self) -> datasets.IterableDataset:
+        """Converts the dataset to a Hugging Face dataset."""
+        return datasets.IterableDataset.from_generator(self.__iter__)
+
+    #
+    # Abstract Methods
+    #
     @abc.abstractmethod
     def transform(self, sample: Any) -> Dict[str, Any]:
         """Preprocesses the inputs in the given sample.

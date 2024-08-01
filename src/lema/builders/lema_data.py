@@ -53,13 +53,6 @@ def build_dataset(
             datapipe = datapipe.sharding_filter()
             datapipe = datapipe.header(dataset_params.sample_count)
 
-        # Apply preprocessing
-        # if dataset_params.preprocessing_function_name:
-        #     preprocessing_fn = build_prompt_generation_fn(
-        #         dataset_params.preprocessing_function_name, tokenizer
-        #     )
-        #     datapipe = datapipe.map(preprocessing_fn)
-
         datapipes.append(datapipe)
 
     # Combine datapipes
@@ -112,7 +105,6 @@ def _load_dataset(
     )
 
     if dataset_class is not None:
-        # Custom dataset handling
         dataset = dataset_class(
             split=dataset_params.split,
             subset=dataset_params.subset,
