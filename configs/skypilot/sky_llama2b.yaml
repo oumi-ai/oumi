@@ -61,7 +61,7 @@ run: |
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \
-      "training.enable_wandb=true" \
+      "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
 

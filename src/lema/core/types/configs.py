@@ -29,7 +29,7 @@ class TrainingConfig(BaseConfig):
 
     def __post_init__(self):
         """Verifies/populates params."""
-        if False and self.model.compile:
+        if self.model.compile:
             raise ValueError(
                 "Use `training.compile` instead of `model.compile` to "
                 "enable model compilation during training."

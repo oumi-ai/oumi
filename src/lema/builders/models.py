@@ -75,7 +75,7 @@ def build_model(
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
         # nn.Module. We cast it so that this function can have a useful return type.
-        model.forward = cast(nn.Module, torch.compile(model.forward))
+        model = cast(nn.Module, torch.compile(model))
         logger.info("Enabled model compilation.")
 
     return model
