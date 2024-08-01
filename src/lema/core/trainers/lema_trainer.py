@@ -302,31 +302,6 @@ class Trainer(BaseTrainer):
     #
     # Data loading
     #
-
-    # def _get_train_dataloader(self) -> DataLoader2:
-    #     reading_service = MultiProcessingReadingService(
-    #         num_workers=self.params.dataloader_num_workers
-    #     )
-    #     return DataLoader2(
-    #         self.train_dataset,
-    #         reading_service=reading_service,
-    #         batch_size=self.params.per_device_train_batch_size,
-    #         shuffle=True,
-    #         pin_memory=True,
-    #     )
-
-    # def _get_eval_dataloader(self) -> DataLoader2:
-    #     reading_service = MultiProcessingReadingService(
-    #         num_workers=self.params.dataloader_num_workers
-    #     )
-    #     return DataLoader2(
-    #         self.eval_dataset,
-    #         reading_service=reading_service,
-    #         batch_size=self.params.per_device_eval_batch_size,
-    #         shuffle=False,
-    #         pin_memory=True,
-    #     )
-
     def _get_train_dataloader(self) -> DataLoader:
         """Returns the training dataloader."""
         prefetch_factor = (
