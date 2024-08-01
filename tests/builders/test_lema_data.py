@@ -15,6 +15,7 @@ from lema.core.types import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
+    ModelParams,
     TrainingConfig,
 )
 
@@ -165,3 +166,58 @@ def test_build_dataset_mixture(tokenizer):
     assert isinstance(result, IterDataPipe)
     samples = list(result)
     assert len(samples) == 20
+
+
+@pytest.fixture
+def base_config():
+    return TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[DatasetParams(dataset_name="dummy", split="train")]
+            )
+        ),
+        model=ModelParams(model_name="gpt2", tokenizer_name="gpt2"),
+    )
+
+
+def test_build_dataset_with_no_datasets(base_config, tokenizer):
+    base_config.data.train.datasets = []
+    with pytest.raises(ValueError):
+        build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+
+
+def test_build_dataset_with_multiple_datasets_different_sizes(base_config, tokenizer):
+    base_config.data.train.datasets = [
+        DatasetParams(dataset_name="dummy1", split="train", sample_count=100),
+        DatasetParams(dataset_name="dummy2", split="train", sample_count=200),
+    ]
+    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    assert len(list(dataset)) == 300
+
+
+def test_build_dataset_with_streaming_and_packing(base_config, tokenizer):
+    base_config.data.train.stream = True
+    base_config.data.train.pack = True
+    base_config.model.model_max_length = 128
+    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    sample = next(iter(dataset))
+    assert all(tensor.shape[0] == 128 for tensor in sample.values())
+
+
+def test_build_dataset_with_mixture_proportions(base_config, tokenizer):
+    base_config.data.train.datasets = [
+        DatasetParams(dataset_name="dummy1", split="train", mixture_proportion=0.7),
+        DatasetParams(dataset_name="dummy2", split="train", mixture_proportion=0.3),
+    ]
+    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    # Check that the dataset is a mixture
+    assert isinstance(dataset, IterDataPipe)
+
+
+def test_build_dataset_with_invalid_mixture_proportions(base_config, tokenizer):
+    base_config.data.train.datasets = [
+        DatasetParams(dataset_name="dummy1", split="train", mixture_proportion=0.7),
+        DatasetParams(dataset_name="dummy2", split="train", mixture_proportion=0.4),
+    ]
+    with pytest.raises(ValueError):
+        build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
