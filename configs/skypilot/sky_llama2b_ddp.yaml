@@ -37,19 +37,26 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
+  ACCELERATE_MULTI_GPU_OPTION=
+  if [${TOTAL_NUM_GPUS} -gt 1]; then
+    ACCELERATE_MULTI_GPU_OPTION="--multi_gpu"
+  fi
+
   set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
-      --num_processes $((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
+      --num_processes ${TOTAL_NUM_GPUS} \
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
-      --multi_gpu \
+      ${ACCELERATE_MULTI_GPU_OPTION} \
       --config_file configs/accelerate/llama.ddp.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "data.train.experimental_use_async_dataset=true" \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "model.compile=false" \
       "training.compile=false" \
       "training.max_steps=20" \
       "training.save_steps=0" \
@@ -67,3 +74,29 @@ run: |
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+
+# Default configuation
+# 1 node, 1 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.1node.1xA10040GB.nocompile.v106 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+
+# 1 node, 2 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.1node.2xA10040GB.nocompile.v105 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:2" --cluster xrdaukar-1node2gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+#
+
+# 1 node, 4 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.4xA10040GB.nocompile.v100 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.4xA10040GB.modelcompile.v102 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+
+# 1 node, 8 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8xA10040GB.nocompile.v100 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+# torchrun:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.tr.8xA10040GB.nocompile.v100 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+
+# 4 nodes, 4 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.4nodes.4xA10040GB.nocompile.v100 --cloud GCP --use-spot --num-nodes 4 --gpus "A100:4" --cluster xrdaukar-4node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
+
+# 8 nodes, 4 GPUs:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8nodes.4xA10040GB.nocompile.v100 --cloud GCP --use-spot --num-nodes 8 --gpus "A100:4" --cluster xrdaukar-8node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_ddp.yaml
