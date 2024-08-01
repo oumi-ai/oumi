@@ -46,23 +46,26 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
-      "data.train.experimental_use_async_dataset=true" \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "model.compile=false" \
-      "training.compile=false" \
+      "training.optimizer='adafactor'" \
+      "training.per_device_train_batch_size=4" \
+      "training.gradient_accumulation_steps=64" \
+      "data.train.experimental_use_async_dataset=true" \
+      "training.compile=true" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
-      "training.optimizer='adafactor'" \
-      "training.per_device_train_batch_size=14" \
-      "training.enable_gradient_checkpointing=true" \
-      "training.gradient_accumulation_steps=19" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.log_model_summary=false" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \
-      "training.enable_wandb=true"
+      "training.enable_wandb=true" \
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+
+# 1 node 4 GPUs:
+# torchrun:
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.tr.1node.4xA10040GB.torchcompile.v200 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
