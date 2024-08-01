@@ -1,3 +1,4 @@
+evaluation_framework: LM_HARNESS
 model:
   model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
   model_max_length: 4096
@@ -25,6 +26,5 @@ data:
 generation:
   batch_size: 8
 
-evaluation_framework: LM_HARNESS
-num_samples: 0
+num_samples:
 num_shots: 5
