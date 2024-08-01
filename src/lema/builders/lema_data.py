@@ -3,7 +3,11 @@ from typing import List, Optional, cast
 import torch.utils.data.datapipes as dp
 import transformers
 from torch.utils.data import IterDataPipe, MapDataPipe
-from torchdata.datapipes.iter import HuggingFaceHubReader, SampleMultiplexer
+from torchdata.datapipes.iter import (
+    HuggingFaceHubReader,
+    MultiplexerLongest,
+    SampleMultiplexer,
+)
 from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
 
 from lema.core.registry import REGISTRY
@@ -74,9 +78,7 @@ def build_dataset(
             ):
                 combined_datapipe = dp.iter.Multiplexer(*datapipes)
             else:
-                # TODO: implement multiplexer with longest strategy
-                # for now just concat
-                combined_datapipe = dp.iter.Concater(*datapipes)
+                combined_datapipe = MultiplexerLongest(*datapipes)
         else:
             # All mixture_proportions are not None.
             mixture_proportions = cast(List[float], mixture_proportions)
