@@ -5,9 +5,11 @@ from pathlib import Path as Pathlib
 from pprint import pformat
 from typing import Any, Dict, List, Optional, Tuple
 
+import datasets as hf_datasets
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchMapDataset
+from torch.utils.data import IterableDataset as TorchIterableDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
@@ -20,7 +22,7 @@ from lema.core.distributed import (
     is_world_process_zero,
 )
 from lema.core.types import DatasetSplit, TrainingConfig
-from lema.datasets.debug import ConfigurableDebugDataset
+from lema.datasets.debug import DebugPretrainingDataset
 from lema.utils.io_utils import save_json
 from lema.utils.logging import logger, update_logger_level
 
@@ -36,11 +38,14 @@ BENCHMARK_MATRIX = {
     "model_fwd_bwd_ms": [1.0, 10.0],  # simulate fake forward/bwd pass
 }
 
-# Parameter matrix for `ConfigurableDebugDataset.__init__`
+# Parameter matrix for `ConfigurableTextPretrainingDataset.__init__`
 DUMMY_DATASET_MATRIX = {
-    "data_type": ["float32", "float16"],
+    "sequence_length": [128, 1024],
     "preprocess_time_ms": [0, 1, 5],  # simulate per item preprocesing time
 }
+
+# Disable pre-processing caching for HF datasets
+hf_datasets.disable_caching()
 
 
 #
@@ -109,7 +114,7 @@ def main(args):
     ):
         if args.dummy:
             init_time, dataset = _load_dataset(
-                ConfigurableDebugDataset, **benchmark_config["dataset_params"]
+                DebugPretrainingDataset, **benchmark_config["dataset_params"]
             )
             metadata["init_time"] = init_time
 
@@ -130,18 +135,30 @@ def main(args):
     #
     # Gather results from all processes
     #
-    world_size = dist.get_world_size()
-    gathered_results = [None for _ in range(world_size)]
-    dist.all_gather_object(gathered_results, all_results)
+    if is_distributed():
+        world_size = dist.get_world_size()
+        # placeholder object to gather results from each GPU worker
+        gathered_results = [None for _ in range(world_size)]
+        dist.all_gather_object(gathered_results, all_results)
+    else:
+        gathered_results = [all_results]
 
     #
     # Save results
     #
     if is_world_process_zero():
-        combined_results = [item for sublist in gathered_results for item in sublist]  # type: ignore
+        # combined_results contains results for each worker, indexed by rank
+        # each worker results is a list of dicts, one per tested config
+        # each test config result dict contains {metric1: value1, ...}
+        combined_results = {
+            f"rank{rank}": results for rank, results in enumerate(gathered_results)
+        }
+
+        output_folder = Pathlib(args.output)
+        output_folder.mkdir(exist_ok=True, parents=True)
         save_json(
-            data={"combined_results": combined_results},
-            filename=Pathlib(args.output) / "benchmark_results.json",
+            data=combined_results,
+            filename=output_folder / "benchmark_results.json",
         )
         logger.info(f"Benchmark completed. Saved results to: '{args.output}'")
 
@@ -180,6 +197,11 @@ def _load_dataset(dataset_fn, *args, **kwargs) -> Tuple[float, Any]:
     return end_time - start_time, dataset
 
 
+def _no_op_collate(batch: Any):  # -> Any:
+    """No-op identity collate function."""
+    return batch
+
+
 def _benchmark_dataloader_epoch(
     dataset,
     batch_size: int = 1,
@@ -196,10 +218,20 @@ def _benchmark_dataloader_epoch(
     else:
         sampler = None
 
+    if isinstance(dataset, TorchIterableDataset):
+        # shuffle should be unspecified with an iterable dataset
+        shuffle = None
+    elif isinstance(dataset, TorchMapDataset):
+        shuffle = True
+    else:
+        # if a sampler is provided, should not shuffle
+        shuffle = sampler is None
+
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=(sampler is None) and isinstance(dataset, TorchMapDataset),
+        shuffle=shuffle,
+        collate_fn=_no_op_collate,
         sampler=sampler,
         num_workers=num_dataloader_workers,
         pin_memory=pin_memory,

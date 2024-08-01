@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class ConfigurableDebugDataset(Dataset):
+class DebugClassificationDataset(Dataset):
     def __init__(
         self,
         dataset_size: int = 1000,
@@ -14,7 +14,7 @@ class ConfigurableDebugDataset(Dataset):
         preprocessing_time_ms: float = 0,
         **kwargs,
     ):
-        """Initialize a DebugDataset.
+        """Initialize a DebugClassificationDataset.
 
         This dataset generates random data and labels for debugging purposes.
 
@@ -57,4 +57,43 @@ class ConfigurableDebugDataset(Dataset):
         """Return the data and label at the given index."""
         if self.preprocessing_time_ms > 0:
             time.sleep(self.preprocessing_time_ms * 1000)
-        return self.data[idx], self.labels[idx]
+        return {"features": self.data[idx], "labels": self.labels[idx]}
+
+
+class DebugPretrainingDataset(Dataset):
+    def __init__(
+        self,
+        dataset_size: int = 1000,
+        vocab_size: int = 10000,
+        sequence_length: int = 1024,
+        preprocessing_time_ms: float = 0,
+        **kwargs,
+    ):
+        """Initializes a DebugPretrainingDataset.
+
+        Args:
+            dataset_size: The size of the dataset.
+            vocab_size: The size of the vocabulary.
+            sequence_length: The length of each sequence.
+            preprocessing_time_ms: The time taken for preprocessing in milliseconds.
+            **kwargs: Additional keyword arguments.
+
+        """
+        self.size = dataset_size
+        self.vocab_size = vocab_size
+        self.sequence_length = sequence_length
+        self.preprocessing_time_ms = preprocessing_time_ms
+
+        self.data = torch.randint(
+            low=0, high=self.vocab_size, size=(self.size, self.sequence_length)
+        )
+
+    def __len__(self):
+        """Return the size of the dataset."""
+        return self.size
+
+    def __getitem__(self, idx):
+        """Return the data and label at the given index."""
+        if self.preprocessing_time_ms > 0:
+            time.sleep(self.preprocessing_time_ms * 1000)
+        return {"input_ids": self.data[idx], "labels": self.data[idx]}
