@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from lema.core.types.params.profiler_params import ProfilerParams
-from lema.utils.torch_profiler_utils import torch_profile
+from lema.performance.torch_profiler_utils import torch_profile
 
 
 class SimpleMLP(nn.Module):
