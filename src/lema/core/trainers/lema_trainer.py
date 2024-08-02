@@ -414,10 +414,12 @@ class Trainer(BaseTrainer):
 
         if isinstance(self.train_dataset, Union[MapDataPipe, Dataset]):
             if is_distributed():
+                # TODO: OPE-219 this strategy should only be enabled for DDP
+                # and FSDP with NO_SHARDING
                 device_info = get_device_rank_info()
 
-                # Distribute the dataset across all workers
-                # Each worker will get a subset of the dataset
+                # Distribute the dataset across all GPU workers
+                # Each rank will get a subset of the dataset
                 sampler = DistributedSampler(
                     self.train_dataset,
                     num_replicas=device_info.world_size,
@@ -462,11 +464,12 @@ class Trainer(BaseTrainer):
             num_workers=self.params.dataloader_num_workers,
         )
 
-    def _get_total_training_steps(self):
+    def _get_total_training_steps(self) -> int:
         # TODO: handle num_epochs, len(dataset), etc
         return self.params.max_steps
 
-    def _set_sampler_epoch(self, epoch: int):
+    def _set_sampler_epoch(self, epoch: int) -> None:
+        """Sets the current epoch on sampler, if it exists and supports it."""
         if self._sampler and hasattr(self._sampler, "set_epoch"):
             self._sampler.set_epoch(epoch)
 
