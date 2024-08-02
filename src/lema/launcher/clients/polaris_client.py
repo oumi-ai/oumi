@@ -5,6 +5,7 @@ from enum import Enum
 from getpass import getpass
 from typing import List, Optional, Union
 
+from asyncssh.sftp import SFTPNoConnection
 from fabric import Connection
 from paramiko.ssh_exception import BadAuthenticationType
 from patchwork.transfers import rsync
@@ -36,7 +37,7 @@ def retry_fs(user_function):
     def wrapper(self, *args, **kwargs):
         try:
             return user_function(self, *args, **kwargs)
-        except (EOFError, BadAuthenticationType):
+        except SFTPNoConnection:
             logger.warning("Connection closed. Reconnecting...")
             self._fs = self._refresh_fs()
             return user_function(self, *args, **kwargs)
