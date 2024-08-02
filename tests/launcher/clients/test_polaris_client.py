@@ -622,7 +622,9 @@ def test_polaris_client_rsync_failure(mock_fabric, mock_fs, mock_auth, mock_patc
         )
 
 
-def test_polaris_client_put_r_success(mock_fabric, mock_fs, mock_auth, mock_patchwork):
+def test_polaris_client_put_recursive_success(
+    mock_fabric, mock_fs, mock_auth, mock_patchwork
+):
     mock_ssh_fs = Mock(spec=SSHFileSystem)
     mock_fs.side_effect = [mock_ssh_fs]
     mock_connection = Mock(spec=Connection)
@@ -630,7 +632,7 @@ def test_polaris_client_put_r_success(mock_fabric, mock_fs, mock_auth, mock_patc
     mock_command = Mock()
     mock_connection.put.return_value = mock_command
     client = PolarisClient("user")
-    client.put_r(
+    client.put_recursive(
         "source",
         "destination",
     )
@@ -641,7 +643,9 @@ def test_polaris_client_put_r_success(mock_fabric, mock_fs, mock_auth, mock_patc
     )
 
 
-def test_polaris_client_put_r_failure(mock_fabric, mock_fs, mock_auth, mock_patchwork):
+def test_polaris_client_put_recursive_failure(
+    mock_fabric, mock_fs, mock_auth, mock_patchwork
+):
     mock_ssh_fs = Mock(spec=SSHFileSystem)
     mock_fs.side_effect = [mock_ssh_fs]
     mock_connection = Mock(spec=Connection)
@@ -649,7 +653,7 @@ def test_polaris_client_put_r_failure(mock_fabric, mock_fs, mock_auth, mock_patc
     with pytest.raises(RuntimeError):
         mock_ssh_fs.put.side_effect = [RuntimeError]
         client = PolarisClient("user")
-        client.put_r(
+        client.put_recursive(
             "source",
             "destination",
         )

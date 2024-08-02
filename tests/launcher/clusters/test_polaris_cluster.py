@@ -301,7 +301,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         cluster="debug.name",
     )
     job_status = cluster.run_job(_get_default_job("polaris"))
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -379,7 +379,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         None,
     ]
     job_status = cluster.run_job(_get_default_job("polaris"))
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -477,7 +477,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         mock_hex.hex = "1-2-3"
         mock_uuid.uuid1.return_value = mock_hex
         job_status = cluster.run_job(job)
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -548,7 +548,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
     job = _get_default_job("polaris")
     job.file_mounts = {}
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -613,7 +613,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
     job.setup = "small setup"
     job.run = "./hello_world.sh"
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -670,7 +670,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
     job.setup = None
     job.run = "./hello_world.sh"
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_r.assert_has_calls(
+    mock_polaris_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",

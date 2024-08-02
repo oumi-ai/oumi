@@ -213,7 +213,7 @@ class PolarisCluster(BaseCluster):
         remote_working_dir = Path(f"/home/{user}/lema_launcher/{job_name}")
         # Copy the working directory to Polaris /home/ system.
         self._client.run_commands([f"mkdir -p {remote_working_dir}"])
-        self._client.put_r(job.working_dir, str(remote_working_dir))
+        self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if lema is installed in a conda env. If not, install it.
         lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
         should_create_env = True
@@ -245,7 +245,7 @@ class PolarisCluster(BaseCluster):
             self._client.run_commands([" && ".join(install_cmds)])
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
-            self._client.put_r(local_path, remote_path)
+            self._client.put_recursive(local_path, remote_path)
         # Create the job script by merging envs, setup, and run commands.
         job_script = _create_job_script(job)
         script_path = remote_working_dir / "lema_job.sh"

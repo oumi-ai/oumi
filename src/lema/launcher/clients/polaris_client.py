@@ -146,8 +146,8 @@ class PolarisClient:
             password=getpass(
                 prompt="Mounting Polaris filesystem...\n"
                 "This requires a new set of Polaris credentials.\n"
-                "**You must refresh your password before proceededing!**\n"
-                f"Polaris password for {self._user}: "
+                "**You must refresh your passcode before proceeding!**\n"
+                f"Polaris passcode for {self._user}: "
             ),
         )
 
@@ -159,7 +159,7 @@ class PolarisClient:
             "polaris.alcf.anl.gov",
             user=self._user,
             connect_kwargs={
-                "password": getpass(prompt=f"Polaris password for {self._user}: ")
+                "password": getpass(prompt=f"Polaris passcode for {self._user}: ")
             },
         )
         connection.open()
@@ -326,7 +326,7 @@ class PolarisClient:
             raise RuntimeError(f"Rsync failed. stderr: {result.stderr}")
 
     @retry_fs
-    def put_r(self, source: str, destination: str) -> None:
+    def put_recursive(self, source: str, destination: str) -> None:
         """Puts the specified file/directory to the remote path, recursively.
 
         Args:
