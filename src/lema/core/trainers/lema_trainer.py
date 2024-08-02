@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 from pathlib import Path
@@ -59,16 +60,19 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
-        # TODO: OPE-216 - allow granular mixed precision training
-        self.dtype = (
-            "bfloat16"
-            if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-            else "float16"
-        )
         self.device_type = "cuda" if torch.cuda.is_available() else "cpu"
-        self.mixed_precision_ctx = torch.amp.autocast(
-            device_type=self.device_type, enabled=True, dtype=torch.bfloat16
-        )
+        # Enable mixed precision bf16/fp16 training if requested.
+        # Model dtype has been verified to not be bf16/fp16 if this is the case.
+        self.mixed_precision_ctx = contextlib.nullcontext()
+        self.activation_dtype = None
+        if self.params.bf16:
+            self.activation_dtype = torch.bfloat16
+        if self.params.fp16:
+            self.activation_dtype = torch.float16
+        if self.activation_dtype:
+            self.mixed_precision_ctx = torch.amp.autocast(
+                device_type=self.device_type, enabled=True, dtype=self.activation_dtype
+            )
 
         if self.params.compile:
             self.log("Compiling model...")
@@ -197,7 +201,6 @@ class Trainer(BaseTrainer):
                 loss = outputs["loss"] / self.params.gradient_accumulation_steps
                 # assert loss.dtype is torch.bfloat16
                 # assert outputs["logits"].dtype is torch.bfloat16
-                # assert self.model.dtype is torch.bfloat16
 
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()

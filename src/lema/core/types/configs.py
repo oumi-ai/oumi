@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional
 
+import torch
 from omegaconf import MISSING
 
 from lema.core.types.base_config import BaseConfig
@@ -34,6 +35,8 @@ class TrainingConfig(BaseConfig):
                 "Use `training.compile` instead of `model.compile` to "
                 "enable model compilation during training."
             )
+
+        # Verify dataset-related params for TRL_SFT.
         if self.training.trainer_type == TrainerType.TRL_SFT:
             if not self.data.train.target_col:
                 raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
@@ -55,6 +58,20 @@ class TrainingConfig(BaseConfig):
                 self.data.train.target_col
             )
 
+        # Verify values for model dtype and mixed precision training.
+        if self.training.bf16 or self.training.fp16:
+            if self.model.torch_dtype() in [torch.float16, torch.bfloat16]:
+                raise ValueError(
+                    "16-bit mixed-precision training is enabled, but the "
+                    "model is already 16-bit!"
+                )
+            if self.training.bf16 and self.training.fp16:
+                raise ValueError(
+                    "Can only specify at most one type of "
+                    "mixed-precision training (bf16/fp16)."
+                )
+
+        # Check values for model sequence length.
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
