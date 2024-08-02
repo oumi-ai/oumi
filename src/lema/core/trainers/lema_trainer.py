@@ -452,8 +452,8 @@ class Trainer(BaseTrainer):
             wandb.watch(self.model)
 
         if self.params.enable_tensorboard:
-            self.log(f"Logging to Weights and Biases project: '{project_name}'")
             tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
+            self.log(f"Logging to tensorboard folder: '{tensorboard_folder}'")
             self.tensorboard_writer = tensorboard.SummaryWriter(
                 log_dir=tensorboard_folder
             )
