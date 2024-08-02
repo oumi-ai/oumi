@@ -96,6 +96,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
         dataset_text_field: str = "text",
         append_concat_token: bool = True,
         add_special_tokens: bool = True,
+        skip_last: bool = True,
         **kwargs,
     ):
         """Initializes a new instance of the BasePretrainingIterableDataset class."""
@@ -111,6 +112,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
         self._dataset_text_field = dataset_text_field
         self._append_concat_token = append_concat_token
         self._add_special_tokens = add_special_tokens
+        self._skip_last = skip_last
 
         super().__init__(**kwargs)
 
@@ -145,7 +147,8 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
 
         # Finished iterating on the dataset, yield the remaining buffer
         if len(buffer) > 0:
-            yield self._create_sample(buffer)
+            if not self._skip_last or len(buffer) == self.seq_length:
+                yield self._create_training_sample(buffer)
 
     def transform(self, sample: Any) -> List[int]:
         """Preprocesses the inputs in the given sample."""
@@ -162,7 +165,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
             max_length=None,
             padding=False,
             truncation=False,
-            add_special_tokens=self.add_special_tokens,
+            add_special_tokens=self._add_special_tokens,
         )
 
     def _create_training_sample(self, tokens: list) -> Dict[str, torch.Tensor]:

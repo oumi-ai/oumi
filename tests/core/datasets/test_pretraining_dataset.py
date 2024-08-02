@@ -73,7 +73,7 @@ def test_initialization(tokenizer):
     )
     assert dataset.tokenizer == tokenizer
     assert dataset.seq_length == 10
-    assert dataset.dataset_text_field == "text"
+    assert dataset._dataset_text_field == "text"
 
 
 def test_tokenize(test_dataset, tokenizer):
@@ -86,7 +86,7 @@ def test_tokenize(test_dataset, tokenizer):
 
 def test_create_sample(test_dataset, tokenizer):
     tokens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    sample = test_dataset._create_sample(tokens)
+    sample = test_dataset._create_training_sample(tokens)
     assert isinstance(sample, dict)
     assert "input_ids" in sample
     assert "attention_mask" in sample
