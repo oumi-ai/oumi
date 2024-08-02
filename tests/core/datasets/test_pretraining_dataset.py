@@ -19,10 +19,19 @@ def tokenizer():
 class TestDataset(BasePretrainingIterableDataset):
     def __init__(self, *args, mock_data=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mock_data = mock_data
+        self.mock_data = (
+            mock_data if mock_data is not None else self._default_mock_data()
+        )
 
     def _load_data(self):
         return self.mock_data
+
+    def _default_mock_data(self):
+        return [
+            {"text": "This is a test sentence."},
+            {"text": "Another example sentence for testing."},
+            {"text": "A third sentence to ensure we have enough data."},
+        ]
 
 
 @pytest.fixture
@@ -73,7 +82,7 @@ def test_initialization(tokenizer):
     )
     assert dataset.tokenizer == tokenizer
     assert dataset.seq_length == 10
-    assert dataset.dataset_text_field == "text"
+    assert dataset._dataset_text_field == "text"
 
 
 def test_tokenize(test_dataset, tokenizer):
@@ -86,7 +95,7 @@ def test_tokenize(test_dataset, tokenizer):
 
 def test_create_sample(test_dataset, tokenizer):
     tokens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    sample = test_dataset._create_sample(tokens)
+    sample = test_dataset._create_training_sample(tokens)
     assert isinstance(sample, dict)
     assert "input_ids" in sample
     assert "attention_mask" in sample
@@ -107,19 +116,19 @@ def test_iter(test_dataset, tokenizer):
         assert all(tensor.shape == torch.Size([10]) for tensor in sample.values())
 
 
-# def test_buffer_handling(tokenizer):
-#     dataset = TestDataset(
-#         tokenizer=tokenizer,
-#         dataset_name_or_path="dummy_path",
-#         seq_length=20,  # Longer sequence length to test buffer handling
-#         dataset_text_field="text",
-#     )
-#     samples = list(dataset)
-#     total_tokens = sum(
-#         len(dataset.tokenize(item["text"])) for item in dataset._load_data()
-#     )
-#     expected_samples = total_tokens // 20
-#     assert len(samples) <= expected_samples
+def test_buffer_handling(tokenizer):
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy_path",
+        seq_length=20,  # Longer sequence length to test buffer handling
+        dataset_text_field="text",
+    )
+    samples = list(dataset)
+    total_tokens = sum(
+        len(dataset.tokenize(item["text"])) for item in dataset._load_data()
+    )
+    expected_samples = total_tokens // 20
+    assert len(samples) <= expected_samples
 
 
 def test_disk_dataset(tokenizer, create_sample_data):
@@ -153,7 +162,7 @@ def test_disk_dataset(tokenizer, create_sample_data):
         if f.endswith(".json")
     )
     expected_samples = total_tokens // 50
-    assert len(samples) <= expected_samples
+    assert len(samples) == expected_samples
     assert len(samples) >= num_files  # At least one sample per file
 
 

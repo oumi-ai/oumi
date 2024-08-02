@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizerBase
 
 from lema.core.trainers.lema_trainer import Trainer
@@ -226,14 +226,14 @@ def test_process_callbacks(trainer):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_cuda_initialization():
+def test_cuda_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu
     trainer = Trainer(
-        model=MagicMock(spec=torch.nn.Module),
-        tokenizer=MagicMock(spec=PreTrainedTokenizerBase),
-        args=mock_params(),
-        train_dataset=MagicMock(spec=Dataset),
-        eval_dataset=MagicMock(spec=Dataset),
+        model=model,
+        tokenizer=mock_tokenizer,
+        args=mock_params,
+        train_dataset=mock_dataset,
+        eval_dataset=None,
     )
     assert next(model.parameters()).is_cuda, "Model should be on CUDA"
     assert trainer.device.startswith("cuda"), "Device should be CUDA"

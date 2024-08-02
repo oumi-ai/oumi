@@ -1,7 +1,6 @@
 from typing import List, Optional, cast
 
 import torch.utils.data.datapipes as dp
-import transformers
 from torch.utils.data import IterDataPipe, MapDataPipe
 from torchdata.datapipes.iter import (
     HuggingFaceHubReader,
@@ -9,6 +8,7 @@ from torchdata.datapipes.iter import (
     SampleMultiplexer,
 )
 from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
+from transformers import PreTrainedTokenizerBase
 
 from lema.core.registry import REGISTRY
 from lema.core.types import (
@@ -22,10 +22,9 @@ from lema.core.types import (
 
 def build_dataset(
     config: TrainingConfig,
-    tokenizer: transformers.PreTrainedTokenizerBase,
+    tokenizer: PreTrainedTokenizerBase,
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
-    **kwargs,
 ) -> IterDataPipe:
     """Builds a dataset for the specified split.
 
@@ -34,12 +33,14 @@ def build_dataset(
         tokenizer: The tokenizer object to use for preprocessing.
         dataset_split: The split of the dataset to load.
         seed: If specified, a seed used for random sampling.
-        kwargs: Keyword arguments.
 
     Returns:
         dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
+
+    if len(dataset_split_params.datasets) == 0:
+        raise ValueError("No datasets specified in the split.")
 
     datapipes: List[IterDataPipe] = []
 
@@ -54,6 +55,9 @@ def build_dataset(
             datapipe = datapipe.header(dataset_params.sample_count)
 
         datapipes.append(datapipe)
+
+    if len(datapipes) != len(dataset_split_params.datasets):
+        raise RuntimeError("Failed to load all datasets.")
 
     # Combine datapipes
     if len(datapipes) > 1:
@@ -117,7 +121,7 @@ def build_dataset(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[transformers.PreTrainedTokenizerBase] = None,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY
