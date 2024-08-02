@@ -21,6 +21,11 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
+  /lema_dev_dir_gcs:
+    source: gs://lema-dev-europe-west4
+    store: gcs
+    mode: MOUNT
+
 envs:
   WANDB_PROJECT: lema-train-test
   LEMA_RUN_NAME: llama2b.pt
@@ -37,6 +42,12 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  # "training.dataloader_num_workers=${LEMA_DEFAULT_DATALOADER_WORKERS}" \
+
+  # "training.profiler.enable_cpu_profiling=true" \
+  # "training.profiler.enable_cuda_profiling=true" \
+  # "training.profiler.with_stack=true" \
+
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
@@ -47,10 +58,10 @@ run: |
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=3" \
+      "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false" \
-      "training.per_device_train_batch_size=3" \
+      "training.per_device_train_batch_size=2" \
       "training.gradient_accumulation_steps=86" \
       "training.dataloader_num_workers=${LEMA_DEFAULT_DATALOADER_WORKERS}" \
       "training.dataloader_prefetch_factor=4" \
@@ -60,3 +71,11 @@ run: |
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+# lema-dev-europe-west4/nikolai/runs/llama2b.pt.8xA10040GB.3steps.profile_cpu_cuda.v306
+
+# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.tr.8xA10040GB.20steps.dw2.pf4.v502 --cloud GCP --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-02-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.tr.8xA10040GB.20steps.dw8.pf4.v501 --cloud GCP --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.tr.8xA10040GB.20steps.dw1.pf4.v501 --cloud GCP --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-03-lema-cluster ./configs/skypilot/sky_llama2b.yaml
