@@ -128,7 +128,7 @@ def test_buffer_handling(tokenizer):
         len(dataset.tokenize(item["text"])) for item in dataset._load_data()
     )
     expected_samples = total_tokens // 20
-    assert len(samples) <= expected_samples
+    assert len(samples) == expected_samples
 
 
 def test_disk_dataset(tokenizer, create_sample_data):
@@ -202,7 +202,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
 
 
 def test_dataset_with_very_long_sequence(tokenizer):
-    mock_data = [{"text": "Very long " * 1000}]
+    mock_data = [{"text": "long " * 1000}]  # 1000 tokens
     dataset = TestDataset(
         tokenizer=tokenizer,
         dataset_name_or_path="dummy",
@@ -211,7 +211,7 @@ def test_dataset_with_very_long_sequence(tokenizer):
     )
 
     samples = list(dataset)
-    assert len(samples) > 1
+    assert len(samples) == 100
     assert all(
         tensor.shape[0] == 10 for sample in samples for tensor in sample.values()
     )
@@ -228,3 +228,33 @@ def test_dataset_with_non_text_field(tokenizer):
     )
     with pytest.raises(KeyError):
         list(dataset)
+
+
+def test_dataset_with_no_docs(tokenizer):
+    mock_data = []
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        mock_data=mock_data,
+        skip_last=False,
+    )
+
+    samples = list(dataset)
+    assert len(samples) == 0
+
+
+def test_dataset_with_empty_docs(tokenizer):
+    mock_data = [{"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}]
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        mock_data=mock_data,
+        skip_last=False,
+    )
+
+    samples = list(dataset)
+    assert len(samples) == 0
