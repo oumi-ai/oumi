@@ -355,9 +355,9 @@ class Trainer(BaseTrainer):
             torch.save(
                 self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
             )
-            torch.save(
+            save_json(
                 self.train_dataloader.state_dict(),
-                os.path.join(output_dir, "dataloader.pt"),
+                os.path.join(output_dir, "dataloader.json"),
             )
             save_json(
                 data=self.state.model_dump(),
@@ -376,7 +376,7 @@ class Trainer(BaseTrainer):
         optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
         trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
         telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
-        dataloader_state_path: str = os.path.join(checkpoint_dir, "dataloader.pt")
+        dataloader_state_path: str = os.path.join(checkpoint_dir, "dataloader.json")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
@@ -391,7 +391,7 @@ class Trainer(BaseTrainer):
         if os.path.exists(telemetry_state_path):
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
         if os.path.exists(dataloader_state_path):
-            self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
+            self.train_dataloader.load_state_dict(load_json(dataloader_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
 
