@@ -41,7 +41,10 @@ class DatasetParams:
     dataset_name: str = MISSING
     # The subset of the dataset to load, usually a subfolder within the dataset root.
     subset: Optional[str] = None
+    # The split of the dataset to load, usually "train", "test", or "validation".
     split: str = "train"
+    # Keyword arguments to pass to the dataset constructor.
+    dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # The number of examples to sample from the dataset. Must be non-negative. If
     # `sample_count` is larger than the size of the dataset then the required additional
