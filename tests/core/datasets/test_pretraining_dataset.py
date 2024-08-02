@@ -18,10 +18,10 @@ def tokenizer():
 
 class TestDataset(BasePretrainingIterableDataset):
     def __init__(self, *args, mock_data=None, **kwargs):
-        super().__init__(*args, **kwargs)
         self.mock_data = (
             mock_data if mock_data is not None else self._default_mock_data()
         )
+        super().__init__(*args, **kwargs)
 
     def _load_data(self):
         return self.mock_data
@@ -168,17 +168,37 @@ def test_disk_dataset(tokenizer, create_sample_data):
 
 def test_dataset_with_exact_sequence_length(tokenizer):
     mock_data = [
-        {"text": "This is exactly twenty tokens long sentence for testing purposes."}
+        {
+            "text": "This sentence is exactly twenty tokens long sentence "
+            "for testing purposes using gpt2's default tokenizer."
+        }
     ]
     dataset = TestDataset(
         tokenizer=tokenizer,
         dataset_name_or_path="dummy",
         seq_length=20,
         mock_data=mock_data,
+        skip_last=False,
     )
     samples = list(dataset)
-    assert len(samples) == 1
+    assert len(samples) == 1, "Dataset contains 20 tokens, we should have one sample"
     assert all(tensor.shape[0] == 20 for tensor in samples[0].values())
+
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=19,
+        mock_data=mock_data,
+        skip_last=False,
+    )
+    samples = list(dataset)
+    assert len(samples) == 2
+    assert (
+        samples[0]["input_ids"].shape[0] == 19
+    ), "First sample should match seq_length"
+    assert (
+        samples[1]["input_ids"].shape[0] == 1
+    ), "Second sample should have the remainder"
 
 
 def test_dataset_with_very_long_sequence(tokenizer):
