@@ -10,6 +10,7 @@ import torch.amp
 import torch.utils.tensorboard as tensorboard
 import wandb
 from torch.utils.data import DataLoader, Dataset
+from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 
@@ -302,7 +303,7 @@ class Trainer(BaseTrainer):
     #
     # Data loading
     #
-    def _get_train_dataloader(self) -> DataLoader:
+    def _get_train_dataloader(self) -> StatefulDataLoader:
         """Returns the training dataloader."""
         prefetch_factor = (
             None
@@ -310,7 +311,7 @@ class Trainer(BaseTrainer):
             else self.params.dataloader_prefetch_factor
         )
 
-        return DataLoader(
+        return StatefulDataLoader(
             self.train_dataset,
             batch_size=self.params.per_device_train_batch_size,
             shuffle=False,  # TODO: OPE-224 add sampler
@@ -354,7 +355,10 @@ class Trainer(BaseTrainer):
             torch.save(
                 self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
             )
-
+            torch.save(
+                self.train_dataloader.state_dict(),
+                os.path.join(output_dir, "dataloader.pt"),
+            )
             save_json(
                 data=self.state.model_dump(),
                 filename=os.path.join(output_dir, "trainer_state.json"),
@@ -372,6 +376,7 @@ class Trainer(BaseTrainer):
         optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
         trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
         telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
+        dataloader_state_path: str = os.path.join(checkpoint_dir, "dataloader.pt")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
@@ -385,8 +390,8 @@ class Trainer(BaseTrainer):
             )
         if os.path.exists(telemetry_state_path):
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
-
-        # TODO: OPE-103 - save / reload dataloader state
+        if os.path.exists(dataloader_state_path):
+            self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
 
