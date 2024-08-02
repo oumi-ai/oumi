@@ -14,6 +14,10 @@ resources:
 # Upload a working directory to remote ~/sky_workdir.
 workdir: .
 
+envs:
+  WANDB_PROJECT: lema-train-test
+  LEMA_RUN_NAME: llama2b.pt
+
 # Upload local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
@@ -21,9 +25,12 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
-envs:
-  WANDB_PROJECT: lema-train-test
-  LEMA_RUN_NAME: llama2b.pt
+  /lema_dev_dir_gcs:
+    source: gs://lema-dev-europe-west4
+    store: gcs
+    mode: MOUNT
+  # gs://lema-dev-europe-west4/datasets/fineweb-edu/sample-10BT
+  # gs://lema-dev-europe-west4/datasets/fineweb-edu/hf_pretokenized-sample-10BT
 
 setup: |
   set -e
@@ -37,6 +44,12 @@ run: |
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
+  TRAIN_DATASETS="data.train.datasets=
+  - dataset_name: \"/lema_dev_dir_gcs/datasets/fineweb-edu/sample-10BT\"
+    subset: \"default\"
+    split: \"train\"
+  "
+
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${LEMA_NUM_NODES} \
@@ -46,20 +59,33 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
+      "$TRAIN_DATASETS" \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.output_dir=/lema_dev_dir_gcs/nikolai/runs/${LEMA_RUN_NAME}" \
       "training.optimizer='adafactor'" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
       "data.train.experimental_use_async_dataset=true" \
       "training.compile=true" \
-      "training.max_steps=20" \
-      "training.save_steps=100" \
-      "training.save_final_model=true" \
+      "training.max_steps=3" \
+      "training.save_steps=0" \
+      "training.save_final_model=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \
+      "training.profiler.enable_cpu_profiling=true" \
+      "training.profiler.enable_cuda_profiling=true" \
+      "training.profiler.profile_memory=false" \
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+#  sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8xA10040GB.gcsdata.wandb.v301 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+#  sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8xA10040GB.profile_cpu_cuda.v304 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-02-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+#  sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8xA10040GB.profile_cpu_cuda_mem.v305 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+#  sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.8xA10040GB.3steps.profile_cpu_cuda.v306 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:8" --cluster xrdaukar-1node8gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
