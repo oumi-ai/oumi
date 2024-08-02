@@ -340,6 +340,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/myjob/lema_job.sh",
+        "/home/user/lema_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -441,6 +442,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/myjob/lema_job.sh",
+        "/home/user/lema_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -516,6 +518,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/1-2-3/lema_job.sh",
+        "/home/user/lema_launcher/1-2-3",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "1-2-3",
@@ -579,6 +582,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/myjob/lema_job.sh",
+        "/home/user/lema_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -636,6 +640,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/myjob/lema_job.sh",
+        "/home/user/lema_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -691,6 +696,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
     )
     mock_polaris_client.submit_job.assert_called_once_with(
         "/home/user/lema_launcher/myjob/lema_job.sh",
+        "/home/user/lema_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
