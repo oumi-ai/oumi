@@ -298,61 +298,60 @@ class Trainer(BaseTrainer):
     def save_model(self, config: TrainingConfig):
         """Saves the model."""
         if is_world_process_zero():
-            output_dir = config.training.output_dir
-            os.makedirs(output_dir, exist_ok=True)
-            torch.save(self.model.state_dict(), os.path.join(output_dir, "model.pt"))
+            output_dir = Path(config.training.output_dir)
+            output_dir.mkdir(exist_ok=True)
+            torch.save(self.model.state_dict(), output_dir / "model.pt")
             self.log(f"Model saved to {output_dir}.")
 
     def save_state(self):
         """Saves the model and optimizer state."""
-        output_dir = self.params.output_dir
+        output_dir = Path(self.params.output_dir)
 
         if is_world_process_zero():
-            os.makedirs(output_dir, exist_ok=True)
+            output_dir.mkdir(exist_ok=True)
             # TODO: OPE-213 - switch to using safetensors
-            torch.save(self.model.state_dict(), os.path.join(output_dir, "model.pt"))
-            torch.save(
-                self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
-            )
+            torch.save(self.model.state_dict(), output_dir / "model.pt")
+            torch.save(self.optimizer.state_dict(), output_dir / "optimizer.pt")
             save_json(
                 self.train_dataloader.state_dict(),
-                os.path.join(output_dir, "dataloader.json"),
+                output_dir / "dataloader.json",
             )
             save_json(
                 data=self.state.model_dump(),
-                filename=os.path.join(output_dir, "trainer_state.json"),
+                filename=output_dir / "trainer_state.json",
             )
-
             save_json(
                 data=self.telemetry.state_dict(),
-                filename=os.path.join(output_dir, "telemetry_state.json"),
+                filename=output_dir / "telemetry_state.json",
             )
             logger.info(f"Model saved to {output_dir}")
 
-    def _load_from_checkpoint(self, checkpoint_dir: str):
+    def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the model and optimizer state from a checkpoint."""
-        model_path = os.path.join(checkpoint_dir, "model.pt")
-        optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
-        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
-        telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
-        dataloader_state_path: str = os.path.join(checkpoint_dir, "dataloader.json")
+        checkpoint_dir = Path(checkpoint_dirname)
 
-        if os.path.exists(model_path):
+        model_path = checkpoint_dir / "model.pt"
+        optimizer_path = checkpoint_dir / "optimizer.pt"
+        trainer_state_path = checkpoint_dir / "trainer_state.json"
+        telemetry_state_path = checkpoint_dir / "telemetry.json"
+        dataloader_state_path = checkpoint_dir / "dataloader.json"
+
+        if model_path.exists():
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        if os.path.exists(optimizer_path):
+        if optimizer_path.exists():
             self.optimizer.load_state_dict(
                 torch.load(optimizer_path, map_location=self.device)
             )
-        if os.path.exists(trainer_state_path):
+        if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
             )
-        if os.path.exists(telemetry_state_path):
+        if telemetry_state_path.exists():
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
-        if os.path.exists(dataloader_state_path):
+        if dataloader_state_path.exists():
             self.train_dataloader.load_state_dict(load_json(dataloader_state_path))
 
-        self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
+        self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
 
     #
     # Logging
