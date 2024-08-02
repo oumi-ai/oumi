@@ -10,6 +10,7 @@ import torch.amp
 import torch.utils.tensorboard as tensorboard
 import wandb
 from torch.utils.data import DataLoader, Dataset
+from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 
@@ -97,8 +98,6 @@ class Trainer(BaseTrainer):
 
         self.callbacks = callbacks if callbacks is not None else []
 
-        # TODO: OPE-220 - init wandb, tensorboard, etc
-
         self.optimizer = build_optimizer(self.model, self.params)
 
         self.train_dataloader = self._get_train_dataloader()
@@ -166,7 +165,7 @@ class Trainer(BaseTrainer):
 
         while True:
             if micro_step % self.params.gradient_accumulation_steps == 0:
-                self.process_callbacks("on_step_begin")
+                self._process_callbacks("on_step_begin")
 
             with self.telemetry.timer("fetching batch"):
                 try:
@@ -180,7 +179,6 @@ class Trainer(BaseTrainer):
                     k: v.to(self.device, non_blocking=True) for k, v in batch.items()
                 }
 
-            # TODO: OPE-225 - add detailed logging metrics
             with self.telemetry.timer("computing tokens"):
                 num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
 
@@ -215,11 +213,10 @@ class Trainer(BaseTrainer):
                 self.state.global_step += 1
                 progress_bar.update(1)
 
-                self.process_callbacks("on_step_end")
+                self._process_callbacks("on_step_end")
 
                 if self.state.global_step % self.params.logging_steps == 0:
                     # Log metrics
-
                     elapsed = time.perf_counter() - self.start_time
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
                     metrics = {
@@ -233,7 +230,7 @@ class Trainer(BaseTrainer):
                         "tokens_per_step_per_gpu": self.state.total_tokens_seen
                         / self.state.global_step,
                     }
-                    callback_metrics = self.process_callbacks("on_log")
+                    callback_metrics = self._process_callbacks("on_log")
                     metrics.update(callback_metrics)
 
                     self.log_metrics(metrics, self.state.global_step)
@@ -262,10 +259,6 @@ class Trainer(BaseTrainer):
                 break
 
             micro_step += 1
-
-    def _get_total_training_steps(self):
-        # TODO: handle num_epochs, len(dataset), etc
-        return self.params.max_steps
 
     #
     # Evaluation
@@ -300,95 +293,65 @@ class Trainer(BaseTrainer):
         return results
 
     #
-    # Data loading
-    #
-    def _get_train_dataloader(self) -> DataLoader:
-        """Returns the training dataloader."""
-        prefetch_factor = (
-            None
-            if self.params.dataloader_num_workers == 0
-            else self.params.dataloader_prefetch_factor
-        )
-
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.params.per_device_train_batch_size,
-            shuffle=False,  # TODO: OPE-224 add sampler
-            num_workers=self.params.dataloader_num_workers,
-            pin_memory=True,
-            prefetch_factor=prefetch_factor,
-            pin_memory_device=self.device,
-        )
-
-    def _get_eval_dataloader(self) -> DataLoader:
-        """Returns the evaluation dataloader."""
-        if not self.eval_dataset:
-            raise ValueError("No evaluation dataset provided.")
-
-        return DataLoader(
-            self.eval_dataset,
-            batch_size=self.params.per_device_eval_batch_size,
-            shuffle=False,
-            num_workers=self.params.dataloader_num_workers,
-        )
-
-    #
     # Checkpointing
     #
     def save_model(self, config: TrainingConfig):
         """Saves the model."""
         if is_world_process_zero():
-            output_dir = config.training.output_dir
-            os.makedirs(output_dir, exist_ok=True)
-            torch.save(self.model.state_dict(), os.path.join(output_dir, "model.pt"))
+            output_dir = Path(config.training.output_dir)
+            output_dir.mkdir(exist_ok=True)
+            torch.save(self.model.state_dict(), output_dir / "model.pt")
             self.log(f"Model saved to {output_dir}.")
 
     def save_state(self):
         """Saves the model and optimizer state."""
-        output_dir = self.params.output_dir
+        output_dir = Path(self.params.output_dir)
 
         if is_world_process_zero():
-            os.makedirs(output_dir, exist_ok=True)
+            output_dir.mkdir(exist_ok=True)
             # TODO: OPE-213 - switch to using safetensors
-            torch.save(self.model.state_dict(), os.path.join(output_dir, "model.pt"))
-            torch.save(
-                self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
+            torch.save(self.model.state_dict(), output_dir / "model.pt")
+            torch.save(self.optimizer.state_dict(), output_dir / "optimizer.pt")
+            save_json(
+                self.train_dataloader.state_dict(),
+                output_dir / "dataloader.json",
             )
-
             save_json(
                 data=self.state.model_dump(),
-                filename=os.path.join(output_dir, "trainer_state.json"),
+                filename=output_dir / "trainer_state.json",
             )
-
             save_json(
                 data=self.telemetry.state_dict(),
-                filename=os.path.join(output_dir, "telemetry_state.json"),
+                filename=output_dir / "telemetry_state.json",
             )
             logger.info(f"Model saved to {output_dir}")
 
-    def _load_from_checkpoint(self, checkpoint_dir: str):
+    def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the model and optimizer state from a checkpoint."""
-        model_path = os.path.join(checkpoint_dir, "model.pt")
-        optimizer_path = os.path.join(checkpoint_dir, "optimizer.pt")
-        trainer_state_path = os.path.join(checkpoint_dir, "trainer_state.json")
-        telemetry_state_path = os.path.join(checkpoint_dir, "telemetry.json")
+        checkpoint_dir = Path(checkpoint_dirname)
 
-        if os.path.exists(model_path):
+        model_path = checkpoint_dir / "model.pt"
+        optimizer_path = checkpoint_dir / "optimizer.pt"
+        trainer_state_path = checkpoint_dir / "trainer_state.json"
+        telemetry_state_path = checkpoint_dir / "telemetry.json"
+        dataloader_state_path = checkpoint_dir / "dataloader.json"
+
+        if model_path.exists():
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        if os.path.exists(optimizer_path):
+        if optimizer_path.exists():
             self.optimizer.load_state_dict(
                 torch.load(optimizer_path, map_location=self.device)
             )
-        if os.path.exists(trainer_state_path):
+        if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
             )
-        if os.path.exists(telemetry_state_path):
+        if telemetry_state_path.exists():
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
+        if dataloader_state_path.exists():
+            self.train_dataloader.load_state_dict(load_json(dataloader_state_path))
 
-        # TODO: OPE-103 - save / reload dataloader state
-
-        self.log(f"Resumed training from checkpoint: {checkpoint_dir}")
+        self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
 
     #
     # Logging
@@ -413,24 +376,6 @@ class Trainer(BaseTrainer):
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
-    #
-    # Handle callbacks
-    #
-    def process_callbacks(self, event: str) -> Dict[str, Any]:
-        """Process callbacks.
-
-        Extremely hacky way to handle HF callbacks.
-        Just here to unblock debugging with our MfuCallback
-        """
-        logs = {}
-
-        for callback in self.callbacks:
-            if hasattr(callback, event):
-                action = getattr(callback, event)
-                action(args=self.params, state=None, control=None, logs=logs)
-
-        return logs
-
     def _init_logging(
         self,
     ) -> None:
@@ -447,10 +392,65 @@ class Trainer(BaseTrainer):
             wandb.watch(self.model)
 
         if self.params.enable_tensorboard:
-            self.log(f"Logging to Weights and Biases project: '{project_name}'")
             tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
+            self.log(f"Logging to tensorboard folder: '{tensorboard_folder}'")
             self.tensorboard_writer = tensorboard.SummaryWriter(
                 log_dir=tensorboard_folder
             )
         else:
             self.tensorboard_writer = None
+
+    #
+    # Data loading
+    #
+    def _get_train_dataloader(self) -> StatefulDataLoader:
+        """Returns the training dataloader."""
+        prefetch_factor = (
+            self.params.dataloader_num_workers
+            if self.params.dataloader_num_workers > 0
+            else None
+        )
+
+        return StatefulDataLoader(
+            self.train_dataset,
+            batch_size=self.params.per_device_train_batch_size,
+            shuffle=False,  # TODO: OPE-224 add sampler
+            num_workers=self.params.dataloader_num_workers,
+            pin_memory=self.device_type == "cuda",
+            prefetch_factor=prefetch_factor,
+            pin_memory_device=self.device,
+        )
+
+    def _get_eval_dataloader(self) -> DataLoader:
+        """Returns the evaluation dataloader."""
+        if not self.eval_dataset:
+            raise ValueError("No evaluation dataset provided.")
+
+        return DataLoader(
+            self.eval_dataset,
+            batch_size=self.params.per_device_eval_batch_size,
+            shuffle=False,
+            num_workers=self.params.dataloader_num_workers,
+        )
+
+    def _get_total_training_steps(self):
+        # TODO: handle num_epochs, len(dataset), etc
+        return self.params.max_steps
+
+    #
+    # Handle callbacks
+    #
+    def _process_callbacks(self, event: str) -> Dict[str, Any]:
+        """Process callbacks.
+
+        Extremely hacky way to handle HF callbacks.
+        Just here to unblock debugging with our MfuCallback
+        """
+        logs = {}
+
+        for callback in self.callbacks:
+            if hasattr(callback, event):
+                action = getattr(callback, event)
+                action(args=self.params, state=None, control=None, logs=logs)
+
+        return logs
