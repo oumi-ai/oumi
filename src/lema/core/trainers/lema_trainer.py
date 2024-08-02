@@ -98,8 +98,6 @@ class Trainer(BaseTrainer):
 
         self.callbacks = callbacks if callbacks is not None else []
 
-        # TODO: OPE-220 - init wandb, tensorboard, etc
-
         self.optimizer = build_optimizer(self.model, self.params)
 
         self.train_dataloader = self._get_train_dataloader()
@@ -167,7 +165,7 @@ class Trainer(BaseTrainer):
 
         while True:
             if micro_step % self.params.gradient_accumulation_steps == 0:
-                self.process_callbacks("on_step_begin")
+                self._process_callbacks("on_step_begin")
 
             with self.telemetry.timer("fetching batch"):
                 try:
@@ -181,7 +179,6 @@ class Trainer(BaseTrainer):
                     k: v.to(self.device, non_blocking=True) for k, v in batch.items()
                 }
 
-            # TODO: OPE-225 - add detailed logging metrics
             with self.telemetry.timer("computing tokens"):
                 num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
 
@@ -216,11 +213,10 @@ class Trainer(BaseTrainer):
                 self.state.global_step += 1
                 progress_bar.update(1)
 
-                self.process_callbacks("on_step_end")
+                self._process_callbacks("on_step_end")
 
                 if self.state.global_step % self.params.logging_steps == 0:
                     # Log metrics
-
                     elapsed = time.perf_counter() - self.start_time
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
                     metrics = {
@@ -234,7 +230,7 @@ class Trainer(BaseTrainer):
                         "tokens_per_step_per_gpu": self.state.total_tokens_seen
                         / self.state.global_step,
                     }
-                    callback_metrics = self.process_callbacks("on_log")
+                    callback_metrics = self._process_callbacks("on_log")
                     metrics.update(callback_metrics)
 
                     self.log_metrics(metrics, self.state.global_step)
@@ -263,10 +259,6 @@ class Trainer(BaseTrainer):
                 break
 
             micro_step += 1
-
-    def _get_total_training_steps(self):
-        # TODO: handle num_epochs, len(dataset), etc
-        return self.params.max_steps
 
     #
     # Evaluation
@@ -299,39 +291,6 @@ class Trainer(BaseTrainer):
 
         self.model.train()
         return results
-
-    #
-    # Data loading
-    #
-    def _get_train_dataloader(self) -> StatefulDataLoader:
-        """Returns the training dataloader."""
-        prefetch_factor = (
-            None
-            if self.params.dataloader_num_workers == 0
-            else self.params.dataloader_prefetch_factor
-        )
-
-        return StatefulDataLoader(
-            self.train_dataset,
-            batch_size=self.params.per_device_train_batch_size,
-            shuffle=False,  # TODO: OPE-224 add sampler
-            num_workers=self.params.dataloader_num_workers,
-            pin_memory=True,
-            prefetch_factor=prefetch_factor,
-            pin_memory_device=self.device,
-        )
-
-    def _get_eval_dataloader(self) -> DataLoader:
-        """Returns the evaluation dataloader."""
-        if not self.eval_dataset:
-            raise ValueError("No evaluation dataset provided.")
-
-        return DataLoader(
-            self.eval_dataset,
-            batch_size=self.params.per_device_eval_batch_size,
-            shuffle=False,
-            num_workers=self.params.dataloader_num_workers,
-        )
 
     #
     # Checkpointing
@@ -418,24 +377,6 @@ class Trainer(BaseTrainer):
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
-    #
-    # Handle callbacks
-    #
-    def process_callbacks(self, event: str) -> Dict[str, Any]:
-        """Process callbacks.
-
-        Extremely hacky way to handle HF callbacks.
-        Just here to unblock debugging with our MfuCallback
-        """
-        logs = {}
-
-        for callback in self.callbacks:
-            if hasattr(callback, event):
-                action = getattr(callback, event)
-                action(args=self.params, state=None, control=None, logs=logs)
-
-        return logs
-
     def _init_logging(
         self,
     ) -> None:
@@ -459,3 +400,58 @@ class Trainer(BaseTrainer):
             )
         else:
             self.tensorboard_writer = None
+
+    #
+    # Data loading
+    #
+    def _get_train_dataloader(self) -> StatefulDataLoader:
+        """Returns the training dataloader."""
+        prefetch_factor = (
+            None
+            if self.params.dataloader_num_workers == 0
+            else self.params.dataloader_prefetch_factor
+        )
+
+        return StatefulDataLoader(
+            self.train_dataset,
+            batch_size=self.params.per_device_train_batch_size,
+            shuffle=False,  # TODO: OPE-224 add sampler
+            num_workers=self.params.dataloader_num_workers,
+            pin_memory=self.device_type == "cuda",
+            prefetch_factor=prefetch_factor,
+            pin_memory_device=self.device,
+        )
+
+    def _get_eval_dataloader(self) -> DataLoader:
+        """Returns the evaluation dataloader."""
+        if not self.eval_dataset:
+            raise ValueError("No evaluation dataset provided.")
+
+        return DataLoader(
+            self.eval_dataset,
+            batch_size=self.params.per_device_eval_batch_size,
+            shuffle=False,
+            num_workers=self.params.dataloader_num_workers,
+        )
+
+    def _get_total_training_steps(self):
+        # TODO: handle num_epochs, len(dataset), etc
+        return self.params.max_steps
+
+    #
+    # Handle callbacks
+    #
+    def _process_callbacks(self, event: str) -> Dict[str, Any]:
+        """Process callbacks.
+
+        Extremely hacky way to handle HF callbacks.
+        Just here to unblock debugging with our MfuCallback
+        """
+        logs = {}
+
+        for callback in self.callbacks:
+            if hasattr(callback, event):
+                action = getattr(callback, event)
+                action(args=self.params, state=None, control=None, logs=logs)
+
+        return logs
