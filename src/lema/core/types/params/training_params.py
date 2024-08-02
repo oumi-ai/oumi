@@ -192,6 +192,7 @@ class TrainingParams:
             eval_steps=self.eval_steps,
             dataloader_num_workers=self.dataloader_num_workers,
             dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             seed=self.seed,
