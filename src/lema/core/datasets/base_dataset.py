@@ -4,7 +4,7 @@ from typing import Literal, Optional, Union, cast
 
 import datasets
 import pandas as pd
-from torch.utils.data import Dataset
+from torch.utils.data import MapDataPipe
 from transformers import PreTrainedTokenizerBase
 
 from lema.core.types.turn import Conversation
@@ -12,9 +12,9 @@ from lema.utils.logging import logger
 
 
 #
-# Base Map Dataset
+# Abstract Map Dataset
 #
-class BaseMapDataset(Dataset, ABC):
+class BaseMapDataset(MapDataPipe, ABC):
     data: pd.DataFrame
     dataset_name_or_path: str
     default_dataset: Optional[str] = None

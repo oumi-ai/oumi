@@ -59,6 +59,7 @@ train = [
     "omegaconf",
     "datasets",
     "torchmetrics",
+    "torchdata>=0.8.0",
     "tensorboard",
     "wandb",
     "sentencepiece",        # for phi-3

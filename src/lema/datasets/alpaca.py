@@ -3,8 +3,8 @@ from typing import Callable, Dict, Union, cast
 import pandas as pd
 from transformers import PreTrainedTokenizerBase
 
+from lema.core.datasets.base_dataset import BaseLMSftDataset
 from lema.core.registry import register_dataset
-from lema.core.types.base_dataset import BaseLMSftDataset
 from lema.core.types.turn import Conversation, Message, Role
 from lema.datasets.common import apply_chat_template
 

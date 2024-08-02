@@ -1,0 +1,158 @@
+from typing import List, Optional, cast
+
+import torch.utils.data.datapipes as dp
+from torch.utils.data import IterDataPipe, MapDataPipe
+from torchdata.datapipes.iter import (
+    HuggingFaceHubReader,
+    MultiplexerLongest,
+    SampleMultiplexer,
+)
+from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
+from transformers import PreTrainedTokenizerBase
+
+from lema.core.registry import REGISTRY
+from lema.core.types import (
+    DatasetParams,
+    DatasetSplit,
+    DatasetSplitParams,
+    MixtureStrategy,
+    TrainingConfig,
+)
+
+
+def build_dataset(
+    config: TrainingConfig,
+    tokenizer: PreTrainedTokenizerBase,
+    dataset_split: DatasetSplit,
+    seed: Optional[int] = None,
+) -> IterDataPipe:
+    """Builds a dataset for the specified split.
+
+    Args:
+        config: The training config.
+        tokenizer: The tokenizer object to use for preprocessing.
+        dataset_split: The split of the dataset to load.
+        seed: If specified, a seed used for random sampling.
+
+    Returns:
+        dataset: The built dataset for `dataset_split`.
+    """
+    dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
+
+    if len(dataset_split_params.datasets) == 0:
+        raise ValueError("No datasets specified in the split.")
+
+    datapipes: List[IterDataPipe] = []
+
+    for dataset_params in dataset_split_params.datasets:
+        # Load the dataset
+        datapipe = _load_dataset(dataset_params, dataset_split_params.stream, tokenizer)
+
+        # Apply sampling if needed
+        if dataset_params.sample_count is not None:
+            datapipe = datapipe.shuffle(buffer_size=dataset_params.shuffle_buffer_size)
+            datapipe = datapipe.sharding_filter()
+            datapipe = datapipe.header(dataset_params.sample_count)
+
+        datapipes.append(datapipe)
+
+    if len(datapipes) != len(dataset_split_params.datasets):
+        raise RuntimeError("Failed to load all datasets.")
+
+    # Combine datapipes
+    if len(datapipes) > 1:
+        mixture_proportions = [
+            dataset_params.mixture_proportion
+            for dataset_params in dataset_split_params.datasets
+        ]
+
+        if any([proportion is None for proportion in mixture_proportions]):
+            # All datasets should be concatenated when no proportion is specified.
+
+            if (
+                dataset_split_params.mixture_strategy
+                == MixtureStrategy.FIRST_EXHAUSTED.value
+            ):
+                # Yields one element at a time from each input Iterable DataPipes
+                # one element from the 1st input DataPipe, then one element
+                # from the 2nd DataPipe in the next iteration, etc.
+                # It ends when the shortest input DataPipe is exhausted.
+                combined_datapipe = dp.iter.Multiplexer(*datapipes)
+            elif (
+                dataset_split_params.mixture_strategy
+                == MixtureStrategy.ALL_EXHAUSTED.value
+            ):
+                # Yields one element at a time from each input Iterable DataPipes:
+                # one element from the 1st input DataPipe, then one element
+                # from the 2nd DataPipe in the next iteration, etc.
+                # Ends when all input DataPipes are exhausted.
+                combined_datapipe = MultiplexerLongest(*datapipes)
+            else:
+                raise ValueError(
+                    "Unsupported mixture strategy: "
+                    f"{dataset_split_params.mixture_strategy}"
+                )
+        else:
+            # All mixture_proportions are not None.
+            mixture_proportions = cast(List[float], mixture_proportions)
+            mixture = {
+                datapipe: mixture_proportion
+                for mixture_proportion, datapipe in zip(mixture_proportions, datapipes)
+            }
+            # We need to cast here as SampleMultiplexer expects a torchdata.IterDataPipe
+            # and not torch.utils.data.IterDataPipe. This is a temporary workaround
+            # until torchdata is updated to use torch.utils.data.IterDataPipe or
+            # SampleMultiplexer is moved to torch.utils.data
+            combined_datapipe = SampleMultiplexer(mixture, seed=seed)  # type: ignore
+    else:
+        combined_datapipe = datapipes[0]
+
+    # Apply packing if needed
+    # TODO: handle pre-packed datasets, non-iterable datasets
+    # if dataset_split_params.pack:
+    #     combined_datapipe = combined_datapipe.batch(config.model.model_max_length)
+    #     combined_datapipe = combined_datapipe.map(
+    #         functools.partial(pack_tokens, tokenizer=tokenizer)
+    #     )
+
+    return cast(IterDataPipe, combined_datapipe)
+
+
+def _load_dataset(
+    dataset_params: DatasetParams,
+    stream: bool,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+) -> IterDataPipe:
+    """Loads a dataset and wraps it in a DataPipe if necessary."""
+    # First, try to load a custom dataset from the REGISTRY
+    dataset_class = REGISTRY.get_dataset(
+        dataset_params.dataset_name, subset=dataset_params.subset
+    )
+
+    if dataset_class is not None:
+        dataset = dataset_class(
+            split=dataset_params.split,
+            subset=dataset_params.subset,
+            tokenizer=tokenizer,
+        )
+
+        if isinstance(dataset, MapDataPipe):
+            # TODO: should we keep map datasets as is?
+            return MapToIterConverterIterDataPipe(dataset)
+        else:
+            return dataset
+
+    # If not a custom dataset, try loading from Hugging Face
+    # We need to cast here as HuggingFaceHubReader inherits from torchdata.IterDataPipe
+    # and not torch.utils.data.IterDataPipe. This is a temporary workaround until
+    # torchdata is updated to use torch.utils.data.IterDataPipe or HuggingFaceHubReader
+    # is moved to torch.utils.data
+    return cast(
+        IterDataPipe,
+        HuggingFaceHubReader(
+            dataset=dataset_params.dataset_name,
+            name=dataset_params.subset,
+            split=dataset_params.split,
+            streaming=stream,
+        ),
+    )
