@@ -17,7 +17,16 @@ def tokenizer():
 
 
 class TestDataset(BasePretrainingIterableDataset):
+    def __init__(self, *args, mock_data=None, **kwargs):
+        self.mock_data = (
+            mock_data if mock_data is not None else self._default_mock_data()
+        )
+        super().__init__(*args, **kwargs)
+
     def _load_data(self):
+        return self.mock_data
+
+    def _default_mock_data(self):
         return [
             {"text": "This is a test sentence."},
             {"text": "Another example sentence for testing."},
@@ -155,3 +164,97 @@ def test_disk_dataset(tokenizer, create_sample_data):
     expected_samples = total_tokens // 50
     assert len(samples) == expected_samples
     assert len(samples) >= num_files  # At least one sample per file
+
+
+def test_dataset_with_exact_sequence_length(tokenizer):
+    mock_data = [
+        {
+            "text": "This sentence is exactly twenty tokens long sentence "
+            "for testing purposes using gpt2's default tokenizer."
+        }
+    ]
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=20,
+        mock_data=mock_data,
+        skip_last=False,
+    )
+    samples = list(dataset)
+    assert len(samples) == 1, "Dataset contains 20 tokens, we should have one sample"
+    assert all(tensor.shape[0] == 20 for tensor in samples[0].values())
+
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=19,
+        mock_data=mock_data,
+        skip_last=False,
+    )
+    samples = list(dataset)
+    assert len(samples) == 2
+    assert (
+        samples[0]["input_ids"].shape[0] == 19
+    ), "First sample should match seq_length"
+    assert (
+        samples[1]["input_ids"].shape[0] == 1
+    ), "Second sample should have the remainder"
+
+
+def test_dataset_with_very_long_sequence(tokenizer):
+    mock_data = [{"text": "long " * 1000}]  # 1000 tokens
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        mock_data=mock_data,
+    )
+
+    samples = list(dataset)
+    assert len(samples) == 100
+    assert all(
+        tensor.shape[0] == 10 for sample in samples for tensor in sample.values()
+    )
+
+
+def test_dataset_with_non_text_field(tokenizer):
+    mock_data = [{"non_text": "This should not be processed."}]
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        mock_data=mock_data,
+    )
+    with pytest.raises(KeyError):
+        list(dataset)
+
+
+def test_dataset_with_no_docs(tokenizer):
+    mock_data = []
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        mock_data=mock_data,
+        skip_last=False,
+    )
+
+    samples = list(dataset)
+    assert len(samples) == 0
+
+
+def test_dataset_with_empty_docs(tokenizer):
+    mock_data = [{"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}]
+    dataset = TestDataset(
+        tokenizer=tokenizer,
+        dataset_name_or_path="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        mock_data=mock_data,
+        skip_last=False,
+    )
+
+    samples = list(dataset)
+    assert len(samples) == 0

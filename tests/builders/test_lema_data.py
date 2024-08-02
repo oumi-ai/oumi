@@ -15,6 +15,7 @@ from lema.core.types import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
+    ModelParams,
     TrainingConfig,
 )
 
@@ -93,6 +94,18 @@ def tokenizer() -> PreTrainedTokenizerBase:
     return SimpleTokenizer()
 
 
+@pytest.fixture
+def base_config():
+    return TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[DatasetParams(dataset_name="dummy", split="train")]
+            )
+        ),
+        model=ModelParams(model_name="gpt2", tokenizer_name="gpt2"),
+    )
+
+
 #
 # Tests
 #
@@ -165,3 +178,35 @@ def test_build_dataset_mixture(tokenizer):
     assert isinstance(result, IterDataPipe)
     samples = list(result)
     assert len(samples) == 20
+
+
+def test_build_dataset_with_no_datasets(base_config, tokenizer):
+    base_config.data.train.datasets = []
+    with pytest.raises(ValueError):
+        build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+
+
+def test_build_dataset_with_multiple_datasets_different_sizes(base_config, tokenizer):
+    base_config.data.train.datasets = [
+        DatasetParams(
+            dataset_name="small_map_dataset",
+            split="train",
+            sample_count=100,
+            dataset_kwargs={"size": 500},
+        ),
+        DatasetParams(
+            dataset_name="small_map_dataset",
+            split="train",
+            sample_count=200,
+            dataset_kwargs={"size": 500},
+        ),
+    ]
+    # The first dataset will be exhausted first
+    base_config.data.train.mixture_strategy = "first_exhausted"
+    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    assert len(list(dataset)) == 200
+
+    # All datasets will be exhausted
+    base_config.data.train.mixture_strategy = "all_exhausted"
+    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    assert len(list(dataset)) == 300
