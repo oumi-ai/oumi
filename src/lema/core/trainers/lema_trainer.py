@@ -2,14 +2,14 @@ import os
 import time
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import pydantic
 import torch
 import torch.amp
 import torch.utils.tensorboard as tensorboard
 import wandb
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
@@ -130,6 +130,7 @@ class Trainer(BaseTrainer):
             disable=not is_world_process_zero(),
         ) as progress_bar:
             for epoch in range(self.state.epoch, self.params.num_train_epochs):
+                self._set_sampler_epoch(epoch)
                 self._train_epoch(progress_bar)
 
                 if self.params.save_epoch:
@@ -411,14 +412,48 @@ class Trainer(BaseTrainer):
             else None
         )
 
+        if isinstance(self.train_dataset, Union[MapDataPipe, Dataset]):
+            # Configure sampler for map datasets. If using multiple GPUs,
+            # we use a DistributedSampler to make sure each worker gets a
+            # different subset of the dataset.
+            # In non-distributed mode, we iterate over the full dataset.
+            if is_distributed():
+                # TODO: OPE-219 this strategy should only be enabled for DDP
+                # and FSDP with NO_SHARDING
+                device_info = get_device_rank_info()
+
+                # Distribute the dataset across all GPU workers
+                # Each rank will get a subset of the dataset
+                sampler = DistributedSampler(
+                    self.train_dataset,
+                    num_replicas=device_info.world_size,
+                    rank=device_info.rank,
+                    seed=self.params.seed,
+                    shuffle=True,
+                )
+                shuffle = False
+            else:
+                # If not distributed, let the dataloader handle shuffling
+                sampler = None
+                shuffle = True
+        else:
+            # TODO: configure sharding for iterable datasets
+            sampler = None
+            shuffle = None
+
+        # Keeping track of the sampler so we can update after each epoch
+        self._sampler = sampler
+
         return StatefulDataLoader(
             self.train_dataset,
             batch_size=self.params.per_device_train_batch_size,
-            shuffle=False,  # TODO: OPE-224 add sampler
+            shuffle=shuffle,
+            sampler=self._sampler,
             num_workers=self.params.dataloader_num_workers,
             pin_memory=self.device_type == "cuda",
             prefetch_factor=prefetch_factor,
             pin_memory_device=self.device,
+            snapshot_every_n_steps=self.params.save_steps,
         )
 
     def _get_eval_dataloader(self) -> DataLoader:
@@ -433,9 +468,15 @@ class Trainer(BaseTrainer):
             num_workers=self.params.dataloader_num_workers,
         )
 
-    def _get_total_training_steps(self):
+    def _get_total_training_steps(self) -> int:
         # TODO: handle num_epochs, len(dataset), etc
         return self.params.max_steps
+
+    def _set_sampler_epoch(self, epoch: int) -> None:
+        """Sets the current epoch on sampler, if it exists and supports it."""
+        if self._sampler and hasattr(self._sampler, "set_epoch"):
+            self.log(f"Setting sampler epoch to {epoch}.")
+            self._sampler.set_epoch(epoch)
 
     #
     # Handle callbacks
