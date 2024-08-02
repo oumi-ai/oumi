@@ -41,6 +41,9 @@ def build_dataset(
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
+    if len(dataset_split_params.datasets) == 0:
+        raise ValueError("No datasets specified in the split.")
+
     datapipes: List[IterDataPipe] = []
 
     for dataset_params in dataset_split_params.datasets:
@@ -54,6 +57,9 @@ def build_dataset(
             datapipe = datapipe.header(dataset_params.sample_count)
 
         datapipes.append(datapipe)
+
+    if len(datapipes) != len(dataset_split_params.datasets):
+        raise RuntimeError("Failed to load all datasets.")
 
     # Combine datapipes
     if len(datapipes) > 1:
