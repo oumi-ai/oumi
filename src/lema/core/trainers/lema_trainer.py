@@ -413,6 +413,10 @@ class Trainer(BaseTrainer):
         )
 
         if isinstance(self.train_dataset, Union[MapDataPipe, Dataset]):
+            # Configure sampler for map datasets. If using multiple GPUs,
+            # we use a DistributedSampler to make sure each worker gets a
+            # different subset of the dataset.
+            # In non-distributed mode, we iterate over the full dataset.
             if is_distributed():
                 # TODO: OPE-219 this strategy should only be enabled for DDP
                 # and FSDP with NO_SHARDING
@@ -471,6 +475,7 @@ class Trainer(BaseTrainer):
     def _set_sampler_epoch(self, epoch: int) -> None:
         """Sets the current epoch on sampler, if it exists and supports it."""
         if self._sampler and hasattr(self._sampler, "set_epoch"):
+            self.log(f"Setting sampler epoch to {epoch}.")
             self._sampler.set_epoch(epoch)
 
     #
