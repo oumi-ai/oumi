@@ -15,6 +15,9 @@ working_dir: .
 envs:
   TEST_ENV_VARIABLE: '"Hello, World!"'
 
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=00:10:00
@@ -23,6 +26,8 @@ setup: |
   #PBS -o /eagle/community_ai/jobs/logs/
   #PBS -e /eagle/community_ai/jobs/logs/
 
+# Note that in the `run` and `setup` sections remote interpolations must be escaped with
+# a backslash. e.g. ${LEMA_NUM_NODES} -> \${LEMA_NUM_NODES}
 run: |
   set -e  # Exit if any command failed.
 
