@@ -21,6 +21,11 @@ file_mounts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
 
+  /lema_dev_dir_gcs:
+    source: gs://lema-dev-europe-west4
+    store: gcs
+    mode: MOUNT
+
 envs:
   WANDB_PROJECT: lema-train-test
   LEMA_RUN_NAME: llama2b.pt
@@ -36,6 +41,12 @@ run: |
 
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
+
+  # "training.dataloader_num_workers=${LEMA_DEFAULT_DATALOADER_WORKERS}" \
+
+  # "training.profiler.enable_cpu_profiling=true" \
+  # "training.profiler.enable_cuda_profiling=true" \
+  # "training.profiler.with_stack=true" \
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
