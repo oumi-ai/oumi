@@ -2,6 +2,7 @@
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
 POLARIS_GPUS_PER_NODE=4
+POLARIS_DATALOADER_WORKERS="$((2*${POLARIS_GPUS_PER_NODE}))" # Should scale with #GPUs per node.
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
@@ -66,8 +67,8 @@ SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
 training.max_steps=20
 training.save_steps=0
 training.save_final_model=false
-training.dataloader_num_workers=2
-training.dataloader_prefetch_factor=4
+training.dataloader_num_workers=${POLARIS_DATALOADER_WORKERS}
+training.dataloader_prefetch_factor=32
 training.log_model_summary=false
 training.include_performance_metrics=true
 training.ddp_find_unused_parameters=false
