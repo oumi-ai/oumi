@@ -5,8 +5,11 @@ from enum import Enum
 from getpass import getpass
 from typing import List, Optional, Union
 
+from asyncssh.sftp import SFTPNoConnection
 from fabric import Connection
+from paramiko.ssh_exception import BadAuthenticationType
 from patchwork.transfers import rsync
+from sshfs import SSHFileSystem
 
 from lema.core.types.base_cluster import JobStatus
 from lema.utils.logging import logger
@@ -19,9 +22,24 @@ def retry_auth(user_function):
     def wrapper(self, *args, **kwargs):
         try:
             return user_function(self, *args, **kwargs)
-        except EOFError:
+        except (EOFError, BadAuthenticationType):
             logger.warning("Connection closed. Reconnecting...")
-            self._connection = self.refresh_creds(close_connection=True)
+            self._connection = self._refresh_creds(close_connection=True)
+            return user_function(self, *args, **kwargs)
+
+    return wrapper
+
+
+def retry_fs(user_function):
+    """Decorator to retry a function if the filesystem is closed."""
+
+    @functools.wraps(user_function)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return user_function(self, *args, **kwargs)
+        except SFTPNoConnection:
+            logger.warning("Connection closed. Reconnecting...")
+            self._fs = self._refresh_fs()
             return user_function(self, *args, **kwargs)
 
     return wrapper
@@ -63,7 +81,8 @@ class PolarisClient:
             user: The user to act as.
         """
         self._user = user
-        self._connection = self.refresh_creds()
+        self._connection = self._refresh_creds()
+        self._fs = self._refresh_fs()
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
         """Splits a status line into a JobStatus object.
@@ -119,6 +138,33 @@ class PolarisClient:
             return job_id
         return job_id.split(".")[0]
 
+    def _refresh_fs(self) -> SSHFileSystem:
+        """Refreshes the remote filesystem."""
+        return SSHFileSystem(
+            "polaris.alcf.anl.gov",
+            username=self._user,
+            password=getpass(
+                prompt="Mounting Polaris filesystem...\n"
+                "This requires a new set of Polaris credentials.\n"
+                "**You must refresh your passcode before proceeding!**\n"
+                f"Polaris passcode for {self._user}: "
+            ),
+        )
+
+    def _refresh_creds(self, close_connection=False) -> Connection:
+        """Refreshes the credentials for the client."""
+        if close_connection:
+            self._connection.close()
+        connection = Connection(
+            "polaris.alcf.anl.gov",
+            user=self._user,
+            connect_kwargs={
+                "password": getpass(prompt=f"Polaris passcode for {self._user}: ")
+            },
+        )
+        connection.open()
+        return connection
+
     @retry_auth
     def run_commands(self, commands: List[str]) -> None:
         """Runs the provided commands using recursive context setting.
@@ -146,20 +192,6 @@ class PolarisClient:
                 f"Failed to run command: {command} . stderr: {result.stderr}"
             )
         return self.run_commands(remaining_commands)
-
-    def refresh_creds(self, close_connection=False) -> Connection:
-        """Refreshes the credentials for the client."""
-        if close_connection:
-            self._connection.close()
-        new_connection = Connection(
-            "polaris.alcf.anl.gov",
-            user=self._user,
-            connect_kwargs={
-                "password": getpass(prompt=f"Polaris password for {self._user}: ")
-            },
-        )
-        new_connection.open()
-        return new_connection
 
     @retry_auth
     def submit_job(
@@ -292,6 +324,18 @@ class PolarisClient:
         )
         if not result:
             raise RuntimeError(f"Rsync failed. stderr: {result.stderr}")
+
+    @retry_fs
+    def put_recursive(self, source: str, destination: str) -> None:
+        """Puts the specified file/directory to the remote path, recursively.
+
+        Args:
+            source: The local file/directory to write.
+            destination: The remote path to write the file/directory to.
+        """
+        if self._fs is None:
+            self._fs = self._refresh_fs()
+        self._fs.put(source, destination, recursive=True)
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:
