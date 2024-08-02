@@ -406,9 +406,9 @@ class Trainer(BaseTrainer):
     def _get_train_dataloader(self) -> StatefulDataLoader:
         """Returns the training dataloader."""
         prefetch_factor = (
-            None
-            if self.params.dataloader_num_workers == 0
-            else self.params.dataloader_prefetch_factor
+            self.params.dataloader_num_workers
+            if self.params.dataloader_num_workers > 0
+            else None
         )
 
         return StatefulDataLoader(
