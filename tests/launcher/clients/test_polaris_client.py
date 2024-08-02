@@ -74,8 +74,14 @@ def test_polaris_client_submit_job_debug(mock_fabric, mock_fs, mock_auth):
     mock_command = Mock()
     mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
     mock_connection.run.return_value = mock_command
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEBUG, None)
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.DEBUG, None
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q debug  ./job.sh",
         warn=True,
@@ -91,8 +97,14 @@ def test_polaris_client_submit_job_demand(mock_fabric, mock_fs, mock_auth):
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEMAND, None)
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.DEMAND, None
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q demand  ./job.sh",
         warn=True,
@@ -108,8 +120,14 @@ def test_polaris_client_submit_job_preemptable(mock_fabric, mock_fs, mock_auth):
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.PREEMPTABLE, None)
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.PREEMPTABLE, None
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q preemptable  ./job.sh",
         warn=True,
@@ -125,8 +143,14 @@ def test_polaris_client_submit_job_debug_name(mock_fabric, mock_fs, mock_auth):
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.DEBUG, "somename")
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.DEBUG, "somename"
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q debug -N somename ./job.sh",
         warn=True,
@@ -142,13 +166,18 @@ def test_polaris_client_submit_job_debug_scaling(mock_fabric, mock_fs, mock_auth
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "2032341411.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh",
+        "work_dir",
         2,
         client.SupportedQueues.DEBUG_SCALING,
         None,
     )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q debug-scaling  ./job.sh",
         warn=True,
@@ -164,8 +193,14 @@ def test_polaris_client_submit_job_prod(mock_fabric, mock_fs, mock_auth):
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "3141592653.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q prod  ./job.sh",
         warn=True,
@@ -181,8 +216,14 @@ def test_polaris_client_submit_job_invalid_job_format(mock_fabric, mock_fs, mock
     mock_command = Mock()
     mock_connection.run.return_value = mock_command
     mock_command.stdout = "3141592653polaris-pbs-01"
+    mock_cd_command = MagicMock()
+    mock_connection.cd.side_effect = [mock_cd_command]
+    mock_cd_command.run.side_effect = mock_command
     client = PolarisClient("user")
-    result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
+    result = client.submit_job(
+        "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
+    )
+    mock_connection.cd.assert_called_with("work_dir")
     mock_connection.run.assert_called_with(
         "qsub -l select=2:system=polaris -q prod  ./job.sh",
         warn=True,
@@ -199,9 +240,14 @@ def test_polaris_client_submit_job_error(mock_fabric, mock_fs, mock_auth):
         mock_result = MagicMock()
         mock_result.__bool__.return_value = False
         mock_result.stderr = "error"
+        mock_cd_command = MagicMock()
+        mock_connection.cd.side_effect = [mock_cd_command]
+        mock_cd_command.run.side_effect = mock_result
         mock_connection.run.return_value = mock_result
         client = PolarisClient("user")
-        _ = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
+        _ = client.submit_job(
+            "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
+        )
 
 
 def test_polaris_client_submit_job_retry_auth(mock_auth, mock_fs):
@@ -214,12 +260,21 @@ def test_polaris_client_submit_job_retry_auth(mock_auth, mock_fs):
         mock_command = Mock()
         mock_connection.run.side_effect = [EOFError]
         mock_command.stdout = "3141592653polaris-pbs-01"
+        mock_cd_command = MagicMock()
+        mock_connection.cd.side_effect = [mock_cd_command]
+        mock_cd_command.run.side_effect = mock_command
         mock_command2 = Mock()
         mock_command2.stdout = "-pbs-01"
+        mock_cd_command2 = MagicMock()
+        mock_connection2.cd.side_effect = [mock_cd_command2]
+        mock_cd_command2.run.side_effect = mock_command2
         mock_connection.run.return_value = mock_command
         mock_connection2.run.return_value = mock_command2
         client = PolarisClient("user")
-        result = client.submit_job("./job.sh", 2, client.SupportedQueues.PROD, None)
+        result = client.submit_job(
+            "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
+        )
+        mock_connection.cd.assert_called_with("work_dir")
         mock_connection.run.assert_called_with(
             "qsub -l select=2:system=polaris -q prod  ./job.sh",
             warn=True,
