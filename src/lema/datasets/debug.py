@@ -3,7 +3,10 @@ import time
 import torch
 from torch.utils.data import Dataset
 
+from lema.core.registry import register_dataset
 
+
+@register_dataset("debug_classfication")
 class DebugClassificationDataset(Dataset):
     def __init__(
         self,
@@ -60,6 +63,7 @@ class DebugClassificationDataset(Dataset):
         return {"features": self.data[idx], "labels": self.labels[idx]}
 
 
+@register_dataset("debug_pretraining")
 class DebugPretrainingDataset(Dataset):
     def __init__(
         self,
