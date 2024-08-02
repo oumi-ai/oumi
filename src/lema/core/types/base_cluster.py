@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from lema.core.types.configs import JobConfig
 
@@ -34,8 +34,8 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_job(self) -> JobStatus:
-        """Gets the jobs on this cluster if it exists, else returns None."""
+    def get_job(self, job_id: str) -> JobStatus:
+        """Gets the job on this cluster if it exists, else returns None."""
         raise NotImplementedError
 
     @abstractmethod
@@ -44,12 +44,12 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def stop_job(self, job: str) -> JobStatus:
+    def stop_job(self, job_id: str) -> JobStatus:
         """Stops the specified job on this cluster."""
         raise NotImplementedError
 
     @abstractmethod
-    def run_job(self, job: JobConfig) -> Optional[JobStatus]:
+    def run_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster."""
         raise NotImplementedError
 

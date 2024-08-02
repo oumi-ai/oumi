@@ -4,7 +4,7 @@ import sky
 
 from lema.core.registry import register_cloud_builder
 from lema.core.types.base_cloud import BaseCloud
-from lema.core.types.base_cluster import BaseCluster
+from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster
@@ -28,10 +28,13 @@ class SkyCloud(BaseCloud):
             if isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
         ]
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> BaseCluster:
+    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
-        cluster_name = self._client.launch(job, name)
-        return SkyCluster(cluster_name, self._client)
+        job_status = self._client.launch(job, name)
+        cluster = self.get_cluster(job_status.cluster)
+        if not cluster:
+            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
+        return cluster.get_job(job_status.id)
 
     def get_cluster(self, name) -> Optional[BaseCluster]:
         """Gets the cluster with the specified name, or None if not found."""

@@ -212,45 +212,40 @@ class PolarisCluster(BaseCluster):
         user = str(job.user)
         remote_working_dir = Path(f"/home/{user}/lema_launcher/{job_name}")
         # Copy the working directory to Polaris /home/ system.
-        self._client.rsync(
-            source=job.working_dir,
-            destination=str(remote_working_dir),
-            delete=True,
-            exclude="tests",
-            rsync_opts=f"-avz --exclude-from {job.working_dir}/.gitignore",
-        )
+        self._client.run_commands([f"mkdir -p {remote_working_dir}"])
+        self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if lema is installed in a conda env. If not, install it.
         lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
-        conda_cmds = [
-            "module use /soft/modulefiles",
-            "module load conda",
-            f'! test -d "{lema_env_path}"',
-            'echo "Creating LeMa Conda environment... -------------------------------"',
-            f"conda create -y python=3.11 --prefix {lema_env_path}",
-            f"conda activate {lema_env_path}",
-            "pip install flash-attn --no-build-isolation",
-        ]
-        # Run all commands in the same context.
-        self._client.run_commands([" && ".join(conda_cmds)])
-        # Install LeMa requirements.
-        setup_cmds = [
-            f"cd {remote_working_dir}",
-            "module use /soft/modulefiles",
-            "module load conda",
-            f"conda activate {lema_env_path}",
-            'echo "Installing packages... -------------------------------------------"',
-            "pip install -e '.[train]'",
-        ]
-        self._client.run_commands([" && ".join(setup_cmds)])
+        should_create_env = True
+        try:
+            self._client.run_commands([f"test -d {lema_env_path}"])
+            should_create_env = False
+        except RuntimeError:
+            pass
+        if should_create_env:
+            conda_cmds = [
+                "module use /soft/modulefiles",
+                "module load conda",
+                'echo "Creating LeMa Conda environment... ---------------------------"',
+                f"conda create -y python=3.11 --prefix {lema_env_path}",
+                f"conda activate {lema_env_path}",
+                "pip install flash-attn --no-build-isolation",
+            ]
+            # Run all commands in the same context.
+            self._client.run_commands([" && ".join(conda_cmds)])
+            # Install LeMa requirements.
+            install_cmds = [
+                f"cd {remote_working_dir}",
+                "module use /soft/modulefiles",
+                "module load conda",
+                f"conda activate {lema_env_path}",
+                'echo "Installing packages... ---------------------------------------"',
+                "pip install -e '.[train]'",
+            ]
+            self._client.run_commands([" && ".join(install_cmds)])
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
-            self._client.rsync(
-                source=local_path,
-                destination=remote_path,
-                delete=True,
-                exclude=None,
-                rsync_opts="-avz",
-            )
+            self._client.put_recursive(local_path, remote_path)
         # Create the job script by merging envs, setup, and run commands.
         job_script = _create_job_script(job)
         script_path = remote_working_dir / "lema_job.sh"

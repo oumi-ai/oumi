@@ -1,3 +1,5 @@
+from lema.core.types.base_cloud import BaseCloud
+from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.base_model import BaseModel
 from lema.core.types.base_trainer import BaseTrainer
 from lema.core.types.configs import (
@@ -22,6 +24,8 @@ from lema.core.types.params.training_params import TrainerType, TrainingParams
 
 __all__ = [
     "AsyncEvaluationConfig",
+    "BaseCloud",
+    "BaseCluster",
     "BaseModel",
     "BaseTrainer",
     "DataParams",
@@ -32,6 +36,7 @@ __all__ = [
     "GenerationConfig",
     "HardwareException",
     "InferenceConfig",
+    "JobStatus",
     "MixtureStrategy",
     "ModelParams",
     "PeftParams",

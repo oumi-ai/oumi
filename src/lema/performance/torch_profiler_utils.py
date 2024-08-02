@@ -85,7 +85,9 @@ def _on_trace_ready(
                     f.write(prof_table)
 
     if save_dir_path:
-        file_name: pathlib.Path = save_dir_path / f"{out_prefix}_pt_trace.json"
+        # Save gzip-ed trace (JSON traces compress extremely well).
+        # Open traces on https://ui.perfetto.dev/ or `chrome://tracing`
+        file_name: pathlib.Path = save_dir_path / f"{out_prefix}_pt_trace.json.gz"
         logger.info(f"Exporting profiler Chrome trace to {file_name} ...")
         prof.export_chrome_trace(str(file_name))
 
