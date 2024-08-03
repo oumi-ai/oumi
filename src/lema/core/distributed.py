@@ -292,7 +292,7 @@ def estimate_dataloader_num_workers(
 
     Args:
         gpus_per_node: The number of GPU-s per node.
-        cpu_count: The number of CPU cores
+        cpu_count: The number of CPU cores.
 
     Returns:
         The estimated number of dataloader workers (a non-zero positive number).
