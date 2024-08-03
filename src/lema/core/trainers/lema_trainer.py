@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 import pydantic
 import torch
 import torch.amp
-import torch.utils.tensorboard as tensorboard
+import torch.utils.tensorboard
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
@@ -395,7 +395,7 @@ class Trainer(BaseTrainer):
         if self.params.enable_tensorboard:
             tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
             self.log(f"Logging to tensorboard folder: '{tensorboard_folder}'")
-            self.tensorboard_writer = tensorboard.SummaryWriter(
+            self.tensorboard_writer = torch.utils.tensorboard.SummaryWriter(
                 log_dir=tensorboard_folder
             )
         else:
