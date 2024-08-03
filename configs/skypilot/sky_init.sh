@@ -13,6 +13,14 @@ echo "Master address: ${LEMA_MASTER_ADDR}"
 echo "Number of nodes: ${LEMA_NUM_NODES}"
 echo "Number of GPUs per node: ${SKYPILOT_NUM_GPUS_PER_NODE}"
 
+export LEMA_DEFAULT_DATALOADER_WORKERS=$((2*${SKYPILOT_NUM_GPUS_PER_NODE}))
+if [[ ${LEMA_DEFAULT_DATALOADER_WORKERS} -lt 1 ]]; then
+  export LEMA_DEFAULT_DATALOADER_WORKERS=1
+elif [[ ${LEMA_DEFAULT_DATALOADER_WORKERS} -gt 8 ]]; then
+  export LEMA_DEFAULT_DATALOADER_WORKERS=8
+fi
+echo "Default number of dataloader workers: ${LEMA_DEFAULT_DATALOADER_WORKERS}"
+
 if [[ -z "${LEMA_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
     exit 1
