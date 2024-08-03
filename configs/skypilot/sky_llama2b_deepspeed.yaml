@@ -61,7 +61,7 @@ run: |
       "training.optimizer=adafactor" \
       "training.bf16=true" \
       "training.enable_gradient_checkpointing=false" \
-      "training.dataloader_num_workers=${LEMA_DEFAULT_DATALOADER_WORKERS}" \
+      "training.dataloader_num_workers=auto" \
       "training.dataloader_prefetch_factor=32" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
