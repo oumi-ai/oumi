@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 import pydantic
 import torch
 import torch.amp
-import torch.utils.tensorboard
+import torch.utils.tensorboard as tensorboard
 
 import wandb  # isort: skip
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
@@ -396,7 +396,7 @@ class Trainer(BaseTrainer):
         if self.params.enable_tensorboard:
             tensorboard_folder = Path(self.params.output_dir) / "tensorboard"
             self.log(f"Logging to tensorboard folder: '{tensorboard_folder}'")
-            self.tensorboard_writer = torch.utils.tensorboard.SummaryWriter(
+            self.tensorboard_writer = tensorboard.SummaryWriter(
                 log_dir=tensorboard_folder
             )
         else:
