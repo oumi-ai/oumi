@@ -8,7 +8,8 @@ import pydantic
 import torch
 import torch.amp
 import torch.utils.tensorboard as tensorboard
-import wandb
+
+import wandb  # isort: skip
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
@@ -406,8 +407,10 @@ class Trainer(BaseTrainer):
     #
     def _get_train_dataloader(self) -> StatefulDataLoader:
         """Returns the training dataloader."""
+        # At this point, "auto" must be pre-resolved to `int`.
+        assert isinstance(self.params.dataloader_num_workers, int)
         prefetch_factor = (
-            self.params.dataloader_num_workers
+            self.params.dataloader_prefetch_factor
             if self.params.dataloader_num_workers > 0
             else None
         )
@@ -461,6 +464,8 @@ class Trainer(BaseTrainer):
         if not self.eval_dataset:
             raise ValueError("No evaluation dataset provided.")
 
+        # At this point, "auto" must be pre-resolved to `int`.
+        assert isinstance(self.params.dataloader_num_workers, int)
         return DataLoader(
             self.eval_dataset,
             batch_size=self.params.per_device_eval_batch_size,

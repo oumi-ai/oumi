@@ -281,3 +281,40 @@ def prepare_model_for_distributed(
         )
 
     return model
+
+
+def estimate_dataloader_num_workers(
+    gpus_per_node: Optional[int] = None, cpu_count: Optional[int] = None
+) -> int:
+    """Estimates the number of dataloader workers.
+
+    Uses a simple heuristic based on the number of GPU-s and CPU-s per node.
+
+    Args:
+        gpus_per_node: The number of GPU-s per node.
+        cpu_count: The number of CPU cores.
+
+    Returns:
+        The estimated number of dataloader workers (a non-zero positive number).
+    """
+    # Limit the maximum number of dataloader workers.
+    _MAX_WORKERS = 8
+
+    # Scale the number of workers with the number of GPUs (the more GPU-s the more data)
+    if gpus_per_node is None:
+        gpus_per_node = get_device_rank_info().local_world_size
+    result = min(2 * gpus_per_node, _MAX_WORKERS)
+
+    # Limit the maximum number of CPU cores used for dataloaders
+    # to leave enough CPU-s for computation. This condition is expected to
+    # kick-in rarely, only for unusual machine configurations when a weak VM
+    # with small number of CPU cores has many GPU-s assigned.
+    # For example, Polaris has 64 CPU cores and 4 GPU-s per node.
+    _MAX_FRACTION_OF_CPUS_FOR_DATALOADERS = 0.25
+    if cpu_count is None:
+        cpu_count = os.cpu_count() or 1
+    result = min(result, int(cpu_count * _MAX_FRACTION_OF_CPUS_FOR_DATALOADERS))
+
+    # Make sure it's a positive number (>=1).
+    result = max(result, 1)
+    return result

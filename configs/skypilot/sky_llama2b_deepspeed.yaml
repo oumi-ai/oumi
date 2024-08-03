@@ -61,9 +61,8 @@ run: |
       "training.optimizer=adafactor" \
       "training.bf16=true" \
       "training.enable_gradient_checkpointing=false" \
-      "training.dataloader_num_workers=2" \
-      "training.dataloader_prefetch_factor=4" \
-      "training.log_model_summary=false" \
+      "training.dataloader_num_workers=auto" \
+      "training.dataloader_prefetch_factor=32" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \

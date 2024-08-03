@@ -5,6 +5,7 @@ import pytest
 
 from lema.core.distributed import (
     DeviceRankInfo,
+    estimate_dataloader_num_workers,
     global_leader_first,
     global_leader_only,
     is_local_process_zero,
@@ -255,3 +256,31 @@ def test_decorators_with_distributed(
                 mock_work_function()
 
             test_function()
+
+
+def test_estimate_dataloader_num_workers(mock_device_rank_info):
+    assert estimate_dataloader_num_workers(gpus_per_node=0, cpu_count=32) == 1
+    assert estimate_dataloader_num_workers(gpus_per_node=1, cpu_count=32) == 2
+    assert estimate_dataloader_num_workers(gpus_per_node=2, cpu_count=32) == 4
+    assert estimate_dataloader_num_workers(gpus_per_node=3, cpu_count=32) == 6
+    assert estimate_dataloader_num_workers(gpus_per_node=4, cpu_count=32) == 8
+    assert estimate_dataloader_num_workers(gpus_per_node=8, cpu_count=32) == 8
+
+    assert estimate_dataloader_num_workers(gpus_per_node=0, cpu_count=8) == 1
+    assert estimate_dataloader_num_workers(gpus_per_node=1, cpu_count=8) == 2
+    assert estimate_dataloader_num_workers(gpus_per_node=2, cpu_count=8) == 2
+    assert estimate_dataloader_num_workers(gpus_per_node=3, cpu_count=8) == 2
+    assert estimate_dataloader_num_workers(gpus_per_node=4, cpu_count=8) == 2
+    assert estimate_dataloader_num_workers(gpus_per_node=8, cpu_count=8) == 2
+
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=8, rank=1, local_world_size=4, local_rank=0
+    )
+    assert estimate_dataloader_num_workers(None, cpu_count=32) == 8
+    assert estimate_dataloader_num_workers(None, cpu_count=8) == 2
+
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=2, rank=0, local_world_size=4, local_rank=3
+    )
+    assert estimate_dataloader_num_workers(None, cpu_count=32) == 8
+    assert estimate_dataloader_num_workers(None, cpu_count=8) == 2

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import transformers
 
@@ -124,7 +124,15 @@ class TrainingParams:
 
     # Number of subprocesses to use for data loading (PyTorch only).
     # 0 means that the data will be loaded in the main process.
-    dataloader_num_workers: int = 0
+    #
+    # You can also use the special value "auto" to select the number
+    # of dataloader workers using a simple heuristic based on the number of CPU-s and
+    # GPU-s per node. Note that the accurate estimation of workers is difficult and
+    # depends on many factors (the properties of a model, dataset, VM, network, etc)
+    # so you can start with "auto" then experimentally tune the exact number to make it
+    # more optimal for your specific case. If "auto" is requested,
+    # then at minumum 1 worker is guaranteed to be assigned.
+    dataloader_num_workers: Union[int, str] = 0
 
     # Number of batches loaded in advance by each worker. 2 means there will be
     # a total of 2 * num_workers batches prefetched across all workers.
@@ -152,6 +160,16 @@ class TrainingParams:
             save_strategy = "epoch"
         if self.save_steps > 0:
             save_strategy = "steps"
+
+        dataloader_num_workers = 0
+        if isinstance(self.dataloader_num_workers, int):
+            dataloader_num_workers = self.dataloader_num_workers
+        else:
+            raise ValueError(
+                "Unexpected type of dataloader_num_workers: "
+                f"{type(self.dataloader_num_workers)} "
+                f"({self.dataloader_num_workers}). Must be `int`."
+            )
 
         return transformers.TrainingArguments(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
@@ -190,8 +208,10 @@ class TrainingParams:
             resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
-            dataloader_num_workers=self.dataloader_num_workers,
-            dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            dataloader_num_workers=dataloader_num_workers,
+            dataloader_prefetch_factor=(
+                self.dataloader_prefetch_factor if dataloader_num_workers > 0 else None
+            ),
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
@@ -218,6 +238,14 @@ class TrainingParams:
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
+
+        if isinstance(self.dataloader_num_workers, str) and not (
+            self.dataloader_num_workers == "auto"
+        ):
+            raise ValueError(
+                "Unknown value of "
+                f"dataloader_num_workers: {self.dataloader_num_workers}"
+            )
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
