@@ -246,7 +246,6 @@ class TrainingParams:
                 "Unknown value of "
                 f"dataloader_num_workers: {self.dataloader_num_workers}"
             )
-        assert isinstance(self.dataloader_num_workers, int)
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
