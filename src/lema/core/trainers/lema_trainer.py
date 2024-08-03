@@ -13,7 +13,7 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 
-import wandb  # noqa
+import wandb
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
