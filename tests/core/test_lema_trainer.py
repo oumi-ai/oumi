@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torchdata.stateful_dataloader import StatefulDataLoader
 from transformers import PreTrainedTokenizerBase
 
 from lema.core.trainers.lema_trainer import Trainer
@@ -34,6 +35,7 @@ def mock_tokenizer():
 def mock_dataset():
     dataset = MagicMock()
     dataset.__len__ = MagicMock(return_value=10)
+    dataset.state_dict = None
     return dataset
 
 
@@ -109,8 +111,10 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    assert isinstance(trainer.train_dataloader, DataLoader)
+    assert isinstance(trainer.train_dataloader, StatefulDataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
+    assert trainer.state.epoch == 0
+    assert trainer.state.global_step == 0
 
 
 def test_get_total_training_steps(trainer):
@@ -134,7 +138,7 @@ def test_train(mock_is_world_process_zero, trainer):
 
 
 def test_train_epoch(trainer, mock_dataloader):
-    trainer.process_callbacks = MagicMock()
+    trainer._process_callbacks = MagicMock()
     trainer.telemetry.timer = MagicMock()
     trainer.model.forward = MagicMock(
         return_value={"loss": torch.tensor(0.5), "logits": torch.tensor([1.0, 2.0])}
@@ -147,7 +151,7 @@ def test_train_epoch(trainer, mock_dataloader):
     progress_bar = MagicMock()
     trainer._train_epoch(progress_bar)
 
-    assert trainer.process_callbacks.call_count > 0
+    assert trainer._process_callbacks.call_count > 0
     assert trainer.telemetry.timer.call_count > 0
     assert trainer.model.forward.call_count > 0
     assert trainer.scaler.scale.call_count > 0
@@ -186,6 +190,7 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
     assert (output_dir / "model.pt").exists()
     assert (output_dir / "optimizer.pt").exists()
     assert (output_dir / "trainer_state.json").exists()
+    assert (output_dir / "dataloader.json").exists()
 
     with patch(
         "torch.load",
@@ -219,7 +224,7 @@ def test_process_callbacks(trainer):
     mock_callback.on_log = MagicMock()
     trainer.callbacks = [mock_callback]
 
-    logs = trainer.process_callbacks("on_log")
+    logs = trainer._process_callbacks("on_log")
 
     assert mock_callback.on_log.called
     assert isinstance(logs, dict)
@@ -251,7 +256,3 @@ def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     )
     assert next(model.parameters()).is_mps, "Model should be on MPS"
     assert trainer.device == "mps", "Device should be MPS"
-
-
-if __name__ == "__main__":
-    pytest.main()

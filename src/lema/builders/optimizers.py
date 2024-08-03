@@ -35,7 +35,7 @@ def build_optimizer(
             weight_decay=config.weight_decay,
             fused=fused_available,
         )
-    elif optimizer_name in ("adamw", "adamw_torch_fused"):
+    elif optimizer_name in ("adamw", "adamw_torch", "adamw_torch_fused"):
         return torch.optim.AdamW(
             trainable_params,
             lr=config.learning_rate,

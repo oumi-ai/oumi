@@ -5,7 +5,7 @@ import pytest
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
+from lema.core.types.params.node_params import NodeParams, StorageMount
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clouds.polaris_cloud import PolarisCloud
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
@@ -33,12 +33,12 @@ def _get_default_job(cloud: str) -> JobConfig:
         region="us-central1",
         zone=None,
         accelerators="A100-80GB",
-        cpus=4,
-        memory=64,
+        cpus="4",
+        memory="64",
         instance_type=None,
         use_spot=True,
         disk_size=512,
-        disk_tier=DiskTier.LOW,
+        disk_tier="low",
     )
     return JobConfig(
         name="myjob",
