@@ -8,12 +8,13 @@ import pydantic
 import torch
 import torch.amp
 import torch.utils.tensorboard
+
+import wandb  # isort: skip
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 
-import wandb
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
