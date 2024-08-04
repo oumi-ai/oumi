@@ -315,7 +315,7 @@ class Trainer(BaseTrainer):
             checkpoint_dir.mkdir(exist_ok=True)
 
             model_path = checkpoint_dir / "model.safetensors"
-            optimizer_path = checkpoint_dir / "optimizer.safetensors"
+            optimizer_path = checkpoint_dir / "optimizer.pt"
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
             dataloader_state_path = checkpoint_dir / "dataloader.json"
@@ -344,20 +344,16 @@ class Trainer(BaseTrainer):
         checkpoint_dir = Path(checkpoint_dirname)
 
         model_path = checkpoint_dir / "model.safetensors"
-        optimizer_path = checkpoint_dir / "optimizer.safetensors"
+        optimizer_path = checkpoint_dir / "optimizer.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
         dataloader_state_path = checkpoint_dir / "dataloader.json"
 
         if model_path.exists():
-            missing, unexpected = safetensors.torch.load_model(
+            safetensors.torch.load_model(
                 self.model, filename=str(model_path), strict=True, device=self.device
             )
             self.log(f"Model loaded from {model_path}.")
-            if missing:
-                self.log(f"Missing model keys: {missing}")
-            if unexpected:
-                self.log(f"Unexpected model keys: {unexpected}")
 
         if optimizer_path.exists():
             self.optimizer.load_state_dict(
