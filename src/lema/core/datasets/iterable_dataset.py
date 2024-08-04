@@ -4,8 +4,8 @@ from typing import Any, Dict, Iterable, List, Optional
 import datasets
 import torch
 from torch.utils.data import IterDataPipe
-from transformers import PreTrainedTokenizerBase
 
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.utils.logging import logger
 
 
@@ -91,7 +91,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
     def __init__(
         self,
         *,
-        tokenizer: PreTrainedTokenizerBase,
+        tokenizer: BaseTokenizer,
         seq_length: int,
         dataset_text_field: str = "text",
         append_concat_token: bool = True,
