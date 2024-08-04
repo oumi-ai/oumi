@@ -1,6 +1,6 @@
 from typing import Callable, Dict
 
-from transformers import PreTrainedTokenizerBase
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -12,7 +12,7 @@ _ASSISTANT = "assistant"
 
 
 def trl_dpo_chat_preprocessor_fn(
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
 ) -> Callable[..., Dict]:
     """Builds a preprocessing function for the TRL DPO trainer.
 

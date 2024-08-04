@@ -13,7 +13,7 @@ import wandb  # isort: skip
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
-from transformers import PreTrainedTokenizerBase, TrainerCallback
+from transformers import TrainerCallback
 
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
@@ -26,6 +26,7 @@ from lema.core.distributed import (
     prepare_model_for_distributed,
 )
 from lema.core.types import TrainingConfig, TrainingParams
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.telemetry import TelemetryTracker
 from lema.utils.io_utils import load_json, save_json
@@ -46,7 +47,7 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer: PreTrainedTokenizerBase,
+        tokenizer: BaseTokenizer,
         args: TrainingParams,
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,

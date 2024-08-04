@@ -5,9 +5,9 @@ from typing import Callable, Optional
 
 import datasets
 import torch
-import transformers
 from torch.utils.data import IterableDataset
 
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.utils.logging import logger
 
 _LARGEST_PRIORITY_VALUE = 2**20
@@ -25,7 +25,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: transformers.PreTrainedTokenizerBase,
+        tokenizer: BaseTokenizer,
         dataset: datasets.Dataset,
         dataset_text_field: Optional[str] = None,
         formatting_func: Optional[Callable] = None,
@@ -41,8 +41,8 @@ class PretrainingAsyncTextDataset(IterableDataset):
         """Iterable dataset that returns constant length chunks of tokens.
 
         Args:
-            tokenizer (`transformers.PreTrainedTokenizerBase`):
-                The PreTrainedTokenizer used for converting strings to tokens.
+            tokenizer (`BaseTokenizer`):
+                The tokenizer used for converting strings to tokens.
             dataset (`dataset.Dataset`):
                 Dataset of text samples.
             dataset_text_field (`str`, **optional**):

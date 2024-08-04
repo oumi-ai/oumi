@@ -8,9 +8,8 @@ https://github.com/huggingface/alignment-handbook/blob/main/src/alignment/data.p
 
 from typing import Callable, Dict, Literal
 
-from transformers import PreTrainedTokenizerBase
-
 import lema.utils.logging
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 def maybe_insert_system_message(messages, tokenizer):
@@ -28,7 +27,7 @@ def maybe_insert_system_message(messages, tokenizer):
     Args:
         messages (List[Dict]): Each item of is a dict mapping the `content` of the
             message and the `role` of the one relayed it.
-        tokenizer (PreTrainedTokenizerBase): the tokenizer used to process the messages.
+        tokenizer (BaseTokenizer): the tokenizer used to process the messages.
     """
     if messages[0]["role"] == "system":  # skip if it explicitly exists
         return
@@ -63,7 +62,7 @@ def apply_chat_template(
             Each item of example["messages"] is a dict mapping the `content` of the
             message and the `role` of the one relayed it.
             E.g., role == 'user' or role == 'assistant'.
-        tokenizer (PreTrainedTokenizerBase): the tokenizer to be used to process
+        tokenizer (BaseTokenizer): the tokenizer to be used to process
             the example.
         task (Literal[str]): The task type the example is used in.
             "sft": i.e., for training purposes.
@@ -101,7 +100,7 @@ def apply_chat_template(
 
 
 def trl_sft_ultrachat_200k_preprocessor_fn(
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
 ) -> Callable[..., Dict]:
     """Builds a preprocessing function for a TRL SFT (chat) trainer."""
 

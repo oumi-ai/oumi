@@ -4,10 +4,10 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
-from transformers import PreTrainedTokenizerBase
 
 from lema.core.trainers.lema_trainer import Trainer
 from lema.core.types import TrainingParams
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.models import MLPEncoder
 
 
@@ -26,7 +26,7 @@ def mock_model():
 
 @pytest.fixture
 def mock_tokenizer():
-    mock = MagicMock(spec=PreTrainedTokenizerBase)
+    mock = MagicMock(spec=BaseTokenizer)
     mock.pad_token_id = 0
     return mock
 
