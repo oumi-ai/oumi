@@ -44,6 +44,7 @@ def main():
     config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+    config.validate()
 
     # Run inference
     infer_interactive(config)

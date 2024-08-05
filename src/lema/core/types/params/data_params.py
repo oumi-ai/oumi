@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from omegaconf import MISSING
 
+from lema.core.types.params.base_params import BaseParams
+
 
 # Training Params
 #
@@ -36,7 +38,7 @@ class MixtureStrategy(str, Enum):
 
 
 @dataclass
-class DatasetParams:
+class DatasetParams(BaseParams):
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
     # The subset of the dataset to load, usually a subfolder within the dataset root.
@@ -93,7 +95,7 @@ class DatasetParams:
 
 
 @dataclass
-class DatasetSplitParams:
+class DatasetSplitParams(BaseParams):
     # The input datasets used for training. This will later be split into train, test,
     # and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
@@ -187,7 +189,7 @@ class DatasetSplitParams:
 
 
 @dataclass
-class DataParams:
+class DataParams(BaseParams):
     # The input datasets used for training.
     train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
 

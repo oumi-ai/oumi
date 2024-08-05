@@ -1,8 +1,10 @@
+import dataclasses
 import logging
-from dataclasses import dataclass
-from typing import List, Optional, Type, TypeVar, cast
+from typing import Any, Iterator, List, Optional, Tuple, Type, TypeVar, cast
 
 from omegaconf import OmegaConf
+
+from lema.core.types.params.base_params import BaseParams
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -18,7 +20,7 @@ def _filter_ignored_args(arg_list: List[str]) -> List[str]:
     ]
 
 
-@dataclass
+@dataclasses.dataclass
 class BaseConfig:
     def to_yaml(self, config_path: str) -> None:
         """Saves the configuration to a YAML file."""
@@ -87,3 +89,30 @@ class BaseConfig:
             raise TypeError(f"config {type(config)} is not {type(cls)}")
 
         return cast(cls, config)
+
+    def validate(self) -> None:
+        """Validates the top level params objects."""
+        for _, attr_value in self:
+            if isinstance(attr_value, BaseParams):
+                attr_value.validate()
+
+        self.__validate__()
+
+    def __validate__(self) -> None:
+        """Validates the parameters of this object.
+
+        This method can be overridden by subclasses to implement custom
+        validation logic.
+
+        In case of validation errors, this method should raise a `ValueError`
+        or other appropriate exception.
+        """
+
+    def __iter__(self) -> Iterator[Tuple[str, Any]]:
+        """Returns an iterator over field names and values.
+
+        Note: for an attribute to be a field, it must be declared in the
+        dataclass definition and have a type annotation.
+        """
+        for param in dataclasses.fields(self):
+            yield param.name, getattr(self, param.name)
