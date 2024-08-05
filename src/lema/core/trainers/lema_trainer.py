@@ -110,9 +110,6 @@ class Trainer(BaseTrainer):
             current_epoch=self.state.epoch,
             num_training_steps=self._get_total_training_steps(),
         )
-        # For consistency, we step the scheduler here
-        # Otherwise for schedulers with warmup, the first lr will be 0
-        self.lr_scheduler.step()
 
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
