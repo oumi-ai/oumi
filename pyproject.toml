@@ -31,9 +31,9 @@ dependencies = [
     "sshfs",
     "torch",
     "transformers",
-    "numpy<2.0.0",                         # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
+    "numpy<2.0.0",                 # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
     "skypilot[gcp,lambda,runpod]",
-    "google-api-python-client",            # To enable GCP in Skypilot
+    "google-api-python-client",    # To enable GCP in Skypilot
 ]
 
 [project.urls]
@@ -71,6 +71,7 @@ train = [
     "deepspeed",
     "lm-eval",
     "pydantic",
+    "safetensors",
 ]
 cloud = [
     "google-api-core>=2.19.0",

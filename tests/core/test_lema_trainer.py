@@ -180,28 +180,30 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
     trainer.optimizer = mock_optimizer
     trainer.params.output_dir = str(output_dir)
 
-    trainer.model.state_dict = MagicMock(return_value={"model_key": "model_value"})
-    trainer.optimizer.state_dict = MagicMock(return_value={"optim_key": "optim_value"})
+    trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})
+    trainer.optimizer.state_dict = MagicMock(
+        return_value={"optim_key": torch.tensor(2)}
+    )
     trainer.state.epoch = 1
     trainer.state.global_step = 50
 
     trainer.save_state()
 
-    assert (output_dir / "model.pt").exists()
+    assert (output_dir / "model.safetensors").exists()
     assert (output_dir / "optimizer.pt").exists()
     assert (output_dir / "trainer_state.json").exists()
     assert (output_dir / "dataloader.json").exists()
 
     with patch(
+        "safetensors.torch.load_model", side_effect=[{"model_key": "model_value"}]
+    ), patch(
         "torch.load",
         side_effect=[
-            {"model_key": "model_value"},
             {"optim_key": "optim_value"},
         ],
     ):
         trainer._load_from_checkpoint(str(output_dir))
 
-    assert trainer.model.load_state_dict.called
     assert trainer.optimizer.load_state_dict.called
     assert trainer.state.epoch == 1
     assert trainer.state.global_step == 50
