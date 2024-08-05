@@ -26,7 +26,13 @@ jobs:
         set -e  # Exit if any command failed
         python -m pip install --upgrade pip
         pip install uv
-        uv pip install -e '.[all]'  --system
+        uv pip install -e '.[all]'  --system -v
+
+    - name: Cache pre-commit
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pre-commit
+        key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
     - name: Check LeMa Pre-commit rules
       run: |
