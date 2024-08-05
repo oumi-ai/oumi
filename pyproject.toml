@@ -27,7 +27,6 @@ classifiers = [
 
 dependencies = [
     "fabric",
-    "patchwork",
     "sshfs",
     "torch",
     "transformers",
