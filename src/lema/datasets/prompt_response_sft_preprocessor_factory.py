@@ -1,7 +1,6 @@
 from typing import Callable, Dict, Optional
 
-from transformers import PreTrainedTokenizerBase
-
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.datasets.common import (
     apply_chat_template,
     convert_prompt_response_to_chat_example,
@@ -11,7 +10,7 @@ from lema.datasets.common import (
 class PromptResponseSftPreprocessorFactory:
     """Constructs the preprocessing function for datasets of prompt-response pairs."""
 
-    def __init__(self, tokenizer: PreTrainedTokenizerBase):
+    def __init__(self, tokenizer: BaseTokenizer):
         """Construct the factory with a single tokenizer."""
         self.tokenizer = tokenizer
 

@@ -3,7 +3,6 @@ import warnings
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import datasets
-import transformers
 from trl.trainer import ConstantLengthDataset
 
 from lema.core.registry import REGISTRY
@@ -14,6 +13,7 @@ from lema.core.types import (
     MixtureStrategy,
     TrainingConfig,
 )
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.datasets.alpaca import alpaca_preprocessing_fn
 from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
@@ -27,7 +27,7 @@ DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
 
 def build_prompt_generation_fn(
-    function_name: str, tokenizer: transformers.PreTrainedTokenizerBase
+    function_name: str, tokenizer: BaseTokenizer
 ) -> Callable:
     """Builds a prompt generation function.
 
@@ -73,7 +73,7 @@ def build_prompt_generation_fn(
 
 def build_dataset(
     config: TrainingConfig,
-    tokenizer: transformers.PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
     **kwargs,
@@ -221,7 +221,7 @@ def _sample_dataset(
 def _preprocess_dataset(
     dataset: DatasetType,
     dataset_params: DatasetParams,
-    tokenizer: transformers.PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
     if (
@@ -259,7 +259,7 @@ def _build_iterable_dataset_sampler(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[transformers.PreTrainedTokenizerBase] = None,
+    tokenizer: Optional[BaseTokenizer] = None,
 ) -> Union[
     datasets.DatasetDict,
     datasets.Dataset,

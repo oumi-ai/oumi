@@ -5,8 +5,8 @@ from typing import Literal, Optional, Union, cast
 import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
-from transformers import PreTrainedTokenizerBase
 
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.core.types.turn import Conversation
 from lema.utils.logging import logger
 
@@ -183,7 +183,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
         *,
         dataset_name_or_path: Optional[str] = None,
         split: Optional[str] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        tokenizer: Optional[BaseTokenizer] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
         return_tensors: bool = False,
         text_col: str = "text",
