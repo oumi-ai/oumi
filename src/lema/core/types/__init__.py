@@ -8,6 +8,7 @@ from lema.core.types.configs import (
     EvaluationConfig,
     GenerationConfig,
     InferenceConfig,
+    JobConfig,
     TrainingConfig,
 )
 from lema.core.types.exceptions import HardwareException
@@ -42,6 +43,7 @@ __all__ = [
     "GenerationConfig",
     "HardwareException",
     "InferenceConfig",
+    "JobConfig",
     "JobStatus",
     "MixtureStrategy",
     "ModelParams",

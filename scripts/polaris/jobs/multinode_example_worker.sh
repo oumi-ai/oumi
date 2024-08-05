@@ -27,13 +27,13 @@ ALLOWED_TRAINING_MODES=("ddp" "fsdp", "deepspeed")
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -m (ddp|fsdp)"
+   echo "Usage: $0 -m (ddp|fsdp|deepspeed)"
    echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
    exit 1 # Exit script after printing help
 }
 
 # Default values.
-TRAINING_MODE="ddp"
+TRAINING_MODE="fsdp"
 
 while getopts "m:" opt
 do

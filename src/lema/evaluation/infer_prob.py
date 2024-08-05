@@ -71,8 +71,11 @@ def infer_prob(
     token_id_vocab = set(tokenizer.get_vocab().values())
 
     if enable_dp:
-        if not torch.cuda.is_available():
-            raise ValueError("DataParallel (DP) execution requested but no GPUs found.")
+        if not torch.cuda.is_available() or torch.cuda.device_count() <= 1:
+            raise ValueError(
+                "DataParallel (DP) execution requested, less than 2 GPUs found. "
+                "DP is only beneficial when multiple GPUs are available."
+            )
 
         logger.info(
             "DataParallel (DP) execution enabled. "
@@ -80,11 +83,14 @@ def infer_prob(
         )
         model_params.device_map = "cuda"
 
-    model = build_model(model_params, enable_dp=enable_dp)
+    model = build_model(model_params)
 
     if enable_dp:
         # In DP, inputs should be on the default device
         data_device = model_params.device_map
+
+        logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
+        model = torch.nn.DataParallel(model)
     else:
         # inputs should be in the same device as the model
         data_device = next(model.parameters()).device

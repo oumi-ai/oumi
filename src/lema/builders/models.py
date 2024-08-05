@@ -38,7 +38,6 @@ def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
-    enable_dp: Optional[bool] = False,
     **kwargs,
 ) -> nn.Module:
     """Builds and returns a model based on the provided LeMa configuration.
@@ -46,7 +45,6 @@ def build_model(
     Args:
         model_params: The configuration object containing the model parameters.
         peft_params: The configuration object containing the peft parameters.
-        enable_dp: Enable DataParallel (DP) execution if multiple GPUs are available.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -64,13 +62,6 @@ def build_model(
             peft_params=peft_params,
             *kwargs,
         )
-
-    # TODO: OPE-214 - Deprecate DP support in model builder
-    if enable_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
-        logger.info(f"Building model for {torch.cuda.device_count()} GPUs.")
-        model = torch.nn.DataParallel(model)
-    elif enable_dp and torch.backends.mps.is_available():
-        logger.warning("DP requested, but NOT possible with `mps` backend.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type

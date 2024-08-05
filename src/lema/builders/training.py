@@ -35,6 +35,8 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
             if training_args is not None:
                 # if set, convert to HuggingFace Trainer args format
                 training_args = cast(TrainingParams, training_args)
+                training_args.validate()
+
             trainer = HuggingFaceTrainer(
                 cls(*args, **kwargs, args=training_args.to_hf())
             )
