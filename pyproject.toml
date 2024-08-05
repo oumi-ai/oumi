@@ -54,7 +54,7 @@ dev = [
 ]
 train = [
     "transformers>=4.43.1",
-    "trl",
+    "trl>=0.9.0",
     "peft",
     "datasets",
     "omegaconf",
