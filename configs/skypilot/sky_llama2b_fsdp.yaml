@@ -73,6 +73,6 @@ run: |
 
 # sky launch -i 10 --env LEMA_RUN_NAME=llama2b.pthsdpz2.1node.4xA10040GB.v304 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_fsdp.yaml
 
-# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.hsdpz2.1node.4xA10040GB.nolimitgapthers.v307 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_fsdp.yaml
+# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.fsdp.1node.4xA10040GB.nolimitgapthers.v307 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b_fsdp.yaml
 
 # sky launch -i 10 --env LEMA_RUN_NAME=llama2b.hsdpz.1node.4xA10040GB.v309 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama2b_fsdp.yaml
