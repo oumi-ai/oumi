@@ -65,7 +65,7 @@ class ModelParams(BaseParams):
             )
             self.attn_implementation = None
 
-    def validate(self):
+    def __validate__(self):
         """Validates final config params."""
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
@@ -76,8 +76,6 @@ class ModelParams(BaseParams):
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
             )
-
-        super().validate()
 
     @property
     def should_use_flash_attention_2(self) -> bool:
