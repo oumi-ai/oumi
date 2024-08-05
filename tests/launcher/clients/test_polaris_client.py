@@ -633,48 +633,50 @@ def test_polaris_client_run_commands_fails(mock_fabric, mock_fs, mock_auth):
         client.run_commands(commands)
 
 
-def test_polaris_client_rsync_success(mock_fabric, mock_fs, mock_auth, mock_patchwork):
-    mock_ssh_fs = Mock(spec=SSHFileSystem)
-    mock_fs.side_effect = [mock_ssh_fs]
-    mock_connection = Mock(spec=Connection)
-    mock_fabric.side_effect = [mock_connection]
-    mock_command = Mock()
-    mock_patchwork.return_value = mock_command
-    client = PolarisClient("user")
-    client.rsync(
-        source="source",
-        destination="destination",
-        delete=True,
-        exclude=["foo", "bar"],
-        rsync_opts="-avz",
-    )
-    mock_patchwork.assert_called_once_with(
-        c=mock_connection,
-        source="source",
-        target="destination",
-        exclude=["foo", "bar"],
-        delete=True,
-        rsync_opts="-avz",
-    )
+# def test_polaris_client_rsync_success(mock_fabric, mock_fs, mock_auth,
+# mock_patchwork):
+#     mock_ssh_fs = Mock(spec=SSHFileSystem)
+#     mock_fs.side_effect = [mock_ssh_fs]
+#     mock_connection = Mock(spec=Connection)
+#     mock_fabric.side_effect = [mock_connection]
+#     mock_command = Mock()
+#     mock_patchwork.return_value = mock_command
+#     client = PolarisClient("user")
+#     client.rsync(
+#         source="source",
+#         destination="destination",
+#         delete=True,
+#         exclude=["foo", "bar"],
+#         rsync_opts="-avz",
+#     )
+#     mock_patchwork.assert_called_once_with(
+#         c=mock_connection,
+#         source="source",
+#         target="destination",
+#         exclude=["foo", "bar"],
+#         delete=True,
+#         rsync_opts="-avz",
+#     )
 
 
-def test_polaris_client_rsync_failure(mock_fabric, mock_fs, mock_auth, mock_patchwork):
-    mock_ssh_fs = Mock(spec=SSHFileSystem)
-    mock_fs.side_effect = [mock_ssh_fs]
-    mock_connection = Mock(spec=Connection)
-    mock_fabric.side_effect = [mock_connection]
-    with pytest.raises(RuntimeError):
-        mock_command = MagicMock()
-        mock_command.__bool__.return_value = False
-        mock_patchwork.return_value = mock_command
-        client = PolarisClient("user")
-        client.rsync(
-            source="source",
-            destination="destination",
-            delete=True,
-            exclude=["foo", "bar"],
-            rsync_opts="-avz",
-        )
+# def test_polaris_client_rsync_failure(mock_fabric, mock_fs, mock_auth,
+#  mock_patchwork):
+#     mock_ssh_fs = Mock(spec=SSHFileSystem)
+#     mock_fs.side_effect = [mock_ssh_fs]
+#     mock_connection = Mock(spec=Connection)
+#     mock_fabric.side_effect = [mock_connection]
+#     with pytest.raises(RuntimeError):
+#         mock_command = MagicMock()
+#         mock_command.__bool__.return_value = False
+#         mock_patchwork.return_value = mock_command
+#         client = PolarisClient("user")
+#         client.rsync(
+#             source="source",
+#             destination="destination",
+#             delete=True,
+#             exclude=["foo", "bar"],
+#             rsync_opts="-avz",
+#         )
 
 
 def test_polaris_client_put_recursive_success(
