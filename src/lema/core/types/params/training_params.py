@@ -23,7 +23,7 @@ class TrainerType(Enum):
     "Custom generic trainer implementation."
 
 
-class SchedulerType(Enum):
+class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers."""
 
     LINEAR = "linear"
@@ -97,8 +97,8 @@ class TrainingParams:
     # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
     lr_scheduler_type: str = "cosine"
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
-    warmup_ratio: float = 0.0
-    warmup_steps: int = 0
+    warmup_ratio: Optional[float] = None
+    warmup_steps: Optional[int] = None
 
     # Optimizer params.
     optimizer: str = "adamw_torch"
@@ -206,8 +206,8 @@ class TrainingParams:
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio,
-            warmup_steps=self.warmup_steps,
+            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
+            warmup_steps=self.warmup_steps or 0,  # same default as transformers
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,

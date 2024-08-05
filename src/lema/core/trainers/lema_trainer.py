@@ -105,7 +105,7 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = build_lr_scheduler(
             optimizer=self.optimizer,
             training_params=self.params,
-            last_epoch=self.state.epoch,
+            current_epoch=self.state.epoch,
             num_training_steps=self._get_total_training_steps(),
         )
 
