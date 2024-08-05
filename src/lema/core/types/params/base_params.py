@@ -4,34 +4,13 @@ from typing import Any, Iterator, Optional, Set, Tuple
 
 @dataclasses.dataclass
 class BaseParams:
-    def validate(self, validated: Optional[Set[int]] = None) -> None:
+    def validate(self) -> None:
         """Recursively validates the parameters."""
-        if validated is None:
-            validated = set()
+        self._validate(set())
 
-        # If this object has already been validated, return immediately
-        if id(self) in validated:
-            return
-        validated.add(id(self))
-
-        # Validate the children of this object.
-        # Note that we only support one level of nesting.
-        # For example: `List[BaseParams]` is supported, but not `List[List[BaseParams]]`
-        for _, attr_value in self:
-            if isinstance(attr_value, BaseParams):
-                attr_value.validate(validated)
-            elif isinstance(attr_value, list):
-                for item in attr_value:
-                    if isinstance(item, BaseParams):
-                        item.validate(validated)
-            elif isinstance(attr_value, dict):
-                for item in attr_value.values():
-                    if isinstance(item, BaseParams):
-                        item.validate(validated)
-
-        # Validate this object itself
-        self.__validate__()
-
+    #
+    # Public methods
+    #
     def __validate__(self) -> None:
         """Validates the parameters of this object.
 
@@ -50,3 +29,34 @@ class BaseParams:
         """
         for param in dataclasses.fields(self):
             yield param.name, getattr(self, param.name)
+
+    #
+    # Private methods
+    #
+    def _validate(self, validated: Optional[Set[int]]) -> None:
+        """Recursively validates the parameters."""
+        if validated is None:
+            validated = set()
+
+        # If this object has already been validated, return immediately
+        if id(self) in validated:
+            return
+        validated.add(id(self))
+
+        # Validate the children of this object.
+        # Note that we only support one level of nesting.
+        # For example: `List[BaseParams]` is supported, but not `List[List[BaseParams]]`
+        for _, attr_value in self:
+            if isinstance(attr_value, BaseParams):
+                attr_value._validate(validated)
+            elif isinstance(attr_value, list):
+                for item in attr_value:
+                    if isinstance(item, BaseParams):
+                        item._validate(validated)
+            elif isinstance(attr_value, dict):
+                for item in attr_value.values():
+                    if isinstance(item, BaseParams):
+                        item._validate(validated)
+
+        # Validate this object itself
+        self.__validate__()
