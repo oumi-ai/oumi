@@ -62,29 +62,33 @@ def mock_optimizer():
 @pytest.fixture
 def mock_params():
     args = MagicMock(spec=TrainingParams)
-    args.gradient_accumulation_steps = 1
-    args.compile = False
-    args.learning_rate = 0.001
-    args.weight_decay = 0.01
-    args.max_steps = 100
-    args.num_train_epochs = 3
-    args.per_device_train_batch_size = 8
-    args.per_device_eval_batch_size = 8
-    args.dataloader_num_workers = 0
-    args.dataloader_prefetch_factor = 2
-    args.logging_steps = 10
-    args.save_steps = 50
-    args.save_epoch = True
-    args.eval_strategy = "steps"
-    args.eval_steps = 50
-    args.output_dir = "/tmp/test_output"
-    args.optimizer = "adamw"
-    args.learning_rate = 0.001
-    args.adam_epsilon = 1e-8
     args.adam_beta1 = 0.9
     args.adam_beta2 = 0.999
-    args.enable_wandb = False
+    args.adam_epsilon = 1e-8
+    args.compile = False
+    args.dataloader_num_workers = 0
+    args.dataloader_prefetch_factor = 2
     args.enable_tensorboard = False
+    args.enable_wandb = False
+    args.eval_steps = 50
+    args.eval_strategy = "steps"
+    args.gradient_accumulation_steps = 1
+    args.learning_rate = 0.001
+    args.learning_rate = 0.001
+    args.logging_steps = 10
+    args.lr_scheduler_kwargs = {}
+    args.lr_scheduler_type = "linear"
+    args.max_steps = 100
+    args.num_train_epochs = 3
+    args.optimizer = "adamw"
+    args.output_dir = "/tmp/test_output"
+    args.per_device_eval_batch_size = 8
+    args.per_device_train_batch_size = 8
+    args.save_epoch = True
+    args.save_steps = 50
+    args.warmup_ratio = None
+    args.warmup_steps = 0
+    args.weight_decay = 0.01
     return args
 
 
