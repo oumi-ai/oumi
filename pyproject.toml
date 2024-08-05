@@ -91,8 +91,8 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D), flake8-tidy-imports(TID)
-select = ["F", "E", "W", "I", "D", "TID"]
-ignore = ["D100", "D101", "D104"]         # Temporary rules
+select = ["F", "E", "W", "I", "D", "TID", "NPY201"]
+ignore = ["D100", "D101", "D104"]                   # Temporary rules
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.
