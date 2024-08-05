@@ -25,7 +25,9 @@ jobs:
       run: |
         set -e  # Exit if any command failed
         python -m pip install --upgrade pip
-        pip install uv
+        python --version
+        pip --version
+        python -m pip install uv
         uv pip install -e '.[all]'  --system -v
 
     - name: Cache pre-commit
