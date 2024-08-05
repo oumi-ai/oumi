@@ -21,7 +21,11 @@ from lema.core.types.params.data_params import (
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.profiler_params import ProfilerParams
-from lema.core.types.params.training_params import TrainerType, TrainingParams
+from lema.core.types.params.training_params import (
+    SchedulerType,
+    TrainerType,
+    TrainingParams,
+)
 
 __all__ = [
     "AsyncEvaluationConfig",
@@ -43,6 +47,7 @@ __all__ = [
     "ModelParams",
     "PeftParams",
     "ProfilerParams",
+    "SchedulerType",
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",

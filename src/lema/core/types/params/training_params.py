@@ -23,6 +23,22 @@ class TrainerType(Enum):
     "Custom generic trainer implementation."
 
 
+class SchedulerType(Enum):
+    """Enum representing the supported learning rate schedulers."""
+
+    LINEAR = "linear"
+    "Linear scheduler."
+
+    COSINE = "cosine"
+    "Cosine scheduler."
+
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    "Cosine with restarts scheduler."
+
+    CONSTANT = "constant"
+    "Constant scheduler."
+
+
 @dataclass
 class TrainingParams:
     use_peft: bool = False
