@@ -16,6 +16,7 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
+from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
@@ -65,6 +66,8 @@ class Trainer(BaseTrainer):
 
         self.params.validate()
 
+        self.state = TrainingState()
+
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
             "bfloat16"
@@ -104,11 +107,15 @@ class Trainer(BaseTrainer):
         self.callbacks = callbacks if callbacks is not None else []
 
         self.optimizer = build_optimizer(self.model, self.params)
+        self.lr_scheduler = build_lr_scheduler(
+            optimizer=self.optimizer,
+            training_params=self.params,
+            current_epoch=self.state.epoch,
+            num_training_steps=self._get_total_training_steps(),
+        )
 
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
-
-        self.state = TrainingState()
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
@@ -212,8 +219,15 @@ class Trainer(BaseTrainer):
                     torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(), max_norm=self.max_norm
                     )
+
+                    # save lr for logging
+                    last_lr = self.lr_scheduler.get_last_lr()[0]
+
+                    # step optimizer, scaler, and lr schedule
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
+                    self.lr_scheduler.step()
+
                     self.optimizer.zero_grad(set_to_none=True)
 
                 self.state.global_step += 1
@@ -227,7 +241,7 @@ class Trainer(BaseTrainer):
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
                     metrics = {
                         "train/loss": loss_value,
-                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "learning_rate": last_lr,
                         "epoch": self.state.epoch,
                         "global_step": self.state.global_step,
                         "total_tokens_seen": self.state.total_tokens_seen,

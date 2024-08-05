@@ -80,7 +80,7 @@ class SkyClient:
             A JobStatus with only `id` and `cluster` populated.
         """
         job_id, resource_handle = sky.launch(
-            _convert_job_to_task(job), cluster_name=cluster_name
+            _convert_job_to_task(job), cluster_name=cluster_name, detach_run=True
         )
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
@@ -130,7 +130,7 @@ class SkyClient:
         Returns:
             The ID of the job that was created.
         """
-        job_id, _ = sky.exec(_convert_job_to_task(job), cluster_name)
+        job_id, _ = sky.exec(_convert_job_to_task(job), cluster_name, detach_run=True)
         if job_id is None:
             raise RuntimeError("Failed to submit job.")
         return str(job_id)
