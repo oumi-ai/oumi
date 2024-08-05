@@ -63,5 +63,3 @@ run: |
       "training.enable_wandb=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.ddp.1node.1xA10040GB.v304 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
