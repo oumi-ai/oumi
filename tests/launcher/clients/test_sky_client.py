@@ -82,7 +82,11 @@ def test_sky_client_launch(mock_sky_data_storage):
             metadata="",
         )
         assert job_status == expected_job_status
-        mock_launch.assert_called_once()
+        mock_launch.assert_called_once_with(
+            ANY,
+            cluster_name=None,
+            detach_run=True,
+        )
 
 
 def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
@@ -101,7 +105,11 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
             metadata="",
         )
         assert job_status == expected_job_status
-        mock_launch.assert_called_once_with(ANY, cluster_name="cluster_name")
+        mock_launch.assert_called_once_with(
+            ANY,
+            cluster_name="cluster_name",
+            detach_run=True,
+        )
 
 
 def test_sky_client_status():
@@ -136,7 +144,7 @@ def test_sky_client_exec(mock_sky_data_storage):
         client = SkyClient()
         job = _get_default_job("gcp")
         job_id = client.exec(job, "mycluster")
-        mock_exec.assert_called_once_with(ANY, "mycluster")
+        mock_exec.assert_called_once_with(ANY, "mycluster", detach_run=True)
         assert job_id == "1"
 
 
