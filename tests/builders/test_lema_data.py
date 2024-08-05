@@ -3,7 +3,6 @@ import torch
 import torch.utils.data.datapipes as dp
 from datasets import Dataset as HFDataset
 from torch.utils.data import IterDataPipe
-from transformers import PreTrainedTokenizerBase
 
 import lema.builders.lema_data
 from lema.builders.lema_data import _load_dataset, build_dataset
@@ -18,6 +17,7 @@ from lema.core.types import (
     ModelParams,
     TrainingConfig,
 )
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 #
@@ -30,34 +30,25 @@ def create_small_dataset(size=10):
 @register_dataset("small_map_dataset")
 class SmallMapDataset(BaseMapDataset):
     def __init__(self, size: int = 10, split=None, subset=None, tokenizer=None):
-        self.data = create_small_dataset(size)  # type: ignore
+        self._data = create_small_dataset(size)  # type: ignore
 
     def __getitem__(self, index):
         return self.data[index]
-
-    def __len__(self):
-        return len(self.data)
-
-    def transform(self, idx):
-        return self.data[idx]
-
-
-@register_dataset("small_iterable_dataset")
-class SmallIterableDataset(BaseIterableDataset):
-    def __init__(self, size: int = 10, split=None, subset=None, tokenizer=None):
-        self.data = create_small_dataset(size)
-
-    def __iter__(self):
-        return iter(self.data)
 
     def transform(self, x):
         return x
 
 
-class SimpleTokenizer(PreTrainedTokenizerBase):
-    def __init__(self):
-        super().__init__()
+@register_dataset("small_iterable_dataset")
+class SmallIterableDataset(BaseIterableDataset):
+    def __init__(self, size: int = 10, split=None, subset=None, tokenizer=None):
+        self._data = create_small_dataset(size)
 
+    def transform(self, x):
+        return x
+
+
+class SimpleTokenizer(BaseTokenizer):
     def __call__(self, text, **kwargs):
         return {"input_ids": torch.tensor([ord(c) for c in text])}
 
@@ -90,7 +81,7 @@ def mock_hf_hub_reader(dataset, name, split, streaming):
 
 
 @pytest.fixture
-def tokenizer() -> PreTrainedTokenizerBase:
+def tokenizer() -> BaseTokenizer:
     return SimpleTokenizer()
 
 

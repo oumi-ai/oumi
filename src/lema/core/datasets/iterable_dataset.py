@@ -4,8 +4,8 @@ from typing import Any, Dict, Iterable, List, Optional
 import datasets
 import torch
 from torch.utils.data import IterDataPipe
-from transformers import PreTrainedTokenizerBase
 
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.utils.logging import logger
 
 
@@ -13,7 +13,7 @@ from lema.utils.logging import logger
 # Abstract Iterable Dataset
 #
 class BaseIterableDataset(IterDataPipe, abc.ABC):
-    data: Iterable[Any]
+    _data: Iterable[Any]
     dataset_name_or_path: str
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
@@ -44,7 +44,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_name_or_path = dataset_name_or_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
-        self.data = self._load_data()
+        self._data = self._load_data()
 
     #
     # Main API
@@ -61,6 +61,11 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     def to_hf(self) -> datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset."""
         return datasets.IterableDataset.from_generator(self.__iter__)
+
+    @property
+    def data(self) -> Iterable[Any]:
+        """Returns the underlying dataset data."""
+        return self._data
 
     #
     # Abstract Methods
@@ -91,7 +96,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
     def __init__(
         self,
         *,
-        tokenizer: PreTrainedTokenizerBase,
+        tokenizer: BaseTokenizer,
         seq_length: int,
         dataset_text_field: str = "text",
         append_concat_token: bool = True,

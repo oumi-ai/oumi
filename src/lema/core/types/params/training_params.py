@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import transformers
+import trl
 
+from lema.core.types.params.base_params import BaseParams
 from lema.core.types.params.profiler_params import ProfilerParams
 from lema.utils.str_utils import sanitize_run_name
 
@@ -23,8 +25,24 @@ class TrainerType(Enum):
     "Custom generic trainer implementation."
 
 
+class SchedulerType(str, Enum):
+    """Enum representing the supported learning rate schedulers."""
+
+    LINEAR = "linear"
+    "Linear scheduler."
+
+    COSINE = "cosine"
+    "Cosine scheduler."
+
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    "Cosine with restarts scheduler."
+
+    CONSTANT = "constant"
+    "Constant scheduler."
+
+
 @dataclass
-class TrainingParams:
+class TrainingParams(BaseParams):
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
@@ -81,8 +99,8 @@ class TrainingParams:
     # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
     lr_scheduler_type: str = "cosine"
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
-    warmup_ratio: float = 0.0
-    warmup_steps: int = 0
+    warmup_ratio: Optional[float] = None
+    warmup_steps: Optional[int] = None
 
     # Optimizer params.
     optimizer: str = "adamw_torch"
@@ -124,7 +142,15 @@ class TrainingParams:
 
     # Number of subprocesses to use for data loading (PyTorch only).
     # 0 means that the data will be loaded in the main process.
-    dataloader_num_workers: int = 0
+    #
+    # You can also use the special value "auto" to select the number
+    # of dataloader workers using a simple heuristic based on the number of CPU-s and
+    # GPU-s per node. Note that the accurate estimation of workers is difficult and
+    # depends on many factors (the properties of a model, dataset, VM, network, etc)
+    # so you can start with "auto" then experimentally tune the exact number to make it
+    # more optimal for your specific case. If "auto" is requested,
+    # then at minumum 1 worker is guaranteed to be assigned.
+    dataloader_num_workers: Union[int, str] = 0
 
     # Number of batches loaded in advance by each worker. 2 means there will be
     # a total of 2 * num_workers batches prefetched across all workers.
@@ -153,7 +179,24 @@ class TrainingParams:
         if self.save_steps > 0:
             save_strategy = "steps"
 
-        return transformers.TrainingArguments(
+        dataloader_num_workers = 0
+        if isinstance(self.dataloader_num_workers, int):
+            dataloader_num_workers = self.dataloader_num_workers
+        else:
+            raise ValueError(
+                "Unexpected type of dataloader_num_workers: "
+                f"{type(self.dataloader_num_workers)} "
+                f"({self.dataloader_num_workers}). Must be `int`."
+            )
+
+        if self.trainer_type == TrainerType.TRL_SFT:
+            config_class = trl.SFTConfig
+        elif self.trainer_type == TrainerType.TRL_DPO:
+            config_class = trl.DPOConfig
+        else:
+            config_class = transformers.TrainingArguments
+
+        return config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -172,8 +215,8 @@ class TrainingParams:
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio,
-            warmup_steps=self.warmup_steps,
+            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
+            warmup_steps=self.warmup_steps or 0,  # same default as transformers
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
@@ -190,13 +233,16 @@ class TrainingParams:
             resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
-            dataloader_num_workers=self.dataloader_num_workers,
-            dataloader_prefetch_factor=self.dataloader_prefetch_factor,
+            dataloader_num_workers=dataloader_num_workers,
+            dataloader_prefetch_factor=(
+                self.dataloader_prefetch_factor if dataloader_num_workers > 0 else None
+            ),
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             seed=self.seed,
-            data_seed=self.seed,  # TODO: OPE-224 check if per worker
+            data_seed=self.seed,
+            **self.trainer_kwargs,
         )
 
     def _get_hf_report_to(self) -> List[str]:
@@ -218,6 +264,14 @@ class TrainingParams:
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
+
+        if isinstance(self.dataloader_num_workers, str) and not (
+            self.dataloader_num_workers == "auto"
+        ):
+            raise ValueError(
+                "Unknown value of "
+                f"dataloader_num_workers: {self.dataloader_num_workers}"
+            )
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")

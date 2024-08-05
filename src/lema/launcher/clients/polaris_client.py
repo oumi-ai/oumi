@@ -3,12 +3,11 @@ import io
 import re
 from enum import Enum
 from getpass import getpass
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from asyncssh.sftp import SFTPNoConnection
 from fabric import Connection
 from paramiko.ssh_exception import BadAuthenticationType
-from patchwork.transfers import rsync
 from sshfs import SSHFileSystem
 
 from lema.core.types.base_cluster import JobStatus
@@ -299,35 +298,6 @@ class PolarisClient:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
 
-    @retry_auth
-    def rsync(
-        self,
-        source: str,
-        destination: str,
-        delete: bool,
-        exclude: Optional[Union[str, List[str]]],
-        rsync_opts: Optional[str],
-    ) -> None:
-        """Rsyncs the source to the destination.
-
-        Args:
-            source: The source to rsync.
-            destination: The destination to rsync to.
-            delete: Whether to delete extraneous files from the destination.
-            exclude: Patterns to exclude from the rsync.
-            rsync_opts: Additional options to pass to rsync.
-        """
-        result = rsync(
-            c=self._connection,
-            source=source,
-            target=destination,
-            exclude=exclude,
-            delete=delete,
-            rsync_opts=rsync_opts or "",
-        )
-        if not result:
-            raise RuntimeError(f"Rsync failed. stderr: {result.stderr}")
-
     @retry_fs
     def put_recursive(self, source: str, destination: str) -> None:
         """Puts the specified file/directory to the remote path, recursively.
@@ -339,6 +309,9 @@ class PolarisClient:
         if self._fs is None:
             self._fs = self._refresh_fs()
         self._fs.put(source, destination, recursive=True)
+        # Ensure all copied files are executable as `put` does not propagate
+        # permissions.
+        self._connection.run(f"chmod -R +x {destination}", warn=True)
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:

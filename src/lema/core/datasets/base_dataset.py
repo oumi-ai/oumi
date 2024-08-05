@@ -5,8 +5,8 @@ from typing import Literal, Optional, Union, cast
 import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
-from transformers import PreTrainedTokenizerBase
 
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.core.types.turn import Conversation
 from lema.utils.logging import logger
 
@@ -15,7 +15,7 @@ from lema.utils.logging import logger
 # Abstract Map Dataset
 #
 class BaseMapDataset(MapDataPipe, ABC):
-    data: pd.DataFrame
+    _data: pd.DataFrame
     dataset_name_or_path: str
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
@@ -69,7 +69,12 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             int: The number of items in the dataset.
         """
-        return len(self.data)
+        return len(self._data)
+
+    @property
+    def data(self) -> pd.DataFrame:
+        """Returns the underlying dataset data."""
+        return self._data
 
     def raw(self, idx: int) -> pd.Series:
         """Returns the raw data at the specified index.
@@ -80,7 +85,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             pd.Series: The raw data at the specified index.
         """
-        return self.data.iloc[idx]
+        return self._data.iloc[idx]
 
     def as_generator(self):
         """Returns a generator for the dataset."""
@@ -183,7 +188,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
         *,
         dataset_name_or_path: Optional[str] = None,
         split: Optional[str] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        tokenizer: Optional[BaseTokenizer] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
         return_tensors: bool = False,
         text_col: str = "text",
@@ -198,7 +203,7 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
         self._text_col = text_col
         self._tokenizer = tokenizer
         self._return_tensors = "pt" if return_tensors else None
-        self.data = self._load_data()
+        self._data = self._load_data()
 
     #
     # Properties

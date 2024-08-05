@@ -8,6 +8,7 @@ from lema.core.types import (
     AsyncEvaluationConfig,
     EvaluationConfig,
     HardwareException,
+    JobConfig,
     TrainingConfig,
 )
 
@@ -39,6 +40,7 @@ def test_parse_configs(config_path: str):
         TrainingConfig,
         EvaluationConfig,
         AsyncEvaluationConfig,
+        JobConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
