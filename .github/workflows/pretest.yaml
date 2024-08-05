@@ -26,7 +26,7 @@ jobs:
         set -e  # Exit if any command failed
         python -m pip install --upgrade pip
         pip install uv
-        uv install -e '.[all]'
+        uv pip install -e '.[all]'
 
     - name: Check LeMa Pre-commit rules
       run: |
