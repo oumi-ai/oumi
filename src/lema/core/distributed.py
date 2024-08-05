@@ -28,6 +28,7 @@ class DeviceRankInfo(NamedTuple):
 #
 # Process Info
 #
+@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
 def get_device_rank_info() -> DeviceRankInfo:
     """Returns device rank and world size."""
     world_size = int(os.environ.get("WORLD_SIZE", 1))
