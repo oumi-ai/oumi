@@ -97,7 +97,7 @@ class TrainingParams(BaseParams):
     learning_rate: float = 5e-05
     # See possible scheduler types here:
     # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
-    lr_scheduler_type: str = "cosine"
+    lr_scheduler_type: str = SchedulerType.COSINE
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
     warmup_ratio: Optional[float] = None
     warmup_steps: Optional[int] = None
