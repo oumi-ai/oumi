@@ -56,7 +56,6 @@ train = [
     "bitsandbytes",         # for quantization
     "datasets",
     "deepspeed",
-    "flash-attention",      # for phi-3
     "lm-eval",
     "omegaconf",
     "peft",
