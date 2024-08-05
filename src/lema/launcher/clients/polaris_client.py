@@ -197,6 +197,7 @@ class PolarisClient:
     def submit_job(
         self,
         job_path: str,
+        working_dir: str,
         node_count: int,
         queue: SupportedQueues,
         name: Optional[str],
@@ -205,6 +206,7 @@ class PolarisClient:
 
         Args:
             job_path: The path to the job script to submit.
+            working_dir: The working directory to submit the job from.
             node_count: The number of nodes to use for the job.
             queue: The name of the queue to submit the job to.
             name: The name of the job (optional).
@@ -215,14 +217,15 @@ class PolarisClient:
         optional_name_args = ""
         if name:
             optional_name_args = f"-N {name}"
-        result = self._connection.run(
-            f"qsub -l select={node_count}:system=polaris "
-            f"-q {queue.value} {optional_name_args} {job_path}",
-            warn=True,
-        )
-        if not result:
-            raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
-        return self._get_short_job_id(result.stdout.strip())
+        with self._connection.cd(working_dir):
+            result = self._connection.run(
+                f"qsub -l select={node_count}:system=polaris "
+                f"-q {queue.value} {optional_name_args} {job_path}",
+                warn=True,
+            )
+            if not result:
+                raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
+            return self._get_short_job_id(result.stdout.strip())
 
     @retry_auth
     def list_jobs(self, queue: SupportedQueues) -> List[JobStatus]:

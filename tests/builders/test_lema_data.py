@@ -3,7 +3,6 @@ import torch
 import torch.utils.data.datapipes as dp
 from datasets import Dataset as HFDataset
 from torch.utils.data import IterDataPipe
-from transformers import PreTrainedTokenizerBase
 
 import lema.builders.lema_data
 from lema.builders.lema_data import _load_dataset, build_dataset
@@ -18,6 +17,7 @@ from lema.core.types import (
     ModelParams,
     TrainingConfig,
 )
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 #
@@ -54,7 +54,7 @@ class SmallIterableDataset(BaseIterableDataset):
         return x
 
 
-class SimpleTokenizer(PreTrainedTokenizerBase):
+class SimpleTokenizer(BaseTokenizer):
     def __init__(self):
         super().__init__()
 
@@ -90,7 +90,7 @@ def mock_hf_hub_reader(dataset, name, split, streaming):
 
 
 @pytest.fixture
-def tokenizer() -> PreTrainedTokenizerBase:
+def tokenizer() -> BaseTokenizer:
     return SimpleTokenizer()
 
 

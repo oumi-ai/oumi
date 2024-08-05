@@ -19,6 +19,7 @@ from lema.builders import (
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     cleanup_distributed,
+    estimate_dataloader_num_workers,
     get_device_rank_info,
     init_distributed,
     is_distributed,
@@ -145,6 +146,24 @@ def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
         torch.backends.cudnn.deterministic = True
 
 
+def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
+    """Updates TrainingConfig using dynamic/runtime info."""
+    if config.training.dataloader_num_workers == "auto":
+        # Resolve "auto" to an actual number.
+        num_workers = estimate_dataloader_num_workers()
+        logger.info(
+            "Resolved 'training.dataloader_num_workers=auto' to "
+            f"'training.dataloader_num_workers={num_workers}'"
+        )
+        config.training.dataloader_num_workers = num_workers
+
+    assert isinstance(config.training.dataloader_num_workers, int)
+
+    # FIXME OPE-229 Consider moving hardware capability validations
+    # from TrainingConfig `__post_init__` to this function.
+    return config
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -161,6 +180,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Configure logging to file
     log_dir = pathlib.Path(config.training.output_dir) / "logs"
     configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
+
+    config = _finalize_training_config(config)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)

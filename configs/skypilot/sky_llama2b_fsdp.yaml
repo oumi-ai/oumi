@@ -57,9 +57,8 @@ run: |
       "training.optimizer='adafactor'" \
       "training.per_device_train_batch_size=14" \
       "training.gradient_accumulation_steps=19" \
-      "training.dataloader_num_workers=2" \
-      "training.dataloader_prefetch_factor=4" \
-      "training.log_model_summary=false" \
+      "training.dataloader_num_workers=auto" \
+      "training.dataloader_prefetch_factor=32" \
       "training.include_performance_metrics=true" \
       "training.ddp_find_unused_parameters=false" \
       "training.try_resume_from_last_checkpoint=false" \

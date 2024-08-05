@@ -1,17 +1,7 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
 from omegaconf import MISSING
-
-
-class DiskTier(Enum):
-    """Enum representing the supported disk tiers."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    BEST = "best"
 
 
 @dataclass
@@ -43,11 +33,13 @@ class NodeParams:
     # For GCP you may specify the accelerator name and count, e.g. "V100:4".
     accelerators: Optional[str] = None
 
-    # Number of vCPUs to use per node (optional).
-    cpus: Optional[int] = None
+    # Number of vCPUs to use per node (optional). Sky-based clouds support strings with
+    # modifiers, e.g. "2+" to indicate at least 2 vCPUs.
+    cpus: Optional[str] = None
 
-    # Memory to allocate per node in GiB (optional).
-    memory: Optional[int] = None
+    # Memory to allocate per node in GiB (optional). Sky-based clouds support strings
+    # with modifiers, e.g. "256+" to indicate at least 256 GB.
+    memory: Optional[str] = None
 
     # Instance type to use (optional). Supported values vary by environment.
     # The instance type is automatically inferred if `accelerators` is specified.
@@ -61,5 +53,6 @@ class NodeParams:
     disk_size: Optional[int] = None
 
     # Disk tier to use for OS (optional).
-    # Could be one of 'low', 'medium', 'high' or 'best' (default: 'medium').
-    disk_tier: DiskTier = DiskTier.MEDIUM
+    # For sky-based clouds this Could be one of 'low', 'medium', 'high' or 'best'
+    # (default: 'medium').
+    disk_tier: Optional[str] = "medium"

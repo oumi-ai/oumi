@@ -260,6 +260,7 @@ class PolarisCluster(BaseCluster):
         # Submit the job.
         job_id = self._client.submit_job(
             str(script_path),
+            str(remote_working_dir),
             job.num_nodes,
             self._queue,
             job_name,
