@@ -84,7 +84,7 @@ def test_sky_client_launch(mock_sky_data_storage):
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
             ANY,
-            cluster_name="mycluster",
+            cluster_name=None,
             detach_run=True,
         )
 

@@ -1,7 +1,8 @@
 name: hello-world
 resources:
   cloud: gcp
-  accelerators: A100  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  # See other available accelerators by running `sky show-gpus --cloud gcp`.
+  accelerators: A100
 
 # Upload a working directory to the remote.
 working_dir: .

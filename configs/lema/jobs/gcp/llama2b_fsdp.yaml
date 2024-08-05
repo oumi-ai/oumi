@@ -2,12 +2,10 @@ name: llama2b-fsdp
 
 resources:
   cloud: gcp
-  # Use 1 of the following GPUs depending on availability. No preference.
-  # To view other GPU types use the following commands:
-  # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: "A100:4"  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  # See other available accelerators by running `sky show-gpus --cloud gcp`.
+  accelerators: "A100:4"
   # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
-  # something like this: {"A40": N}
+  # something like this: "A40:N"
 
 # Upload a working directory to remote ~/sky_workdir.
 working_dir: .
