@@ -63,6 +63,8 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
+        self.state = TrainingState()
+
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
             "bfloat16"
@@ -114,8 +116,6 @@ class Trainer(BaseTrainer):
 
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
-
-        self.state = TrainingState()
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
