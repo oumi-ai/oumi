@@ -18,7 +18,7 @@ helpFunction()
 # Default values.
 SOURCE_DIRECTORY="."
 
-POLARIS_QUEUE="debug-scaling"
+POLARIS_QUEUE=""
 POLARIS_NODES=1
 
 while getopts "u:q:n:s:d:j:" opt
@@ -35,11 +35,9 @@ do
 done
 
 # Print a help message if parameters are empty.
-if [ -z "$POLARIS_USER" ] || [ -z "$POLARIS_QUEUE" ] || [ -z "$POLARIS_NODES" ]
-then
+if [ -z "$POLARIS_USER" ] || [ -z "$POLARIS_NODES" ]; then
    echo "Some or all required parameters are empty:";
    echo -e "\tPOLARIS_USER: $POLARIS_USER";
-   echo -e "\tPOLARIS_QUEUE: $POLARIS_QUEUE";
    echo -e "\tPOLARIS_NODES: $POLARIS_NODES";
    helpFunction
 fi
@@ -47,6 +45,15 @@ fi
 if ! test "$POLARIS_NODES" -gt 0; then
    echo "The number of Polaris nodes ($POLARIS_NODES) must be positive";
    helpFunction
+fi
+
+# Select default queue if unspecified (depends on the number of nodes).
+if [ -z "$POLARIS_QUEUE" ]; then
+   if test "$POLARIS_NODES" -gt 9; then
+      POLARIS_QUEUE="prod"
+   else
+      POLARIS_QUEUE="preemptable"
+   fi
 fi
 
 if ! (echo "${ALLOWED_POLARIS_QUEUES[@]}" | grep -q -w "${POLARIS_QUEUE}"); then
