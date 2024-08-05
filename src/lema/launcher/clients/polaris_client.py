@@ -341,7 +341,7 @@ class PolarisClient:
         self._fs.put(source, destination, recursive=True)
         # Ensure all copied files are executable as `put` does not propagate
         # permissions.
-        self._connection.run(f"chmod -R a+x {destination}", warn=True)
+        self._connection.run(f"chmod -R +x {destination}", warn=True)
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:

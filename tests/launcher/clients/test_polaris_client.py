@@ -696,7 +696,7 @@ def test_polaris_client_put_recursive_success(
         "destination",
         recursive=True,
     )
-    mock_connection.run.assert_called_once_with("chmod -R a+x destination", warn=True)
+    mock_connection.run.assert_called_once_with("chmod -R +x destination", warn=True)
 
 
 def test_polaris_client_put_recursive_failure(
