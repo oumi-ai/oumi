@@ -40,4 +40,4 @@ jobs:
     - name: Run LeMa Tests
       run: |
         cd ./tests/
-        pytest -s -n auto
+        pytest -s -n 2
