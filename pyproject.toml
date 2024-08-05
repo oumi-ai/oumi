@@ -47,6 +47,7 @@ dev = [
     "pre-commit",
     "pynvml",
     "pyright",
+    "pytest-xdist[psutil]",
     "pytest",
     "ruff",
     "torchfix",
