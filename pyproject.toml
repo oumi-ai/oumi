@@ -27,12 +27,12 @@ classifiers = [
 
 dependencies = [
     "fabric",
+    "google-api-python-client",    # To enable GCP in Skypilot
+    "numpy",
+    "skypilot[gcp,lambda,runpod]",
     "sshfs",
     "torch",
     "transformers",
-    "numpy",
-    "skypilot[gcp,lambda,runpod]",
-    "google-api-python-client",    # To enable GCP in Skypilot
 ]
 
 [project.urls]
@@ -46,31 +46,28 @@ dev = [
     "mypy",
     "pre-commit",
     "pynvml",
+    "pyright",
     "pytest",
     "ruff",
-    "pyright",
     "torchfix",
 ]
 train = [
-    "transformers>=4.43.1",
-    "trl>=0.9.0",
-    "peft",
-    "datasets",
-    "omegaconf",
-    "datasets",
-    "torchmetrics",
-    "torchdata>=0.8.0",
-    "tensorboard",
-    "wandb",
-    "sentencepiece",        # for phi-3
-    "flash-attention",      # for phi-3
-    "pynvml",
     "accelerate",           # for quantization
     "bitsandbytes",         # for quantization
+    "datasets",
     "deepspeed",
     "lm-eval",
+    "omegaconf",
+    "peft",
     "pydantic",
+    "pynvml",
     "safetensors",
+    "sentencepiece",        # for phi-3
+    "tensorboard",
+    "torchdata>=0.8.0",
+    "transformers>=4.43.1",
+    "trl>=0.9.0",
+    "wandb",
 ]
 cloud = [
     "google-api-core>=2.19.0",
