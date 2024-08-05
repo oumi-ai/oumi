@@ -14,20 +14,21 @@ from lema.core.types import SchedulerType, TrainingParams
 
 @pytest.fixture
 def optimizer():
-    return torch.optim.Adam(params=[torch.nn.Parameter(torch.randn(2, 2))])
+    params = [torch.nn.Parameter(torch.randn(2, 2), requires_grad=True)]
+    return torch.optim.Adam(params=params, lr=0.001)
 
 
 @pytest.fixture
 def training_params():
     return TrainingParams(
         lr_scheduler_type=SchedulerType.LINEAR,
-        warmup_steps=100,
+        warmup_steps=10,
         warmup_ratio=None,
         lr_scheduler_kwargs={},
+        learning_rate=0.001,
     )
 
 
-#
 # Tests
 #
 @pytest.mark.parametrize(
@@ -141,7 +142,7 @@ def test_linear_scheduler_params(mock_get_linear, optimizer, training_params):
     build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
     mock_get_linear.assert_called_once_with(
         optimizer=optimizer,
-        num_warmup_steps=100,
+        num_warmup_steps=10,
         num_training_steps=num_training_steps,
         last_epoch=4,
     )
@@ -155,7 +156,7 @@ def test_cosine_scheduler_params(mock_get_cosine, optimizer, training_params):
     build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
     mock_get_cosine.assert_called_once_with(
         optimizer=optimizer,
-        num_warmup_steps=100,
+        num_warmup_steps=10,
         num_training_steps=num_training_steps,
         last_epoch=4,
         num_cycles=0.5,
@@ -173,7 +174,7 @@ def test_cosine_with_restarts_scheduler_params(
     build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
     mock_get_cosine_restarts.assert_called_once_with(
         optimizer=optimizer,
-        num_warmup_steps=100,
+        num_warmup_steps=10,
         num_training_steps=num_training_steps,
         last_epoch=4,
         num_cycles=3,
@@ -223,3 +224,67 @@ def test_no_warmup_logging(mock_logger_info, optimizer, training_params):
     mock_logger_info.assert_called_with(
         "No warmup steps provided. Setting warmup_steps=0."
     )
+
+
+def test_linear_scheduler_lr_values(optimizer, training_params):
+    num_training_steps = 100
+    scheduler = build_lr_scheduler(optimizer, training_params, num_training_steps)
+    scheduler.step()
+
+    # Check initial LR
+    assert optimizer.param_groups[0]["lr"] == 0.0001  # 10% of 0.001 (warmup)
+
+    # Move to end of warmup
+    for _ in range(10 - 1):
+        scheduler.step()
+    assert optimizer.param_groups[0]["lr"] == 0.001  # Full LR
+
+    # Move to end of training
+    for _ in range(90):
+        scheduler.step()
+    assert pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.0  # Final LR
+
+
+def test_cosine_scheduler_lr_values(optimizer, training_params):
+    training_params.lr_scheduler_type = SchedulerType.COSINE
+    num_training_steps = 100
+    scheduler = build_lr_scheduler(optimizer, training_params, num_training_steps)
+    scheduler.step()
+
+    # Check initial LR
+    assert (
+        pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.0001
+    )  # 10% of 0.001 (warmup)
+
+    # Move to end of warmup
+    for _ in range(10 - 1):
+        scheduler.step()
+    assert pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.001  # Full LR
+
+    # Move to end of training
+    for _ in range(90):
+        scheduler.step()
+    assert pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.0  # Final LR
+
+
+def test_constant_scheduler_lr_values(optimizer, training_params):
+    training_params.lr_scheduler_type = SchedulerType.CONSTANT
+    scheduler = build_lr_scheduler(optimizer, training_params)
+    scheduler.step()
+
+    # Check initial LR
+    assert (
+        pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.0001
+    )  # 10% of 0.001 (warmup)
+
+    # Move to end of warmup
+    for _ in range(10 - 1):
+        scheduler.step()
+    assert pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.001  # Full LR
+
+    # Move further (should remain constant)
+    for _ in range(90):
+        scheduler.step()
+    assert (
+        pytest.approx(optimizer.param_groups[0]["lr"], 0.0001) == 0.001
+    )  # Still full LR
