@@ -4,8 +4,6 @@ import pytest
 
 from lema.core.types import HardwareException, ModelParams
 
-# from lema.core.types.params.model_params import is_flash_attn_2_available
-
 
 def test_flash_attention_hardware_check():
     # flash_attention_2 is requested and available
