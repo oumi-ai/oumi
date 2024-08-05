@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from transformers import PreTrainedTokenizerBase
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 MESSAGES_KEY = "messages"
 METADATA_KEY = "metadata"
@@ -30,7 +30,7 @@ def convert_prompt_response_to_chat_example(
 
 def apply_chat_template(
     samples: dict,
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
     task: Literal["sft", "generation"],
 ) -> dict:
     """Applies the chat template carried by the tokenizer to the input example.
@@ -41,7 +41,7 @@ def apply_chat_template(
             Each item of example["messages"] is a dict mapping the `content` of the
             message and the `role` of the one relayed it.
             E.g., role == 'user' or role == 'assistant'.
-        tokenizer (PreTrainedTokenizerBase): the tokenizer to be used to process
+        tokenizer (BaseTokenizer): the tokenizer to be used to process
             the example.
         task (Literal[str]): The task type the example is used in.
             "sft": i.e., for training purposes.

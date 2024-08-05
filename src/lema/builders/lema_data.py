@@ -8,7 +8,6 @@ from torchdata.datapipes.iter import (
     SampleMultiplexer,
 )
 from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
-from transformers import PreTrainedTokenizerBase
 
 from lema.core.registry import REGISTRY
 from lema.core.types import (
@@ -18,11 +17,12 @@ from lema.core.types import (
     MixtureStrategy,
     TrainingConfig,
 )
+from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 def build_dataset(
     config: TrainingConfig,
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
 ) -> IterDataPipe:
@@ -121,7 +121,7 @@ def build_dataset(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+    tokenizer: Optional[BaseTokenizer] = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY

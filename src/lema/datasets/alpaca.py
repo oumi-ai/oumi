@@ -1,10 +1,10 @@
 from typing import Callable, Dict, Union, cast
 
 import pandas as pd
-from transformers import PreTrainedTokenizerBase
 
 from lema.core.datasets.base_dataset import BaseLMSftDataset
 from lema.core.registry import register_dataset
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.core.types.turn import Conversation, Message, Role
 from lema.datasets.common import apply_chat_template
 
@@ -96,7 +96,7 @@ def _convert_to_lema_format(example: dict) -> dict:
 
 
 def alpaca_preprocessing_fn(
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: BaseTokenizer,
 ) -> Callable[..., Dict]:
     """Builds a preprocessing function for the Alpaca dataset.
 

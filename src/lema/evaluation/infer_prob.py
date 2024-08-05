@@ -3,10 +3,10 @@ from typing import List, Optional, Tuple, cast
 import numpy as np
 import torch
 from tqdm import tqdm
-from transformers import PreTrainedTokenizerBase
 
 from lema.builders import build_model, build_tokenizer
 from lema.core.types import ModelParams
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.utils.logging import logger
 from lema.utils.saver import load_infer_prob, save_infer_prob
 
@@ -28,7 +28,7 @@ def softmax(x, axis=None):
 
 
 def most_probable_tokens(
-    tokenizer: PreTrainedTokenizerBase, token_probs: List[float], count: int
+    tokenizer: BaseTokenizer, token_probs: List[float], count: int
 ) -> List[Tuple[str, float]]:
     """Return the `count` most probable next tokens, with their probabilities."""
     indices = np.argsort(token_probs)
