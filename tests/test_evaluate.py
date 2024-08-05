@@ -2,6 +2,9 @@ import json
 import os
 import tempfile
 
+import pytest
+import torch
+
 from lema import evaluate_lema, evaluate_lm_harness
 from lema.core.types import (
     DatasetParams,
@@ -45,6 +48,9 @@ def test_evaluate_lema():
             assert computed_metrics["accuracy"] == 0.0
 
 
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="Skip test if GPU is not available."
+)
 def test_evaluate_lm_harness():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
