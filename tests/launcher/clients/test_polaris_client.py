@@ -31,10 +31,10 @@ def mock_auth():
         yield mock_getpass
 
 
-@pytest.fixture
-def mock_patchwork():
-    with patch("lema.launcher.clients.polaris_client.rsync") as mock_rsync:
-        yield mock_rsync
+# @pytest.fixture
+# def mock_patchwork():
+#     with patch("lema.launcher.clients.polaris_client.rsync") as mock_rsync:
+#         yield mock_rsync
 
 
 def _get_test_data(file_name: str) -> str:
