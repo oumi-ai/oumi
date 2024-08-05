@@ -46,5 +46,3 @@ mpiexec --verbose \
     ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
 
 echo "Polaris job is all done!"
-
-# ./scripts/polaris/launcher.sh -u $ALCF_USER -n 8 -d /home/$ALCF_USER/llama2b_debug08 -j ./scripts/polaris/jobs/multinode_example_job.sh
