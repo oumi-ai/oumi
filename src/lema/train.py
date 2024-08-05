@@ -257,7 +257,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
         callbacks=training_callbacks,
-        **config.training.trainer_kwargs,
     )
 
     logger.info("Max Memory Usage Before Training: ")

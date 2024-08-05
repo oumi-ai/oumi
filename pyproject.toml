@@ -31,7 +31,7 @@ dependencies = [
     "sshfs",
     "torch",
     "transformers",
-    "numpy<2.0.0",                 # Freeze numpy to 1.* versions, as 2.0 breaks `trl` (OPE-37)
+    "numpy",
     "skypilot[gcp,lambda,runpod]",
     "google-api-python-client",    # To enable GCP in Skypilot
 ]
@@ -54,7 +54,7 @@ dev = [
 ]
 train = [
     "transformers>=4.43.1",
-    "trl==0.8.6",
+    "trl>=0.9.0",
     "peft",
     "datasets",
     "omegaconf",
@@ -92,8 +92,8 @@ extend-include = ["*.ipynb"] # Include ipython notebooks
 
 [tool.ruff.lint]
 # pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D), flake8-tidy-imports(TID)
-select = ["F", "E", "W", "I", "D", "TID"]
-ignore = ["D100", "D101", "D104"]         # Temporary rules
+select = ["F", "E", "W", "I", "D", "TID", "NPY"]
+ignore = ["D100", "D101", "D104", "NPY002"]      # Temporary rules
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.

@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 import transformers
+import trl
 
 from lema.core.types.params.base_params import BaseParams
 from lema.core.types.params.profiler_params import ProfilerParams
@@ -172,7 +173,14 @@ class TrainingParams(BaseParams):
                 f"({self.dataloader_num_workers}). Must be `int`."
             )
 
-        return transformers.TrainingArguments(
+        if self.trainer_type == TrainerType.TRL_SFT:
+            config_class = trl.SFTConfig
+        elif self.trainer_type == TrainerType.TRL_DPO:
+            config_class = trl.DPOConfig
+        else:
+            config_class = transformers.TrainingArguments
+
+        return config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -217,7 +225,8 @@ class TrainingParams(BaseParams):
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             seed=self.seed,
-            data_seed=self.seed,  # TODO: OPE-224 check if per worker
+            data_seed=self.seed,
+            **self.trainer_kwargs,
         )
 
     def _get_hf_report_to(self) -> List[str]:
