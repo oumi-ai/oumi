@@ -75,6 +75,7 @@ def main() -> None:
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+    config.validate()
 
     limit_per_process_memory()
     device_cleanup()
@@ -256,7 +257,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
         callbacks=training_callbacks,
-        **config.training.trainer_kwargs,
     )
 
     logger.info("Max Memory Usage Before Training: ")

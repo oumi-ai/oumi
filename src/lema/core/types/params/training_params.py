@@ -3,7 +3,9 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 import transformers
+import trl
 
+from lema.core.types.params.base_params import BaseParams
 from lema.core.types.params.profiler_params import ProfilerParams
 from lema.utils.str_utils import sanitize_run_name
 
@@ -23,8 +25,24 @@ class TrainerType(Enum):
     "Custom generic trainer implementation."
 
 
+class SchedulerType(str, Enum):
+    """Enum representing the supported learning rate schedulers."""
+
+    LINEAR = "linear"
+    "Linear scheduler."
+
+    COSINE = "cosine"
+    "Cosine scheduler."
+
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    "Cosine with restarts scheduler."
+
+    CONSTANT = "constant"
+    "Constant scheduler."
+
+
 @dataclass
-class TrainingParams:
+class TrainingParams(BaseParams):
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
@@ -81,8 +99,8 @@ class TrainingParams:
     # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
     lr_scheduler_type: str = "cosine"
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
-    warmup_ratio: float = 0.0
-    warmup_steps: int = 0
+    warmup_ratio: Optional[float] = None
+    warmup_steps: Optional[int] = None
 
     # Optimizer params.
     optimizer: str = "adamw_torch"
@@ -171,7 +189,14 @@ class TrainingParams:
                 f"({self.dataloader_num_workers}). Must be `int`."
             )
 
-        return transformers.TrainingArguments(
+        if self.trainer_type == TrainerType.TRL_SFT:
+            config_class = trl.SFTConfig
+        elif self.trainer_type == TrainerType.TRL_DPO:
+            config_class = trl.DPOConfig
+        else:
+            config_class = transformers.TrainingArguments
+
+        return config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -190,8 +215,8 @@ class TrainingParams:
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio,
-            warmup_steps=self.warmup_steps,
+            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
+            warmup_steps=self.warmup_steps or 0,  # same default as transformers
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
@@ -216,7 +241,8 @@ class TrainingParams:
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             seed=self.seed,
-            data_seed=self.seed,  # TODO: OPE-224 check if per worker
+            data_seed=self.seed,
+            **self.trainer_kwargs,
         )
 
     def _get_hf_report_to(self) -> List[str]:

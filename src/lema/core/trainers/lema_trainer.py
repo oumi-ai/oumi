@@ -10,11 +10,13 @@ import torch.amp
 import torch.utils.tensorboard as tensorboard
 
 import wandb  # isort: skip
+import safetensors.torch
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
+from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     get_device_rank_info,
@@ -62,6 +64,10 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
+        self.params.validate()
+
+        self.state = TrainingState()
+
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
             "bfloat16"
@@ -101,11 +107,15 @@ class Trainer(BaseTrainer):
         self.callbacks = callbacks if callbacks is not None else []
 
         self.optimizer = build_optimizer(self.model, self.params)
+        self.lr_scheduler = build_lr_scheduler(
+            optimizer=self.optimizer,
+            training_params=self.params,
+            current_epoch=self.state.epoch,
+            num_training_steps=self._get_total_training_steps(),
+        )
 
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
-
-        self.state = TrainingState()
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
@@ -209,8 +219,15 @@ class Trainer(BaseTrainer):
                     torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(), max_norm=self.max_norm
                     )
+
+                    # save lr for logging
+                    last_lr = self.lr_scheduler.get_last_lr()[0]
+
+                    # step optimizer, scaler, and lr schedule
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
+                    self.lr_scheduler.step()
+
                     self.optimizer.zero_grad(set_to_none=True)
 
                 self.state.global_step += 1
@@ -224,7 +241,7 @@ class Trainer(BaseTrainer):
                     loss_value = loss.item() * self.params.gradient_accumulation_steps
                     metrics = {
                         "train/loss": loss_value,
-                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "learning_rate": last_lr,
                         "epoch": self.state.epoch,
                         "global_step": self.state.global_step,
                         "total_tokens_seen": self.state.total_tokens_seen,
@@ -303,47 +320,61 @@ class Trainer(BaseTrainer):
         if is_world_process_zero():
             output_dir = Path(config.training.output_dir)
             output_dir.mkdir(exist_ok=True)
-            torch.save(self.model.state_dict(), output_dir / "model.pt")
-            self.log(f"Model saved to {output_dir}.")
+            model_path = output_dir / "model.safetensors"
+            safetensors.torch.save_model(model=self.model, filename=str(model_path))
+            self.log(f"Model saved to {model_path}.")
 
     def save_state(self):
         """Saves the model and optimizer state."""
-        output_dir = Path(self.params.output_dir)
+        checkpoint_dir = Path(self.params.output_dir)
 
         if is_world_process_zero():
-            output_dir.mkdir(exist_ok=True)
-            # TODO: OPE-213 - switch to using safetensors
-            torch.save(self.model.state_dict(), output_dir / "model.pt")
-            torch.save(self.optimizer.state_dict(), output_dir / "optimizer.pt")
+            checkpoint_dir.mkdir(exist_ok=True)
+
+            model_path = checkpoint_dir / "model.safetensors"
+            optimizer_path = checkpoint_dir / "optimizer.pt"
+            trainer_state_path = checkpoint_dir / "trainer_state.json"
+            telemetry_state_path = checkpoint_dir / "telemetry.json"
+            dataloader_state_path = checkpoint_dir / "dataloader.json"
+
+            safetensors.torch.save_model(model=self.model, filename=str(model_path))
+            torch.save(
+                self.optimizer.state_dict(),
+                optimizer_path,
+            )
             save_json(
-                self.train_dataloader.state_dict(),
-                output_dir / "dataloader.json",
+                data=self.train_dataloader.state_dict(),
+                filename=dataloader_state_path,
             )
             save_json(
                 data=self.state.model_dump(),
-                filename=output_dir / "trainer_state.json",
+                filename=trainer_state_path,
             )
             save_json(
                 data=self.telemetry.state_dict(),
-                filename=output_dir / "telemetry_state.json",
+                filename=telemetry_state_path,
             )
-            logger.info(f"Model saved to {output_dir}")
+            logger.info(f"Model saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the model and optimizer state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
-        model_path = checkpoint_dir / "model.pt"
+        model_path = checkpoint_dir / "model.safetensors"
         optimizer_path = checkpoint_dir / "optimizer.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
         dataloader_state_path = checkpoint_dir / "dataloader.json"
 
         if model_path.exists():
-            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            safetensors.torch.load_model(
+                self.model, filename=str(model_path), strict=True, device=self.device
+            )
+            self.log(f"Model loaded from {model_path}.")
+
         if optimizer_path.exists():
             self.optimizer.load_state_dict(
-                torch.load(optimizer_path, map_location=self.device)
+                torch.load(optimizer_path, map_location=self.device, weights_only=True)
             )
         if trainer_state_path.exists():
             self.state = TrainingState.model_validate(

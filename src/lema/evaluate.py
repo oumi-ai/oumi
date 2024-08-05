@@ -48,6 +48,7 @@ def main() -> None:
     config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+    config.validate()
 
     # Run evaluation
     evaluate(config)
