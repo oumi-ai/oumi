@@ -96,6 +96,18 @@ class BaseConfig:
             if isinstance(attr_value, BaseParams):
                 attr_value.validate()
 
+        self.__validate__()
+
+    def __validate__(self) -> None:
+        """Validates the parameters of this object.
+
+        This method can be overridden by subclasses to implement custom
+        validation logic.
+
+        In case of validation errors, this method should raise a `ValueError`
+        or other appropriate exception.
+        """
+
     def __iter__(self) -> Iterator[Tuple[str, Any]]:
         """Returns an iterator over field names and values.
 

@@ -17,7 +17,7 @@ class BaseParams:
         # Validate the children of this object.
         # Note that we only support one level of nesting.
         # For example: `List[BaseParams]` is supported, but not `List[List[BaseParams]]`
-        for _attr_name, attr_value in self:
+        for _, attr_value in self:
             if isinstance(attr_value, BaseParams):
                 attr_value.validate(validated)
             elif isinstance(attr_value, list):
