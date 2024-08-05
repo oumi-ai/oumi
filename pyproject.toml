@@ -71,6 +71,7 @@ train = [
     "deepspeed",
     "lm-eval",
     "pydantic",
+    "safetensors",
 ]
 cloud = [
     "google-api-core>=2.19.0",
