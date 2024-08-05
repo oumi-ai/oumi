@@ -6,11 +6,12 @@ from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
 from lema.core.types.exceptions import HardwareException
+from lema.core.types.params.base_params import BaseParams
 from lema.utils.logging import logger
 
 
 @dataclass
-class ModelParams:
+class ModelParams(BaseParams):
     model_name: str = MISSING
     adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
@@ -52,17 +53,7 @@ class ModelParams:
         return model_args_dict
 
     def __post_init__(self):
-        """Verifies params."""
-        # Check if flash-attention-2 is requested and supported
-        if (self.attn_implementation == "flash_attention_2") and (
-            not is_flash_attn_2_available()
-        ):
-            raise HardwareException(
-                "Flash attention 2 was requested but it is not "
-                "supported. Confirm that your hardware is compatible and then "
-                "consider installing it: pip install -U flash-attn --no-build-isolation"
-            )
-
+        """Verifies params immediately after initialization."""
         # Check if flash-attention-2 is requested with half-precision
         if (self.attn_implementation == "flash_attention_2") and (
             self.torch_dtype() not in [torch.bfloat16, torch.float16]
@@ -73,6 +64,18 @@ class ModelParams:
                 "flash_attention_2 by setting attn_implementation system's default."
             )
             self.attn_implementation = None
+
+    def __validate__(self):
+        """Validates final config params."""
+        # Check if flash-attention-2 is requested and supported
+        if (self.attn_implementation == "flash_attention_2") and (
+            not is_flash_attn_2_available()
+        ):
+            raise HardwareException(
+                "Flash attention 2 was requested but it is not "
+                "supported. Confirm that your hardware is compatible and then "
+                "consider installing it: pip install -U flash-attn --no-build-isolation"
+            )
 
     @property
     def should_use_flash_attention_2(self) -> bool:

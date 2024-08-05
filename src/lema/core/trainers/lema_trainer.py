@@ -63,6 +63,8 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
+        self.params.validate()
+
         # TODO: OPE-216 - allow granular mixed precision training
         self.dtype = (
             "bfloat16"
