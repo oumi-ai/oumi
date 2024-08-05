@@ -1,9 +1,8 @@
 import dataclasses
-from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Set, Tuple
 
 
-@dataclass
+@dataclasses.dataclass
 class BaseParams:
     def validate(self, validated: Optional[Set[int]] = None) -> None:
         """Recursively validates the parameters."""
