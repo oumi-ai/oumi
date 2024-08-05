@@ -72,7 +72,10 @@ def infer_prob(
 
     if enable_dp:
         if not torch.cuda.is_available() or torch.cuda.device_count() <= 1:
-            raise ValueError("DataParallel (DP) execution requested but no GPUs found.")
+            raise ValueError(
+                "DataParallel (DP) execution requested, less than 2 GPUs found. "
+                "DP is only beneficial when multiple GPUs are available."
+            )
 
         logger.info(
             "DataParallel (DP) execution enabled. "
