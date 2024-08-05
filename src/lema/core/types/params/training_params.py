@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import transformers
 
+from lema.core.types.params.base_params import BaseParams
 from lema.core.types.params.profiler_params import ProfilerParams
 from lema.utils.str_utils import sanitize_run_name
 
@@ -24,7 +25,7 @@ class TrainerType(Enum):
 
 
 @dataclass
-class TrainingParams:
+class TrainingParams(BaseParams):
     use_peft: bool = False
     trainer_type: TrainerType = TrainerType.HF
     enable_gradient_checkpointing: bool = False
