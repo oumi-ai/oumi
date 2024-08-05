@@ -18,17 +18,14 @@ jobs:
       id: setup-python
       with:
         python-version: '3.11'
-        cache: 'pip' # caching pip dependencies
-        cache-dependency-path: pyproject.toml
+        # cache: 'pip' # caching pip dependencies
+        # cache-dependency-path: pyproject.toml
 
     - name: Setup LeMa Dependencies
       run: |
         set -e  # Exit if any command failed
-        python -m pip install --upgrade pip
-        python --version
-        pip --version
         python -m pip install uv
-        uv pip install -e '.[all]'  --system -v
+        uv pip install -e '.[all]' --system -v
 
     - name: Cache pre-commit
       uses: actions/cache@v3
