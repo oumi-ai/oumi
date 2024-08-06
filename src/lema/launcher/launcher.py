@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.base_cloud import BaseCloud
@@ -20,7 +20,7 @@ class Launcher:
             if name not in self._clouds:
                 self._clouds[name] = builder()
 
-    def get_cloud_by_name(self, cloud: str) -> BaseCloud:
+    def _get_cloud_by_name(self, cloud: str) -> BaseCloud:
         """Gets the cloud instance for the specified cloud name."""
         if cloud not in self._clouds:
             cloud_builder = REGISTRY.get(cloud, RegistryType.CLOUD)
@@ -29,9 +29,11 @@ class Launcher:
             self._clouds[cloud] = cloud_builder()
         return self._clouds[cloud]
 
-    def get_cloud(self, job: JobConfig) -> BaseCloud:
+    def get_cloud(self, job_or_cloud: Union[JobConfig, str]) -> BaseCloud:
         """Gets the cloud instance for the specified job."""
-        return self.get_cloud_by_name(job.resources.cloud)
+        if isinstance(job_or_cloud, str):
+            return self._get_cloud_by_name(job_or_cloud)
+        return self._get_cloud_by_name(job_or_cloud.resources.cloud)
 
     def up(
         self, job: JobConfig, cluster_name: Optional[str]
@@ -62,7 +64,7 @@ class Launcher:
 
     def stop(self, job_id: str, cloud_name: str, cluster_name: str) -> JobStatus:
         """Stops the specified job."""
-        cloud = self.get_cloud_by_name(cloud_name)
+        cloud = self._get_cloud_by_name(cloud_name)
         cluster = cloud.get_cluster(cluster_name)
         if not cluster:
             raise ValueError(f"Cluster {cluster_name} not found.")
@@ -70,7 +72,7 @@ class Launcher:
 
     def down(self, cloud_name: str, cluster_name: str) -> None:
         """Turns down the specified cluster."""
-        cloud = self.get_cloud_by_name(cloud_name)
+        cloud = self._get_cloud_by_name(cloud_name)
         cluster = cloud.get_cluster(cluster_name)
         if not cluster:
             raise ValueError(f"Cluster {cluster_name} not found.")
@@ -85,3 +87,13 @@ class Launcher:
             for cluster in cloud.list_clusters():
                 statuses.extend(cluster.get_jobs())
         return statuses
+
+
+LAUNCHER = Launcher()
+# Explicitly expose the public methods of the default Launcher instance.
+down = LAUNCHER.down
+get_cloud = LAUNCHER.get_cloud
+run = LAUNCHER.run
+status = LAUNCHER.status
+stop = LAUNCHER.stop
+up = LAUNCHER.up
