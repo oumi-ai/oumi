@@ -19,6 +19,7 @@ from lema.core.types.params.data_params import (
     DatasetSplitParams,
     MixtureStrategy,
 )
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.profiler_params import ProfilerParams
@@ -44,12 +45,14 @@ __all__ = [
     "HardwareException",
     "InferenceConfig",
     "JobConfig",
+    "JobResources",
     "JobStatus",
     "MixtureStrategy",
     "ModelParams",
     "PeftParams",
     "ProfilerParams",
     "SchedulerType",
+    "StorageMount",
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",

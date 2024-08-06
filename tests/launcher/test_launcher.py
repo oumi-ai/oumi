@@ -5,7 +5,7 @@ import pytest
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import NodeParams, StorageMount
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.launcher import Launcher
 
 
@@ -19,7 +19,7 @@ def mock_registry():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,

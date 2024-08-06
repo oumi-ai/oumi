@@ -17,7 +17,7 @@ class StorageMount:
 
 
 @dataclass
-class NodeParams:
+class JobResources:
     """Resources required for a single node in a job."""
 
     # The cloud used to run the job (required).
