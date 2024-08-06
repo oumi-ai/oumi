@@ -103,7 +103,9 @@ def torch_profile(
     params = _configure_torch_profile_save_dir(params, training_output_dir)
 
     device_rank_info: DeviceRankInfo = get_device_rank_info()
-    out_prefix: str = f"prof_{device_rank_info.rank}"
+    out_prefix: str = (
+        f"prof_{device_rank_info.rank:03}_local_{device_rank_info.local_rank:02}"
+    )
 
     profile_activities = []
     enable_cpu_profiling = params.enable_cpu_profiling

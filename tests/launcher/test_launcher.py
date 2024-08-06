@@ -5,8 +5,17 @@ import pytest
 from lema.core.types.base_cloud import BaseCloud
 from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import NodeParams, StorageMount
-from lema.launcher.launcher import Launcher
+from lema.core.types.params.job_resources import JobResources, StorageMount
+from lema.launcher.launcher import (
+    LAUNCHER,
+    Launcher,
+    down,
+    get_cloud,
+    run,
+    status,
+    stop,
+    up,
+)
 
 
 #
@@ -19,7 +28,7 @@ def mock_registry():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,
@@ -119,7 +128,7 @@ def test_launcher_get_cloud_by_name_missing_value(mock_registry):
         }
         mock_registry.get.return_value = None
         launcher = Launcher()
-        _ = launcher.get_cloud_by_name("lambda")
+        _ = launcher.get_cloud("lambda")
     assert "not found in the registry." in str(exception_info.value)
 
 
@@ -128,7 +137,7 @@ def test_launcher_get_cloud_by_name_empty(mock_registry):
         mock_registry.get_all.return_value = {}
         mock_registry.get.return_value = None
         launcher = Launcher()
-        _ = launcher.get_cloud_by_name("lambda")
+        _ = launcher.get_cloud("lambda")
     assert "not found in the registry." in str(exception_info.value)
 
 
@@ -568,3 +577,12 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             metadata="bar",
         ),
     ]
+
+
+def test_launcher_export_methods(mock_registry):
+    assert LAUNCHER.up == up
+    assert LAUNCHER.run == run
+    assert LAUNCHER.stop == stop
+    assert LAUNCHER.down == down
+    assert LAUNCHER.status == status
+    assert LAUNCHER.get_cloud == get_cloud

@@ -4,7 +4,7 @@ import pytest
 
 from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import NodeParams, StorageMount
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
 
 
@@ -18,7 +18,7 @@ def mock_sky_data_storage():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,
