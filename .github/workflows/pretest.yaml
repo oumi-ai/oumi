@@ -28,7 +28,7 @@ jobs:
         uv pip install -e '.[all]' --system -v
 
     - name: Cache pre-commit
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pre-commit
         key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
