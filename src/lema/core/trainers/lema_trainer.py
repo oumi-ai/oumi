@@ -73,14 +73,16 @@ class Trainer(BaseTrainer):
         # Enable mixed precision bf16/fp16 training if requested.
         # Model dtype has been verified to not be bf16/fp16 if this is the case.
         self.mixed_precision_ctx = contextlib.nullcontext()
-        self.activation_dtype = None
+        self.mixed_precision_dtype = None
         if self.params.bf16:
-            self.activation_dtype = torch.bfloat16
+            self.mixed_precision_dtype = torch.bfloat16
         if self.params.fp16:
-            self.activation_dtype = torch.float16
-        if self.activation_dtype:
+            self.mixed_precision_dtype = torch.float16
+        if self.mixed_precision_dtype:
             self.mixed_precision_ctx = torch.amp.autocast(
-                device_type=self.device_type, enabled=True, dtype=self.activation_dtype
+                device_type=self.device_type,
+                enabled=True,
+                dtype=self.mixed_precision_dtype,
             )
 
         if self.params.compile:
