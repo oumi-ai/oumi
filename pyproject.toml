@@ -65,7 +65,7 @@ train = [
     "sentencepiece",        # for phi-3
     "tensorboard",
     "torchdata>=0.8.0",
-    "transformers>=4.43.1",
+    "transformers>=4.43.1,<4.44.0",
     "trl>=0.9.0",
     "wandb",
 ]
