@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from transformers import PreTrainedTokenizerBase
+from torchdata.stateful_dataloader import StatefulDataLoader
 
 from lema.core.trainers.lema_trainer import Trainer
 from lema.core.types import TrainingParams
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.models import MLPEncoder
 
 
@@ -25,7 +26,7 @@ def mock_model():
 
 @pytest.fixture
 def mock_tokenizer():
-    mock = MagicMock(spec=PreTrainedTokenizerBase)
+    mock = MagicMock(spec=BaseTokenizer)
     mock.pad_token_id = 0
     return mock
 
@@ -34,6 +35,7 @@ def mock_tokenizer():
 def mock_dataset():
     dataset = MagicMock()
     dataset.__len__ = MagicMock(return_value=10)
+    dataset.state_dict = None
     return dataset
 
 
@@ -60,29 +62,33 @@ def mock_optimizer():
 @pytest.fixture
 def mock_params():
     args = MagicMock(spec=TrainingParams)
-    args.gradient_accumulation_steps = 1
-    args.compile = False
-    args.learning_rate = 0.001
-    args.weight_decay = 0.01
-    args.max_steps = 100
-    args.num_train_epochs = 3
-    args.per_device_train_batch_size = 8
-    args.per_device_eval_batch_size = 8
-    args.dataloader_num_workers = 0
-    args.dataloader_prefetch_factor = 2
-    args.logging_steps = 10
-    args.save_steps = 50
-    args.save_epoch = True
-    args.eval_strategy = "steps"
-    args.eval_steps = 50
-    args.output_dir = "/tmp/test_output"
-    args.optimizer = "adamw"
-    args.learning_rate = 0.001
-    args.adam_epsilon = 1e-8
     args.adam_beta1 = 0.9
     args.adam_beta2 = 0.999
-    args.enable_wandb = False
+    args.adam_epsilon = 1e-8
+    args.compile = False
+    args.dataloader_num_workers = 0
+    args.dataloader_prefetch_factor = 2
     args.enable_tensorboard = False
+    args.enable_wandb = False
+    args.eval_steps = 50
+    args.eval_strategy = "steps"
+    args.gradient_accumulation_steps = 1
+    args.learning_rate = 0.001
+    args.learning_rate = 0.001
+    args.logging_steps = 10
+    args.lr_scheduler_kwargs = {}
+    args.lr_scheduler_type = "linear"
+    args.max_steps = 100
+    args.num_train_epochs = 3
+    args.optimizer = "adamw"
+    args.output_dir = "/tmp/test_output"
+    args.per_device_eval_batch_size = 8
+    args.per_device_train_batch_size = 8
+    args.save_epoch = True
+    args.save_steps = 50
+    args.warmup_ratio = None
+    args.warmup_steps = 0
+    args.weight_decay = 0.01
     return args
 
 
@@ -109,8 +115,10 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    assert isinstance(trainer.train_dataloader, DataLoader)
+    assert isinstance(trainer.train_dataloader, StatefulDataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
+    assert trainer.state.epoch == 0
+    assert trainer.state.global_step == 0
 
 
 def test_get_total_training_steps(trainer):
@@ -134,7 +142,7 @@ def test_train(mock_is_world_process_zero, trainer):
 
 
 def test_train_epoch(trainer, mock_dataloader):
-    trainer.process_callbacks = MagicMock()
+    trainer._process_callbacks = MagicMock()
     trainer.telemetry.timer = MagicMock()
     trainer.model.forward = MagicMock(
         return_value={"loss": torch.tensor(0.5), "logits": torch.tensor([1.0, 2.0])}
@@ -147,7 +155,7 @@ def test_train_epoch(trainer, mock_dataloader):
     progress_bar = MagicMock()
     trainer._train_epoch(progress_bar)
 
-    assert trainer.process_callbacks.call_count > 0
+    assert trainer._process_callbacks.call_count > 0
     assert trainer.telemetry.timer.call_count > 0
     assert trainer.model.forward.call_count > 0
     assert trainer.scaler.scale.call_count > 0
@@ -176,27 +184,30 @@ def test_save_and_load_model(trainer: Trainer, mock_model, mock_optimizer, tmp_p
     trainer.optimizer = mock_optimizer
     trainer.params.output_dir = str(output_dir)
 
-    trainer.model.state_dict = MagicMock(return_value={"model_key": "model_value"})
-    trainer.optimizer.state_dict = MagicMock(return_value={"optim_key": "optim_value"})
+    trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})
+    trainer.optimizer.state_dict = MagicMock(
+        return_value={"optim_key": torch.tensor(2)}
+    )
     trainer.state.epoch = 1
     trainer.state.global_step = 50
 
     trainer.save_state()
 
-    assert (output_dir / "model.pt").exists()
+    assert (output_dir / "model.safetensors").exists()
     assert (output_dir / "optimizer.pt").exists()
     assert (output_dir / "trainer_state.json").exists()
+    assert (output_dir / "dataloader.json").exists()
 
     with patch(
+        "safetensors.torch.load_model", side_effect=[{"model_key": "model_value"}]
+    ), patch(
         "torch.load",
         side_effect=[
-            {"model_key": "model_value"},
             {"optim_key": "optim_value"},
         ],
     ):
         trainer._load_from_checkpoint(str(output_dir))
 
-    assert trainer.model.load_state_dict.called
     assert trainer.optimizer.load_state_dict.called
     assert trainer.state.epoch == 1
     assert trainer.state.global_step == 50
@@ -219,7 +230,7 @@ def test_process_callbacks(trainer):
     mock_callback.on_log = MagicMock()
     trainer.callbacks = [mock_callback]
 
-    logs = trainer.process_callbacks("on_log")
+    logs = trainer._process_callbacks("on_log")
 
     assert mock_callback.on_log.called
     assert isinstance(logs, dict)
@@ -251,7 +262,3 @@ def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     )
     assert next(model.parameters()).is_mps, "Model should be on MPS"
     assert trainer.device == "mps", "Device should be MPS"
-
-
-if __name__ == "__main__":
-    pytest.main()

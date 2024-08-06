@@ -1,3 +1,4 @@
+import os
 from pprint import pformat
 from typing import Any, NamedTuple, Optional
 
@@ -65,8 +66,9 @@ def log_devices_info() -> None:
     if not torch.cuda.is_available():
         return
 
+    ncpus = os.cpu_count()
     num_devices = torch.cuda.device_count()
-    logger.info(f"CUDA devices: {num_devices}")
+    logger.info(f"CPU cores: {ncpus} CUDA devices: {num_devices}")
 
     def _mem_to_gb(x):
         return round(float(x) / 1024**3, 2)

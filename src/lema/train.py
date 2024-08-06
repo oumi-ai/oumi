@@ -19,6 +19,7 @@ from lema.builders import (
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     cleanup_distributed,
+    estimate_dataloader_num_workers,
     get_device_rank_info,
     init_distributed,
     is_distributed,
@@ -28,9 +29,9 @@ from lema.core.distributed import (
 )
 from lema.core.types import DatasetSplit, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
+from lema.performance.torch_profiler_utils import torch_profile
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import configure_logger, logger
-from lema.utils.torch_profiler_utils import torch_profile
 from lema.utils.torch_utils import (
     count_model_parameters,
     device_cleanup,
@@ -74,6 +75,7 @@ def main() -> None:
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
+    config.validate()
 
     limit_per_process_memory()
     device_cleanup()
@@ -145,6 +147,24 @@ def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
         torch.backends.cudnn.deterministic = True
 
 
+def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
+    """Updates TrainingConfig using dynamic/runtime info."""
+    if config.training.dataloader_num_workers == "auto":
+        # Resolve "auto" to an actual number.
+        num_workers = estimate_dataloader_num_workers()
+        logger.info(
+            "Resolved 'training.dataloader_num_workers=auto' to "
+            f"'training.dataloader_num_workers={num_workers}'"
+        )
+        config.training.dataloader_num_workers = num_workers
+
+    assert isinstance(config.training.dataloader_num_workers, int)
+
+    # FIXME OPE-229 Consider moving hardware capability validations
+    # from TrainingConfig `__post_init__` to this function.
+    return config
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -161,6 +181,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Configure logging to file
     log_dir = pathlib.Path(config.training.output_dir) / "logs"
     configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
+
+    config = _finalize_training_config(config)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
@@ -235,7 +257,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
         callbacks=training_callbacks,
-        **config.training.trainer_kwargs,
     )
 
     logger.info("Max Memory Usage Before Training: ")

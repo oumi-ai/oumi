@@ -1,7 +1,7 @@
 import pytest
-from transformers import PreTrainedTokenizerBase
 
 from lema.core.types import ModelParams
+from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.evaluation import infer_prob, most_probable_tokens
 
 PROMPTS = [
@@ -84,7 +84,7 @@ def test_infer_prob_entire_vocab():
     ],
 )
 def test_most_probable_tokens(token_probs, output):
-    class MockDecoder(PreTrainedTokenizerBase):
+    class MockDecoder(BaseTokenizer):
         def decode(self, x):
             return f"index_{x}"
 
@@ -93,7 +93,7 @@ def test_most_probable_tokens(token_probs, output):
 
 @pytest.mark.parametrize("count", [0, 1, 2, 3, 1000])
 def test_most_probable_tokens_varying_count(count):
-    class MockDecoder(PreTrainedTokenizerBase):
+    class MockDecoder(BaseTokenizer):
         def decode(self, x):
             return f"index_{x}"
 

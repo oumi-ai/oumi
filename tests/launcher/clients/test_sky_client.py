@@ -4,7 +4,7 @@ import pytest
 
 from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
 
 
@@ -18,17 +18,17 @@ def mock_sky_data_storage():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,
         accelerators="A100-80",
-        cpus=4,
-        memory=64,
+        cpus="4",
+        memory="64",
         instance_type=None,
         use_spot=True,
         disk_size=512,
-        disk_tier=DiskTier.LOW,
+        disk_tier="low",
     )
     return JobConfig(
         name="myjob",
@@ -82,7 +82,11 @@ def test_sky_client_launch(mock_sky_data_storage):
             metadata="",
         )
         assert job_status == expected_job_status
-        mock_launch.assert_called_once()
+        mock_launch.assert_called_once_with(
+            ANY,
+            cluster_name=None,
+            detach_run=True,
+        )
 
 
 def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
@@ -101,7 +105,11 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
             metadata="",
         )
         assert job_status == expected_job_status
-        mock_launch.assert_called_once_with(ANY, cluster_name="cluster_name")
+        mock_launch.assert_called_once_with(
+            ANY,
+            cluster_name="cluster_name",
+            detach_run=True,
+        )
 
 
 def test_sky_client_status():
@@ -136,7 +144,7 @@ def test_sky_client_exec(mock_sky_data_storage):
         client = SkyClient()
         job = _get_default_job("gcp")
         job_id = client.exec(job, "mycluster")
-        mock_exec.assert_called_once_with(ANY, "mycluster")
+        mock_exec.assert_called_once_with(ANY, "mycluster", detach_run=True)
         assert job_id == "1"
 
 

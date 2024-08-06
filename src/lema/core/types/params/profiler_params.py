@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+from lema.core.types.params.base_params import BaseParams
+
 
 @dataclass
-class ProfilerParams:
+class ProfilerParams(BaseParams):
     save_dir: Optional[str] = field(
         default=None,
         metadata={

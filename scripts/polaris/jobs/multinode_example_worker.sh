@@ -27,13 +27,13 @@ ALLOWED_TRAINING_MODES=("ddp" "fsdp", "deepspeed")
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -m (ddp|fsdp)"
+   echo "Usage: $0 -m (ddp|fsdp|deepspeed)"
    echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
    exit 1 # Exit script after printing help
 }
 
 # Default values.
-TRAINING_MODE="ddp"
+TRAINING_MODE="fsdp"
 
 while getopts "m:" opt
 do
@@ -66,8 +66,8 @@ SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
 training.max_steps=20
 training.save_steps=0
 training.save_final_model=false
-training.dataloader_num_workers=2
-training.dataloader_prefetch_factor=4
+training.dataloader_num_workers=8
+training.dataloader_prefetch_factor=32
 training.log_model_summary=false
 training.include_performance_metrics=true
 training.ddp_find_unused_parameters=false

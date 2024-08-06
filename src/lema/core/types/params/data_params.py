@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from omegaconf import MISSING
 
+from lema.core.types.params.base_params import BaseParams
+
 
 # Training Params
 #
@@ -36,12 +38,15 @@ class MixtureStrategy(str, Enum):
 
 
 @dataclass
-class DatasetParams:
+class DatasetParams(BaseParams):
     # Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
     # The subset of the dataset to load, usually a subfolder within the dataset root.
     subset: Optional[str] = None
+    # The split of the dataset to load, usually "train", "test", or "validation".
     split: str = "train"
+    # Keyword arguments to pass to the dataset constructor.
+    dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # The number of examples to sample from the dataset. Must be non-negative. If
     # `sample_count` is larger than the size of the dataset then the required additional
@@ -58,6 +63,8 @@ class DatasetParams:
     # The random seed used for shuffling the dataset before sampling, if specified.
     # If set to `None` shuffling will be non-deterministic.
     seed: Optional[int] = None
+    # The size of the shuffle buffer used for shuffling the dataset before sampling.
+    shuffle_buffer_size: int = 1000
 
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
@@ -88,7 +95,7 @@ class DatasetParams:
 
 
 @dataclass
-class DatasetSplitParams:
+class DatasetSplitParams(BaseParams):
     # The input datasets used for training. This will later be split into train, test,
     # and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
@@ -182,7 +189,7 @@ class DatasetSplitParams:
 
 
 @dataclass
-class DataParams:
+class DataParams(BaseParams):
     # The input datasets used for training.
     train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
 

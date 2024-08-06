@@ -4,7 +4,7 @@ import pytest
 
 from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import DiskTier, NodeParams, StorageMount
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster
 
@@ -18,17 +18,17 @@ def mock_sky_client():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,
         accelerators="A100-80GB",
-        cpus=4,
-        memory=64,
+        cpus="4",
+        memory="64",
         instance_type=None,
         use_spot=True,
         disk_size=512,
-        disk_tier=DiskTier.LOW,
+        disk_tier="low",
     )
     return JobConfig(
         name="myjob",

@@ -1,12 +1,13 @@
-import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Iterator, List, Optional, Tuple
+from typing import List, Optional
 
 from peft.utils.peft_types import TaskType
 
+from lema.core.types.params.base_params import BaseParams
+
 
 @dataclass
-class PeftParams:
+class PeftParams(BaseParams):
     # Lora Params
     lora_r: int = field(
         default=16,
@@ -65,8 +66,3 @@ class PeftParams:
         default="uint8",
         metadata={"help": "Storage type to pack the quanitzed 4-bit prarams."},
     )
-
-    def __iter__(self) -> Iterator[Tuple[str, Any]]:
-        """An iterator over field names and values."""
-        for param in dataclasses.fields(self):
-            yield param.name, getattr(self, param.name)

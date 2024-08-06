@@ -1,0 +1,34 @@
+name: hello-world
+user: your_username
+resources:
+  cloud: polaris
+
+# Upload a working directory to /home/$USER/lema_launcher/hello-world.
+working_dir: .
+
+# Upload local files.
+#file_mounts:
+  # Generally speaking file mounts are not needed for Polaris jobs.
+  # Use this parameter if you'd like to upload individual files to /home/$USER/
+  # or /eagle/.
+
+envs:
+  TEST_ENV_VARIABLE: '"Hello, World!"'
+
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=00:10:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+# Note that in the `run` and `setup` sections remote interpolations must be escaped with
+# a backslash. e.g. ${LEMA_NUM_NODES} -> \${LEMA_NUM_NODES}
+run: |
+  set -e  # Exit if any command failed.
+
+  echo "$TEST_ENV_VARIABLE"
