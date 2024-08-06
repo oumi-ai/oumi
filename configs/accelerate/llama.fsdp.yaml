@@ -22,6 +22,7 @@ fsdp_config:
   fsdp_backward_prefetch: BACKWARD_PRE
   fsdp_cpu_ram_efficient_loading: true
   fsdp_forward_prefetch: true
+  fsdp_limit_all_gathers: true
   fsdp_offload_params: false
   fsdp_sharding_strategy: HYBRID_SHARD
   fsdp_state_dict_type: FULL_STATE_DICT

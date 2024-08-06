@@ -6,8 +6,8 @@ from omegaconf import MISSING
 
 from lema.core.types.base_config import BaseConfig
 from lema.core.types.params.data_params import DataParams, DatasetSplitParams
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.core.types.params.model_params import ModelParams
-from lema.core.types.params.node_params import NodeParams, StorageMount
 from lema.core.types.params.peft_params import PeftParams
 from lema.core.types.params.training_params import TrainerType, TrainingParams
 from lema.utils.logging import logger
@@ -175,7 +175,7 @@ class JobConfig(BaseConfig):
     num_nodes: int = 1
 
     # The resources required for each node in the job.
-    resources: NodeParams = field(default_factory=NodeParams)
+    resources: JobResources = field(default_factory=JobResources)
 
     # The environment variables to set on the node.
     envs: Dict[str, str] = field(default_factory=dict)
