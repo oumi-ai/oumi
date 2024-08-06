@@ -5,7 +5,7 @@ import pytest
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.base_cluster import JobStatus
 from lema.core.types.configs import JobConfig
-from lema.core.types.params.node_params import NodeParams, StorageMount
+from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clouds.polaris_cloud import PolarisCloud
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
@@ -28,7 +28,7 @@ def mock_polaris_cluster():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = NodeParams(
+    resources = JobResources(
         cloud=cloud,
         region="us-central1",
         zone=None,
