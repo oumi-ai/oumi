@@ -45,7 +45,7 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   TRAIN_DATASETS="data.train.datasets=
-  - dataset_name: \"/lema_dev_dir_gcs/datasets/fineweb-edu/sample-10BT\"
+  - dataset_name: \"/lema_dev_dir_gcs/datasets/fineweb-edu/hf_pretokenized-sample-10BT\"
     subset: \"default\"
     split: \"train\"
   "
@@ -93,3 +93,5 @@ run: |
 
 # 2024-08-06:
 # sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.1node.4xA10040GB.gcsdata_orig.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml
+
+# sky launch -i 10  --env LEMA_RUN_NAME=llama2b.pt.1node.4xA10040GB.gcsdata_hfpretok.v102 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama2b.yaml
