@@ -59,7 +59,7 @@ train = [
     "lm-eval",
     "omegaconf",
     "peft",
-    "pydantic",
+    "pydantic>=2",
     "pynvml",
     "safetensors",
     "sentencepiece",        # for phi-3
