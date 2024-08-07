@@ -58,8 +58,8 @@ class MfuTrainerCallback(transformers.TrainerCallback):
             attention_head_size: The size of each attention head in the model.
             add_rematerialization: Whether to add rematerialization to FLOPs per token.
             report_hf_builtin_mfu: Whether to also report alternative MFU numbers
-                computed using HuggingFace built-in flops estimates (can be useful
-                for internal debugging).
+                computed using HuggingFace built-in model flops estimates
+                (can be useful for internal debugging).
         """
         self._dtype = dtype
         self._num_params = num_params
