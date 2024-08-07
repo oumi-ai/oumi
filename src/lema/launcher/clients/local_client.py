@@ -49,7 +49,6 @@ class LocalClient:
     def _worker_loop(self):
         """The main worker loop that runs jobs."""
         while True:
-            print("Worker loop")
             with self._mutex:
                 # Safe because we're in the job mutex.
                 job = self._get_next_job()
