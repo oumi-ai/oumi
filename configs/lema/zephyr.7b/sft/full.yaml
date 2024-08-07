@@ -7,7 +7,6 @@
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
   trust_remote_code: True
-  torch_dtype_str: "bfloat16"
   model_max_length: 2048
   chat_template: "zephyr"
   attn_implementation: "flash_attention_2"
