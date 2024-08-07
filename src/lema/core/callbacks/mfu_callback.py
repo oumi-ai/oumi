@@ -22,10 +22,10 @@ _TRAIN_STEP_MFU = "train_step_mfu"
 _TRAIN_MFU = "train_mfu"
 
 # MFU using only the time between on_step_start and on_step_end (except the first step)
-# using built-in model's flops estimate.
+# using built-in HuggingFace model's flops estimate.
 _BUILTIN_TRAIN_STEP_MFU = "builtin_train_step_mfu"
 # MFU using the time since training started (except the first step)
-# using built-in model's flops estimate.
+# using built-in HuggingFace model's flops estimate.
 _BUILTIN_TRAIN_MFU = "builtin_train_mfu"
 
 
@@ -44,6 +44,7 @@ class MfuTrainerCallback(transformers.TrainerCallback):
         num_attention_heads: Optional[int] = None,
         attention_head_size: Optional[int] = None,
         add_rematerialization: bool = False,
+        report_hf_builtin_mfu=False,
     ):
         """Initialize the MfuTrainerCallback.
 
@@ -56,6 +57,9 @@ class MfuTrainerCallback(transformers.TrainerCallback):
             num_attention_heads: The number of attention heads in the model.
             attention_head_size: The size of each attention head in the model.
             add_rematerialization: Whether to add rematerialization to FLOPs per token.
+            report_hf_builtin_mfu: Whether to also report alternative MFU numbers
+                computed using HuggingFace built-in flops estimates (can be useful
+                for internal debugging).
         """
         self._dtype = dtype
         self._num_params = num_params
@@ -69,6 +73,7 @@ class MfuTrainerCallback(transformers.TrainerCallback):
         self._attention_head_size = attention_head_size
         self._sequence_length = sequence_length
         self._add_rematerialization = add_rematerialization
+        self._report_hf_builtin_mfu = report_hf_builtin_mfu
         self._first_step_finished = False
         self._steps_since_last_log = 0
 
@@ -113,7 +118,7 @@ class MfuTrainerCallback(transformers.TrainerCallback):
 
         if self._time_of_second_step is None:
             self._time_of_second_step = self._step_start_time
-            if state is not None:
+            if self._report_hf_builtin_mfu and state is not None:
                 self._builtin_flops_at_second_step = state.total_flos
 
     def on_step_end(
@@ -194,8 +199,10 @@ class MfuTrainerCallback(transformers.TrainerCallback):
             kwargs[_LOGS_KWARG][_TRAIN_STEP_MFU] = train_step_mfu
             kwargs[_LOGS_KWARG][_TRAIN_MFU] = train_mfu
 
-        if self._builtin_flops_at_second_step is not None and (
-            state is not None and state.total_flos > 0.0
+        if (
+            self._report_hf_builtin_mfu
+            and self._builtin_flops_at_second_step is not None
+            and (state is not None and state.total_flos > 0.0)
         ):
             builtin_flops_since_second_step = (
                 state.total_flos - self._builtin_flops_at_second_step
