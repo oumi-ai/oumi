@@ -43,11 +43,13 @@ class LocalClient:
         # A mapping of job IDs to their respective job configurations.
         self._jobs = {}
         self._running_process = None
-        self._worker = Thread(target=self._worker_loop)
+        self._worker = Thread(target=self._worker_loop, daemon=True)
+        self._worker.start()
 
     def _worker_loop(self):
         """The main worker loop that runs jobs."""
         while True:
+            print("Worker loop")
             with self._mutex:
                 # Safe because we're in the job mutex.
                 job = self._get_next_job()
@@ -66,6 +68,7 @@ class LocalClient:
                         stdout=PIPE,
                         stderr=PIPE,
                     )
+                    job.status.status = _JobState.RUNNING.value
             if job is None:
                 time.sleep(5)
                 continue
@@ -80,7 +83,7 @@ class LocalClient:
                         ].status.status = _JobState.COMPLETED.value
                         self._jobs[
                             job.status.id
-                        ].status.metadata = f"Job finished at ${finish_time}"
+                        ].status.metadata = f"Job finished at {finish_time}"
                 else:
                     # Job failed.
                     with self._mutex:
@@ -102,7 +105,7 @@ class LocalClient:
         return str(job_id)
 
     def _get_next_job(self) -> Optional[_LocalJob]:
-        """Gets the next job from the queue and marks it as RUNNING."""
+        """Gets the next QUEUED job from the queue."""
         queued_jobs = [
             job
             for job in self._jobs.values()
@@ -112,14 +115,14 @@ class LocalClient:
             return None
         next_job_id = str(
             reduce(
-                lambda acc, val: min(acc, int(val.status.id)),
+                lambda acc, val: val.status.id
+                if acc < 0
+                else min(acc, int(val.status.id)),
                 queued_jobs,
                 -1,
             )
         )
-        next_job = self._jobs[next_job_id]
-        next_job.status.status = _JobState.RUNNING.value
-        return next_job
+        return self._jobs[next_job_id]
 
     def _queue_job(self, job: _LocalJob) -> None:
         self._jobs[job.status.id] = job
