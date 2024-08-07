@@ -330,7 +330,7 @@ class Trainer(BaseTrainer):
             self.log(f"Model saved to {model_path}.")
 
     def save_state(self):
-        """Saves the model and optimizer state."""
+        """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
         if is_world_process_zero():
@@ -338,18 +338,18 @@ class Trainer(BaseTrainer):
 
             model_path = checkpoint_dir / "model.safetensors"
             optimizer_path = checkpoint_dir / "optimizer.pt"
+            dataloader_state_path = checkpoint_dir / "dataloader.pt"
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
-            dataloader_state_path = checkpoint_dir / "dataloader.json"
 
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             torch.save(
                 self.optimizer.state_dict(),
                 optimizer_path,
             )
-            save_json(
-                data=self.train_dataloader.state_dict(),
-                filename=dataloader_state_path,
+            torch.save(
+                self.train_dataloader.state_dict(),
+                dataloader_state_path,
             )
             save_json(
                 data=self.state.model_dump(),
@@ -359,36 +359,34 @@ class Trainer(BaseTrainer):
                 data=self.telemetry.state_dict(),
                 filename=telemetry_state_path,
             )
-            logger.info(f"Model saved to {checkpoint_dir}")
+            logger.info(f"Training state saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
-        """Loads the model and optimizer state from a checkpoint."""
+        """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
         model_path = checkpoint_dir / "model.safetensors"
         optimizer_path = checkpoint_dir / "optimizer.pt"
+        dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
-        dataloader_state_path = checkpoint_dir / "dataloader.json"
 
         if model_path.exists():
             safetensors.torch.load_model(
                 self.model, filename=str(model_path), strict=True, device=self.device
             )
-            self.log(f"Model loaded from {model_path}.")
-
         if optimizer_path.exists():
             self.optimizer.load_state_dict(
                 torch.load(optimizer_path, map_location=self.device, weights_only=True)
             )
+        if dataloader_state_path.exists():
+            self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
         if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
             )
         if telemetry_state_path.exists():
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
-        if dataloader_state_path.exists():
-            self.train_dataloader.load_state_dict(load_json(dataloader_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
 
