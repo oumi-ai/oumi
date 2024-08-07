@@ -1,4 +1,4 @@
-"""Based on MFU from PaLM paper: https://arxiv.org/pdf/2204.02311."""
+"""MFU calculator based on theoretical model flops computed by HuggingFace libraries."""
 
 import time
 from typing import Optional, Union
@@ -17,10 +17,10 @@ _LOGS_KWARG = "logs"
 
 # MFU using only the time between on_step_start and on_step_end (except the first step)
 # using built-in HuggingFace model's flops estimate.
-_BUILTIN_TRAIN_STEP_MFU = "hf_train_step_mfu"
+_HF_TRAIN_STEP_MFU = "hf_train_step_mfu"
 # MFU using the time since training started (except the first step)
 # using built-in HuggingFace model's flops estimate.
-_BUILTIN_TRAIN_MFU = "builtin_train_mfu"
+_HF_TRAIN_MFU = "builtin_train_mfu"
 
 
 class HfMfuTrainerCallback(transformers.TrainerCallback):
@@ -146,5 +146,5 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
                 ),
             )
             if _LOGS_KWARG in kwargs:
-                kwargs[_LOGS_KWARG][_BUILTIN_TRAIN_STEP_MFU] = builtin_train_step_mfu
-                kwargs[_LOGS_KWARG][_BUILTIN_TRAIN_MFU] = builtin_train_mfu
+                kwargs[_LOGS_KWARG][_HF_TRAIN_STEP_MFU] = builtin_train_step_mfu
+                kwargs[_LOGS_KWARG][_HF_TRAIN_MFU] = builtin_train_mfu

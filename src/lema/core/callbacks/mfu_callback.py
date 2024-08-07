@@ -8,10 +8,7 @@ import transformers
 
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.core.types import TrainingParams
-from lema.performance.mfu import (
-    calculate_mfu,
-    calculate_mfu_from_model_flops_per_second,
-)
+from lema.performance.mfu import calculate_mfu
 from lema.utils.logging import logger
 
 _LOGS_KWARG = "logs"
@@ -20,13 +17,6 @@ _LOGS_KWARG = "logs"
 _TRAIN_STEP_MFU = "train_step_mfu"
 # MFU using the time since training started (except the first step)
 _TRAIN_MFU = "train_mfu"
-
-# MFU using only the time between on_step_start and on_step_end (except the first step)
-# using built-in HuggingFace model's flops estimate.
-_BUILTIN_TRAIN_STEP_MFU = "builtin_train_step_mfu"
-# MFU using the time since training started (except the first step)
-# using built-in HuggingFace model's flops estimate.
-_BUILTIN_TRAIN_MFU = "builtin_train_mfu"
 
 
 class MfuTrainerCallback(transformers.TrainerCallback):
@@ -44,7 +34,6 @@ class MfuTrainerCallback(transformers.TrainerCallback):
         num_attention_heads: Optional[int] = None,
         attention_head_size: Optional[int] = None,
         add_rematerialization: bool = False,
-        report_hf_builtin_mfu=False,
     ):
         """Initialize the MfuTrainerCallback.
 
@@ -57,14 +46,10 @@ class MfuTrainerCallback(transformers.TrainerCallback):
             num_attention_heads: The number of attention heads in the model.
             attention_head_size: The size of each attention head in the model.
             add_rematerialization: Whether to add rematerialization to FLOPs per token.
-            report_hf_builtin_mfu: Whether to also report alternative MFU numbers
-                computed using HuggingFace built-in model flops estimates
-                (can be useful for internal debugging).
         """
         self._dtype = dtype
         self._num_params = num_params
         self._time_of_second_step: Optional[float] = None
-        self._builtin_flops_at_second_step: Optional[float] = None
         self._time_for_train_steps = 0.0
         self._tokens_seen_so_far = 0
         self._sequence_length = sequence_length
@@ -73,7 +58,6 @@ class MfuTrainerCallback(transformers.TrainerCallback):
         self._attention_head_size = attention_head_size
         self._sequence_length = sequence_length
         self._add_rematerialization = add_rematerialization
-        self._report_hf_builtin_mfu = report_hf_builtin_mfu
         self._first_step_finished = False
         self._steps_since_last_log = 0
 
@@ -118,8 +102,6 @@ class MfuTrainerCallback(transformers.TrainerCallback):
 
         if self._time_of_second_step is None:
             self._time_of_second_step = self._step_start_time
-            if self._report_hf_builtin_mfu and state is not None:
-                self._builtin_flops_at_second_step = state.total_flos
 
     def on_step_end(
         self,
@@ -194,38 +176,9 @@ class MfuTrainerCallback(transformers.TrainerCallback):
             sequence_length=self._sequence_length,
             add_rematerialization=self._add_rematerialization,
         )
-
         if _LOGS_KWARG in kwargs:
             kwargs[_LOGS_KWARG][_TRAIN_STEP_MFU] = train_step_mfu
             kwargs[_LOGS_KWARG][_TRAIN_MFU] = train_mfu
-
-        if (
-            self._report_hf_builtin_mfu
-            and self._builtin_flops_at_second_step is not None
-            and (state is not None and state.total_flos > 0.0)
-        ):
-            builtin_flops_since_second_step = (
-                state.total_flos - self._builtin_flops_at_second_step
-            )
-            builtin_train_step_mfu = calculate_mfu_from_model_flops_per_second(
-                device_name=self._device_name,
-                num_devices=self._num_devices,
-                dtype=self._dtype,
-                model_flops_per_second=(
-                    builtin_flops_since_second_step / delta_time_seconds_step
-                ),
-            )
-            builtin_train_mfu = calculate_mfu_from_model_flops_per_second(
-                device_name=self._device_name,
-                num_devices=self._num_devices,
-                dtype=self._dtype,
-                model_flops_per_second=(
-                    builtin_flops_since_second_step / delta_time_seconds_train
-                ),
-            )
-            if _LOGS_KWARG in kwargs:
-                kwargs[_LOGS_KWARG][_BUILTIN_TRAIN_STEP_MFU] = builtin_train_step_mfu
-                kwargs[_LOGS_KWARG][_BUILTIN_TRAIN_MFU] = builtin_train_mfu
 
         # Cleanup values
         self._tokens_seen_so_far = total_tokens
