@@ -3,7 +3,7 @@ import os
 import time
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, cast
 
 import pydantic
 import torch
@@ -12,7 +12,7 @@ import torch.utils.tensorboard as tensorboard
 
 import wandb  # isort: skip
 import safetensors.torch
-from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
+from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
@@ -330,7 +330,7 @@ class Trainer(BaseTrainer):
             self.log(f"Model saved to {model_path}.")
 
     def save_state(self):
-        """Saves the model and optimizer state."""
+        """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
         if is_world_process_zero():
@@ -338,18 +338,18 @@ class Trainer(BaseTrainer):
 
             model_path = checkpoint_dir / "model.safetensors"
             optimizer_path = checkpoint_dir / "optimizer.pt"
+            dataloader_state_path = checkpoint_dir / "dataloader.pt"
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
-            dataloader_state_path = checkpoint_dir / "dataloader.json"
 
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             torch.save(
                 self.optimizer.state_dict(),
                 optimizer_path,
             )
-            save_json(
-                data=self.train_dataloader.state_dict(),
-                filename=dataloader_state_path,
+            torch.save(
+                self.train_dataloader.state_dict(),
+                dataloader_state_path,
             )
             save_json(
                 data=self.state.model_dump(),
@@ -359,36 +359,34 @@ class Trainer(BaseTrainer):
                 data=self.telemetry.state_dict(),
                 filename=telemetry_state_path,
             )
-            logger.info(f"Model saved to {checkpoint_dir}")
+            logger.info(f"Training state saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
-        """Loads the model and optimizer state from a checkpoint."""
+        """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
         model_path = checkpoint_dir / "model.safetensors"
         optimizer_path = checkpoint_dir / "optimizer.pt"
+        dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
-        dataloader_state_path = checkpoint_dir / "dataloader.json"
 
         if model_path.exists():
             safetensors.torch.load_model(
                 self.model, filename=str(model_path), strict=True, device=self.device
             )
-            self.log(f"Model loaded from {model_path}.")
-
         if optimizer_path.exists():
             self.optimizer.load_state_dict(
                 torch.load(optimizer_path, map_location=self.device, weights_only=True)
             )
+        if dataloader_state_path.exists():
+            self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
         if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
             )
         if telemetry_state_path.exists():
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
-        if dataloader_state_path.exists():
-            self.train_dataloader.load_state_dict(load_json(dataloader_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
 
@@ -452,7 +450,12 @@ class Trainer(BaseTrainer):
             else None
         )
 
-        if isinstance(self.train_dataset, Union[MapDataPipe, Dataset]):
+        # IterDataPipe is a subclass of IterableDataset.
+        if isinstance(self.train_dataset, IterableDataset):
+            # TODO: configure sharding for iterable datasets
+            sampler = None
+            shuffle = None
+        else:
             # Configure sampler for map datasets. If using multiple GPUs,
             # we use a DistributedSampler to make sure each worker gets a
             # different subset of the dataset.
@@ -476,10 +479,6 @@ class Trainer(BaseTrainer):
                 # If not distributed, let the dataloader handle shuffling
                 sampler = None
                 shuffle = True
-        else:
-            # TODO: configure sharding for iterable datasets
-            sampler = None
-            shuffle = None
 
         # Keeping track of the sampler so we can update after each epoch
         self._sampler = sampler
