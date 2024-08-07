@@ -4,7 +4,7 @@ LeMa is a framework for training and evaluating large language models. This tuto
 
 ## 1. Installation
 
-First, you'll need to install LeMa and its dependencies.:
+First, you'll need to install LeMa and its dependencies:
 
 ```bash
 git clone https://github.com/openlema/lema.git
@@ -36,6 +36,8 @@ training:
   num_train_epochs: 3
   learning_rate: 5e-5
 ```
+
+For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/openlema/lema/tree/main/configs/lema) directory.
 
 ## 3. Training
 
@@ -144,6 +146,8 @@ data:
         split: "train"
 ```
 
+For more details, see this notebook [Custom Datasets](https://github.com/openlema/lema/blob/main/notebooks/Lema%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in lema [here](https://github.com/openlema/lema/tree/main/src/lema/datasets).
+
 ## 7. Multi-GPU Training
 
 LeMa supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
@@ -154,13 +158,11 @@ torchrun --standalone --nproc_per_node=4 -m lema.train -c config.yaml
 
 This will launch the training script on 4 GPUs.
 
-## 8. [TODO] Distributed Training
+## 8.  Distributed Training
 
-To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `lema-launcher`.
+To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `lema-launcher`, which makes it straightforward to run jobs on remote machines.
 
-```bash
-lema-launcher -c sky-config.yaml
-```
+You can find a detailled example here: [notebook](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20Running%20Jobs%20Remotely.ipynb)
 
 ## 9. Monitoring and Logging
 
