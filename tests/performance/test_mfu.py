@@ -1,3 +1,4 @@
+import math
 from typing import NamedTuple, Optional
 
 import pytest
@@ -7,6 +8,8 @@ from lema.performance.mfu import (
     calculate_mfu,
     calculate_mfu_from_model_flops_per_second,
 )
+
+_MFU_ABS_TOLERANCE = 1e-3
 
 
 class MfuTestParams(NamedTuple):
@@ -142,7 +145,7 @@ def test_mfu_parametric(params: MfuTestParams):
         add_rematerialization=params.add_rematerialization,
     )
 
-    assert abs(mfu - params.expected_mfu) < 2e-3
+    assert math.isclose(mfu, params.expected_mfu, abs_tol=_MFU_ABS_TOLERANCE)
 
 
 class MfuFromModelFlopsTestParams(NamedTuple):
@@ -195,7 +198,7 @@ def test_calculate_mfu_from_model_flops_per_second_parametric(
         dtype=params.dtype,
         model_flops_per_second=(params.model_tflops_per_second * 1e12),
     )
-    assert abs(mfu - params.expected_mfu) < 2e-3
+    assert math.isclose(mfu, params.expected_mfu, abs_tol=_MFU_ABS_TOLERANCE)
 
 
 def test_mfu_bad_device():
