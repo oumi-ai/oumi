@@ -113,7 +113,7 @@ class MfuTrainerCallback(transformers.TrainerCallback):
 
         if self._time_of_second_step is None:
             self._time_of_second_step = self._step_start_time
-            if state is not None and state.total_flos > 0.0:
+            if state is not None:
                 self._builtin_flops_at_second_step = state.total_flos
 
     def on_step_end(

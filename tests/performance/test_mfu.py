@@ -3,7 +3,10 @@ from typing import NamedTuple, Optional
 import pytest
 import torch
 
-from lema.performance.mfu import calculate_mfu
+from lema.performance.mfu import (
+    calculate_mfu,
+    calculate_mfu_from_model_flops_per_second,
+)
 
 
 class MfuTestParams(NamedTuple):
@@ -142,6 +145,59 @@ def test_mfu_parametric(params: MfuTestParams):
     assert abs(mfu - params.expected_mfu) < 2e-3
 
 
+class MfuFromModelFlopsTestParams(NamedTuple):
+    device_name: str
+    num_devices: int
+    dtype: torch.dtype
+    model_tflops_per_second: float
+    expected_mfu: float
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        MfuFromModelFlopsTestParams(
+            device_name="NVIDIA A100-SXM4-40GB",
+            num_devices=1,
+            dtype=torch.bfloat16,
+            model_tflops_per_second=156,
+            expected_mfu=0.5,
+        ),
+        MfuFromModelFlopsTestParams(
+            device_name="NVIDIA A100-SXM4-40GB",
+            num_devices=2,
+            dtype=torch.float16,
+            model_tflops_per_second=156,
+            expected_mfu=0.25,
+        ),
+        MfuFromModelFlopsTestParams(
+            device_name="NVIDIA GeForce RTX 3090",
+            num_devices=1,
+            dtype=torch.float32,
+            model_tflops_per_second=35.6,
+            expected_mfu=1.0,
+        ),
+        MfuFromModelFlopsTestParams(
+            device_name="NVIDIA GeForce RTX 3090",
+            num_devices=4,
+            dtype=torch.float32,
+            model_tflops_per_second=35.6,
+            expected_mfu=0.25,
+        ),
+    ],
+)
+def test_calculate_mfu_from_model_flops_per_second_parametric(
+    params: MfuFromModelFlopsTestParams,
+):
+    mfu = calculate_mfu_from_model_flops_per_second(
+        device_name=params.device_name,
+        num_devices=params.num_devices,
+        dtype=params.dtype,
+        model_flops_per_second=(params.model_tflops_per_second * 1e12),
+    )
+    assert abs(mfu - params.expected_mfu) < 2e-3
+
+
 def test_mfu_bad_device():
     with pytest.raises(NotImplementedError) as exception_info:
         calculate_mfu(
@@ -218,3 +274,14 @@ def test_mfu_bad_num_params():
             delta_time_seconds=1.0,
         )
     assert "Must have a positive number of model params" in str(exception_info.value)
+
+
+def test_mfu_from_model_flops_per_second_bad_num_devices():
+    with pytest.raises(ValueError) as exception_info:
+        calculate_mfu_from_model_flops_per_second(
+            device_name="NVIDIA A100-SXM4-80GB",
+            num_devices=0,
+            dtype=torch.bfloat16,
+            model_flops_per_second=1e9,
+        )
+    assert "Must have a positive number of devices" in str(exception_info.value)
