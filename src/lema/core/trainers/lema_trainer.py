@@ -3,7 +3,7 @@ import os
 import time
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, cast
 
 import pydantic
 import torch
@@ -12,7 +12,7 @@ import torch.utils.tensorboard as tensorboard
 
 import wandb  # isort: skip
 import safetensors.torch
-from torch.utils.data import DataLoader, Dataset, DistributedSampler, MapDataPipe
+from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
@@ -452,7 +452,12 @@ class Trainer(BaseTrainer):
             else None
         )
 
-        if isinstance(self.train_dataset, Union[MapDataPipe, Dataset]):
+        # IterDataPipe is a subclass of IterableDataset.
+        if isinstance(self.train_dataset, IterableDataset):
+            # TODO: configure sharding for iterable datasets
+            sampler = None
+            shuffle = None
+        else:
             # Configure sampler for map datasets. If using multiple GPUs,
             # we use a DistributedSampler to make sure each worker gets a
             # different subset of the dataset.
@@ -476,10 +481,6 @@ class Trainer(BaseTrainer):
                 # If not distributed, let the dataloader handle shuffling
                 sampler = None
                 shuffle = True
-        else:
-            # TODO: configure sharding for iterable datasets
-            sampler = None
-            shuffle = None
 
         # Keeping track of the sampler so we can update after each epoch
         self._sampler = sampler
