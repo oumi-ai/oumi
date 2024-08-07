@@ -37,6 +37,7 @@ setup: |
   pip install '.[train]'
   # Required to call pydantic's TrainingState.model_dump() on GCP, as the default
   # versions for fastapi and ydata-profiling force an older version of pydantic.
+  # TODO: Find a better solution than this band-aid fix.
   pip install -U fastapi ydata-profiling pydantic
   # Required for RunPod as a workaround since nvcc isn't installed
   # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
