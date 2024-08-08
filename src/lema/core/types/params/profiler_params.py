@@ -68,7 +68,7 @@ class ProfilerParams(BaseParams):
         },
     )
     row_limit: int = field(
-        default=20,
+        default=50,
         metadata={
             "help": (
                 "Max number of rows to include into profiling report tables."

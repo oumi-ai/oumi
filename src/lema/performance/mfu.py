@@ -111,6 +111,20 @@ def _get_model_flops_per_token(
     return forward_flops + backward_flops + attention_flops + rematerialization_flops
 
 
+def calculate_mfu_from_model_flops_per_second(
+    device_name: str,
+    num_devices: int,
+    dtype: torch.dtype,
+    model_flops_per_second: float,
+) -> float:
+    """Returns the number of MFU for the given model flops per second."""
+    if num_devices <= 0:
+        raise ValueError(f"Must have a positive number of devices: {num_devices}")
+    device_flops_per_second = _get_device_flops(device_name, dtype) * num_devices
+    model_flop_utilization = model_flops_per_second / device_flops_per_second
+    return model_flop_utilization
+
+
 def calculate_mfu(
     device_name: str,
     num_devices: int,
@@ -125,8 +139,6 @@ def calculate_mfu(
     add_rematerialization: bool = False,
 ) -> float:
     """Returns the number of MFU for the given model configuration."""
-    if num_devices <= 0:
-        raise ValueError(f"Must have a positive number of devices: {num_devices}")
     if num_tokens <= 0:
         raise ValueError(f"Must have a positive number of tokens: {num_tokens}")
     if delta_time_seconds <= 0:
@@ -141,7 +153,11 @@ def calculate_mfu(
         add_rematerialization,
     )
     tokens_per_second = num_tokens / delta_time_seconds
-    model_flops = model_flops_per_token * tokens_per_second
-    device_flops = _get_device_flops(device_name, dtype) * num_devices
-    model_flop_utilization = model_flops / device_flops
-    return model_flop_utilization
+    model_flops_per_second = model_flops_per_token * tokens_per_second
+
+    return calculate_mfu_from_model_flops_per_second(
+        device_name=device_name,
+        num_devices=num_devices,
+        dtype=dtype,
+        model_flops_per_second=model_flops_per_second,
+    )

@@ -281,7 +281,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
     logger.info("Training is Complete.")
 
-    logger.info("Max Memory Usage Before Training: ")
+    logger.info("Max Memory Usage After Training: ")
     log_nvidia_gpu_memory_utilization()
 
     # Save final checkpoint & training state.

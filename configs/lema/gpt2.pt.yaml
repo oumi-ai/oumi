@@ -22,9 +22,9 @@ data:
     target_col: "text"
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: LEMA
   save_steps: 200
-  per_device_train_batch_size: 32 # Use 64 for A100-80GB
+  per_device_train_batch_size: 64 # Use 64 for A100-80GB
   gradient_accumulation_steps: 8 # Disable when running on 8 GPUs
   max_steps: 19073
 

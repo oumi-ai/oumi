@@ -26,7 +26,10 @@ class TrainerType(Enum):
 
 
 class SchedulerType(str, Enum):
-    """Enum representing the supported learning rate schedulers."""
+    """Enum representing the supported learning rate schedulers.
+
+    For optional args for each scheduler, see src/lema/builders/lr_schedules.py.
+    """
 
     LINEAR = "linear"
     "Linear scheduler."
@@ -36,6 +39,9 @@ class SchedulerType(str, Enum):
 
     COSINE_WITH_RESTARTS = "cosine_with_restarts"
     "Cosine with restarts scheduler."
+
+    COSINE_WITH_MIN_LR = "cosine_with_min_lr"
+    "Cosine with a minimum learning rate scheduler."
 
     CONSTANT = "constant"
     "Constant scheduler."

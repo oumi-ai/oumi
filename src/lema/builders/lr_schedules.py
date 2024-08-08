@@ -17,18 +17,20 @@ def build_lr_scheduler(
 
     Args:
         optimizer: The optimizer for which to build the learning rate scheduler.
-        training_params: The training parameters containing.
+        training_params: The training parameters containing the scheduler args.
         num_training_steps: The total number of training steps
             (required for some schedulers).
         current_epoch (`int`, *optional*, defaults to 0):
             The index of the current epoch when resuming training.
 
-    Optional Args:
-        num_cycles (`int`, *optional*, defaults to 1): The number of cycles for the
-            cosine and cosine_with_restarts schedulers.
+    Optional Args (in `training_params.lr_scheduler_kwargs`):
+        num_cycles (`float`, *optional*, defaults to 1.0 for cosine_with_restarts and
+            0.5 for others): The number of cycles for the cosine family of schedulers.
+        min_lr_rate (`float`, *optional*, defaults to 0.0): The minimum learning rate to
+            decay to for cosine_with_min_lr.
 
     Returns:
-        A learning rate scheduler or None if no scheduler is specified.
+        A learning rate scheduler.
     """
     scheduler_type = training_params.lr_scheduler_type.lower()
     scheduler_specific_kwargs = training_params.lr_scheduler_kwargs.copy()
@@ -45,6 +47,7 @@ def build_lr_scheduler(
         in (
             SchedulerType.COSINE,
             SchedulerType.COSINE_WITH_RESTARTS,
+            SchedulerType.COSINE_WITH_MIN_LR,
             SchedulerType.LINEAR,
         )
         and num_training_steps is None
@@ -134,6 +137,26 @@ def build_lr_scheduler(
             num_training_steps=num_training_steps,
             last_epoch=last_epoch,
             num_cycles=num_cycles,
+        )
+    elif scheduler_type == SchedulerType.COSINE_WITH_MIN_LR:
+        assert num_training_steps is not None, "should not be none by this point"
+
+        num_cycles = scheduler_specific_kwargs.pop("num_cycles", 0.5)
+        min_lr_rate = scheduler_specific_kwargs.pop("min_lr_rate", 0.0)
+
+        if scheduler_specific_kwargs:
+            logger.warning(
+                f"Unrecognized scheduler kwargs: {scheduler_specific_kwargs}. "
+                "Ignoring them."
+            )
+
+        return transformers.optimization.get_cosine_with_min_lr_schedule_with_warmup(
+            optimizer=optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=num_training_steps,
+            last_epoch=last_epoch,
+            num_cycles=num_cycles,
+            min_lr_rate=min_lr_rate,
         )
     else:
         raise ValueError(f"Unknown scheduler type: {scheduler_type}")
