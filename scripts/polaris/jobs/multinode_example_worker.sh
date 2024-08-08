@@ -2,7 +2,8 @@
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
 POLARIS_GPUS_PER_NODE=4
-# Reversing GPUs order to match Polaris CPU affinities
+# Reversing GPUs order to match Polaris CPU affinities:
+# https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 export CUDA_VISIBLE_DEVICES=3,2,1,0
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
