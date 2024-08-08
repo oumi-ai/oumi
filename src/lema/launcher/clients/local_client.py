@@ -3,7 +3,6 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from functools import reduce
 from subprocess import PIPE, Popen
 from threading import Lock, Thread
 from typing import List, Optional
@@ -46,58 +45,71 @@ class LocalClient:
         self._worker = Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
+    def _worker_run_job(self) -> Optional[_LocalJob]:
+        """Kicks off and returns a new job. Assumes the mutex is already acquired."""
+        job = self._get_next_job()
+        if job is None:
+            return None
+        env_copy = os.environ.copy()
+        env_copy.update(job.config.envs)
+        # Always change to the working directory before running the job.
+        working_dir_cmd = f"cd {job.config.working_dir}"
+        setup_cmds = job.config.setup or ""
+        cmds = "\n".join([working_dir_cmd, setup_cmds, job.config.run])
+        # Start the job but don't block.
+        self._running_process = Popen(
+            cmds,
+            shell=True,
+            env=env_copy,
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+        job.status.status = _JobState.RUNNING.value
+        return job
+
+    def _worker_handle_running_job(self, job: _LocalJob) -> None:
+        """Polls and handles the specified job. Acquires the mutex."""
+        # Return immediately if no job is running.
+        if self._running_process is None:
+            return
+        # Wait for the job to finish. No need to grab the mutex here.
+        if self._running_process.wait() == 0:
+            # Job was successful.
+            finish_time = datetime.fromtimestamp(time.time()).isoformat()
+            with self._mutex:
+                self._jobs[job.status.id].status.status = _JobState.COMPLETED.value
+                self._jobs[
+                    job.status.id
+                ].status.metadata = f"Job finished at {finish_time}"
+        else:
+            # Job failed.
+            with self._mutex:
+                self._jobs[job.status.id].status.status = _JobState.FAILED.value
+                error_metadata = ""
+                if self._running_process.stderr is not None:
+                    for line in self._running_process.stderr:
+                        error_metadata += str(line)
+                # Only keep the last _MAX_BUFFER_SIZE characters.
+                error_metadata = error_metadata[-self._MAX_BUFFER_SIZE :]
+                self._jobs[job.status.id].status.metadata = error_metadata
+
     def _worker_loop(self):
         """The main worker loop that runs jobs."""
         while True:
             with self._mutex:
-                # Safe because we're in the job mutex.
-                job = self._get_next_job()
-                if job is not None:
-                    env_copy = os.environ.copy()
-                    env_copy.update(job.config.envs)
-                    # Always change to the working directory before running the job.
-                    working_dir_cmd = f"cd {job.config.working_dir}"
-                    setup_cmds = job.config.setup or ""
-                    cmds = "\n".join([working_dir_cmd, setup_cmds, job.config.run])
-                    # Start the job but don't block.
-                    self._running_process = Popen(
-                        cmds,
-                        shell=True,
-                        env=env_copy,
-                        stdout=PIPE,
-                        stderr=PIPE,
-                    )
-                    job.status.status = _JobState.RUNNING.value
+                # Run the next job if it exists.
+                job = self._worker_run_job()
+            # No job to run, sleep for a bit.
             if job is None:
                 time.sleep(5)
                 continue
-            if self._running_process is not None:
-                # Wait for the job to finish. No need to grab the mutex here.
-                if self._running_process.wait() == 0:
-                    # Job was successful.
-                    finish_time = datetime.fromtimestamp(time.time()).isoformat()
-                    with self._mutex:
-                        self._jobs[
-                            job.status.id
-                        ].status.status = _JobState.COMPLETED.value
-                        self._jobs[
-                            job.status.id
-                        ].status.metadata = f"Job finished at {finish_time}"
-                else:
-                    # Job failed.
-                    with self._mutex:
-                        self._jobs[job.status.id].status.status = _JobState.FAILED.value
-                        error_metadata = ""
-                        if self._running_process.stderr is not None:
-                            for line in self._running_process.stderr:
-                                error_metadata += str(line)
-                        # Only keep the last _MAX_BUFFER_SIZE characters.
-                        error_metadata = error_metadata[-self._MAX_BUFFER_SIZE :]
-                        self._jobs[job.status.id].status.metadata = error_metadata
+            # Wait for the job to finish.
+            self._worker_handle_running_job(job)
+            # Clear the running process.
             with self._mutex:
                 self._running_process = None
 
-    def _get_next_job_id(self) -> str:
+    def _generate_next_job_id(self) -> str:
         """Gets the next job ID."""
         job_id = self._next_job_id
         self._next_job_id += 1
@@ -112,21 +124,16 @@ class LocalClient:
         ]
         if len(queued_jobs) == 0:
             return None
-        next_job_id = str(
-            reduce(
-                lambda acc, val: int(val.status.id)
-                if acc < 0
-                else min(acc, int(val.status.id)),
-                queued_jobs,
-                -1,
-            )
-        )
+        next_job_id = queued_jobs[0].status.id
+        for job in queued_jobs:
+            if int(job.status.id) < int(next_job_id):
+                next_job_id = job.status.id
         return self._jobs[next_job_id]
 
     def submit_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster."""
         with self._mutex:
-            job_id = self._get_next_job_id()
+            job_id = self._generate_next_job_id()
             name = job.name if job.name else job_id
             status = JobStatus(
                 name=name,
