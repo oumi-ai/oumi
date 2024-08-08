@@ -114,7 +114,7 @@ class LocalClient:
             return None
         next_job_id = str(
             reduce(
-                lambda acc, val: val.status.id
+                lambda acc, val: int(val.status.id)
                 if acc < 0
                 else min(acc, int(val.status.id)),
                 queued_jobs,
@@ -122,9 +122,6 @@ class LocalClient:
             )
         )
         return self._jobs[next_job_id]
-
-    def _queue_job(self, job: _LocalJob) -> None:
-        self._jobs[job.status.id] = job
 
     def submit_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster."""
@@ -138,7 +135,7 @@ class LocalClient:
                 cluster="local",
                 metadata="",
             )
-            self._queue_job(_LocalJob(status=status, config=job))
+            self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
 
     def list_jobs(self) -> List[JobStatus]:
@@ -181,3 +178,4 @@ class LocalClient:
                 job.status.status = _JobState.CANCELED.value
             elif job.status.status == _JobState.QUEUED.value:
                 job.status.status = _JobState.CANCELED.value
+            return job.status
