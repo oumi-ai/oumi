@@ -68,13 +68,12 @@ class Trainer(BaseTrainer):
         self.params.validate()
 
         self.state = TrainingState()
-
         self.device_type = "cuda" if torch.cuda.is_available() else "cpu"
+
         # Enable mixed precision bf16/fp16 training if requested.
         # Model dtype has been verified to be fp32 if this is the case.
         self.mixed_precision_ctx = contextlib.nullcontext()
         mixed_precision_dtype = None
-
         if self.params.mixed_precision_dtype == MixedPrecisionDtype.BF16:
             mixed_precision_dtype = torch.bfloat16
         elif self.params.mixed_precision_dtype == MixedPrecisionDtype.FP16:
