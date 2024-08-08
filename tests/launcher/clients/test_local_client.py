@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from subprocess import PIPE
 from unittest.mock import Mock, call, patch
 
@@ -35,6 +36,12 @@ def mock_popen():
 def mock_os():
     with patch("lema.launcher.clients.local_client.os") as os_mock:
         yield os_mock
+
+
+@pytest.fixture
+def mock_datetime():
+    with patch("lema.launcher.clients.local_client.datetime") as datetime_mock:
+        yield datetime_mock
 
 
 def _get_default_job() -> JobConfig:
@@ -87,9 +94,12 @@ def test_local_client_submit_job(mock_thread):
     assert client.list_jobs() == [expected_status]
 
 
-def test_local_client_submit_job_execution(mock_time, mock_popen, mock_os):
+def test_local_client_submit_job_execution(
+    mock_time, mock_popen, mock_os, mock_datetime
+):
     client = LocalClient()
     mock_os.environ.copy.return_value = {"preset": "value"}
+    mock_datetime.fromtimestamp.return_value = datetime.fromtimestamp(10)
     mock_time.time.return_value = 10
     mock_process = Mock()
     mock_popen.return_value = mock_process
@@ -112,14 +122,17 @@ pip install -r requirements.txt
         name=str(job.name),
         cluster="",
         status="COMPLETED",
-        metadata="Job finished at 1969-12-31T16:00:10",
+        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
 
 
-def test_local_client_submit_job_execution_multiple(mock_time, mock_popen, mock_os):
+def test_local_client_submit_job_execution_multiple(
+    mock_time, mock_popen, mock_os, mock_datetime
+):
     client = LocalClient()
+    mock_datetime.fromtimestamp.return_value = datetime.fromtimestamp(10)
     mock_os.environ.copy.side_effect = [{"preset": "value"}, {"preset": "value"}]
     mock_time.time.return_value = 10
     mock_process = Mock()
@@ -166,7 +179,7 @@ echo 'hello'"""
         name=str(job.name),
         cluster="",
         status="COMPLETED",
-        metadata="Job finished at 1969-12-31T16:00:10",
+        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
     )
     second_expected_status = JobStatus(
         id="1",
