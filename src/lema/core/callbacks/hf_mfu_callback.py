@@ -20,7 +20,7 @@ _LOGS_KWARG = "logs"
 _HF_TRAIN_STEP_MFU = "hf_train_step_mfu"
 # MFU using the time since training started (except the first step)
 # using built-in HuggingFace model's flops estimate.
-_HF_TRAIN_MFU = "builtin_train_mfu"
+_HF_TRAIN_MFU = "hf_train_mfu"
 
 
 class HfMfuTrainerCallback(transformers.TrainerCallback):
@@ -126,25 +126,23 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
         if self._flops_at_second_step is not None and (
             state is not None and state.total_flos > 0.0
         ):
-            builtin_flops_since_second_step = (
-                state.total_flos - self._flops_at_second_step
-            )
-            builtin_train_step_mfu = calculate_mfu_from_model_flops_per_second(
+            flops_since_second_step = state.total_flos - self._flops_at_second_step
+            train_step_mfu = calculate_mfu_from_model_flops_per_second(
                 device_name=self._device_name,
                 num_devices=self._num_devices,
                 dtype=self._dtype,
                 model_flops_per_second=(
-                    builtin_flops_since_second_step / delta_time_seconds_step
+                    flops_since_second_step / delta_time_seconds_step
                 ),
             )
-            builtin_train_mfu = calculate_mfu_from_model_flops_per_second(
+            train_mfu = calculate_mfu_from_model_flops_per_second(
                 device_name=self._device_name,
                 num_devices=self._num_devices,
                 dtype=self._dtype,
                 model_flops_per_second=(
-                    builtin_flops_since_second_step / delta_time_seconds_train
+                    flops_since_second_step / delta_time_seconds_train
                 ),
             )
             if _LOGS_KWARG in kwargs:
-                kwargs[_LOGS_KWARG][_HF_TRAIN_STEP_MFU] = builtin_train_step_mfu
-                kwargs[_LOGS_KWARG][_HF_TRAIN_MFU] = builtin_train_mfu
+                kwargs[_LOGS_KWARG][_HF_TRAIN_STEP_MFU] = train_step_mfu
+                kwargs[_LOGS_KWARG][_HF_TRAIN_MFU] = train_mfu
