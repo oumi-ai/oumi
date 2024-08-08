@@ -15,6 +15,7 @@ from lema.launcher.launcher import (
     status,
     stop,
     up,
+    which_clouds,
 )
 
 
@@ -579,6 +580,40 @@ def test_launcher_status_inits_new_clouds(mock_registry):
     ]
 
 
+def test_launcher_which_clouds_updates_over_time(mock_registry):
+    sky_mock = Mock(spec=BaseCloud)
+    polaris_mock = Mock(spec=BaseCloud)
+    custom_mock = Mock(spec=BaseCloud)
+
+    def _sky_builder():
+        return sky_mock
+
+    def _polaris_builder():
+        return polaris_mock
+
+    def _custom_builder():
+        return custom_mock
+
+    mock_registry.get_all.side_effect = [
+        {},
+        {
+            "sky": _sky_builder,
+        },
+        {
+            "polaris": _polaris_builder,
+        },
+        {
+            "sky": _sky_builder,
+            "polaris": _polaris_builder,
+            "custom": _custom_builder,
+        },
+    ]
+    launcher = Launcher()
+    assert launcher.which_clouds() == ["sky"]
+    assert launcher.which_clouds() == ["polaris"]
+    assert launcher.which_clouds() == ["sky", "polaris", "custom"]
+
+
 def test_launcher_export_methods(mock_registry):
     assert LAUNCHER.up == up
     assert LAUNCHER.run == run
@@ -586,3 +621,4 @@ def test_launcher_export_methods(mock_registry):
     assert LAUNCHER.down == down
     assert LAUNCHER.status == status
     assert LAUNCHER.get_cloud == get_cloud
+    assert LAUNCHER.which_clouds == which_clouds
