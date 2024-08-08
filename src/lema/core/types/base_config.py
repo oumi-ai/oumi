@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import re
 from typing import Any, Iterator, List, Optional, Tuple, Type, TypeVar, cast
 
 from omegaconf import OmegaConf
@@ -27,17 +28,26 @@ class BaseConfig:
         OmegaConf.save(config=self, f=config_path)
 
     @classmethod
-    def from_yaml(cls: Type[T], config_path: str) -> T:
+    def from_yaml(cls: Type[T], config_path: str, ignore_interpolation=True) -> T:
         """Loads a configuration from a YAML file.
 
         Args:
             config_path: The path to the YAML file.
+            ignore_interpolation: If True, then any interpolation variables in the
+                configuration file will be escaped.
 
         Returns:
             BaseConfig: The merged configuration object.
         """
         schema = OmegaConf.structured(cls)
-        file_config = OmegaConf.load(config_path)
+        if ignore_interpolation:
+            with open(config_path) as f:
+                stringified_config = f.read()
+                pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
+                stringified_config = re.sub(pattern, "\\${", stringified_config)
+                file_config = OmegaConf.create(stringified_config)
+        else:
+            file_config = OmegaConf.load(config_path)
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
         if not isinstance(config, cls):
             raise TypeError(f"config is not {cls}")
