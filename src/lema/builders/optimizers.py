@@ -58,7 +58,7 @@ def build_optimizer(
             lr=config.learning_rate,
             beta1=config.adam_beta1,
             weight_decay=config.weight_decay,
-            eps=config.adam_epsilon,
+            relative_step=False,
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
