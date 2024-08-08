@@ -12,7 +12,8 @@ class LocalCloud(BaseCloud):
     """A resource pool for managing Local jobs.
 
     It is important to note that a single LocalCluster can only run one job at a time.
-    Running multiple GPU jobs simultaneously on separate LocalClusters is encouraged.
+    Running multiple GPU jobs simultaneously on separate LocalClusters is not
+    encouraged.
     """
 
     # The default cluster name. Used when no cluster name is provided.
