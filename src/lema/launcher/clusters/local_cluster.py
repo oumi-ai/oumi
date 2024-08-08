@@ -1,4 +1,5 @@
 import uuid
+from copy import deepcopy
 from typing import Any, List, Optional
 
 from lema.core.types.base_cluster import BaseCluster, JobStatus
@@ -95,10 +96,13 @@ class LocalCluster(BaseCluster):
         Returns:
             The job status.
         """
-        _validate_job_config(job)
-        if not job.name:
-            job.name = uuid.uuid1().hex
-        return self._client.submit_job(job)
+        job_copy = deepcopy(job)
+        _validate_job_config(job_copy)
+        if not job_copy.name:
+            job_copy.name = uuid.uuid1().hex
+        status = self._client.submit_job(job_copy)
+        status.cluster = self._name
+        return status
 
     def down(self) -> None:
         """Cancels all jobs, running or queued."""
