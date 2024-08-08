@@ -132,7 +132,7 @@ class LocalClient:
                 name=name,
                 id=job_id,
                 status=_JobState.QUEUED.value,
-                cluster="local",
+                cluster="",
                 metadata="",
             )
             self._jobs[job_id] = _LocalJob(status=status, config=job)
