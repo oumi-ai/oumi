@@ -60,8 +60,8 @@ class MixedPrecisionDtype(str, Enum):
     "will run in fp16 to improve training speed."
 
     BF16 = "bf16"
-    "Same as above, but with bf16 instead. This requires Requires Ampere or higher "
-    "NVIDIA architecture, or using CPU or Ascend NPU."
+    "Same as above, but with bf16 instead. This requires Ampere or higher NVIDIA "
+    "architecture, or using CPU or Ascend NPU."
 
 
 @dataclass
