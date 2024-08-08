@@ -138,7 +138,7 @@ class PolarisCluster(BaseCluster):
         self._client = client
 
     def __eq__(self, other: Any) -> bool:
-        """Checks if two SkyClusters are equal."""
+        """Checks if two PolarisClusters are equal."""
         if not isinstance(other, PolarisCluster):
             return False
         return self.name() == other.name()

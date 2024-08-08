@@ -88,6 +88,10 @@ class Launcher:
                 statuses.extend(cluster.get_jobs())
         return statuses
 
+    def which_clouds(self) -> List[str]:
+        """Gets the names of all clouds in the registry."""
+        return [name for name, _ in REGISTRY.get_all(RegistryType.CLOUD).items()]
+
 
 LAUNCHER = Launcher()
 # Explicitly expose the public methods of the default Launcher instance.
@@ -97,3 +101,4 @@ run = LAUNCHER.run
 status = LAUNCHER.status
 stop = LAUNCHER.stop
 up = LAUNCHER.up
+which_clouds = LAUNCHER.which_clouds

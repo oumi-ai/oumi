@@ -2,6 +2,9 @@
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
 POLARIS_GPUS_PER_NODE=4
+# Reversing GPUs order to match Polaris CPU affinities:
+# https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
+export CUDA_VISIBLE_DEVICES=3,2,1,0
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
@@ -18,6 +21,7 @@ echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 ORIGINAL_TMPDIR="${TMPDIR}"
 export TMPDIR="/tmp/${PBS_JOBID}/rank_${POLARIS_NODE_RANK}/"
 echo "${LOG_PREFIX} TMPDIR: ${TMPDIR} ORIGINAL_TMPDIR: ${ORIGINAL_TMPDIR}"
+echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
