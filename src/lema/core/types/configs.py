@@ -63,7 +63,10 @@ class TrainingConfig(BaseConfig):
             )
 
         # Verify values for model dtype and mixed precision training.
-        if self.training.mixed_precision_dtype != MixedPrecisionDtype.NONE:
+        if self.training.mixed_precision_dtype in [
+            MixedPrecisionDtype.FP16,
+            MixedPrecisionDtype.BF16,
+        ]:
             if self.model.torch_dtype() != torch.float32:
                 raise ValueError(
                     "Model must be loaded in fp32 to enable mixed precision training."
