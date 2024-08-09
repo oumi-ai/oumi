@@ -20,6 +20,7 @@ from transformers import TrainerCallback
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
+    barrier,
     get_device_rank_info,
     global_leader_only,
     is_distributed,
@@ -172,6 +173,8 @@ class Trainer(BaseTrainer):
                         f"Training runtime: {time.perf_counter() - self.start_time}s"
                     )
                     break
+
+                barrier()
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
