@@ -394,7 +394,7 @@ def test_polaris_client_get_job_success(mock_fabric, mock_fs, mock_auth):
     mock_connection = Mock(spec=Connection)
     mock_fabric.side_effect = [mock_connection]
     mock_command = Mock()
-    mock_command.stdout = _get_test_data("qstat.txt")
+    mock_command.stdout = _get_test_data("qstat.txt").replace("F", "Q")
     mock_connection.run.return_value = mock_command
     client = PolarisClient("user")
     job_status = client.get_job("2017652", client.SupportedQueues.DEBUG)
@@ -402,7 +402,7 @@ def test_polaris_client_get_job_success(mock_fabric, mock_fs, mock_auth):
     expected_status = JobStatus(
         id="2017652",
         name="example_job.sh",
-        status="F",
+        status="Q",
         cluster="debug",
         metadata=(
             "                                                                      "
@@ -412,10 +412,11 @@ def test_polaris_client_get_job_success(mock_fabric, mock_fs, mock_auth):
             "------------------------------ --------------- --------------- "
             "--------------- -------- ---- ----- ------ ----- - -----\n"
             "2017652.polaris-pbs-01.hsn.cm* matthew         debug           "
-            "example_job.sh   2354947    1    64    --  00:10 F 00:00:43\n"
+            "example_job.sh   2354947    1    64    --  00:10 Q 00:00:43\n"
             "   Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and "
             "failed"
         ),
+        done=False,
     )
     assert job_status == expected_status
 
@@ -483,6 +484,7 @@ def test_polaris_client_cancel_success(mock_fabric, mock_fs, mock_auth):
             "   Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and "
             "failed"
         ),
+        done=True,
     )
     assert job_status == expected_status
 

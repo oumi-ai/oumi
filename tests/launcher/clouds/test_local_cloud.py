@@ -72,6 +72,7 @@ def test_local_cloud_up_cluster(mock_local_client, mock_local_cluster):
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("local")
@@ -94,6 +95,7 @@ def test_local_cloud_up_cluster_no_name(mock_local_client, mock_local_cluster):
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("local")

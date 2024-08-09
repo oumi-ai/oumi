@@ -9,6 +9,7 @@ LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
+echo "${LOG_PREFIX} USER: ${USER}"
 echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
 echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
 echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
@@ -39,10 +40,13 @@ helpFunction()
 # Default values.
 TRAINING_MODE="fsdp"
 
-while getopts "m:" opt
+ENABLE_PYTORCH_PROFILER="false"
+
+while getopts "m:p" opt
 do
    case "$opt" in
       m ) TRAINING_MODE="$OPTARG" ;;
+      p ) ENABLE_PYTORCH_PROFILER="true" ;;
       ? ) helpFunction ;; # Print a help message for an unknown parameter.
    esac
 done
@@ -57,6 +61,16 @@ if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
     helpFunction
 fi
 
+MAX_STEPS=20
+if "${ENABLE_PYTORCH_PROFILER}"; then
+   # Use a smaller number of steps with Profiler to keep traces usable.
+   MAX_STEPS=5
+   PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
+   training.profiler.enable_cpu_profiling=true
+   training.profiler.enable_cuda_profiling=true"
+   echo "PyTorch profiler enabled!"
+fi
+
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 TRAIN_DATASETS="data.train.datasets=
 - dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
@@ -67,7 +81,7 @@ TRAIN_DATASETS="data.train.datasets=
 # Training params shared between the different training modes, and likely
 # don't need to be modified during experimentation.
 SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
-training.max_steps=20
+training.max_steps=${MAX_STEPS}
 training.save_steps=0
 training.save_final_model=false
 training.dataloader_num_workers=8
@@ -76,6 +90,7 @@ training.log_model_summary=false
 training.include_performance_metrics=true
 training.ddp_find_unused_parameters=false
 training.try_resume_from_last_checkpoint=false
+${PROFILER_TRAINING_PARAMS}
 training.enable_wandb=true"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
