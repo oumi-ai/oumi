@@ -13,7 +13,7 @@ lema is a learning machines modeling platform that allows you to build and train
 
 ## Features
 
-- [x] Easily run in a locally, jupyter notebook, vscvode debugger, or remote cluster
+- [x] Easily run in a locally, jupyter notebook, vscode debugger, or remote cluster
 - [x] Full finetuning using SFT, DPO
 
 ## Dev Environment Setup
