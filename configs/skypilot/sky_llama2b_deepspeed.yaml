@@ -59,7 +59,7 @@ run: |
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
       "training.optimizer=adafactor" \
-      "training.bf16=true" \
+      "training.mixed_precision_dtype=BF16" \
       "training.enable_gradient_checkpointing=false" \
       "training.dataloader_num_workers=auto" \
       "training.dataloader_prefetch_factor=32" \

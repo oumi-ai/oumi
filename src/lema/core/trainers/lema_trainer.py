@@ -28,7 +28,7 @@ from lema.core.distributed import (
     local_leader_only,
     prepare_model_for_distributed,
 )
-from lema.core.types import TrainingConfig, TrainingParams
+from lema.core.types import MixedPrecisionDtype, TrainingConfig, TrainingParams
 from lema.core.types.base_tokenizer import BaseTokenizer
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.telemetry import TelemetryTracker
@@ -68,21 +68,21 @@ class Trainer(BaseTrainer):
         self.params.validate()
 
         self.state = TrainingState()
-
         self.device_type = "cuda" if torch.cuda.is_available() else "cpu"
+
         # Enable mixed precision bf16/fp16 training if requested.
-        # Model dtype has been verified to not be bf16/fp16 if this is the case.
+        # Model dtype has been verified to be fp32 if this is the case.
         self.mixed_precision_ctx = contextlib.nullcontext()
-        self.mixed_precision_dtype = None
-        if self.params.bf16:
-            self.mixed_precision_dtype = torch.bfloat16
-        if self.params.fp16:
-            self.mixed_precision_dtype = torch.float16
-        if self.mixed_precision_dtype:
+        mixed_precision_dtype = None
+        if self.params.mixed_precision_dtype == MixedPrecisionDtype.BF16:
+            mixed_precision_dtype = torch.bfloat16
+        elif self.params.mixed_precision_dtype == MixedPrecisionDtype.FP16:
+            mixed_precision_dtype = torch.float16
+        if mixed_precision_dtype:
             self.mixed_precision_ctx = torch.amp.autocast(
                 device_type=self.device_type,
                 enabled=True,
-                dtype=self.mixed_precision_dtype,
+                dtype=mixed_precision_dtype,
             )
 
         if self.params.compile:

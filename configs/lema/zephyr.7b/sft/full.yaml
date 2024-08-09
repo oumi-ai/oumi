@@ -43,7 +43,7 @@ training:
   max_steps: -1
   num_train_epochs: 1
   save_steps: 100
-  bf16: True
+  mixed_precision_dtype: "BF16"
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_kwargs:
     dataset_text_field: ${data.train.target_col}

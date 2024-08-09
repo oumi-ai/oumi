@@ -10,7 +10,11 @@ from lema.core.types.params.data_params import DataParams, DatasetSplitParams
 from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.core.types.params.model_params import ModelParams
 from lema.core.types.params.peft_params import PeftParams
-from lema.core.types.params.training_params import TrainerType, TrainingParams
+from lema.core.types.params.training_params import (
+    MixedPrecisionDtype,
+    TrainerType,
+    TrainingParams,
+)
 from lema.utils.logging import logger
 
 
@@ -59,16 +63,13 @@ class TrainingConfig(BaseConfig):
             )
 
         # Verify values for model dtype and mixed precision training.
-        if self.training.bf16 or self.training.fp16:
-            if self.model.torch_dtype() in [torch.float16, torch.bfloat16]:
+        if self.training.mixed_precision_dtype in [
+            MixedPrecisionDtype.FP16,
+            MixedPrecisionDtype.BF16,
+        ]:
+            if self.model.torch_dtype() != torch.float32:
                 raise ValueError(
-                    "16-bit mixed-precision training is enabled, but the "
-                    "model is already 16-bit!"
-                )
-            if self.training.bf16 and self.training.fp16:
-                raise ValueError(
-                    "Can only specify at most one type of "
-                    "mixed-precision training (bf16/fp16)."
+                    "Model must be loaded in fp32 to enable mixed precision training."
                 )
 
         # Check values for model sequence length.
