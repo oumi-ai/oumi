@@ -167,14 +167,14 @@ class Trainer(BaseTrainer):
 
                 self.state.epoch += 1
 
+                barrier()
+
                 if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
                     self.log(
                         f"Training runtime: {time.perf_counter() - self.start_time}s"
                     )
                     break
-
-                barrier()
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
