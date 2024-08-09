@@ -20,6 +20,7 @@ from transformers import TrainerCallback
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
+    barrier,
     get_device_rank_info,
     global_leader_only,
     is_distributed,
@@ -165,6 +166,8 @@ class Trainer(BaseTrainer):
                     self.evaluate()
 
                 self.state.epoch += 1
+
+                barrier()
 
                 if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
