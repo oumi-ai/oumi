@@ -26,7 +26,6 @@ from lema.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
-    local_leader_only,
     prepare_model_for_distributed,
 )
 from lema.core.types import MixedPrecisionDtype, TrainingConfig, TrainingParams
@@ -170,7 +169,15 @@ class Trainer(BaseTrainer):
 
                 self.state.epoch += 1
 
+                logger.info(
+                    f"train(): BEFORE epoch barrier. "
+                    f"Epoch: {epoch}. Global step: {self.state.global_step}"
+                )
                 barrier()
+                logger.info(
+                    f"train(): AFTER epoch barrier. "
+                    f"Epoch: {epoch}. Global step: {self.state.global_step}"
+                )
 
                 if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
@@ -178,6 +185,11 @@ class Trainer(BaseTrainer):
                         f"Training runtime: {time.perf_counter() - self.start_time}s"
                     )
                     break
+
+        logger.info(
+            f"train(): Exiting... Global step: {self.state.global_step}"
+            f"Training runtime: {time.perf_counter() - self.start_time}s"
+        )
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
@@ -189,6 +201,13 @@ class Trainer(BaseTrainer):
         data_iter = iter(self.train_dataloader)
 
         while True:
+            logger.info(
+                f"Starting {micro_step} step..."
+                f"Max steps: {self.params.max_steps} "
+                f"Global step: {self.state.global_step} "
+                f"GAS: {self.params.gradient_accumulation_steps}"
+            )
+
             if micro_step % self.params.gradient_accumulation_steps == 0:
                 self._process_callbacks("on_step_begin")
 
@@ -224,7 +243,9 @@ class Trainer(BaseTrainer):
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()
 
-            if (micro_step + 1) % self.params.gradient_accumulation_steps == 0:
+            if ((micro_step + 1) % self.params.gradient_accumulation_steps == 0) or (
+                self.params.max_steps > 0 and micro_step >= self.params.max_steps
+            ):
                 with self.telemetry.timer("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
@@ -284,12 +305,20 @@ class Trainer(BaseTrainer):
                     # TODO: OPE-223 - only the global leader is used for evaluation
                     # To enable distributed evaluation, th eval function needs
                     # to be updated to aggregate metrics accross all workers.
+                    logger.info(f"BEFORE evaluate {micro_step}")
                     self.evaluate()
+                    logger.info(f"AFTER evaluate {micro_step}")
 
             if self.state.global_step >= self.params.max_steps:
+                logger.info(
+                    f"Reached {self.params.max_steps} max steps condition. "
+                    f"Global step: {self.state.global_step}"
+                )
                 break
 
             micro_step += 1
+
+        logger.info(f"Done with train epoch. Micro step: {micro_step}")
 
     #
     # Evaluation
@@ -399,7 +428,7 @@ class Trainer(BaseTrainer):
     #
     # Logging
     #
-    @local_leader_only()
+    # @local_leader_only()
     def log(self, message: str):
         """Logs a message if the process is the local process zero."""
         logger.info(message)
