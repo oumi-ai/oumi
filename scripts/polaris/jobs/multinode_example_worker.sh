@@ -63,6 +63,7 @@ fi
 
 MAX_STEPS=20
 if "${ENABLE_PYTORCH_PROFILER}"; then
+   # Use a smaller number of steps with Profiler to keep traces usable.
    MAX_STEPS=5
    PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
    training.profiler.enable_cpu_profiling=true
