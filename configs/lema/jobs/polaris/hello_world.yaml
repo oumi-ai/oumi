@@ -26,8 +26,6 @@ setup: |
   #PBS -o /eagle/community_ai/jobs/logs/
   #PBS -e /eagle/community_ai/jobs/logs/
 
-# Note that in the `run` and `setup` sections remote interpolations must be escaped with
-# a backslash. e.g. ${LEMA_NUM_NODES} -> \${LEMA_NUM_NODES}
 run: |
   set -e  # Exit if any command failed.
 

@@ -19,14 +19,12 @@ setup: |
   #PBS -o /eagle/community_ai/jobs/logs/
   #PBS -e /eagle/community_ai/jobs/logs/
 
-# Note that in the `run` section remote interpolations must be escaped with a backslash.
-# e.g. ${LEMA_NUM_NODES} -> \${LEMA_NUM_NODES}
 run: |
   set -e
 
   # Change to the directory where the job was submitted.
-  echo "Changing directory to \${PBS_O_WORKDIR} ..."
-  cd \${PBS_O_WORKDIR}
+  echo "Changing directory to ${PBS_O_WORKDIR} ..."
+  cd ${PBS_O_WORKDIR}
 
   # Run several checks and export "LEMA_*" env vars.
   source ./scripts/polaris/polaris_init.sh
@@ -40,7 +38,7 @@ run: |
   # Activate the LeMa Conda environment.
   conda activate /home/$USER/miniconda3/envs/lema
 
-  echo "Starting torchrun with \${LEMA_NUM_NODES} node(s)..."
+  echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
 
   # NCCL settings:
   # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
@@ -55,7 +53,7 @@ run: |
   #FIXME Should we set --envall, --noenvall, or only pass specific env vars?
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
-      --np $LEMA_NUM_NODES -ppn \${NRANKS} -d \${NDEPTH} --cpu-bind depth \
+      --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
       ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
 
   echo "Polaris job is all done!"
