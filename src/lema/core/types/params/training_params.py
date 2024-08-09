@@ -48,7 +48,11 @@ class SchedulerType(str, Enum):
 
 
 class MixedPrecisionDtype(str, Enum):
-    """Enum representing the dtype used for mixed precision training."""
+    """Enum representing the dtype used for mixed precision training.
+
+    For more details on mixed-precision training, see:
+    https://pytorch.org/tutorials/recipes/recipes/amp_recipe.html
+    """
 
     NONE = "none"
     "No mixed precision. Uses `ModelParams.torch_dtype` as the dtype for all tensors "
