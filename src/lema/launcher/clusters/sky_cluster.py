@@ -31,6 +31,17 @@ class SkyCluster(BaseCluster):
             status=str(sky_job["status"]),
             cluster=self.name(),
             metadata="",
+            # See sky job states here:
+            # https://skypilot.readthedocs.io/en/latest/reference/cli.html#sky-jobs-queue
+            done=str(sky_job["status"])
+            not in [
+                "PENDING",
+                "SUBMITTED",
+                "STARTING",
+                "RUNNING",
+                "RECOVERING",
+                "CANCELLING",
+            ],
         )
 
     def name(self) -> str:

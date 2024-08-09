@@ -45,6 +45,14 @@ class LocalClient:
         self._worker = Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
+    def _update_job_status(self, job_id: str, status: _JobState) -> None:
+        """Updates the status of the job. Assumes the mutex is already acquired."""
+        if job_id not in self._jobs:
+            return
+        self._jobs[job_id].status.status = status.value
+        is_done = status in (_JobState.COMPLETED, _JobState.FAILED, _JobState.CANCELED)
+        self._jobs[job_id].status.done = is_done
+
     def _worker_run_job(self) -> Optional[_LocalJob]:
         """Kicks off and returns a new job. Assumes the mutex is already acquired."""
         job = self._get_next_job()
@@ -64,7 +72,7 @@ class LocalClient:
             stdout=PIPE,
             stderr=PIPE,
         )
-        job.status.status = _JobState.RUNNING.value
+        self._update_job_status(job.status.id, _JobState.RUNNING)
         return job
 
     def _worker_handle_running_job(self, job: _LocalJob) -> None:
@@ -77,14 +85,13 @@ class LocalClient:
             # Job was successful.
             finish_time = datetime.fromtimestamp(time.time()).isoformat()
             with self._mutex:
-                self._jobs[job.status.id].status.status = _JobState.COMPLETED.value
                 self._jobs[
                     job.status.id
                 ].status.metadata = f"Job finished at {finish_time}"
+                self._update_job_status(job.status.id, _JobState.COMPLETED)
         else:
             # Job failed.
             with self._mutex:
-                self._jobs[job.status.id].status.status = _JobState.FAILED.value
                 error_metadata = ""
                 if self._running_process.stderr is not None:
                     for line in self._running_process.stderr:
@@ -92,6 +99,7 @@ class LocalClient:
                 # Only keep the last _MAX_BUFFER_SIZE characters.
                 error_metadata = error_metadata[-self._MAX_BUFFER_SIZE :]
                 self._jobs[job.status.id].status.metadata = error_metadata
+                self._update_job_status(job.status.id, _JobState.FAILED)
 
     def _worker_loop(self):
         """The main worker loop that runs jobs."""
@@ -141,6 +149,7 @@ class LocalClient:
                 status=_JobState.QUEUED.value,
                 cluster="",
                 metadata="",
+                done=False,
             )
             self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
@@ -182,7 +191,7 @@ class LocalClient:
             if job.status.status == _JobState.RUNNING.value:
                 if self._running_process is not None:
                     self._running_process.terminate()
-                job.status.status = _JobState.CANCELED.value
+                self._update_job_status(job_id, _JobState.CANCELED)
             elif job.status.status == _JobState.QUEUED.value:
-                job.status.status = _JobState.CANCELED.value
+                self._update_job_status(job_id, _JobState.CANCELED)
             return job.status

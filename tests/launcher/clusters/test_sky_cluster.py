@@ -62,17 +62,17 @@ def test_sky_cluster_get_job_valid_id(mock_sky_client):
         {
             "job_id": "myjob2",
             "job_name": "some name",
-            "status": "running",
+            "status": "RUNNING",
         },
         {
             "job_id": "myjob",
             "job_name": "some name",
-            "status": "running",
+            "status": "RUNNING",
         },
         {
             "job_id": "myjob3",
             "job_name": "some name",
-            "status": "running",
+            "status": "RUNNING",
         },
     ]
     job = cluster.get_job("myjob")
@@ -95,7 +95,7 @@ def test_sky_cluster_get_job_invalid_id_nonempty(mock_sky_client):
         {
             "job_id": "wrong_id",
             "job_name": "some name",
-            "status": "running",
+            "status": "RUNNING",
         }
     ]
     job = cluster.get_job("myjob")
@@ -109,17 +109,17 @@ def test_sky_cluster_get_jobs_nonempty(mock_sky_client):
         {
             "job_id": "myjob2",
             "job_name": "some name",
-            "status": "running",
+            "status": "RUNNING",
         },
         {
             "job_id": "myjob",
             "job_name": "r",
-            "status": "stopped",
+            "status": "CANCELLED",
         },
         {
             "job_id": "myjob3",
             "job_name": "so",
-            "status": "failed",
+            "status": "FAILED",
         },
     ]
     jobs = cluster.get_jobs()
@@ -128,23 +128,26 @@ def test_sky_cluster_get_jobs_nonempty(mock_sky_client):
         JobStatus(
             id="myjob2",
             name="some name",
-            status="running",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="myjob",
             name="r",
-            status="stopped",
+            status="CANCELLED",
             metadata="",
             cluster="mycluster",
+            done=True,
         ),
         JobStatus(
             id="myjob3",
             name="so",
-            status="failed",
+            status="FAILED",
             metadata="",
             cluster="mycluster",
+            done=True,
         ),
     ]
     assert jobs == expected_jobs
@@ -165,16 +168,17 @@ def test_sky_cluster_stop_job(mock_sky_client):
         {
             "job_id": "myjobid",
             "job_name": "some name",
-            "status": "failed",
+            "status": "FAILED",
         }
     ]
     job_status = cluster.stop_job("myjobid")
     expected_status = JobStatus(
         id="myjobid",
         name="some name",
-        status="failed",
+        status="FAILED",
         metadata="",
         cluster="mycluster",
+        done=True,
     )
     mock_sky_client.cancel.assert_called_once_with("mycluster", "myjobid")
     assert job_status == expected_status
@@ -186,7 +190,7 @@ def test_sky_cluster_stop_job_fails(mock_sky_client):
         {
             "job_id": "wrong_job",
             "job_name": "some name",
-            "status": "failed",
+            "status": "FAILED",
         }
     ]
     with pytest.raises(RuntimeError):
@@ -200,15 +204,16 @@ def test_sky_cluster_run_job(mock_sky_client):
         {
             "job_id": "new_job_id",
             "job_name": "some name",
-            "status": "queued",
+            "status": "SUBMITTED",
         }
     ]
     expected_status = JobStatus(
         id="new_job_id",
         name="some name",
-        status="queued",
+        status="SUBMITTED",
         metadata="",
         cluster="mycluster",
+        done=False,
     )
     job_status = cluster.run_job(_get_default_job("gcp"))
     mock_sky_client.exec.assert_called_once_with(ANY, "mycluster")
@@ -223,7 +228,7 @@ def test_sky_cluster_run_job_fails(mock_sky_client):
         {
             "job_id": "wrong_id",
             "job_name": "some name",
-            "status": "queued",
+            "status": "SUBMITTED",
         }
     ]
     with pytest.raises(RuntimeError):

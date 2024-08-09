@@ -88,7 +88,7 @@ def test_local_client_submit_job(mock_thread):
     job = _get_default_job()
     job_status = client.submit_job(job)
     expected_status = JobStatus(
-        id="0", name=str(job.name), cluster="", status="QUEUED", metadata=""
+        id="0", name=str(job.name), cluster="", status="QUEUED", metadata="", done=False
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
@@ -123,6 +123,7 @@ pip install -r requirements.txt
         cluster="",
         status="COMPLETED",
         metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
+        done=True,
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
@@ -180,6 +181,7 @@ echo 'hello'"""
         cluster="",
         status="COMPLETED",
         metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
+        done=True,
     )
     second_expected_status = JobStatus(
         id="1",
@@ -187,6 +189,7 @@ echo 'hello'"""
         cluster="",
         status="FAILED",
         metadata="a" * 1024,
+        done=True,
     )
     assert job_status == expected_status
     assert second_job_status == second_expected_status

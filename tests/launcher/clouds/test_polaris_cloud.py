@@ -73,6 +73,7 @@ def test_polaris_cloud_up_cluster_debug(mock_polaris_client, mock_polaris_cluste
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -94,6 +95,7 @@ def test_polaris_cloud_up_cluster_demand(mock_polaris_client, mock_polaris_clust
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -117,6 +119,7 @@ def test_polaris_cloud_up_cluster_debug_scaling(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -140,6 +143,7 @@ def test_polaris_cloud_up_cluster_preemptable(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -161,6 +165,7 @@ def test_polaris_cloud_up_cluster_prod(mock_polaris_client, mock_polaris_cluster
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -192,6 +197,7 @@ def test_polaris_cloud_up_cluster_default_queue(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
