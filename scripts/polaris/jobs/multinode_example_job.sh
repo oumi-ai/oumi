@@ -43,6 +43,6 @@ NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per no
 set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
     --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
-    ./scripts/polaris/jobs/multinode_example_worker.sh -m ddp
+    ./scripts/polaris/jobs/multinode_example_worker.sh -m ddp -p
 
 echo "Polaris job is all done!"
