@@ -24,6 +24,10 @@ class JobStatus:
     # Miscellaneous metadata about the job.
     metadata: str
 
+    # A flag indicating whether the job is done.
+    # True only if the job is in a terminal state (e.g. completed, failed, or canceled).
+    done: bool
+
 
 class BaseCluster(ABC):
     """Base class for a compute cluster (job queue)."""

@@ -64,6 +64,8 @@ class PolarisClient:
 
     _CD_PATTERN = r"cd\s+(.*?)($|\s)"
 
+    _FINISHED_STATUS = "F"
+
     _PROD_QUEUES = {
         "small",
         "medium",
@@ -118,6 +120,7 @@ class PolarisClient:
             status=fields[9],
             cluster=fields[2],
             metadata=metadata,
+            done=fields[9] == self._FINISHED_STATUS,
         )
 
     def _get_short_job_id(self, job_id: str) -> str:

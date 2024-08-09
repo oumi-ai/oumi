@@ -67,6 +67,7 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
         cluster="new_cluster_name",
         status="",
         metadata="",
+        done=False,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()
@@ -115,6 +116,7 @@ def test_sky_cloud_up_cluster_no_name(mock_sky_client, mock_sky_cluster):
         cluster="new_cluster_name",
         status="",
         metadata="",
+        done=False,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()

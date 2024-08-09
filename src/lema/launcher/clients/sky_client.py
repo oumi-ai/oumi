@@ -90,6 +90,7 @@ class SkyClient:
             cluster=resource_handle.cluster_name,
             status="",
             metadata="",
+            done=False,
         )
 
     def status(self) -> List[Dict[str, Any]]:

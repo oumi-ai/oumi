@@ -158,6 +158,7 @@ def test_launcher_up_succeeds(mock_registry):
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cloud.up_cluster.return_value = expected_job_status
     mock_cloud.get_cluster.return_value = mock_cluster
@@ -185,6 +186,7 @@ def test_launcher_up_succeeds_no_name(mock_registry):
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cloud.up_cluster.return_value = expected_job_status
     mock_cloud.get_cluster.return_value = mock_cluster
@@ -212,6 +214,7 @@ def test_launcher_up_inavlid_cluster(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         )
         mock_cloud.up_cluster.return_value = expected_job_status
         mock_cloud.get_cluster.return_value = None
@@ -237,6 +240,7 @@ def test_launcher_run_succeeds(mock_registry):
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cloud.get_cluster.return_value = mock_cluster
     mock_cluster.run_job.return_value = expected_job_status
@@ -281,6 +285,7 @@ def test_launcher_stop_succeeds(mock_registry):
         name="foo",
         status="stopped",
         metadata="bar",
+        done=False,
     )
     mock_cloud.get_cluster.return_value = mock_cluster
     mock_cluster.stop_job.return_value = expected_job_status
@@ -367,6 +372,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="2",
@@ -374,6 +380,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -384,6 +391,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -394,6 +402,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -406,6 +415,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -424,6 +434,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="2",
@@ -431,6 +442,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -438,6 +450,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -445,6 +458,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -452,6 +466,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
 
@@ -487,6 +502,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="2",
@@ -494,6 +510,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -504,6 +521,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -514,6 +532,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -526,6 +545,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -548,6 +568,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="2",
@@ -555,6 +576,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -562,6 +584,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -569,6 +592,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
         JobStatus(
             id="1",
@@ -576,6 +600,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             name="foo",
             status="running",
             metadata="bar",
+            done=False,
         ),
     ]
 
