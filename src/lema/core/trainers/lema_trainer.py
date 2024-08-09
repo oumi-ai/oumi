@@ -59,6 +59,9 @@ class Trainer(BaseTrainer):
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
+        self.telemetry = TelemetryTracker()
+        self.start_time = time.perf_counter()
+
         self.model = model
         self.tokenizer = tokenizer
         self.params = args
@@ -88,7 +91,8 @@ class Trainer(BaseTrainer):
 
         if self.params.compile:
             self.log("Compiling model...")
-            model = cast(torch.nn.Module, torch.compile(model))
+            with self.telemetry.timer("compile model"):
+                model = cast(torch.nn.Module, torch.compile(model))
 
         self.scaler = torch.amp.GradScaler(device=self.device_type, enabled=False)
 
@@ -109,7 +113,8 @@ class Trainer(BaseTrainer):
         # TODO: OPE-219 - hook-up fsdp flag
         if is_distributed():
             # Wrap model for distributed training
-            model = prepare_model_for_distributed(model, use_fsdp=False)
+            with self.telemetry.timer("wrap model for distributed"):
+                model = prepare_model_for_distributed(model, use_fsdp=False)
 
         self.callbacks = callbacks if callbacks is not None else []
 
@@ -124,8 +129,6 @@ class Trainer(BaseTrainer):
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
 
-        self.telemetry = TelemetryTracker()
-        self.start_time = time.perf_counter()
         self._init_logging()
 
     #
