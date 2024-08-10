@@ -206,8 +206,8 @@ class Trainer(BaseTrainer):
 
         while True:
             logger.info(
-                f"Starting {micro_step} step..."
-                f"Max steps: {self.params.max_steps} "
+                f"Starting {micro_step} microstep... "
+                f"Max logical steps: {self.params.max_steps} "
                 f"Global step: {self.state.global_step} "
                 f"GAS: {self.params.gradient_accumulation_steps}"
             )
@@ -222,12 +222,13 @@ class Trainer(BaseTrainer):
             )
             # End of logical step. May include multiple micro steps
             # if gradient_accumulation_steps > 1.
-            end_of_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
+            end_of_logical_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
 
             with self.telemetry.timer("fetching batch"):
                 try:
                     batch = next(data_iter)
                 except StopIteration:
+                    # FIXME Update metrics and log
                     self.log("End of epoch")
                     break
 
@@ -245,7 +246,7 @@ class Trainer(BaseTrainer):
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
-                    end_of_step or stop_on_max_steps_limit
+                    end_of_logical_step or stop_on_max_steps_limit
                 )
 
                 outputs = self.model(**batch)
@@ -256,7 +257,7 @@ class Trainer(BaseTrainer):
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()
 
-            if end_of_step or stop_on_max_steps_limit:
+            if end_of_logical_step or stop_on_max_steps_limit:
                 with self.telemetry.timer("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
@@ -278,9 +279,9 @@ class Trainer(BaseTrainer):
 
                 self._process_callbacks("on_step_end")
 
-                if (
-                    self.params.logging_steps > 0
-                    and self.state.global_step % self.params.logging_steps == 0
+                if self.params.logging_steps > 0 and (
+                    stop_on_max_steps_limit
+                    or (self.state.global_step % self.params.logging_steps == 0)
                 ):
                     # Log metrics
                     elapsed = time.perf_counter() - self.start_time
@@ -308,7 +309,9 @@ class Trainer(BaseTrainer):
                     self.params.save_steps > 0
                     and self.state.global_step % self.params.save_steps == 0
                 ):
+                    logger.info(f"BEFORE save_state {micro_step}")
                     self.save_state()
+                    logger.info(f"AFTER save_state {micro_step}")
 
                 if (
                     self.eval_dataloader
@@ -456,10 +459,14 @@ class Trainer(BaseTrainer):
 
         # Log to Weights and Biases
         if self.params.enable_wandb:
+            logger.info(f"Logging to wandb... Global step: {self.state.global_step}")
             wandb.log(metrics, step=self.state.global_step)
 
         # Log to tensorboard
         if self.params.enable_tensorboard and self.tensorboard_writer:
+            logger.info(
+                f"Logging to Tensorboard... Global step: {self.state.global_step}"
+            )
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
