@@ -169,15 +169,15 @@ class Trainer(BaseTrainer):
 
                 self.state.epoch += 1
 
-                logger.info(
-                    f"train(): BEFORE epoch barrier. "
-                    f"Epoch: {epoch}. Global step: {self.state.global_step}"
-                )
+                # logger.info(
+                #    f"train(): BEFORE epoch barrier. "
+                #    f"Epoch: {epoch}. Global step: {self.state.global_step}"
+                # )
                 barrier()
-                logger.info(
-                    f"train(): AFTER epoch barrier. "
-                    f"Epoch: {epoch}. Global step: {self.state.global_step}"
-                )
+                # logger.info(
+                #    f"train(): AFTER epoch barrier. "
+                #    f"Epoch: {epoch}. Global step: {self.state.global_step}"
+                # )
 
                 if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
@@ -205,12 +205,12 @@ class Trainer(BaseTrainer):
         gradient_accumulation_steps = max(1, self.params.gradient_accumulation_steps)
 
         while True:
-            logger.info(
-                f"Starting {micro_step} microstep... "
-                f"Max logical steps: {self.params.max_steps} "
-                f"Global step: {self.state.global_step} "
-                f"GAS: {self.params.gradient_accumulation_steps}"
-            )
+            # logger.info(
+            #    f"Starting {micro_step} microstep... "
+            #    f"Max logical steps: {self.params.max_steps} "
+            #    f"Global step: {self.state.global_step} "
+            #    f"GAS: {self.params.gradient_accumulation_steps}"
+            # )
 
             if micro_step % gradient_accumulation_steps == 0:
                 self._process_callbacks("on_step_begin")
@@ -309,9 +309,9 @@ class Trainer(BaseTrainer):
                     self.params.save_steps > 0
                     and self.state.global_step % self.params.save_steps == 0
                 ):
-                    logger.info(f"BEFORE save_state {micro_step}")
+                    # logger.info(f"BEFORE save_state {micro_step}")
                     self.save_state()
-                    logger.info(f"AFTER save_state {micro_step}")
+                    # logger.info(f"AFTER save_state {micro_step}")
 
                 if (
                     self.eval_dataloader
@@ -322,9 +322,9 @@ class Trainer(BaseTrainer):
                     # TODO: OPE-223 - only the global leader is used for evaluation
                     # To enable distributed evaluation, th eval function needs
                     # to be updated to aggregate metrics accross all workers.
-                    logger.info(f"BEFORE evaluate {micro_step}")
+                    # logger.info(f"BEFORE evaluate {micro_step}")
                     self.evaluate()
-                    logger.info(f"AFTER evaluate {micro_step}")
+                    # logger.info(f"AFTER evaluate {micro_step}")
 
             if stop_on_max_steps_limit:
                 self.log(f"Reached {self.params.max_steps} max steps condition.")
@@ -332,7 +332,7 @@ class Trainer(BaseTrainer):
 
             micro_step += 1
 
-        logger.info(
+        self.log(
             f"End of epoch. "
             f"Global step: {self.state.global_step}. "
             f"Epoch runtime: {time.perf_counter() - epoch_start_time}s"
@@ -459,14 +459,14 @@ class Trainer(BaseTrainer):
 
         # Log to Weights and Biases
         if self.params.enable_wandb:
-            logger.info(f"Logging to wandb... Global step: {self.state.global_step}")
+            # logger.info(f"Logging to wandb... Global step: {self.state.global_step}")
             wandb.log(metrics, step=self.state.global_step)
 
         # Log to tensorboard
         if self.params.enable_tensorboard and self.tensorboard_writer:
-            logger.info(
-                f"Logging to Tensorboard... Global step: {self.state.global_step}"
-            )
+            # logger.info(
+            #    f"Logging to Tensorboard... Global step: {self.state.global_step}"
+            # )
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
