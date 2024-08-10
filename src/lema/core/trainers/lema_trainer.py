@@ -205,7 +205,7 @@ class Trainer(BaseTrainer):
             )
             # End of logical step. May include multiple micro steps
             # if gradient_accumulation_steps > 1.
-            end_of_logical_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
+            end_of_global_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
 
             with self.telemetry.timer("fetching batch"):
                 try:
@@ -229,7 +229,7 @@ class Trainer(BaseTrainer):
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
-                    end_of_logical_step or stop_on_max_steps_limit
+                    end_of_global_step or stop_on_max_steps_limit
                 )
 
                 outputs = self.model(**batch)
@@ -240,7 +240,7 @@ class Trainer(BaseTrainer):
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()
 
-            if end_of_logical_step or stop_on_max_steps_limit:
+            if end_of_global_step or stop_on_max_steps_limit:
                 with self.telemetry.timer("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
