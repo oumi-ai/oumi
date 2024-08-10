@@ -1,6 +1,5 @@
 from typing import Optional
 
-import torch.distributed
 import transformers
 
 from lema.core.distributed import is_world_process_zero
@@ -52,8 +51,3 @@ class HuggingFaceTrainer(BaseTrainer):
                 self._hf_trainer.save_model(output_dir)
 
             logger.info(f"Model has been saved at {output_dir}.")
-
-        if torch.distributed.is_available() and torch.distributed.is_initialized():
-            # Make sure all workers are waiting until saving is done
-            # so they continue to other tasks in unison.
-            torch.distributed.barrier()
