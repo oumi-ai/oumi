@@ -108,7 +108,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.optimizer='adafactor'" \
-        "training.per_device_train_batch_size=3" \
+        "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     set -x  # Print "accelerate" command with expanded variables

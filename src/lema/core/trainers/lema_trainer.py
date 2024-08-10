@@ -177,7 +177,7 @@ class Trainer(BaseTrainer):
                     break
 
         self.log(
-            f"Trainign finished! Global step: {self.state.global_step} "
+            f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
 
