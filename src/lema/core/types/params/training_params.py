@@ -90,6 +90,9 @@ class TrainingParams(BaseParams):
     # but in some cases you may want to disable it e.g., if saving a large model
     # takes a long time, and you want to quickly test training speed/metrics.
     save_final_model: bool = True
+    # Whether to load/save the model in SafeTensors format instead of torch.load/save.
+    save_safetensors: bool = True
+
     # Random seed, passed to the trainer and to all downstream dependencies
     seed: int = 42
 
@@ -253,6 +256,7 @@ class TrainingParams(BaseParams):
             torch_compile=self.compile,
             save_steps=self.save_steps,
             save_strategy=save_strategy,
+            save_safetensors=self.save_safetensors,
             logging_first_step=self.logging_first_step,
             resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
