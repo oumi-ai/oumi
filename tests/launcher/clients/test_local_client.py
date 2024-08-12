@@ -1,5 +1,7 @@
+import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from io import TextIOWrapper
 from subprocess import PIPE
 from unittest.mock import Mock, call, patch
 
@@ -42,6 +44,18 @@ def mock_os():
 def mock_datetime():
     with patch("lema.launcher.clients.local_client.datetime") as datetime_mock:
         yield datetime_mock
+
+
+class OpenEquivalent(TextIOWrapper):
+    def __init__(self, file):
+        self.file = file
+
+    def __eq__(self, other):
+        return (
+            self.file.mode == other.mode
+            and self.file.name == other.name
+            and self.file.encoding == other.encoding
+        )
 
 
 def _get_default_job() -> JobConfig:
@@ -122,11 +136,62 @@ pip install -r requirements.txt
         name=str(job.name),
         cluster="",
         status="COMPLETED",
-        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
+        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} .",
         done=True,
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
+
+
+def test_local_client_submit_job_execution_with_logging(
+    mock_time, mock_popen, mock_os, mock_datetime
+):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        client = LocalClient()
+        mock_os.environ.copy.return_value = {
+            "preset": "value",
+            "LEMA_LOGGING_DIR": output_temp_dir,
+        }
+        mock_datetime.fromtimestamp.return_value = datetime.fromtimestamp(10)
+        mock_datetime.now.return_value = datetime.fromtimestamp(10.1234, timezone.utc)
+        mock_time.time.return_value = 10
+        mock_process = Mock()
+        mock_popen.return_value = mock_process
+        mock_process.wait.return_value = 0
+        job = _get_default_job()
+        job_status = client.submit_job(job)
+        time.sleep(1)
+        expected_cmds = """cd ./
+pip install -r requirements.txt
+./hello_world.sh"""
+        stdout_handler = open(
+            f"{output_temp_dir}/1970_01_01_00_00_10_123_0.stdout", "w"
+        )
+        std_err_handler = open(
+            f"{output_temp_dir}/1970_01_01_00_00_10_123_0.stderr", "w"
+        )
+        mock_popen.assert_called_once_with(
+            expected_cmds,
+            shell=True,
+            env={
+                "preset": "value",
+                "LEMA_LOGGING_DIR": output_temp_dir,
+                "var1": "val1",
+            },
+            stdout=OpenEquivalent(stdout_handler),
+            stderr=OpenEquivalent(std_err_handler),
+        )
+        expected_status = JobStatus(
+            id="0",
+            name=str(job.name),
+            cluster="",
+            status="COMPLETED",
+            metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} ."
+            f" Logs available at: {output_temp_dir}/1970_01_01_00_00_10_123_0.stdout",
+            done=True,
+        )
+        assert job_status == expected_status
+        assert client.list_jobs() == [expected_status]
 
 
 def test_local_client_submit_job_execution_multiple(
@@ -180,7 +245,7 @@ echo 'hello'"""
         name=str(job.name),
         cluster="",
         status="COMPLETED",
-        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()}",
+        metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} .",
         done=True,
     )
     second_expected_status = JobStatus(
