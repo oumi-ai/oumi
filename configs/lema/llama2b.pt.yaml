@@ -25,7 +25,7 @@ data:
     target_col: "text"
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: TRL_SFT # or LEMA
   save_steps: 500
   per_device_train_batch_size: 2 # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
   gradient_accumulation_steps: 128

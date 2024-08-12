@@ -59,6 +59,9 @@ class Trainer(BaseTrainer):
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
+        self.telemetry = TelemetryTracker()
+        self.start_time = time.perf_counter()
+
         self.model = model
         self.tokenizer = tokenizer
         self.params = args
@@ -88,7 +91,8 @@ class Trainer(BaseTrainer):
 
         if self.params.compile:
             self.log("Compiling model...")
-            model = cast(torch.nn.Module, torch.compile(model))
+            with self.telemetry.timer("compile model"):
+                model = cast(torch.nn.Module, torch.compile(model))
 
         self.scaler = torch.amp.GradScaler(device=self.device_type, enabled=False)
 
@@ -109,7 +113,8 @@ class Trainer(BaseTrainer):
         # TODO: OPE-219 - hook-up fsdp flag
         if is_distributed():
             # Wrap model for distributed training
-            model = prepare_model_for_distributed(model, use_fsdp=False)
+            with self.telemetry.timer("wrap model for distributed"):
+                model = prepare_model_for_distributed(model, use_fsdp=False)
 
         self.callbacks = callbacks if callbacks is not None else []
 
@@ -124,8 +129,6 @@ class Trainer(BaseTrainer):
         self.train_dataloader = self._get_train_dataloader()
         self.eval_dataloader = self._get_eval_dataloader() if eval_dataset else None
 
-        self.telemetry = TelemetryTracker()
-        self.start_time = time.perf_counter()
         self._init_logging()
 
     #
@@ -171,13 +174,17 @@ class Trainer(BaseTrainer):
 
                 if self.state.global_step >= total_steps:
                     self.log(f"Reached {total_steps} global steps. Training completed.")
-                    self.log(
-                        f"Training runtime: {time.perf_counter() - self.start_time}s"
-                    )
                     break
+
+        self.log(
+            f"Training finished! Global step: {self.state.global_step} "
+            f"Training runtime: {time.perf_counter() - self.start_time}s"
+        )
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
+        epoch_start_time = time.perf_counter()
+
         self.model.train()
         torch.cuda.empty_cache()
         self.optimizer.zero_grad(set_to_none=True)
@@ -185,16 +192,28 @@ class Trainer(BaseTrainer):
 
         data_iter = iter(self.train_dataloader)
 
+        gradient_accumulation_steps = max(1, self.params.gradient_accumulation_steps)
+
         while True:
-            if micro_step % self.params.gradient_accumulation_steps == 0:
+            if micro_step % gradient_accumulation_steps == 0:
                 self._process_callbacks("on_step_begin")
+
+            # True if `max_steps` is configured and we reached the limit.
+            stop_on_max_steps_limit = (
+                self.params.max_steps > 0
+                and (self.state.global_step + 1) >= self.params.max_steps
+            )
+            # End of logical step. May include multiple micro steps
+            # if gradient_accumulation_steps > 1.
+            end_of_global_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
 
             with self.telemetry.timer("fetching batch"):
                 try:
                     batch = next(data_iter)
                 except StopIteration:
+                    # FIXME Update metrics and log
                     self.log("End of epoch")
-                    return
+                    break
 
             with self.telemetry.timer("moving batch to device"):
                 batch = {
@@ -210,18 +229,18 @@ class Trainer(BaseTrainer):
 
             with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
-                    micro_step + 1
-                ) % self.params.gradient_accumulation_steps == 0
+                    end_of_global_step or stop_on_max_steps_limit
+                )
 
                 outputs = self.model(**batch)
-                loss = outputs["loss"] / self.params.gradient_accumulation_steps
+                loss = outputs["loss"] / gradient_accumulation_steps
                 # assert loss.dtype is torch.bfloat16
                 # assert outputs["logits"].dtype is torch.bfloat16
 
             with self.telemetry.timer("loss backward"):
                 self.scaler.scale(loss).backward()
 
-            if (micro_step + 1) % self.params.gradient_accumulation_steps == 0:
+            if end_of_global_step or stop_on_max_steps_limit:
                 with self.telemetry.timer("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
@@ -243,10 +262,13 @@ class Trainer(BaseTrainer):
 
                 self._process_callbacks("on_step_end")
 
-                if self.state.global_step % self.params.logging_steps == 0:
+                if self.params.logging_steps > 0 and (
+                    stop_on_max_steps_limit
+                    or (self.state.global_step % self.params.logging_steps == 0)
+                ):
                     # Log metrics
                     elapsed = time.perf_counter() - self.start_time
-                    loss_value = loss.item() * self.params.gradient_accumulation_steps
+                    loss_value = loss.item() * gradient_accumulation_steps
                     metrics = {
                         "train/loss": loss_value,
                         "learning_rate": last_lr,
@@ -283,10 +305,17 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-            if self.state.global_step >= self.params.max_steps:
+            if stop_on_max_steps_limit:
+                self.log(f"Reached {self.params.max_steps} max steps condition.")
                 break
 
             micro_step += 1
+
+        self.log(
+            f"End of epoch. "
+            f"Global step: {self.state.global_step}. "
+            f"Epoch runtime: {time.perf_counter() - epoch_start_time}s"
+        )
 
     #
     # Evaluation
