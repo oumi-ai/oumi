@@ -220,7 +220,7 @@ class TrainingParams(BaseParams):
         else:
             config_class = transformers.TrainingArguments
 
-        return config_class(
+        result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -264,10 +264,18 @@ class TrainingParams(BaseParams):
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
+            accelerator_config={  # accelerator config for multi-device training
+                "split_batches": False,
+                "dispatch_batches": False,
+                "even_batches": True,
+                "use_seedable_sampler": True,
+            },
             seed=self.seed,
             data_seed=self.seed,
             **self.trainer_kwargs,
         )
+        assert isinstance(result, transformers.TrainingArguments)
+        return result
 
     def _get_hf_report_to(self) -> List[str]:
         """Gets the list of reporting tools enabled for the current instance.
