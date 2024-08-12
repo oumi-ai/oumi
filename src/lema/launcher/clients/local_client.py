@@ -69,9 +69,10 @@ class LocalClient:
         if self._LEMA_LOGGING_DIR in env_copy:
             logging_dir = Path(env_copy[self._LEMA_LOGGING_DIR])
             logging_dir.mkdir(parents=True, exist_ok=True)
-            start_time = int(time.time())
-            job.stderr = str(logging_dir / f"{start_time}_{job.status.id}.stderr")
-            job.stdout = str(logging_dir / f"{start_time}_{job.status.id}.stdout")
+            dt = datetime.now()
+            log_format = f"{dt:%Y_%m_%d_%H_%M_%S}_{dt.microsecond // 1000:03d}"
+            job.stderr = str(logging_dir / f"{log_format}_{job.status.id}.stderr")
+            job.stdout = str(logging_dir / f"{log_format}_{job.status.id}.stdout")
         # Always change to the working directory before running the job.
         working_dir_cmd = f"cd {job.config.working_dir}"
         setup_cmds = job.config.setup or ""
