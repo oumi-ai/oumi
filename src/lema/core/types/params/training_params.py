@@ -181,6 +181,17 @@ class TrainingParams(BaseParams):
     # Can only be set if dataloader_num_workers >= 1.
     dataloader_prefetch_factor: Optional[int] = None
 
+    # If set to `True`, the dataloader is only iterated through on the main process
+    # (rank 0), and then the batches are split and broadcast to each process.
+    # This can reduce the number of requests to the dataset, and helps ensure
+    # that each example is seen by max one GPU, but may become a perfomance
+    # bottleneck if large number of GPUs is used.
+    # If set to `False`, the dataloader is iterated through on each GPU process.
+    # If unspecified (`None`), then `True` or `False` is auto-selected based on
+    # heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
+    # NOTE: We recommend to benchmark your setup, and configure as `True` or `False`.
+    dataloader_main_process_only: Optional[bool] = False
+
     # When using distributed training, the value of the flag `find_unused_parameters`
     # passed to `DistributedDataParallel`. Will default to `False` if gradient
     # checkpointing is used, `True` otherwise.
@@ -219,6 +230,8 @@ class TrainingParams(BaseParams):
             config_class = trl.DPOConfig
         else:
             config_class = transformers.TrainingArguments
+
+        dispatch_batches = self.dataloader_main_process_only
 
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
@@ -264,10 +277,10 @@ class TrainingParams(BaseParams):
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
-            dispatch_batches=False,
+            dispatch_batches=dispatch_batches,
             accelerator_config={  # accelerator config for multi-device training
                 "split_batches": False,
-                "dispatch_batches": False,
+                "dispatch_batches": dispatch_batches,
                 "even_batches": True,
                 "use_seedable_sampler": True,
             },
