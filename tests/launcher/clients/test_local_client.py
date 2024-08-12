@@ -1,6 +1,6 @@
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from io import TextIOWrapper
 from subprocess import PIPE
 from unittest.mock import Mock, call, patch
@@ -153,7 +153,7 @@ def test_local_client_submit_job_execution_with_logging(
             "LEMA_LOGGING_DIR": output_temp_dir,
         }
         mock_datetime.fromtimestamp.return_value = datetime.fromtimestamp(10)
-        mock_datetime.now.return_value = datetime.fromtimestamp(10.1234)
+        mock_datetime.now.return_value = datetime.fromtimestamp(10.1234, timezone.utc)
         mock_time.time.return_value = 10
         mock_process = Mock()
         mock_popen.return_value = mock_process
@@ -165,10 +165,10 @@ def test_local_client_submit_job_execution_with_logging(
 pip install -r requirements.txt
 ./hello_world.sh"""
         stdout_handler = open(
-            f"{output_temp_dir}/1969_12_31_16_00_10_123_0.stdout", "w"
+            f"{output_temp_dir}/1970_01_01_00_00_10_123_0.stdout", "w"
         )
         std_err_handler = open(
-            f"{output_temp_dir}/1969_12_31_16_00_10_123_0.stderr", "w"
+            f"{output_temp_dir}/1970_01_01_00_00_10_123_0.stderr", "w"
         )
         mock_popen.assert_called_once_with(
             expected_cmds,
@@ -187,7 +187,7 @@ pip install -r requirements.txt
             cluster="",
             status="COMPLETED",
             metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} ."
-            f" Logs available at: {output_temp_dir}/1969_12_31_16_00_10_123_0.stdout",
+            f" Logs available at: {output_temp_dir}/1970_01_01_00_00_10_123_0.stdout",
             done=True,
         )
         assert job_status == expected_status
