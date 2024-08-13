@@ -269,16 +269,18 @@ class Trainer(BaseTrainer):
 
                 self.state.global_step += 1
                 progress_bar.update(1)
-                # Skip telemetry for the first step if requested, which is often slower
-                # due to optimizer initialization, model compilation, etc.
-                if not self.params.logging_first_step and self.state.global_step == 1:
-                    self.telemetry = TelemetryTracker()
 
                 self._process_callbacks("on_step_end")
 
-                if self.params.logging_steps > 0 and (
-                    stop_on_max_steps_limit
-                    or (self.state.global_step % self.params.logging_steps == 0)
+                if (
+                    self.params.logging_steps > 0
+                    and not (
+                        self.state.global_step == 0 and self.params.logging_first_step
+                    )
+                    and (
+                        stop_on_max_steps_limit
+                        or (self.state.global_step % self.params.logging_steps == 0)
+                    )
                 ):
                     # Log metrics
                     elapsed = time.perf_counter() - self.start_time
@@ -318,6 +320,11 @@ class Trainer(BaseTrainer):
                     # To enable distributed evaluation, th eval function needs
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
+
+                # Skip telemetry for the first step if requested, which is often slower
+                # due to optimizer initialization, model compilation, etc.
+                if not self.params.logging_first_step and self.state.global_step == 1:
+                    self.telemetry = TelemetryTracker()
 
             if stop_on_max_steps_limit:
                 self.log(f"Reached {self.params.max_steps} max steps condition.")
