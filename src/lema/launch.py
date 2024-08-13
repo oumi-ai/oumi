@@ -3,13 +3,53 @@ import itertools
 import sys
 import time
 from dataclasses import dataclass
+from enum import Enum
+from multiprocessing.pool import ThreadPool
 from typing import Callable, List, Optional
 
 import lema.launcher as launcher
 from lema.core.types.base_cluster import BaseCluster, JobStatus
 from lema.utils.logging import logger
 
-_START_TIME = -1.0
+
+class _LauncherAction(Enum):
+    """An enumeration of actions that can be taken by the launcher."""
+
+    UP = "up"
+    DOWN = "down"
+    STATUS = "status"
+    STOP = "stop"
+    RUN = "run"
+    WHICH_CLOUDS = "which"
+
+
+@dataclass
+class _LaunchArgs:
+    """Dataclass to hold launch arguments."""
+
+    # The path to the configuration file to run.
+    job: Optional[str]
+
+    # The cluster to use for the job.
+    cluster: Optional[str]
+
+    # A flag indicating whether to detach from the job after starting.
+    detach: bool
+
+    # The action to take.
+    action: _LauncherAction
+
+    # Additional arguments to pass to the job.
+    additional_args: List[str]
+
+    # The cloud to use for the specific action.
+    cloud: Optional[str]
+
+    # The user for a job or cluster. Only used by Polaris.
+    user: Optional[str]
+
+    # The job id for the specific action.
+    job_id: Optional[str]
 
 
 def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
@@ -37,54 +77,121 @@ def _create_job_poller(
     return is_done
 
 
-@dataclass
-class _LaunchArgs:
-    """Dataclass to hold launch arguments."""
-
-    # The path to the configuration file to run.
-    job: Optional[str]
-
-    # The cluster to use for the job.
-    cluster: Optional[str]
-
-    # A flag indicating whether to detach from the job after starting.
-    detach: bool
-
-    # Additional arguments to pass to the job.
-    additional_args: List[str]
+def _parse_action(action: Optional[str]) -> _LauncherAction:
+    """Parses the action from the command line arguments."""
+    if not action:
+        return _LauncherAction.UP
+    try:
+        return _LauncherAction(action)
+    except ValueError:
+        raise ValueError(f"Invalid action: {action}")
 
 
 def parse_cli() -> _LaunchArgs:
     """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        "-j", "--job", default=None, help="Path to the configuration file"
+        "-j", "--job", default=None, help="The job id for the specific action."
     )
 
     parser.add_argument(
-        "-c", "--cluster", default=None, help="The cluster name to use for the job"
+        "-p", "--path", default=None, help="Path to the job configuration file."
     )
 
     parser.add_argument(
-        "-d", "--detach", default=False, help="Detach from the job after starting"
+        "-c", "--cluster", default=None, help="The cluster name to use for the job."
+    )
+
+    parser.add_argument(
+        "-d", "--detach", default=False, help="Detach from the job after starting."
+    )
+
+    parser.add_argument(
+        "-a",
+        "--action",
+        default=False,
+        help="The action to take. "
+        "Supported actions: up, down, status, stop, run, which. "
+        "Defaults to `up` if not specified.",
+    )
+
+    parser.add_argument(
+        "--cloud", default=None, help="The cloud to use for the specific action."
+    )
+
+    parser.add_argument(
+        "-u", "--user", default=None, help="The user for the specific action."
     )
 
     args, unknown = parser.parse_known_args()
-    return _LaunchArgs(args.job, args.cluster, args.detach, unknown)
+    return _LaunchArgs(
+        job=args.path,
+        cluster=args.cluster,
+        detach=args.detach,
+        action=_parse_action(args.action),
+        cloud=args.cloud,
+        user=args.user,
+        job_id=args.job,
+        additional_args=unknown,
+    )
 
 
-def main() -> None:
-    """Main entry point for launching jobs on LeMa.
+def _down_worker(launch_args: _LaunchArgs) -> None:
+    """Turns down a cluster. Executed in a worker thread."""
+    if not launch_args.cluster:
+        raise ValueError("No cluster specified for down action.")
+    if launch_args.cloud:
+        cloud = launcher.get_cloud(launch_args.cloud)
+        cluster = cloud.get_cluster(launch_args.cluster)
+        if cluster:
+            cluster.down()
+        else:
+            logger.warn(f"Cluster {launch_args.cluster} not found.")
+        return
+    # Make a best effort to find a single cluster to turn down without a cloud.
+    clusters = []
+    for name in launcher.which_clouds():
+        cloud = launcher.get_cloud(name)
+        cluster = cloud.get_cluster(launch_args.cluster)
+        if cluster:
+            clusters.append(cluster)
+    if len(clusters) == 0:
+        return
+    if len(clusters) == 1:
+        clusters[0].down()
+    else:
+        logger.warn(
+            f"Multiple clusters found with name {launch_args.cluster}. "
+            "Specify a cloud to turn down with `--cloud`."
+        )
 
-    Arguments are fetched from the following sources, ordered by
-    decreasing priority:
-    1. [Optional] Arguments provided as CLI arguments, in dotfile format
-    2. [Optional] Arguments provided in a yaml config file
-    3. Default arguments values defined in the data class
-    """
-    # Load configuration
-    launch_args = parse_cli()
 
+def stop(launch_args: _LaunchArgs) -> None:
+    """Stops a job on LeMa."""
+    if not launch_args.cluster:
+        raise ValueError("No cluster specified for stop action.")
+    if not launch_args.job_id:
+        raise ValueError("No job specified for stop action.")
+    if not launch_args.cloud:
+        raise ValueError("No cloud specified for stop action.")
+    launcher.stop(launch_args.job_id, launch_args.cloud, launch_args.cluster)
+
+
+def down(launch_args: _LaunchArgs) -> None:
+    """Turns down a cluster."""
+    if not launch_args.cluster:
+        raise ValueError("No cluster specified for down action.")
+    worker_pool = ThreadPool(processes=1)
+    worker_result = worker_pool.apply_async(_down_worker, (launch_args,))
+    _print_and_wait(
+        f"Turning down cluster `{launch_args.cluster}`", worker_result.ready
+    )
+    worker_result.wait()
+
+
+def launch(launch_args: _LaunchArgs) -> None:
+    """Launches a job on LeMa."""
     config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         launch_args.job, launch_args.additional_args, logger=logger
     )
@@ -100,8 +207,36 @@ def main() -> None:
     _print_and_wait(
         f"Running job {job_status.id}", _create_job_poller(job_status, running_cluster)
     )
-    logger.info(f"Job {job_status.id} finished with status {job_status.status}")
-    logger.info(f"Job metadata: {job_status.metadata}")
+    final_status = running_cluster.get_job(job_status.id)
+    if final_status:
+        logger.info(f"Job {final_status.id} finished with status {final_status.status}")
+        logger.info(f"Job metadata: {final_status.metadata}")
+
+
+def main() -> None:
+    """Main entry point for launching jobs on LeMa.
+
+    Arguments are fetched from the following sources, ordered by
+    decreasing priority:
+    1. [Optional] Arguments provided as CLI arguments, in dotfile format
+    2. [Optional] Arguments provided in a yaml config file
+    3. Default arguments values defined in the data class
+    """
+    launch_args = parse_cli()
+    if launch_args.action == _LauncherAction.UP:
+        launch(launch_args)
+    elif launch_args.action == _LauncherAction.DOWN:
+        pass
+    elif launch_args.action == _LauncherAction.STATUS:
+        pass
+    elif launch_args.action == _LauncherAction.STOP:
+        pass
+    elif launch_args.action == _LauncherAction.RUN:
+        pass
+    elif launch_args.action == _LauncherAction.WHICH_CLOUDS:
+        pass
+    else:
+        raise ValueError(f"Invalid action: {launch_args.action}")
 
 
 if __name__ == "__main__":
