@@ -246,8 +246,6 @@ class Trainer(BaseTrainer):
 
                 outputs = self.model(**batch)
                 loss = outputs["loss"] / gradient_accumulation_steps
-                # assert loss.dtype is torch.bfloat16
-                # assert outputs["logits"].dtype is torch.bfloat16
 
             with self._telemetry_block("loss backward"):
                 self.scaler.scale(loss).backward()
@@ -271,6 +269,10 @@ class Trainer(BaseTrainer):
 
                 self.state.global_step += 1
                 progress_bar.update(1)
+                # Skip telemetry for the first step if requested, which is often slower
+                # due to optimizer initialization, model compilation, etc.
+                if not self.params.logging_first_step and self.state.global_step == 1:
+                    self.telemetry = TelemetryTracker()
 
                 self._process_callbacks("on_step_end")
 

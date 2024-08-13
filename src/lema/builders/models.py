@@ -90,6 +90,10 @@ def build_lema_model(
     if model_params.adapter_model is not None:
         raise NotImplementedError
 
+    dtype = model_params.torch_dtype()
+    model = model.to(dtype=dtype)
+    # Needed for MFUTrainerCallback
+    model.dtype = dtype
     return model
 
 
