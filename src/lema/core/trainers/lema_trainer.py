@@ -1,6 +1,7 @@
 import contextlib
 import os
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Dict, List, Optional, cast
@@ -91,7 +92,7 @@ class Trainer(BaseTrainer):
 
         if self.params.compile:
             self.log("Compiling model...")
-            with self.telemetry.timer("compile model"):
+            with self._telemetry_block("compile model"):
                 model = cast(torch.nn.Module, torch.compile(model))
 
         self.scaler = torch.amp.GradScaler(device=self.device_type, enabled=False)
@@ -113,7 +114,7 @@ class Trainer(BaseTrainer):
         # TODO: OPE-219 - hook-up fsdp flag
         if is_distributed():
             # Wrap model for distributed training
-            with self.telemetry.timer("wrap model for distributed"):
+            with self._telemetry_block("wrap model for distributed"):
                 model = prepare_model_for_distributed(model, use_fsdp=False)
 
         self.callbacks = callbacks if callbacks is not None else []
@@ -181,6 +182,15 @@ class Trainer(BaseTrainer):
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
 
+    @contextmanager
+    def _telemetry_block(self, name: str):
+        with self.telemetry.timer(
+            name
+        ) as timer_context, torch.profiler.record_function(
+            name
+        ) as record_function_context:
+            yield (timer_context, record_function_context)
+
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
         epoch_start_time = time.perf_counter()
@@ -207,7 +217,7 @@ class Trainer(BaseTrainer):
             # if gradient_accumulation_steps > 1.
             end_of_global_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
 
-            with self.telemetry.timer("fetching batch"):
+            with self._telemetry_block("fetching batch"):
                 try:
                     batch = next(data_iter)
                 except StopIteration:
@@ -215,19 +225,19 @@ class Trainer(BaseTrainer):
                     self.log("End of epoch")
                     break
 
-            with self.telemetry.timer("moving batch to device"):
+            with self._telemetry_block("moving batch to device"):
                 batch = {
                     k: v.to(self.device, non_blocking=True) for k, v in batch.items()
                 }
 
-            with self.telemetry.timer("computing tokens"):
+            with self._telemetry_block("computing tokens"):
                 num_tokens = batch["input_ids"].ne(self.tokenizer.pad_token_id).sum()
 
-            with self.telemetry.timer("syncing to cpu"):
+            with self._telemetry_block("syncing to cpu"):
                 num_tokens = num_tokens.item()
                 self.state.total_tokens_seen += num_tokens
 
-            with self.mixed_precision_ctx, self.telemetry.timer("model forward"):
+            with self.mixed_precision_ctx, self._telemetry_block("model forward"):
                 self.model.require_backward_grad_sync = (  # type: ignore
                     end_of_global_step or stop_on_max_steps_limit
                 )
@@ -237,11 +247,11 @@ class Trainer(BaseTrainer):
                 # assert loss.dtype is torch.bfloat16
                 # assert outputs["logits"].dtype is torch.bfloat16
 
-            with self.telemetry.timer("loss backward"):
+            with self._telemetry_block("loss backward"):
                 self.scaler.scale(loss).backward()
 
             if end_of_global_step or stop_on_max_steps_limit:
-                with self.telemetry.timer("optimizer step"):
+                with self._telemetry_block("optimizer step"):
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(), max_norm=self.max_norm
