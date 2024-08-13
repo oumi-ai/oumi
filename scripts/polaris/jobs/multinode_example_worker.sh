@@ -64,7 +64,7 @@ fi
 MAX_STEPS=20
 if "${ENABLE_PYTORCH_PROFILER}"; then
    # Use a smaller number of steps with Profiler to keep traces usable.
-   MAX_STEPS=5
+   MAX_STEPS=3
    PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
    training.profiler.enable_cpu_profiling=true
    training.profiler.enable_cuda_profiling=true"
@@ -108,7 +108,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
         "training.optimizer='adafactor'" \
-        "training.per_device_train_batch_size=4" \
+        "training.per_device_train_batch_size=3" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     set -x  # Print "accelerate" command with expanded variables

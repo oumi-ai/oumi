@@ -138,7 +138,8 @@ class Trainer(BaseTrainer):
     def train(self, resume_from_checkpoint: Optional[str] = None):
         """Trains the model."""
         if resume_from_checkpoint:
-            self._load_from_checkpoint(resume_from_checkpoint)
+            with torch.profiler.record_function("load_from_checkpoint"):
+                self._load_from_checkpoint(resume_from_checkpoint)
 
         if is_local_process_zero():
             log_trainable_parameters(self.model)
@@ -153,29 +154,32 @@ class Trainer(BaseTrainer):
             disable=not is_world_process_zero(),
         ) as progress_bar:
             for epoch in range(self.state.epoch, self.params.num_train_epochs):
-                self._set_sampler_epoch(epoch)
-                self._train_epoch(progress_bar)
+                with torch.profiler.record_function(f"epoch_{epoch}"):
+                    self._set_sampler_epoch(epoch)
+                    self._train_epoch(progress_bar)
 
-                if self.params.save_epoch:
-                    self.save_state()
+                    if self.params.save_epoch:
+                        self.save_state()
 
-                if (
-                    self.eval_dataloader
-                    and self.params.eval_strategy == "epoch"
-                    and is_world_process_zero()
-                ):
-                    # TODO: OPE-223 - only the global leader is used for evaluation
-                    # To enable distributed evaluation, th eval function needs
-                    # to be updated to aggregate metrics accross all workers.
-                    self.evaluate()
+                    if (
+                        self.eval_dataloader
+                        and self.params.eval_strategy == "epoch"
+                        and is_world_process_zero()
+                    ):
+                        # TODO: OPE-223 - only the global leader is used for evaluation
+                        # To enable distributed evaluation, the eval function needs
+                        # to be updated to aggregate metrics accross all workers.
+                        self.evaluate()
 
-                self.state.epoch += 1
+                    self.state.epoch += 1
 
-                barrier()
+                    barrier()
 
-                if self.state.global_step >= total_steps:
-                    self.log(f"Reached {total_steps} global steps. Training completed.")
-                    break
+                    if self.state.global_step >= total_steps:
+                        self.log(
+                            f"Reached {total_steps} global steps. Training completed."
+                        )
+                        break
 
         self.log(
             f"Training finished! Global step: {self.state.global_step} "
@@ -184,12 +188,10 @@ class Trainer(BaseTrainer):
 
     @contextmanager
     def _telemetry_block(self, name: str):
-        with self.telemetry.timer(
+        with torch.profiler.record_function(
             name
-        ) as timer_context, torch.profiler.record_function(
-            name
-        ) as record_function_context:
-            yield (timer_context, record_function_context)
+        ) as record_function_context, self.telemetry.timer(name) as timer_context:
+            yield (record_function_context, timer_context)
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
