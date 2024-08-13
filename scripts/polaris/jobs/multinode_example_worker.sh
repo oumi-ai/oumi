@@ -84,6 +84,7 @@ SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
 training.max_steps=${MAX_STEPS}
 training.save_steps=0
 training.save_final_model=false
+training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
 training.dataloader_prefetch_factor=32
 training.log_model_summary=false

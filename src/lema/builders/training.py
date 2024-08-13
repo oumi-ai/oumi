@@ -1,13 +1,16 @@
 import warnings
+from pprint import pformat
 from typing import Callable, Type, cast
 
 import transformers
 import trl
 
+from lema.core.distributed import is_world_process_zero
 from lema.core.trainers.hf_trainer import HuggingFaceTrainer
 from lema.core.trainers.lema_trainer import Trainer as LemaTrainer
 from lema.core.types import TrainerType, TrainingParams
 from lema.core.types.base_trainer import BaseTrainer
+from lema.utils.logging import logger
 
 
 def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
@@ -37,9 +40,10 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
                 training_args = cast(TrainingParams, training_args)
                 training_args.validate()
 
-            trainer = HuggingFaceTrainer(
-                cls(*args, **kwargs, args=training_args.to_hf())
-            )
+            hf_args = training_args.to_hf()
+            if is_world_process_zero():
+                logger.info(pformat(hf_args))
+            trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args))
             if callbacks:
                 # TODO(OPE-250): Define generalizable callback abstraction
                 # Incredibly ugly, but this is the only way to add callbacks that add

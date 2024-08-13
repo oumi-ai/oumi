@@ -181,6 +181,18 @@ class TrainingParams(BaseParams):
     # Can only be set if dataloader_num_workers >= 1.
     dataloader_prefetch_factor: Optional[int] = None
 
+    # If set to `True`, the dataloader is only iterated through on the main process
+    # (rank 0), then the batches are split and broadcast to each process.
+    # This can reduce the number of requests to the dataset, and helps ensure
+    # that each example is seen by max one GPU per epoch, but may become a performance
+    # bottleneck if a large number of GPUs is used.
+    # If set to `False`, the dataloader is iterated through on each
+    # GPU process.
+    # If set to `None` (*default*), then `True` or `False` is auto-selected based on
+    # heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
+    # NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
+    dataloader_main_process_only: Optional[bool] = None
+
     # When using distributed training, the value of the flag `find_unused_parameters`
     # passed to `DistributedDataParallel`. Will default to `False` if gradient
     # checkpointing is used, `True` otherwise.
@@ -220,7 +232,9 @@ class TrainingParams(BaseParams):
         else:
             config_class = transformers.TrainingArguments
 
-        return config_class(
+        dispatch_batches = self.dataloader_main_process_only
+
+        result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
@@ -264,10 +278,21 @@ class TrainingParams(BaseParams):
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
+            dispatch_batches=dispatch_batches,
+            # TODO Switch to `accelerator_config` for `dispatch_batches`
+            # accelerator_config={  # accelerator config for multi-device training
+            #    "split_batches": False,
+            #    "dispatch_batches": dispatch_batches,
+            #    "even_batches": True,
+            #    "use_seedable_sampler": True,
+            # },
             seed=self.seed,
-            data_seed=self.seed,
+            # TODO Re-enable `data_seed`. Should it depend on RANK?
+            # data_seed=self.seed,
             **self.trainer_kwargs,
         )
+        assert isinstance(result, transformers.TrainingArguments)
+        return result
 
     def _get_hf_report_to(self) -> List[str]:
         """Gets the list of reporting tools enabled for the current instance.
