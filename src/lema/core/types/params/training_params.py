@@ -184,7 +184,7 @@ class TrainingParams(BaseParams):
     # If set to `True`, the dataloader is only iterated through on the main process
     # (rank 0), then the batches are split and broadcast to each process.
     # This can reduce the number of requests to the dataset, and helps ensure
-    # that each example is seen by max one GPU per epoch, but may become a perfomance
+    # that each example is seen by max one GPU per epoch, but may become a performance
     # bottleneck if a large number of GPUs is used.
     # If set to `False`, the dataloader is iterated through on each
     # GPU process.
