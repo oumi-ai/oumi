@@ -42,7 +42,7 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
 
             hf_args = training_args.to_hf()
             if is_world_process_zero():
-                logger.debug(pformat(hf_args))
+                logger.info(pformat(hf_args))
             trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args))
             if callbacks:
                 # TODO(OPE-250): Define generalizable callback abstraction

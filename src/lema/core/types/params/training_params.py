@@ -184,14 +184,14 @@ class TrainingParams(BaseParams):
     # If set to `True`, the dataloader is only iterated through on the main process
     # (rank 0), then the batches are split and broadcast to each process.
     # This can reduce the number of requests to the dataset, and helps ensure
-    # that each example is seen by max one GPU per epoch, but may become a perfomance
+    # that each example is seen by max one GPU per epoch, but may become a performance
     # bottleneck if a large number of GPUs is used.
     # If set to `False`, the dataloader is iterated through on each
     # GPU process.
     # If set to `None` (*default*), then `True` or `False` is auto-selected based on
     # heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
     # NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
-    dataloader_main_process_only: Optional[bool] = None
+    dataloader_main_process_only: Optional[bool] = False
 
     # When using distributed training, the value of the flag `find_unused_parameters`
     # passed to `DistributedDataParallel`. Will default to `False` if gradient
@@ -279,14 +279,14 @@ class TrainingParams(BaseParams):
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,
             dispatch_batches=dispatch_batches,
-            accelerator_config={  # accelerator config for multi-device training
-                "split_batches": False,
-                "dispatch_batches": dispatch_batches,
-                "even_batches": True,
-                "use_seedable_sampler": True,
-            },
+            # accelerator_config={  # accelerator config for multi-device training
+            #    "split_batches": False,
+            #    "dispatch_batches": dispatch_batches,
+            #    "even_batches": True,
+            #    "use_seedable_sampler": True,
+            # },
             seed=self.seed,
-            data_seed=self.seed,
+            # data_seed=self.seed,
             **self.trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
