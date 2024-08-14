@@ -16,6 +16,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     barrier,
@@ -28,7 +29,7 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.types import DatasetSplit, TrainingConfig
+from lema.core.types import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
@@ -171,26 +172,35 @@ def _create_training_perfomance_callbacks_if_needed(
 ) -> List[Any]:
     if not config.training.include_performance_metrics:
         return []
-    elif config.model.model_max_length is None:
-        logger.warning(
-            "model_max_length must be set to log MFU performance information."
-        )
-        return []
     elif not torch.cuda.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping callback.")
         return []
 
-    num_total_params = count_model_parameters(model)
-    num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
-    logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-    # Ignore attention and rematerialization to ensure metric matches most
-    # common implementations.
-    mfu_callback = MfuTrainerCallback(
-        dtype=model.dtype,
-        num_params=num_mfu_params,
-        sequence_length=config.model.model_max_length,
-    )
-    result = [mfu_callback]
+    result = []
+    if config.model.model_max_length is not None and config.model.model_max_length > 0:
+        num_total_params = count_model_parameters(model)
+        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
+        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+        # Ignore attention and rematerialization to ensure metric matches most
+        # common implementations.
+        mfu_callback = MfuTrainerCallback(
+            dtype=model.dtype,
+            num_params=num_mfu_params,
+            sequence_length=config.model.model_max_length,
+        )
+        result.append(mfu_callback)
+    else:
+        logger.warning(
+            "model_max_length must be set to log MFU performance information."
+        )
+
+    # TODO Add a separate param to enable HfMfuTrainerCallback
+    if config.training.trainer_type in (
+        TrainerType.TRL_SFT,
+        TrainerType.TRL_DPO,
+        TrainerType.HF,
+    ):
+        result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
     return result
 
