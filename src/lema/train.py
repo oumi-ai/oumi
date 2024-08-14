@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import random
 import time
-from typing import Callable, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 import torch
@@ -166,6 +166,33 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
+def _create_training_perfomance_callbacks(
+    config: TrainingConfig, model: torch.nn.Module
+) -> List[Any]:
+    if config.model.model_max_length is None:
+        logger.warning(
+            "model_max_length must be set to log MFU performance information."
+        )
+        return []
+    elif not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping callback.")
+        return []
+
+    num_total_params = count_model_parameters(model)
+    num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
+    logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+    # Ignore attention and rematerialization to ensure metric matches most
+    # common implementations.
+    mfu_callback = MfuTrainerCallback(
+        dtype=model.dtype,
+        num_params=num_mfu_params,
+        sequence_length=config.model.model_max_length,
+    )
+    result = [mfu_callback]
+
+    return result
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -227,28 +254,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    training_callbacks = []
-    if config.training.include_performance_metrics:
-        if config.model.model_max_length is None:
-            raise ValueError(
-                "model_max_length must be set to log performance information."
-            )
-        if not torch.cuda.is_available():
-            logger.warning("MFU logging is only supported on GPU. Skipping callback.")
-        else:
-            num_total_params = count_model_parameters(model)
-            num_mfu_params = (
-                num_total_params.all_params - num_total_params.embedding_params
-            )
-            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-            # Ignore attention and rematerialization to ensure metric matches most
-            # common implementations.
-            mfu_callback = MfuTrainerCallback(
-                dtype=model.dtype,
-                num_params=num_mfu_params,
-                sequence_length=config.model.model_max_length,
-            )
-            training_callbacks.append(mfu_callback)
+    training_callbacks = (
+        _create_training_perfomance_callbacks(config, model)
+        if config.training.include_performance_metrics
+        else []
+    )
 
     trainer = create_trainer_fn(
         model=model,
