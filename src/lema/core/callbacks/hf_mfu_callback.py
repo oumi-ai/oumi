@@ -39,6 +39,7 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
             dtype: The data type of the model.
         """
         self._dtype = dtype
+        self._time_of_second_step: Optional[float] = None
         self._flops_at_second_step: Optional[float] = None
         self._time_for_train_steps = 0.0
         self._first_step_finished = False
