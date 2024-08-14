@@ -275,7 +275,7 @@ class Trainer(BaseTrainer):
                 if (
                     self.params.logging_steps > 0
                     and not (
-                        self.state.global_step == 0 and self.params.logging_first_step
+                        self.state.global_step == 1 and self.params.logging_first_step
                     )
                     and (
                         stop_on_max_steps_limit

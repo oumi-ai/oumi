@@ -35,11 +35,11 @@ class TimerContext(ContextDecorator):
         self.start_time: Optional[float] = None
 
         # Enable to accurately time the duration of ops on CUDA.
-        self.synchronize: bool = False
+        self.cuda_synchronize: bool = False
 
     def __enter__(self) -> "TimerContext":
         """Starts the timer."""
-        if self.synchronize:
+        if self.cuda_synchronize:
             torch.cuda.synchronize()
         self.start_time = time.perf_counter()
         return self
@@ -47,7 +47,7 @@ class TimerContext(ContextDecorator):
     def __exit__(self, *exc) -> bool:
         """Stops the timer and records the elapsed time."""
         if self.start_time is not None:
-            if self.synchronize:
+            if self.cuda_synchronize:
                 torch.cuda.synchronize()
             elapsed_time = time.perf_counter() - self.start_time
             self.measurements.append(elapsed_time)
