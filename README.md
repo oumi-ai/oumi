@@ -159,7 +159,7 @@ Alternatively, you can include `-i 10` into your `sky launch` command (as shown 
 
 ### Multi-GPU Training on a Single Node
 
-If your model fits on a singluar GPU chip, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPU chips and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+If your model fits on a singular GPU chip, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPU chips and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
 
 #### DDP (Distributed Data Parallel)
 
