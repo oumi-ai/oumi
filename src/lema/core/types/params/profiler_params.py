@@ -5,6 +5,78 @@ from lema.core.types.params.base_params import BaseParams
 
 
 @dataclass
+class ProfilerScheduleParams(BaseParams):
+    wait: int = field(
+        default=0,
+        metadata={
+            "help": (
+                "The number of training steps to skip at the beginning of "
+                "each profiling cycle (`ProfilerAction.NONE`). "
+                "Each cycle includes `wait + warmup + active` steps."
+            )
+        },
+    )
+    warmup: int = field(
+        default=1,
+        metadata={
+            "help": (
+                "The number of training steps to do profiling warmup "
+                "(`ProfilerAction.WARMUP`) in each profiling cycle. "
+            )
+        },
+    )
+    active: int = field(
+        default=3,
+        metadata={
+            "help": (
+                "The number of training steps to do active recording "
+                "(`ProfilerAction.RECORD`) in each profiling cycle. "
+            )
+        },
+    )
+    repeat: int = field(
+        default=1,
+        metadata={
+            "help": (
+                "The optional number of profiling cycles. "
+                "Each cycle includes `wait + warmup + active` steps."
+                "The zero value means that the cycles will continue "
+                "until the profiling is finished."
+            )
+        },
+    )
+    skip_first: int = field(
+        default=1,
+        metadata={
+            "help": (
+                "The number of initial training steps to skip at the beginning of "
+                "profiling session (`ProfilerAction.NONE`)."
+            )
+        },
+    )
+
+    def __post_init__(self):
+        """Verifies params."""
+        if not (
+            self.wait >= 0
+            and self.warmup >= 0
+            and self.active > 0
+            and self.repeat >= 0
+            and self.skip_first >= 0
+        ):
+            raise ValueError(
+                "Invalid profiler schedule arguments. The parameters "
+                "wait: {self.wait}, warmup: {self.warmup}, repeat: {self.repeat}"
+                "skip_first: {self.skip_first} must be non-negative."
+            )
+        if not (self.active > 0):
+            raise ValueError(
+                "Invalid profiler schedule arguments. The parameter "
+                "active: {self.active} must be positive."
+            )
+
+
+@dataclass
 class ProfilerParams(BaseParams):
     save_dir: Optional[str] = field(
         default=None,
@@ -76,3 +148,5 @@ class ProfilerParams(BaseParams):
             )
         },
     )
+
+    profiler: ProfilerScheduleParams = field(default_factory=ProfilerScheduleParams)
