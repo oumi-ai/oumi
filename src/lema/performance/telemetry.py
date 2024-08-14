@@ -35,6 +35,7 @@ class TimerContext(ContextDecorator):
         self.start_time: Optional[float] = None
 
         # Enable to accurately time the duration of ops on CUDA.
+        # This should only be used for debuggings since it may increase latency.
         self.cuda_synchronize: bool = False
 
     def __enter__(self) -> "TimerContext":
