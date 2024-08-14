@@ -115,13 +115,15 @@ def calculate_mfu_from_model_flops_per_second(
     device_name: str,
     num_devices: int,
     dtype: torch.dtype,
-    model_flops_per_second: float,
+    model_flops_per_second_on_all_devices: float,
 ) -> float:
     """Returns the number of MFU for the given model flops per second."""
     if num_devices <= 0:
         raise ValueError(f"Must have a positive number of devices: {num_devices}")
     device_flops_per_second = _get_device_flops(device_name, dtype) * num_devices
-    model_flop_utilization = model_flops_per_second / device_flops_per_second
+    model_flop_utilization = (
+        model_flops_per_second_on_all_devices / device_flops_per_second
+    )
     return model_flop_utilization
 
 
@@ -159,5 +161,5 @@ def calculate_mfu(
         device_name=device_name,
         num_devices=num_devices,
         dtype=dtype,
-        model_flops_per_second=model_flops_per_second,
+        model_flops_per_second_on_all_devices=model_flops_per_second,
     )

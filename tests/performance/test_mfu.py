@@ -196,7 +196,7 @@ def test_calculate_mfu_from_model_flops_per_second_parametric(
         device_name=params.device_name,
         num_devices=params.num_devices,
         dtype=params.dtype,
-        model_flops_per_second=(params.model_tflops_per_second * 1e12),
+        model_flops_per_second_on_all_devices=(params.model_tflops_per_second * 1e12),
     )
     assert math.isclose(mfu, params.expected_mfu, abs_tol=_MFU_ABS_TOLERANCE)
 
@@ -285,6 +285,6 @@ def test_mfu_from_model_flops_per_second_bad_num_devices():
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=0,
             dtype=torch.bfloat16,
-            model_flops_per_second=1e9,
+            model_flops_per_second_on_all_devices=1e9,
         )
     assert "Must have a positive number of devices" in str(exception_info.value)
