@@ -251,8 +251,6 @@ class Trainer(BaseTrainer):
 
                 outputs = self.model(**batch)
                 loss = outputs["loss"] / gradient_accumulation_steps
-                # assert loss.dtype is torch.bfloat16
-                # assert outputs["logits"].dtype is torch.bfloat16
 
             with self._telemetry_block("loss backward"):
                 self.scaler.scale(loss).backward()
@@ -279,9 +277,15 @@ class Trainer(BaseTrainer):
 
                 self._process_callbacks("on_step_end")
 
-                if self.params.logging_steps > 0 and (
-                    stop_on_max_steps_limit
-                    or (self.state.global_step % self.params.logging_steps == 0)
+                if (
+                    self.params.logging_steps > 0
+                    and not (
+                        self.state.global_step == 1 and self.params.logging_first_step
+                    )
+                    and (
+                        stop_on_max_steps_limit
+                        or (self.state.global_step % self.params.logging_steps == 0)
+                    )
                 ):
                     # Log metrics
                     elapsed = time.perf_counter() - self.start_time

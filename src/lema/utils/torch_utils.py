@@ -16,12 +16,12 @@ def device_cleanup() -> None:
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
             "GPU memory occupied before cleanup: "
-            f"{get_nvidia_gpu_memory_utilization()} MB"
+            f"{get_nvidia_gpu_memory_utilization()} MiB"
         )
 
         torch.cuda.empty_cache()
 
-        logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MB")
+        logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MiB")
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:
@@ -70,7 +70,7 @@ def log_devices_info() -> None:
     num_devices = torch.cuda.device_count()
     logger.info(f"CPU cores: {ncpus} CUDA devices: {num_devices}")
 
-    def _mem_to_gb(x):
+    def _mem_to_gib(x):
         return round(float(x) / 1024**3, 2)
 
     for i in range(num_devices):
@@ -82,10 +82,10 @@ def log_devices_info() -> None:
         logger.info(
             f"device({i})='{device_name}' "
             f"Capability: {capability} "
-            f"Memory: [Total: {_mem_to_gb(mem_total)}GB "
-            f"Free: {_mem_to_gb(mem_free)}GB "
-            f"Allocated: {_mem_to_gb(mem_allocated)}GB "
-            f"Cached: {_mem_to_gb(mem_reserved)}GB]"
+            f"Memory: [Total: {_mem_to_gib(mem_total)}GiB "
+            f"Free: {_mem_to_gib(mem_free)}GiB "
+            f"Allocated: {_mem_to_gib(mem_allocated)}GiB "
+            f"Cached: {_mem_to_gib(mem_reserved)}GiB]"
         )
 
 
