@@ -269,7 +269,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.profiler,
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
-    ):
+    ) as prof:
+        logger.info(f"Profiler: {prof}")
         verify_torch_distributed_initialized_if_needed()
         trainer.train(
             resume_from_checkpoint=(

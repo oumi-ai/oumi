@@ -126,7 +126,7 @@ def torch_profile(
     if not profile_activities:
         # Nothing to profile. Return noop/null context.
         logger.info(f"{_PROFILER_LOG_PREFIX} Torch Profiler disabled!")
-        yield
+        yield None
         return
 
     logger.info(f"{_PROFILER_LOG_PREFIX} Starting profiling...")
@@ -151,7 +151,7 @@ def torch_profile(
         save_dir_path=save_dir_path,
     )
 
-    with torch.profiler.profile(
+    profiler = torch.profiler.profile(
         activities=profile_activities,
         on_trace_ready=trace_handler,
         record_shapes=params.record_shapes,
@@ -159,10 +159,11 @@ def torch_profile(
         with_stack=params.with_stack,
         with_flops=params.with_flops,
         with_modules=params.with_modules,
-    ):
+    )
+    with profiler:
         try:
             with torch.profiler.record_function(record_function_name):
-                yield
+                yield profiler
         except Exception as e:
             # The inner function raised an error
             import traceback
