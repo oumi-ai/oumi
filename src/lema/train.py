@@ -167,7 +167,7 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
-def _create_training_perfomance_callbacks_if_needed(
+def _create_training_performance_callbacks_if_needed(
     config: TrainingConfig, model: torch.nn.Module
 ) -> List[Any]:
     if not config.training.include_performance_metrics:
@@ -273,7 +273,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
-        callbacks=(_create_training_perfomance_callbacks_if_needed(config, model)),
+        callbacks=_create_training_performance_callbacks_if_needed(config, model),
     )
 
     logger.info("Max Memory Usage Before Training: ")
