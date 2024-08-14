@@ -23,11 +23,9 @@ from lema.builders.optimizers import build_optimizer
 from lema.core.distributed import (
     barrier,
     get_device_rank_info,
-    global_leader_only,
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
-    local_leader_only,
     prepare_model_for_distributed,
 )
 from lema.core.types import MixedPrecisionDtype, TrainingConfig, TrainingParams
@@ -147,6 +145,9 @@ class Trainer(BaseTrainer):
         total_steps = self._get_total_training_steps()
 
         self.start_time = time.perf_counter()
+
+        # Make sure all workers start at the same time.
+        barrier()
 
         with tqdm(
             total=total_steps,
@@ -437,15 +438,17 @@ class Trainer(BaseTrainer):
     #
     # Logging
     #
-    @local_leader_only()
     def log(self, message: str):
         """Logs a message if the process is the local process zero."""
+        if not is_local_process_zero():
+            return
         logger.info(message)
 
-    @global_leader_only()
     def log_metrics(self, metrics: Dict[str, Any], step: int) -> None:
         """Logs metrics to wandb and tensorboard."""
         # Log to console and log file
+        if not is_world_process_zero():
+            return
         self.log(pformat(metrics))
 
         # Log to Weights and Biases
