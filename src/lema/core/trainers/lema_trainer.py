@@ -321,11 +321,6 @@ class Trainer(BaseTrainer):
                     # to be updated to aggregate metrics accross all workers.
                     self.evaluate()
 
-                # Skip telemetry for the first step if requested, which is often slower
-                # due to optimizer initialization, model compilation, etc.
-                if not self.params.logging_first_step and self.state.global_step == 1:
-                    self.telemetry = TelemetryTracker()
-
             if stop_on_max_steps_limit:
                 self.log(f"Reached {self.params.max_steps} max steps condition.")
                 break
