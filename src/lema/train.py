@@ -166,10 +166,12 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
-def _create_training_perfomance_callbacks(
+def _create_training_perfomance_callbacks_if_needed(
     config: TrainingConfig, model: torch.nn.Module
 ) -> List[Any]:
-    if config.model.model_max_length is None:
+    if not config.training.include_performance_metrics:
+        return []
+    elif config.model.model_max_length is None:
         logger.warning(
             "model_max_length must be set to log MFU performance information."
         )
@@ -254,12 +256,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    training_callbacks = (
-        _create_training_perfomance_callbacks(config, model)
-        if config.training.include_performance_metrics
-        else []
-    )
-
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
@@ -267,7 +263,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
-        callbacks=training_callbacks,
+        callbacks=(_create_training_perfomance_callbacks_if_needed(config, model)),
     )
 
     logger.info("Max Memory Usage Before Training: ")
