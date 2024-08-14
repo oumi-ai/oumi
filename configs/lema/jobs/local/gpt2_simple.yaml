@@ -1,0 +1,15 @@
+name: gpt2-simple
+
+resources:
+  cloud: local
+
+working_dir: .
+
+run: |
+  set -e  # Exit if any command failed.
+
+  set -x
+  python -m lema.train \
+      -c configs/lema/gpt2_simple.yaml
+
+  echo "Training is done!"

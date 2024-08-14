@@ -2,7 +2,7 @@ import argparse
 import itertools
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing.pool import ThreadPool
 from typing import Callable, List, Optional
@@ -27,29 +27,26 @@ class _LauncherAction(Enum):
 class _LaunchArgs:
     """Dataclass to hold launch arguments."""
 
-    # The path to the configuration file to run.
-    job: Optional[str]
-
-    # The cluster to use for the job.
-    cluster: Optional[str]
-
-    # A flag indicating whether to detach from the job after starting.
-    detach: bool
-
     # The action to take.
     action: _LauncherAction
 
+    # The path to the configuration file to run.
+    job: Optional[str] = None
+
+    # The cluster to use for the job.
+    cluster: Optional[str] = None
+
     # Additional arguments to pass to the job.
-    additional_args: List[str]
+    additional_args: List[str] = field(default_factory=list)
 
     # The cloud to use for the specific action.
-    cloud: Optional[str]
+    cloud: Optional[str] = None
 
     # The user for a job or cluster. Only used by Polaris.
-    user: Optional[str]
+    user: Optional[str] = None
 
     # The job id for the specific action.
-    job_id: Optional[str]
+    job_id: Optional[str] = None
 
 
 def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
@@ -104,10 +101,6 @@ def parse_cli() -> _LaunchArgs:
     )
 
     parser.add_argument(
-        "-d", "--detach", default=False, help="Detach from the job after starting."
-    )
-
-    parser.add_argument(
         "-a",
         "--action",
         default=False,
@@ -128,7 +121,6 @@ def parse_cli() -> _LaunchArgs:
     return _LaunchArgs(
         job=args.path,
         cluster=args.cluster,
-        detach=args.detach,
         action=_parse_action(args.action),
         cloud=args.cloud,
         user=args.user,
@@ -200,10 +192,6 @@ def launch(launch_args: _LaunchArgs) -> None:
     # Start the job
     running_cluster, job_status = launcher.up(config, launch_args.cluster)
 
-    if launch_args.detach:
-        logger.info(f"Detached from job {job_status.id}")
-        return
-    # Otherwise, wait for the job to finish.
     _print_and_wait(
         f"Running job {job_status.id}", _create_job_poller(job_status, running_cluster)
     )
