@@ -11,7 +11,7 @@ except ModuleNotFoundError:
 
 
 def get_nvidia_gpu_memory_utilization() -> float:
-    """Returns amount of memory being used on an Nvidia GPU in MB.
+    """Returns amount of memory being used on an Nvidia GPU in MiB.
 
     TODO: Extend to support multiple GPUs.
     """
@@ -29,4 +29,4 @@ def get_nvidia_gpu_memory_utilization() -> float:
 
 def log_nvidia_gpu_memory_utilization() -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
-    logger.info(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MB.")
+    logger.info(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MiB.")

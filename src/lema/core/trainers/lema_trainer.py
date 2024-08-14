@@ -208,125 +208,141 @@ class Trainer(BaseTrainer):
         gradient_accumulation_steps = max(1, self.params.gradient_accumulation_steps)
 
         while True:
-            if micro_step % gradient_accumulation_steps == 0:
-                self._process_callbacks("on_step_begin")
-
-            # True if `max_steps` is configured and we reached the limit.
-            stop_on_max_steps_limit = (
-                self.params.max_steps > 0
-                and (self.state.global_step + 1) >= self.params.max_steps
-            )
-            # End of logical step. May include multiple micro steps
-            # if gradient_accumulation_steps > 1.
-            end_of_global_step = ((micro_step + 1) % gradient_accumulation_steps) == 0
-
-            with self._telemetry_block("fetching batch"):
-                try:
-                    batch = next(data_iter)
-                except StopIteration:
-                    # FIXME Update metrics and log
-                    self.log("End of epoch")
-                    break
-
-            # Count tokens on CPU.
-            with self._telemetry_block("computing tokens"):
-                num_tokens = (
-                    batch["input_ids"]
-                    .to("cpu", non_blocking=True)
-                    .ne(self.tokenizer.pad_token_id)
-                    .sum()
-                    .item()
-                )
-                self.state.total_tokens_seen += num_tokens
-
-            with self._telemetry_block("moving batch to device"):
-                batch = {
-                    k: v.to(self.device, non_blocking=True) for k, v in batch.items()
-                }
-
-            with self.mixed_precision_ctx, self._telemetry_block("model forward"):
-                self.model.require_backward_grad_sync = (  # type: ignore
-                    end_of_global_step or stop_on_max_steps_limit
+            step_function_name = "step"
+            if gradient_accumulation_steps > 1:
+                step_function_name = (
+                    f"microstep_{(micro_step + 1) % gradient_accumulation_steps}"
+                    f"_of_{gradient_accumulation_steps}"
                 )
 
-                outputs = self.model(**batch)
-                loss = outputs["loss"] / gradient_accumulation_steps
-                # assert loss.dtype is torch.bfloat16
-                # assert outputs["logits"].dtype is torch.bfloat16
+            with torch.profiler.record_function(step_function_name):
+                if micro_step % gradient_accumulation_steps == 0:
+                    self._process_callbacks("on_step_begin")
 
-            with self._telemetry_block("loss backward"):
-                self.scaler.scale(loss).backward()
+                # True if `max_steps` is configured and we reached the limit.
+                stop_on_max_steps_limit = (
+                    self.params.max_steps > 0
+                    and (self.state.global_step + 1) >= self.params.max_steps
+                )
+                # End of logical step. May include multiple micro steps
+                # if gradient_accumulation_steps > 1.
+                end_of_global_step = (
+                    (micro_step + 1) % gradient_accumulation_steps
+                ) == 0
 
-            if end_of_global_step or stop_on_max_steps_limit:
-                with self._telemetry_block("optimizer step"):
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(), max_norm=self.max_norm
+                with self._telemetry_block("fetching batch"):
+                    try:
+                        batch = next(data_iter)
+                    except StopIteration:
+                        # FIXME Update metrics and log
+                        self.log("End of epoch")
+                        break
+
+                # Count tokens on CPU.
+                with self._telemetry_block("computing tokens"):
+                    num_tokens = (
+                        batch["input_ids"]
+                        .to("cpu", non_blocking=True)
+                        .ne(self.tokenizer.pad_token_id)
+                        .sum()
+                        .item()
+                    )
+                    self.state.total_tokens_seen += num_tokens
+
+                with self._telemetry_block("moving batch to device"):
+                    batch = {
+                        k: v.to(self.device, non_blocking=True)
+                        for k, v in batch.items()
+                    }
+
+                with self.mixed_precision_ctx, self._telemetry_block("model forward"):
+                    self.model.require_backward_grad_sync = (  # type: ignore
+                        end_of_global_step or stop_on_max_steps_limit
                     )
 
-                    # save lr for logging
-                    last_lr = self.lr_scheduler.get_last_lr()[0]
+                    outputs = self.model(**batch)
+                    loss = outputs["loss"] / gradient_accumulation_steps
 
-                    # step optimizer, scaler, and lr schedule
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    self.lr_scheduler.step()
+                with self._telemetry_block("loss backward"):
+                    self.scaler.scale(loss).backward()
 
-                    self.optimizer.zero_grad(set_to_none=True)
+                if end_of_global_step or stop_on_max_steps_limit:
+                    with self._telemetry_block("optimizer step"):
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), max_norm=self.max_norm
+                        )
 
-                self.state.global_step += 1
-                progress_bar.update(1)
+                        # save lr for logging
+                        last_lr = self.lr_scheduler.get_last_lr()[0]
 
-                self._process_callbacks("on_step_end")
+                        # step optimizer, scaler, and lr schedule
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                        self.lr_scheduler.step()
 
-                if self.params.logging_steps > 0 and (
-                    stop_on_max_steps_limit
-                    or (self.state.global_step % self.params.logging_steps == 0)
-                ):
-                    # Log metrics
-                    elapsed = time.perf_counter() - self.start_time
-                    loss_value = loss.item() * gradient_accumulation_steps
-                    metrics = {
-                        "train/loss": loss_value,
-                        "learning_rate": last_lr,
-                        "epoch": self.state.epoch,
-                        "global_step": self.state.global_step,
-                        "total_tokens_seen": self.state.total_tokens_seen,
-                        "global_steps_per_second": self.state.global_step / elapsed,
-                        "tokens_per_second": self.state.total_tokens_seen / elapsed,
-                        "tokens_per_step_per_gpu": self.state.total_tokens_seen
-                        / self.state.global_step,
-                    }
-                    callback_metrics = self._process_callbacks("on_log")
-                    metrics.update(callback_metrics)
+                        self.optimizer.zero_grad(set_to_none=True)
 
-                    self.log_metrics(metrics, self.state.global_step)
+                    self.state.global_step += 1
+                    progress_bar.update(1)
 
-                    if is_local_process_zero():
-                        self.telemetry.print_summary()
+                    self._process_callbacks("on_step_end")
 
-                if (
-                    self.params.save_steps > 0
-                    and self.state.global_step % self.params.save_steps == 0
-                ):
-                    self.save_state()
+                    if (
+                        self.params.logging_steps > 0
+                        and not (
+                            self.state.global_step == 1
+                            and self.params.logging_first_step
+                        )
+                        and (
+                            stop_on_max_steps_limit
+                            or (self.state.global_step % self.params.logging_steps == 0)
+                        )
+                    ):
+                        # Log metrics
+                        elapsed = time.perf_counter() - self.start_time
+                        loss_value = loss.item() * gradient_accumulation_steps
+                        metrics = {
+                            "train/loss": loss_value,
+                            "learning_rate": last_lr,
+                            "epoch": self.state.epoch,
+                            "global_step": self.state.global_step,
+                            "total_tokens_seen": self.state.total_tokens_seen,
+                            "global_steps_per_second": self.state.global_step / elapsed,
+                            "tokens_per_second": self.state.total_tokens_seen / elapsed,
+                            "tokens_per_step_per_gpu": self.state.total_tokens_seen
+                            / self.state.global_step,
+                        }
+                        callback_metrics = self._process_callbacks("on_log")
+                        metrics.update(callback_metrics)
 
-                if (
-                    self.eval_dataloader
-                    and self.params.eval_steps > 0
-                    and self.state.global_step % self.params.eval_steps == 0
-                    and is_world_process_zero()
-                ):
-                    # TODO: OPE-223 - only the global leader is used for evaluation
-                    # To enable distributed evaluation, th eval function needs
-                    # to be updated to aggregate metrics accross all workers.
-                    self.evaluate()
+                        self.log_metrics(metrics, self.state.global_step)
 
-            if stop_on_max_steps_limit:
-                self.log(f"Reached {self.params.max_steps} max steps condition.")
-                break
+                        if is_local_process_zero():
+                            self.telemetry.print_summary()
 
-            micro_step += 1
+                    if (
+                        self.params.save_steps > 0
+                        and self.state.global_step % self.params.save_steps == 0
+                    ):
+                        self.save_state()
+
+                    if (
+                        self.eval_dataloader
+                        and self.params.eval_steps > 0
+                        and self.state.global_step % self.params.eval_steps == 0
+                        and is_world_process_zero()
+                    ):
+                        # TODO: OPE-223 - only the global leader is used for evaluation
+                        # To enable distributed evaluation, th eval function needs
+                        # to be updated to aggregate metrics accross all workers.
+                        self.evaluate()
+
+                if stop_on_max_steps_limit:
+                    self.log(f"Reached {self.params.max_steps} max steps condition.")
+                    break
+
+                micro_step += 1
 
         self.log(
             f"End of epoch. "
