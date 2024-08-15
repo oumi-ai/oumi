@@ -79,26 +79,26 @@ class TrainingParams(BaseParams):
     gradient_accumulation_steps: int = 1
     max_steps: int = -1
     num_train_epochs: int = 3
-    # Save a checkpoint at the end of every epoch.
+    #: Save a checkpoint at the end of every epoch.
     save_epoch: bool = False
-    # Save a checkpoint every `save_steps`. If both `save_steps` and
-    # `save_epoch` are set, then `save_steps` takes precedence.
-    # To disable saving checkpoints during training,
-    # set `save_steps` to `0` and `save_epoch` to `False`.
+    #: Save a checkpoint every `save_steps`. If both `save_steps` and
+    #: `save_epoch` are set, then `save_steps` takes precedence.
+    #: To disable saving checkpoints during training,
+    #: set `save_steps` to `0` and `save_epoch` to `False`.
     save_steps: int = 100
-    # Whether to save model at the end of training. Should normally be `True`
-    # but in some cases you may want to disable it e.g., if saving a large model
-    # takes a long time, and you want to quickly test training speed/metrics.
+    #: Whether to save model at the end of training. Should normally be `True`
+    #: but in some cases you may want to disable it e.g., if saving a large model
+    #: takes a long time, and you want to quickly test training speed/metrics.
     save_final_model: bool = True
-    # Random seed, passed to the trainer and to all downstream dependencies
+    #: Random seed, passed to the trainer and to all downstream dependencies
     seed: int = 42
 
     run_name: str = "default"
 
-    # The name of the metrics function in the LeMa registry to use for evaluation
-    # during training. The method must accept as input a HuggingFace EvalPrediction and
-    # return a dictionary of metrics, with string keys mapping to metric values. A
-    # single metrics_function may compute multiple metrics.
+    #: The name of the metrics function in the LeMa registry to use for evaluation
+    #: during training. The method must accept as input a HuggingFace EvalPrediction and
+    #: return a dictionary of metrics, with string keys mapping to metric values. A
+    #: single metrics_function may compute multiple metrics.
     metrics_function: Optional[str] = None
 
     log_level: str = "info"
@@ -107,7 +107,7 @@ class TrainingParams(BaseParams):
     enable_wandb: bool = False
     enable_tensorboard: bool = True
 
-    logging_strategy: str = "steps"  # possible values: "steps", "epoch", "no"
+    logging_strategy: str = "steps"  #: possible values: "steps", "epoch", "no"
     logging_dir: str = "output/runs"
     logging_steps: int = 50
 
@@ -117,19 +117,19 @@ class TrainingParams(BaseParams):
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
 
-    eval_strategy: str = "no"  # possible values: "steps", "epoch", "no"
+    eval_strategy: str = "no"  #: possible values: "steps", "epoch", "no"
     eval_steps: int = 50
 
-    # Learning rate schedule.
+    #: Learning rate schedule.
     learning_rate: float = 5e-05
-    # See possible scheduler types here:
-    # https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
+    #: See possible scheduler types here:
+    #: https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
     lr_scheduler_type: str = "cosine"
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
     warmup_ratio: Optional[float] = None
     warmup_steps: Optional[int] = None
 
-    # Optimizer params.
+    #: Optimizer params.
     optimizer: str = "adamw_torch"
     weight_decay: float = 0.0
     adam_beta1: float = 0.9
@@ -137,74 +137,79 @@ class TrainingParams(BaseParams):
     adam_epsilon: float = 1e-08
     sgd_momentum: float = 0.9
 
-    # `use_reentrant` is a required parameter and is recommended to be set to False.
-    # See: https://pytorch.org/docs/stable/checkpoint.html
+    #: `use_reentrant` is a required parameter and is recommended to be set to False.
+    #: See: https://pytorch.org/docs/stable/checkpoint.html
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
 
-    # Whether to JIT compile the model. This param should be used instead of
-    # `ModelParams.compile` for training.
+    #: Whether to JIT compile the model. This param should be used instead of
+    #: `ModelParams.compile` for training.
     compile: bool = False
 
-    # Whether to include performance metrics e.g., tokens stats
-    include_performance_metrics: Optional[bool] = None
+    #: Whether to include performance metrics e.g., tokens stats
+    include_performance_metrics: bool = False
 
-    # Whether to print model summary e.g., layer names, for informational purposes.
+    #: Whether to report alternative MFU metrics e.g., based on HuggingFace
+    #: `total_flos`. This option is enabled only if `include_performance_metrics`
+    #: is `True`.
+    include_alternative_mfu_metrics: bool = False
+
+    #: Whether to print model summary e.g., layer names, for informational purposes.
     log_model_summary: bool = False
 
-    # Whether to resume training by loading first the pointed model from this folder.
+    #: Whether to resume training by loading first the pointed model from this folder.
     resume_from_checkpoint: Optional[str] = None
 
-    # If True, try to find the last checkpoint in "output_dir".
-    # If present, training will resume from the model/optimizer/scheduler states loaded
-    # here. Otherwise (if checkpoint is not present), then training will continue
-    # w/o loading any intermediate checkpoints.
-    # NOTE: if `resume_from_checkpoint` is specified and contains a non-empty path,
-    # then this parameter has no effect.
+    #: If True, try to find the last checkpoint in "output_dir".
+    #: If present, training will resume from the model/optimizer/scheduler states loaded
+    #: here. Otherwise (if checkpoint is not present), then training will continue
+    #: w/o loading any intermediate checkpoints.
+    #: NOTE: if `resume_from_checkpoint` is specified and contains a non-empty path,
+    #: then this parameter has no effect.
     try_resume_from_last_checkpoint: bool = False
 
-    # Number of subprocesses to use for data loading (PyTorch only).
-    # 0 means that the data will be loaded in the main process.
-    #
-    # You can also use the special value "auto" to select the number
-    # of dataloader workers using a simple heuristic based on the number of CPU-s and
-    # GPU-s per node. Note that the accurate estimation of workers is difficult and
-    # depends on many factors (the properties of a model, dataset, VM, network, etc)
-    # so you can start with "auto" then experimentally tune the exact number to make it
-    # more optimal for your specific case. If "auto" is requested,
-    # then at minumum 1 worker is guaranteed to be assigned.
+    #: Number of subprocesses to use for data loading (PyTorch only).
+    #: 0 means that the data will be loaded in the main process.
+    #:
+    #: You can also use the special value "auto" to select the number
+    #: of dataloader workers using a simple heuristic based on the number of CPU-s and
+    #: GPU-s per node. Note that the accurate estimation of workers is difficult and
+    #: depends on many factors (the properties of a model, dataset, VM, network, etc)
+    #: so you can start with "auto" then experimentally tune the exact number to make it
+    #: more optimal for your specific case. If "auto" is requested,
+    #: then at minumum 1 worker is guaranteed to be assigned.
     dataloader_num_workers: Union[int, str] = 0
 
-    # Number of batches loaded in advance by each worker. 2 means there will be
-    # a total of 2 * num_workers batches prefetched across all workers.
-    # Can only be set if dataloader_num_workers >= 1.
+    #: Number of batches loaded in advance by each worker. 2 means there will be
+    #: a total of 2 * num_workers batches prefetched across all workers.
+    #: Can only be set if dataloader_num_workers >= 1.
     dataloader_prefetch_factor: Optional[int] = None
 
-    # If set to `True`, the dataloader is only iterated through on the main process
-    # (rank 0), then the batches are split and broadcast to each process.
-    # This can reduce the number of requests to the dataset, and helps ensure
-    # that each example is seen by max one GPU per epoch, but may become a performance
-    # bottleneck if a large number of GPUs is used.
-    # If set to `False`, the dataloader is iterated through on each
-    # GPU process.
-    # If set to `None` (*default*), then `True` or `False` is auto-selected based on
-    # heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
-    # NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
+    #: If set to `True`, the dataloader is only iterated through on the main process
+    #: (rank 0), then the batches are split and broadcast to each process.
+    #: This can reduce the number of requests to the dataset, and helps ensure
+    #: that each example is seen by max one GPU per epoch, but may become a performance
+    #: bottleneck if a large number of GPUs is used.
+    #: If set to `False`, the dataloader is iterated through on each
+    #: GPU process.
+    #: If set to `None` (*default*), then `True` or `False` is auto-selected based on
+    #: heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
+    #: NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
     dataloader_main_process_only: Optional[bool] = None
 
-    # When using distributed training, the value of the flag `find_unused_parameters`
-    # passed to `DistributedDataParallel`. Will default to `False` if gradient
-    # checkpointing is used, `True` otherwise.
+    #: When using distributed training, the value of the flag `find_unused_parameters`
+    #: passed to `DistributedDataParallel`. Will default to `False` if gradient
+    #: checkpointing is used, `True` otherwise.
     ddp_find_unused_parameters: Optional[bool] = None
 
-    # Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
-    # can destabilize training.
+    #: Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
+    #: can destabilize training.
     max_grad_norm: float = 1.0
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # Parameters for performance profiling.
+    #: Parameters for performance profiling.
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
     def to_hf(self):
