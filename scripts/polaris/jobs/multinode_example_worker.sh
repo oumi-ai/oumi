@@ -64,8 +64,12 @@ fi
 MAX_STEPS=20
 if "${ENABLE_PYTORCH_PROFILER}"; then
    # Use a smaller number of steps with Profiler to keep traces usable.
-   MAX_STEPS=4
+   MAX_STEPS=6
    PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
+   training.profiler.schedule.enable_schedule=true
+   training.profiler.schedule.skip_first=1
+   training.profiler.schedule.warmup=1
+   training.profiler.schedule.active=4
    training.profiler.enable_cpu_profiling=true
    training.profiler.enable_cuda_profiling=true"
    echo "PyTorch profiler enabled!"

@@ -99,7 +99,27 @@ def torch_profile(
     training_output_dir: Optional[str],
     record_function_name: str = "lema.train",
 ):
-    """Initializes Profiler context."""
+    """Creates PyTorch Profiler context manager.
+
+    Example:
+        with torch_profile(profiler_params, record_function_name="lema.train") as prof:
+            for i in range(n):
+                training_step()
+                if prof is not None:
+                    prof.step()
+
+    Args:
+        params: Profiler config.
+        training_output_dir: If `ProfilerParams.save_dir` is not specified, then
+            a "profiler" sub-directory will be created under `training_output_dir`,
+            and used to save profiler traces.
+        record_function_name: The name to use with `torch.profiler.record_function()`
+            for top-level `train()` operation.
+
+    Yields:
+            The newly-created Profiler object if profiling is enabled,
+            or `None` otherwise.
+    """
     params = _configure_torch_profile_save_dir(params, training_output_dir)
 
     device_rank_info: DeviceRankInfo = get_device_rank_info()
@@ -126,7 +146,7 @@ def torch_profile(
     if not profile_activities:
         # Nothing to profile. Return noop/null context.
         logger.info(f"{_PROFILER_LOG_PREFIX} Torch Profiler disabled!")
-        yield
+        yield None
         return
 
     logger.info(f"{_PROFILER_LOG_PREFIX} Starting profiling...")
@@ -151,7 +171,17 @@ def torch_profile(
         save_dir_path=save_dir_path,
     )
 
-    with torch.profiler.profile(
+    schedule = None
+    if params.schedule.enable_schedule:
+        schedule = torch.profiler.schedule(
+            skip_first=params.schedule.skip_first,
+            wait=params.schedule.wait,
+            warmup=params.schedule.warmup,
+            active=params.schedule.active,
+            repeat=params.schedule.repeat,
+        )
+
+    profiler = torch.profiler.profile(
         activities=profile_activities,
         on_trace_ready=trace_handler,
         record_shapes=params.record_shapes,
@@ -159,10 +189,12 @@ def torch_profile(
         with_stack=params.with_stack,
         with_flops=params.with_flops,
         with_modules=params.with_modules,
-    ):
+        schedule=schedule,
+    )
+    with profiler:
         try:
             with torch.profiler.record_function(record_function_name):
-                yield
+                yield profiler
         except Exception as e:
             # The inner function raised an error
             import traceback
