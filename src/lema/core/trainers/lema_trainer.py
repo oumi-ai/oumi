@@ -77,23 +77,29 @@ class Trainer(BaseTrainer):
         # Model dtype has been verified to be fp32 if this is the case.
         self.mixed_precision_ctx = contextlib.nullcontext()
         mixed_precision_dtype = None
+        enable_gradscaler = False
         if self.params.mixed_precision_dtype == MixedPrecisionDtype.BF16:
             mixed_precision_dtype = torch.bfloat16
         elif self.params.mixed_precision_dtype == MixedPrecisionDtype.FP16:
             mixed_precision_dtype = torch.float16
+            enable_gradscaler = True
         if mixed_precision_dtype:
             self.mixed_precision_ctx = torch.amp.autocast(
                 device_type=self.device_type,
                 enabled=True,
                 dtype=mixed_precision_dtype,
             )
+        # We want to enable gradient scaling for fp16 mixed precision training
+        # to prevent gradient underflows. See here for details:
+        # https://pytorch.org/docs/stable/amp.html#gradient-scaling
+        self.scaler = torch.amp.GradScaler(
+            device=self.device_type, enabled=enable_gradscaler
+        )
 
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
                 model = cast(torch.nn.Module, torch.compile(model))
-
-        self.scaler = torch.amp.GradScaler(device=self.device_type, enabled=False)
 
         device_info = get_device_rank_info()
 
