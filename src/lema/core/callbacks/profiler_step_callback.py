@@ -10,7 +10,10 @@ from lema.core.types import TrainingParams
 
 
 class ProfilerStepCallback(transformers.TrainerCallback):
-    """Trainer callback to notify PyTorch profiler about training steps completion."""
+    """Trainer callback to notify PyTorch profiler about training steps completion.
+
+    Also, adds microstep function labels using `torch.profiler.record_function()`.
+    """
 
     def __init__(self, profiler):
         """Initialize the ProfilerStepCallback.
