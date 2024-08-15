@@ -14,7 +14,7 @@ class ProfilerStepCallback(transformers.TrainerCallback):
     """
 
     def __init__(self, profiler):
-        """Initialize the MfuTrainerCallback.
+        """Initialize the ProfilerStepCallback.
 
         Args:
             profiler: PyTorch profiler object.

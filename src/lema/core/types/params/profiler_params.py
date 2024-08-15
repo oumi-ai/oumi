@@ -6,6 +6,17 @@ from lema.core.types.params.base_params import BaseParams
 
 @dataclass
 class ProfilerScheduleParams(BaseParams):
+    enable_schedule: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether profiling schedule is enabled. "
+                "If `False`, then profiling is enabled for the entire process "
+                "duration, and all schedule parameters below will be ignored. "
+            )
+        },
+    )
+
     wait: int = field(
         default=0,
         metadata={
@@ -149,4 +160,4 @@ class ProfilerParams(BaseParams):
         },
     )
 
-    profiler: ProfilerScheduleParams = field(default_factory=ProfilerScheduleParams)
+    schedule: ProfilerScheduleParams = field(default_factory=ProfilerScheduleParams)

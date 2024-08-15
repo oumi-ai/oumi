@@ -151,6 +151,16 @@ def torch_profile(
         save_dir_path=save_dir_path,
     )
 
+    schedule = None
+    if params.schedule.enable_schedule:
+        schedule = torch.profiler.schedule(
+            skip_first=params.schedule.skip_first,
+            wait=params.schedule.wait,
+            warmup=params.schedule.warmup,
+            active=params.schedule.active,
+            repeat=params.schedule.repeat,
+        )
+
     profiler = torch.profiler.profile(
         activities=profile_activities,
         on_trace_ready=trace_handler,
@@ -159,6 +169,7 @@ def torch_profile(
         with_stack=params.with_stack,
         with_flops=params.with_flops,
         with_modules=params.with_modules,
+        schedule=schedule,
     )
     with profiler:
         try:

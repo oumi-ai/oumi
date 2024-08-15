@@ -33,7 +33,7 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
         self,
         dtype: torch.dtype,
     ):
-        """Initialize the MfuTrainerCallback.
+        """Initialize the HfMfuTrainerCallback.
 
         Args:
             dtype: The data type of the model.
