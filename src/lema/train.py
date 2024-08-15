@@ -18,6 +18,7 @@ from lema.builders import (
 )
 from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
 from lema.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -168,7 +169,7 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 
 
 def _create_training_performance_callbacks_if_needed(
-    config: TrainingConfig, model: torch.nn.Module
+    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
 ) -> List[Any]:
     if not config.training.include_performance_metrics:
         return []
@@ -201,6 +202,14 @@ def _create_training_performance_callbacks_if_needed(
         TrainerType.HF,
     ):
         result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    if config.training.profiler.schedule.enable_schedule:
+        if profiler is not None:
+            result.append(ProfilerStepCallback(profiler=profiler))
+        else:
+            logger.warning(
+                "Scheduled profiling is requested, but profiler is not available!"
+            )
 
     return result
 
@@ -266,26 +275,29 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    trainer = create_trainer_fn(
-        model=model,
-        tokenizer=tokenizer,
-        args=config.training,
-        train_dataset=dataset,
-        eval_dataset=eval_dataset,
-        compute_metrics=metrics_function,
-        callbacks=_create_training_performance_callbacks_if_needed(config, model),
-    )
-
-    logger.info("Max Memory Usage Before Training: ")
-    log_nvidia_gpu_memory_utilization()
-
-    logger.info(f"Training init time: {time.time() - _START_TIME}s")
-    logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
-    ):
+    ) as profiler:
+        trainer = create_trainer_fn(
+            model=model,
+            tokenizer=tokenizer,
+            args=config.training,
+            train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            compute_metrics=metrics_function,
+            callbacks=_create_training_performance_callbacks_if_needed(
+                config, model, profiler
+            ),
+        )
+
+        logger.info("Max Memory Usage Before Training: ")
+        log_nvidia_gpu_memory_utilization()
+
+        logger.info(f"Training init time: {time.time() - _START_TIME}s")
+        logger.info("Starting training...")
+
         verify_torch_distributed_initialized_if_needed()
         trainer.train(
             resume_from_checkpoint=(
