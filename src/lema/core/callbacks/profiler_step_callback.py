@@ -8,10 +8,7 @@ from lema.core.types import TrainingParams
 
 
 class ProfilerStepCallback(transformers.TrainerCallback):
-    """Trainer callback to calculate the MFU of the model during training.
-
-    Should be compatible with all trainers that inherit from transformers.Trainer.
-    """
+    """Trainer callback to notify PyTorch profiler about training steps completion."""
 
     def __init__(self, profiler):
         """Initialize the ProfilerStepCallback.
