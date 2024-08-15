@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import random
 import time
-from typing import Callable, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 import torch
@@ -16,6 +16,7 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.distributed import (
     barrier,
@@ -28,7 +29,7 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.types import DatasetSplit, TrainingConfig
+from lema.core.types import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
@@ -166,6 +167,44 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
+def _create_training_performance_callbacks_if_needed(
+    config: TrainingConfig, model: torch.nn.Module
+) -> List[Any]:
+    if not config.training.include_performance_metrics:
+        return []
+    elif not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping callback.")
+        return []
+
+    result = []
+    if config.model.model_max_length is not None and config.model.model_max_length > 0:
+        num_total_params = count_model_parameters(model)
+        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
+        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+        # Ignore attention and rematerialization to ensure metric matches most
+        # common implementations.
+        mfu_callback = MfuTrainerCallback(
+            dtype=model.dtype,
+            num_params=num_mfu_params,
+            sequence_length=config.model.model_max_length,
+        )
+        result.append(mfu_callback)
+    else:
+        logger.warning(
+            "model_max_length must be set to log MFU performance information."
+        )
+
+    # TODO Add a separate param to enable HfMfuTrainerCallback
+    if config.training.trainer_type in (
+        TrainerType.TRL_SFT,
+        TrainerType.TRL_DPO,
+        TrainerType.HF,
+    ):
+        result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    return result
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -227,29 +266,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    training_callbacks = []
-    if config.training.include_performance_metrics:
-        if config.model.model_max_length is None:
-            raise ValueError(
-                "model_max_length must be set to log performance information."
-            )
-        if not torch.cuda.is_available():
-            logger.warning("MFU logging is only supported on GPU. Skipping callback.")
-        else:
-            num_total_params = count_model_parameters(model)
-            num_mfu_params = (
-                num_total_params.all_params - num_total_params.embedding_params
-            )
-            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-            # Ignore attention and rematerialization to ensure metric matches most
-            # common implementations.
-            mfu_callback = MfuTrainerCallback(
-                dtype=model.dtype,
-                num_params=num_mfu_params,
-                sequence_length=config.model.model_max_length,
-            )
-            training_callbacks.append(mfu_callback)
-
     trainer = create_trainer_fn(
         model=model,
         tokenizer=tokenizer,
@@ -257,7 +273,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         train_dataset=dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_function,
-        callbacks=training_callbacks,
+        callbacks=_create_training_performance_callbacks_if_needed(config, model),
     )
 
     logger.info("Max Memory Usage Before Training: ")
