@@ -49,6 +49,8 @@ dev = [
     "pyright",
     "pytest",
     "ruff",
+    "sphinx",               # for documentation
+    "sphinx-rtd-theme",     # for documentation
     "torchfix",
 ]
 train = [
