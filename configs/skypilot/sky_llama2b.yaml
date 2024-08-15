@@ -4,7 +4,7 @@ resources:
   # Use 1 of the following GPUs depending on availability. No preference.
   # To view other GPU types use the following commands:
   # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A100"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
+  accelerators: {"A100-80GB"}  # "A100-80GB-SXM", "H100-80GB-SXM", "A100-80GB", "H100-80GB"
   # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
   # something like this: {"A40": N}
   any_of:
@@ -36,25 +36,29 @@ run: |
 
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
+  # pip install '.[train]'
 
   set -x  # Print "torchrun" command with expanded variables
-  torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
-      --master-port=8007 \
+  # torchrun \
+  #     --nnodes=${LEMA_NUM_NODES} \
+  #     --node-rank=${SKYPILOT_NODE_RANK} \
+  #     --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+  #     --master-addr=${LEMA_MASTER_ADDR} \
+  #     --master-port=8007 \
+  python \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.optimizer='adafactor'" \
-      "training.per_device_train_batch_size=4" \
-      "training.gradient_accumulation_steps=64" \
+      "training.trainer_type=TRL_SFT" \
+      "training.optimizer=adafactor" \
+      "training.per_device_train_batch_size=1" \
+      "training.gradient_accumulation_steps=1" \
+      "training.enable_gradient_checkpointing=true" \
       "data.train.experimental_use_async_dataset=true" \
-      "training.compile=true" \
-      "training.max_steps=20" \
+      "training.compile=false" \
+      "training.max_steps=2" \
       "training.save_steps=100" \
-      "training.save_final_model=true" \
+      "training.save_final_model=false" \
       "training.dataloader_num_workers=auto" \
       "training.dataloader_prefetch_factor=32" \
       "training.include_performance_metrics=true" \
