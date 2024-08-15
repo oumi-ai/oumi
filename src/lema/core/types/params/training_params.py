@@ -148,7 +148,12 @@ class TrainingParams(BaseParams):
     compile: bool = False
 
     #: Whether to include performance metrics e.g., tokens stats
-    include_performance_metrics: Optional[bool] = None
+    include_performance_metrics: bool = False
+
+    #: Whether to report alternative MFU metrics e.g., based on HuggingFace
+    #: `total_flos`. This option is enabled only if `include_performance_metrics`
+    #: is `True`.
+    include_alternative_mfu_metrics: bool = False
 
     #: Whether to print model summary e.g., layer names, for informational purposes.
     log_model_summary: bool = False
