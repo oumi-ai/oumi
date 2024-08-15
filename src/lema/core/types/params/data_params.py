@@ -39,31 +39,32 @@ class MixtureStrategy(str, Enum):
 
 @dataclass
 class DatasetParams(BaseParams):
-    # Parameters for `datasets.load_dataset()`
+    #: Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
-    # The subset of the dataset to load, usually a subfolder within the dataset root.
+    #: The subset of the dataset to load, usually a subfolder within the dataset root.
     subset: Optional[str] = None
-    # The split of the dataset to load, usually "train", "test", or "validation".
+    #: The split of the dataset to load, usually "train", "test", or "validation".
     split: str = "train"
-    # Keyword arguments to pass to the dataset constructor.
+    #: Keyword arguments to pass to the dataset constructor.
     dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # The number of examples to sample from the dataset. Must be non-negative. If
-    # `sample_count` is larger than the size of the dataset then the required additional
-    # examples are sampled by looping over the original dataset. Defaults to None.
+    #: The number of examples to sample from the dataset. Must be non-negative. If
+    #: `sample_count` is larger than the size of the dataset then the required
+    #: additional examples are sampled by looping over the original dataset.
+    #: Defaults to None.
     sample_count: Optional[int] = None
-    # The proportion of examples from this dataset relative to other datasets in the
-    # mixture. If specified, all datasets must supply this value. Must be a float in
-    # the range [0, 1.0]. The `mixture_proportion` for all input datasets must sum to 1.
-    # Examples are sampled after the dataset has been sampled using `sample_count` if
-    # specified. Defaults to None.
+    #: The proportion of examples from this dataset relative to other datasets in the
+    #: mixture. If specified, all datasets must supply this value. Must be a float in
+    #: the range [0, 1.0]. The `mixture_proportion` for all input datasets must sum to
+    #: 1. Examples are sampled after the dataset has been sampled using `sample_count`
+    #: if specified. Defaults to None.
     mixture_proportion: Optional[float] = None
-    # If specified, the dataset is shuffled before any sampling occurs.
+    #: If specified, the dataset is shuffled before any sampling occurs.
     shuffle: bool = False
-    # The random seed used for shuffling the dataset before sampling, if specified.
-    # If set to `None` shuffling will be non-deterministic.
+    #: The random seed used for shuffling the dataset before sampling, if specified.
+    #: If set to `None` shuffling will be non-deterministic.
     seed: Optional[int] = None
-    # The size of the shuffle buffer used for shuffling the dataset before sampling.
+    #: The size of the shuffle buffer used for shuffling the dataset before sampling.
     shuffle_buffer_size: int = 1000
 
     @staticmethod
@@ -96,19 +97,19 @@ class DatasetParams(BaseParams):
 
 @dataclass
 class DatasetSplitParams(BaseParams):
-    # The input datasets used for training. This will later be split into train, test,
-    # and validation.
+    #: The input datasets used for training. This will later be split into train, test,
+    #: and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
-    # Whether to pack the text into constant-length chunks,
-    # each the size of the model's max input length.
-    # This will stream the dataset, and tokenize on the fly
-    # if the dataset isn't already tokenized (i.e. has an `input_ids` column).
-    # Requires `stream` to be set to True.
+    #: Whether to pack the text into constant-length chunks,
+    #: each the size of the model's max input length.
+    #: This will stream the dataset, and tokenize on the fly
+    #: if the dataset isn't already tokenized (i.e. has an `input_ids` column).
+    #: Requires `stream` to be set to True.
     pack: bool = False
     stream: bool = False
-    # The dataset column name containing the input for training/testing/validation.
-    # Required for SFTTrainer. If specified, all datasets in this split must contain a
-    # column with this name.
+    #: The dataset column name containing the input for training/testing/validation.
+    #: Required for SFTTrainer. If specified, all datasets in this split must contain a
+    #: column with this name.
     target_col: Optional[str] = None
     mixture_strategy: str = field(
         default=MixtureStrategy.FIRST_EXHAUSTED.value,
@@ -123,14 +124,14 @@ class DatasetSplitParams(BaseParams):
             f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
         },
     )
-    # The random seed used for mixing this dataset split, if specified.
-    # If set to `None` mixing will be non-deterministic.
+    #: The random seed used for mixing this dataset split, if specified.
+    #: If set to `None` mixing will be non-deterministic.
     seed: Optional[int] = None
 
-    # EXPERIMENTAL PARAMS -------------------------
-    # Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+    #: EXPERIMENTAL PARAMS -------------------------
+    #: Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
     experimental_use_async_dataset: bool = False
-    # END EXPERIMENTAL PARAMS --------------------
+    #: END EXPERIMENTAL PARAMS --------------------
 
     def __post_init__(self):
         """Verifies params."""
@@ -190,13 +191,13 @@ class DatasetSplitParams(BaseParams):
 
 @dataclass
 class DataParams(BaseParams):
-    # The input datasets used for training.
+    #: The input datasets used for training.
     train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
 
-    # The input datasets used for testing.
+    #: The input datasets used for testing.
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
 
-    # The input datasets used for validation.
+    #: The input datasets used for validation.
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
 
     def get_split(self, split: DatasetSplit) -> DatasetSplitParams:

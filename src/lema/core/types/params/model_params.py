@@ -16,13 +16,13 @@ class ModelParams(BaseParams):
     adapter_model: Optional[str] = None
     tokenizer_name: Optional[str] = None
     model_max_length: Optional[int] = None
-    # Whether to load the pretrained model's weights. Else, the model will be
-    # initialized from the pretrained config.
+    #: Whether to load the pretrained model's weights. Else, the model will be
+    #: initialized from the pretrained config.
     load_pretrained_weights: bool = True
     trust_remote_code: bool = False
     torch_dtype_str: str = "float32"
-    # Whether to JIT compile the model. For training, do not set this param, and instead
-    # set `TrainingParams.compile`.
+    #: Whether to JIT compile the model. For training, do not set this param, and
+    #: instead set `TrainingParams.compile`.
     compile: bool = False
     chat_template: Optional[str] = None
     attn_implementation: Optional[str] = None

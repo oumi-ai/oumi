@@ -123,16 +123,16 @@ class EvaluationConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     evaluation_framework: EvaluationFramework = EvaluationFramework.LM_HARNESS
-    # Number of few-shot examples (with responses) to add in the prompt, in order to
-    # teach the model how to respond to the specific dataset's prompts.
-    # If not set (None): LM Harness will decide the value.
-    # If set to 0: no few-shot examples will be added in the prompt.
+    #: Number of few-shot examples (with responses) to add in the prompt, in order to
+    #: teach the model how to respond to the specific dataset's prompts.
+    #: If not set (None): LM Harness will decide the value.
+    #: If set to 0: no few-shot examples will be added in the prompt.
     num_shots: Optional[int] = None
-    # Number of samples/examples to evaluate from this dataset. Mostly for debugging, in
-    # order to reduce the runtime. If not set (None): the entire dataset is evaluated.
-    # If set, this must be a positive integer.
+    #: Number of samples/examples to evaluate from this dataset. Mostly for debugging,
+    #: in order to reduce the runtime. If not set (None): the entire dataset is
+    #: evaluated. If set, this must be a positive integer.
     num_samples: Optional[int] = None
-    # Where to write computed evaluations.
+    #: Where to write computed evaluations.
     output_dir: str = "output"
 
     def __post_init__(self):
@@ -155,16 +155,16 @@ class EvaluationConfig(BaseConfig):
 class AsyncEvaluationConfig(BaseConfig):
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
 
-    # The directory to poll for new checkpoints.
+    #: The directory to poll for new checkpoints.
     checkpoints_dir: str = MISSING
 
-    # The time in seconds between the end of the previous evaluation and the start of
-    # the next polling attempt. Cannot be negative.
+    #: The time in seconds between the end of the previous evaluation and the start of
+    #: the next polling attempt. Cannot be negative.
     polling_interval: float = MISSING
 
-    # The number of times to retry polling before exiting the current job.
-    # A retry occurs when the job reads the target directory but cannot find a new
-    # model checkpoint to evaluate. Defaults to 5. Cannot be negative.
+    #: The number of times to retry polling before exiting the current job.
+    #: A retry occurs when the job reads the target directory but cannot find a new
+    #: model checkpoint to evaluate. Defaults to 5. Cannot be negative.
     num_retries: int = 5
 
     def __post_init__(self):
@@ -179,41 +179,41 @@ class AsyncEvaluationConfig(BaseConfig):
 class JobConfig(BaseConfig):
     """Configuration for launching jobs on a cluster."""
 
-    # Job name (optional). Only used for display purposes.
+    #: Job name (optional). Only used for display purposes.
     name: Optional[str] = None
 
-    # The user that the job will run as (optional). Required only for Polaris.
+    #: The user that the job will run as (optional). Required only for Polaris.
     user: Optional[str] = None
 
-    # The local directory containing the scripts required to execute this job.
-    # This directory will be copied to the remote node before the job is executed.
+    #: The local directory containing the scripts required to execute this job.
+    #: This directory will be copied to the remote node before the job is executed.
     working_dir: str = MISSING
 
-    # The number of nodes to use for the job. Defaults to 1.
+    #: The number of nodes to use for the job. Defaults to 1.
     num_nodes: int = 1
 
-    # The resources required for each node in the job.
+    #: The resources required for each node in the job.
     resources: JobResources = field(default_factory=JobResources)
 
-    # The environment variables to set on the node.
+    #: The environment variables to set on the node.
     envs: Dict[str, str] = field(default_factory=dict)
 
-    # File mounts to attach to the node.
-    # For mounting (copying) local directories, the key is the file path on the remote
-    # and the value is the local path.
-    # The keys of `file_mounts` cannot be shared with `storage_mounts`.
+    #: File mounts to attach to the node.
+    #: For mounting (copying) local directories, the key is the file path on the remote
+    #: and the value is the local path.
+    #: The keys of `file_mounts` cannot be shared with `storage_mounts`.
     file_mounts: Dict[str, str] = field(default_factory=dict)
 
-    # Storage system mounts to attach to the node.
-    # For mounting remote storage solutions, the key is the file path on the remote
-    # and the value is a StorageMount.
-    # The keys of `storage_mounts` cannot be shared with `file_mounts`.
+    #: Storage system mounts to attach to the node.
+    #: For mounting remote storage solutions, the key is the file path on the remote
+    #: and the value is a StorageMount.
+    #: The keys of `storage_mounts` cannot be shared with `file_mounts`.
     storage_mounts: Dict[str, StorageMount] = field(default_factory=dict)
 
-    # The setup script to run on every node. Optional.
-    # `setup` will always be executed before `run`.
-    # ex) pip install -r requirements.txt
+    #: The setup script to run on every node. Optional.
+    #: `setup` will always be executed before `run`.
+    #: ex) pip install -r requirements.txt
     setup: Optional[str] = None
 
-    # The script to run on every node. Required. Runs after `setup`.
+    #: The script to run on every node. Required. Runs after `setup`.
     run: str = MISSING
