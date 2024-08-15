@@ -101,7 +101,7 @@ def torch_profile(
 ):
     """Creates PyTorch Profiler context manager.
 
-    Example::
+    Example:
         with torch_profile(profiler_params, record_function_name="lema.train") as prof:
             for i in range(n):
                 training_step()
