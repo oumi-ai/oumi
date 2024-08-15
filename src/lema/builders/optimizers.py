@@ -45,6 +45,16 @@ def build_optimizer(
             weight_decay=config.weight_decay,
             fused=fused_available,
         )
+    elif optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
+        return bitsandbytes.optim.AdamW(
+            trainable_params,
+            lr=config.learning_rate,
+            betas=(config.adam_beta1, config.adam_beta2),
+            eps=config.adam_epsilon,
+            weight_decay=config.weight_decay,
+            optim_bits=8,
+            is_paged=optimizer_name == "paged_adamw_8bit",
+        )
     elif optimizer_name == "sgd":
         return torch.optim.SGD(
             trainable_params,
@@ -60,16 +70,6 @@ def build_optimizer(
             beta1=config.adam_beta1,
             weight_decay=config.weight_decay,
             relative_step=False,
-        )
-    elif optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
-        return bitsandbytes.optim.AdamW(
-            trainable_params,
-            lr=config.learning_rate,
-            betas=(config.adam_beta1, config.adam_beta2),
-            eps=config.adam_epsilon,
-            weight_decay=config.weight_decay,
-            optim_bits=8,
-            is_paged=optimizer_name == "paged_adamw_8bit",
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
