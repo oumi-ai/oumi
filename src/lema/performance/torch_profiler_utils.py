@@ -99,7 +99,27 @@ def torch_profile(
     training_output_dir: Optional[str],
     record_function_name: str = "lema.train",
 ):
-    """Initializes Profiler context."""
+    """Creates PyTorch Profiler context.
+
+    Example::
+        with torch_profile(profiler_params, record_function_name="lema.train") as prof:
+            for i in range(n):
+                training_step()
+                if prof is not None:
+                    prof.step()
+
+    Args:
+        params: Profiler config.
+        training_output_dir: If `ProfilerParams.save_dir` is not specified, then
+            a "profiler" sub-directory will be created under `training_output_dir`,
+            and used to save profiler traces.
+        record_function_name: The name to use with `torch.profiler.record_function()`
+            for top-level `train()` operation.
+
+    Yields:
+            The newly-created Profiler object if profiling is enabled,
+            or `None` otherwise.
+    """
     params = _configure_torch_profile_save_dir(params, training_output_dir)
 
     device_rank_info: DeviceRankInfo = get_device_rank_info()
