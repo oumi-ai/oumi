@@ -69,7 +69,7 @@ def build_optimizer(
             eps=config.adam_epsilon,
             weight_decay=config.weight_decay,
             optim_bits=8,
-            is_paged="paged" in optimizer_name,
+            is_paged=optimizer_name == "paged_adamw_8bit",
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
