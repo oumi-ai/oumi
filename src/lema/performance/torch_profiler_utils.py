@@ -99,7 +99,7 @@ def torch_profile(
     training_output_dir: Optional[str],
     record_function_name: str = "lema.train",
 ):
-    """Creates PyTorch Profiler context.
+    """Creates PyTorch Profiler context manager.
 
     Example::
         with torch_profile(profiler_params, record_function_name="lema.train") as prof:
