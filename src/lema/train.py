@@ -195,11 +195,14 @@ def _create_training_performance_callbacks_if_needed(
             "model_max_length must be set to log MFU performance information."
         )
 
-    # TODO Add a separate param to enable HfMfuTrainerCallback
-    if config.training.trainer_type in (
-        TrainerType.TRL_SFT,
-        TrainerType.TRL_DPO,
-        TrainerType.HF,
+    if (
+        config.training.include_alternative_mfu_metrics
+        and config.training.trainer_type
+        in (
+            TrainerType.TRL_SFT,
+            TrainerType.TRL_DPO,
+            TrainerType.HF,
+        )
     ):
         result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
