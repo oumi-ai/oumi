@@ -1,3 +1,4 @@
+import bitsandbytes
 import torch
 from transformers.optimization import Adafactor
 
@@ -59,6 +60,16 @@ def build_optimizer(
             beta1=config.adam_beta1,
             weight_decay=config.weight_decay,
             relative_step=False,
+        )
+    elif optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
+        return bitsandbytes.optim.AdamW(
+            trainable_params,
+            lr=config.learning_rate,
+            betas=(config.adam_beta1, config.adam_beta2),
+            eps=config.adam_epsilon,
+            weight_decay=config.weight_decay,
+            optim_bits=8,
+            is_paged="paged" in optimizer_name,
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
