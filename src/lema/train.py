@@ -203,13 +203,12 @@ def _create_training_performance_callbacks_if_needed(
     ):
         result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
-    if config.training.profiler.schedule.enable_schedule:
-        if profiler is not None:
-            result.append(ProfilerStepCallback(profiler=profiler))
-        else:
-            logger.warning(
-                "Scheduled profiling is requested, but profiler is not available!"
-            )
+    if profiler is not None:
+        result.append(ProfilerStepCallback(profiler=profiler))
+    elif config.training.profiler.schedule.enable_schedule:
+        logger.warning(
+            "Scheduled profiling is requested, but profiler is not available!"
+        )
 
     return result
 
