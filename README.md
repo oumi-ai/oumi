@@ -16,7 +16,7 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
 
 View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
 
-Reach out to matthewpersons@learning-machines.ai if you have problems with access.
+Reach out to matthew@learning-machines.ai if you have problems with access.
 
 ## Dev Environment Setup
 
