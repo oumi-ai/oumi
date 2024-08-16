@@ -12,6 +12,8 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
 - [x] Easily run in a locally, jupyter notebook, vscode debugger, or remote cluster
 - [x] Full finetuning using SFT, DPO
 
+Take a [tour of our repository](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) to learn more!
+
 ## Documentation
 
 View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
