@@ -222,6 +222,8 @@ def _create_training_performance_callbacks_if_needed(
             )
             / "telemetry"
         )
+        if is_local_process_zero():
+            telemetry_dir.mkdir(parents=True, exist_ok=True)
     result.append(TelemetryCallback(output_dir=telemetry_dir))
 
     return result
