@@ -1,3 +1,4 @@
+import collections
 import statistics
 import time
 from contextlib import ContextDecorator
@@ -269,17 +270,21 @@ class TelemetryTracker:
     def _calculate_stats(
         self, measurements: List[float], total_time: Optional[float] = None
     ) -> Dict[str, float]:
-        stats = {
-            "total": sum(measurements),
-            "mean": statistics.mean(measurements),
-            "median": statistics.median(measurements),
-            "std_dev": statistics.stdev(measurements) if len(measurements) > 1 else 0,
-            "min": min(measurements),
-            "max": max(measurements),
-            "count": len(measurements),
-        }
-        if total_time:
-            stats["percentage"] = (stats["total"] / total_time) * 100
+        count = len(measurements)
+        # Use `defaultdict()` to make `_log_timer_stats()` and other functions usable
+        # even if `count` is zero, which can happen for example for epochs timer
+        # if logging is called in the middle of the first epoch.
+        stats: Dict[str, float] = collections.defaultdict(float)
+        stats["count"] = float(count)
+        if count > 0:
+            stats["total"] = sum(measurements)
+            stats["mean"] = statistics.mean(measurements)
+            stats["median"] = statistics.median(measurements)
+            stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
+            stats["min"] = min(measurements)
+            stats["max"] = max(measurements)
+            if total_time:
+                stats["percentage"] = (stats["total"] / total_time) * 100
         return stats
 
     def _log_timer_stats(
