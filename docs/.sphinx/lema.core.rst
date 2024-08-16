@@ -1,6 +1,10 @@
 lema.core package
 =================
 
+Overview
+-----------
+The core package contains definitions for core types and base abstract classes used throughout the library.
+
 Subpackages
 -----------
 

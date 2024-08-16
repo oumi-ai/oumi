@@ -1,6 +1,10 @@
 lema.core.datasets package
 ==========================
 
+Overview
+-----------
+Base dataset classes for LeMa.
+
 Submodules
 ----------
 
