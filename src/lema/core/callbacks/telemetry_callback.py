@@ -17,7 +17,7 @@ _LOGS_KWARG = "logs"
 class TelemetryCallback(transformers.TrainerCallback):
     """Trainer callback to collect sub-step/step/epoch timings.
 
-    Uses `lema.performance.telemetry.TelemetryTracker` object.
+    Based on `lema.performance.telemetry.TelemetryTracker`.
     """
 
     def __init__(
@@ -57,6 +57,7 @@ class TelemetryCallback(transformers.TrainerCallback):
 
         If using gradient accumulation, one training step might take several inputs.
         """
+        self._step += 1
         if self._callback_disabled():
             return
 
@@ -64,7 +65,6 @@ class TelemetryCallback(transformers.TrainerCallback):
         self._start_microstep()
         self._complete_previous_step_if_needed()
         self._start_step()
-        self._step += 1
 
     def on_substep_end(
         self,
@@ -153,7 +153,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         """Check if the callback should be disabled."""
         if self._permanently_disabled:
             return True
-        if self._skip_first_steps > 0 and self._step < self._skip_first_steps:
+        if self._skip_first_steps > 0 and self._step <= self._skip_first_steps:
             return True
         return False
 
