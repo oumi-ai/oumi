@@ -31,9 +31,17 @@ echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
 
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
-export NCCL_COLLNET_ENABLE=1
-export NCCL_NET_GDR_LEVEL=PHB
+
 # export NCCL_DEBUG=INFO # WARN
+# See https://github.com/argonne-lcf/alcf-nccl-tests?tab=readme-ov-file#testing-nccl-performance-on-alcf-systems
+export NCCL_NET_GDR_LEVEL=PHB
+export NCCL_CROSS_NIC=1
+export NCCL_COLLNET_ENABLE=1
+export LD_LIBRARY_PATH=/soft/libraries/aws-ofi-nccl/v1.9.1-aws/lib/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/soft/libraries/hwloc/lib/:$LD_LIBRARY_PATH
+export FI_CXI_DISABLE_HOST_REGISTER=1
+export FI_MR_CACHE_MONITOR=userfaultfd
+export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
 NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
