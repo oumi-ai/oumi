@@ -32,7 +32,7 @@ echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 
-# export NCCL_DEBUG=INFO # WARN
+export NCCL_DEBUG=INFO # WARN
 # See https://github.com/argonne-lcf/alcf-nccl-tests?tab=readme-ov-file#testing-nccl-performance-on-alcf-systems
 export NCCL_NET_GDR_LEVEL=PHB
 export NCCL_CROSS_NIC=1
