@@ -1,6 +1,10 @@
 lema.datasets package
 =====================
 
+Overview
+-----------
+This package contains all predefined dataset types for LeMa.
+
 Submodules
 ----------
 

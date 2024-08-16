@@ -1,6 +1,10 @@
 lema.evaluation package
 =======================
 
+Overview
+-----------
+Internal evaluation utilities for LeMa.
+
 Module contents
 ---------------
 
