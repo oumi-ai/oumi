@@ -19,6 +19,7 @@ from lema.builders import (
 from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
+from lema.core.callbacks.telemetry_callback import TelemetryCallback
 from lema.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -212,6 +213,16 @@ def _create_training_performance_callbacks_if_needed(
         logger.warning(
             "Scheduled profiling is requested, but profiler is not available!"
         )
+
+    telemetry_dir: Optional[pathlib.Path] = None
+    if config.training.profiler.save_dir or config.training.output_dir:
+        telemetry_dir = (
+            pathlib.Path(
+                config.training.profiler.save_dir or config.training.output_dir
+            )
+            / "telemetry"
+        )
+    result.append(TelemetryCallback(output_dir=telemetry_dir))
 
     return result
 
