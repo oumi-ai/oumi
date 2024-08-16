@@ -11,9 +11,9 @@ This documentation is intended to provide a comprehensive guide for the Learning
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    modules
+   tutorials
 
 Indices and tables
 ==================
