@@ -83,11 +83,3 @@ lema.datasets.ultrachat\_200k module
    :members:
    :undoc-members:
    :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: lema.datasets
-   :members:
-   :undoc-members:
-   :show-inheritance:
