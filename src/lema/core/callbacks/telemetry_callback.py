@@ -10,6 +10,7 @@ from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.core.types import TrainingParams
 from lema.performance.telemetry import TelemetryTracker
 from lema.utils.io_utils import save_json
+from lema.utils.logging import logger
 
 _LOGS_KWARG = "logs"
 
@@ -147,7 +148,9 @@ class TelemetryCallback(transformers.TrainerCallback):
                     kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
             if self._output_dir is not None:
-                save_json(stats, self._output_dir / (basename + ".json"))
+                telemetry_file = self._output_dir / (basename + ".json")
+                logger.info(f"Saving telemetry stats to {telemetry_file}...")
+                save_json(stats, telemetry_file)
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
