@@ -158,10 +158,8 @@ class TelemetryCallback(transformers.TrainerCallback):
         if self._callback_disabled():
             return
 
-        logger.info("on_train_end()")
-
         summary = self._telemetry.get_summary()
-        if not ("timers" in summary and _LOGS_KWARG in kwargs):
+        if "timers" not in summary:
             return
 
         device_rank_info = get_device_rank_info()
