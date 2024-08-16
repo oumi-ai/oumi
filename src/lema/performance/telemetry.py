@@ -271,6 +271,9 @@ class TelemetryTracker:
         self, measurements: List[float], total_time: Optional[float] = None
     ) -> Dict[str, float]:
         count = len(measurements)
+        # Use `defaultdict()` to make `_log_timer_stats()` and other functions usable
+        # even if `count` is zero, which can happen for example for epochs timer
+        # if logging is called in the middle of the first epoch.
         stats: Dict[str, float] = collections.defaultdict(float)
         stats["count"] = float(count)
         if count > 0:

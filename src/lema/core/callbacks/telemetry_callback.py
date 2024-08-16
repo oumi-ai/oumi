@@ -8,7 +8,7 @@ import transformers
 
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.core.types import TrainingParams
-from lema.performance.telemetry import TelemetryTracker
+from lema.performance.telemetry import TelemetryTracker, TimerContext
 from lema.utils.io_utils import save_json
 from lema.utils.logging import logger
 
@@ -36,9 +36,9 @@ class TelemetryCallback(transformers.TrainerCallback):
                 the directory as JSON files.
         """
         self._telemetry = TelemetryTracker()
-        self._microstep_timer = None
-        self._step_timer = None
-        self._epoch_timer = None
+        self._microstep_timer: Optional[TimerContext] = None
+        self._step_timer: Optional[TimerContext] = None
+        self._epoch_timer: Optional[TimerContext] = None
 
         self._skip_first_steps: int = skip_first_steps
         self._output_dir: Optional[pathlib.Path] = output_dir
@@ -160,35 +160,33 @@ class TelemetryCallback(transformers.TrainerCallback):
             return True
         return False
 
-    def _complete_previous_microstep_if_needed(self):
-        if self._microstep_timer is None:
-            return
+    @staticmethod
+    def _exit_timer_if_needed(timer: Optional[TimerContext]) -> Optional[TimerContext]:
+        if timer is not None:
+            timer.__exit__(*sys.exc_info())
+        return None
 
-        self._microstep_timer.__exit__(*sys.exc_info())
-        self._microstep_timer = None
+    def _start_timer(self, timer_name: str) -> TimerContext:
+        timer: TimerContext = self._telemetry.timer(timer_name)
+        timer.__enter__()
+        return timer
+
+    def _complete_previous_microstep_if_needed(self):
+        self._microstep_timer = TelemetryCallback._exit_timer_if_needed(
+            self._microstep_timer
+        )
 
     def _start_microstep(self):
-        self._microstep_timer = self._telemetry.timer("microsteps")
-        self._microstep_timer.__enter__()
+        self._microstep_timer = self._start_timer("microsteps")
 
     def _complete_previous_step_if_needed(self):
-        if self._step_timer is None:
-            return
-
-        self._step_timer.__exit__(*sys.exc_info())
-        self._step_timer = None
+        self._step_timer = TelemetryCallback._exit_timer_if_needed(self._step_timer)
 
     def _start_step(self):
-        self._step_timer = self._telemetry.timer("steps")
-        self._step_timer.__enter__()
+        self._step_timer = self._start_timer("steps")
 
     def _complete_previous_epoch_if_needed(self):
-        if self._epoch_timer is None:
-            return
-
-        self._epoch_timer.__exit__(*sys.exc_info())
-        self._epoch_timer = None
+        self._epoch_timer = TelemetryCallback._exit_timer_if_needed(self._epoch_timer)
 
     def _start_epoch(self):
-        self._epoch_timer = self._telemetry.timer("epochs")
-        self._epoch_timer.__enter__()
+        self._epoch_timer = self._start_timer("epochs")
