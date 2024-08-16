@@ -172,11 +172,32 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 def _create_training_performance_callbacks_if_needed(
     config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
 ) -> List[Any]:
+    result = []
     if not config.training.include_performance_metrics:
-        return []
-    elif not torch.cuda.is_available():
-        logger.warning("MFU logging is only supported on GPU. Skipping callback.")
-        return []
+        return result
+
+    if profiler is not None:
+        result.append(ProfilerStepCallback(profiler=profiler))
+    elif config.training.profiler.schedule.enable_schedule:
+        logger.warning(
+            "Scheduled profiling is requested, but profiler is not available!"
+        )
+
+    telemetry_dir: Optional[pathlib.Path] = None
+    if config.training.profiler.save_dir or config.training.output_dir:
+        telemetry_dir = (
+            pathlib.Path(
+                config.training.profiler.save_dir or config.training.output_dir
+            )
+            / "telemetry"
+        )
+        if is_local_process_zero():
+            telemetry_dir.mkdir(parents=True, exist_ok=True)
+    result.append(TelemetryCallback(output_dir=telemetry_dir))
+
+    if not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
+        return result
 
     result = []
     if config.model.model_max_length is not None and config.model.model_max_length > 0:
@@ -206,25 +227,6 @@ def _create_training_performance_callbacks_if_needed(
         )
     ):
         result.append(HfMfuTrainerCallback(dtype=model.dtype))
-
-    if profiler is not None:
-        result.append(ProfilerStepCallback(profiler=profiler))
-    elif config.training.profiler.schedule.enable_schedule:
-        logger.warning(
-            "Scheduled profiling is requested, but profiler is not available!"
-        )
-
-    telemetry_dir: Optional[pathlib.Path] = None
-    if config.training.profiler.save_dir or config.training.output_dir:
-        telemetry_dir = (
-            pathlib.Path(
-                config.training.profiler.save_dir or config.training.output_dir
-            )
-            / "telemetry"
-        )
-        if is_local_process_zero():
-            telemetry_dir.mkdir(parents=True, exist_ok=True)
-    result.append(TelemetryCallback(output_dir=telemetry_dir))
 
     return result
 

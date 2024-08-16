@@ -59,6 +59,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         If using gradient accumulation, one training step might take several inputs.
         """
         self._step += 1
+        logger.info(f"on_step_begin: {self._step} {self._callback_disabled()}")
         if self._callback_disabled():
             return
 

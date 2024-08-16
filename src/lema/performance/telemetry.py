@@ -269,15 +269,16 @@ class TelemetryTracker:
     def _calculate_stats(
         self, measurements: List[float], total_time: Optional[float] = None
     ) -> Dict[str, float]:
-        stats = {
-            "total": sum(measurements),
-            "mean": statistics.mean(measurements),
-            "median": statistics.median(measurements),
-            "std_dev": statistics.stdev(measurements) if len(measurements) > 1 else 0,
-            "min": min(measurements),
-            "max": max(measurements),
-            "count": len(measurements),
-        }
+        count = len(measurements)
+        stats: Dict[str, float] = {"count": float(count)}
+        if count > 0:
+            stats["total"] = sum(measurements)
+            stats["mean"] = statistics.mean(measurements)
+            stats["median"] = statistics.median(measurements)
+            stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
+            stats["min"] = min(measurements)
+            stats["max"] = max(measurements)
+
         if total_time:
             stats["percentage"] = (stats["total"] / total_time) * 100
         return stats
