@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 
+import bitsandbytes
 import torch
 from transformers.optimization import Adafactor
 from transformers.trainer_pt_utils import get_parameter_names
@@ -72,6 +73,16 @@ def build_optimizer(
             betas=(config.adam_beta1, config.adam_beta2),
             eps=config.adam_epsilon,
             fused=fused_available,
+        )
+    elif optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
+        return bitsandbytes.optim.AdamW(
+            trainable_params,
+            lr=config.learning_rate,
+            betas=(config.adam_beta1, config.adam_beta2),
+            eps=config.adam_epsilon,
+            weight_decay=config.weight_decay,
+            optim_bits=8,
+            is_paged=optimizer_name == "paged_adamw_8bit",
         )
     elif optimizer_name == "sgd":
         return torch.optim.SGD(
