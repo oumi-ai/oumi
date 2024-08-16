@@ -1,3 +1,4 @@
+import collections
 import statistics
 import time
 from contextlib import ContextDecorator
@@ -270,7 +271,8 @@ class TelemetryTracker:
         self, measurements: List[float], total_time: Optional[float] = None
     ) -> Dict[str, float]:
         count = len(measurements)
-        stats: Dict[str, float] = {"count": float(count)}
+        stats: Dict[str, float] = collections.defaultdict(float)
+        stats["count"] = float(count)
         if count > 0:
             stats["total"] = sum(measurements)
             stats["mean"] = statistics.mean(measurements)
@@ -278,9 +280,8 @@ class TelemetryTracker:
             stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
             stats["min"] = min(measurements)
             stats["max"] = max(measurements)
-
-        if total_time:
-            stats["percentage"] = (stats["total"] / total_time) * 100
+            if total_time:
+                stats["percentage"] = (stats["total"] / total_time) * 100
         return stats
 
     def _log_timer_stats(
