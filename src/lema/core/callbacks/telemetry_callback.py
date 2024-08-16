@@ -59,7 +59,6 @@ class TelemetryCallback(transformers.TrainerCallback):
         If using gradient accumulation, one training step might take several inputs.
         """
         self._step += 1
-        logger.info(f"on_step_begin: {self._step} {self._callback_disabled()}")
         if self._callback_disabled():
             return
 
@@ -141,17 +140,17 @@ class TelemetryCallback(transformers.TrainerCallback):
             return
 
         device_rank_info = get_device_rank_info()
+        basename = f"telemetry_rank{device_rank_info.rank:03}"
         for name, stats in summary["timers"].items():
-            basename = f"telemetry_rank_{device_rank_info.rank:03}"
             for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
                 if stats_key in stats:
                     metric_name = f"{basename}_{name}_{stats_key}"
                     kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
-            if self._output_dir is not None:
-                telemetry_file = self._output_dir / (basename + ".json")
-                logger.info(f"Saving telemetry stats to {telemetry_file}...")
-                save_json(stats, telemetry_file)
+        if self._output_dir is not None:
+            telemetry_file = self._output_dir / (basename + ".json")
+            logger.info(f"Saving telemetry stats to {telemetry_file}...")
+            save_json(summary["timers"], telemetry_file)
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""

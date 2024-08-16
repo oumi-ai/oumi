@@ -193,13 +193,16 @@ def _create_training_performance_callbacks_if_needed(
         )
         if is_local_process_zero():
             telemetry_dir.mkdir(parents=True, exist_ok=True)
-    result.append(TelemetryCallback(output_dir=telemetry_dir))
+    result.append(
+        TelemetryCallback(
+            skip_first_steps=2, world_process_zero_only=True, output_dir=telemetry_dir
+        )
+    )
 
     if not torch.cuda.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
         return result
 
-    result = []
     if config.model.model_max_length is not None and config.model.model_max_length > 0:
         num_total_params = count_model_parameters(model)
         num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
