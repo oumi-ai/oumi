@@ -1,6 +1,6 @@
 import os
 from pprint import pformat
-from typing import Any, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional
 
 import numpy as np
 import torch
@@ -113,6 +113,27 @@ class ModelParameterCount(NamedTuple):
     all_params: int
     trainable_params: int
     embedding_params: int
+
+
+def _get_parameter_names(
+    model: torch.nn.Module, forbidden_layer_types: List[Any]
+) -> List[str]:
+    """Returns the names of the model parameters that are not inside a forbidden layer.
+
+    Borrowed from
+    https://github.com/huggingface/transformers/blob/main/src/transformers/trainer.py.
+    """
+    result = []
+    for name, child in model.named_children():
+        result += [
+            f"{name}.{n}"
+            for n in _get_parameter_names(child, forbidden_layer_types)
+            if not isinstance(child, tuple(forbidden_layer_types))
+        ]
+    # Add model specific parameters (defined with nn.Parameter) since they are not in
+    # any child.
+    result += list(model._parameters.keys())
+    return result
 
 
 def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
