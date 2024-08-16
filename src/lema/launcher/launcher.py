@@ -95,10 +95,17 @@ class Launcher:
 
 LAUNCHER = Launcher()
 # Explicitly expose the public methods of the default Launcher instance.
+#: A convenience method for Launcher.down.
 down = LAUNCHER.down
+#: A convenience method for Launcher.get_cloud.
 get_cloud = LAUNCHER.get_cloud
+#: A convenience method for Launcher.run.
 run = LAUNCHER.run
+#: A convenience method for Launcher.status.
 status = LAUNCHER.status
+#: A convenience method for Launcher.stop.
 stop = LAUNCHER.stop
+#: A convenience method for Launcher.up.
 up = LAUNCHER.up
+#: A convenience method for Launcher.which_clouds.
 which_clouds = LAUNCHER.which_clouds

@@ -33,12 +33,13 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
         self,
         dtype: torch.dtype,
     ):
-        """Initialize the MfuTrainerCallback.
+        """Initialize the HfMfuTrainerCallback.
 
         Args:
             dtype: The data type of the model.
         """
         self._dtype = dtype
+        self._time_of_second_step: Optional[float] = None
         self._flops_at_second_step: Optional[float] = None
         self._time_for_train_steps = 0.0
         self._first_step_finished = False
@@ -126,21 +127,23 @@ class HfMfuTrainerCallback(transformers.TrainerCallback):
         if self._flops_at_second_step is not None and (
             state is not None and state.total_flos > 0.0
         ):
-            flops_since_second_step = state.total_flos - self._flops_at_second_step
+            flops_since_second_step_on_all_devices = (
+                state.total_flos - self._flops_at_second_step
+            ) * self._num_devices
             train_step_mfu = calculate_mfu_from_model_flops_per_second(
                 device_name=self._device_name,
                 num_devices=self._num_devices,
                 dtype=self._dtype,
-                model_flops_per_second=(
-                    flops_since_second_step / delta_time_seconds_step
+                model_flops_per_second_on_all_devices=(
+                    flops_since_second_step_on_all_devices / delta_time_seconds_step
                 ),
             )
             train_mfu = calculate_mfu_from_model_flops_per_second(
                 device_name=self._device_name,
                 num_devices=self._num_devices,
                 dtype=self._dtype,
-                model_flops_per_second=(
-                    flops_since_second_step / delta_time_seconds_train
+                model_flops_per_second_on_all_devices=(
+                    flops_since_second_step_on_all_devices / delta_time_seconds_train
                 ),
             )
             if _LOGS_KWARG in kwargs:

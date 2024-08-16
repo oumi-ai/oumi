@@ -11,28 +11,7 @@ from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types import ModelParams, PeftParams
 from lema.utils.logging import logger
-
-
-def _disable_dropout(hf_config: transformers.AutoConfig) -> None:
-    """Detects dropout probabilities in config and sets them to 0.0.
-
-    This essentially removes the dropout layer, which can aid the compiled model's
-    speed. Dropout is normally not used for LLM training, and also hinders the
-    effectiveness of model compilation. We assume any attribute with "drop" in the name
-    and a float value is a dropout param. For example, this includes `attn_pdrop` and
-    `summary_first_dropout` for GPT2.
-
-    Args:
-        hf_config: The HuggingFace model config.
-    """
-    drop_attrs = []
-    for k, v in vars(hf_config).items():
-        if "drop" in k and isinstance(v, float):
-            setattr(hf_config, k, 0.0)
-            drop_attrs.append(k)
-    logger.info(
-        f"Found these dropout attributes and set their values to 0.0: {drop_attrs}"
-    )
+from lema.utils.torch_naming_heuristics import disable_dropout
 
 
 def build_model(
@@ -125,7 +104,7 @@ def build_huggingface_model(
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
-        _disable_dropout(hf_config)
+        disable_dropout(hf_config)
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:

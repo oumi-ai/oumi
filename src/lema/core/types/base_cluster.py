@@ -9,23 +9,24 @@ from lema.core.types.configs import JobConfig
 class JobStatus:
     """Dataclass to hold the status of a job."""
 
-    # The display name of the job.
+    #: The display name of the job.
     name: str
 
-    # The unique identifier of the job on the cluster
+    #: The unique identifier of the job on the cluster
     id: str
 
-    # The status of the job.
+    #: The status of the job.
     status: str
 
-    # The cluster to which the job belongs.
+    #: The cluster to which the job belongs.
     cluster: str
 
-    # Miscellaneous metadata about the job.
+    #: Miscellaneous metadata about the job.
     metadata: str
 
-    # A flag indicating whether the job is done.
-    # True only if the job is in a terminal state (e.g. completed, failed, or canceled).
+    #: A flag indicating whether the job is done.
+    #: True only if the job is in a terminal state (e.g. completed, failed, or
+    #: canceled).
     done: bool
 
 

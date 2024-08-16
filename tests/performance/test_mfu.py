@@ -152,7 +152,7 @@ class MfuFromModelFlopsTestParams(NamedTuple):
     device_name: str
     num_devices: int
     dtype: torch.dtype
-    model_tflops_per_second: float
+    model_tflops_per_second_on_all_devices: float
     expected_mfu: float
 
 
@@ -163,28 +163,28 @@ class MfuFromModelFlopsTestParams(NamedTuple):
             device_name="NVIDIA A100-SXM4-40GB",
             num_devices=1,
             dtype=torch.bfloat16,
-            model_tflops_per_second=156,
+            model_tflops_per_second_on_all_devices=156,
             expected_mfu=0.5,
         ),
         MfuFromModelFlopsTestParams(
             device_name="NVIDIA A100-SXM4-40GB",
             num_devices=2,
             dtype=torch.float16,
-            model_tflops_per_second=156,
+            model_tflops_per_second_on_all_devices=156,
             expected_mfu=0.25,
         ),
         MfuFromModelFlopsTestParams(
             device_name="NVIDIA GeForce RTX 3090",
             num_devices=1,
             dtype=torch.float32,
-            model_tflops_per_second=35.6,
+            model_tflops_per_second_on_all_devices=35.6,
             expected_mfu=1.0,
         ),
         MfuFromModelFlopsTestParams(
             device_name="NVIDIA GeForce RTX 3090",
             num_devices=4,
             dtype=torch.float32,
-            model_tflops_per_second=35.6,
+            model_tflops_per_second_on_all_devices=35.6,
             expected_mfu=0.25,
         ),
     ],
@@ -196,7 +196,9 @@ def test_calculate_mfu_from_model_flops_per_second_parametric(
         device_name=params.device_name,
         num_devices=params.num_devices,
         dtype=params.dtype,
-        model_flops_per_second=(params.model_tflops_per_second * 1e12),
+        model_flops_per_second_on_all_devices=(
+            params.model_tflops_per_second_on_all_devices * 1e12
+        ),
     )
     assert math.isclose(mfu, params.expected_mfu, abs_tol=_MFU_ABS_TOLERANCE)
 
@@ -285,6 +287,6 @@ def test_mfu_from_model_flops_per_second_bad_num_devices():
             device_name="NVIDIA A100-SXM4-80GB",
             num_devices=0,
             dtype=torch.bfloat16,
-            model_flops_per_second=1e9,
+            model_flops_per_second_on_all_devices=1e9,
         )
     assert "Must have a positive number of devices" in str(exception_info.value)

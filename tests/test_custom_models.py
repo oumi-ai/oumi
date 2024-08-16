@@ -52,6 +52,7 @@ def _get_default_config(output_temp_dir):
             enable_tensorboard=False,
             output_dir=output_temp_dir,
             include_performance_metrics=False,
+            include_alternative_mfu_metrics=True,
         ),
     )
 
