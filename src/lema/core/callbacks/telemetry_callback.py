@@ -147,6 +147,23 @@ class TelemetryCallback(transformers.TrainerCallback):
                     metric_name = f"{basename}_{name}_{stats_key}"
                     kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
+    def on_train_end(
+        self,
+        args: Union[transformers.TrainingArguments, TrainingParams],
+        state: Optional[transformers.TrainerState] = None,
+        control: Optional[transformers.TrainerControl] = None,
+        **kwargs,
+    ):
+        """Event called at the end of training."""
+        if self._callback_disabled():
+            return
+
+        summary = self._telemetry.get_summary()
+        if not ("timers" in summary and _LOGS_KWARG in kwargs):
+            return
+
+        device_rank_info = get_device_rank_info()
+        basename = f"telemetry_rank{device_rank_info.rank:03}"
         if self._output_dir is not None:
             telemetry_file = self._output_dir / (basename + ".json")
             logger.info(f"Saving telemetry stats to {telemetry_file}...")
