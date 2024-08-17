@@ -159,7 +159,7 @@ class TelemetryCallback(transformers.TrainerCallback):
             return
 
         summary = self._telemetry.get_summary()
-        if not ("timers" in summary and _LOGS_KWARG in kwargs):
+        if "timers" not in summary:
             return
 
         device_rank_info = get_device_rank_info()
