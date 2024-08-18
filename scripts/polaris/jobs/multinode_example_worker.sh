@@ -134,6 +134,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       "training.enable_gradient_checkpointing=false" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
+      "model.torch_dtype_str=float32" \
       "training.mixed_precision_dtype=BF16"
 else
     set -x  # Print "accelerate" command with expanded variables

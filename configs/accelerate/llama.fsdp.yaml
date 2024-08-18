@@ -19,8 +19,6 @@ enable_cpu_affinity: false
 fsdp_config:
   fsdp_activation_checkpointing: true
   fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
-  # fsdp_auto_wrap_policy: SIZE_BASED_WRAP
-  # fsdp_min_num_params: 100000000
   fsdp_backward_prefetch: BACKWARD_PRE
   fsdp_cpu_ram_efficient_loading: true
   fsdp_forward_prefetch: true
