@@ -10,9 +10,9 @@ from lema.core.types import (
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
+    EvaluationFramework,
     ModelParams,
 )
-from lema.core.types.configs import EvaluationFramework
 from lema.evaluate import SAVE_FILENAME_JSON
 
 

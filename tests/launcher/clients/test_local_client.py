@@ -7,9 +7,8 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from lema.core.types import JobConfig, JobResources, StorageMount
 from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.local_client import LocalClient
 
 
