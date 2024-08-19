@@ -56,6 +56,10 @@ def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
         _ = sys.stdout.write(f" {next(spinner)} {message}\r")
         _ = sys.stdout.flush()
         time.sleep(0.1)
+        # Clear the line before printing the next spinner. This makes the spinner
+        # appear animated instead of printing each iteration on a new line.
+        # \r (written above) moves the cursor to the beginning of the line.
+        # \033[K deletes everything from the cursor to the end of the line.
         _ = sys.stdout.write("\033[K")
 
 
