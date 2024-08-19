@@ -3,7 +3,7 @@ from typing import Dict, Optional
 
 from omegaconf import MISSING
 
-from lema.core.types.base_config import BaseConfig
+from lema.core.types.configs.base_config import BaseConfig
 
 
 @dataclass
