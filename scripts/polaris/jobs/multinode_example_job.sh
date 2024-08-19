@@ -45,5 +45,5 @@ mpiexec --verbose \
     --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
     ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
 
-echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)\n"
+echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"
