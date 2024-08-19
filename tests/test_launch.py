@@ -14,7 +14,7 @@ from lema.core.types import (
     TrainingParams,
 )
 from lema.core.types.base_cluster import JobStatus
-from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop
+from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop, which
 from lema.launcher import JobConfig, JobResources
 
 
@@ -503,3 +503,8 @@ def test_launch_stop_success(mock_launcher, mock_printer):
         )
     )
     mock_launcher.stop.assert_called_once_with("job", "cloud", "cluster")
+
+
+def test_launch_which_success(mock_launcher, mock_printer):
+    which()
+    mock_launcher.which_clouds.assert_called_once()
