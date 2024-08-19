@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from lema.core.types import HardwareException, ModelParams
+from lema.core.types import HardwareException
+from lema.core.types.configs import ModelParams
 
 
 def test_flash_attention_hardware_check():

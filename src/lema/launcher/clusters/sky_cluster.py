@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
-from lema.core.types import JobConfig
 from lema.core.types.base_cluster import BaseCluster, JobStatus
+from lema.core.types.configs import JobConfig
 from lema.launcher.clients.sky_client import SkyClient
 
 

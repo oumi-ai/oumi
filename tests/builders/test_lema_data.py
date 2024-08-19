@@ -9,7 +9,8 @@ from lema.builders.lema_data import _load_dataset, build_dataset
 from lema.core.datasets.base_dataset import BaseMapDataset
 from lema.core.datasets.iterable_dataset import BaseIterableDataset
 from lema.core.registry import register_dataset
-from lema.core.types import (
+from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.types.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,
@@ -17,7 +18,6 @@ from lema.core.types import (
     ModelParams,
     TrainingConfig,
 )
-from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 #

@@ -9,7 +9,7 @@ from transformers import BitsAndBytesConfig
 
 from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
-from lema.core.types import ModelParams, PeftParams
+from lema.core.types.configs import ModelParams, PeftParams
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
 

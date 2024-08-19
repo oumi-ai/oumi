@@ -10,14 +10,14 @@ from torchdata.datapipes.iter import (
 from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
 
 from lema.core.registry import REGISTRY
-from lema.core.types import (
+from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.types.configs import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
     TrainingConfig,
 )
-from lema.core.types.base_tokenizer import BaseTokenizer
 
 
 def build_dataset(

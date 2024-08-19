@@ -4,10 +4,10 @@ from typing import List
 
 import pytest
 
-from lema.core.types import (
+from lema.core.types import HardwareException
+from lema.core.types.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
-    HardwareException,
     JobConfig,
     TrainingConfig,
 )
