@@ -499,7 +499,8 @@ class Trainer(BaseTrainer):
         if self.params.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "lema")
             self.log(f"Logging to Weights and Biases project: '{project_name}'")
-            wandb.init(project=project_name, name=self.params.run_name)
+            run = wandb.init(project=project_name, name=self.params.run_name)
+            self.log(f"View wandb run {run.id} at: {run.get_url()}")
             wandb.watch(self.model)
 
         if self.params.enable_tensorboard:
