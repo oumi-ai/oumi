@@ -1,10 +1,6 @@
 # Learning Machines (LeMa)
 
-Learning Machines modeling platform
-
-## Description
-
-lema is a learning machines modeling platform that allows you to build and train machine learning models easily.
+LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
 - Easy-to-use interface for data preprocessing, model training, and evaluation.
 - Support for various machine learning algorithms and techniques.
@@ -16,6 +12,14 @@ lema is a learning machines modeling platform that allows you to build and train
 - [x] Easily run in a locally, jupyter notebook, vscode debugger, or remote cluster
 - [x] Full finetuning using SFT, DPO
 
+Take a [tour of our repository](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) to learn more!
+
+## Documentation
+
+View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
+
+Reach out to matthew@learning-machines.ai if you have problems with access.
+
 ## Dev Environment Setup
 
 ### 1. Install Miniconda
@@ -25,7 +29,7 @@ lema is a learning machines modeling platform that allows you to build and train
 [comment]: <> (This is a package/environment manager that we mainly need to pull all the relevant python packages via pip)
 
 
-### 2. Create a new environment for lema and activate it
+### 2. Create a new environment for LeMa and activate it
 
    ```
    conda create -n lema python=3.11
@@ -34,7 +38,7 @@ lema is a learning machines modeling platform that allows you to build and train
 
 ### 3. Install GitHub CLI
 
-#### 3.1. Instructions for Mac
+#### 3.1 Instructions for Mac
 
    Install Homebrew (the command below was copied from www.brew.sh)
 
@@ -69,13 +73,13 @@ lema is a learning machines modeling platform that allows you to build and train
    git config --global user.email YOUR_USERNAME@learning-machines.ai
    ```
 
-### 6. Clone the lema repository
+### 6. Clone the LeMa repository
 
    ```shell
    gh repo clone openlema/lema
    ```
 
-### 7. Install lema package and its dependencies
+### 7. Install LeMa package and its dependencies
 
    ```shell
    cd lema
@@ -98,7 +102,7 @@ lema is a learning machines modeling platform that allows you to build and train
    pre-commit run --all-files
    ```
 
-### 9. [optional] Add a lema shortcut in your environment {.zshrc or .bashrc}
+### 9. [optional] Add a LeMa shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
    alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
@@ -115,7 +119,7 @@ lema is a learning machines modeling platform that allows you to build and train
 
 ## User Setup
 
-To install lema, you can use pip:
+To install LeMa, you can use pip:
 `pip install 'lema[cloud,dev,train]'`
 
 
@@ -157,9 +161,9 @@ sky autostop lema-cluster -i 10
 
 Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).
 
-### Multi-GPU Training on a single node
+### Multi-GPU Training on a Single Node
 
-If your model fits on 1 GPU, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPUs and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+If your model fits on a singular GPU chip, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPU chips and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
 
 #### DDP (Distributed Data Parallel)
 
@@ -190,5 +194,5 @@ Then run `sky launch ...` as before.
    - To fix this, make sure to start your vscode instance after activating your conda environment.
      ```shell
      conda activate lema
-     code .  # inside the lema directory
+     code .  # inside the LeMa directory
      ```
