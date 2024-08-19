@@ -27,14 +27,14 @@ module load conda
 # Activate the LeMa Conda environment.
 conda activate /home/$USER/miniconda3/envs/lema
 
-echo "Starting torchrun with ${LEMA_NUM_NODES} node(s)..."
+echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
 
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 export NCCL_COLLNET_ENABLE=1
 export NCCL_NET_GDR_LEVEL=PHB
 export NCCL_DEBUG=INFO # WARN # INFO
-export NCCL_DEBUG_SUBSYS=ALL
+# export NCCL_DEBUG_SUBSYS=ALL
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
 
@@ -57,5 +57,5 @@ mpiexec --verbose \
     -ppn ${NRANKS} \
     ./scripts/polaris/jobs/multinode_example_worker.sh -m ddp
 
-echo -e "Finished running on ${LEMA_NUM_NODES} nodes:\n$(cat $PBS_NODEFILE)"
+echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"
