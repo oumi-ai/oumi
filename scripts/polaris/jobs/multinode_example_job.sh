@@ -36,13 +36,23 @@ export NCCL_NET_GDR_LEVEL=PHB
 export NCCL_DEBUG=WARN # INFO
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
-NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
 
+NDEPTH=32 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
+CPU_BIND="--cpu-bind depth"
+
+# NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
+# CPU_BIND="--cpu-bind depth"
+
+# NDEPTH=32 # Number of physical CPU cores per Polaris node
+# CPU_BIND="--cpu-bind verbose,list:0,8,16,24"
 
 #FIXME Should we set --envall, --noenvall, or only pass specific env vars?
 set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
-    --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
-    ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
+    --np ${LEMA_NUM_NODES} \
+    -ppn ${NRANKS} \
+    -d ${NDEPTH} \
+    --cpu-bind "${CPU_BIND}" \
+    ./scripts/polaris/jobs/multinode_example_worker.sh -m ddp
 
 echo "Polaris job is all done!"
