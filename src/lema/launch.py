@@ -175,7 +175,6 @@ def _poll_job(
         return
     if launch_args.detach and cloud == "local":
         print("Cannot detach from jobs in local mode.")
-        return
 
     if not running_cluster:
         running_cluster = launcher.get_cloud(cloud).get_cluster(job_status.cluster)

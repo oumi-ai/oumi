@@ -117,6 +117,71 @@ def test_launch_launch_job(mock_launcher, mock_printer):
         mock_cluster.get_job.assert_called_once_with("job_id")
 
 
+def test_launch_launch_job_detach(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        launch(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, detach=True))
+        mock_printer.assert_not_called()
+        mock_cluster.get_job.assert_not_called()
+
+
+def test_launch_launch_job_detached_local(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.resources.cloud = "local"
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        launch(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, detach=True))
+        mock_printer.assert_called_once_with("Running job job_id", ANY)
+        mock_cluster.get_job.assert_called_once_with("job_id")
+
+
 def test_launch_launch_job_not_found(mock_launcher):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -194,6 +259,89 @@ def test_launch_run_job(mock_launcher, mock_printer):
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
         mock_launcher.get_cloud.assert_called_once_with("aws")
         mock_cloud.get_cluster.assert_called_once_with("cluster_id")
+
+
+def test_launch_run_job_detached(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_cloud = Mock()
+        mock_launcher.run.return_value = job_status
+        mock_launcher.get_cloud.return_value = mock_cloud
+        mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        run(
+            _LaunchArgs(
+                job=job_yaml_path,
+                action=_LauncherAction.UP,
+                cluster="cluster_id",
+                detach=True,
+            )
+        )
+        mock_printer.assert_not_called()
+        mock_cluster.get_job.assert_not_called()
+        mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
+        mock_launcher.get_cloud.assert_not_called()
+        mock_cloud.get_cluster.assert_not_called()
+
+
+def test_launch_run_job_detached_local(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_cloud = Mock()
+        mock_launcher.run.return_value = job_status
+        mock_launcher.get_cloud.return_value = mock_cloud
+        mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, cluster="local"))
+        mock_printer.assert_called_once_with("Running job job_id", ANY)
+        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_launcher.run.assert_called_once_with(job_config, "local")
+        mock_launcher.get_cloud.assert_called_once_with("aws")
+        mock_cloud.get_cluster.assert_called_once_with("local")
 
 
 def test_launch_run_job_no_cluster(mock_launcher, mock_printer):
