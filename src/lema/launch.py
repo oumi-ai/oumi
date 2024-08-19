@@ -42,11 +42,11 @@ class _LaunchArgs:
     # The cloud to use for the specific action.
     cloud: Optional[str] = None
 
-    # The user for a job or cluster. Only used by Polaris.
-    user: Optional[str] = None
-
     # The job id for the specific action.
     job_id: Optional[str] = None
+
+    # If false, poll until the started job is complete.
+    detach: bool = False
 
 
 def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
@@ -114,7 +114,7 @@ def parse_cli() -> _LaunchArgs:
     )
 
     parser.add_argument(
-        "-u", "--user", default=None, help="The user for the specific action."
+        "-d", "--detach", default=False, help="Whether to detach from the job."
     )
 
     args, unknown = parser.parse_known_args()
@@ -123,8 +123,8 @@ def parse_cli() -> _LaunchArgs:
         cluster=args.cluster,
         action=_parse_action(args.action),
         cloud=args.cloud,
-        user=args.user,
         job_id=args.job,
+        detach=args.detach,
         additional_args=unknown,
     )
 
@@ -159,6 +159,96 @@ def _down_worker(launch_args: _LaunchArgs) -> None:
         )
 
 
+def _poll_job(
+    job_status: JobStatus,
+    launch_args: _LaunchArgs,
+    cloud: str,
+    running_cluster: Optional[BaseCluster] = None,
+) -> None:
+    """Polls a job until it is complete.
+
+    If the job is running in detached mode and the job is not on the local cloud,
+    the function returns immediately.
+    """
+    if launch_args.detach and cloud != "local":
+        print(f"Running job {job_status.id} in detached mode.")
+        return
+    if launch_args.detach and cloud == "local":
+        print("Cannot detach from jobs in local mode.")
+        return
+
+    if not running_cluster:
+        running_cluster = launcher.get_cloud(cloud).get_cluster(job_status.cluster)
+
+    assert running_cluster
+
+    _print_and_wait(
+        f"Running job {job_status.id}", _create_job_poller(job_status, running_cluster)
+    )
+    final_status = running_cluster.get_job(job_status.id)
+    if final_status:
+        print(f"Job {final_status.id} finished with status {final_status.status}")
+        print(f"Job metadata: {final_status.metadata}")
+
+
+def status(launch_args: _LaunchArgs) -> None:
+    """Prints the status of jobs on LeMa.
+
+    Optionally, the caller may specify a job id, cluster, or cloud to further filter
+    results.
+    """
+    print("========================")
+    print("Job status:")
+    print("========================")
+    filtered_jobs = {}
+
+    for cloud in launcher.which_clouds():
+        cloud_obj = launcher.get_cloud(cloud)
+        # Ignore clouds not matching the filter criteria.
+        if launch_args.cloud and cloud != launch_args.cloud:
+            continue
+        filtered_jobs[cloud] = {}
+        for cluster in cloud_obj.list_clusters():
+            # Ignore clusters not matching the filter criteria.
+            if launch_args.cluster and cluster.name != launch_args.cluster:
+                continue
+            filtered_jobs[cloud][cluster.name] = []
+            for job in cluster.get_jobs():
+                # Ignore jobs not matching the filter criteria.
+                if launch_args.job_id and job.id != launch_args.job_id:
+                    continue
+                filtered_jobs[cloud][cluster.name].append(job)
+    # Print the filtered jobs.
+    if not filtered_jobs.items():
+        print("No jobs found for the specified filter criteria: ")
+        if launch_args.cloud:
+            print(f"Cloud: {launch_args.cloud}")
+        if launch_args.cluster:
+            print(f"Cluster: {launch_args.cluster}")
+        if launch_args.job_id:
+            print(f"Job ID: {launch_args.job_id}")
+    for cloud, clusters in filtered_jobs.items():
+        print(f"Cloud: {cloud}")
+        if not clusters.items():
+            print("No matching clusters found.")
+        for cluster, jobs in clusters.items():
+            print(f"Cluster: {cluster}")
+            if not jobs:
+                print("No matching jobs found.")
+            for job in jobs:
+                print(f"Job: {job.id} Status: {job.status}")
+
+
+def which() -> None:
+    """Prints the available clouds."""
+    clouds = launcher.which_clouds()
+    print("========================")
+    print("Available clouds:")
+    print("========================")
+    for cloud in clouds:
+        print(cloud)
+
+
 def stop(launch_args: _LaunchArgs) -> None:
     """Stops a job on LeMa."""
     if not launch_args.cluster:
@@ -182,6 +272,21 @@ def down(launch_args: _LaunchArgs) -> None:
     worker_result.wait()
 
 
+def run(launch_args: _LaunchArgs) -> None:
+    """Runs a job on the target cluster."""
+    config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
+        launch_args.job, launch_args.additional_args, logger=logger
+    )
+    config.validate()
+    if not launch_args.cluster:
+        raise ValueError("No cluster specified for the `run` action.")
+
+    job_status = launcher.run(config, launch_args.cluster)
+    print(f"Job {job_status.id} queued on cluster {launch_args.cluster}.")
+
+    _poll_job(job_status, launch_args, config.resources.cloud)
+
+
 def launch(launch_args: _LaunchArgs) -> None:
     """Launches a job on LeMa."""
     config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
@@ -191,14 +296,11 @@ def launch(launch_args: _LaunchArgs) -> None:
 
     # Start the job
     running_cluster, job_status = launcher.up(config, launch_args.cluster)
+    print(f"Job {job_status.id} queued on cluster {running_cluster.name}.")
 
-    _print_and_wait(
-        f"Running job {job_status.id}", _create_job_poller(job_status, running_cluster)
+    _poll_job(
+        job_status, launch_args, config.resources.cloud, running_cluster=running_cluster
     )
-    final_status = running_cluster.get_job(job_status.id)
-    if final_status:
-        logger.info(f"Job {final_status.id} finished with status {final_status.status}")
-        logger.info(f"Job metadata: {final_status.metadata}")
 
 
 def main() -> None:
@@ -214,15 +316,15 @@ def main() -> None:
     if launch_args.action == _LauncherAction.UP:
         launch(launch_args)
     elif launch_args.action == _LauncherAction.DOWN:
-        pass
+        down(launch_args)
     elif launch_args.action == _LauncherAction.STATUS:
-        pass
+        status(launch_args)
     elif launch_args.action == _LauncherAction.STOP:
-        pass
+        stop(launch_args)
     elif launch_args.action == _LauncherAction.RUN:
-        pass
+        run(launch_args)
     elif launch_args.action == _LauncherAction.WHICH_CLOUDS:
-        pass
+        which()
     else:
         raise ValueError(f"Invalid action: {launch_args.action}")
 

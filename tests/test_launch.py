@@ -14,7 +14,7 @@ from lema.core.types import (
     TrainingParams,
 )
 from lema.core.types.base_cluster import JobStatus
-from lema.launch import _LaunchArgs, _LauncherAction, launch
+from lema.launch import _LaunchArgs, _LauncherAction, launch, run
 from lema.launcher import JobConfig, JobResources
 
 
@@ -152,3 +152,81 @@ def test_launch_launch_job_not_found(mock_launcher):
                 )
             )
         assert "No such file or directory" in str(exception_info.value)
+
+
+def test_launch_run_job(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_cloud = Mock()
+        mock_launcher.run.return_value = job_status
+        mock_launcher.get_cloud.return_value = mock_cloud
+        mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        run(
+            _LaunchArgs(
+                job=job_yaml_path, action=_LauncherAction.UP, cluster="cluster_id"
+            )
+        )
+        mock_printer.assert_called_once_with("Running job job_id", ANY)
+        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
+        mock_launcher.get_cloud.assert_called_once_with("aws")
+        mock_cloud.get_cluster.assert_called_once_with("cluster_id")
+
+
+def test_launch_run_job_no_cluster(mock_launcher, mock_printer):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_cloud = Mock()
+        mock_launcher.run.return_value = job_status
+        mock_launcher.get_cloud.return_value = mock_cloud
+        mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        with pytest.raises(
+            ValueError, match="No cluster specified for the `run` action."
+        ):
+            run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP))
