@@ -14,7 +14,7 @@ from lema.core.types import (
     TrainingParams,
 )
 from lema.core.types.base_cluster import JobStatus
-from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run
+from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop
 from lema.launcher import JobConfig, JobResources
 
 
@@ -458,3 +458,48 @@ def test_launch_down_no_cluster_arg(mock_launcher, mock_printer):
                 action=_LauncherAction.DOWN,
             )
         )
+
+
+def test_launch_stop_no_cluster_arg(mock_launcher, mock_printer):
+    with pytest.raises(ValueError, match="No cluster specified for `stop` action."):
+        stop(
+            _LaunchArgs(
+                cloud="aws",
+                job_id="bar",
+                action=_LauncherAction.STOP,
+            )
+        )
+
+
+def test_launch_stop_no_cloud_arg(mock_launcher, mock_printer):
+    with pytest.raises(ValueError, match="No cloud specified for `stop` action."):
+        stop(
+            _LaunchArgs(
+                cluster="aws",
+                job_id="bar",
+                action=_LauncherAction.STOP,
+            )
+        )
+
+
+def test_launch_stop_no_job_id_arg(mock_launcher, mock_printer):
+    with pytest.raises(ValueError, match="No job ID specified for `stop` action."):
+        stop(
+            _LaunchArgs(
+                cloud="aws",
+                cluster="cluster",
+                action=_LauncherAction.STOP,
+            )
+        )
+
+
+def test_launch_stop_success(mock_launcher, mock_printer):
+    stop(
+        _LaunchArgs(
+            cloud="cloud",
+            cluster="cluster",
+            job_id="job",
+            action=_LauncherAction.STOP,
+        )
+    )
+    mock_launcher.stop.assert_called_once_with("job", "cloud", "cluster")

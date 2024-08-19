@@ -252,11 +252,11 @@ def which() -> None:
 def stop(launch_args: _LaunchArgs) -> None:
     """Stops a job on LeMa."""
     if not launch_args.cluster:
-        raise ValueError("No cluster specified for stop action.")
+        raise ValueError("No cluster specified for `stop` action.")
     if not launch_args.job_id:
-        raise ValueError("No job specified for stop action.")
+        raise ValueError("No job ID specified for `stop` action.")
     if not launch_args.cloud:
-        raise ValueError("No cloud specified for stop action.")
+        raise ValueError("No cloud specified for `stop` action.")
     launcher.stop(launch_args.job_id, launch_args.cloud, launch_args.cluster)
 
 
