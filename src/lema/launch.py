@@ -74,61 +74,6 @@ def _create_job_poller(
     return is_done
 
 
-def _parse_action(action: Optional[str]) -> _LauncherAction:
-    """Parses the action from the command line arguments."""
-    if not action:
-        return _LauncherAction.UP
-    try:
-        return _LauncherAction(action)
-    except ValueError:
-        raise ValueError(f"Invalid action: {action}")
-
-
-def parse_cli() -> _LaunchArgs:
-    """Parses command line arguments and returns the configuration filename."""
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "-j", "--job", default=None, help="The job id for the specific action."
-    )
-
-    parser.add_argument(
-        "-p", "--path", default=None, help="Path to the job configuration file."
-    )
-
-    parser.add_argument(
-        "-c", "--cluster", default=None, help="The cluster name to use for the job."
-    )
-
-    parser.add_argument(
-        "-a",
-        "--action",
-        default=False,
-        help="The action to take. "
-        "Supported actions: up, down, status, stop, run, which. "
-        "Defaults to `up` if not specified.",
-    )
-
-    parser.add_argument(
-        "--cloud", default=None, help="The cloud to use for the specific action."
-    )
-
-    parser.add_argument(
-        "-d", "--detach", default=False, help="Whether to detach from the job."
-    )
-
-    args, unknown = parser.parse_known_args()
-    return _LaunchArgs(
-        job=args.path,
-        cluster=args.cluster,
-        action=_parse_action(args.action),
-        cloud=args.cloud,
-        job_id=args.job,
-        detach=args.detach,
-        additional_args=unknown,
-    )
-
-
 def _down_worker(launch_args: _LaunchArgs) -> None:
     """Turns down a cluster. Executed in a worker thread."""
     if not launch_args.cluster:
@@ -189,6 +134,61 @@ def _poll_job(
     if final_status:
         print(f"Job {final_status.id} finished with status {final_status.status}")
         print(f"Job metadata: {final_status.metadata}")
+
+
+def _parse_action(action: Optional[str]) -> _LauncherAction:
+    """Parses the action from the command line arguments."""
+    if not action:
+        return _LauncherAction.UP
+    try:
+        return _LauncherAction(action)
+    except ValueError:
+        raise ValueError(f"Invalid action: {action}")
+
+
+def parse_cli() -> _LaunchArgs:
+    """Parses command line arguments and returns the configuration filename."""
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-j", "--job", default=None, help="The job id for the specific action."
+    )
+
+    parser.add_argument(
+        "-p", "--path", default=None, help="Path to the job configuration file."
+    )
+
+    parser.add_argument(
+        "-c", "--cluster", default=None, help="The cluster name to use for the job."
+    )
+
+    parser.add_argument(
+        "-a",
+        "--action",
+        default=False,
+        help="The action to take. "
+        "Supported actions: up, down, status, stop, run, which. "
+        "Defaults to `up` if not specified.",
+    )
+
+    parser.add_argument(
+        "--cloud", default=None, help="The cloud to use for the specific action."
+    )
+
+    parser.add_argument(
+        "-d", "--detach", default=False, help="Whether to detach from the job."
+    )
+
+    args, unknown = parser.parse_known_args()
+    return _LaunchArgs(
+        job=args.path,
+        cluster=args.cluster,
+        action=_parse_action(args.action),
+        cloud=args.cloud,
+        job_id=args.job,
+        detach=args.detach,
+        additional_args=unknown,
+    )
 
 
 def status(launch_args: _LaunchArgs) -> None:
