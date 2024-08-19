@@ -132,14 +132,14 @@ def parse_cli() -> _LaunchArgs:
 def _down_worker(launch_args: _LaunchArgs) -> None:
     """Turns down a cluster. Executed in a worker thread."""
     if not launch_args.cluster:
-        raise ValueError("No cluster specified for down action.")
+        raise ValueError("No cluster specified for `down` action.")
     if launch_args.cloud:
         cloud = launcher.get_cloud(launch_args.cloud)
         cluster = cloud.get_cluster(launch_args.cluster)
         if cluster:
             cluster.down()
         else:
-            logger.warn(f"Cluster {launch_args.cluster} not found.")
+            print(f"Cluster {launch_args.cluster} not found.")
         return
     # Make a best effort to find a single cluster to turn down without a cloud.
     clusters = []
@@ -149,11 +149,12 @@ def _down_worker(launch_args: _LaunchArgs) -> None:
         if cluster:
             clusters.append(cluster)
     if len(clusters) == 0:
+        print(f"Cluster {launch_args.cluster} not found.")
         return
     if len(clusters) == 1:
         clusters[0].down()
     else:
-        logger.warn(
+        print(
             f"Multiple clusters found with name {launch_args.cluster}. "
             "Specify a cloud to turn down with `--cloud`."
         )
@@ -262,7 +263,7 @@ def stop(launch_args: _LaunchArgs) -> None:
 def down(launch_args: _LaunchArgs) -> None:
     """Turns down a cluster."""
     if not launch_args.cluster:
-        raise ValueError("No cluster specified for down action.")
+        raise ValueError("No cluster specified for `down` action.")
     worker_pool = ThreadPool(processes=1)
     worker_result = worker_pool.apply_async(_down_worker, (launch_args,))
     _print_and_wait(

@@ -1,6 +1,6 @@
 import pathlib
 import tempfile
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, Mock, call, patch
 
 import pytest
 
@@ -14,7 +14,7 @@ from lema.core.types import (
     TrainingParams,
 )
 from lema.core.types.base_cluster import JobStatus
-from lema.launch import _LaunchArgs, _LauncherAction, launch, run
+from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run
 from lema.launcher import JobConfig, JobResources
 
 
@@ -251,7 +251,7 @@ def test_launch_run_job(mock_launcher, mock_printer):
         )
         run(
             _LaunchArgs(
-                job=job_yaml_path, action=_LauncherAction.UP, cluster="cluster_id"
+                job=job_yaml_path, action=_LauncherAction.RUN, cluster="cluster_id"
             )
         )
         mock_printer.assert_called_once_with("Running job job_id", ANY)
@@ -294,7 +294,7 @@ def test_launch_run_job_detached(mock_launcher, mock_printer):
         run(
             _LaunchArgs(
                 job=job_yaml_path,
-                action=_LauncherAction.UP,
+                action=_LauncherAction.RUN,
                 cluster="cluster_id",
                 detach=True,
             )
@@ -336,7 +336,7 @@ def test_launch_run_job_detached_local(mock_launcher, mock_printer):
             metadata="",
             done=True,
         )
-        run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, cluster="local"))
+        run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.RUN, cluster="local"))
         mock_printer.assert_called_once_with("Running job job_id", ANY)
         mock_cluster.get_job.assert_called_once_with("job_id")
         mock_launcher.run.assert_called_once_with(job_config, "local")
@@ -377,4 +377,84 @@ def test_launch_run_job_no_cluster(mock_launcher, mock_printer):
         with pytest.raises(
             ValueError, match="No cluster specified for the `run` action."
         ):
-            run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP))
+            run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.RUN))
+
+
+def test_launch_down_with_cloud(mock_launcher, mock_printer):
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    down(_LaunchArgs(action=_LauncherAction.DOWN, cluster="cluster_id", cloud="aws"))
+    mock_launcher.get_cloud.assert_called_once_with("aws")
+    mock_cloud.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster.down.assert_called_once()
+
+
+def test_launch_down_no_cloud(mock_launcher, mock_printer):
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = None
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    down(
+        _LaunchArgs(
+            action=_LauncherAction.DOWN,
+            cluster="cluster_id",
+        )
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster1.down.assert_called_once()
+
+
+def test_launch_down_multiple_clusters(mock_launcher, mock_printer):
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_cluster2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = mock_cluster2
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    down(
+        _LaunchArgs(
+            action=_LauncherAction.DOWN,
+            cluster="cluster_id",
+        )
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster1.down.assert_not_called()
+    mock_cluster2.down.assert_not_called()
+
+
+def test_launch_down_no_clusters(mock_launcher, mock_printer):
+    mock_cloud1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = None
+    mock_cloud2.get_cluster.return_value = None
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    down(
+        _LaunchArgs(
+            action=_LauncherAction.DOWN,
+            cluster="cluster_id",
+        )
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+
+
+def test_launch_down_no_cluster_arg(mock_launcher, mock_printer):
+    with pytest.raises(ValueError, match="No cluster specified for `down` action."):
+        down(
+            _LaunchArgs(
+                action=_LauncherAction.DOWN,
+            )
+        )
