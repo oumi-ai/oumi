@@ -169,7 +169,8 @@ def parse_cli() -> _LaunchArgs:
     parser.add_argument(
         "-a",
         "--action",
-        default=False,
+        default=None,
+        choices=[a.value for a in _LauncherAction],
         help="The action to take. "
         "Supported actions: up, down, status, stop, run, which. "
         "Defaults to `up` if not specified.",
