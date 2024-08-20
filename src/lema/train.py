@@ -324,6 +324,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info("Starting training...")
 
         verify_torch_distributed_initialized_if_needed()
+
+        # Make sure all workers start training at the same time.
+        barrier()
+
         trainer.train(
             resume_from_checkpoint=(
                 _find_checkpoint_to_resume_from(
