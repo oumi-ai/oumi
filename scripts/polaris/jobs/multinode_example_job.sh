@@ -27,14 +27,15 @@ module load conda
 # Activate the LeMa Conda environment.
 conda activate /home/$USER/miniconda3/envs/lema
 
-TRAINING_MODE="ddp1gpu"
+TRAINING_MODE="fsdp"  # NOTE: Modify this value to configure training mode.
+
 echo "Starting ${TRAINING_MODE} training with ${LEMA_NUM_NODES} node(s)..."
 
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 export NCCL_COLLNET_ENABLE=1
 export NCCL_NET_GDR_LEVEL=PHB
-# export NCCL_DEBUG=INFO # WARN # INFO
+export NCCL_DEBUG=WARN # INFO
 # export NCCL_DEBUG_SUBSYS=ALL
 
 # Polaris has 32 "physical" CPU codes cores, and 64 "logical" cores per node
