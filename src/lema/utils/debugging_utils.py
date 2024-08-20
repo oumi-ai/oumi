@@ -105,4 +105,4 @@ def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> N
     # Add trailing space if needed.
     if log_prefix and log_prefix[-1] != " ":
         log_prefix = log_prefix + " "
-    logger.info(f"{log_prefix}GPU temperature: {temperature}C.")
+    logger.info(f"{log_prefix}GPU temperature: {temperature} C.")
