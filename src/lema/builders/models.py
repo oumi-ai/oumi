@@ -119,7 +119,6 @@ def build_huggingface_model(
         )
     else:
         quantization_config = None
-
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.

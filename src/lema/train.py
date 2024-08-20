@@ -252,6 +252,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
         )
+    barrier()
+    logger.info("Done building model.-----------------------------")
 
     if config.training.log_model_summary:
         if is_local_process_zero():
@@ -262,6 +264,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
         model.gradient_checkpointing_enable(
             config.training.gradient_checkpointing_kwargs
         )
+    # a=tokenizer(["hi"])["input_ids"]
+    # a=torch.tensor(a).to("cuda")
+    # print(model(a))
+
+    # return
 
     # Load data & preprocessing
     dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
