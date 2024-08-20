@@ -38,8 +38,8 @@ export NCCL_NET_GDR_LEVEL=PHB
 export NCCL_DEBUG=WARN # INFO
 # export NCCL_DEBUG_SUBSYS=ALL
 
-# Polaris has 32 "physical" CPU codes cores, and 64 "logical" cores per node
-# (hyperthreading makes 1 physical core appear like 2 logical cores)
+# Polaris has 32 "physical" CPU cores, and 64 "logical" cores per node
+# (hyperthreading makes 1 physical core appear as 2 logical cores)
 # Physical cores: 0-31. Additional "logical" cores: 32..63.
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 if [ "${TRAINING_MODE}" == "ddp1gpu" ]; then
