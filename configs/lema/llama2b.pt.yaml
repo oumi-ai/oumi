@@ -7,6 +7,9 @@ model:
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: False
   trust_remote_code: True
+  # TODO: OPE-307 - Remove this after sanity checking there's no change in performance.
+  model_kwargs:
+    disable_dropout: True
 
 data:
   train:
