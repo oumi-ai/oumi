@@ -324,15 +324,16 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info("Starting training...")
 
         verify_torch_distributed_initialized_if_needed()
-        trainer.train(
-            resume_from_checkpoint=(
-                _find_checkpoint_to_resume_from(
-                    config.training.resume_from_checkpoint,
-                    config.training.try_resume_from_last_checkpoint,
-                    config.training.output_dir,
-                )
-            )
+
+        checkpoint_location = _find_checkpoint_to_resume_from(
+            config.training.resume_from_checkpoint,
+            config.training.try_resume_from_last_checkpoint,
+            config.training.output_dir,
         )
+        # Make sure all workers start training at the same time.
+        barrier()
+
+        trainer.train(resume_from_checkpoint=checkpoint_location)
     logger.info("Training is Complete.")
 
     log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
