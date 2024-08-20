@@ -14,8 +14,7 @@ from lema.core.configs import (
     ModelParams,
     TrainingConfig,
 )
-from lema.core.datasets.base_dataset import BaseMapDataset
-from lema.core.datasets.iterable_dataset import BaseIterableDataset
+from lema.core.datasets import BaseIterableDataset, BaseMapDataset
 from lema.core.registry import register_dataset
 from lema.core.tokenizers import BaseTokenizer
 
