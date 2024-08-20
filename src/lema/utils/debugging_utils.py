@@ -22,7 +22,7 @@ def _initialize_pynvml() -> bool:
         pynvml.nvmlInit()
     except Exception:
         logger.error(
-            "Failed to initialize pynvml library. " "All pynvml calls will be disabled."
+            "Failed to initialize pynvml library. All pynvml calls will be disabled."
         )
         pynvml = None
 
@@ -63,10 +63,15 @@ def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
         return 0.0
 
 
-def log_nvidia_gpu_memory_utilization(device_index: int = 0) -> None:
+def log_nvidia_gpu_memory_utilization(
+    device_index: int = 0, log_prefix: str = ""
+) -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
     memory_mib = get_nvidia_gpu_memory_utilization(device_index)
-    logger.info(f"GPU memory occupied: {memory_mib} MiB.")
+    # Add trailing space if needed.
+    if log_prefix and log_prefix[-1] != " ":
+        log_prefix = log_prefix + " "
+    logger.info(f"{log_prefix}GPU memory occupied: {memory_mib} MiB.")
 
 
 def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
@@ -92,3 +97,12 @@ def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
         return float(temperature)
     except Exception:
         return 0.0
+
+
+def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> None:
+    """Prints amount of memory being used on an Nvidia GPU."""
+    temperature = get_nvidia_gpu_temperature(device_index)
+    # Add trailing space if needed.
+    if log_prefix and log_prefix[-1] != " ":
+        log_prefix = log_prefix + " "
+    logger.info(f"{log_prefix}GPU temperature: {temperature}C.")
