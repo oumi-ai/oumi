@@ -34,7 +34,10 @@ from lema.core.distributed import (
 from lema.core.types import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
-from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
+from lema.utils.debugging_utils import (
+    log_nvidia_gpu_memory_utilization,
+    log_nvidia_gpu_temperature,
+)
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -312,8 +315,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
             ),
         )
 
-        logger.info("Max Memory Usage Before Training: ")
-        log_nvidia_gpu_memory_utilization()
+        log_nvidia_gpu_memory_utilization(
+            log_prefix="Max Memory Usage Before Training:"
+        )
+        log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
 
         logger.info(f"Training init time: {time.time() - _START_TIME}s")
         logger.info("Starting training...")
@@ -330,8 +335,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
     logger.info("Training is Complete.")
 
-    logger.info("Max Memory Usage After Training: ")
-    log_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
+    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
     if is_world_process_zero():
