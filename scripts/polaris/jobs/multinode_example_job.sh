@@ -33,7 +33,7 @@ echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 export NCCL_COLLNET_ENABLE=1
 export NCCL_NET_GDR_LEVEL=PHB
-export NCCL_DEBUG=INFO # WARN # INFO
+# export NCCL_DEBUG=INFO # WARN # INFO
 # export NCCL_DEBUG_SUBSYS=ALL
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
@@ -55,6 +55,7 @@ set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
     --np ${LEMA_NUM_NODES} \
     -ppn ${NRANKS} \
+    -d ${NDEPTH}  --cpu-bind "${CPU_BIND}" \
     ./scripts/polaris/jobs/multinode_example_worker.sh -m ddp
 
 echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
