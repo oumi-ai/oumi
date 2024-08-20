@@ -1,21 +1,20 @@
-# Pretraining (PT) config for Llama 2B.
+# Pretraining (PT) config for Llama 70B.
 
 model:
-  # Vocab size: 50272
-  # Hidden size: 2048
-  # MLP intermediate size: 8192
-  # Num layers: 24
-  # Num attention heads: 32
-  # Num KV heads: 32
-  # Weight tying: True
-  model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
+  # Vocab size: 128256
+  # Hidden size: 8192
+  # MLP intermediate size: 14336
+  # Num layers: 80
+  # Num attention heads: 64
+  # Num KV heads: 8
+  # Weight tying: False
+  # Model max length: 131072 (initially trained with 8192)
+  model_name: "meta-llama/Meta-Llama-3.1-70B"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  load_pretrained_weights: False
+  load_pretrained_weights: True
   trust_remote_code: True
-  model_kwargs:
-    disable_dropout: True
 
 data:
   train:
@@ -34,17 +33,17 @@ data:
 training:
   trainer_type: TRL_SFT # or LEMA
   save_steps: 500
-  per_device_train_batch_size: 2 # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
-  gradient_accumulation_steps: 128
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
 
   # If enabled, reduces VRAM consumption at the expense of gradients re-computation
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  optimizer: "adamw_torch_fused"
+  optimizer: "paged_adamw_8bit"
   compile: True
 
   logging_steps: 10
   log_model_summary: False
-  output_dir: "output/llama2b.pt"
+  output_dir: "output/llama70b.pt"
   include_performance_metrics: True
