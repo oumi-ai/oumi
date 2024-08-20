@@ -71,10 +71,7 @@ def log_nvidia_gpu_memory_utilization(
 ) -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
     memory_mib = get_nvidia_gpu_memory_utilization(device_index)
-    # Add trailing space if needed.
-    if log_prefix and log_prefix[-1] != " ":
-        log_prefix += " "
-    logger.info(f"{log_prefix}GPU memory occupied: {memory_mib} MiB.")
+    logger.info(f"{log_prefix.rstrip()} GPU memory occupied: {memory_mib} MiB.")
 
 
 def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
@@ -106,7 +103,4 @@ def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
 def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
     temperature = get_nvidia_gpu_temperature(device_index)
-    # Add trailing space if needed.
-    if log_prefix and log_prefix[-1] != " ":
-        log_prefix += " "
-    logger.info(f"{log_prefix}GPU temperature: {temperature} C.")
+    logger.info(f"{log_prefix.rstrip()} GPU temperature: {temperature} C.")
