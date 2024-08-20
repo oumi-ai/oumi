@@ -3,7 +3,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
 

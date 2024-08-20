@@ -4,7 +4,7 @@ import pandas as pd
 
 from lema.core.datasets.base_dataset import BaseLMSftDataset
 from lema.core.registry import register_dataset
-from lema.core.tokenizers.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.core.types.turn import Conversation, Message, Role
 from lema.datasets.common import apply_chat_template
 

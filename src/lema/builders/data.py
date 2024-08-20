@@ -13,7 +13,7 @@ from lema.core.configs import (
     TrainingConfig,
 )
 from lema.core.registry import REGISTRY
-from lema.core.tokenizers.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.datasets.alpaca import alpaca_preprocessing_fn
 from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset

@@ -9,7 +9,7 @@ from threading import Lock, Thread
 from typing import List, Optional
 
 from lema.core.configs import JobConfig
-from lema.core.launcher.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 
 
 @dataclass

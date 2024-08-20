@@ -3,8 +3,7 @@ from typing import List, Optional, Type, TypeVar
 import sky
 
 from lema.core.configs import JobConfig
-from lema.core.launcher.base_cloud import BaseCloud
-from lema.core.launcher.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher import BaseCloud, BaseCluster, JobStatus
 from lema.core.registry import register_cloud_builder
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster

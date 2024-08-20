@@ -2,8 +2,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from lema.core.configs import JobConfig
-from lema.core.launcher.base_cloud import BaseCloud
-from lema.core.launcher.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher import BaseCloud, BaseCluster, JobStatus
 from lema.core.registry import register_cloud_builder
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clusters.polaris_cluster import PolarisCluster

@@ -5,7 +5,7 @@ import datasets
 import torch
 from torch.utils.data import IterDataPipe
 
-from lema.core.tokenizers.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.utils.logging import logger
 
 

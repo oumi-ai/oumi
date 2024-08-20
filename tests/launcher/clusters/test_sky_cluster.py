@@ -3,7 +3,7 @@ from unittest.mock import ANY, Mock
 import pytest
 
 from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clusters.sky_cluster import SkyCluster
 

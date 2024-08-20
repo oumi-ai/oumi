@@ -17,7 +17,7 @@ from lema.core.configs import (
     TrainingConfig,
 )
 from lema.core.registry import REGISTRY
-from lema.core.tokenizers.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 
 
 def build_dataset(

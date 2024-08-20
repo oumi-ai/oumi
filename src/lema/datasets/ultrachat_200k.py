@@ -9,7 +9,7 @@ https://github.com/huggingface/alignment-handbook/blob/main/src/alignment/data.p
 from typing import Callable, Dict, Literal
 
 import lema.utils.logging
-from lema.core.tokenizers.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 
 
 def maybe_insert_system_message(messages, tokenizer):
