@@ -72,6 +72,6 @@ def test_nvidia_gpu_temperature():
     is_cuda_available_and_initialized(),
     reason="CUDA is available",
 )
-def test_get_nvidia_gpu_temperature_no_cuda():
+def test_nvidia_gpu_temperature_no_cuda():
     assert get_nvidia_gpu_temperature() == 0.0
     log_nvidia_gpu_temperature()
