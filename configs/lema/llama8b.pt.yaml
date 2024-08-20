@@ -1,15 +1,12 @@
-# Pretraining (PT) config for Llama 2B.
+# Pretraining (PT) config for Llama 8B.
 
 model:
-  model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
-  model_max_length: 2048
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  load_pretrained_weights: False
+  load_pretrained_weights: True
   trust_remote_code: True
-  # TODO: OPE-307 - Remove this after sanity checking there's no change in performance.
-  model_kwargs:
-    disable_dropout: True
 
 data:
   train:
@@ -27,17 +24,17 @@ data:
     experimental_use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT # or LEMA
+  trainer_type: LEMA
   save_steps: 500
-  per_device_train_batch_size: 2 # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
-  gradient_accumulation_steps: 128
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
 
   # If enabled, reduces VRAM consumption at the expense of gradients re-computation
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  optimizer: "adamw_torch_fused"
+  optimizer: "adafactor"
   compile: True
 
   dataloader_num_workers: "auto"
@@ -45,6 +42,6 @@ training:
 
   logging_steps: 10
   log_model_summary: False
-  output_dir: "output/llama2b.pt"
+  output_dir: "output/llama8b.pt"
   include_performance_metrics: True
   enable_wandb: True
