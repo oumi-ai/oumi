@@ -42,12 +42,12 @@ export NCCL_NET_GDR_LEVEL=PHB
 # Physical cores: 0-31. Additional "logical" cores: 32..63.
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 if [ "${TRAINING_MODE}" == "ddp1gpu" ]; then
-    NRANKS_PER_NODE=4  # Spawn 4 ranks per Polaris node (1 `torchrun` for each GPU)
-    NDEPTH=8 # Number of hardware threads per rank
+    NRANKS_PER_NODE=4  # Spawn 4 MPI ranks per Polaris node (1 `torchrun` for each GPU)
+    NDEPTH=16 # Number of threads per rank
     CPU_BIND="numa"
 else
-    NRANKS_PER_NODE=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
-    NDEPTH=64 # Number of hardware threads per rank )
+    NRANKS_PER_NODE=1  # Spawn 1 MPI rank per node (1 `torchrun` per node)
+    NDEPTH=64 # Number of threads per rank
     CPU_BIND="depth"
 fi
 
