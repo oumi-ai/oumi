@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from lema.core.configs import JobConfig
-from lema.core.types.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher.base_cluster import BaseCluster, JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.utils.logging import logger
 

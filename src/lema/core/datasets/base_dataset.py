@@ -6,7 +6,7 @@ import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers.base_tokenizer import BaseTokenizer
 from lema.core.types.turn import Conversation
 from lema.utils.logging import logger
 

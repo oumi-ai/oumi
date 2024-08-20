@@ -32,7 +32,7 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.types.base_trainer import BaseTrainer
+from lema.core.trainers import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
 from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
 from lema.utils.logging import configure_logger, logger

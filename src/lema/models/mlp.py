@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from lema.core import registry
-from lema.core.types.base_model import BaseModel
+from lema.core.models.base_model import BaseModel
 
 
 @registry.register("MlpEncoder", registry.RegistryType.MODEL)

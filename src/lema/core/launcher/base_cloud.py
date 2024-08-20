@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from lema.core.configs.job_config import JobConfig
-from lema.core.types.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher.base_cluster import BaseCluster, JobStatus
 
 
 class BaseCloud(ABC):

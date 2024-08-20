@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.types.base_cloud import BaseCloud
-from lema.core.types.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher.base_cloud import BaseCloud
+from lema.core.launcher.base_cluster import BaseCluster, JobStatus
 from lema.launcher.launcher import (
     LAUNCHER,
     Launcher,
