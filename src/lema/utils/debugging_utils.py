@@ -14,20 +14,19 @@ except ModuleNotFoundError:
 
 def _initialize_pynvml() -> bool:
     """Attempts to initialize pynvml library. Returns True on success."""
+    global pynvml
     if pynvml is None:
         return False
 
-    if not hasattr(_initialize_pynvml, "pynvml_initialized"):
-        _initialize_pynvml.pynvml_initialized = False
+    try:
+        pynvml.nvmlInit()
+    except Exception:
+        logger.error(
+            "Failed to initialize pynvml library. " "All pynvml calls will be disabled."
+        )
+        pynvml = None
 
-    if not _initialize_pynvml.pynvml_initialized:
-        try:
-            pynvml.nvmlInit()
-            _initialize_pynvml.pynvml_initialized = True
-        except Exception:
-            logger.exception("Failed to initialize pynvml library.")
-
-    return _initialize_pynvml.pynvml_initialized
+    return pynvml is not None
 
 
 def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
@@ -35,6 +34,7 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
 
     Returns device count on success, or None otherwise.
     """
+    global pynvml
     if pynvml is None or not _initialize_pynvml():
         return None
     return int(pynvml.nvmlDeviceGetCount())
@@ -42,6 +42,7 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
 
 def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
     """Returns amount of memory being used on an Nvidia GPU in MiB."""
+    global pynvml
     if pynvml is None:
         return 0.0
 
@@ -70,6 +71,7 @@ def log_nvidia_gpu_memory_utilization(device_index: int = 0) -> None:
 
 def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
     """Returns the current temperature readings for the device, in degrees C."""
+    global pynvml
     if pynvml is None:
         return 0.0
 
