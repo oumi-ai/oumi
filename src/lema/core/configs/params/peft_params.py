@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from peft.utils.peft_types import TaskType
 
-from lema.core.types.base_params import BaseParams
+from lema.core.configs.params.base_params import BaseParams
 
 
 @dataclass

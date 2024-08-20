@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from lema import train
-from lema.core.types.configs import (
+from lema.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,

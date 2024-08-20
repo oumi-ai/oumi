@@ -2,11 +2,11 @@ from dataclasses import dataclass, field
 
 import torch
 
-from lema.core.types.base_config import BaseConfig
-from lema.core.types.configs.params.data_params import DataParams
-from lema.core.types.configs.params.model_params import ModelParams
-from lema.core.types.configs.params.peft_params import PeftParams
-from lema.core.types.configs.params.training_params import (
+from lema.core.configs.base_config import BaseConfig
+from lema.core.configs.params.data_params import DataParams
+from lema.core.configs.params.model_params import ModelParams
+from lema.core.configs.params.peft_params import PeftParams
+from lema.core.configs.params.training_params import (
     MixedPrecisionDtype,
     TrainerType,
     TrainingParams,

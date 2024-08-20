@@ -6,7 +6,7 @@ from typing import Optional, Union
 import torch
 import transformers
 
-from lema.core.types.configs import TrainingParams
+from lema.core.configs import TrainingParams
 
 
 class ProfilerStepCallback(transformers.TrainerCallback):

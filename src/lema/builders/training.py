@@ -5,11 +5,11 @@ from typing import Callable, Type, cast
 import transformers
 import trl
 
+from lema.core.configs import TrainerType, TrainingParams
 from lema.core.distributed import is_world_process_zero
 from lema.core.trainers.hf_trainer import HuggingFaceTrainer
 from lema.core.trainers.lema_trainer import Trainer as LemaTrainer
 from lema.core.types.base_trainer import BaseTrainer
-from lema.core.types.configs import TrainerType, TrainingParams
 from lema.utils.logging import logger
 
 

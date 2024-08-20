@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from lema.core.configs import JobConfig, JobResources, StorageMount
 from lema.core.registry import REGISTRY, RegistryType
 from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig, JobResources, StorageMount
 from lema.launcher.clients.local_client import LocalClient
 from lema.launcher.clouds.local_cloud import LocalCloud
 from lema.launcher.clusters.local_cluster import LocalCluster

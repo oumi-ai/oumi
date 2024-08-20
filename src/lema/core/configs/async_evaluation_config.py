@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 
 from omegaconf import MISSING
 
-from lema.core.types.base_config import BaseConfig
-from lema.core.types.configs.evaluation_config import EvaluationConfig
+from lema.core.configs.base_config import BaseConfig
+from lema.core.configs.evaluation_config import EvaluationConfig
 
 
 @dataclass
