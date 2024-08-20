@@ -32,7 +32,7 @@ Reach out to matthew@learning-machines.ai if you have problems with access.
 ### 2. Create a new environment for LeMa and activate it
 
    ```
-   conda create -n lema python=3.11
+   conda create -y -n lema python=3.11
    conda activate lema
    ```
 
