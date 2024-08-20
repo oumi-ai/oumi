@@ -336,7 +336,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Training is Complete.")
 
     log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
-    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training: ")
+    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
     if is_world_process_zero():
