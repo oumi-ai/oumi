@@ -9,9 +9,14 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 3
 
+   lema.core.configs
    lema.core.datasets
+   lema.core.launcher
+   lema.core.models
+   lema.core.tokenizers
+   lema.core.trainers
    lema.core.types
 
 Submodules

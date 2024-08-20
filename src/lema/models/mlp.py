@@ -48,10 +48,11 @@ class MLPEncoder(BaseModel):
         Returns:
             dict: A dictionary containing the model outputs.
                 The dictionary has the following keys:
+
                 - "logits" (torch.Tensor): The output logits tensor of
-                    shape (batch_size, num_classes).
+                  shape (batch_size, num_classes).
                 - "loss" (torch.Tensor, optional): The computed loss tensor
-                    if labels is not None.
+                  if labels is not None.
         """
         x = self.embedding(input_ids)
         x = self.fc1(x)

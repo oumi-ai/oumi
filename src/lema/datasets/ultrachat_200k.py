@@ -16,7 +16,7 @@ def maybe_insert_system_message(messages, tokenizer):
     """Inserts an empty system message to prepend a chat dialogue.
 
     An empty message will not be added if the role corresponding to the first message
-    of the input `messages` is already set to `system', or if the chat_template does
+    of the input `messages` is already set to `system`, or if the chat_template does
     not seem to support system messages in general.
 
     Note: A system message is typically used to ground the higher-level purpose the LLM
