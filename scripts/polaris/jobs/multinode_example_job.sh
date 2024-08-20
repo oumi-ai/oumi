@@ -37,25 +37,19 @@ export NCCL_NET_GDR_LEVEL=PHB
 # export NCCL_DEBUG=INFO # WARN # INFO
 # export NCCL_DEBUG_SUBSYS=ALL
 
+# Polaris has 32 "physical" CPU codes cores, and 64 "logical" cores per node
+# (hyperthreading makes 1 physical core appear like 2 logical cores)
+# Physical cores: 0-31. Additional "logical" cores: 32..63.
+# https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 if [ "${TRAINING_MODE}" == "ddp1gpu" ]; then
     NRANKS_PER_NODE=4  # Spawn 4 ranks per Polaris node (1 `torchrun` for each GPU)
-    NDEPTH=8 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
+    NDEPTH=8 # Number of hardware threads per rank
     CPU_BIND="numa"
 else
     NRANKS_PER_NODE=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
-    NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU logical cores per node)
+    NDEPTH=64 # Number of hardware threads per rank )
     CPU_BIND="depth"
 fi
-
-
-# NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
-# CPU_BIND="depth"
-
-# NDEPTH=32 # Number of physical CPU cores per Polaris node
-# CPU_BIND="verbose,list:0,8,16,24"
-
-# Remove -d and --cpu-bind altogether
-# -d ${NDEPTH}  --cpu-bind "${CPU_BIND}"
 
 
 #FIXME Should we set --envall, --noenvall, or only pass specific env vars?
