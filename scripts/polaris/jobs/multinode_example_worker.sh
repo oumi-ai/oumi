@@ -90,13 +90,10 @@ training.save_steps=0
 training.save_final_model=false
 training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
-training.dataloader_prefetch_factor=32
 training.log_model_summary=false
 training.include_performance_metrics=true
-training.ddp_find_unused_parameters=false
 training.try_resume_from_last_checkpoint=false
-${PROFILER_TRAINING_PARAMS}
-training.enable_wandb=true"
+${PROFILER_TRAINING_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
