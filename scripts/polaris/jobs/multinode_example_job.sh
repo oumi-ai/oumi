@@ -39,7 +39,7 @@ export NCCL_NET_GDR_LEVEL=PHB
 NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
 
 NDEPTH=32 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
-CPU_BIND="verbose,depth"
+CPU_BIND="depth"
 
 # NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
 # CPU_BIND="depth"
