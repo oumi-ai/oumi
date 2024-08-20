@@ -24,7 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train-test
-  LEMA_RUN_NAME: llama2b.pt
+  LEMA_RUN_NAME: llama8b.pt
 
 setup: |
   set -e
@@ -41,36 +41,18 @@ run: |
 
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
-  # pip install '.[train]'
 
   set -x  # Print "torchrun" command with expanded variables
-  # torchrun \
-  #     --nnodes=${LEMA_NUM_NODES} \
-  #     --node-rank=${SKYPILOT_NODE_RANK} \
-  #     --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-  #     --master-addr=${LEMA_MASTER_ADDR} \
-  #     --master-port=8007 \
-  python \
+  torchrun \
+      --nnodes=${LEMA_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-port=8007 \
       -m lema.train \
-      -c configs/lema/llama2b.pt.yaml \
-      "data.train.experimental_use_async_dataset=true" \
-      "model.model_name=meta-llama/Meta-Llama-3.1-8B" \
-      "model.model_max_length=8192" \
-      "training.trainer_type=LEMA" \
-      "training.optimizer=adafactor" \
-      "training.per_device_train_batch_size=1" \
-      "training.gradient_accumulation_steps=1" \
-      "training.enable_gradient_checkpointing=true" \
-      "training.compile=false" \
-      "training.max_steps=2" \
-      "training.save_steps=100" \
+      -c configs/lema/llama8b.pt.yaml \
+      "training.max_steps=10" \
       "training.save_final_model=false" \
-      "training.dataloader_num_workers=auto" \
-      "training.dataloader_prefetch_factor=32" \
-      "training.include_performance_metrics=true" \
-      "training.ddp_find_unused_parameters=false" \
-      "training.try_resume_from_last_checkpoint=false" \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.enable_wandb=true"
+      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
