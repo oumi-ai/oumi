@@ -35,6 +35,8 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
     Returns device count on success, or None otherwise.
     """
     global pynvml
+    # The call to `pynvml is None` is technically redundant but exists here
+    # to make pyright happy.
     if pynvml is None or not _initialize_pynvml():
         return None
     return int(pynvml.nvmlDeviceGetCount())
@@ -60,6 +62,7 @@ def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
         info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         return float(info.used) // 1024**2
     except Exception:
+        logger.exception(f"Failed to get GPU memory info for device: {device_index}")
         return 0.0
 
 
@@ -70,7 +73,7 @@ def log_nvidia_gpu_memory_utilization(
     memory_mib = get_nvidia_gpu_memory_utilization(device_index)
     # Add trailing space if needed.
     if log_prefix and log_prefix[-1] != " ":
-        log_prefix = log_prefix + " "
+        log_prefix += " "
     logger.info(f"{log_prefix}GPU memory occupied: {memory_mib} MiB.")
 
 
@@ -96,6 +99,7 @@ def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
         )
         return float(temperature)
     except Exception:
+        logger.exception(f"Failed to get GPU temperature for device: {device_index}")
         return 0.0
 
 
@@ -104,5 +108,5 @@ def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> N
     temperature = get_nvidia_gpu_temperature(device_index)
     # Add trailing space if needed.
     if log_prefix and log_prefix[-1] != " ":
-        log_prefix = log_prefix + " "
+        log_prefix += " "
     logger.info(f"{log_prefix}GPU temperature: {temperature} C.")
