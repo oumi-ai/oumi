@@ -58,13 +58,35 @@ def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
         handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
         info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         return float(info.used) // 1024**2
-    except Exception as _:
+    except Exception:
         return 0.0
 
 
-def log_nvidia_gpu_memory_utilization() -> None:
+def log_nvidia_gpu_memory_utilization(device_index: int = 0) -> None:
     """Prints amount of memory being used on an Nvidia GPU."""
-    logger.info(f"GPU memory occupied: {get_nvidia_gpu_memory_utilization()} MiB.")
+    memory_mib = get_nvidia_gpu_memory_utilization(device_index)
+    logger.info(f"GPU memory occupied: {memory_mib} MiB.")
 
 
-# nvmlDeviceGetTemperature
+def get_nvidia_gpu_temperature(device_index: int = 0) -> float:
+    """Returns the current temperature readings for the device, in degrees C."""
+    if pynvml is None:
+        return 0.0
+
+    device_count = _initialize_pynvml_and_get_pynvml_device_count()
+    if device_count is None or device_count <= 0:
+        return 0.0
+    elif device_index < 0 or device_index >= device_count:
+        raise ValueError(
+            f"Device index ({device_index}) must be "
+            f"within the [0, {device_count}) range."
+        )
+
+    try:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+        temperature = pynvml.nvmlDeviceGetTemperature(
+            handle, pynvml.NVML_TEMPERATURE_GPU
+        )
+        return float(temperature)
+    except Exception:
+        return 0.0
