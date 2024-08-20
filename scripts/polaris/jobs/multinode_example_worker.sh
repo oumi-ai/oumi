@@ -91,8 +91,6 @@ training.save_final_model=false
 training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
 training.log_model_summary=false
-training.include_performance_metrics=true
-training.try_resume_from_last_checkpoint=false
 ${PROFILER_TRAINING_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."

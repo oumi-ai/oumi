@@ -53,7 +53,6 @@ run: |
       "training.compile=true" \
       "training.max_steps=20" \
       "training.save_steps=100" \
-      "training.save_final_model=true" \
-      "training.try_resume_from_last_checkpoint=false"
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -60,8 +60,6 @@ run: |
       "training.optimizer=adafactor" \
       "model.torch_dtype_str=float32" \
       "training.mixed_precision_dtype=BF16" \
-      "training.enable_gradient_checkpointing=false" \
-      "training.include_performance_metrics=true" \
-      "training.try_resume_from_last_checkpoint=false"
+      "training.enable_gradient_checkpointing=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
