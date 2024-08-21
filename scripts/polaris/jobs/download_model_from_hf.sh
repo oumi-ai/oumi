@@ -2,7 +2,7 @@
 
 #PBS -l select=1:system=polaris
 #PBS -l place=scatter
-#PBS -l walltime=00:30:00
+#PBS -l walltime=001:00:00
 #PBS -l filesystems=home:eagle
 #PBS -q debug
 #PBS -A community_ai
