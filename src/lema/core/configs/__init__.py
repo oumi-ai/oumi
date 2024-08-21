@@ -1,4 +1,5 @@
 from lema.core.configs.async_evaluation_config import AsyncEvaluationConfig
+from lema.core.configs.base_config import BaseConfig
 from lema.core.configs.evaluation_config import (
     EvaluationConfig,
     EvaluationFramework,
@@ -26,6 +27,7 @@ from lema.core.configs.training_config import TrainingConfig
 
 __all__ = [
     "AsyncEvaluationConfig",
+    "BaseConfig",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
