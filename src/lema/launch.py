@@ -294,9 +294,7 @@ def run(launch_args: _LaunchArgs) -> None:
 
 def launch(launch_args: _LaunchArgs) -> None:
     """Launches a job on LeMa."""
-    config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
-        launch_args.job, launch_args.additional_args, logger=logger
-    )
+    config: launcher.JobConfig = launcher.JobConfig.from_yaml(str(launch_args.job))
     config.validate()
 
     # Start the job
