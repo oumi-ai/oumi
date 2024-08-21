@@ -243,35 +243,56 @@ class TelemetryTracker:
             "timers": {},
             "cuda_timers": {},
             "gpu_memory": self.state.gpu_memory,
+            "gpu_temperature": {},
         }
 
         for name, measurements in self.state.measurements.items():
-            summary["timers"][name] = self._calculate_stats(measurements, total_time)
+            summary["timers"][name] = self._calculate_timer_stats(
+                measurements, total_time
+            )
 
         for name, measurements in self.state.cuda_measurements.items():
-            summary["cuda_timers"][name] = self._calculate_stats(measurements)
+            summary["cuda_timers"][name] = self._calculate_timer_stats(measurements)
+
+        if self.state.gpu_temperature:
+            summary["gpu_temperature"] = self._calculate_basic_stats(
+                self.state.gpu_temperature
+            )
 
         return summary
 
     def print_summary(self) -> None:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
-        LOGGER.info("Telemetry Summary:")
-        LOGGER.info(f"Total time: {summary['total_time']:.2f} seconds")
+        log_lines: List[str] = [
+            "Telemetry Summary:",
+            f"Total time: {summary['total_time']:.2f} seconds",
+        ]
 
         if summary["timers"]:
-            LOGGER.info("\nCPU Timers:")
+            log_lines.append("\nCPU Timers:")
             for name, stats in summary["timers"].items():
-                self._log_timer_stats(name, stats)
+                log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
         if summary["cuda_timers"]:
-            LOGGER.info("\nCUDA Timers:")
+            log_lines.append("\nCUDA Timers:")
             for name, stats in summary["cuda_timers"].items():
-                self._log_timer_stats(name, stats)
+                log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
         if summary["gpu_memory"]:
             max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
-            LOGGER.info(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
+            log_lines.append(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
+
+        if summary["gpu_temperature"]:
+            min_temperature = min(summary["gpu_temperature"])
+            max_temperature = max(summary["gpu_temperature"])
+            log_lines.append(
+                f"\nGPU temperature: max: {max_temperature:.1f}C "
+                f"min: {min_temperature}C"
+            )
+
+        # Log everything as a single value.
+        LOGGER.info("\n".join(log_lines))
 
     #
     # State Management
@@ -287,35 +308,47 @@ class TelemetryTracker:
     #
     # Helper Methods
     #
-    def _calculate_stats(
-        self, measurements: List[float], total_time: Optional[float] = None
-    ) -> Dict[str, float]:
+    def _calculate_basic_stats(self, measurements: List[float]) -> Dict[str, float]:
         count = len(measurements)
-        # Use `defaultdict()` to make `_log_timer_stats()` and other functions usable
-        # even if `count` is zero, which can happen for example for epochs timer
-        # if logging is called in the middle of the first epoch.
+        # Use `defaultdict()` to make `_format_timer_stats_as_lines()` and
+        # other functions usable even if `count` is zero, which can happen
+        # for example for epochs timer if logging is called in the middle
+        # of the first epoch.
         stats: Dict[str, float] = collections.defaultdict(float)
         stats["count"] = float(count)
         if count > 0:
-            stats["total"] = sum(measurements)
             stats["mean"] = statistics.mean(measurements)
             stats["median"] = statistics.median(measurements)
             stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
             stats["min"] = min(measurements)
             stats["max"] = max(measurements)
+        return stats
+
+    def _calculate_timer_stats(
+        self, measurements: List[float], total_time: Optional[float] = None
+    ) -> Dict[str, float]:
+        """Same as above but also computes `total` and `percentage`."""
+        stats: Dict[str, float] = self._calculate_basic_stats(measurements)
+
+        count = len(measurements)
+        stats["count"] = float(count)
+        if count > 0:
+            stats["total"] = sum(measurements)
             if total_time:
                 stats["percentage"] = (stats["total"] / total_time) * 100
         return stats
 
-    def _log_timer_stats(
+    def _format_timer_stats_as_lines(
         self, name: str, stats: Dict[str, float], is_cuda: bool = False
-    ) -> None:
-        LOGGER.info(f"\t{name}:")
-        LOGGER.info(f"\t\tTotal: {stats['total']:.6f} seconds")
-        LOGGER.info(f"\t\tMean: {stats['mean']:.6f} seconds")
-        LOGGER.info(f"\t\tMedian: {stats['median']:.6f} seconds")
-        LOGGER.info(f"\t\tStd Dev: {stats['std_dev']:.6f} seconds")
-        LOGGER.info(f"\t\tMin: {stats['min']:.6f} seconds")
-        LOGGER.info(f"\t\tMax: {stats['max']:.6f} seconds")
-        LOGGER.info(f"\t\tCount: {stats['count']}")
-        LOGGER.info(f"\t\tPercentage of total time: {stats['percentage']:.2f}%")
+    ) -> List[str]:
+        return [
+            f"\t{name}:",
+            f"\t\tTotal: {stats['total']:.6f} seconds",
+            f"\t\tMean: {stats['mean']:.6f} seconds",
+            f"\t\tMedian: {stats['median']:.6f} seconds",
+            f"\t\tStd Dev: {stats['std_dev']:.6f} seconds",
+            f"\t\tMin: {stats['min']:.6f} seconds",
+            f"\t\tMax: {stats['max']:.6f} seconds",
+            f"\t\tCount: {stats['count']}",
+            f"\t\tPercentage of total time: {stats['percentage']:.2f}%",
+        ]
