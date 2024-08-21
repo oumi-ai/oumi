@@ -5,7 +5,7 @@ import pytest
 from fabric import Connection
 from sshfs import SSHFileSystem
 
-from lema.core.types.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 
 

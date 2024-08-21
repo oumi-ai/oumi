@@ -2,7 +2,7 @@ import datetime
 import tempfile
 
 from lema import evaluate_async
-from lema.core.types import (
+from lema.core.configs import (
     AsyncEvaluationConfig,
     DatasetParams,
     DatasetSplitParams,

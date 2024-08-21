@@ -5,9 +5,9 @@ import torch
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
-from lema.core.trainers.lema_trainer import Trainer
-from lema.core.types import TrainingParams
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.configs import TrainingParams
+from lema.core.tokenizers import BaseTokenizer
+from lema.core.trainers import Trainer
 from lema.models import MLPEncoder
 
 

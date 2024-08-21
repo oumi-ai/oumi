@@ -5,8 +5,8 @@ from typing import Optional
 
 import torch
 
+from lema.core.configs.params.profiler_params import ProfilerParams
 from lema.core.distributed import DeviceRankInfo, get_device_rank_info
-from lema.core.types.params.profiler_params import ProfilerParams
 from lema.utils.logging import logger
 
 _PROFILER_LOG_PREFIX = "PROF:"

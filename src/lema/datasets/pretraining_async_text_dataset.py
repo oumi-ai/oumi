@@ -7,7 +7,7 @@ import datasets
 import torch
 from torch.utils.data import IterableDataset
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.utils.logging import logger
 
 _LARGEST_PRIORITY_VALUE = 2**20

@@ -2,9 +2,9 @@ from typing import Optional
 
 import transformers
 
+from lema.core.configs import TrainingConfig
 from lema.core.distributed import is_world_process_zero
-from lema.core.types import TrainingConfig
-from lema.core.types.base_trainer import BaseTrainer
+from lema.core.trainers.base_trainer import BaseTrainer
 from lema.utils.logging import logger
 
 

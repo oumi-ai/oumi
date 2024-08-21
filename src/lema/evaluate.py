@@ -8,8 +8,8 @@ from typing import Any, Dict
 import lm_eval
 import torch
 
-from lema.core.types import EvaluationConfig
-from lema.core.types.configs import EvaluationFramework
+from lema.core.configs import EvaluationConfig
+from lema.core.configs.evaluation_config import EvaluationFramework
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (

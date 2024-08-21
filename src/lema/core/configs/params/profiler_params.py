@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from lema.core.types.params.base_params import BaseParams
+from lema.core.configs.params.base_params import BaseParams
 
 
 @dataclass

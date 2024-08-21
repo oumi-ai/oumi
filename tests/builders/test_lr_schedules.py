@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from lema.builders.lr_schedules import build_lr_scheduler
-from lema.core.types import SchedulerType, TrainingParams
+from lema.core.configs import SchedulerType, TrainingParams
 
 #
 # Fixtures

@@ -6,15 +6,14 @@ import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.core.types.turn import Conversation
 from lema.utils.logging import logger
 
 
-#
-# Abstract Map Dataset
-#
 class BaseMapDataset(MapDataPipe, ABC):
+    """Abstract base class for map datasets."""
+
     _data: pd.DataFrame
     dataset_name_or_path: str
     default_dataset: Optional[str] = None

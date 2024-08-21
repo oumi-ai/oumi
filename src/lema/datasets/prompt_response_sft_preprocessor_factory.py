@@ -1,6 +1,6 @@
 from typing import Callable, Dict, Optional
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.datasets.common import (
     apply_chat_template,
     convert_prompt_response_to_chat_example,

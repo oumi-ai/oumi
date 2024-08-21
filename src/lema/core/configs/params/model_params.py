@@ -5,8 +5,8 @@ import torch
 from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
+from lema.core.configs.params.base_params import BaseParams
 from lema.core.types.exceptions import HardwareException
-from lema.core.types.params.base_params import BaseParams
 from lema.utils.logging import logger
 
 
