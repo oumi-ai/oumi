@@ -279,10 +279,10 @@ class TelemetryTracker:
             log_lines.append(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
 
         if summary["gpu_temperature"]:
-            min_temperature = min(summary["gpu_temperature"])
-            max_temperature = max(summary["gpu_temperature"])
+            min_temperature = summary["gpu_temperature"]["min"]
+            max_temperature = summary["gpu_temperature"]["max"]
             log_lines.append(
-                f"\nGPU temperature: max: {max_temperature:.1f}C "
+                f"\nGPU temperature: max: {max_temperature}C "
                 f"min: {min_temperature}C"
             )
 
