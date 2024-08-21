@@ -32,7 +32,7 @@ Reach out to matthew@learning-machines.ai if you have problems with access.
 ### 2. Create a new environment for LeMa and activate it
 
    ```
-   conda create -y -n lema python=3.11
+   conda create -n lema python=3.11
    conda activate lema
    ```
 
@@ -69,7 +69,7 @@ Reach out to matthew@learning-machines.ai if you have problems with access.
 ### 5. Set your Github name and email
 
    ```shell
-   git config --global user.name "Your Name"
+   git config --global user.name "YOUR_NAME"
    git config --global user.email YOUR_USERNAME@learning-machines.ai
    ```
 
