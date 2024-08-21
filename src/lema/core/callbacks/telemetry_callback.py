@@ -136,23 +136,28 @@ class TelemetryCallback(transformers.TrainerCallback):
         if self._callback_disabled():
             return
 
-        summary = self._telemetry.get_summary()
-        if not ("timers" in summary and _LOGS_KWARG in kwargs):
-            return
-
         device_rank_info = get_device_rank_info()
         basename = f"telemetry_rank{device_rank_info.rank:03}"
-        for name, stats in summary["timers"].items():
-            for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
-                if stats_key in stats:
-                    metric_name = f"{basename}_{name}_{stats_key}"
-                    kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
-        if summary["gpu_temperature"]:
+        summary = self._telemetry.get_summary()
+        if "timers" in summary and _LOGS_KWARG in kwargs:
+            for name, stats in summary["timers"].items():
+                for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
+                    if stats_key in stats:
+                        metric_name = f"{basename}_{name}_{stats_key}"
+                        kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
+
+        if (
+            "gpu_temperature" in summary
+            and summary["gpu_temperature"]
+            and _LOGS_KWARG in kwargs
+        ):
             stats = summary["gpu_temperature"]
             for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
                 metric_name = f"{basename}_gpu_temperature_{stats_key}"
                 kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
+
+        # self._telemetry.print_summary()
 
     def on_train_end(
         self,
@@ -166,15 +171,13 @@ class TelemetryCallback(transformers.TrainerCallback):
             return
 
         summary = self._telemetry.get_summary()
-        if "timers" not in summary:
-            return
 
         device_rank_info = get_device_rank_info()
         basename = f"telemetry_rank{device_rank_info.rank:03}"
         if self._output_dir is not None:
             telemetry_file = self._output_dir / (basename + ".json")
             logger.info(f"Saving telemetry stats to {telemetry_file}...")
-            save_json(summary["timers"], telemetry_file)
+            save_json(summary, telemetry_file)
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
