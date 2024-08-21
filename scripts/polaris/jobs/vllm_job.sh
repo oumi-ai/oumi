@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#PBS -l select=8:system=polaris
+#PBS -l select=2:system=polaris
 #PBS -l place=scatter
-#PBS -l walltime=00:40:00
+#PBS -l walltime=00:30:00
 #PBS -l filesystems=home:eagle
 #PBS -q debug-scaling
 #PBS -A community_ai
@@ -38,7 +38,7 @@ export SHARED_DIR=/eagle/community_ai
 export HF_HOME="${SHARED_DIR}/.cache/huggingface"
 
 REPO="meta-llama"
-MODEL="Meta-Llama-3.1-405B-Instruct"
+MODEL="Meta-Llama-3.1-70B-Instruct"
 
 MODEL_REPO="${REPO}/${MODEL}"
 export SNAPSHOT_DIR="${REPO}--${MODEL}"
