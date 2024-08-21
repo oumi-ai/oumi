@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 from typing import List
 
-from lema.core.types import AsyncEvaluationConfig
+from lema.core.configs import AsyncEvaluationConfig
 from lema.evaluate import evaluate
 from lema.utils.logging import logger
 

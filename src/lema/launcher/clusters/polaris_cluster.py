@@ -4,8 +4,8 @@ from functools import reduce
 from pathlib import Path
 from typing import Any, List, Optional
 
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCluster, JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.utils.logging import logger
 

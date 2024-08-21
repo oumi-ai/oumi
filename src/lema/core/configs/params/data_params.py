@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from omegaconf import MISSING
 
-from lema.core.types.params.base_params import BaseParams
+from lema.core.configs.params.base_params import BaseParams
 
 
 # Training Params

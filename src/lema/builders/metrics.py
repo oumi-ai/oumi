@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 
+from lema.core.configs import TrainingParams
 from lema.core.registry import REGISTRY
-from lema.core.types import TrainingParams
 
 
 def build_metrics_function(config: TrainingParams) -> Optional[Callable]:

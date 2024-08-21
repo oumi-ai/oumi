@@ -1,6 +1,5 @@
 import lema.launcher.clouds as clouds  # Ensure that the clouds are registered
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
+from lema.core.configs import JobConfig, JobResources, StorageMount
 from lema.launcher.launcher import (
     Launcher,
     down,

@@ -10,7 +10,7 @@ from fabric import Connection
 from paramiko.ssh_exception import BadAuthenticationType
 from sshfs import SSHFileSystem
 
-from lema.core.types.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.utils.logging import logger
 
 

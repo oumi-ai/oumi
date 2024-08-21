@@ -6,8 +6,8 @@ from typing import Optional, Union
 
 import transformers
 
+from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
-from lema.core.types import TrainingParams
 from lema.performance.telemetry import TelemetryTracker, TimerContext
 from lema.utils.io_utils import save_json
 from lema.utils.logging import logger

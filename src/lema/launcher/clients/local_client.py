@@ -8,8 +8,8 @@ from subprocess import PIPE, Popen
 from threading import Lock, Thread
 from typing import List, Optional
 
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import JobStatus
 
 
 @dataclass

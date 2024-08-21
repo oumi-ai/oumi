@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch import nn
 
-from lema.core.types.params.profiler_params import ProfilerParams
+from lema.core.configs.params.profiler_params import ProfilerParams
 from lema.performance.torch_profiler_utils import torch_profile
 
 

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
 
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
 
 
 @dataclass

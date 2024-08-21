@@ -7,9 +7,9 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
+from lema.core.configs import ModelParams, PeftParams
 from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
-from lema.core.types import ModelParams, PeftParams
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
 

@@ -10,7 +10,7 @@ from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from lema.core.types import GenerationConfig, InferenceConfig, ModelParams
+from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
 from lema.utils.logging import logger
 
 

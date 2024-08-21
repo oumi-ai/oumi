@@ -5,7 +5,7 @@ from typing import Any, List, NamedTuple, Optional
 import numpy as np
 import torch
 
-from lema.core.types import TrainingConfig
+from lema.core.configs import TrainingConfig
 from lema.utils.debugging_utils import get_nvidia_gpu_memory_utilization
 from lema.utils.logging import logger
 
