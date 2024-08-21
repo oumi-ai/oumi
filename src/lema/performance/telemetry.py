@@ -327,7 +327,6 @@ class TelemetryTracker:
         stats: Dict[str, float] = self._calculate_basic_stats(measurements)
 
         count = len(measurements)
-        stats["count"] = float(count)
         if count > 0:
             stats["total"] = sum(measurements)
             if total_time:
