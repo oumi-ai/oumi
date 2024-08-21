@@ -2,7 +2,7 @@ import bitsandbytes
 import torch
 from transformers.optimization import Adafactor
 
-from lema.core.types import TrainingParams
+from lema.core.configs import TrainingParams
 from lema.utils.torch_naming_heuristics import group_trainable_params
 
 

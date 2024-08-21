@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from lema.core.datasets.base_dataset import BaseLMSftDataset
+from lema.core.datasets import BaseLMSftDataset
 from lema.core.registry import register_dataset
 from lema.core.types.turn import Conversation, Message, Role
 

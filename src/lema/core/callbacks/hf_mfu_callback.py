@@ -6,8 +6,8 @@ from typing import Optional, Union
 import torch
 import transformers
 
+from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
-from lema.core.types import TrainingParams
 from lema.performance.mfu import (
     calculate_mfu_from_model_flops_per_second,
 )

@@ -20,6 +20,7 @@ from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
 from lema.core.callbacks.telemetry_callback import TelemetryCallback
+from lema.core.configs import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -31,8 +32,7 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.types import DatasetSplit, TrainerType, TrainingConfig
-from lema.core.types.base_trainer import BaseTrainer
+from lema.core.trainers import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
 from lema.utils.debugging_utils import (
     log_nvidia_gpu_memory_utilization,

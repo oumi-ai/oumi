@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional, Union
 import transformers
 import trl
 
-from lema.core.types.params.base_params import BaseParams
-from lema.core.types.params.profiler_params import ProfilerParams
+from lema.core.configs.params.base_params import BaseParams
+from lema.core.configs.params.profiler_params import ProfilerParams
 from lema.utils.str_utils import sanitize_run_name
 
 

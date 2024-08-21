@@ -1,6 +1,6 @@
 from typing import Callable, Dict
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"

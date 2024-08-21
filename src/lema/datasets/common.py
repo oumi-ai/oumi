@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 
 MESSAGES_KEY = "messages"
 METADATA_KEY = "metadata"

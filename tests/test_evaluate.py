@@ -6,13 +6,13 @@ import pytest
 import torch
 
 from lema import evaluate_lema, evaluate_lm_harness
-from lema.core.types import (
+from lema.core.configs import (
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
+    EvaluationFramework,
     ModelParams,
 )
-from lema.core.types.configs import EvaluationFramework
 from lema.evaluate import SAVE_FILENAME_JSON
 
 

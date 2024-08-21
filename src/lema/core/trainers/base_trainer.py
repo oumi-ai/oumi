@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from lema.core.types.configs import TrainingConfig
+from lema.core.configs import TrainingConfig
 
 
 class BaseTrainer(ABC):

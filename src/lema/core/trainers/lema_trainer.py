@@ -20,6 +20,7 @@ from transformers import TrainerCallback
 
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
+from lema.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
 from lema.core.distributed import (
     barrier,
     get_device_rank_info,
@@ -28,9 +29,8 @@ from lema.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
-from lema.core.types import MixedPrecisionDtype, TrainingConfig, TrainingParams
-from lema.core.types.base_tokenizer import BaseTokenizer
-from lema.core.types.base_trainer import BaseTrainer
+from lema.core.tokenizers import BaseTokenizer
+from lema.core.trainers.base_trainer import BaseTrainer
 from lema.performance.telemetry import TelemetryTracker
 from lema.utils.io_utils import load_json, save_json
 from lema.utils.logging import logger

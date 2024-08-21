@@ -3,7 +3,7 @@ import tempfile
 
 from omegaconf import OmegaConf
 
-from lema.core.types import DatasetParams, TrainingConfig
+from lema.core.configs import DatasetParams, TrainingConfig
 
 
 def test_config_serialization():

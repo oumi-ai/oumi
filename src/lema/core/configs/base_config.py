@@ -5,7 +5,7 @@ from typing import Any, Iterator, List, Optional, Tuple, Type, TypeVar, cast
 
 from omegaconf import OmegaConf
 
-from lema.core.types.params.base_params import BaseParams
+from lema.core.configs.params.base_params import BaseParams
 
 T = TypeVar("T", bound="BaseConfig")
 

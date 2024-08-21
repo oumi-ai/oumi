@@ -2,8 +2,8 @@ import uuid
 from copy import deepcopy
 from typing import Any, List, Optional
 
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCluster, JobStatus
 from lema.launcher.clients.local_client import LocalClient
 from lema.utils.logging import logger
 

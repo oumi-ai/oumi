@@ -4,7 +4,7 @@ from unittest.mock import ANY, Mock, call, patch
 
 import pytest
 
-from lema.core.types import (
+from lema.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,
@@ -13,7 +13,7 @@ from lema.core.types import (
     TrainingConfig,
     TrainingParams,
 )
-from lema.core.types.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop, which
 from lema.launcher import JobConfig, JobResources
 
