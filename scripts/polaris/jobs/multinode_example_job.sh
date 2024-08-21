@@ -59,7 +59,7 @@ mpiexec --verbose \
     --np $((${LEMA_NUM_NODES} * ${NRANKS_PER_NODE})) \
     -ppn ${NRANKS_PER_NODE} \
     -d ${NDEPTH}  --cpu-bind "${CPU_BIND}" \
-    ./scripts/polaris/jobs/multinode_example_worker.sh -m "${TRAINING_MODE}"
+    ./scripts/polaris/jobs/multinode_example_worker.sh -m "${TRAINING_MODE}" -p
 
 echo -e "Finished ${TRAINING_MODE} training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"

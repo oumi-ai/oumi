@@ -70,6 +70,7 @@ if "${ENABLE_PYTORCH_PROFILER}"; then
    training.profiler.schedule.skip_first=1
    training.profiler.schedule.warmup=1
    training.profiler.schedule.active=4
+   training.profiler.schedule.repeat=2
    training.profiler.enable_cpu_profiling=true
    training.profiler.enable_cuda_profiling=true"
    echo "PyTorch profiler enabled!"
