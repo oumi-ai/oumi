@@ -17,7 +17,6 @@ workdir: .
 # Upload local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token  # mount HF token
   # /artifacts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
@@ -31,26 +30,20 @@ setup: |
   pip install '.[train]'
   # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
   pip install flash-attn --no-build-isolation
-  # Install model from HF Hub. This tool increases download speed compared to
-  # downloading the model during training.
-  pip install huggingface_hub[hf_transfer]
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B
 
 run: |
   set -e  # Exit if any command failed.
 
   # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
-  # pip install '.[train]'
 
   set -x  # Print "torchrun" command with expanded variables
-  # torchrun \
-  #     --nnodes=${LEMA_NUM_NODES} \
-  #     --node-rank=${SKYPILOT_NODE_RANK} \
-  #     --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-  #     --master-addr=${LEMA_MASTER_ADDR} \
-  #     --master-port=8007 \
-  python \
+  torchrun \
+      --nnodes=${LEMA_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
