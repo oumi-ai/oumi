@@ -25,13 +25,15 @@ class TelemetryCallback(transformers.TrainerCallback):
         self,
         skip_first_steps: int = 1,
         world_process_zero_only: bool = True,
+        track_gpu_temperature: bool = False,
         output_dir: Optional[pathlib.Path] = None,
     ):
         """Initializes the TelemetryCallback.
 
         Args:
             skip_first_steps: The number of initial steps to exclude from stats.
-            world_process_zero_only: Whether collect stats on the main process only.
+            world_process_zero_only: Whether to collect stats on the main process only.
+            track_gpu_temperature:  Whether to record GPU temperature.
             output_dir: If specified, then telemetry stats will be written to
                 the directory as JSON files.
         """
@@ -41,6 +43,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         self._epoch_timer: Optional[TimerContext] = None
 
         self._skip_first_steps: int = skip_first_steps
+        self._track_gpu_temperature = track_gpu_temperature
         self._output_dir: Optional[pathlib.Path] = output_dir
         self._permanently_disabled: bool = (
             world_process_zero_only and not is_world_process_zero()
@@ -97,7 +100,8 @@ class TelemetryCallback(transformers.TrainerCallback):
 
         self._complete_previous_microstep_if_needed()
         self._complete_previous_step_if_needed()
-        self._telemetry.record_gpu_temperature()
+        if self._track_gpu_temperature:
+            self._telemetry.record_gpu_temperature()
 
     def on_epoch_begin(
         self,
@@ -148,7 +152,8 @@ class TelemetryCallback(transformers.TrainerCallback):
                         kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
         if (
-            "gpu_temperature" in summary
+            self._track_gpu_temperature
+            and "gpu_temperature" in summary
             and summary["gpu_temperature"]
             and _LOGS_KWARG in kwargs
         ):
@@ -156,8 +161,6 @@ class TelemetryCallback(transformers.TrainerCallback):
             for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
                 metric_name = f"{basename}_gpu_temperature_{stats_key}"
                 kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
-
-        # self._telemetry.print_summary()
 
     def on_train_end(
         self,

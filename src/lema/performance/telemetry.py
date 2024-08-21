@@ -212,7 +212,8 @@ class TelemetryTracker:
     def record_gpu_temperature(self) -> float:
         """Records the current GPU temperature.
 
-        Returns GPU temperature.
+        Returns:
+           GPU temperature, in degrees Celsius.
         """
         if not torch.cuda.is_available():
             LOGGER.debug("CUDA is not available. GPU temperature cannot be logged.")
