@@ -34,7 +34,10 @@ from lema.core.distributed import (
 )
 from lema.core.trainers import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
-from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
+from lema.utils.debugging_utils import (
+    log_nvidia_gpu_memory_utilization,
+    log_nvidia_gpu_temperature,
+)
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -300,38 +303,46 @@ def train(config: TrainingConfig, **kwargs) -> None:
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
     ) as profiler:
-        trainer = create_trainer_fn(
-            model=model,
-            tokenizer=tokenizer,
-            args=config.training,
-            train_dataset=dataset,
-            eval_dataset=eval_dataset,
-            compute_metrics=metrics_function,
-            callbacks=_create_training_performance_callbacks_if_needed(
-                config, model, profiler
-            ),
-        )
-
-        logger.info("Max Memory Usage Before Training: ")
-        log_nvidia_gpu_memory_utilization()
-
-        logger.info(f"Training init time: {time.time() - _START_TIME}s")
-        logger.info("Starting training...")
-
-        verify_torch_distributed_initialized_if_needed()
-        trainer.train(
-            resume_from_checkpoint=(
-                _find_checkpoint_to_resume_from(
-                    config.training.resume_from_checkpoint,
-                    config.training.try_resume_from_last_checkpoint,
-                    config.training.output_dir,
-                )
+        with torch.profiler.record_function("create_trainer"):
+            trainer = create_trainer_fn(
+                model=model,
+                tokenizer=tokenizer,
+                args=config.training,
+                train_dataset=dataset,
+                eval_dataset=eval_dataset,
+                compute_metrics=metrics_function,
+                callbacks=_create_training_performance_callbacks_if_needed(
+                    config, model, profiler
+                ),
             )
-        )
+
+        with torch.profiler.record_function("log_and_verify"):
+            log_nvidia_gpu_memory_utilization(
+                log_prefix="Max Memory Usage Before Training:"
+            )
+            log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
+            verify_torch_distributed_initialized_if_needed()
+
+        with torch.profiler.record_function("find_checkpoint_to_resume_from"):
+            checkpoint_location = _find_checkpoint_to_resume_from(
+                config.training.resume_from_checkpoint,
+                config.training.try_resume_from_last_checkpoint,
+                config.training.output_dir,
+            )
+
+        with torch.profiler.record_function("wait_for_all_ranks"):
+            # Make sure all workers start training at the same time.
+            barrier()
+
+        with torch.profiler.record_function("train"):
+            logger.info(f"Training init time: {time.time() - _START_TIME}s")
+            logger.info("Starting training...")
+            trainer.train(resume_from_checkpoint=checkpoint_location)
+
     logger.info("Training is Complete.")
 
-    logger.info("Max Memory Usage After Training: ")
-    log_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
+    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
     if is_world_process_zero():

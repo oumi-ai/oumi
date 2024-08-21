@@ -51,7 +51,6 @@ run: |
       --config_file configs/accelerate/llama.deepspeed.yaml \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
-      "data.train.experimental_use_async_dataset=true" \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
@@ -61,12 +60,6 @@ run: |
       "training.optimizer=adafactor" \
       "model.torch_dtype_str=float32" \
       "training.mixed_precision_dtype=BF16" \
-      "training.enable_gradient_checkpointing=false" \
-      "training.dataloader_num_workers=auto" \
-      "training.dataloader_prefetch_factor=32" \
-      "training.include_performance_metrics=true" \
-      "training.ddp_find_unused_parameters=false" \
-      "training.try_resume_from_last_checkpoint=false" \
-      "training.enable_wandb=true"
+      "training.enable_gradient_checkpointing=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

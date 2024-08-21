@@ -90,13 +90,8 @@ training.save_steps=0
 training.save_final_model=false
 training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
-training.dataloader_prefetch_factor=32
 training.log_model_summary=false
-training.include_performance_metrics=true
-training.ddp_find_unused_parameters=false
-training.try_resume_from_last_checkpoint=false
-${PROFILER_TRAINING_PARAMS}
-training.enable_wandb=true"
+${PROFILER_TRAINING_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
@@ -112,7 +107,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.optimizer='adafactor'" \
+        "training.optimizer=adafactor" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
@@ -130,7 +125,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.optimizer='adafactor'" \
+        "training.optimizer=adafactor" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
@@ -148,7 +143,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.optimizer='adafactor'" \
+      "training.optimizer=adafactor" \
       "training.enable_gradient_checkpointing=false" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
@@ -169,7 +164,7 @@ else
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.optimizer='adafactor'" \
+      "training.optimizer=adafactor" \
       "training.per_device_train_batch_size=14" \
       "training.gradient_accumulation_steps=19"
 fi
