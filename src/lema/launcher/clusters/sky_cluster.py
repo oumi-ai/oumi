@@ -35,12 +35,12 @@ class SkyCluster(BaseCluster):
             # https://skypilot.readthedocs.io/en/latest/reference/cli.html#sky-jobs-queue
             done=str(sky_job["status"])
             not in [
-                "PENDING",
-                "SUBMITTED",
-                "STARTING",
-                "RUNNING",
-                "RECOVERING",
-                "CANCELLING",
+                "JobStatus.PENDING",
+                "JobStatus.SUBMITTED",
+                "JobStatus.STARTING",
+                "JobStatus.RUNNING",
+                "JobStatus.RECOVERING",
+                "JobStatus.CANCELLING",
             ],
         )
 

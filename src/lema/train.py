@@ -19,6 +19,7 @@ from lema.builders import (
 from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
+from lema.core.callbacks.telemetry_callback import TelemetryCallback
 from lema.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -33,7 +34,10 @@ from lema.core.distributed import (
 from lema.core.types import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.types.base_trainer import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
-from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
+from lema.utils.debugging_utils import (
+    log_nvidia_gpu_memory_utilization,
+    log_nvidia_gpu_temperature,
+)
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -171,13 +175,37 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 def _create_training_performance_callbacks_if_needed(
     config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
 ) -> List[Any]:
-    if not config.training.include_performance_metrics:
-        return []
-    elif not torch.cuda.is_available():
-        logger.warning("MFU logging is only supported on GPU. Skipping callback.")
-        return []
-
     result = []
+    if not config.training.include_performance_metrics:
+        return result
+
+    if profiler is not None:
+        result.append(ProfilerStepCallback(profiler=profiler))
+    elif config.training.profiler.schedule.enable_schedule:
+        logger.warning(
+            "Scheduled profiling is requested, but profiler is not available!"
+        )
+
+    telemetry_dir: Optional[pathlib.Path] = None
+    if config.training.profiler.save_dir or config.training.output_dir:
+        telemetry_dir = (
+            pathlib.Path(
+                config.training.profiler.save_dir or config.training.output_dir
+            )
+            / "telemetry"
+        )
+        if is_local_process_zero():
+            telemetry_dir.mkdir(parents=True, exist_ok=True)
+    result.append(
+        TelemetryCallback(
+            skip_first_steps=2, world_process_zero_only=True, output_dir=telemetry_dir
+        )
+    )
+
+    if not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
+        return result
+
     if config.model.model_max_length is not None and config.model.model_max_length > 0:
         num_total_params = count_model_parameters(model)
         num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
@@ -205,13 +233,6 @@ def _create_training_performance_callbacks_if_needed(
         )
     ):
         result.append(HfMfuTrainerCallback(dtype=model.dtype))
-
-    if profiler is not None:
-        result.append(ProfilerStepCallback(profiler=profiler))
-    elif config.training.profiler.schedule.enable_schedule:
-        logger.warning(
-            "Scheduled profiling is requested, but profiler is not available!"
-        )
 
     return result
 
@@ -301,26 +322,29 @@ def train(config: TrainingConfig, **kwargs) -> None:
             ),
         )
 
-        logger.info("Max Memory Usage Before Training: ")
-        log_nvidia_gpu_memory_utilization()
+        log_nvidia_gpu_memory_utilization(
+            log_prefix="Max Memory Usage Before Training:"
+        )
+        log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
 
         logger.info(f"Training init time: {time.time() - _START_TIME}s")
         logger.info("Starting training...")
 
         verify_torch_distributed_initialized_if_needed()
-        trainer.train(
-            resume_from_checkpoint=(
-                _find_checkpoint_to_resume_from(
-                    config.training.resume_from_checkpoint,
-                    config.training.try_resume_from_last_checkpoint,
-                    config.training.output_dir,
-                )
-            )
+
+        checkpoint_location = _find_checkpoint_to_resume_from(
+            config.training.resume_from_checkpoint,
+            config.training.try_resume_from_last_checkpoint,
+            config.training.output_dir,
         )
+        # Make sure all workers start training at the same time.
+        barrier()
+
+        trainer.train(resume_from_checkpoint=checkpoint_location)
     logger.info("Training is Complete.")
 
-    logger.info("Max Memory Usage After Training: ")
-    log_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
+    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
     if is_world_process_zero():
