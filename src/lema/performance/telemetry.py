@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, cast
 import pydantic
 import torch
 
+from lema.utils.debugging_utils import get_nvidia_gpu_temperature
 from lema.utils.logging import get_logger
 
 LOGGER = get_logger("lema.telemetry")
@@ -18,6 +19,7 @@ class TelemetryState(pydantic.BaseModel):
     # TODO: OPE-226 - implement async timers
     cuda_measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
     gpu_memory: List[Dict[str, float]] = pydantic.Field(default_factory=list)
+    gpu_temperature: List[float] = pydantic.Field(default_factory=list)
     start_time: float = pydantic.Field(default_factory=time.perf_counter)
 
 
@@ -206,6 +208,24 @@ class TelemetryTracker:
             custom_logger(memory_info)
         else:
             self.state.gpu_memory.append(memory_info)
+
+    def log_gpu_temperature(self, custom_logger: Optional[Callable] = None) -> None:
+        """Logs the GPU temperature.
+
+        Args:
+            custom_logger: A custom logging function. If None, store in
+                           self.gpu_temperature.
+        """
+        if not torch.cuda.is_available():
+            LOGGER.debug("CUDA is not available. GPU memory usage cannot be logged.")
+            return
+
+        temperature = get_nvidia_gpu_temperature()
+
+        if custom_logger:
+            custom_logger(temperature)
+        else:
+            self.state.gpu_temperature.append(temperature)
 
     #
     # Summary
