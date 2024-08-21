@@ -97,6 +97,7 @@ class TelemetryCallback(transformers.TrainerCallback):
 
         self._complete_previous_microstep_if_needed()
         self._complete_previous_step_if_needed()
+        self._telemetry.record_gpu_temperature()
 
     def on_epoch_begin(
         self,
@@ -146,6 +147,12 @@ class TelemetryCallback(transformers.TrainerCallback):
                 if stats_key in stats:
                     metric_name = f"{basename}_{name}_{stats_key}"
                     kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
+
+        if summary["gpu_temperature"]:
+            stats = summary["gpu_temperature"]
+            for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
+                metric_name = f"{basename}_gpu_temperature_{stats_key}"
+                kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
     def on_train_end(
         self,
