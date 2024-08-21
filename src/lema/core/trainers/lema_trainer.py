@@ -97,11 +97,6 @@ class Trainer(BaseTrainer):
             enabled=self.params.mixed_precision_dtype == MixedPrecisionDtype.FP16,
         )
 
-        if self.params.compile:
-            self.log("Compiling model...")
-            with self._telemetry_block("compile model"):
-                model = cast(torch.nn.Module, torch.compile(model))
-
         device_info = get_device_rank_info()
 
         # TODO: OPE-218 - give users fine-grained control on device placement
@@ -121,6 +116,11 @@ class Trainer(BaseTrainer):
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
                 model = prepare_model_for_distributed(model, use_fsdp=False)
+
+        if self.params.compile:
+            self.log("Compiling model...")
+            with self._telemetry_block("compile model"):
+                model = cast(torch.nn.Module, torch.compile(model))
 
         self.callbacks = callbacks if callbacks is not None else []
 
