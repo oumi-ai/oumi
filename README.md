@@ -69,8 +69,8 @@ Reach out to matthew@learning-machines.ai if you have problems with access.
 ### 5. Set your Github name and email
 
    ```shell
-   git config --global user.name "John Doe"
-   git config --global user.email john@learning-machines.ai
+   git config --global user.name "Your Name"
+   git config --global user.email YOUR_USERNAME@learning-machines.ai
    ```
 
 ### 6. Clone the LeMa repository
