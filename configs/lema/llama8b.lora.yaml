@@ -29,7 +29,7 @@ data:
 training:
   trainer_type: TRL_SFT
   use_peft: True
-  save_steps: 100
+  save_steps: 1000
   per_device_train_batch_size: 3  # torchtune uses bs=2x32, but we can fit bs=3
   gradient_accumulation_steps: 21
 

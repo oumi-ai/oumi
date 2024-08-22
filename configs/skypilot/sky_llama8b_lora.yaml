@@ -23,6 +23,10 @@ file_mounts:
   # /artifacts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
+  /output_dir_gcs:
+    source: gs://lema-dev-europe-west4/
+    store: gcs
+    mode: MOUNT
 
 envs:
   WANDB_PROJECT: lema-train-test
@@ -63,10 +67,22 @@ run: |
       -m lema.train \
       -c configs/lema/llama8b.lora.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
-      "training.save_final_model=false"
+      "training.output_dir=/output_dir_gcs/nikolai/runs/${LEMA_RUN_NAME}" \
+      "training.per_device_train_batch_size=3" \
+      "training.gradient_accumulation_steps=21" \
+      "training.max_steps=412" \
+      "training.save_steps=0" \
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
 
+#  train_samples_per_second 59.138
+# 3*21 = 63 samples per batch per GPU
+# 252 samples per batch per node (4 GPU)
+# 52000 / 252.0 = 206.34920634920636 steps per 1 epoch (alpaca)
 
-# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.10steps.v102 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+# 1 epoch (206 steps)
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.206steps.v105 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+
+# 2 epochs (412 steps)
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.412steps.v106 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
