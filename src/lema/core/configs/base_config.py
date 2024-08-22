@@ -21,6 +21,22 @@ def _filter_ignored_args(arg_list: List[str]) -> List[str]:
     ]
 
 
+def _read_config_without_interpolation(config_path: str) -> str:
+    """Reads a configuration file without interpolating variables.
+
+    Args:
+        config_path: The path to the configuration file.
+
+    Returns:
+        str: The stringified configuration.
+    """
+    with open(config_path) as f:
+        stringified_config = f.read()
+        pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
+        stringified_config = re.sub(pattern, "\\${", stringified_config)
+    return stringified_config
+
+
 @dataclasses.dataclass
 class BaseConfig:
     def to_yaml(self, config_path: str) -> None:
@@ -42,11 +58,8 @@ class BaseConfig:
         schema = OmegaConf.structured(cls)
         logging.info(f"Called from_yaml with {config_path}")
         if ignore_interpolation:
-            with open(config_path) as f:
-                stringified_config = f.read()
-                pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
-                stringified_config = re.sub(pattern, "\\${", stringified_config)
-                file_config = OmegaConf.create(stringified_config)
+            stringified_config = _read_config_without_interpolation(config_path)
+            file_config = OmegaConf.create(stringified_config)
         else:
             file_config = OmegaConf.load(config_path)
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
@@ -84,11 +97,8 @@ class BaseConfig:
         # Override with configuration file if provided.
         if config_path is not None:
             if ignore_interpolation:
-                with open(config_path) as f:
-                    stringified_config = f.read()
-                    pattern = r"(?<!\\)\$\{"
-                    stringified_config = re.sub(pattern, "\\${", stringified_config)
-                    all_configs.append(OmegaConf.create(stringified_config))
+                stringified_config = _read_config_without_interpolation(config_path)
+                all_configs.append(OmegaConf.create(stringified_config))
             else:
                 all_configs.append(cls.from_yaml(config_path))
 
