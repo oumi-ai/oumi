@@ -34,7 +34,7 @@ fi
 # Command setup for head or worker node
 RAY_START_CMD=(ray start -v --block)
 if [ "${POLARIS_NODE_RANK}" == "0" ]; then
-    RAY_START_CMD+=( --head --node-ip-address=${LEMA_MASTER_ADDR} --port=6379)
+    RAY_START_CMD+=( --head --node-ip-address=${LEMA_MASTER_ADDR} --port=6379 --include-dashboard=false)
 else
     RAY_START_CMD+=( --node-ip-address=${HOSTNAME} --address=${LEMA_MASTER_ADDR}:6379)
 fi
