@@ -53,3 +53,24 @@ def test_parse_configs(config_path: str):
                     f"Error parsing {config_class.__name__}: {str(exception)}. "
                 )
     assert len(error_messages) != len(valid_config_classes), "".join(error_messages)
+
+
+@pytest.mark.parametrize("config_path", _get_all_config_paths())
+def test_parse_configs_from_yaml_and_arg_list(config_path: str):
+    valid_config_classes = [
+        TrainingConfig,
+        EvaluationConfig,
+        AsyncEvaluationConfig,
+        JobConfig,
+    ]
+    error_messages = []
+    for config_class in valid_config_classes:
+        try:
+            _ = config_class.from_yaml_and_arg_list(config_path, [])
+        except (HardwareException, Exception) as exception:
+            # Ignore HardwareExceptions.
+            if not isinstance(exception, HardwareException):
+                error_messages.append(
+                    f"Error parsing {config_class.__name__}: {str(exception)}. "
+                )
+    assert len(error_messages) != len(valid_config_classes), "".join(error_messages)
