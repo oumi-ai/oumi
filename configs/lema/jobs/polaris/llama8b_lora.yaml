@@ -1,6 +1,7 @@
 # Config to LoRA tune Llama 3.1 8B on 1 Polaris node.
 # Example command:
 # lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml  --cluster debug-scaling.nikg
+# python3 -m lema.launch -p configs/lema/jobs/polaris/llama8b_lora.yaml --cluster debug-scaling.nikg
 name: llama8b-lora
 user: nikg
 num_nodes: 1

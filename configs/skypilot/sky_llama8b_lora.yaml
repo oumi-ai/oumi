@@ -32,6 +32,8 @@ envs:
   WANDB_PROJECT: lema-train-test
   LEMA_RUN_NAME: llama8b.lora
   ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
@@ -131,3 +133,11 @@ run: |
 #                     train_steps_per_second 0.195
 #
 # https://wandb.ai/lema-train-test/lema-train-test/runs/7228kivr
+
+
+# bs==2
+# 2 epochs (406 steps)
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.notokparallelism.v121 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+
+
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.notokparallelism.empty_cache.v122 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml

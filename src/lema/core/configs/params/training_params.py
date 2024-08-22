@@ -270,6 +270,7 @@ class TrainingParams(BaseParams):
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
             torch_compile=self.compile,
+            torch_empty_cache_steps=100,
             save_steps=self.save_steps,
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
