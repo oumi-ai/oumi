@@ -96,3 +96,38 @@ run: |
 # 2 epochs (406 steps)
 # sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.v120 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
 # https://wandb.ai/lema-train-test/lema-train-test/runs/7228kivr
+
+#                                 total_flos 7.864928994150318e+17
+#                                train/epoch 1.99846
+#                          train/global_step 406
+#                            train/grad_norm 0.12102
+#                        train/learning_rate 0.0
+#                                 train/loss 0.705
+#                train/num_input_tokens_seen 17458224
+#       train/telemetry_rank000_epochs_count 2.0
+#         train/telemetry_rank000_epochs_max 1036.53809
+#        train/telemetry_rank000_epochs_mean 1035.79599
+#      train/telemetry_rank000_epochs_median 1035.79599
+#         train/telemetry_rank000_epochs_min 1035.05388
+#     train/telemetry_rank000_epochs_std_dev 1.04949
+#   train/telemetry_rank000_microsteps_count 12929.0
+#     train/telemetry_rank000_microsteps_max 0.52468
+#    train/telemetry_rank000_microsteps_mean 0.15686
+#  train/telemetry_rank000_microsteps_median 0.15221
+#     train/telemetry_rank000_microsteps_min 0.00093
+# train/telemetry_rank000_microsteps_std_dev 0.02829
+#        train/telemetry_rank000_steps_count 405.0
+#          train/telemetry_rank000_steps_max 5.49058
+#         train/telemetry_rank000_steps_mean 4.68315
+#       train/telemetry_rank000_steps_median 4.61442
+#          train/telemetry_rank000_steps_min 1.11329
+#      train/telemetry_rank000_steps_std_dev 0.44821
+#                            train/train_mfu 237.55742
+#                       train/train_step_mfu 258.10202
+#              train/train_tokens_per_second 2392.373
+#                                 train_loss 0.84205
+#                              train_runtime 2085.3471
+#                   train_samples_per_second 49.841
+#                     train_steps_per_second 0.195
+#
+# https://wandb.ai/lema-train-test/lema-train-test/runs/7228kivr
