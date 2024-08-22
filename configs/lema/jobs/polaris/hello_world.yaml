@@ -1,5 +1,6 @@
+# lema-launch -p configs/lema/jobs/polaris/hello_world.yaml --cluster debug-scaling.nikg
 name: hello-world
-user: your_username
+user: nikg
 resources:
   cloud: polaris
 

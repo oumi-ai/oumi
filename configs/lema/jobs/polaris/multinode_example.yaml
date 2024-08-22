@@ -1,5 +1,5 @@
 name: multinode-example
-user: your_username
+user: nikg
 num_nodes: 2
 
 resources:
