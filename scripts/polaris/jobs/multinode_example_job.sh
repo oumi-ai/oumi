@@ -53,7 +53,6 @@ else
 fi
 
 
-#FIXME Should we set --envall, --noenvall, or only pass specific env vars?
 set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
     --np $((${LEMA_NUM_NODES} * ${NRANKS_PER_NODE})) \
