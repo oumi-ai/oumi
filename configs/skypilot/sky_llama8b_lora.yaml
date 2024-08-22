@@ -82,7 +82,7 @@ run: |
 # 52000 / 252.0 = 206.34920634920636 steps per 1 epoch (alpaca)
 
 # 1 epoch (206 steps)
-# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.206steps.v105 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.206steps.v107 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
 
 # 2 epochs (412 steps)
 # sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.412steps.v106 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
