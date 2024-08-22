@@ -212,6 +212,10 @@ class TrainingParams(BaseParams):
     #: Parameters for performance profiling.
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
 
+    #: Number of steps to wait before calling `torch.<device>.empty_cache()`.
+    #: If left unset, cache will not be emptied.
+    empty_device_cache_steps: Optional[int] = None
+
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         save_strategy: str = "no"
@@ -273,6 +277,7 @@ class TrainingParams(BaseParams):
             save_steps=self.save_steps,
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
+            torch_empty_cache_steps=self.empty_device_cache_steps,
             resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
