@@ -1,6 +1,9 @@
-name: multinode-example
+# Config to LoRA tune Llama 3.1 8B on 1 Polaris node.
+# Example command:
+# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml
+name: llama8b-lora
 user: your_username
-num_nodes: 2
+num_nodes: 1
 
 resources:
   cloud: polaris
@@ -53,7 +56,7 @@ run: |
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
       --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
-      ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
+      ./scripts/polaris/jobs/llama8b_lora.sh
 
   echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"
