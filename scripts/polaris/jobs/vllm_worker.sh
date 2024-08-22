@@ -57,7 +57,7 @@ export GOTO_NUM_THREADS=1
 # https://discuss.ray.io/t/rlimit-problem-when-running-gpu-code/9797
 export OMP_NUM_THREADS=1
 # https://github.com/ray-project/ray/issues/36936#issuecomment-2134496892
-export RAY_num_server_call_thread=4
+export RAY_num_server_call_thread=1
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 

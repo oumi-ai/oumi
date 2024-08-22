@@ -6,6 +6,7 @@ from queue import Queue
 import jsonlines
 import pandas as pd
 from openai import OpenAI
+from pathlib import Path
 from tqdm import tqdm
 
 
@@ -35,6 +36,7 @@ def main() -> None:
     JOB_NUMBER = os.environ["JOB_NUMBER"]
     INPUT_FILE = os.environ["LEMA_VLLM_INPUT_PATH"]
     OUTPUT_PATH = os.environ["LEMA_VLLM_OUTPUT_PATH"]
+    Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILE_NAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_NAME)
