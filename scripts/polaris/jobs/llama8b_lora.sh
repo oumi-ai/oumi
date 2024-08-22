@@ -46,7 +46,6 @@ accelerate launch \
     "training.gradient_accumulation_steps=32" \
     "training.max_steps=406" \
     "training.save_steps=0" \
-    "training.max_steps=100" \
     "training.save_final_model=true"
 
 echo "${LOG_PREFIX} All done!"
