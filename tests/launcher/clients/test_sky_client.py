@@ -2,9 +2,8 @@ from unittest.mock import ANY, Mock, patch
 
 import pytest
 
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
+from lema.core.configs import JobConfig, JobResources, StorageMount
+from lema.core.launcher import JobStatus
 from lema.launcher.clients.sky_client import SkyClient
 
 
@@ -80,6 +79,7 @@ def test_sky_client_launch(mock_sky_data_storage):
             cluster="mycluster",
             status="",
             metadata="",
+            done=False,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -103,6 +103,7 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
             cluster="cluster_name",
             status="",
             metadata="",
+            done=False,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(

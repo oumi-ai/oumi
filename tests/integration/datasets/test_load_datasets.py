@@ -3,7 +3,7 @@ from typing import List
 import pytest
 from transformers import AutoTokenizer
 
-from lema.core.datasets.base_dataset import BaseLMSftDataset
+from lema.core.datasets import BaseLMSftDataset
 from lema.core.registry import REGISTRY, RegistryType
 
 

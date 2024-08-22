@@ -4,13 +4,13 @@ from typing import List
 
 import pytest
 
-from lema.core.types import (
+from lema.core.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
-    HardwareException,
     JobConfig,
     TrainingConfig,
 )
+from lema.core.types import HardwareException
 
 
 def _is_config_file(path: str) -> bool:

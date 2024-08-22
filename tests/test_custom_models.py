@@ -6,7 +6,7 @@ from transformers import Trainer
 from lema import train
 from lema.builders.data import build_dataset
 from lema.builders.models import build_model, build_tokenizer
-from lema.core.types import (
+from lema.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,
@@ -52,6 +52,7 @@ def _get_default_config(output_temp_dir):
             enable_tensorboard=False,
             output_dir=output_temp_dir,
             include_performance_metrics=False,
+            include_alternative_mfu_metrics=True,
         ),
     )
 

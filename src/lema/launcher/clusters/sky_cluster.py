@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCluster, JobStatus
 from lema.launcher.clients.sky_client import SkyClient
 
 
@@ -31,6 +31,17 @@ class SkyCluster(BaseCluster):
             status=str(sky_job["status"]),
             cluster=self.name(),
             metadata="",
+            # See sky job states here:
+            # https://skypilot.readthedocs.io/en/latest/reference/cli.html#sky-jobs-queue
+            done=str(sky_job["status"])
+            not in [
+                "JobStatus.PENDING",
+                "JobStatus.SUBMITTED",
+                "JobStatus.STARTING",
+                "JobStatus.RUNNING",
+                "JobStatus.RECOVERING",
+                "JobStatus.CANCELLING",
+            ],
         )
 
     def name(self) -> str:

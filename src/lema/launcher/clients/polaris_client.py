@@ -10,7 +10,7 @@ from fabric import Connection
 from paramiko.ssh_exception import BadAuthenticationType
 from sshfs import SSHFileSystem
 
-from lema.core.types.base_cluster import JobStatus
+from lema.core.launcher import JobStatus
 from lema.utils.logging import logger
 
 
@@ -63,6 +63,8 @@ class PolarisClient:
         PROD = "prod"
 
     _CD_PATTERN = r"cd\s+(.*?)($|\s)"
+
+    _FINISHED_STATUS = "F"
 
     _PROD_QUEUES = {
         "small",
@@ -118,6 +120,7 @@ class PolarisClient:
             status=fields[9],
             cluster=fields[2],
             metadata=metadata,
+            done=fields[9] == self._FINISHED_STATUS,
         )
 
     def _get_short_job_id(self, job_id: str) -> str:

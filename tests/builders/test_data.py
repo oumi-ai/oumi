@@ -5,7 +5,7 @@ from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
 from lema.builders import build_dataset, build_tokenizer
-from lema.core.types import (
+from lema.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,

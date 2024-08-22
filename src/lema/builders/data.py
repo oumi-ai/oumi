@@ -5,15 +5,15 @@ from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 import datasets
 from trl.trainer import ConstantLengthDataset
 
-from lema.core.registry import REGISTRY
-from lema.core.types import (
+from lema.core.configs import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
     TrainingConfig,
 )
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.registry import REGISTRY
+from lema.core.tokenizers import BaseTokenizer
 from lema.datasets.alpaca import alpaca_preprocessing_fn
 from lema.datasets.chatqa import chatqa_preprocessor_fn
 from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset

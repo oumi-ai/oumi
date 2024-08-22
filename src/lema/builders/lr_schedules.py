@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import transformers
 
-from lema.core.types import SchedulerType, TrainingParams
+from lema.core.configs import SchedulerType, TrainingParams
 from lema.utils.logging import logger
 
 

@@ -126,7 +126,7 @@ This will allow you to input prompts and get responses from your model interacti
 LeMa supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
 
 ```python
-from lema.core.datasets.base_dataset import BaseLMSftDataset
+from lema.core.datasets import BaseLMSftDataset
 from lema.core.registry import register_dataset
 
 @register_dataset("my_custom_dataset")

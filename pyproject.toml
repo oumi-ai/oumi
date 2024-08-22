@@ -49,6 +49,8 @@ dev = [
     "pyright",
     "pytest",
     "ruff",
+    "sphinx",               # for documentation
+    "sphinx-rtd-theme",     # for documentation
     "torchfix",
 ]
 train = [
@@ -80,6 +82,7 @@ all = ["lema[dev,train,cloud]"]
 [project.scripts]
 lema-evaluate = "lema.evaluate:main"
 lema-infer = "lema.infer:main"
+lema-launch = "lema.launch:main"
 lema-train = "lema.train:main"
 
 [tool.ruff]

@@ -76,6 +76,8 @@ def test_telemetry_tracker_timer():
     assert "test_operation" in summary["timers"]
     assert math.isclose(0.1, summary["timers"]["test_operation"]["total"], rel_tol=0.1)
 
+    tracker.print_summary()
+
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_telemetry_tracker_cuda_timer():
@@ -89,6 +91,8 @@ def test_telemetry_tracker_cuda_timer():
     assert "test_cuda_operation" in summary["cuda_timers"]
     assert summary["cuda_timers"]["test_cuda_operation"]["mean"] > 0
 
+    tracker.print_summary()
+
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_telemetry_tracker_log_gpu_memory():
@@ -100,6 +104,41 @@ def test_telemetry_tracker_log_gpu_memory():
     assert len(summary["gpu_memory"]) == 1
     assert "allocated" in summary["gpu_memory"][0]
     assert "reserved" in summary["gpu_memory"][0]
+
+    tracker.print_summary()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_telemetry_tracker_record_gpu_temperature():
+    tracker = TelemetryTracker()
+
+    tracker.record_gpu_temperature()
+    tracker.record_gpu_temperature()
+    tracker.record_gpu_temperature()
+
+    summary = tracker.get_summary()
+    assert len(summary["gpu_temperature"]) == 6
+    assert summary["gpu_temperature"]["count"] == 3
+
+    assert (
+        summary["gpu_temperature"]["min"] > 0
+        and summary["gpu_temperature"]["min"] < 100
+    )
+    assert (
+        summary["gpu_temperature"]["max"] > 0
+        and summary["gpu_temperature"]["max"] < 100
+    )
+    assert (
+        summary["gpu_temperature"]["mean"] > 0
+        and summary["gpu_temperature"]["mean"] < 100
+    )
+    assert (
+        summary["gpu_temperature"]["median"] > 0
+        and summary["gpu_temperature"]["median"] < 100
+    )
+    assert summary["gpu_temperature"]["std_dev"] >= 0
+
+    tracker.print_summary()
 
 
 def test_telemetry_tracker_get_summary():

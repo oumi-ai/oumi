@@ -2,10 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from lema.core.configs import JobConfig, JobResources, StorageMount
+from lema.core.launcher import JobStatus
 from lema.core.registry import REGISTRY, RegistryType
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clouds.polaris_cloud import PolarisCloud
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
@@ -73,6 +72,7 @@ def test_polaris_cloud_up_cluster_debug(mock_polaris_client, mock_polaris_cluste
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -94,6 +94,7 @@ def test_polaris_cloud_up_cluster_demand(mock_polaris_client, mock_polaris_clust
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -117,6 +118,7 @@ def test_polaris_cloud_up_cluster_debug_scaling(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -140,6 +142,7 @@ def test_polaris_cloud_up_cluster_preemptable(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -161,6 +164,7 @@ def test_polaris_cloud_up_cluster_prod(mock_polaris_client, mock_polaris_cluster
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -192,6 +196,7 @@ def test_polaris_cloud_up_cluster_default_queue(
         name="foo",
         status="running",
         metadata="bar",
+        done=False,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")

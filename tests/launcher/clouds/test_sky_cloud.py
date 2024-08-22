@@ -3,10 +3,9 @@ from unittest.mock import Mock, patch
 import pytest
 import sky
 
+from lema.core.configs import JobConfig, JobResources, StorageMount
+from lema.core.launcher import JobStatus
 from lema.core.registry import REGISTRY, RegistryType
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
 from lema.launcher.clients.sky_client import SkyClient
 from lema.launcher.clouds.sky_cloud import SkyCloud
 from lema.launcher.clusters.sky_cluster import SkyCluster
@@ -67,6 +66,7 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
         cluster="new_cluster_name",
         status="",
         metadata="",
+        done=False,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()
@@ -115,6 +115,7 @@ def test_sky_cloud_up_cluster_no_name(mock_sky_client, mock_sky_cluster):
         cluster="new_cluster_name",
         status="",
         metadata="",
+        done=False,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()

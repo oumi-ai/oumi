@@ -1,0 +1,32 @@
+name: vllm
+# Replace with your username.
+user: user
+num_nodes: 2
+
+resources:
+  cloud: polaris
+
+# Upload a working directory to /home/$USER/lema_launcher/hello-world.
+working_dir: .
+
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
+setup: |
+  #PBS -l select=2:system=polaris
+  #PBS -l place=scatter
+  #PBS -l walltime=00:40:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs
+  #PBS -e /eagle/community_ai/jobs/logs
+
+run: |
+  set -e
+
+  # Change to the directory where the job was submitted.
+  echo "Changing directory to ${PBS_O_WORKDIR} ..."
+  cd ${PBS_O_WORKDIR}
+
+  # Run the job.
+  ./scripts/polaris/jobs/vllm_job.sh

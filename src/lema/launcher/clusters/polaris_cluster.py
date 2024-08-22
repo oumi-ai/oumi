@@ -4,8 +4,8 @@ from functools import reduce
 from pathlib import Path
 from typing import Any, List, Optional
 
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCluster, JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.utils.logging import logger
 
@@ -138,7 +138,7 @@ class PolarisCluster(BaseCluster):
         self._client = client
 
     def __eq__(self, other: Any) -> bool:
-        """Checks if two SkyClusters are equal."""
+        """Checks if two PolarisClusters are equal."""
         if not isinstance(other, PolarisCluster):
             return False
         return self.name() == other.name()

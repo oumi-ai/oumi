@@ -2,10 +2,14 @@
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
 POLARIS_GPUS_PER_NODE=4
+# Reversing GPUs order to match Polaris CPU affinities:
+# https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
+export CUDA_VISIBLE_DEVICES=3,2,1,0
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
+echo "${LOG_PREFIX} USER: ${USER}"
 echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
 echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
 echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
@@ -18,16 +22,17 @@ echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 ORIGINAL_TMPDIR="${TMPDIR}"
 export TMPDIR="/tmp/${PBS_JOBID}/rank_${POLARIS_NODE_RANK}/"
 echo "${LOG_PREFIX} TMPDIR: ${TMPDIR} ORIGINAL_TMPDIR: ${ORIGINAL_TMPDIR}"
+echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("ddp" "fsdp", "deepspeed")
+ALLOWED_TRAINING_MODES=("ddp" "ddp1gpu" "fsdp", "deepspeed")
 
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -m (ddp|fsdp|deepspeed)"
+   echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
    echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
    exit 1 # Exit script after printing help
 }
@@ -35,10 +40,13 @@ helpFunction()
 # Default values.
 TRAINING_MODE="fsdp"
 
-while getopts "m:" opt
+ENABLE_PYTORCH_PROFILER="false"
+
+while getopts "m:p" opt
 do
    case "$opt" in
       m ) TRAINING_MODE="$OPTARG" ;;
+      p ) ENABLE_PYTORCH_PROFILER="true" ;;
       ? ) helpFunction ;; # Print a help message for an unknown parameter.
    esac
 done
@@ -53,6 +61,20 @@ if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
     helpFunction
 fi
 
+MAX_STEPS=20
+if "${ENABLE_PYTORCH_PROFILER}"; then
+   # Use a smaller number of steps with Profiler to keep traces usable.
+   MAX_STEPS=6
+   PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
+   training.profiler.schedule.enable_schedule=true
+   training.profiler.schedule.skip_first=1
+   training.profiler.schedule.warmup=1
+   training.profiler.schedule.active=4
+   training.profiler.enable_cpu_profiling=true
+   training.profiler.enable_cuda_profiling=true"
+   echo "PyTorch profiler enabled!"
+fi
+
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 TRAIN_DATASETS="data.train.datasets=
 - dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
@@ -63,16 +85,13 @@ TRAIN_DATASETS="data.train.datasets=
 # Training params shared between the different training modes, and likely
 # don't need to be modified during experimentation.
 SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
-training.max_steps=20
+training.max_steps=${MAX_STEPS}
 training.save_steps=0
 training.save_final_model=false
+training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
-training.dataloader_prefetch_factor=32
 training.log_model_summary=false
-training.include_performance_metrics=true
-training.ddp_find_unused_parameters=false
-training.try_resume_from_last_checkpoint=false
-training.enable_wandb=true"
+${PROFILER_TRAINING_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
@@ -87,8 +106,26 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -c configs/lema/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.ddp.${PBS_JOBID}'" \
-        "training.optimizer='adafactor'" \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.optimizer=adafactor" \
+        "training.per_device_train_batch_size=4" \
+        "training.gradient_accumulation_steps=64"
+elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
+    export CUDA_VISIBLE_DEVICES=$((${POLARIS_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_GPUS_PER_NODE}))
+    set -x  # Print "torchrun" command with expanded variables
+    echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
+    torchrun \
+        --nnodes=$((${LEMA_NUM_NODES} * ${POLARIS_GPUS_PER_NODE})) \
+        --node-rank=${POLARIS_NODE_RANK} \
+        --nproc-per-node=1 \
+        --master-addr=${LEMA_MASTER_ADDR} \
+        --master-port=8007 \
+        -m lema.train \
+        -c configs/lema/llama2b.pt.yaml \
+        "$TRAIN_DATASETS" \
+        $SHARED_TRAINING_PARAMS \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.optimizer=adafactor" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
@@ -105,12 +142,13 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
-      "training.run_name='polaris.llama2b.deepspeed.${PBS_JOBID}'" \
-      "training.optimizer='adafactor'" \
+      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+      "training.optimizer=adafactor" \
       "training.enable_gradient_checkpointing=false" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
-      "training.bf16=true"
+      "model.torch_dtype_str=float32" \
+      "training.mixed_precision_dtype=BF16"
 else
     set -x  # Print "accelerate" command with expanded variables
     accelerate launch \
@@ -125,8 +163,8 @@ else
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
-      "training.run_name='polaris.llama2b.fsdp.${PBS_JOBID}'" \
-      "training.optimizer='adafactor'" \
+      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+      "training.optimizer=adafactor" \
       "training.per_device_train_batch_size=14" \
       "training.gradient_accumulation_steps=19"
 fi

@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from lema.core.types.params.base_params import BaseParams
+from lema.core.configs.params.base_params import BaseParams
 
 
 @dataclass

@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import random
 import time
-from typing import Callable, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 import torch
@@ -16,8 +16,13 @@ from lema.builders import (
     build_tokenizer,
     build_trainer,
 )
+from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
+from lema.core.callbacks.telemetry_callback import TelemetryCallback
+from lema.core.configs import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.distributed import (
+    barrier,
     cleanup_distributed,
     estimate_dataloader_num_workers,
     get_device_rank_info,
@@ -27,10 +32,12 @@ from lema.core.distributed import (
     is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
-from lema.core.types import DatasetSplit, TrainingConfig
-from lema.core.types.base_trainer import BaseTrainer
+from lema.core.trainers import BaseTrainer
 from lema.performance.torch_profiler_utils import torch_profile
-from lema.utils.debugging_utils import log_nvidia_gpu_memory_utilization
+from lema.utils.debugging_utils import (
+    log_nvidia_gpu_memory_utilization,
+    log_nvidia_gpu_temperature,
+)
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -165,6 +172,71 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
+def _create_training_performance_callbacks_if_needed(
+    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
+) -> List[Any]:
+    result = []
+    if not config.training.include_performance_metrics:
+        return result
+
+    if profiler is not None:
+        result.append(ProfilerStepCallback(profiler=profiler))
+    elif config.training.profiler.schedule.enable_schedule:
+        logger.warning(
+            "Scheduled profiling is requested, but profiler is not available!"
+        )
+
+    telemetry_dir: Optional[pathlib.Path] = None
+    if config.training.profiler.save_dir or config.training.output_dir:
+        telemetry_dir = (
+            pathlib.Path(
+                config.training.profiler.save_dir or config.training.output_dir
+            )
+            / "telemetry"
+        )
+        if is_local_process_zero():
+            telemetry_dir.mkdir(parents=True, exist_ok=True)
+    result.append(
+        TelemetryCallback(
+            skip_first_steps=2, world_process_zero_only=True, output_dir=telemetry_dir
+        )
+    )
+
+    if not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
+        return result
+
+    if config.model.model_max_length is not None and config.model.model_max_length > 0:
+        num_total_params = count_model_parameters(model)
+        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
+        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+        # Ignore attention and rematerialization to ensure metric matches most
+        # common implementations.
+        mfu_callback = MfuTrainerCallback(
+            dtype=model.dtype,
+            num_params=num_mfu_params,
+            sequence_length=config.model.model_max_length,
+        )
+        result.append(mfu_callback)
+    else:
+        logger.warning(
+            "model_max_length must be set to log MFU performance information."
+        )
+
+    if (
+        config.training.include_alternative_mfu_metrics
+        and config.training.trainer_type
+        in (
+            TrainerType.TRL_SFT,
+            TrainerType.TRL_DPO,
+            TrainerType.HF,
+        )
+    ):
+        result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    return result
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -226,69 +298,59 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    training_callbacks = []
-    if config.training.include_performance_metrics:
-        if config.model.model_max_length is None:
-            raise ValueError(
-                "model_max_length must be set to log performance information."
-            )
-        if not torch.cuda.is_available():
-            logger.warning("MFU logging is only supported on GPU. Skipping callback.")
-        else:
-            num_total_params = count_model_parameters(model)
-            num_mfu_params = (
-                num_total_params.all_params - num_total_params.embedding_params
-            )
-            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-            # Ignore attention and rematerialization to ensure metric matches most
-            # common implementations.
-            mfu_callback = MfuTrainerCallback(
-                dtype=model.dtype,
-                num_params=num_mfu_params,
-                sequence_length=config.model.model_max_length,
-            )
-            training_callbacks.append(mfu_callback)
-
-    trainer = create_trainer_fn(
-        model=model,
-        tokenizer=tokenizer,
-        args=config.training,
-        train_dataset=dataset,
-        eval_dataset=eval_dataset,
-        compute_metrics=metrics_function,
-        callbacks=training_callbacks,
-    )
-
-    logger.info("Max Memory Usage Before Training: ")
-    log_nvidia_gpu_memory_utilization()
-
-    logger.info(f"Training init time: {time.time() - _START_TIME}s")
-    logger.info("Starting training...")
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
         record_function_name="lema.train",
-    ):
-        verify_torch_distributed_initialized_if_needed()
-        trainer.train(
-            resume_from_checkpoint=(
-                _find_checkpoint_to_resume_from(
-                    config.training.resume_from_checkpoint,
-                    config.training.try_resume_from_last_checkpoint,
-                    config.training.output_dir,
-                )
+    ) as profiler:
+        with torch.profiler.record_function("create_trainer"):
+            trainer = create_trainer_fn(
+                model=model,
+                tokenizer=tokenizer,
+                args=config.training,
+                train_dataset=dataset,
+                eval_dataset=eval_dataset,
+                compute_metrics=metrics_function,
+                callbacks=_create_training_performance_callbacks_if_needed(
+                    config, model, profiler
+                ),
             )
-        )
+
+        with torch.profiler.record_function("log_and_verify"):
+            log_nvidia_gpu_memory_utilization(
+                log_prefix="Max Memory Usage Before Training:"
+            )
+            log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
+            verify_torch_distributed_initialized_if_needed()
+
+        with torch.profiler.record_function("find_checkpoint_to_resume_from"):
+            checkpoint_location = _find_checkpoint_to_resume_from(
+                config.training.resume_from_checkpoint,
+                config.training.try_resume_from_last_checkpoint,
+                config.training.output_dir,
+            )
+
+        with torch.profiler.record_function("wait_for_all_ranks"):
+            # Make sure all workers start training at the same time.
+            barrier()
+
+        with torch.profiler.record_function("train"):
+            logger.info(f"Training init time: {time.time() - _START_TIME}s")
+            logger.info("Starting training...")
+            trainer.train(resume_from_checkpoint=checkpoint_location)
+
     logger.info("Training is Complete.")
 
-    logger.info("Max Memory Usage After Training: ")
-    log_nvidia_gpu_memory_utilization()
+    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
+    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
     if is_world_process_zero():
         trainer.save_state()
         if config.training.save_final_model:
             trainer.save_model(config=config)
+
+    barrier()
 
     if is_distributed():
         cleanup_distributed()

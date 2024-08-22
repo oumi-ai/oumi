@@ -2,9 +2,8 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
-from lema.core.types.params.job_resources import JobResources, StorageMount
+from lema.core.configs import JobConfig, JobResources, StorageMount
+from lema.core.launcher import JobStatus
 from lema.launcher.clients.polaris_client import PolarisClient
 from lema.launcher.clusters.polaris_cluster import PolarisCluster
 
@@ -93,6 +92,7 @@ def test_polaris_cluster_get_job_valid_id(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="job2",
@@ -100,6 +100,7 @@ def test_polaris_cluster_get_job_valid_id(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="final job",
@@ -107,6 +108,7 @@ def test_polaris_cluster_get_job_valid_id(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
     ]
     job = cluster.get_job("myjob")
@@ -137,6 +139,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="job2",
@@ -144,6 +147,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="final job",
@@ -151,6 +155,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
     ]
     job = cluster.get_job("wrong job")
@@ -169,6 +174,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="job2",
@@ -176,6 +182,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
         JobStatus(
             id="final job",
@@ -183,6 +190,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="mycluster",
+            done=False,
         ),
     ]
     jobs = cluster.get_jobs()
@@ -196,6 +204,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
         JobStatus(
             id="job2",
@@ -203,6 +212,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
         JobStatus(
             id="final job",
@@ -210,6 +220,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
     ]
     assert jobs == expected_jobs
@@ -235,6 +246,7 @@ def test_polaris_cluster_stop_job(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
         JobStatus(
             id="job2",
@@ -242,6 +254,7 @@ def test_polaris_cluster_stop_job(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
         JobStatus(
             id="final job",
@@ -249,6 +262,7 @@ def test_polaris_cluster_stop_job(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
     ]
     job_status = cluster.stop_job("job2")
@@ -258,6 +272,7 @@ def test_polaris_cluster_stop_job(mock_polaris_client):
         status="running",
         metadata="",
         cluster="prod.name",
+        done=False,
     )
     mock_polaris_client.cancel.assert_called_once_with(
         "job2",
@@ -275,6 +290,7 @@ def test_polaris_cluster_stop_job_fails(mock_polaris_client):
             status="running",
             metadata="",
             cluster="debug.name",
+            done=False,
         ),
     ]
     with pytest.raises(RuntimeError):
@@ -291,6 +307,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -299,6 +316,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     job_status = cluster.run_job(_get_default_job("polaris"))
     mock_polaris_client.put_recursive.assert_has_calls(
@@ -361,6 +379,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -369,6 +388,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     mock_polaris_client.run_commands.side_effect = [
         None,
@@ -463,6 +483,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -471,6 +492,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     job = _get_default_job("polaris")
     job.name = None
@@ -539,6 +561,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -547,6 +570,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -603,6 +627,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -611,6 +636,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -661,6 +687,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     expected_status = JobStatus(
@@ -669,6 +696,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
         status="queued",
         metadata="",
         cluster="debug.name",
+        done=False,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -717,6 +745,7 @@ def test_polaris_cluster_run_job_fails(mock_polaris_client):
             status="queued",
             metadata="",
             cluster="mycluster",
+            done=False,
         )
     ]
     with pytest.raises(RuntimeError):

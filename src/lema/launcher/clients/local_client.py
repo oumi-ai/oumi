@@ -3,12 +3,13 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from subprocess import PIPE, Popen
 from threading import Lock, Thread
 from typing import List, Optional
 
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import JobStatus
 
 
 @dataclass
@@ -17,6 +18,8 @@ class _LocalJob:
 
     status: JobStatus
     config: JobConfig
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
 
 
 class _JobState(Enum):
@@ -34,6 +37,8 @@ class LocalClient:
 
     # The maximum number of characters to read from the subprocess's stdout and stderr.
     _MAX_BUFFER_SIZE = 1024
+    # The environment variable used to specify the logging directory.
+    _LEMA_LOGGING_DIR = "LEMA_LOGGING_DIR"
 
     def __init__(self):
         """Initializes a new instance of the LocalClient class."""
@@ -45,6 +50,14 @@ class LocalClient:
         self._worker = Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
+    def _update_job_status(self, job_id: str, status: _JobState) -> None:
+        """Updates the status of the job. Assumes the mutex is already acquired."""
+        if job_id not in self._jobs:
+            return
+        self._jobs[job_id].status.status = status.value
+        is_done = status in (_JobState.COMPLETED, _JobState.FAILED, _JobState.CANCELED)
+        self._jobs[job_id].status.done = is_done
+
     def _worker_run_job(self) -> Optional[_LocalJob]:
         """Kicks off and returns a new job. Assumes the mutex is already acquired."""
         job = self._get_next_job()
@@ -52,19 +65,29 @@ class LocalClient:
             return None
         env_copy = os.environ.copy()
         env_copy.update(job.config.envs)
+        # Check if the user has specified a logging directory.
+        if self._LEMA_LOGGING_DIR in env_copy:
+            logging_dir = Path(env_copy[self._LEMA_LOGGING_DIR])
+            logging_dir.mkdir(parents=True, exist_ok=True)
+            dt = datetime.now()
+            log_format = f"{dt:%Y_%m_%d_%H_%M_%S}_{dt.microsecond // 1000:03d}"
+            job.stderr = str(logging_dir / f"{log_format}_{job.status.id}.stderr")
+            job.stdout = str(logging_dir / f"{log_format}_{job.status.id}.stdout")
         # Always change to the working directory before running the job.
         working_dir_cmd = f"cd {job.config.working_dir}"
         setup_cmds = job.config.setup or ""
         cmds = "\n".join([working_dir_cmd, setup_cmds, job.config.run])
         # Start the job but don't block.
+        stderr_logs = open(job.stderr, "w") if job.stderr else PIPE
+        stdout_logs = open(job.stdout, "w") if job.stdout else PIPE
         self._running_process = Popen(
             cmds,
             shell=True,
             env=env_copy,
-            stdout=PIPE,
-            stderr=PIPE,
+            stdout=stdout_logs,
+            stderr=stderr_logs,
         )
-        job.status.status = _JobState.RUNNING.value
+        self._update_job_status(job.status.id, _JobState.RUNNING)
         return job
 
     def _worker_handle_running_job(self, job: _LocalJob) -> None:
@@ -77,21 +100,30 @@ class LocalClient:
             # Job was successful.
             finish_time = datetime.fromtimestamp(time.time()).isoformat()
             with self._mutex:
-                self._jobs[job.status.id].status.status = _JobState.COMPLETED.value
                 self._jobs[
                     job.status.id
-                ].status.metadata = f"Job finished at {finish_time}"
+                ].status.metadata = f"Job finished at {finish_time} ."
+                self._update_job_status(job.status.id, _JobState.COMPLETED)
+                if job.stdout is not None:
+                    self._jobs[
+                        job.status.id
+                    ].status.metadata += f" Logs available at: {job.stdout}"
         else:
             # Job failed.
             with self._mutex:
-                self._jobs[job.status.id].status.status = _JobState.FAILED.value
-                error_metadata = ""
-                if self._running_process.stderr is not None:
-                    for line in self._running_process.stderr:
-                        error_metadata += str(line)
-                # Only keep the last _MAX_BUFFER_SIZE characters.
-                error_metadata = error_metadata[-self._MAX_BUFFER_SIZE :]
-                self._jobs[job.status.id].status.metadata = error_metadata
+                self._update_job_status(job.status.id, _JobState.FAILED)
+                if job.stderr is not None:
+                    self._jobs[
+                        job.status.id
+                    ].status.metadata = f"Error logs available at: {job.stderr}"
+                else:
+                    error_metadata = ""
+                    if self._running_process.stderr is not None:
+                        for line in self._running_process.stderr:
+                            error_metadata += str(line)
+                    # Only keep the last _MAX_BUFFER_SIZE characters.
+                    error_metadata = error_metadata[-self._MAX_BUFFER_SIZE :]
+                    self._jobs[job.status.id].status.metadata = error_metadata
 
     def _worker_loop(self):
         """The main worker loop that runs jobs."""
@@ -141,6 +173,7 @@ class LocalClient:
                 status=_JobState.QUEUED.value,
                 cluster="",
                 metadata="",
+                done=False,
             )
             self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
@@ -182,7 +215,7 @@ class LocalClient:
             if job.status.status == _JobState.RUNNING.value:
                 if self._running_process is not None:
                     self._running_process.terminate()
-                job.status.status = _JobState.CANCELED.value
+                self._update_job_status(job_id, _JobState.CANCELED)
             elif job.status.status == _JobState.QUEUED.value:
-                job.status.status = _JobState.CANCELED.value
+                self._update_job_status(job_id, _JobState.CANCELED)
             return job.status
