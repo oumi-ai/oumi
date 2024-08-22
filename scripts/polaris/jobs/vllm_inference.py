@@ -32,8 +32,8 @@ def main() -> None:
     MODEL = models.data[0].id
     MODEL_NAME = _get_model_name(MODEL)
     JOB_NUMBER = os.environ["JOB_NUMBER"]
-    INPUT_FILE = "/eagle/community_ai/lema-balerion/test_2.jsonl" #os.environ["LEMA_VLLM_INPUT_PATH"]
-    OUTPUT_PATH = "/eagle/community_ai/lema-balerion" #os.environ["LEMA_VLLM_OUTPUT_PATH"]
+    INPUT_FILE = os.environ["LEMA_VLLM_INPUT_PATH"]
+    OUTPUT_PATH = os.environ["LEMA_VLLM_OUTPUT_PATH"]
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILE_NAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_NAME)
