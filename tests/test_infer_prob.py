@@ -1,7 +1,7 @@
 import pytest
 
-from lema.core.types import ModelParams
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.configs import ModelParams
+from lema.core.tokenizers import BaseTokenizer
 from lema.evaluation import infer_prob, most_probable_tokens
 
 PROMPTS = [

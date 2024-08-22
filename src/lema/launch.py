@@ -8,7 +8,7 @@ from multiprocessing.pool import ThreadPool
 from typing import Callable, List, Optional
 
 import lema.launcher as launcher
-from lema.core.types.base_cluster import BaseCluster, JobStatus
+from lema.core.launcher import BaseCluster, JobStatus
 from lema.utils.logging import logger
 
 

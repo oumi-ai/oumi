@@ -6,7 +6,7 @@ from transformers import Trainer
 from lema import train
 from lema.builders.data import build_dataset
 from lema.builders.models import build_model, build_tokenizer
-from lema.core.types import (
+from lema.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,

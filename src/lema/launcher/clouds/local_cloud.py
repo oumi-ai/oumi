@@ -1,9 +1,8 @@
 from typing import List, Optional
 
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCloud, BaseCluster, JobStatus
 from lema.core.registry import register_cloud_builder
-from lema.core.types.base_cloud import BaseCloud
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
 from lema.launcher.clients.local_client import LocalClient
 from lema.launcher.clusters.local_cluster import LocalCluster
 

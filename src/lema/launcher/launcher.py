@@ -1,9 +1,8 @@
 from typing import List, Optional, Tuple, Union
 
+from lema.core.configs import JobConfig
+from lema.core.launcher import BaseCloud, BaseCluster, JobStatus
 from lema.core.registry import REGISTRY, RegistryType
-from lema.core.types.base_cloud import BaseCloud
-from lema.core.types.base_cluster import BaseCluster, JobStatus
-from lema.core.types.configs import JobConfig
 
 
 class Launcher:

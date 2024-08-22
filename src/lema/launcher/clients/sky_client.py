@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional
 import sky
 import sky.data
 
-from lema.core.types.base_cluster import JobStatus
-from lema.core.types.configs import JobConfig
+from lema.core.configs import JobConfig
+from lema.core.launcher import JobStatus
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:

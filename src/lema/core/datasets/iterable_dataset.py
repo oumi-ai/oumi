@@ -5,14 +5,13 @@ import datasets
 import torch
 from torch.utils.data import IterDataPipe
 
-from lema.core.types.base_tokenizer import BaseTokenizer
+from lema.core.tokenizers import BaseTokenizer
 from lema.utils.logging import logger
 
 
-#
-# Abstract Iterable Dataset
-#
 class BaseIterableDataset(IterDataPipe, abc.ABC):
+    """Abstract base class for iterable datasets."""
+
     _data: Iterable[Any]
     dataset_name_or_path: str
     default_dataset: Optional[str] = None
@@ -93,6 +92,8 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
 
 
 class BasePretrainingIterableDataset(BaseIterableDataset):
+    """Abstract base class for pretraining iterable datasets."""
+
     def __init__(
         self,
         *,
