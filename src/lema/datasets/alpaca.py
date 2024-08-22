@@ -78,7 +78,7 @@ def _convert_to_lema_format(example: dict) -> dict:
         "Write a response that appropriately completes the request."
     )
 
-    # Use default aplaca user prompt template
+    # Use default alpaca user prompt template
     if example.get("input") is not None and len(example["input"]) > 0:
         # This example has both an instruction and a user input.
         user_prompt = """{instruction}\n\n### Input:\n{input}""".format(

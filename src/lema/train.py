@@ -270,6 +270,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     if use_peft:
+        logger.info("Building PEFT model...")
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
         )
@@ -346,8 +347,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Save final checkpoint & training state.
     if is_world_process_zero():
+        logger.info("Saving final state...")
         trainer.save_state()
         if config.training.save_final_model:
+            logger.info("Saving final model...")
             trainer.save_model(config=config)
 
     barrier()
