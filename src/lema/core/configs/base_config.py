@@ -21,6 +21,22 @@ def _filter_ignored_args(arg_list: List[str]) -> List[str]:
     ]
 
 
+def _read_config_without_interpolation(config_path: str) -> str:
+    """Reads a configuration file without interpolating variables.
+
+    Args:
+        config_path: The path to the configuration file.
+
+    Returns:
+        str: The stringified configuration.
+    """
+    with open(config_path) as f:
+        stringified_config = f.read()
+        pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
+        stringified_config = re.sub(pattern, "\\${", stringified_config)
+    return stringified_config
+
+
 @dataclasses.dataclass
 class BaseConfig:
     def to_yaml(self, config_path: str) -> None:
@@ -41,11 +57,8 @@ class BaseConfig:
         """
         schema = OmegaConf.structured(cls)
         if ignore_interpolation:
-            with open(config_path) as f:
-                stringified_config = f.read()
-                pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
-                stringified_config = re.sub(pattern, "\\${", stringified_config)
-                file_config = OmegaConf.create(stringified_config)
+            stringified_config = _read_config_without_interpolation(config_path)
+            file_config = OmegaConf.create(stringified_config)
         else:
             file_config = OmegaConf.load(config_path)
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
@@ -59,6 +72,7 @@ class BaseConfig:
         config_path: Optional[str],
         arg_list: List[str],
         logger: Optional[logging.Logger] = None,
+        ignore_interpolation=True,
     ) -> T:
         """Loads a configuration from various sources.
 
@@ -69,6 +83,8 @@ class BaseConfig:
             config_path: The path to the YAML file.
             arg_list: Command line arguments list.
             logger: (optional) Logger.
+            ignore_interpolation: If True, then any interpolation variables in the
+                configuration file will be escaped.
 
         Returns:
             BaseConfig: The merged configuration object.
@@ -79,7 +95,11 @@ class BaseConfig:
 
         # Override with configuration file if provided.
         if config_path is not None:
-            all_configs.append(cls.from_yaml(config_path))
+            if ignore_interpolation:
+                stringified_config = _read_config_without_interpolation(config_path)
+                all_configs.append(OmegaConf.create(stringified_config))
+            else:
+                all_configs.append(cls.from_yaml(config_path))
 
         # Filter out CLI arguments that should be ignored.
         arg_list = _filter_ignored_args(arg_list)
