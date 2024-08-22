@@ -27,7 +27,7 @@ module load conda
 # Activate the LeMa Conda environment.
 conda activate /home/$USER/miniconda3/envs/lema
 
-TRAINING_MODE="fsdp"  # NOTE: Modify this value to configure training mode.
+TRAINING_MODE="ddp"  # NOTE: Modify this value to configure training mode.
 
 echo "Starting ${TRAINING_MODE} training with ${LEMA_NUM_NODES} node(s)..."
 
