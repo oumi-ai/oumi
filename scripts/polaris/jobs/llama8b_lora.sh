@@ -41,7 +41,12 @@ accelerate launch \
     -m lema.train \
     -c configs/lema/llama8b.lora.yaml \
     "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
+    "training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}" \
+    "training.per_device_train_batch_size=2" \
+    "training.gradient_accumulation_steps=32" \
+    "training.max_steps=406" \
+    "training.save_steps=0" \
     "training.max_steps=100" \
-    "training.save_final_model=false"
+    "training.save_final_model=true"
 
 echo "${LOG_PREFIX} All done!"
