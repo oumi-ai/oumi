@@ -68,8 +68,8 @@ echo "${LOG_PREFIX} LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 set -x
 if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     "${RAY_START_CMD[@]}" &
-    
-    
+
+
     sleep 60s # Wait for ray cluster nodes to get connected
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
@@ -80,7 +80,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
         --disable-custom-all-reduce \
         --enforce-eager \
         2>&1 | tee "${SERVER_LOG_PATH}" &
-    
+
     echo "${LOG_PREFIX} Waiting for vLLM API server to start..."
     start=$EPOCHSECONDS
     while ! `cat "${SERVER_LOG_PATH}" | grep -q 'Uvicorn running on'`
@@ -94,7 +94,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
             exit 1
         done
     done
-    
+
     ray status
     echo "${LOG_PREFIX} Running inference"
     python3 "./scripts/polaris/jobs/vllm_inference.py"

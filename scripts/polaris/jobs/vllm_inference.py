@@ -1,25 +1,26 @@
-import jsonlines
 import os
 import threading
 import time
-
-import pandas as pd
-
 from queue import Queue
+
+import jsonlines
+import pandas as pd
+from openai import OpenAI
 from tqdm import tqdm
 
-from openai import OpenAI
 
 def _get_model_name(model_id):
-    segments = model_id.split('/')
+    segments = model_id.split("/")
     snapshot = segments[-1][:5]
     model_segment_key = "models--"
     for s in segments:
         if model_segment_key in s:
-            model_name = s[len(model_segment_key):]
+            model_name = s[len(model_segment_key) :]
             return f"{model_name}_{snapshot}"
 
+
 def main() -> None:
+    """Run inference against vLLM model hosted as an OpenAI API."""
     openai_api_key = "EMPTY"
     IP = os.environ["THIS_IP_ADDRESS"]
     openai_api_base = f"http://{IP}:8000/v1"
@@ -40,8 +41,9 @@ def main() -> None:
     print(f"Files will be output to {OUTPUT_FILE_PATH}")
 
     json_objects = pd.read_json(INPUT_FILE, lines=True)
-    all_messages = json_objects['messages'].to_list()
+    all_messages = json_objects["messages"].to_list()
     write_queue = Queue()
+
     def _thread_write_to_file():
         while True:
             messages = write_queue.get()
@@ -49,26 +51,27 @@ def main() -> None:
                 write_queue.task_done()
                 break
 
-            with jsonlines.open(OUTPUT_FILE_PATH, mode='a') as writer:
+            with jsonlines.open(OUTPUT_FILE_PATH, mode="a") as writer:
                 json_obj = {"messages": messages}
                 writer.write(json_obj)
                 write_queue.task_done()
-    
-    threading.Thread(
-        target=_thread_write_to_file,
-        daemon=True).start()
+
+    threading.Thread(target=_thread_write_to_file, daemon=True).start()
     for messages in tqdm(all_messages):
         chat_completion = client.chat.completions.create(
             messages=messages,
             model=MODEL,
         )
 
-        messages.append({"role": "assistant", "content": chat_completion.choices[0].message.content})
+        messages.append(
+            {"role": "assistant", "content": chat_completion.choices[0].message.content}
+        )
         write_queue.put(messages)
-    
+
     write_queue.put(None)
     write_queue.join()
     print("Inference complete")
+
 
 if __name__ == "__main__":
     main()
