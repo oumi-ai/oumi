@@ -26,7 +26,7 @@ echo "${LOG_PREFIX} HOSTNAME: ${HOSTNAME}"
 IPS=$(hostname -I)
 export THIS_IP_ADDRESS="$(echo ${IPS} | cut -d' ' -f1)"
 
-
+# Let head node go first
 if [ "${POLARIS_NODE_RANK}" != "0" ]; then
     sleep 30s
 fi
@@ -42,22 +42,32 @@ fi
 ORIGINAL_TMPDIR="${TMPDIR}"
 export JOB_NUMBER="$(echo ${PBS_JOBID} | cut -d'.' -f1)"
 
+# Change tempdir to avoid filename length limits
 export TMPDIR="/tmp/${JOB_NUMBER}/${POLARIS_NODE_RANK}"
 export TEMP="$TMPDIR"
 export TMP="$TEMP"
-REMOTE_TMPDIR="${SHARED_DIR}/vllm${TMPDIR}"
-mkdir -p $REMOTE_TMPDIR
 export VLLM_HOST_IP="$HOSTNAME"
 export NCCL_DEBUG_FILE="$TMPDIR/nccl_debug.%h.%p"
 
+# Create a dir to copy temp files into.
+REMOTE_TMPDIR="${SHARED_DIR}/vllm${TMPDIR}"
+mkdir -p $REMOTE_TMPDIR
+
+
+# Ray is multi-threaded and OpenBLAS threads conflict with this, so recommended
+# guidance is to set to 1 thread for these 3 variables.
 # https://github.com/OpenMathLib/OpenBLAS/wiki/Faq#how-can-i-use-openblas-in-multi-threaded-applications
 export OPENBLAS_NUM_THREADS=1
 # https://github.com/OpenMathLib/OpenBLAS?tab=readme-ov-file#setting-the-number-of-threads-using-environment-variables
 export GOTO_NUM_THREADS=1
 # https://discuss.ray.io/t/rlimit-problem-when-running-gpu-code/9797
 export OMP_NUM_THREADS=1
+
+# Ray spawns a huge number of threads on high-core-count CPUs
+# If this value isn't lowered, we tend to get pthread_create errors
 # https://github.com/ray-project/ray/issues/36936#issuecomment-2134496892
 export RAY_num_server_call_thread=1
+
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
@@ -68,7 +78,6 @@ echo "${LOG_PREFIX} LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 set -x
 if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     "${RAY_START_CMD[@]}" &
-
 
     sleep 60s # Wait for ray cluster nodes to get connected
     ray status

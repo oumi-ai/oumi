@@ -25,7 +25,7 @@ export https_proxy=http://proxy.alcf.anl.gov:3128
 export SHARED_DIR=/eagle/community_ai
 export HF_HOME="${SHARED_DIR}/.cache/huggingface"
 REPO="neuralmagic"
-MODEL="Meta-Llama-3.1-405B-Instruct-quantized.w8a8"
+MODEL="Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
 MODEL_REPO="${REPO}/${MODEL}"
 
 # Run several checks and export "LEMA_*" env vars.
@@ -42,7 +42,7 @@ conda activate /home/$USER/miniconda3/envs/lema
 echo "Conda path:"
 echo $CONDA_PREFIX
 
-set -x  # Print "mpiexec" command with expanded variables
+set -x  # Print command with expanded variables
 
 huggingface-cli download "${MODEL_REPO}"
 

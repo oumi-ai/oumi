@@ -15,7 +15,7 @@ set -e
 echo "Changing directory to ${PBS_O_WORKDIR} ..."
 cd ${PBS_O_WORKDIR}
 
-NRANKS=1  # Number of MPI ranks to spawn per node (1 `torchrun` per node)
+NRANKS=1  # Number of MPI ranks to spawn per node (1 worker per node)
 NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
 export POLARIS_GPUS_PER_NODE=4
 
@@ -46,7 +46,7 @@ export SNAPSHOT=$(ls "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots")
 
 echo "Setting up vLLM inference with ${LEMA_NUM_NODES} node(s)..."
 
-set -x  # Print "mpiexec" command with expanded variables
+set -x  # Print command with expanded variables
 
 # # Start worker nodes
 mpiexec --verbose \
