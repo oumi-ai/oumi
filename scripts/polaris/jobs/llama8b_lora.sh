@@ -29,6 +29,9 @@ mkdir -p "$TMPDIR"
 
 echo "${LOG_PREFIX} Starting training..."
 
+# https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+export TOKENIZERS_PARALLELISM=false
+
 set -x  # Print "accelerate launch" command with expanded variables
 accelerate launch \
     --num_machines ${LEMA_NUM_NODES} \
