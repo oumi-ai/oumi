@@ -40,6 +40,7 @@ class BaseConfig:
             BaseConfig: The merged configuration object.
         """
         schema = OmegaConf.structured(cls)
+        logging.info(f"Called from_yaml with {config_path}")
         if ignore_interpolation:
             with open(config_path) as f:
                 stringified_config = f.read()
@@ -59,6 +60,7 @@ class BaseConfig:
         config_path: Optional[str],
         arg_list: List[str],
         logger: Optional[logging.Logger] = None,
+        ignore_interpolation=True,
     ) -> T:
         """Loads a configuration from various sources.
 
@@ -69,6 +71,8 @@ class BaseConfig:
             config_path: The path to the YAML file.
             arg_list: Command line arguments list.
             logger: (optional) Logger.
+            ignore_interpolation: If True, then any interpolation variables in the
+                configuration file will be escaped.
 
         Returns:
             BaseConfig: The merged configuration object.
@@ -79,7 +83,14 @@ class BaseConfig:
 
         # Override with configuration file if provided.
         if config_path is not None:
-            all_configs.append(cls.from_yaml(config_path))
+            if ignore_interpolation:
+                with open(config_path) as f:
+                    stringified_config = f.read()
+                    pattern = r"(?<!\\)\$\{"
+                    stringified_config = re.sub(pattern, "\\${", stringified_config)
+                    all_configs.append(OmegaConf.create(stringified_config))
+            else:
+                all_configs.append(cls.from_yaml(config_path))
 
         # Filter out CLI arguments that should be ignored.
         arg_list = _filter_ignored_args(arg_list)
