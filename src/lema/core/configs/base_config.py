@@ -56,7 +56,6 @@ class BaseConfig:
             BaseConfig: The merged configuration object.
         """
         schema = OmegaConf.structured(cls)
-        logging.info(f"Called from_yaml with {config_path}")
         if ignore_interpolation:
             stringified_config = _read_config_without_interpolation(config_path)
             file_config = OmegaConf.create(stringified_config)
