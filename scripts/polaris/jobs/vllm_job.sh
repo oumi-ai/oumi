@@ -2,9 +2,9 @@
 
 #PBS -l select=2:system=polaris
 #PBS -l place=scatter
-#PBS -l walltime=00:30:00
+#PBS -l walltime=00:40:00
 #PBS -l filesystems=home:eagle
-#PBS -q debug-scaling
+#PBS -q debug
 #PBS -A community_ai
 #PBS -o /eagle/community_ai/jobs/logs
 #PBS -e /eagle/community_ai/jobs/logs

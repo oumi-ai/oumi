@@ -16,6 +16,8 @@ echo "${LOG_PREFIX} NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
 echo "${LOG_PREFIX} NCCL_DEBUG: $NCCL_DEBUG"
 echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 
+cd ${PBS_O_WORKDIR}
+
 pip install -U "ray" -q
 pip install vllm -q
 
@@ -38,7 +40,7 @@ else
 fi
 
 ORIGINAL_TMPDIR="${TMPDIR}"
-JOB_NUMBER="$(echo ${PBS_JOBID} | cut -d'.' -f1)"
+export JOB_NUMBER="$(echo ${PBS_JOBID} | cut -d'.' -f1)"
 
 export TMPDIR="/tmp/${JOB_NUMBER}/${POLARIS_NODE_RANK}"
 export TEMP="$TMPDIR"
@@ -94,8 +96,8 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     done
     
     ray status
-    echo "${LOG_PREFIX} Testing inference"
-    python3 "${SHARED_DIR}/vllm/inference_test.py"
+    echo "${LOG_PREFIX} Running inference"
+    python3 "./scripts/polaris/jobs/vllm_inference.py"
     sleep 5s
     ray stop
     sleep 10s
