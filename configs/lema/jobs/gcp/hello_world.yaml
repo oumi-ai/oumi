@@ -9,8 +9,7 @@ working_dir: .
 envs:
   TEST_ENV_VARIABLE: '"Hello, World!"'
 
-# `setup` will always be executed before `run`.
-# No setup is required for this job.
+# For GCP, setup is only run once at cluster creation.
 setup: |
   echo "Running setup..."
 

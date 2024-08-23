@@ -16,9 +16,9 @@ working_dir: .
 envs:
   TEST_ENV_VARIABLE: '"Hello, World!"'
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
+# For Polaris, `setup` will always be executed before `run`. It's strongly suggested to
+# set any PBS directives in the `setup` section. Additional commands can also be run
+# here after the PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=00:10:00
