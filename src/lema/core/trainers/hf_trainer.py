@@ -37,7 +37,7 @@ class HuggingFaceTrainer(BaseTrainer):
             # Only save from "master" worker.
             output_dir = config.training.output_dir
 
-            if False and config.training.use_peft:
+            if config.training.use_peft:
                 state_dict = {
                     k: t
                     for k, t in self._hf_trainer.model.named_parameters()
