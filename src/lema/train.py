@@ -354,7 +354,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
             trainer.save_model(config=config)
 
     barrier()
-    logger.info("Done!")
 
     if is_distributed():
         cleanup_distributed()
