@@ -1,48 +1,43 @@
-name: lema-train-example
+name: zephyr-7b-qlora-sft
 
-num_nodes: 1 # Set it to N for multi-node training.
+num_nodes: 1  # Set it to N for multi-node training.
 
 resources:
-  # Use 1 of the following GPUs depending on availability. No preference.
-  # To view other GPU types use the following commands:
-  # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {"A100": 8}
 
-  disk_size: 200      # Disk size in GB
-  # disk_tier: medium # medium is the default.
+  disk_size: 200  # Disk size in GB
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
-    - use_spot: true  # Spot VM-s are problematic on GCP (quota issues)
+    - use_spot: true
     - use_spot: false
 
-# Upload a working directory to remote ~/sky_workdir.
+# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Mount GPC-Bucket (E.g., to save the checkpoints)
+# Mount local files.
 file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  # Mount GCP bucket to save the checkpoints.
+  # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
+  # for documentation on using GCS buckets.
   /output_dir_gcs:
     source: gs://lema-dev-us-central1
     store: gcs
     mode: MOUNT
 
-  # Upload local files.
-  ~/.netrc: ~/.netrc # mount local netrc file to access private repos
-
 envs:
-  WANDB_PROJECT: lema-train-test
+  WANDB_PROJECT: lema-train
   HF_TOKEN: null # forces the user to pass it
   LEMA_RUN_NAME: "zephyr.7b.sft.qlora"
 
 setup: |
   set -e
   pip install '.[train]'
-  FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
+  pip install flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   set -x  # Print "torchrun" command with expanded variables

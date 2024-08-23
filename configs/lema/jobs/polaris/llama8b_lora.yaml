@@ -2,13 +2,14 @@
 # Example command:
 # lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
 name: llama8b-lora
+# NOTE: Replace with your username.
 user: your_username
-num_nodes: 1
+num_nodes: 1  # Set it to N for multi-node training.
 
 resources:
   cloud: polaris
 
-# Upload a working directory to /home/$USER/lema_launcher/hello-world.
+# Upload working directory to /home/$USER/lema_launcher/hello-world.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS

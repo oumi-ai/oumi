@@ -1,11 +1,13 @@
-name: gpt2-eval
+name: phi3-eval-lm_harness
 
 resources:
   accelerators: {"A100"}
+
+  disk_size: 200  # Disk size in GB
+
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 200  # Disk size in GB
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -22,7 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-eval
-  # The HellaSwag dataset requires trusted code to be enabled.
+  # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
 
 setup: |
@@ -34,5 +36,5 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  python -m lema.evaluate_async \
-      -c configs/lema/gpt2.asynceval.nvidia.yaml
+  python -m lema.evaluate \
+    -c configs/lema/phi3.eval.lm_harness.yaml
