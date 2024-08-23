@@ -1,7 +1,7 @@
 #!/bin/bash
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
-POLARIS_GPUS_PER_NODE=4
+POLARIS_NUM_GPUS_PER_NODE=4
 # Reversing GPUs order to match Polaris CPU affinities:
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 export CUDA_VISIBLE_DEVICES=3,2,1,0
@@ -32,11 +32,12 @@ echo "${LOG_PREFIX} Starting training..."
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
+TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 set -x  # Print "accelerate launch" command with expanded variables
 accelerate launch \
     --num_machines ${LEMA_NUM_NODES} \
     --machine_rank ${POLARIS_NODE_RANK} \
-    --num_processes $((${LEMA_NUM_NODES} * ${POLARIS_GPUS_PER_NODE})) \
+    --num_processes ${TOTAL_NUM_GPUS} \
     --main_process_ip ${LEMA_MASTER_ADDR} \
     --main_process_port 8007 \
     --multi_gpu \

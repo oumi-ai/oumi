@@ -17,7 +17,7 @@ cd ${PBS_O_WORKDIR}
 
 NRANKS=1  # Number of MPI ranks to spawn per node (1 worker per node)
 NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
-export POLARIS_GPUS_PER_NODE=4
+export POLARIS_NUM_GPUS_PER_NODE=4
 
 # Run several checks and export "LEMA_*" env vars.
 source ./scripts/polaris/polaris_init.sh

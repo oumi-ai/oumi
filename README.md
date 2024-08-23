@@ -130,6 +130,7 @@ pip install 'lema[cloud]'
 ```
 
 Then setup your cloud credentials:
+- [Google Cloud](https://github.com/openlema/lema/wiki/Clouds-Setup)
 - [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod)
 - [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
 
@@ -147,12 +148,21 @@ To see the available GPUs, you can use the following command:
 ```shell
 sky show-gpus
 ```
+You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), `A100-80GB`, and `A100-80GB-SXM`.
 
 To launch a job on the cloud, you can use the following command:
 ```shell
-# edit the configs/skypilot/sky.yaml file to your needs
-sky launch -c lema-cluster -i 10 configs/skypilot/sky.yaml
+sky launch -c lema-cluster configs/skypilot/sky_gpt2.yaml
 ```
+To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
+
+Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
+```shell
+sky exec -c lema-cluster configs/skypilot/sky_gpt2.yaml
+```
+If you made any code changes to the codebase (not including configs), you need to run
+`pip install '.[train]'` in the `run` section of the SkyPilot config to install the
+changes on the cluster.
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down lema-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
 ```shell
@@ -163,13 +173,22 @@ Alternatively, you can include `-i 10` into your `sky launch` command (as shown 
 
 ### Multi-GPU Training on a Single Node
 
-If your model fits on a singular GPU chip, then consider using [DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) with `N` GPU chips and data parallelism. Otherwise, consider [FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+To configure multi-GPU training, edit the `accelerators` section of your SkyPilot config
+ to use `N` GPUs. For example, for 2 `A100` GPUs, set `accelerators: {"A100": 2}`.
+
+There are two options for multi-GPU training:
+[DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) and
+[FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
+If your model training can run on a single GPU (i.e. one GPU's memory can hold the model,
+optimizer state, etc.), then consider using DDP. Otherwise, consider using FSDP, which
+shards the model across your GPUs.
 
 #### DDP (Distributed Data Parallel)
 
-To start DDP training, edit [configs/skypilot/sky.yaml](configs/skypilot/sky.yaml) and configure it to use `N` GPUs. For example, for two (2) `A40` GPUs:
-
-* Set the `accelerators:` section as follows: `accelerators: {"A40": 2}`
+To properly configure your machine to do DDP training, either invoke training with the
+[`torchrun`](https://pytorch.org/docs/stable/elastic/run.html) command or
+[`accelerate launch`](https://huggingface.co/docs/accelerate/en/basic_tutorials/launch#using-accelerate-launch)
+ using the `--multi_gpu` flag.
 
 Then run `sky launch ...` as before.
 

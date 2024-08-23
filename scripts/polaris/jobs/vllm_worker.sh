@@ -1,7 +1,7 @@
 #!/bin/bash
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
-POLARIS_GPUS_PER_NODE=4
+POLARIS_NUM_GPUS_PER_NODE=4
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
@@ -82,7 +82,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     sleep 60s # Wait for ray cluster nodes to get connected
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
-    TENSOR_PARALLEL=$(( POLARIS_GPUS_PER_NODE * LEMA_NUM_NODES ))
+    TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
     vllm serve "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT" \
         --tensor-parallel-size=$TENSOR_PARALLEL \
         --distributed-executor-backend=ray \

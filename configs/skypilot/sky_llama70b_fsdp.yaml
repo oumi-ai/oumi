@@ -1,47 +1,39 @@
-name: lema-train-example
+name: llama70b-fsdp
+
+num_nodes: 1  # Set it to N for multi-node training.
 
 resources:
-  # Use 1 of the following GPUs depending on availability. No preference.
-  # To view other GPU types use the following commands:
-  # `sky show-gpus`, `sky show-gpus -a`
   accelerators: {"A100-80GB": 8}
-  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
-  # something like this: {"A40": N}
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 2000 # Disk size in GBs
+  disk_size: 2000  # Disk size in GBs
 
-# Upload a working directory to remote ~/sky_workdir.
+# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Upload local files.
+# Mount local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc  # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # mount HF token
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-train-test
+  WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: llama70b.pt.fsdp
   ACCELERATE_LOG_LEVEL: info
 
 setup: |
   set -e
   pip install '.[train]'
-  # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip install flash-attn --no-build-isolation
   pip install flash-attn --no-build-isolation
   # Download model from GCS, which is faster than downloading during training.
-  gsutil -m cp -R gs://lema-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B ~/.cache/huggingface/hub
+  # At the moment, you need to run this manually after ssh-ing into the cluster
+  # because it requires manual authentication.
+  # gsutil -m cp -R gs://lema-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B ~/.cache/huggingface/hub
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
-  pip install '.[train]'
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
   if test ${TOTAL_NUM_GPUS} -lt 2; then

@@ -6,18 +6,18 @@ name: pretokenize-example
 resources:
   cpus: "32+"
   memory: "64+"
-  disk_size: 200 # Disk size in GB
+  disk_size: 200  # Disk size in GB
   region: europe-west4
 
   any_of:
     - use_spot: false
 
-# Upload a working directory to remote ~/sky_workdir.
+# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Upload local files.
+# Mount local files.
 file_mounts:
-  ~/.netrc: ~/.netrc # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc # WandB credentials
   # /artifacts:
   #   name: lema-dev-private # Not available on lambda
   #   mode: MOUNT
@@ -36,8 +36,6 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT"

@@ -2,29 +2,22 @@ name: llama8b-lora
 
 resources:
   cloud: gcp
-  # See other available accelerators by running `sky show-gpus --cloud gcp`.
   accelerators: "A100:4"
-  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
-  # something like this: "A40:N"
-
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
 
-# Upload a working directory to remote ~/sky_workdir.
+# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Upload local files.
+# Mount local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc  # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-train-test
+  WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: llama8b.lora
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
@@ -37,12 +30,10 @@ setup: |
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install huggingface_hub[hf_transfer]
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
