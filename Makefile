@@ -36,7 +36,8 @@ help:
 	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
 	@echo "  docs        - Build Sphinx documentation"
 	@echo "  docs-help   - Show Sphinx documentation help"
-
+	@echo "  docs-serve  - Serve docs locally and open in browser"
+	
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
 		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
@@ -90,4 +91,9 @@ docs:
 docs-help:
 	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help
+docs-serve: docs
+	@echo "Serving documentation at http://localhost:8000"
+	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
+	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
+
+.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help docs-serve
