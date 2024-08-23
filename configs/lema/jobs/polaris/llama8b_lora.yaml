@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.1 8B on 1 Polaris node.
 # Example command:
-# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml
+# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
 name: llama8b-lora
 user: your_username
 num_nodes: 1

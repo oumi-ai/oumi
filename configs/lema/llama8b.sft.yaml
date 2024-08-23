@@ -1,6 +1,6 @@
-# Lora config for Llama 8B.
+# SFT config for Llama 8B.
 # Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_lora.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
 
 model:
   # Vocab size: 128256
@@ -12,7 +12,7 @@ model:
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-  model_max_length: 131072
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: True
@@ -28,20 +28,16 @@ data:
 
 training:
   trainer_type: TRL_SFT
-  use_peft: True
   save_steps: 100
-  per_device_train_batch_size: 3  # torchtune uses bs=2x32, but we can fit bs=3
-  gradient_accumulation_steps: 21
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 3.0e-04
-  lr_scheduler_type: "cosine"
-  warmup_steps: 100
-  weight_decay: 0.01
+  learning_rate: 2.0e-05
   compile: False
 
   dataloader_num_workers: "auto"
@@ -50,14 +46,6 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/llama8b.lora"
+  output_dir: "output/llama8b.sft"
   include_performance_metrics: True
   enable_wandb: True
-
-peft:
-  q_lora: False
-  lora_r: 8
-  lora_alpha: 16
-  lora_target_modules:
-  - "q_proj"
-  - "v_proj"
