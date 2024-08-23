@@ -27,8 +27,8 @@ module load conda
 # Activate the LeMa Conda environment.
 conda activate /home/$USER/miniconda3/envs/lema
 
-# TODO: Update this variable to point to your own LoRA adapter:
-EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B/sample_lora_adapters/2072372/"
+# NOTE: Update this variable to point to your own LoRA adapter:
+EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B-Instruct/sample_lora_adapters/2072919/"
 
 echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
