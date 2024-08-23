@@ -28,11 +28,3 @@ generation:
 
 evaluation_framework: LM_HARNESS
 num_shots: 5
-
-peft:
-  q_lora: False
-  lora_r: 8
-  lora_alpha: 16
-  lora_target_modules:
-  - "q_proj"
-  - "v_proj"
