@@ -17,3 +17,10 @@ if [[ -z "${LEMA_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
     exit 1
 fi
+
+# NCCL settings:
+# https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
+export NCCL_COLLNET_ENABLE=1
+export NCCL_NET_GDR_LEVEL=PHB
+export NCCL_DEBUG=WARN # INFO
+# export NCCL_DEBUG_SUBSYS=ALL
