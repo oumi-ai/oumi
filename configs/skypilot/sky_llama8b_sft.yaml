@@ -65,6 +65,6 @@ run: |
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
       "training.save_steps=10" \
-      "training.save_final_model=false"
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
