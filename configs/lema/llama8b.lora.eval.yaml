@@ -19,12 +19,27 @@ model:
 
 
 data:
+# datasets:
+#   - dataset_name: "mmlu"
+#     split: "test"
   datasets:
-    - dataset_name: "mmlu"
-      split: "test"
+#   - dataset_name: "m_mmlu_ar"
+#   - dataset_name: "m_mmlu_zh"
+    - dataset_name: "m_mmlu_en"
+#   - dataset_name: "m_mmlu_fr"
+#   - dataset_name: "m_mmlu_de"
+#   - dataset_name: "m_mmlu_hi"
+#   - dataset_name: "m_mmlu_id"
+#   - dataset_name: "m_mmlu_it"
+#   - dataset_name: "m_mmlu_pt"
+#   - dataset_name: "m_mmlu_ro"
+#   - dataset_name: "m_mmlu_ru"
+#   - dataset_name: "m_mmlu_es"
+#   - dataset_name: "m_mmlu_uk"
+#   - dataset_name: "m_mmlu_vi"
 
 generation:
-  batch_size: 32
+  batch_size: 4
 
 evaluation_framework: LM_HARNESS
 num_shots: 5
