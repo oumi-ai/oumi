@@ -1,5 +1,5 @@
 name: multinode-example
-# NOTICE: Replace with your username.
+# NOTE: Replace with your username.
 user: your_username
 num_nodes: 2
 

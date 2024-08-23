@@ -1,5 +1,5 @@
 name: hello-world
-# NOTICE: Replace with your username.
+# NOTE: Replace with your username.
 user: your_username
 resources:
   cloud: polaris

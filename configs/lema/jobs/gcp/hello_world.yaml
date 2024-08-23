@@ -3,7 +3,7 @@ resources:
   cloud: gcp
   accelerators: A100
 
-# Upload working directory to the remote.
+# Upload working directory to remote.
 working_dir: .
 
 envs:

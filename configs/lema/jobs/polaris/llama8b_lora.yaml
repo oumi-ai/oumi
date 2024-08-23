@@ -2,7 +2,7 @@
 # Example command:
 # lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
 name: llama8b-lora
-# NOTICE: Replace with your username.
+# NOTE: Replace with your username.
 user: your_username
 num_nodes: 1  # Set it to N for multi-node training.
 
