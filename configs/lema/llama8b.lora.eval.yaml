@@ -9,7 +9,7 @@ model:
   # Num KV heads: 8
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
-  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   adapter_model: "your-checkpoint-dir"
   model_max_length: 131072
   torch_dtype_str: "bfloat16"

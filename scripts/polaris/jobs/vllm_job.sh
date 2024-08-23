@@ -33,7 +33,6 @@ conda activate /home/$USER/miniconda3/envs/lema
 echo "Conda path:"
 echo $CONDA_PREFIX
 
-export NCCL_DEBUG=WARN
 export SHARED_DIR=/eagle/community_ai
 export HF_HOME="${SHARED_DIR}/.cache/huggingface"
 
