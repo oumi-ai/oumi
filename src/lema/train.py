@@ -205,6 +205,9 @@ def _create_training_performance_callbacks_if_needed(
     if not torch.cuda.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
         return result
+    elif config.training.use_peft:
+        logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
+        return result
 
     if config.model.model_max_length is not None and config.model.model_max_length > 0:
         num_total_params = count_model_parameters(model)
