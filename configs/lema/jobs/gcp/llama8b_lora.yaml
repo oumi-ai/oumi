@@ -7,6 +7,9 @@ resources:
   # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
   # something like this: "A40:N"
 
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
+  use_spot: true
+
 # Upload a working directory to remote ~/sky_workdir.
 working_dir: .
 
