@@ -1,0 +1,53 @@
+# Lora eval config for Llama 8B.
+
+model:
+  # Vocab size: 128256
+  # Hidden size: 4096
+  # MLP intermediate size: 14336
+  # Num layers: 32
+  # Num attention heads: 32
+  # Num KV heads: 8
+  # Weight tying: False
+  # Model max length: 131072 (initially trained with 8192)
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  adapter_model: "your-checkpoint-dir"
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  datasets:
+    - dataset_name: "m_mmlu_en"
+#   - dataset_name: "m_mmlu_ar"
+#   - dataset_name: "m_mmlu_zh"
+#   - dataset_name: "m_mmlu_fr"
+#   - dataset_name: "m_mmlu_de"
+#   - dataset_name: "m_mmlu_hi"
+#   - dataset_name: "m_mmlu_id"
+#   - dataset_name: "m_mmlu_it"
+#   - dataset_name: "m_mmlu_pt"
+#   - dataset_name: "m_mmlu_ro"
+#   - dataset_name: "m_mmlu_ru"
+#   - dataset_name: "m_mmlu_es"
+#   - dataset_name: "m_mmlu_uk"
+#   - dataset_name: "m_mmlu_vi"
+# datasets:
+#   - dataset_name: "mmlu"
+#     split: "test"
+
+evaluation_framework: LM_HARNESS
+num_shots: 5
+generation:
+  batch_size: 4
+
+
+# Alternative built-in Evaluator (not based on LM-Harness):
+#
+# evaluation_framework: LEMA
+# data:
+#  datasets:
+#    - dataset_name: "cais/mmlu"
+# generation:
+#   batch_size: 4
