@@ -19,13 +19,15 @@ model:
 
 
 data:
+  datasets:
+    - dataset_name: "cais/mmlu"
 # datasets:
 #   - dataset_name: "mmlu"
 #     split: "test"
-  datasets:
+#  datasets:
 #   - dataset_name: "m_mmlu_ar"
 #   - dataset_name: "m_mmlu_zh"
-    - dataset_name: "m_mmlu_en"
+#   - dataset_name: "m_mmlu_en" # !
 #   - dataset_name: "m_mmlu_fr"
 #   - dataset_name: "m_mmlu_de"
 #   - dataset_name: "m_mmlu_hi"
@@ -38,8 +40,11 @@ data:
 #   - dataset_name: "m_mmlu_uk"
 #   - dataset_name: "m_mmlu_vi"
 
+evaluation_framework: LEMA
 generation:
   batch_size: 4
 
-evaluation_framework: LM_HARNESS
-num_shots: 5
+# evaluation_framework: LM_HARNESS
+# num_shots: 5
+# generation:
+#   batch_size: 4

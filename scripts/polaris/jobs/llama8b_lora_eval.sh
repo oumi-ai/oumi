@@ -29,8 +29,11 @@ conda activate /home/$USER/miniconda3/envs/lema
 
 echo "Starting evaluation..."
 
+set -x # Enable command tracing.
+
+# This command will only use 1 of 4 GPUs for evaluation.
 python -m lema.evaluate \
       -c configs/lema/llama8b.lora.eval.yaml \
-      "model.adapter_model=/eagle/community_ai/nikg/2072372.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/"
+      "model.adapter_model=/eagle/community_ai/nikg/2072370.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/"
 
 echo "Polaris job is all done!"
