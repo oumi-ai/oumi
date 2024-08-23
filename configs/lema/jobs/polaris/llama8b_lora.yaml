@@ -4,8 +4,8 @@
 name: llama8b-lora
 # NOTE: Replace with your username.
 user: your_username
-num_nodes: 1  # Set it to N for multi-node training.
 
+num_nodes: 1  # Set it to N for multi-node training.
 resources:
   cloud: polaris
 
