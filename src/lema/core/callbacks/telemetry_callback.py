@@ -25,6 +25,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         self,
         skip_first_steps: int = 1,
         world_process_zero_only: bool = True,
+        include_timer_metrics: bool = False,
         track_gpu_temperature: bool = False,
         output_dir: Optional[pathlib.Path] = None,
     ):
@@ -33,6 +34,10 @@ class TelemetryCallback(transformers.TrainerCallback):
         Args:
             skip_first_steps: The number of initial steps to exclude from stats.
             world_process_zero_only: Whether to collect stats on the main process only.
+            include_timer_metrics: Whether to add timer stats to reported metrics.
+                The timings stats can be verbose/distracting, so `False` by default.
+                The timings will be written to a file at the end of training regardless
+                of the value of this flag.
             track_gpu_temperature:  Whether to record GPU temperature.
             output_dir: If specified, then telemetry stats will be written to
                 the directory as JSON files.
@@ -43,6 +48,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         self._epoch_timer: Optional[TimerContext] = None
 
         self._skip_first_steps: int = skip_first_steps
+        self._include_timer_metrics = include_timer_metrics
         self._track_gpu_temperature = track_gpu_temperature
         self._output_dir: Optional[pathlib.Path] = output_dir
         self._permanently_disabled: bool = (
@@ -144,7 +150,12 @@ class TelemetryCallback(transformers.TrainerCallback):
         basename = f"telemetry_rank{device_rank_info.rank:03}"
 
         summary = self._telemetry.get_summary()
-        if "timers" in summary and _LOGS_KWARG in kwargs:
+
+        if (
+            self._include_timer_metrics
+            and "timers" in summary
+            and _LOGS_KWARG in kwargs
+        ):
             for name, stats in summary["timers"].items():
                 for stats_key in ("mean", "median", "std_dev", "min", "max", "count"):
                     if stats_key in stats:
