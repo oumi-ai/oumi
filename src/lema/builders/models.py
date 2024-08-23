@@ -149,7 +149,8 @@ def build_huggingface_model(
     # TODO Find a better way to handle it
 
     # Load pretrained PEFT adapters
-    if model_params.adapter_model is not None:
+    if model_params.adapter_model:
+        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
 
     return model

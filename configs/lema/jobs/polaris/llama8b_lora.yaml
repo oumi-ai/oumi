@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.1 8B on 1 Polaris node.
 # Example command:
-# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml
+# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
 name: llama8b-lora
 user: your_username
 num_nodes: 1
@@ -42,12 +42,6 @@ run: |
   conda activate /home/$USER/miniconda3/envs/lema
 
   echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
-
-  # NCCL settings:
-  # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
-  export NCCL_COLLNET_ENABLE=1
-  export NCCL_NET_GDR_LEVEL=PHB
-  export NCCL_DEBUG=WARN # INFO
 
   NRANKS=1  # Num MPI ranks to spawn per node (1 `torchrun` per node)
   NDEPTH=64 # Num hardware threads per rank (Polaris has 64 logical CPU cores per node)

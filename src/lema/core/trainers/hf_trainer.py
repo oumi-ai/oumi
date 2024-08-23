@@ -32,11 +32,11 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def save_model(self, config: TrainingConfig) -> None:
         """See base class."""
-        # TODO: OPE-213 use safetensors to save model
+        # TODO: OPE-213 - use safetensors to save model
+        # Only save from "master" worker.
         if is_world_process_zero():
-            # Only save from "master" worker.
+            # TODO: OPE-311 - Save full state dict for FSDP training.
             output_dir = config.training.output_dir
-
             if config.training.use_peft:
                 state_dict = {
                     k: t

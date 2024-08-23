@@ -1,6 +1,6 @@
 name: vllm
 # Replace with your username.
-user: user
+user: your_username
 num_nodes: 2
 
 resources:
