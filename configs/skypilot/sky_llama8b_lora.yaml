@@ -171,3 +171,5 @@ run: |
 #                     train_steps_per_second 0.188
 #
 #  https://wandb.ai/lema-train-test/lema-train-test/runs/whfwkctz
+
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.bs2gas32.originalsave.v132 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
