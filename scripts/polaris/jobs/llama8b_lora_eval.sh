@@ -30,6 +30,7 @@ conda activate /home/$USER/miniconda3/envs/lema
 echo "Starting evaluation..."
 
 python -m lema.evaluate \
-      -c configs/lema/llama8b_lora_eval.yaml
+      -c configs/lema/llama8b.lora.eval.yaml \
+      "model.adapter_model=/eagle/community_ai/nikg/2072372.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/"
 
 echo "Polaris job is all done!"
