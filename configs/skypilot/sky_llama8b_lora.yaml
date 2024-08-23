@@ -135,6 +135,6 @@ run: |
 # https://wandb.ai/lema-train-test/lema-train-test/runs/7228kivr
 
 
-# bs==2
+# bs==3
 # 2 epochs (406 steps)
-# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.bs3gas21.fullsave.v130 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.bs3gas21.fullsave.v131 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
