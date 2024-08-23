@@ -27,7 +27,7 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("ddp" "ddp1gpu" "fsdp", "deepspeed")
+ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp", "deepspeed")
 
 helpFunction()
 {
@@ -52,7 +52,7 @@ do
 done
 
 if [ -z "$TRAINING_MODE" ]; then
-   echo "Empty training mode: ${TRAINING_MODE}";
+   echo "Training mode can't be empty.";
    helpFunction
 fi
 

@@ -1,13 +1,12 @@
+# Config to LoRA tune Llama 3.1 8B Instruct on 2 GCP nodes.
+# Example command:
+# lema-launch -p configs/lema/jobs/gcp/llama70b_lora.yaml -c llama70b-lora
 name: llama70b-lora
 
 num_nodes: 2
 resources:
   cloud: gcp
-  # See other available accelerators by running `sky show-gpus --cloud gcp`.
   accelerators: "A100:4"
-  # To configure single-node, multi-gpu (N GPUs) training, set `accelerators:` above to
-  # something like this: "A40:N"
-
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
   disk_size: 2000 # Disk size in GBs
@@ -21,12 +20,9 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-train-test
+  WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: llama70b.lora
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
@@ -42,12 +38,9 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
-
   set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
