@@ -48,7 +48,7 @@ training:
   dataloader_prefetch_factor: 32
 
   logging_steps: 100
-  log_model_summary: False
+  log_model_summary: True
   output_dir: "output/llama8b.lora"
   include_performance_metrics: True
   enable_wandb: True

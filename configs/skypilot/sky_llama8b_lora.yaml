@@ -70,8 +70,8 @@ run: |
       -c configs/lema/llama8b.lora.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=/output_dir_gcs/nikolai/runs/${LEMA_RUN_NAME}" \
-      "training.per_device_train_batch_size=2" \
-      "training.gradient_accumulation_steps=32" \
+      "training.per_device_train_batch_size=3" \
+      "training.gradient_accumulation_steps=21" \
       "training.max_steps=406" \
       "training.save_steps=0" \
       "training.save_final_model=true"
@@ -137,7 +137,4 @@ run: |
 
 # bs==2
 # 2 epochs (406 steps)
-# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.notokparallelism.v121 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
-
-
-# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.notokparallelism.empty_cache.v122 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-02-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
+# sky launch -i 10 --env LEMA_RUN_NAME=llama8b.lora.1node.4xA10040GB.406steps.bs3gas21.fullsave.v130 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama8b_lora.yaml
