@@ -1,3 +1,4 @@
+# General makefile
 # Conda environment name
 CONDA_ENV := lema
 CONDA_ACTIVE := $(shell conda info --envs | grep -q "*" && echo "true" || echo "false")
@@ -6,6 +7,13 @@ CONDA_RUN := conda run -n $(CONDA_ENV)
 # Source directory
 SRC_DIR := .
 TEST_DIR := tests
+DOCS_DIR := docs/.sphinx
+
+# Sphinx documentation variables
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+SOURCEDIR     = $(DOCS_DIR)
+DOCS_BUILDDIR      = $(DOCS_DIR)/_build
 
 # Default target
 ARGS :=
@@ -26,6 +34,8 @@ help:
 	@echo "  infer       - Run inference"
 	@echo "  skyssh      - Launch a cloud VM with SSH config"
 	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
+	@echo "  docs        - Build Sphinx documentation"
+	@echo "  docs-help   - Show Sphinx documentation help"
 
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
@@ -37,12 +47,13 @@ setup:
 	fi
 
 upgrade:
-	$(CONDA_RUN) pip install --upgrade -e .
+	$(CONDA_RUN) pip install --upgrade -e ".[dev,train]"
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
+	rm -rf $(DOCS_BUILDDIR)
 
 check:
 	$(CONDA_RUN) pre-commit run --all-files
@@ -73,4 +84,10 @@ skycode:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
-.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode
+docs:
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+
+docs-help:
+	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help
