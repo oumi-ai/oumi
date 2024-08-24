@@ -73,7 +73,7 @@ TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
-# We currently the steps needed to reach one epoch given default params.
+# We currently set the steps needed to reach one epoch given default params.
 # The yahma/alpaca-cleaned dataset has 51,800 examples.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "8b" ]; then
