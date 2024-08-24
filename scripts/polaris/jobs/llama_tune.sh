@@ -28,27 +28,27 @@ echo "${LOG_PREFIX} ***ENV END***"
 mkdir -p "$TMPDIR"
 
 ALLOWED_TRAINING_MODES=("sft", "lora")
-ALLOWED_MODEL_SIZES=("8b" "70b")
+ALLOWED_MODEL_SIZES=("8b", "70b")
 
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -s (8/70) -m (sft/lora)"
-   echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to LoRA."
-   echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8B."
+   echo "Usage: $0 -m (sft/lora) -s (8b/70b)"
+   echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to lora."
+   echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8b."
    exit 1 # Exit script after printing help
 }
 
 # Default value.
 TRAINING_MODE="lora"
-MODEL_SIZE="8"
+MODEL_SIZE="8b"
 
 # Get values from command line and verify.
-while getopts "m:s" opt
+while getopts ":m:s:" opt
 do
    case "$opt" in
       m ) TRAINING_MODE="$OPTARG" ;;
-      s ) MODEL_SIZE="OPTARG" ;;
+      s ) MODEL_SIZE="$OPTARG" ;;
       ? ) helpFunction ;; # Print a help message for an unknown parameter.
    esac
 done
@@ -76,31 +76,11 @@ export TOKENIZERS_PARALLELISM=false
 # We currently the steps needed to reach one epoch given default params.
 # The yahma/alpaca-cleaned dataset has 51,800 examples.
 echo "${LOG_PREFIX} Starting training..."
-if [ "$TRAINING_MODE" == "sft" ]; then
-    if [ "$MODEL_SIZE" == "8b" ]; then
-        # Num nodes: 1
-        # Batch size per GPU: 2
-        # Gradient accumulation steps (GAS): 1
-        # Examples per step: 1 node * 4 GPUs/node * 2 bs * 1 GAS  = 8
-        # Num steps for 1 epoch: 51,800 / 8 = 6,475
-        set -x  # Print "accelerate" command with expanded variables
-        accelerate launch \
-            --num_machines ${LEMA_NUM_NODES} \
-            --machine_rank ${POLARIS_NODE_RANK} \
-            --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${LEMA_MASTER_ADDR} \
-            --main_process_port 8007 \
-            --multi_gpu \
-            --config_file configs/accelerate/llama8b.fsdp.yaml \
-            -m lema.train \
-            -c configs/lema/llama8b.sft.yaml \
-            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
-            "training.max_steps=6475"
-    else  # 70B
-        echo "Llama 70B SFT is currently not supported!"
-    fi
-else  # Lora
-    if [ "$MODEL_SIZE" == "8b" ]; then
+if [ "$MODEL_SIZE" == "8b" ]; then
+    rsync -av \
+        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
+        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
+    if [ "$TRAINING_MODE" == "lora" ]; then
         # Num nodes: 1
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 32
@@ -119,7 +99,31 @@ else  # Lora
             -c configs/lema/llama8b.lora.yaml \
             "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
             "training.max_steps=203"
-    else  # 70B
+    else  # SFT
+        # Num nodes: 1
+        # Batch size per GPU: 2
+        # Gradient accumulation steps (GAS): 1
+        # Examples per step: 1 node * 4 GPUs/node * 2 bs * 1 GAS  = 8
+        # Num steps for 1 epoch: 51,800 / 8 = 6,475
+        set -x  # Print "accelerate" command with expanded variables
+        accelerate launch \
+            --num_machines ${LEMA_NUM_NODES} \
+            --machine_rank ${POLARIS_NODE_RANK} \
+            --num_processes ${TOTAL_NUM_GPUS} \
+            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_port 8007 \
+            --multi_gpu \
+            --config_file configs/accelerate/llama8b.fsdp.yaml \
+            -m lema.train \
+            -c configs/lema/llama8b.sft.yaml \
+            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
+            "training.max_steps=6475"
+    fi
+else  # 70B
+    rsync -av \
+        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
+        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
+    if [ "$TRAINING_MODE" == "lora" ]; then
         # Num nodes: 2
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
@@ -138,6 +142,8 @@ else  # Lora
             -c configs/lema/llama70b.lora.yaml \
             "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
             "training.max_steps=3238"
+    else  # SFT
+        echo "Llama 70B SFT is currently not supported!"
     fi
 fi
 
