@@ -92,7 +92,6 @@ def build_huggingface_model(
             f"(world_size: {device_rank_info.world_size})..."
         )
         device_map = f"cuda:{device_rank_info.local_rank}"
-    device_map = "cpu"
     logger.info(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
