@@ -163,7 +163,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     if config.model.adapter_model:
         raise NotImplementedError(
-            f"Adapter model {config.model.adapter_model} is not yet supported "
+            f"Adapter models ('{config.model.adapter_model}') are not yet supported "
             "by LM_HARNESS evaluation method in LeMa."
         )
 
