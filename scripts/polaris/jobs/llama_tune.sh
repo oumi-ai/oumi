@@ -77,6 +77,7 @@ export TOKENIZERS_PARALLELISM=false
 # The yahma/alpaca-cleaned dataset has 51,800 examples.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "8b" ]; then
+    # Copy the model to our Polaris machine to avoiding downloading from HF.
     rsync -av \
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
@@ -120,6 +121,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             "training.max_steps=6475"
     fi
 else  # 70B
+    # Copy the model to our Polaris machine to avoiding downloading from HF.
     rsync -av \
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
