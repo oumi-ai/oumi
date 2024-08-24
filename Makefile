@@ -37,7 +37,7 @@ help:
 	@echo "  docs        - Build Sphinx documentation"
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
-	
+
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
 		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
