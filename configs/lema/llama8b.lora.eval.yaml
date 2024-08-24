@@ -17,9 +17,26 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
 
+evaluation_framework: LEMA
+
 data:
   datasets:
-    - dataset_name: "m_mmlu_en"
+    - dataset_name: "cais/mmlu"
+
+generation:
+  batch_size: 4
+
+
+# The config below is for an alternative LM-Harness-based evaluator,
+# which doesn't yet support LoRA adapters. See OPE-313 for details.
+#
+# evaluation_framework: LM_HARNESS
+# num_shots: 5
+# generation:
+#  batch_size: 4
+# data:
+#  datasets:
+#    - dataset_name: "m_mmlu_en"
 #   - dataset_name: "m_mmlu_ar"
 #   - dataset_name: "m_mmlu_zh"
 #   - dataset_name: "m_mmlu_fr"
@@ -36,18 +53,3 @@ data:
 # datasets:
 #   - dataset_name: "mmlu"
 #     split: "test"
-
-evaluation_framework: LM_HARNESS
-num_shots: 5
-generation:
-  batch_size: 4
-
-
-# Alternative built-in Evaluator (not based on LM-Harness):
-#
-# evaluation_framework: LEMA
-# data:
-#  datasets:
-#    - dataset_name: "cais/mmlu"
-# generation:
-#   batch_size: 4
