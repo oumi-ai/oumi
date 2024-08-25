@@ -11,12 +11,6 @@
 
 export MPICH_GPU_SUPPORT_ENABLED=1
 
-set -e
-
-# Change to the directory where the job was submitted.
-echo "Changing directory to ${PBS_O_WORKDIR} ..."
-cd ${PBS_O_WORKDIR}
-
 export HTTP_PROXY=http://proxy.alcf.anl.gov:3128
 export HTTPS_PROXY=http://proxy.alcf.anl.gov:3128
 export http_proxy=http://proxy.alcf.anl.gov:3128
@@ -28,19 +22,8 @@ REPO="neuralmagic"
 MODEL="Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
 MODEL_REPO="${REPO}/${MODEL}"
 
-# Run several checks and export "LEMA_*" env vars.
+# Various setup for running on Polaris.
 source ./scripts/polaris/polaris_init.sh
-
-# Set up default modules.
-module use /soft/modulefiles
-
-# Set up conda.
-module load conda
-
-# Activate the LeMa Conda environment.
-conda activate /home/$USER/miniconda3/envs/lema
-echo "Conda path:"
-echo $CONDA_PREFIX
 
 set -x  # Print command with expanded variables
 

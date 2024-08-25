@@ -10,12 +10,6 @@
 #PBS -o /eagle/community_ai/jobs/logs
 #PBS -e /eagle/community_ai/jobs/logs
 
-set -e
-
-# Change to the directory where the job was submitted.
-echo "Changing directory to ${PBS_O_WORKDIR} ..."
-cd ${PBS_O_WORKDIR}
-
 export HTTP_PROXY=http://proxy.alcf.anl.gov:3128
 export HTTPS_PROXY=http://proxy.alcf.anl.gov:3128
 export http_proxy=http://proxy.alcf.anl.gov:3128
@@ -25,9 +19,6 @@ export SHARED_DIR=/eagle/community_ai
 
 # Run several checks and export "LEMA_*" env vars.
 source ./scripts/polaris/polaris_init.sh
-
-# Set up default modules.
-module use /soft/modulefiles
 
 module use /soft/spack/gcc/0.6.1/install/modulefiles/Core
 

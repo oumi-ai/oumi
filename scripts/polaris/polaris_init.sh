@@ -1,5 +1,11 @@
 #!/bin/bash
 
+set -e
+
+# Change to the directory where the job was submitted.
+echo "Changing directory to ${PBS_O_WORKDIR} ..."
+cd ${PBS_O_WORKDIR}
+
 echo "Polaris job ID: ${PBS_JOBID}"
 echo "Running on host: `hostname`"
 echo "Polaris queue: ${PBS_QUEUE}"
@@ -24,3 +30,20 @@ export NCCL_COLLNET_ENABLE=1
 export NCCL_NET_GDR_LEVEL=PHB
 export NCCL_DEBUG=WARN # INFO
 # export NCCL_DEBUG_SUBSYS=ALL
+
+# Polaris has 32 "physical" CPU cores, and 64 "logical" cores per node
+# (Hyper-threading makes 1 physical core appear as 2 logical cores)
+# Physical cores: 0..31. Additional "logical" cores: 32..63.
+# https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
+NRANKS=1  # Number of MPI ranks to spawn per node (1 worker per node)
+NDEPTH=64 # Number of hardware threads per rank (Polaris has 64 CPU cores per node)
+CPU_BIND="depth"
+
+# Set up default modules and load conda.
+module use /soft/modulefiles
+module load conda
+
+# Activate the LeMa Conda environment.
+conda activate /home/$USER/miniconda3/envs/lema
+echo "Conda path:"
+echo $CONDA_PREFIX
