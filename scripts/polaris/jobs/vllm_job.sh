@@ -25,12 +25,12 @@ echo "Setting up vLLM inference with ${LEMA_NUM_NODES} node(s)..."
 
 set -x  # Print command with expanded variables
 
-# # Start worker nodes
+# Start worker nodes
 mpiexec --verbose \
-    --np $LEMA_NUM_NODES \
+    --np ${LEMA_NUM_NODES} \
     --ppn ${NRANKS} \
     --depth ${NDEPTH} \
-    --cpu-bind depth \
+    --cpu-bind ${CPU_BIND} \
     ./scripts/polaris/jobs/vllm_worker.sh
 
 echo "Polaris job is all done!"
