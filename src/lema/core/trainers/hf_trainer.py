@@ -37,17 +37,7 @@ class HuggingFaceTrainer(BaseTrainer):
         if is_world_process_zero():
             # TODO: OPE-311 - Save full state dict for FSDP training.
             output_dir = config.training.output_dir
-            if config.training.use_peft:
-                state_dict = {
-                    k: t
-                    for k, t in self._hf_trainer.model.named_parameters()
-                    if "lora_" in k
-                }
-                # FIXME: Can we replace the private method `_save()` with
-                # `Trainer.save_model()`?
-                # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
-                self._hf_trainer._save(output_dir, state_dict=state_dict)
-            else:
-                self._hf_trainer.save_model(output_dir)
+
+            self._hf_trainer.save_model(output_dir)
 
             logger.info(f"Model has been saved at {output_dir}.")
