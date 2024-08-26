@@ -1,17 +1,49 @@
 import functools
-import io
 import re
+import subprocess
+from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
 from typing import List, Optional
 
+import pexpect
 from asyncssh.sftp import SFTPNoConnection
-from fabric import Connection
-from paramiko.ssh_exception import BadAuthenticationType
-from sshfs import SSHFileSystem
 
 from lema.core.launcher import JobStatus
 from lema.utils.logging import logger
+
+
+@dataclass
+class PolarisResponse:
+    """A response from Polaris."""
+
+    stdout: str
+    stderr: str
+    exit_code: int
+
+
+class _PolarisAuthException(Exception):
+    pass
+
+
+def _check_connection(user: str):
+    """Checks if the connection is still open."""
+    ssh_cmd = (
+        f"ssh -S ~/.ssh/control-%h-%p-%r {user}@polaris.alcf.anl.gov "
+        " << 'EOF'\nexit\nEOF"
+    )
+    try:
+        child = subprocess.run(
+            ssh_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        raise _PolarisAuthException("Connection to Polaris is closed.")
+    if child.returncode == 0:
+        return
+    raise _PolarisAuthException("Connection to Polaris is closed.")
 
 
 def retry_auth(user_function):
@@ -20,11 +52,11 @@ def retry_auth(user_function):
     @functools.wraps(user_function)
     def wrapper(self, *args, **kwargs):
         try:
-            return user_function(self, *args, **kwargs)
-        except (EOFError, BadAuthenticationType):
+            _check_connection(self._user)
+        except _PolarisAuthException:
             logger.warning("Connection closed. Reconnecting...")
-            self._connection = self._refresh_creds(close_connection=True)
-            return user_function(self, *args, **kwargs)
+            self._refresh_creds()
+        return user_function(self, *args, **kwargs)
 
     return wrapper
 
@@ -82,8 +114,7 @@ class PolarisClient:
             user: The user to act as.
         """
         self._user = user
-        self._connection = self._refresh_creds()
-        self._fs = self._refresh_fs()
+        self._refresh_creds()
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
         """Splits a status line into a JobStatus object.
@@ -140,35 +171,25 @@ class PolarisClient:
             return job_id
         return job_id.split(".")[0]
 
-    def _refresh_fs(self) -> SSHFileSystem:
-        """Refreshes the remote filesystem."""
-        return SSHFileSystem(
-            "polaris.alcf.anl.gov",
-            username=self._user,
-            password=getpass(
-                prompt="Mounting Polaris filesystem...\n"
-                "This requires a new set of Polaris credentials.\n"
-                "**You must refresh your passcode before proceeding!**\n"
-                f"Polaris passcode for {self._user}: "
-            ),
-        )
-
-    def _refresh_creds(self, close_connection=False) -> Connection:
+    def _refresh_creds(self):
         """Refreshes the credentials for the client."""
-        if close_connection:
-            self._connection.close()
-        connection = Connection(
-            "polaris.alcf.anl.gov",
-            user=self._user,
-            connect_kwargs={
-                "password": getpass(prompt=f"Polaris passcode for {self._user}: ")
-            },
+        ssh_cmd = (
+            'ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 4h" '
+            f"{self._user}@polaris.alcf.anl.gov"
         )
-        connection.open()
-        return connection
+        child = pexpect.spawn(ssh_cmd)
+        child.expect("Password:")
+        child.sendline(getpass(prompt=f"Polaris passcode for {self._user}: "))
+        child.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=10)
+        output = child.before
+        child.close()
+        exit_code = child.exitstatus
+        if exit_code != 0:
+            logger.error(f"Credential error: {output}")
+            raise RuntimeError("Failed to refresh Polaris credentials.")
 
     @retry_auth
-    def run_commands(self, commands: List[str]) -> None:
+    def run_commands(self, commands: List[str]) -> PolarisResponse:
         """Runs the provided commands using recursive context setting.
 
         Due to an implementation detail in Fabric, `cd` commands are not preserved
@@ -179,21 +200,26 @@ class PolarisClient:
         Args:
             commands: The commands to run.
         """
-        if len(commands) == 0:
-            return
-        command = commands[0]
-        remaining_commands = commands[1:]
-        match = re.search(self._CD_PATTERN, command)
-        if match:
-            location = match.group(1)
-            with self._connection.cd(location):
-                return self.run_commands(remaining_commands)
-        result = self._connection.run(command, warn=True)
-        if not result:
-            raise RuntimeError(
-                f"Failed to run command: {command} . stderr: {result.stderr}"
-            )
-        return self.run_commands(remaining_commands)
+        ssh_cmd = (
+            f"ssh -S ~/.ssh/control-%h-%p-%r {self._user}@polaris.alcf.anl.gov "
+            " << 'EOF'"
+        )
+        eof_suffix = "EOF"
+        new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
+        child = subprocess.Popen(
+            new_cmd,
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        exit_code = child.wait(180)
+        parsed_stdout = child.stdout.read().decode("utf-8") if child.stdout else ""
+        parsed_stderr = child.stderr.read().decode("utf-8") if child.stderr else ""
+        return PolarisResponse(
+            stdout=parsed_stdout,
+            stderr=parsed_stderr,
+            exit_code=exit_code,
+        )
 
     @retry_auth
     def submit_job(
@@ -219,15 +245,14 @@ class PolarisClient:
         optional_name_args = ""
         if name:
             optional_name_args = f"-N {name}"
-        with self._connection.cd(working_dir):
-            result = self._connection.run(
-                f"qsub -l select={node_count}:system=polaris "
-                f"-q {queue.value} {optional_name_args} {job_path}",
-                warn=True,
-            )
-            if not result:
-                raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
-            return self._get_short_job_id(result.stdout.strip())
+        qsub_cmd = (
+            f"qsub -l select={node_count}:system=polaris -q {queue.value}"
+            f" {optional_name_args} {job_path}"
+        )
+        result = self.run_commands([f"cd {working_dir}", qsub_cmd])
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
+        return self._get_short_job_id(result.stdout.strip())
 
     @retry_auth
     def list_jobs(self, queue: SupportedQueues) -> List[JobStatus]:
@@ -237,8 +262,8 @@ class PolarisClient:
             A list of dictionaries, each containing the status of a cluster.
         """
         command = f"qstat -s -x -w -u {self._user}"
-        result = self._connection.run(command, warn=True)
-        if not result:
+        result = self.run_commands([command])
+        if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
@@ -296,8 +321,8 @@ class PolarisClient:
             The job status if found, None otherwise.
         """
         command = f"qdel {job_id}"
-        result = self._connection.run(command, warn=True)
-        if not result:
+        result = self.run_commands([command])
+        if result.exit_code != 0:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
 
@@ -309,12 +334,7 @@ class PolarisClient:
             source: The local file/directory to write.
             destination: The remote path to write the file/directory to.
         """
-        if self._fs is None:
-            self._fs = self._refresh_fs()
-        self._fs.put(source, destination, recursive=True)
-        # Ensure all copied files are executable as `put` does not propagate
-        # permissions.
-        self._connection.run(f"chmod -R +x {destination}", warn=True)
+        pass
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:
@@ -324,4 +344,4 @@ class PolarisClient:
             file_contents: The contents of the file to write.
             destination: The remote path to write the file to.
         """
-        self._connection.put(io.StringIO(file_contents), destination)
+        pass
