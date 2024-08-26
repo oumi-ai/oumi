@@ -1,11 +1,11 @@
-# Config to LoRA tune Llama 3.1 8B Instruct on 1 Polaris node.
+# Config to LoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
 # Example command:
-# lema-launch -p configs/lema/jobs/polaris/llama8b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
-name: llama8b-lora
+# lema-launch -p configs/lema/jobs/polaris/llama70b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
+name: llama70b-lora
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 1  # Set it to N for multi-node training.
+num_nodes: 2
 resources:
   cloud: polaris
 
@@ -51,7 +51,7 @@ run: |
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
       --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
-      ./scripts/polaris/jobs/llama_tune.sh -m lora -s 8b
+      ./scripts/polaris/jobs/llama_tune.sh -m lora -s 70b
 
   echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"
