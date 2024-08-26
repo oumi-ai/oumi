@@ -91,9 +91,21 @@ line-length = 88
 extend-include = ["*.ipynb"] # Include ipython notebooks
 
 [tool.ruff.lint]
-# pyflakes (F), pycodestyle (E, W), isort (I), pydocstyle (D), flake8-tidy-imports(TID)
-select = ["F", "E", "W", "I", "D", "TID", "NPY"]
-ignore = ["D100", "D101", "D104", "NPY002"]      # Temporary rules
+select = [
+    "F",   # pyflakes: detect various errors
+    "E",   # pycodestyle: errors
+    "W",   # pycodestyle: warnings
+    "I",   # isort: check import order
+    "D",   # pydocstyle: check docstring style
+    "TID", # flake8-tidy-imports: check import tidiness
+    "NPY", # NumPy-specific rules
+]
+ignore = [
+    "D100",   # Missing docstring in public module, temporary, OPE-326
+    "D101",   # Missing docstring in public class, temporary, OPE-326
+    "D104",   # Missing docstring in public package, temporary, OPE-326
+    "NPY002", # Replace legacy numpy aliases
+]
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.
