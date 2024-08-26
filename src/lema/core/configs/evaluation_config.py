@@ -18,9 +18,36 @@ class EvaluationFramework(Enum):
 @dataclass
 class EvaluationConfig(BaseConfig):
     data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """Parameters for the dataset split to be used in evaluation.
+
+    This includes specifications for train, validation, and test splits,
+    as well as any data preprocessing or augmentation settings.
+    """
+
     model: ModelParams = field(default_factory=ModelParams)
+    """Parameters for the model to be evaluated.
+
+    This may include model architecture, size, pre-training details,
+    and any specific configurations required for the evaluation task.
+    """
+
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    """Configuration for text generation during evaluation.
+
+    This includes settings such as temperature, top-k, top-p,
+    maximum length, and any other parameters that control the
+    text generation process.
+    """
+
     evaluation_framework: EvaluationFramework = EvaluationFramework.LM_HARNESS
+    """The evaluation framework to be used.
+
+    LM_HARNESS is the default, which is a comprehensive benchmark
+    for evaluating large language models across various tasks.
+    LEMA is an alternative framework that may be used for specific
+    evaluation scenarios.
+    """
+
     #: Number of few-shot examples (with responses) to add in the prompt, in order to
     #: teach the model how to respond to the specific dataset's prompts.
     #: If not set (None): LM Harness will decide the value.
