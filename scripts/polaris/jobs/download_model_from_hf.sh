@@ -9,6 +9,8 @@
 #PBS -o /eagle/community_ai/jobs/logs
 #PBS -e /eagle/community_ai/jobs/logs
 
+set -e
+
 export MPICH_GPU_SUPPORT_ENABLED=1
 
 export HTTP_PROXY=http://proxy.alcf.anl.gov:3128

@@ -9,6 +9,8 @@
 #PBS -o /eagle/community_ai/jobs/logs
 #PBS -e /eagle/community_ai/jobs/logs
 
+set -e
+
 # Various setup for running on Polaris.
 source ./scripts/polaris/polaris_init.sh
 
