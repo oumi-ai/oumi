@@ -29,7 +29,6 @@ from lema.core.distributed import (
     init_distributed,
     is_distributed,
     is_local_process_zero,
-    is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
 from lema.core.trainers import BaseTrainer
@@ -349,12 +348,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
-    if is_world_process_zero():
-        logger.info("Saving final state...")
-        trainer.save_state()
-        if config.training.save_final_model:
-            logger.info("Saving final model...")
-            trainer.save_model(config=config)
+    logger.info("Saving final state...")
+    trainer.save_state()
+    if config.training.save_final_model:
+        logger.info("Saving final model...")
+        trainer.save_model(config=config)
 
     barrier()
 
