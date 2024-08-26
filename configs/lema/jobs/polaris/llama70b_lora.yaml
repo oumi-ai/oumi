@@ -25,32 +25,14 @@ setup: |
 
 run: |
   set -e
-
-  # Change to the directory where the job was submitted.
-  echo "Changing directory to ${PBS_O_WORKDIR} ..."
-  cd ${PBS_O_WORKDIR}
-
-  # Run several checks and export "LEMA_*" env vars.
+  # Various setup for running on Polaris.
   source ./scripts/polaris/polaris_init.sh
-
-  # Set up default modules.
-  module use /soft/modulefiles
-
-  # Set up conda.
-  module load conda
-
-  # Activate the LeMa Conda environment.
-  conda activate /home/$USER/miniconda3/envs/lema
 
   echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
 
-  NRANKS=1  # Num MPI ranks to spawn per node (1 `torchrun` per node)
-  NDEPTH=64 # Num hardware threads per rank (Polaris has 64 logical CPU cores per node)
-
-
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
-      --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth \
+      --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
       ./scripts/polaris/jobs/llama_tune.sh -m lora -s 70b
 
   echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
