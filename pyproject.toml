@@ -49,13 +49,14 @@ dev = [
     "pyright",
     "pytest",
     "ruff",
-    "sphinx",               # for documentation
-    "sphinx-rtd-theme",     # for documentation
+    "sphinx",           # for documentation
+    "sphinx-rtd-theme", # for documentation
     "torchfix",
+    "myst_parser",
 ]
 train = [
-    "accelerate",           # for quantization
-    "bitsandbytes",         # for quantization
+    "accelerate",                   # for quantization
+    "bitsandbytes",                 # for quantization
     "datasets",
     "deepspeed",
     "lm-eval",
@@ -64,7 +65,7 @@ train = [
     "pydantic>=2",
     "pynvml",
     "safetensors",
-    "sentencepiece",        # for phi-3
+    "sentencepiece",                # for phi-3
     "tensorboard",
     "torchdata>=0.8.0",
     "transformers>=4.43.1,<4.44.0",
