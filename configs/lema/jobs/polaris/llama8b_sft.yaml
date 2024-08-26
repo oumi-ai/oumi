@@ -1,6 +1,6 @@
 # Config for Llama 3.1 8B Instruct SFT on 1 Polaris node.
 # Example command:
-# lema-launch -p configs/lema/jobs/polaris/llama8b_sft.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
+# lema-launch -p configs/lema/jobs/polaris/llama8b_sft.yaml -c preemptable.$ALCF_USER user=$ALCF_USER
 name: llama8b-sft
 # NOTE: Replace with your username.
 user: your_username
