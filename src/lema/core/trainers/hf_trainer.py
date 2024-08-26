@@ -28,15 +28,35 @@ class HuggingFaceTrainer(BaseTrainer):
 
         HuggingFace normally writes state into "trainer_state.json" under output_dir.
         """
+        if not is_world_process_zero():
+            return
+
         self._hf_trainer.save_state()
 
-    def save_model(self, config: TrainingConfig) -> None:
-        """See base class."""
-        # TODO: OPE-213 - use safetensors to save model
-        # Only save from "master" worker.
+    def save_model(self, config: TrainingConfig, final: bool = True) -> None:
+        """Saves the model's weights to the specified output directory.
+
+        Args:
+            config (TrainingConfig): The LeMa training config.
+            final (bool): Whether to save the final model. In the case of FSDP,
+                this will always save the FULL_STATE_DICT instead of the default
+                STATE_DICT.
+
+        Returns:
+            None
+        """
         if is_world_process_zero():
-            # TODO: OPE-311 - Save full state dict for FSDP training.
             output_dir = config.training.output_dir
+
+            if final:
+                if (
+                    self._hf_trainer.is_fsdp_enabled
+                    and self._hf_trainer.accelerator.state.fsdp_plugin is not None
+                ):
+                    logger.info("Saving FULL_STATE_DICT for final model checkpoint.")
+                    self._hf_trainer.accelerator.state.fsdp_plugin.set_state_dict_type(
+                        "FULL_STATE_DICT"
+                    )
 
             self._hf_trainer.save_model(output_dir)
 
