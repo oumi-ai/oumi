@@ -4,13 +4,36 @@ import subprocess
 from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
+from pathlib import Path
 from typing import List, Optional
 
 import pexpect
-from asyncssh.sftp import SFTPNoConnection
 
 from lema.core.launcher import JobStatus
 from lema.utils.logging import logger
+
+_CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
+
+
+class _PolarisAuthException(Exception):
+    pass
+
+
+def _check_connection(user: str):
+    """Checks if the connection is still open."""
+    ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@polaris.alcf.anl.gov"
+    try:
+        child = subprocess.run(
+            ssh_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        raise _PolarisAuthException("Timeout while checking connection.")
+    if child.returncode == 0:
+        return
+    raise _PolarisAuthException("Connection to Polaris is closed.")
 
 
 @dataclass
@@ -22,56 +45,13 @@ class PolarisResponse:
     exit_code: int
 
 
-class _PolarisAuthException(Exception):
-    pass
-
-
-def _check_connection(user: str):
-    """Checks if the connection is still open."""
-    ssh_cmd = (
-        f"ssh -S ~/.ssh/control-%h-%p-%r {user}@polaris.alcf.anl.gov "
-        " << 'EOF'\nexit\nEOF"
-    )
-    try:
-        child = subprocess.run(
-            ssh_cmd,
-            shell=True,
-            capture_output=True,
-            timeout=5,
-        )
-    except subprocess.TimeoutExpired:
-        raise _PolarisAuthException("Connection to Polaris is closed.")
-    if child.returncode == 0:
-        return
-    raise _PolarisAuthException("Connection to Polaris is closed.")
-
-
 def retry_auth(user_function):
-    """Decorator to retry a function if the connection is closed."""
+    """Decorator to ensure auth is fresh before calling a function."""
 
     @functools.wraps(user_function)
     def wrapper(self, *args, **kwargs):
-        try:
-            _check_connection(self._user)
-        except _PolarisAuthException:
-            logger.warning("Connection closed. Reconnecting...")
-            self._refresh_creds()
+        self._refresh_creds()
         return user_function(self, *args, **kwargs)
-
-    return wrapper
-
-
-def retry_fs(user_function):
-    """Decorator to retry a function if the filesystem is closed."""
-
-    @functools.wraps(user_function)
-    def wrapper(self, *args, **kwargs):
-        try:
-            return user_function(self, *args, **kwargs)
-        except SFTPNoConnection:
-            logger.warning("Connection closed. Reconnecting...")
-            self._fs = self._refresh_fs()
-            return user_function(self, *args, **kwargs)
 
     return wrapper
 
@@ -93,8 +73,6 @@ class PolarisClient:
         DEBUG_SCALING = "debug-scaling"
         PREEMPTABLE = "preemptable"
         PROD = "prod"
-
-    _CD_PATTERN = r"cd\s+(.*?)($|\s)"
 
     _FINISHED_STATUS = "F"
 
@@ -173,8 +151,14 @@ class PolarisClient:
 
     def _refresh_creds(self):
         """Refreshes the credentials for the client."""
+        try:
+            _check_connection(self._user)
+            # We have fresh credentials, so we return early.
+            return
+        except _PolarisAuthException:
+            logger.warning("No connection found. Establishing a new SSH tunnel...")
         ssh_cmd = (
-            'ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 4h" '
+            f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" '
             f"{self._user}@polaris.alcf.anl.gov"
         )
         child = pexpect.spawn(ssh_cmd)
@@ -200,10 +184,7 @@ class PolarisClient:
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = (
-            f"ssh -S ~/.ssh/control-%h-%p-%r {self._user}@polaris.alcf.anl.gov "
-            " << 'EOF'"
-        )
+        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         child = subprocess.Popen(
@@ -326,7 +307,7 @@ class PolarisClient:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
 
-    @retry_fs
+    @retry_auth
     def put_recursive(self, source: str, destination: str) -> None:
         """Puts the specified file/directory to the remote path, recursively.
 
@@ -334,7 +315,27 @@ class PolarisClient:
             source: The local file/directory to write.
             destination: The remote path to write the file/directory to.
         """
-        pass
+        tests_dir = Path(source) / "tests"
+        git_ignore = Path(source) / ".gitignore"
+        rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
+        if git_ignore.is_file():
+            rsync_cmd_list.append(f"--exclude-from {str(git_ignore)} ")
+        if tests_dir.is_dir():
+            rsync_cmd_list.append(f"--exclude {str(tests_dir)} ")
+        rsync_cmd_list.append(f"{source} ")
+        rsync_cmd_list.append(f"{self._user}@polaris.alcf.anl.gov:{destination}")
+        rsync_cmd = "".join(rsync_cmd_list)
+        child = subprocess.Popen(
+            rsync_cmd,
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        exit_code = child.wait(180)
+        if exit_code != 0:
+            parsed_stderr = child.stderr.read().decode("utf-8") if child.stderr else ""
+            child.terminate()
+            raise RuntimeError(f"Rsync failed. stderr: {parsed_stderr}")
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:
@@ -344,4 +345,13 @@ class PolarisClient:
             file_contents: The contents of the file to write.
             destination: The remote path to write the file to.
         """
-        pass
+        destination_path = Path(destination)
+        parent_dir = destination_path.parent
+        dir_cmd = f"mkdir -p {parent_dir}"
+        create_cmd = f"touch {destination}"
+        write_command = f'cat <<"SCRIPTFILETAG" > {destination}'
+        file_suffix = "SCRIPTFILETAG"
+        cmds = [dir_cmd, create_cmd, write_command, file_contents, file_suffix]
+        result = self.run_commands(cmds)
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
