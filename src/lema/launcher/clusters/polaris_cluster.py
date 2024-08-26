@@ -212,7 +212,6 @@ class PolarisCluster(BaseCluster):
         user = str(job.user)
         remote_working_dir = Path(f"/home/{user}/lema_launcher/{job_name}")
         # Copy the working directory to Polaris /home/ system.
-        self._client.run_commands([f"mkdir -p {remote_working_dir}"])
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if lema is installed in a conda env. If not, install it.
         lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
@@ -232,7 +231,7 @@ class PolarisCluster(BaseCluster):
                 "pip install flash-attn --no-build-isolation",
             ]
             # Run all commands in the same context.
-            self._client.run_commands([" && ".join(conda_cmds)])
+            self._client.run_commands(conda_cmds)
             # Install LeMa requirements.
             install_cmds = [
                 f"cd {remote_working_dir}",
@@ -242,7 +241,7 @@ class PolarisCluster(BaseCluster):
                 'echo "Installing packages... ---------------------------------------"',
                 "pip install -e '.[train]'",
             ]
-            self._client.run_commands([" && ".join(install_cmds)])
+            self._client.run_commands(install_cmds)
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
             self._client.put_recursive(local_path, remote_path)
@@ -251,12 +250,12 @@ class PolarisCluster(BaseCluster):
         script_path = remote_working_dir / "lema_job.sh"
         self._client.put(job_script, str(script_path))
         # Set the proper CHMOD permissions.
-        self._client.run_commands([f"chmod a+x {script_path}"])
+        self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
         logging_dirs = _get_logging_directories(job_script)
-        loggin_dir_cmds = [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
-        if loggin_dir_cmds:
-            self._client.run_commands(loggin_dir_cmds)
+        logging_dir_cmds = [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
+        if logging_dir_cmds:
+            self._client.run_commands(logging_dir_cmds)
         # Submit the job.
         job_id = self._client.submit_job(
             str(script_path),
