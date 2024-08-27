@@ -370,8 +370,8 @@ class TrainingParams(BaseParams):
 
     adam_beta1: float = 0.9
     """The beta1 parameter for Adam-based optimizers.
-    Exponential decay rate for the first moment estimates.
 
+    Exponential decay rate for the first moment estimates.
     Default is 0.9.
     """
 
@@ -416,14 +416,13 @@ class TrainingParams(BaseParams):
     """
 
     include_performance_metrics: bool = False
-    """Whether to include performance metrics such as token statistics.
-    """
+    """Whether to include performance metrics such as token statistics."""
 
     include_alternative_mfu_metrics: bool = False
     """Whether to report alternative MFU (Model FLOPs Utilization) metrics.
 
     These metrics are based on HuggingFace's `total_flos`.
-    This option is only enabled if `include_performance_metrics` is `True`.
+    This option is only used if `include_performance_metrics` is `True`.
     """
 
     log_model_summary: bool = False
@@ -436,7 +435,7 @@ class TrainingParams(BaseParams):
     """
 
     try_resume_from_last_checkpoint: bool = False
-    """If True, attempt to find the last checkpoint in "output_dir".
+    """If True, attempt to resume from the last checkpoint in "output_dir".
 
     If a checkpoint is found, training will resume from the model/optimizer/scheduler
     states loaded from this checkpoint. If no checkpoint is found, training will
@@ -465,7 +464,7 @@ class TrainingParams(BaseParams):
     2 means there will be a total of 2 * num_workers batches prefetched across
     all workers.
 
-    Can only be set if dataloader_num_workers >= 1.
+    This is only used if dataloader_num_workers >= 1.
     """
 
     dataloader_main_process_only: Optional[bool] = None
@@ -489,12 +488,14 @@ class TrainingParams(BaseParams):
     """When using distributed training, the value of the flag `find_unused_parameters`
     passed to `DistributedDataParallel`.
 
-    Will default to `False` if gradientcheckpointing is used, `True` otherwise.
+    Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
 
     max_grad_norm: float = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
+    
+    Defaults to 1.0.
     """
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
