@@ -248,14 +248,12 @@ class TrainingParams(BaseParams):
     """
 
     dep_log_level: str = "warning"
-    """
-    The logging level for dependency loggers (e.g., HuggingFace, PyTorch).
+    """The logging level for dependency loggers (e.g., HuggingFace, PyTorch).
     Possible values are "debug", "info", "warning", "error", "critical".
     """
 
     enable_wandb: bool = False
-    """
-    Whether to enable Weights & Biases (wandb) logging.
+    """Whether to enable Weights & Biases (wandb) logging.
     If True, wandb will be used for experiment tracking and visualization.
     """
 
@@ -288,15 +286,15 @@ class TrainingParams(BaseParams):
         default=False,
         metadata={"help": "Whether to log and evaluate the first global_step or not."},
     )
-    """
-    Whether to log and evaluate the first global step.
+    """Whether to log and evaluate the first global step.
+
     If True, metrics will be logged and evaluation will be performed at the very
     beginning of training.
     """
 
     eval_strategy: str = "no"
-    """
-    The strategy to use for evaluation during training.
+    """The strategy to use for evaluation during training.
+
     Possible values:
     - "no": No evaluation is done during training.
     - "steps": Evaluation is done every `eval_steps`.
@@ -304,138 +302,130 @@ class TrainingParams(BaseParams):
     """
 
     eval_steps: int = 50
-    """
-    Number of update steps between two evaluations if eval_strategy="steps".
+    """Number of update steps between two evaluations if eval_strategy="steps".
+
     Ignored if eval_strategy is not "steps".
     """
 
     learning_rate: float = 5e-05
-    """
-    The initial learning rate for the optimizer.
+    """The initial learning rate for the optimizer.
+
     This value can be adjusted by the learning rate scheduler during training.
     """
 
     lr_scheduler_type: str = "cosine"
-    """
-    The type of learning rate scheduler to use.
-    Possible values include "linear", "cosine", "cosine_with_restarts", "polynomial",
-      "constant", "constant_with_warmup".
-    For a full list, see:
-    https://github.com/huggingface/transformers/blob/main/src/transformers/trainer_utils.py#L408-L418
+    """The type of learning rate scheduler to use.
+
+    Possible values include "linear", "cosine", "cosine_with_restarts",
+      "cosine_with_min_lr" and "constant".
+
+    See `src/lema/builders/lr_schedules.py` for more details on each scheduler.
     """
 
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
-    """
-    Additional keyword arguments to pass to the learning rate scheduler.
+    """Additional keyword arguments to pass to the learning rate scheduler.
+
     These arguments can be used to fine-tune the behavior of the chosen scheduler.
     """
 
     warmup_ratio: Optional[float] = None
-    """
-    The ratio of total training steps used for a linear warmup from 0 to the
+    """The ratio of total training steps used for a linear warmup from 0 to the
     learning rate.
 
     Either this or warmup_steps should be set, not both.
     """
 
     warmup_steps: Optional[int] = None
-    """
-    The number of steps for the warmup phase of the learning rate scheduler.
+    """The number of steps for the warmup phase of the learning rate scheduler.
+
     Either this or warmup_ratio should be set, not both.
     """
 
-    #: Optimizer params.
+    # Optimizer params.
     optimizer: str = "adamw_torch"
-    """
-    The optimizer to use for training.
+    """The optimizer to use for training.
+
+    See pytorch documentation for more information on available optimizers:
+    https://pytorch.org/docs/stable/optim.html
+
     Default is "adamw_torch" (AdamW implemented by PyTorch).
-    Other options include "adamw_hf" (Hugging Face's implementation),
-    "adam", "sgd", etc.
     """
 
     weight_decay: float = 0.0
-    """
-    Weight decay (L2 penalty) to apply to the model's parameters.
+    """Weight decay (L2 penalty) to apply to the model's parameters.
+
     Default is 0.0 (no weight decay).
     """
 
     adam_beta1: float = 0.9
-    """
-    The beta1 parameter for Adam-based optimizers.
+    """The beta1 parameter for Adam-based optimizers.
     Exponential decay rate for the first moment estimates.
+
     Default is 0.9.
     """
 
     adam_beta2: float = 0.999
-    """
-    The beta2 parameter for Adam-based optimizers.
+    """The beta2 parameter for Adam-based optimizers.
+
     Exponential decay rate for the second moment estimates.
     Default is 0.999.
     """
 
     adam_epsilon: float = 1e-08
-    """
-    Epsilon parameter for Adam-based optimizers.
+    """Epsilon parameter for Adam-based optimizers.
+
     Small constant for numerical stability.
     Default is 1e-08.
     """
 
     sgd_momentum: float = 0.9
-    """
-    Momentum factor for SGD optimizer.
+    """Momentum factor for SGD optimizer.
+
     Only used when optimizer is set to "sgd".
     Default is 0.9.
     """
 
     gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
-    """
-    Keyword arguments for gradient checkpointing.
+    """Keyword arguments for gradient checkpointing.
 
     The `use_reentrant` parameter is required and is recommended to be set to False.
     For more details, see: https://pytorch.org/docs/stable/checkpoint.html
     """
 
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
-    """
-    The data type to use for mixed precision training.
+    """The data type to use for mixed precision training.
+
     Default is NONE, which means no mixed precision is used.
     """
 
     compile: bool = False
-    """
-    Whether to JIT compile the model.
+    """Whether to JIT compile the model.
 
     This parameter should be used instead of `ModelParams.compile` for training.
     """
 
     include_performance_metrics: bool = False
-    """
-    Whether to include performance metrics such as token statistics.
+    """Whether to include performance metrics such as token statistics.
     """
 
     include_alternative_mfu_metrics: bool = False
-    """
-    Whether to report alternative MFU (Model FLOPs Utilization) metrics.
+    """Whether to report alternative MFU (Model FLOPs Utilization) metrics.
 
     These metrics are based on HuggingFace's `total_flos`.
     This option is only enabled if `include_performance_metrics` is `True`.
     """
 
     log_model_summary: bool = False
-    """
-    Whether to print a model summary, including layer names, for informational purposes.
-    """
+    """Whether to print a model summary, including layer names."""
 
     resume_from_checkpoint: Optional[str] = None
-    """
-    Path to a checkpoint folder from which to resume training.
+    """Path to a checkpoint folder from which to resume training.
 
     If specified, training will resume by first loading the model from this folder.
     """
 
     try_resume_from_last_checkpoint: bool = False
-    """
-    If True, attempt to find the last checkpoint in "output_dir".
+    """If True, attempt to find the last checkpoint in "output_dir".
 
     If a checkpoint is found, training will resume from the model/optimizer/scheduler
     states loaded from this checkpoint. If no checkpoint is found, training will
@@ -459,8 +449,7 @@ class TrainingParams(BaseParams):
     """
 
     dataloader_prefetch_factor: Optional[int] = None
-    """
-    Number of batches loaded in advance by each worker.
+    """Number of batches loaded in advance by each worker.
 
     2 means there will be a total of 2 * num_workers batches prefetched across
     all workers.
@@ -469,8 +458,7 @@ class TrainingParams(BaseParams):
     """
 
     dataloader_main_process_only: Optional[bool] = None
-    """
-    Controls whether the dataloader is iterated through on the main process only.
+    """Controls whether the dataloader is iterated through on the main process only.
 
     If set to `True`, the dataloader is only iterated through on the main process
     (rank 0), then the batches are split and broadcast to each process.
@@ -488,8 +476,9 @@ class TrainingParams(BaseParams):
 
     ddp_find_unused_parameters: Optional[bool] = None
     """When using distributed training, the value of the flag `find_unused_parameters`
-    passed to `DistributedDataParallel`. Will default to `False` if gradient
-    checkpointing is used, `True` otherwise.
+    passed to `DistributedDataParallel`.
+
+    Will default to `False` if gradientcheckpointing is used, `True` otherwise.
     """
 
     max_grad_norm: float = 1.0
