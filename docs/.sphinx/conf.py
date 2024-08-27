@@ -30,12 +30,17 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "myst_parser",
+    "nbsphinx",
 ]
 
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
+    ".ipynb": "nbsphinx",
 }
+
+nbsphinx_execute = "never"
+nbsphinx_allow_errors = True
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
