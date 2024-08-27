@@ -26,11 +26,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "fabric",
     "google-api-python-client",    # To enable GCP in Skypilot
     "numpy",
     "skypilot[gcp,lambda,runpod]",
-    "sshfs",
     "torch",
     "transformers",
 ]
