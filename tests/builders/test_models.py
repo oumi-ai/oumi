@@ -17,9 +17,7 @@ def mock_liger_kernel():
     "model_name, expected_function",
     [
         ("meta-llama/Llama-2-7b-hf", "apply_liger_kernel_to_llama"),
-        ("Qwen2-7B-Chat", "apply_liger_kernel_to_qwen2"),
-        ("Qwen/Qwen2-7B-Chat", "apply_liger_kernel_to_qwen2"),
-        ("microsoft/phi-3", "apply_liger_kernel_to_phi3"),
+        ("meta-llama/Meta-Llama-3.1-70B", "apply_liger_kernel_to_llama"),
         ("mistralai/Mistral-7B-v0.1", "apply_liger_kernel_to_mistral"),
         ("google/gemma-7b", "apply_liger_kernel_to_gemma"),
         ("mistralai/Mixtral-8x7B-v0.1", "apply_liger_kernel_to_mixtral"),

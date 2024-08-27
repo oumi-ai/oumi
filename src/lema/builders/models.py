@@ -71,16 +71,12 @@ def _patch_model_for_liger_kernel(model_name: str) -> None:
 
     if "llama" in model_name_lower:
         liger_kernel.transformers.apply_liger_kernel_to_llama()
-    elif "qwen2" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_qwen2()
-    elif "phi3" in model_name_lower or "phi-3" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_phi3()
+    elif "mixtral" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
     elif "mistral" in model_name_lower:
         liger_kernel.transformers.apply_liger_kernel_to_mistral()
     elif "gemma" in model_name_lower:
         liger_kernel.transformers.apply_liger_kernel_to_gemma()
-    elif "mixtral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 
