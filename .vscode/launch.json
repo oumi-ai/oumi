@@ -60,6 +60,33 @@
             ]
         },
         {
+            "name": "Lema Distributed - Accelerate",
+            "type": "debugpy",
+            "module": "accelerate.commands.launch",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "args": [
+                "--num_machines",
+                "1",
+                "--machine_rank",
+                "0",
+                "--num_processes",
+                "8",
+                "--use_fsdp",
+                "--config_file",
+                "configs/accelerate/llama8b.fsdp.yaml",
+                "-m",
+                "lema.train",
+                "-c",
+                "configs/lema/llama8b.sft.yaml",
+                "training.max_steps=2",
+                "training.save_steps=1",
+                "training.save_final_model=true",
+                "training.enable_wandb=false",
+                "training.enable_tensorboard=false"
+            ]
+        },
+        {
             "name": "LeMa - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",

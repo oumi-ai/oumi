@@ -162,10 +162,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         logger.warning("No GPU available.")
 
     if config.model.adapter_model:
-        raise NotImplementedError(
-            f"Adapter models ('{config.model.adapter_model}') are not yet supported "
-            "by LM_HARNESS evaluation method in LeMa."
-        )
+        logger.info(f"Loading adapter for eval: {config.model.adapter_model}")
 
     benchmark_names = [dataset.dataset_name for dataset in config.data.datasets]
     batch_size = config.generation.batch_size if config.generation.batch_size else None
