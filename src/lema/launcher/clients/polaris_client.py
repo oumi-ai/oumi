@@ -320,17 +320,20 @@ class PolarisClient:
         rsync_cmd_list.append(f"{source} ")
         rsync_cmd_list.append(f"{self._user}@polaris.alcf.anl.gov:{destination}")
         rsync_cmd = "".join(rsync_cmd_list)
-        child = subprocess.Popen(
-            rsync_cmd,
-            shell=True,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        exit_code = child.wait(180)
-        if exit_code != 0:
-            parsed_stderr = child.stderr.read().decode("utf-8") if child.stderr else ""
-            child.terminate()
-            raise RuntimeError(f"Rsync failed. stderr: {parsed_stderr}")
+        logger.info(f"Running rsync command: {rsync_cmd} ...")
+        try:
+            child = subprocess.run(
+                rsync_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=40,
+            )
+            logger.info(f"Rsync command completed with exit code: {child.returncode}")
+            if child.returncode != 0:
+                parsed_stderr = child.stderr.decode("utf-8") if child.stderr else ""
+                raise RuntimeError(f"Rsync failed. stderr: {parsed_stderr}")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Timeout while running rsync command.")
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:

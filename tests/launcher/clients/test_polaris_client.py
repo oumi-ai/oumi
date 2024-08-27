@@ -826,26 +826,24 @@ def test_polaris_client_run_commands_fails(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_put_recursive_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     client.put_recursive(
         "source",
         "destination",
     )
-    mock_popen.wait.assert_called_once_with(180)
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
             call(
                 'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
                 "source user@polaris.alcf.anl.gov:destination",
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=40,
             ),
         ]
     )
@@ -855,27 +853,25 @@ def test_polaris_client_put_recursive_success_gitignore(mock_subprocess, mock_au
     with tempfile.TemporaryDirectory() as output_temp_dir:
         with open(Path(output_temp_dir) / ".gitignore", "w") as f:
             f.write("*.txt")
-        mock_subprocess.PIPE = subprocess.PIPE
-        mock_popen = Mock()
-        mock_subprocess.Popen.return_value = mock_popen
-        mock_popen.stdout.read.return_value = b"out"
-        mock_popen.stderr.read.return_value = b"err"
-        mock_popen.wait.return_value = 0
+        mock_run = Mock()
+        mock_subprocess.run.return_value = mock_run
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 0
         client = PolarisClient("user")
         client.put_recursive(
             output_temp_dir,
             "destination",
         )
-        mock_popen.wait.assert_called_once_with(180)
-        mock_subprocess.Popen.assert_has_calls(
+        mock_subprocess.run.assert_has_calls(
             [
                 call(
                     'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
                     f"--exclude-from {output_temp_dir}/.gitignore "
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
+                    timeout=40,
                 ),
             ]
         )
@@ -887,27 +883,25 @@ def test_polaris_client_put_recursive_success_tests(mock_subprocess, mock_auth):
         tests.mkdir()
         with open(tests / "file.txt", "w") as f:
             f.write("*.txt")
-        mock_subprocess.PIPE = subprocess.PIPE
-        mock_popen = Mock()
-        mock_subprocess.Popen.return_value = mock_popen
-        mock_popen.stdout.read.return_value = b"out"
-        mock_popen.stderr.read.return_value = b"err"
-        mock_popen.wait.return_value = 0
+        mock_run = Mock()
+        mock_subprocess.run.return_value = mock_run
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 0
         client = PolarisClient("user")
         client.put_recursive(
             output_temp_dir,
             "destination",
         )
-        mock_popen.wait.assert_called_once_with(180)
-        mock_subprocess.Popen.assert_has_calls(
+        mock_subprocess.run.assert_has_calls(
             [
                 call(
                     'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
                     f"--exclude {output_temp_dir}/tests "
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
+                    timeout=40,
                 ),
             ]
         )
@@ -923,19 +917,17 @@ def test_polaris_client_put_recursive_success_tests_gitignore(
             f.write("*.txt")
         with open(Path(output_temp_dir) / ".gitignore", "w") as f:
             f.write("*.txt")
-        mock_subprocess.PIPE = subprocess.PIPE
-        mock_popen = Mock()
-        mock_subprocess.Popen.return_value = mock_popen
-        mock_popen.stdout.read.return_value = b"out"
-        mock_popen.stderr.read.return_value = b"err"
-        mock_popen.wait.return_value = 0
+        mock_run = Mock()
+        mock_subprocess.run.return_value = mock_run
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 0
         client = PolarisClient("user")
         client.put_recursive(
             output_temp_dir,
             "destination",
         )
-        mock_popen.wait.assert_called_once_with(180)
-        mock_subprocess.Popen.assert_has_calls(
+        mock_subprocess.run.assert_has_calls(
             [
                 call(
                     'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
@@ -943,34 +935,76 @@ def test_polaris_client_put_recursive_success_tests_gitignore(
                     f"--exclude {output_temp_dir}/tests "
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
+                    timeout=40,
                 ),
             ]
         )
 
 
-def test_polaris_client_put_recursive_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 1
+def test_polaris_client_put_recursive_failure(mock_subprocess_no_init, mock_auth):
+    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess_no_init.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 1
     with pytest.raises(RuntimeError, match="Rsync failed. stderr: err"):
         client = PolarisClient("user")
         client.put_recursive(
             "source",
             "destination",
         )
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess_no_init.run.assert_has_calls(
         [
             call(
                 'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
                 "source user@polaris.alcf.anl.gov:destination",
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=40,
+            ),
+        ]
+    )
+
+
+def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth):
+    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess_no_init.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        subprocess.TimeoutExpired("Timeout!", 1),
+    ]
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 1
+    with pytest.raises(RuntimeError, match="Timeout while running rsync command."):
+        client = PolarisClient("user")
+        client.put_recursive(
+            "source",
+            "destination",
+        )
+    mock_subprocess_no_init.run.assert_has_calls(
+        [
+            call(
+                'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
+                "source user@polaris.alcf.anl.gov:destination",
+                shell=True,
+                capture_output=True,
+                timeout=40,
             ),
         ]
     )
