@@ -57,4 +57,5 @@ peft:
   lora_alpha: 16
   lora_target_modules:
     - "q_proj"
+    - "k_proj"
     - "v_proj"

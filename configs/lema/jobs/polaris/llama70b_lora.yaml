@@ -1,11 +1,11 @@
-# Config to LoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
+# Config to LoRA tune Llama 3.1 70B Instruct on 3 Polaris nodes.
 # Example command:
-# lema-launch -p configs/lema/jobs/polaris/llama70b_lora.yaml -c debug-scaling.$ALCF_USER user=$ALCF_USER
+# lema-launch -p configs/lema/jobs/polaris/llama70b_lora.yaml -c preemptable.$ALCF_USER user=$ALCF_USER
 name: llama70b-lora
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 2
+num_nodes: 3
 resources:
   cloud: polaris
 
