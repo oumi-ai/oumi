@@ -12,6 +12,7 @@ class StorageMount:
 
     source: str = MISSING
     """The remote path to mount the local path to (Required).
+
     e.g. 'gs://bucket/path' for GCS, 's3://bucket/path' for S3, or 'r2://path' for
     R2.
     """
@@ -70,7 +71,8 @@ class JobResources:
     """
 
     disk_size: Optional[int] = None
-    """Disk size in GiB to allocate for OS (mounted at /). (optional)
+    """Disk size in GiB to allocate for OS (mounted at /) (optional)
+
     Ignored by Polaris.
     """
 
