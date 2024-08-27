@@ -127,7 +127,8 @@ def _poll_job(
         print("Cannot detach from jobs in local mode.")
 
     if not running_cluster:
-        running_cluster = launcher.get_cloud(cloud).get_cluster(job_status.cluster)
+        running_cloud = launcher.get_cloud(cloud)
+        running_cluster = running_cloud.get_cluster(job_status.cluster)
 
     assert running_cluster
 
@@ -215,14 +216,14 @@ def status(launch_args: _LaunchArgs) -> None:
         filtered_jobs[cloud] = {}
         for cluster in cloud_obj.list_clusters():
             # Ignore clusters not matching the filter criteria.
-            if launch_args.cluster and cluster.name != launch_args.cluster:
+            if launch_args.cluster and cluster.name() != launch_args.cluster:
                 continue
-            filtered_jobs[cloud][cluster.name] = []
+            filtered_jobs[cloud][cluster.name()] = []
             for job in cluster.get_jobs():
                 # Ignore jobs not matching the filter criteria.
                 if launch_args.job_id and job.id != launch_args.job_id:
                     continue
-                filtered_jobs[cloud][cluster.name].append(job)
+                filtered_jobs[cloud][cluster.name()].append(job)
     # Print the filtered jobs.
     if not filtered_jobs.items():
         print("No jobs found for the specified filter criteria: ")
@@ -298,10 +299,16 @@ def launch(launch_args: _LaunchArgs) -> None:
         launch_args.job, launch_args.additional_args, logger=logger
     )
     config.validate()
-
+    if launch_args.cluster:
+        cloud = launcher.get_cloud(config.resources.cloud)
+        cluster = cloud.get_cluster(launch_args.cluster)
+        if cluster:
+            print(f"Found an existing cluster: {cluster.name()}.")
+            run(launch_args)
+            return
     # Start the job
     running_cluster, job_status = launcher.up(config, launch_args.cluster)
-    print(f"Job {job_status.id} queued on cluster {running_cluster.name}.")
+    print(f"Job {job_status.id} queued on cluster {running_cluster.name()}.")
 
     _poll_job(
         job_status, launch_args, config.resources.cloud, running_cluster=running_cluster
