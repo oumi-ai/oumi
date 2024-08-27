@@ -22,7 +22,8 @@ class TrainingConfig(BaseConfig):
     This field contains all the necessary settings for data processing and loading.
     It includes options for train and evaluation datasets and preprocessing steps.
 
-    For more details, see the :class:`lema.core.configs.params.data_params.DataParams` class.
+    For more details, see the :class:`lema.core.configs.params.data_params.DataParams`
+    class.
     """
 
     model: ModelParams = field(default_factory=ModelParams)
@@ -31,16 +32,18 @@ class TrainingConfig(BaseConfig):
     This field defines the model architecture, size, and other model-specific settings.
     It includes options for model type, pretrained weights, and tokenizer configuration.
 
-    For more details, see :class:`lema.core.configs.params.model_params.ModelParams` class.
+    For more details, see :class:`lema.core.configs.params.model_params.ModelParams`
+    class.
     """
 
     training: TrainingParams = field(default_factory=TrainingParams)
     """Configuration parameters for the training process.
 
-    This field contains all settings related to the training loop, including learning rate,
-    batch size, number of epochs, and optimization parameters.
+    This field contains all settings related to the training loop,
+    including learning rate, batch size, number of epochs, and optimization parameters.
 
-    For more details, see :class:`lema.core.configs.params.training_params.TrainingParams`.
+    For more details, see
+    :class:`lema.core.configs.params.training_params.TrainingParams`.
     """
 
     peft: PeftParams = field(default_factory=PeftParams)
