@@ -86,6 +86,7 @@ def test_sky_client_launch(mock_sky_data_storage):
             ANY,
             cluster_name=None,
             detach_run=True,
+            idle_minutes_to_autostop=30,
         )
 
 
@@ -110,6 +111,7 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
             ANY,
             cluster_name="cluster_name",
             detach_run=True,
+            idle_minutes_to_autostop=30,
         )
 
 
