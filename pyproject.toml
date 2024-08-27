@@ -28,6 +28,7 @@ classifiers = [
 dependencies = [
     "google-api-python-client",    # To enable GCP in Skypilot
     "numpy",
+    "pexpect",
     "skypilot[gcp,lambda,runpod]",
     "torch",
     "transformers",
@@ -42,7 +43,6 @@ dev = [
     "black",
     "isort",
     "mypy",
-    "pexpect",
     "pre-commit",
     "pyright",
     "pytest",
