@@ -21,13 +21,13 @@ class EvaluationConfig(BaseConfig):
     """Parameters for the dataset split to be used in evaluation.
 
     This includes specifications for train, validation, and test splits,
-    as well as any data preprocessing or augmentation settings.
+    as well as any data preprocessing parameters.
     """
 
     model: ModelParams = field(default_factory=ModelParams)
     """Parameters for the model to be evaluated.
 
-    This may include model architecture, size, pre-training details,
+    This includes model architecture, size, dtype,
     and any specific configurations required for the evaluation task.
     """
 
