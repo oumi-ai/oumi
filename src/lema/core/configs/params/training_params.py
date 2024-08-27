@@ -454,7 +454,7 @@ class TrainingParams(BaseParams):
     2 means there will be a total of 2 * num_workers batches prefetched across
     all workers.
 
-    Can only be set if dataloader_num_workers >= 1.
+    This is only used if dataloader_num_workers >= 1.
     """
 
     dataloader_main_process_only: Optional[bool] = None
