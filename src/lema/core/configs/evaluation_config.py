@@ -48,17 +48,24 @@ class EvaluationConfig(BaseConfig):
     evaluation scenarios.
     """
 
-    #: Number of few-shot examples (with responses) to add in the prompt, in order to
-    #: teach the model how to respond to the specific dataset's prompts.
-    #: If not set (None): LM Harness will decide the value.
-    #: If set to 0: no few-shot examples will be added in the prompt.
     num_shots: Optional[int] = None
-    #: Number of samples/examples to evaluate from this dataset. Mostly for debugging,
-    #: in order to reduce the runtime. If not set (None): the entire dataset is
-    #: evaluated. If set, this must be a positive integer.
+    """Number of few-shot examples (with responses) to add in the prompt, in order to
+    teach the model how to respond to the specific dataset's prompts.
+
+    If not set (None): LM Harness will decide the value.
+    If set to 0: no few-shot examples will be added in the prompt.
+    """
+
     num_samples: Optional[int] = None
-    #: Where to write computed evaluations.
+    """Number of samples/examples to evaluate from this dataset.
+
+    Mostly for debugging, in order to reduce the runtime.
+    If not set (None): the entire dataset is evaluated.
+    If set, this must be a positive integer.
+    """
+
     output_dir: str = "output"
+    """Where to write computed evaluations."""
 
     def __post_init__(self):
         """Verifies params."""
