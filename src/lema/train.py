@@ -244,7 +244,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     _START_TIME = time.time()
 
     if is_distributed():
-        init_distributed()
+        init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
     if is_local_process_zero():
         log_versioning_info()
