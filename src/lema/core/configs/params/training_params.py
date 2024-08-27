@@ -37,7 +37,7 @@ class TrainerType(Enum):
     LEMA = "lema"
     """Custom generic trainer implementation.
 
-    This is a custom trainer implementation specific to the LEMA project,
+    This is a custom trainer implementation specific to the Lema project,
     designed to provide additional flexibility and features.
     """
 
@@ -51,7 +51,7 @@ class SchedulerType(str, Enum):
     LINEAR = "linear"
     """Linear scheduler.
 
-    Decreases the learning rate linearly from the initial lr to 0 over the course
+    Decreases the learning rate linearly from the initial value to 0 over the course
     of training.
     """
 
