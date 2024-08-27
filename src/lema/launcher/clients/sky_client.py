@@ -6,6 +6,7 @@ import sky.data
 
 from lema.core.configs import JobConfig
 from lema.core.launcher import JobStatus
+from lema.utils.logging import logger
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
@@ -87,6 +88,11 @@ class SkyClient:
         idle_minutes_to_autostop = 30
         if autostop_kw in kwargs:
             idle_minutes_to_autostop = kwargs.get(autostop_kw)
+        else:
+            logger.info(
+                "No idle_minutes_to_autostop provided. "
+                f"Defaulting to {idle_minutes_to_autostop} minutes."
+            )
         job_id, resource_handle = sky.launch(
             _convert_job_to_task(job),
             cluster_name=cluster_name,
