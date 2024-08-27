@@ -28,26 +28,50 @@ class HuggingFaceTrainer(BaseTrainer):
 
         HuggingFace normally writes state into "trainer_state.json" under output_dir.
         """
+        if not is_world_process_zero():
+            return
+
         self._hf_trainer.save_state()
 
-    def save_model(self, config: TrainingConfig) -> None:
-        """See base class."""
-        # TODO: OPE-213 use safetensors to save model
+    def save_model(self, config: TrainingConfig, final: bool = True) -> None:
+        """Saves the model's weights to the specified output directory.
+
+        Args:
+            config: The LeMa training config.
+            final: Whether to save the final model.
+                - Applies optimizations for the final model checkpoint.
+                - In the case of FSDP, this will always save the FULL_STATE_DICT
+                instead of the default STATE_DICT.
+
+        Returns:
+            None
+        """
+        if self._hf_trainer.is_fsdp_enabled:
+            # FSDP is enabled, so we need to save the model in a special way.
+            return self._save_fsdp_model(config=config, final=final)
+
         if is_world_process_zero():
-            # Only save from "master" worker.
             output_dir = config.training.output_dir
-
-            if config.training.use_peft:
-                state_dict = {
-                    k: t
-                    for k, t in self._hf_trainer.model.named_parameters()
-                    if "lora_" in k
-                }
-                # FIXME: Can we replace the private method `_save()` with
-                # `Trainer.save_model()`?
-                # https://github.com/huggingface/transformers/blob/0f67ba1d741d65b07d549daf4ee157609ce4f9c1/src/transformers/trainer.py#L3384
-                self._hf_trainer._save(output_dir, state_dict=state_dict)
-            else:
-                self._hf_trainer.save_model(output_dir)
-
+            self._hf_trainer.save_model(output_dir)
             logger.info(f"Model has been saved at {output_dir}.")
+
+    def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
+        """Saves the model's weights to the specified output directory.
+
+        For FSDP, all ranks should call into this function
+        """
+        if final:
+            # For the final checkpoint, we need to save the FULL_STATE_DICT instead of
+            # the default STATE_DICT.
+            if (
+                self._hf_trainer.is_fsdp_enabled
+                and self._hf_trainer.accelerator.state.fsdp_plugin is not None
+            ):
+                logger.info("Saving FULL_STATE_DICT for final model checkpoint.")
+                self._hf_trainer.accelerator.state.fsdp_plugin.set_state_dict_type(
+                    "FULL_STATE_DICT"
+                )
+
+        output_dir = config.training.output_dir
+        self._hf_trainer.save_model(output_dir)
+        logger.info(f"Model has been saved at {output_dir}.")

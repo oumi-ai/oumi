@@ -1,26 +1,17 @@
 name: hello-world
 resources:
   cloud: gcp
-  # See other available accelerators by running `sky show-gpus --cloud gcp`.
   accelerators: A100
 
-# Upload a working directory to the remote.
+# Upload working directory to remote.
 working_dir: .
-
-# Upload local files.
-#file_mounts:
-#  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
-#   /artifacts:
-#     name: lema-dev-private # Not available on lambda
-#     mode: MOUNT
 
 envs:
   TEST_ENV_VARIABLE: '"Hello, World!"'
 
-# `setup` will always be executed before `run`.
-# No setup is required for this job.
-#setup: |
-#  echo "Running setup..."
+# For GCP, setup is only run once at cluster creation.
+setup: |
+  echo "Running setup..."
 
 run: |
   set -e  # Exit if any command failed.

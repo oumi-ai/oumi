@@ -1,4 +1,5 @@
 #!/bin/bash
+# Run some checks, export "LEMA_*" env vars, and print cluster info.
 
 echo "SkyPilot task ID: ${SKYPILOT_TASK_ID}"
 echo "SkyPilot cluster: ${SKYPILOT_CLUSTER_INFO}"

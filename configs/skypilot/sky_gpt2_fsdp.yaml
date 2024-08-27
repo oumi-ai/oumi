@@ -1,29 +1,20 @@
-name: lema-train-example
+name: gpt2-fsdp
 
 resources:
-  # Use 1 of the following GPUs depending on availability. No preference.
-  # To view other GPU types use the following commands:
-  # `sky show-gpus`, `sky show-gpus -a`
-  accelerators: {"A40": 2} # "A40", "A10", "A10g", "A100-80GB-SXM"
-  # To configure single-node, multi-gpu (N GPUs) training, do the following:
-  # 1. Set `accelerators:` above to something like this: {"A40": N}
-  # 2. Set `num_processes: N` in configs/accelerate/gpt2.fsdp.yaml
+  accelerators: {"A40": 2}
   any_of:
     - use_spot: true
     - use_spot: false
 
-# Upload a working directory to remote ~/sky_workdir.
+# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Upload local files.
+# Mount local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
+  ~/.netrc: ~/.netrc  # WandB credentials
 
 envs:
-  WANDB_PROJECT: lema-train-test
+  WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: gpt2.pt.fsdp
   ACCELERATE_LOG_LEVEL: info
 
@@ -33,8 +24,6 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-
-  # Run some checks, and export "LEMA_*" env vars
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))

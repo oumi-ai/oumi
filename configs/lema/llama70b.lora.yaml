@@ -1,17 +1,17 @@
-# Lora config for Llama 8B.
+# Lora config for Llama 70B.
 # Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_lora.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
 
 model:
   # Vocab size: 128256
-  # Hidden size: 4096
-  # MLP intermediate size: 14336
-  # Num layers: 32
-  # Num attention heads: 32
+  # Hidden size: 8192
+  # MLP intermediate size: 28672
+  # Num layers: 80
+  # Num attention heads: 64
   # Num KV heads: 8
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
@@ -30,18 +30,15 @@ training:
   trainer_type: TRL_SFT
   use_peft: True
   save_steps: 200
-  per_device_train_batch_size: 2 # torchtune uses bs=2x32
-  gradient_accumulation_steps: 32
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 3.0e-04
-  lr_scheduler_type: "cosine"
-  warmup_steps: 100
-  weight_decay: 0.01
+  learning_rate: 2.0e-05
   compile: False
 
   dataloader_num_workers: "auto"
@@ -50,7 +47,7 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/llama8b.lora"
+  output_dir: "output/llama70b.lora"
   include_performance_metrics: True
   enable_wandb: True
 
@@ -60,4 +57,5 @@ peft:
   lora_alpha: 16
   lora_target_modules:
     - "q_proj"
+    - "k_proj"
     - "v_proj"

@@ -19,11 +19,12 @@ class BaseTrainer(ABC):
         # Can it be merged with save_model()?
 
     @abstractmethod
-    def save_model(self, config: TrainingConfig) -> None:
+    def save_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model's state dictionary to the specified output directory.
 
         Args:
             config (TrainingConfig): The LeMa training config.
+            final (bool): Whether to save the final model.
 
         Returns:
             None
