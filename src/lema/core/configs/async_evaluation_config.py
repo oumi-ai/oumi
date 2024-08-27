@@ -9,6 +9,12 @@ from lema.core.configs.evaluation_config import EvaluationConfig
 @dataclass
 class AsyncEvaluationConfig(BaseConfig):
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    """The evaluation configuration to use for each checkpoint.
+
+    This field specifies the EvaluationConfig object that defines the parameters
+    for evaluating each checkpoint. It includes settings for the dataset,
+    model, generation, and evaluation framework to be used.
+    """
 
     checkpoints_dir: str = MISSING
     """The directory to poll for new checkpoints."""
