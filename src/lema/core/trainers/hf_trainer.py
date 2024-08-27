@@ -37,10 +37,11 @@ class HuggingFaceTrainer(BaseTrainer):
         """Saves the model's weights to the specified output directory.
 
         Args:
-            config (TrainingConfig): The LeMa training config.
-            final (bool): Whether to save the final model. In the case of FSDP,
-                this will always save the FULL_STATE_DICT instead of the default
-                STATE_DICT.
+            config: The LeMa training config.
+            final: Whether to save the final model.
+                - Applies optimizations for the final model checkpoint.
+                - In the case of FSDP, this will always save the FULL_STATE_DICT
+                instead of the default STATE_DICT.
 
         Returns:
             None
@@ -59,8 +60,9 @@ class HuggingFaceTrainer(BaseTrainer):
 
         For FSDP, all ranks should call into this function
         """
-        # Pre-process the model if FSDP is enabled and this is the final checkpoint.
         if final:
+            # For the final checkpoint, we need to save the FULL_STATE_DICT instead of
+            # the default STATE_DICT.
             if (
                 self._hf_trainer.is_fsdp_enabled
                 and self._hf_trainer.accelerator.state.fsdp_plugin is not None
