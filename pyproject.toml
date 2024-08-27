@@ -49,10 +49,7 @@ dev = [
     "pyright",
     "pytest",
     "ruff",
-    "sphinx",           # for documentation
-    "sphinx-rtd-theme", # for documentation
     "torchfix",
-    "myst_parser",
 ]
 train = [
     "accelerate",                   # for quantization
@@ -77,6 +74,12 @@ cloud = [
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
+]
+gpu = ["flash-attn"]
+docs = [
+    "sphinx",           # for documentation
+    "sphinx-rtd-theme", # for documentation
+    "myst_parser",
 ]
 all = ["lema[dev,train,cloud]"]
 
