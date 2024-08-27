@@ -216,6 +216,12 @@ class TrainingParams(BaseParams):
     #: If left unset, cache will not be emptied.
     empty_device_cache_steps: Optional[int] = None
 
+    #: Default timeout for NCCL operations in minutes.
+    #: See: https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group
+    #: If unset, will use the default value of `torch.distributed.init_process_group`
+    #: which is 10min.
+    nccl_default_timeout_minutes: Optional[float] = None
+
     def to_hf(self):
         """Converts LeMa config to HuggingFace's TrainingArguments."""
         save_strategy: str = "no"

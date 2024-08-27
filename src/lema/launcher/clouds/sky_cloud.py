@@ -27,9 +27,9 @@ class SkyCloud(BaseCloud):
             if isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
         ]
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
-        job_status = self._client.launch(job, name)
+        job_status = self._client.launch(job, name, **kwargs)
         cluster = self.get_cluster(job_status.cluster)
         if not cluster:
             raise RuntimeError(f"Cluster {job_status.cluster} not found.")

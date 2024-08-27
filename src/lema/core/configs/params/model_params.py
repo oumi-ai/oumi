@@ -28,6 +28,7 @@ class ModelParams(BaseParams):
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    enable_liger_kernel: bool = False
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
@@ -48,6 +49,8 @@ class ModelParams(BaseParams):
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
         }
+        if self.adapter_model:
+            model_args_dict["peft"] = self.adapter_model
         if self.attn_implementation:
             model_args_dict["attn_implementation"] = self.attn_implementation
         return model_args_dict

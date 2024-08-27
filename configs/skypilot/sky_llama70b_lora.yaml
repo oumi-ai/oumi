@@ -1,6 +1,6 @@
 name: llama70b-lora
 
-num_nodes: 2
+num_nodes: 3
 resources:
   accelerators: {"A100": 4}
   any_of:

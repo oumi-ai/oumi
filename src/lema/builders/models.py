@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 from typing import Optional, Union, cast
 
@@ -12,6 +13,11 @@ from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
+
+try:
+    import liger_kernel.transformers  # type: ignore
+except ImportError:
+    liger_kernel = None
 
 
 def build_model(
@@ -42,6 +48,9 @@ def build_model(
             *kwargs,
         )
 
+    if model_params.enable_liger_kernel:
+        _patch_model_for_liger_kernel(model_params.model_name)
+
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
         # nn.Module. We cast it so that this function can have a useful return type.
@@ -49,6 +58,27 @@ def build_model(
         logger.info("Enabled model compilation.")
 
     return model
+
+
+def _patch_model_for_liger_kernel(model_name: str) -> None:
+    """Patches the model for Liger Kernel."""
+    if liger_kernel is None:
+        raise ImportError(
+            "Liger Kernel not installed. Please install `pip install liger-kernel`."
+        )
+
+    model_name_lower = model_name.lower()
+
+    if "llama" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_llama()
+    elif "mixtral" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
+    elif "mistral" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_mistral()
+    elif "gemma" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_gemma()
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
 
 
 def build_lema_model(
@@ -85,8 +115,18 @@ def build_huggingface_model(
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
 
-    # "auto" is not compatible with distributed training.
-    if device_map == "auto" and device_rank_info.world_size > 1:
+    # If we're using FSDP via HF Accelerate, we should not specify the device map
+    # so that HF properly initializes the model for FSDP.
+    # If we set device_map to "auto", it seems HF will try to shard the model when
+    # loading it, which conflicts with FSDP's sharding.
+    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
+    # load the model only on rank 0, which will OOM for large models.
+    # See https://github.com/huggingface/transformers/pull/25107.
+    if os.environ.get("ACCELERATE_USE_FSDP", "false"):
+        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
+        device_map = None
+    elif device_map == "auto" and device_rank_info.world_size > 1:
+        # "auto" is not compatible with DDP.
         logger.info(
             f"Building model for distributed training "
             f"(world_size: {device_rank_info.world_size})..."

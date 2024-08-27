@@ -11,21 +11,8 @@
 
 set -e
 
-# Change to the directory where the job was submitted.
-echo "Changing directory to ${PBS_O_WORKDIR} ..."
-cd ${PBS_O_WORKDIR}
-
-# Run several checks and export "LEMA_*" env vars.
+# Various setup for running on Polaris.
 source ./scripts/polaris/polaris_init.sh
-
-# Set up default modules.
-module use /soft/modulefiles
-
-# Set up conda.
-module load conda
-
-# Activate the LeMa Conda environment.
-conda activate /home/$USER/miniconda3/envs/lema
 
 # NOTE: Update this variable to point to your own LoRA adapter:
 EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B-Instruct/sample_lora_adapters/2073171/"

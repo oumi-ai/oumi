@@ -299,6 +299,9 @@ def test_polaris_cluster_stop_job_fails(mock_polaris_client):
 
 def test_polaris_cluster_run_job(mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_polaris_client.run_commands.return_value = mock_successful_cmd
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -337,9 +340,8 @@ def test_polaris_cluster_run_job(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/myjob"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
-            call(["chmod a+x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -370,6 +372,16 @@ def test_polaris_cluster_run_job(mock_polaris_client):
 
 
 def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_failed_cmd = Mock()
+    mock_failed_cmd.exit_code = 1
+    mock_polaris_client.run_commands.side_effect = [
+        mock_failed_cmd,
+        mock_successful_cmd,
+        mock_successful_cmd,
+        mock_successful_cmd,
+    ]
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
@@ -390,15 +402,6 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         cluster="debug.name",
         done=False,
     )
-    mock_polaris_client.run_commands.side_effect = [
-        None,
-        RuntimeError,
-        None,
-        None,
-        None,
-        None,
-        None,
-    ]
     job_status = cluster.run_job(_get_default_job("polaris"))
     mock_polaris_client.put_recursive.assert_has_calls(
         [
@@ -418,32 +421,24 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/myjob"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
             call(
                 [
-                    "module use /soft/modulefiles && "
-                    "module load conda && "
+                    "module use /soft/modulefiles",
+                    "module load conda",
                     'echo "Creating LeMa Conda environment... -------------------------'
-                    '--"'
-                    " && conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema"
-                    " && conda activate /home/$USER/miniconda3/envs/lema && "
-                    "pip install flash-attn --no-build-isolation"
+                    '--"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install flash-attn --no-build-isolation",
+                    "cd /home/user/lema_launcher/myjob",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
                 ]
             ),
-            call(
-                [
-                    "cd /home/user/lema_launcher/myjob && "
-                    "module use /soft/modulefiles && "
-                    "module load conda && "
-                    "conda activate /home/$USER/miniconda3/envs/lema && "
-                    'echo "Installing packages... -------------------------------------'
-                    '--"'
-                    " && pip install -e '.[train]'"
-                ]
-            ),
-            call(["chmod a+x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -474,6 +469,9 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
 
 
 def test_polaris_cluster_run_job_no_name(mock_polaris_client):
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_polaris_client.run_commands.return_value = mock_successful_cmd
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
@@ -519,9 +517,8 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/1-2-3"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
-            call(["chmod a+x /home/user/lema_launcher/1-2-3/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/1-2-3/lema_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -552,6 +549,9 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
 
 
 def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_polaris_client.run_commands.return_value = mock_successful_cmd
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
@@ -585,9 +585,8 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/myjob"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
-            call(["chmod a+x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -618,6 +617,9 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
 
 
 def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_polaris_client.run_commands.return_value = mock_successful_cmd
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
@@ -653,9 +655,8 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/myjob"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
-            call(["chmod a+x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
         ]
     )
     job_script = (
@@ -678,6 +679,9 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
 
 
 def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_polaris_client.run_commands.return_value = mock_successful_cmd
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "1234"
     mock_polaris_client.list_jobs.return_value = [
@@ -713,9 +717,8 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["mkdir -p /home/user/lema_launcher/myjob"]),
             call(["test -d /home/$USER/miniconda3/envs/lema"]),
-            call(["chmod a+x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
         ]
     )
     job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
