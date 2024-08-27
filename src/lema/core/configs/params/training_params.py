@@ -425,7 +425,7 @@ class TrainingParams(BaseParams):
     """
 
     try_resume_from_last_checkpoint: bool = False
-    """If True, attempt to find the last checkpoint in "output_dir".
+    """If True, attempt to resume from the last checkpoint in "output_dir".
 
     If a checkpoint is found, training will resume from the model/optimizer/scheduler
     states loaded from this checkpoint. If no checkpoint is found, training will
