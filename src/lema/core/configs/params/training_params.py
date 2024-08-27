@@ -95,7 +95,9 @@ class MixedPrecisionDtype(str, Enum):
     """
 
     FP16 = "fp16"
-    """fp16 mixed precision. Requires `ModelParams.torch_dtype` (the dtype of the model
+    """fp16 mixed precision.
+
+    Requires `ModelParams.torch_dtype` (the dtype of the model
     weights) to be fp32. The model weights and optimizer state are fp32, but some ops
     will run in fp16 to improve training speed.
     """
@@ -249,12 +251,19 @@ class TrainingParams(BaseParams):
 
     dep_log_level: str = "warning"
     """The logging level for dependency loggers (e.g., HuggingFace, PyTorch).
+
     Possible values are "debug", "info", "warning", "error", "critical".
     """
 
     enable_wandb: bool = False
     """Whether to enable Weights & Biases (wandb) logging.
+
     If True, wandb will be used for experiment tracking and visualization.
+    Wandb will also log a summary of the training run, including hyperparameters,
+    metrics, and other relevant information at the end of training.
+
+    After enabling, you must set the `WANDB_API_KEY` environment variable.
+    Alternatively, you can use the `wandb login` command to authenticate.
     """
 
     enable_tensorboard: bool = True
@@ -341,7 +350,9 @@ class TrainingParams(BaseParams):
     Either this or warmup_ratio should be set, not both.
     """
 
+    # ---------------------
     # Optimizer params.
+    # ---------------------
     optimizer: str = "adamw_torch"
     """The optimizer to use for training.
 
