@@ -359,8 +359,8 @@ class TrainingParams(BaseParams):
 
     adam_beta1: float = 0.9
     """The beta1 parameter for Adam-based optimizers.
-    Exponential decay rate for the first moment estimates.
 
+    Exponential decay rate for the first moment estimates.
     Default is 0.9.
     """
 
