@@ -196,11 +196,15 @@ def global_leader_first(*args, **kwargs):
 #
 # Distributed Initialization
 #
-def init_distributed(backend: str = "nccl", timeout: Optional[float] = None) -> None:
+def init_distributed(
+    backend: str = "nccl", timeout_minutes: Optional[float] = None
+) -> None:
     """Initialize the distributed environment."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
-    timeout_delta = timedelta(seconds=timeout) if timeout is not None else None
-    dist.init_process_group(backend=backend, timeout=timeout_delta)
+    timeout = (
+        timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
+    )
+    dist.init_process_group(backend=backend, timeout=timeout)
     torch.cuda.set_device(int(device_rank_info.local_rank))
 
 
