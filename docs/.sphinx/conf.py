@@ -31,7 +31,6 @@ extensions = [
     "sphinx.ext.viewcode",
     "myst_parser",
     "nbsphinx",
-    "sphinx_paramlinks",
 ]
 
 source_suffix = {
