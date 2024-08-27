@@ -298,7 +298,11 @@ class TrainingParams(BaseParams):
     """Whether to log and evaluate the first global step.
 
     If True, metrics will be logged and evaluation will be performed at the very
-    beginning of training.
+    beginning of training. Skipping the first step can be useful to avoid logging
+    and evaluation of the initial random model.
+
+    The first step is usually not representative of the model's performance, as it
+    includes model compilation, optimizer initialization, and other setup steps.
     """
 
     eval_strategy: str = "no"
@@ -494,7 +498,7 @@ class TrainingParams(BaseParams):
     max_grad_norm: float = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
-    
+
     Defaults to 1.0.
     """
 
