@@ -411,7 +411,7 @@ class TrainingParams(BaseParams):
     """Whether to report alternative MFU (Model FLOPs Utilization) metrics.
 
     These metrics are based on HuggingFace's `total_flos`.
-    This option is only enabled if `include_performance_metrics` is `True`.
+    This option is only used if `include_performance_metrics` is `True`.
     """
 
     log_model_summary: bool = False
