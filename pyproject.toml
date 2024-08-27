@@ -45,14 +45,13 @@ dev = [
     "isort",
     "mypy",
     "pre-commit",
-    "pynvml",
     "pyright",
     "pytest",
     "ruff",
     "torchfix",
 ]
 train = [
-    "accelerate",                   # for quantization
+    "accelerate",
     "bitsandbytes",                 # for quantization
     "datasets",
     "deepspeed",
@@ -75,13 +74,9 @@ cloud = [
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
 ]
-gpu = ["flash-attn"]
-docs = [
-    "sphinx",           # for documentation
-    "sphinx-rtd-theme", # for documentation
-    "myst_parser",
-]
-all = ["lema[dev,train,cloud]"]
+gpu = ["flash-attn"] # dependecies that require a GPU to install
+docs = ["myst_parser", "sphinx", "sphinx-rtd-theme"]
+all = ["lema[dev,train,cloud,docs]"]
 
 [project.scripts]
 lema-evaluate = "lema.evaluate:main"
