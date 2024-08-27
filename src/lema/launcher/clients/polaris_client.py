@@ -174,12 +174,7 @@ class PolarisClient:
 
     @retry_auth
     def run_commands(self, commands: List[str]) -> PolarisResponse:
-        """Runs the provided commands using recursive context setting.
-
-        Due to an implementation detail in Fabric, `cd` commands are not preserved
-        unless run in the same context as the previous command. To this end, this
-        function detects `cd` commands and generates a new context for them. Following
-        commands are invoked in the same context via recursion.
+        """Runs the provided commands in a single SSH command.
 
         Args:
             commands: The commands to run.
@@ -309,7 +304,7 @@ class PolarisClient:
 
     @retry_auth
     def put_recursive(self, source: str, destination: str) -> None:
-        """Puts the specified file/directory to the remote path, recursively.
+        """Puts the specified file/directory to the remote path using rsync.
 
         Args:
             source: The local file/directory to write.
