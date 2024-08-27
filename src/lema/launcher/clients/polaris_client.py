@@ -1,45 +1,57 @@
 import functools
-import io
 import re
+import subprocess
+from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
+from pathlib import Path
 from typing import List, Optional
 
-from asyncssh.sftp import SFTPNoConnection
-from fabric import Connection
-from paramiko.ssh_exception import BadAuthenticationType
-from sshfs import SSHFileSystem
+import pexpect
 
 from lema.core.launcher import JobStatus
 from lema.utils.logging import logger
 
+_CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
+
+
+class _PolarisAuthException(Exception):
+    pass
+
+
+def _check_connection(user: str):
+    """Checks if the connection is still open."""
+    ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@polaris.alcf.anl.gov"
+    try:
+        child = subprocess.run(
+            ssh_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        raise _PolarisAuthException("Timeout while checking connection.")
+    if child.returncode == 0:
+        return
+    raise _PolarisAuthException("Connection to Polaris is closed.")
+
+
+@dataclass
+class PolarisResponse:
+    """A response from Polaris."""
+
+    stdout: str
+    stderr: str
+    exit_code: int
+
 
 def retry_auth(user_function):
-    """Decorator to retry a function if the connection is closed."""
+    """Decorator to ensure auth is fresh before calling a function."""
 
     @functools.wraps(user_function)
     def wrapper(self, *args, **kwargs):
-        try:
-            return user_function(self, *args, **kwargs)
-        except (EOFError, BadAuthenticationType):
-            logger.warning("Connection closed. Reconnecting...")
-            self._connection = self._refresh_creds(close_connection=True)
-            return user_function(self, *args, **kwargs)
-
-    return wrapper
-
-
-def retry_fs(user_function):
-    """Decorator to retry a function if the filesystem is closed."""
-
-    @functools.wraps(user_function)
-    def wrapper(self, *args, **kwargs):
-        try:
-            return user_function(self, *args, **kwargs)
-        except SFTPNoConnection:
-            logger.warning("Connection closed. Reconnecting...")
-            self._fs = self._refresh_fs()
-            return user_function(self, *args, **kwargs)
+        self._refresh_creds()
+        return user_function(self, *args, **kwargs)
 
     return wrapper
 
@@ -62,8 +74,6 @@ class PolarisClient:
         PREEMPTABLE = "preemptable"
         PROD = "prod"
 
-    _CD_PATTERN = r"cd\s+(.*?)($|\s)"
-
     _FINISHED_STATUS = "F"
 
     _PROD_QUEUES = {
@@ -82,8 +92,7 @@ class PolarisClient:
             user: The user to act as.
         """
         self._user = user
-        self._connection = self._refresh_creds()
-        self._fs = self._refresh_fs()
+        self._refresh_creds()
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
         """Splits a status line into a JobStatus object.
@@ -140,60 +149,53 @@ class PolarisClient:
             return job_id
         return job_id.split(".")[0]
 
-    def _refresh_fs(self) -> SSHFileSystem:
-        """Refreshes the remote filesystem."""
-        return SSHFileSystem(
-            "polaris.alcf.anl.gov",
-            username=self._user,
-            password=getpass(
-                prompt="Mounting Polaris filesystem...\n"
-                "This requires a new set of Polaris credentials.\n"
-                "**You must refresh your passcode before proceeding!**\n"
-                f"Polaris passcode for {self._user}: "
-            ),
-        )
-
-    def _refresh_creds(self, close_connection=False) -> Connection:
+    def _refresh_creds(self):
         """Refreshes the credentials for the client."""
-        if close_connection:
-            self._connection.close()
-        connection = Connection(
-            "polaris.alcf.anl.gov",
-            user=self._user,
-            connect_kwargs={
-                "password": getpass(prompt=f"Polaris passcode for {self._user}: ")
-            },
+        try:
+            _check_connection(self._user)
+            # We have fresh credentials, so we return early.
+            return
+        except _PolarisAuthException:
+            logger.warning("No connection found. Establishing a new SSH tunnel...")
+        ssh_cmd = (
+            f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" '
+            f"{self._user}@polaris.alcf.anl.gov"
         )
-        connection.open()
-        return connection
+        child = pexpect.spawn(ssh_cmd)
+        child.expect("Password:")
+        child.sendline(getpass(prompt=f"Polaris passcode for {self._user}: "))
+        child.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=10)
+        output = child.before
+        child.close()
+        exit_code = child.exitstatus
+        if exit_code != 0:
+            logger.error(f"Credential error: {output}")
+            raise RuntimeError("Failed to refresh Polaris credentials.")
 
     @retry_auth
-    def run_commands(self, commands: List[str]) -> None:
-        """Runs the provided commands using recursive context setting.
-
-        Due to an implementation detail in Fabric, `cd` commands are not preserved
-        unless run in the same context as the previous command. To this end, this
-        function detects `cd` commands and generates a new context for them. Following
-        commands are invoked in the same context via recursion.
+    def run_commands(self, commands: List[str]) -> PolarisResponse:
+        """Runs the provided commands in a single SSH command.
 
         Args:
             commands: The commands to run.
         """
-        if len(commands) == 0:
-            return
-        command = commands[0]
-        remaining_commands = commands[1:]
-        match = re.search(self._CD_PATTERN, command)
-        if match:
-            location = match.group(1)
-            with self._connection.cd(location):
-                return self.run_commands(remaining_commands)
-        result = self._connection.run(command, warn=True)
-        if not result:
-            raise RuntimeError(
-                f"Failed to run command: {command} . stderr: {result.stderr}"
-            )
-        return self.run_commands(remaining_commands)
+        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
+        eof_suffix = "EOF"
+        new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
+        child = subprocess.Popen(
+            new_cmd,
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        exit_code = child.wait(180)
+        parsed_stdout = child.stdout.read().decode("utf-8") if child.stdout else ""
+        parsed_stderr = child.stderr.read().decode("utf-8") if child.stderr else ""
+        return PolarisResponse(
+            stdout=parsed_stdout,
+            stderr=parsed_stderr,
+            exit_code=exit_code,
+        )
 
     @retry_auth
     def submit_job(
@@ -219,15 +221,14 @@ class PolarisClient:
         optional_name_args = ""
         if name:
             optional_name_args = f"-N {name}"
-        with self._connection.cd(working_dir):
-            result = self._connection.run(
-                f"qsub -l select={node_count}:system=polaris "
-                f"-q {queue.value} {optional_name_args} {job_path}",
-                warn=True,
-            )
-            if not result:
-                raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
-            return self._get_short_job_id(result.stdout.strip())
+        qsub_cmd = (
+            f"qsub -l select={node_count}:system=polaris -q {queue.value}"
+            f" {optional_name_args} {job_path}"
+        )
+        result = self.run_commands([f"cd {working_dir}", qsub_cmd])
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
+        return self._get_short_job_id(result.stdout.strip())
 
     @retry_auth
     def list_jobs(self, queue: SupportedQueues) -> List[JobStatus]:
@@ -237,8 +238,8 @@ class PolarisClient:
             A list of dictionaries, each containing the status of a cluster.
         """
         command = f"qstat -s -x -w -u {self._user}"
-        result = self._connection.run(command, warn=True)
-        if not result:
+        result = self.run_commands([command])
+        if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
@@ -296,25 +297,43 @@ class PolarisClient:
             The job status if found, None otherwise.
         """
         command = f"qdel {job_id}"
-        result = self._connection.run(command, warn=True)
-        if not result:
+        result = self.run_commands([command])
+        if result.exit_code != 0:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
         return self.get_job(job_id, queue)
 
-    @retry_fs
+    @retry_auth
     def put_recursive(self, source: str, destination: str) -> None:
-        """Puts the specified file/directory to the remote path, recursively.
+        """Puts the specified file/directory to the remote path using rsync.
 
         Args:
             source: The local file/directory to write.
             destination: The remote path to write the file/directory to.
         """
-        if self._fs is None:
-            self._fs = self._refresh_fs()
-        self._fs.put(source, destination, recursive=True)
-        # Ensure all copied files are executable as `put` does not propagate
-        # permissions.
-        self._connection.run(f"chmod -R +x {destination}", warn=True)
+        tests_dir = Path(source) / "tests"
+        git_ignore = Path(source) / ".gitignore"
+        rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
+        if git_ignore.is_file():
+            rsync_cmd_list.append(f"--exclude-from {str(git_ignore)} ")
+        if tests_dir.is_dir():
+            rsync_cmd_list.append(f"--exclude {str(tests_dir)} ")
+        rsync_cmd_list.append(f"{source} ")
+        rsync_cmd_list.append(f"{self._user}@polaris.alcf.anl.gov:{destination}")
+        rsync_cmd = "".join(rsync_cmd_list)
+        logger.info(f"Running rsync command: {rsync_cmd} ...")
+        try:
+            child = subprocess.run(
+                rsync_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=40,
+            )
+            logger.info(f"Rsync command completed with exit code: {child.returncode}")
+            if child.returncode != 0:
+                parsed_stderr = child.stderr.decode("utf-8") if child.stderr else ""
+                raise RuntimeError(f"Rsync failed. stderr: {parsed_stderr}")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Timeout while running rsync command.")
 
     @retry_auth
     def put(self, file_contents: str, destination: str) -> None:
@@ -324,4 +343,13 @@ class PolarisClient:
             file_contents: The contents of the file to write.
             destination: The remote path to write the file to.
         """
-        self._connection.put(io.StringIO(file_contents), destination)
+        destination_path = Path(destination)
+        parent_dir = destination_path.parent
+        dir_cmd = f"mkdir -p {parent_dir}"
+        create_cmd = f"touch {destination}"
+        write_command = f'cat <<"SCRIPTFILETAG" > {destination}'
+        file_suffix = "SCRIPTFILETAG"
+        cmds = [dir_cmd, create_cmd, write_command, file_contents, file_suffix]
+        result = self.run_commands(cmds)
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
