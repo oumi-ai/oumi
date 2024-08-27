@@ -478,7 +478,7 @@ class TrainingParams(BaseParams):
     """When using distributed training, the value of the flag `find_unused_parameters`
     passed to `DistributedDataParallel`.
 
-    Will default to `False` if gradientcheckpointing is used, `True` otherwise.
+    Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
 
     max_grad_norm: float = 1.0
