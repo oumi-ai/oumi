@@ -405,8 +405,7 @@ class TrainingParams(BaseParams):
     """
 
     include_performance_metrics: bool = False
-    """Whether to include performance metrics such as token statistics.
-    """
+    """Whether to include performance metrics such as token statistics."""
 
     include_alternative_mfu_metrics: bool = False
     """Whether to report alternative MFU (Model FLOPs Utilization) metrics.
