@@ -16,12 +16,13 @@ def mock_liger_kernel():
 @pytest.mark.parametrize(
     "model_name, expected_function",
     [
-        ("llama-7b", "apply_liger_kernel_to_llama"),
+        ("meta-llama/Llama-2-7b-hf", "apply_liger_kernel_to_llama"),
         ("Qwen2-7B-Chat", "apply_liger_kernel_to_qwen2"),
-        ("phi-3", "apply_liger_kernel_to_phi3"),
-        ("Mistral-7B-v0.1", "apply_liger_kernel_to_mistral"),
-        ("gemma-7b", "apply_liger_kernel_to_gemma"),
-        ("mixtral-8x7b", "apply_liger_kernel_to_mixtral"),
+        ("Qwen/Qwen2-7B-Chat", "apply_liger_kernel_to_qwen2"),
+        ("microsoft/phi-3", "apply_liger_kernel_to_phi3"),
+        ("mistralai/Mistral-7B-v0.1", "apply_liger_kernel_to_mistral"),
+        ("google/gemma-7b", "apply_liger_kernel_to_gemma"),
+        ("mistralai/Mixtral-8x7B-v0.1", "apply_liger_kernel_to_mixtral"),
     ],
 )
 @pytest.mark.skipif(
@@ -42,9 +43,6 @@ def test_patch_model_for_liger_kernel_unsupported():
         _patch_model_for_liger_kernel(model_params.model_name)
 
 
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="Liger Kernel is not supported on CPU"
-)
 def test_patch_model_for_liger_kernel_import_error():
     with patch("lema.builders.models.liger_kernel", None):
         model_params = ModelParams(model_name="llama-7b")

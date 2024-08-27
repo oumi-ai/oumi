@@ -14,6 +14,11 @@ from lema.core.registry import REGISTRY, RegistryType
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
 
+try:
+    import liger_kernel.transformers  # type: ignore
+except ImportError:
+    liger_kernel = None
+
 
 def build_model(
     model_params: ModelParams,
@@ -57,9 +62,7 @@ def build_model(
 
 def _patch_model_for_liger_kernel(model_name: str) -> None:
     """Patches the model for Liger Kernel."""
-    try:
-        import liger_kernel.transformers  # type: ignore
-    except ImportError:
+    if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
