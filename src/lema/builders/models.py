@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 from typing import Optional, Union, cast
 
@@ -85,8 +86,18 @@ def build_huggingface_model(
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
 
-    # "auto" is not compatible with distributed training.
-    if device_map == "auto" and device_rank_info.world_size > 1:
+    # If we're using FSDP via HF Accelerate, we should not specify the device map
+    # so that HF properly initializes the model for FSDP.
+    # If we set device_map to "auto", it seems HF will try to shard the model when
+    # loading it, which conflicts with FSDP's sharding.
+    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
+    # load the model only on rank 0, which will OOM for large models.
+    # See https://github.com/huggingface/transformers/pull/25107.
+    if os.environ.get("ACCELERATE_USE_FSDP", "false"):
+        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
+        device_map = None
+    elif device_map == "auto" and device_rank_info.world_size > 1:
+        # "auto" is not compatible with DDP.
         logger.info(
             f"Building model for distributed training "
             f"(world_size: {device_rank_info.world_size})..."
