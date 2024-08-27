@@ -393,7 +393,7 @@ class Trainer(BaseTrainer):
     #
     # Checkpointing
     #
-    def save_model(self, config: TrainingConfig):
+    def save_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model."""
         if is_world_process_zero():
             output_dir = Path(config.training.output_dir)
