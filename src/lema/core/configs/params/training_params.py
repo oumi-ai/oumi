@@ -484,6 +484,8 @@ class TrainingParams(BaseParams):
     max_grad_norm: float = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
+    
+    Defaults to 1.0.
     """
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
