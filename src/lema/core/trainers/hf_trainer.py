@@ -45,19 +45,31 @@ class HuggingFaceTrainer(BaseTrainer):
         Returns:
             None
         """
+        if self._hf_trainer.is_fsdp_enabled:
+            # FSDP is enabled, so we need to save the model in a special way.
+            return self._save_fsdp_model(config=config, final=final)
+
         if is_world_process_zero():
             output_dir = config.training.output_dir
-
-            if final:
-                if (
-                    self._hf_trainer.is_fsdp_enabled
-                    and self._hf_trainer.accelerator.state.fsdp_plugin is not None
-                ):
-                    logger.info("Saving FULL_STATE_DICT for final model checkpoint.")
-                    self._hf_trainer.accelerator.state.fsdp_plugin.set_state_dict_type(
-                        "FULL_STATE_DICT"
-                    )
-
             self._hf_trainer.save_model(output_dir)
-
             logger.info(f"Model has been saved at {output_dir}.")
+
+    def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
+        """Saves the model's weights to the specified output directory.
+
+        For FSDP, all ranks should call into this function
+        """
+        # Pre-process the model if FSDP is enabled and this is the final checkpoint.
+        if final:
+            if (
+                self._hf_trainer.is_fsdp_enabled
+                and self._hf_trainer.accelerator.state.fsdp_plugin is not None
+            ):
+                logger.info("Saving FULL_STATE_DICT for final model checkpoint.")
+                self._hf_trainer.accelerator.state.fsdp_plugin.set_state_dict_type(
+                    "FULL_STATE_DICT"
+                )
+
+        output_dir = config.training.output_dir
+        self._hf_trainer.save_model(output_dir)
+        logger.info(f"Model has been saved at {output_dir}.")
