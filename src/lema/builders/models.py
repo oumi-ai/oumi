@@ -14,6 +14,11 @@ from lema.core.registry import REGISTRY, RegistryType
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
 
+try:
+    import liger_kernel.transformers  # type: ignore
+except ImportError:
+    liger_kernel = None
+
 
 def build_model(
     model_params: ModelParams,
@@ -43,6 +48,9 @@ def build_model(
             *kwargs,
         )
 
+    if model_params.enable_liger_kernel:
+        _patch_model_for_liger_kernel(model_params.model_name)
+
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
         # nn.Module. We cast it so that this function can have a useful return type.
@@ -50,6 +58,27 @@ def build_model(
         logger.info("Enabled model compilation.")
 
     return model
+
+
+def _patch_model_for_liger_kernel(model_name: str) -> None:
+    """Patches the model for Liger Kernel."""
+    if liger_kernel is None:
+        raise ImportError(
+            "Liger Kernel not installed. Please install `pip install liger-kernel`."
+        )
+
+    model_name_lower = model_name.lower()
+
+    if "llama" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_llama()
+    elif "mixtral" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
+    elif "mistral" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_mistral()
+    elif "gemma" in model_name_lower:
+        liger_kernel.transformers.apply_liger_kernel_to_gemma()
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
 
 
 def build_lema_model(

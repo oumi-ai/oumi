@@ -35,11 +35,11 @@ class Launcher:
         return self._get_cloud_by_name(job_or_cloud.resources.cloud)
 
     def up(
-        self, job: JobConfig, cluster_name: Optional[str]
+        self, job: JobConfig, cluster_name: Optional[str], **kwargs
     ) -> Tuple[BaseCluster, JobStatus]:
         """Creates a new cluster and starts the specified job on it."""
         cloud = self.get_cloud(job)
-        job_status = cloud.up_cluster(job, cluster_name)
+        job_status = cloud.up_cluster(job, cluster_name, **kwargs)
         cluster = cloud.get_cluster(job_status.cluster)
         if not cluster:
             raise RuntimeError(f"Cluster {job_status.cluster} not found.")

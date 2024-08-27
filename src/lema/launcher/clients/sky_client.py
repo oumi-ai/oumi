@@ -6,6 +6,7 @@ import sky.data
 
 from lema.core.configs import JobConfig
 from lema.core.launcher import JobStatus
+from lema.utils.logging import logger
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
@@ -69,18 +70,34 @@ class SkyClient:
         RUNPOD = "runpod"
         LAMBDA = "lambda"
 
-    def launch(self, job: JobConfig, cluster_name: Optional[str] = None) -> JobStatus:
+    def launch(
+        self, job: JobConfig, cluster_name: Optional[str] = None, **kwargs
+    ) -> JobStatus:
         """Creates a cluster and starts the provided Job.
 
         Args:
             job: The job to execute on the cluster.
             cluster_name: The name of the cluster to create.
+            kwargs: Additional arguments to pass to the Sky Pilot client.
 
         Returns:
             A JobStatus with only `id` and `cluster` populated.
         """
+        autostop_kw = "idle_minutes_to_autostop"
+        # Default to 30 minutes.
+        idle_minutes_to_autostop = 30
+        if autostop_kw in kwargs:
+            idle_minutes_to_autostop = kwargs.get(autostop_kw)
+        else:
+            logger.info(
+                "No idle_minutes_to_autostop provided. "
+                f"Defaulting to {idle_minutes_to_autostop} minutes."
+            )
         job_id, resource_handle = sky.launch(
-            _convert_job_to_task(job), cluster_name=cluster_name, detach_run=True
+            _convert_job_to_task(job),
+            cluster_name=cluster_name,
+            detach_run=True,
+            idle_minutes_to_autostop=idle_minutes_to_autostop,
         )
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")

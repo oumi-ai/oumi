@@ -28,6 +28,7 @@ class ModelParams(BaseParams):
     attn_implementation: Optional[str] = None
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    enable_liger_kernel: bool = False
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""

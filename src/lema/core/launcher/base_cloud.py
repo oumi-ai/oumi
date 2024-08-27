@@ -9,7 +9,7 @@ class BaseCloud(ABC):
     """Base class for resource pool capable of creating clusters."""
 
     @abstractmethod
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         raise NotImplementedError
 

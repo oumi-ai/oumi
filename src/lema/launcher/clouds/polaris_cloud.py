@@ -93,7 +93,7 @@ class PolarisCloud(BaseCloud):
             clusters.append(cluster)
         return clusters
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")

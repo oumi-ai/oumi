@@ -36,7 +36,7 @@ class LocalCloud(BaseCloud):
             self._clusters[name] = LocalCluster(name, LocalClient())
         return self._clusters[name]
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         # The default cluster.
         cluster_name = name or self._DEFAULT_CLUSTER
