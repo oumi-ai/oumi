@@ -42,6 +42,7 @@ dev = [
     "black",
     "isort",
     "mypy",
+    "pexpect",
     "pre-commit",
     "pyright",
     "pytest",
