@@ -1,6 +1,7 @@
 import functools
 import os
 from contextlib import contextmanager
+from datetime import timedelta
 from typing import Any, Dict, NamedTuple, Optional
 
 import torch
@@ -195,10 +196,11 @@ def global_leader_first(*args, **kwargs):
 #
 # Distributed Initialization
 #
-def init_distributed(backend: str = "nccl"):
+def init_distributed(backend: str = "nccl", timeout: Optional[float] = None) -> None:
     """Initialize the distributed environment."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
-    dist.init_process_group(backend=backend)
+    timeout_delta = timedelta(seconds=timeout) if timeout is not None else None
+    dist.init_process_group(backend=backend, timeout=timeout_delta)
     torch.cuda.set_device(int(device_rank_info.local_rank))
 
 
