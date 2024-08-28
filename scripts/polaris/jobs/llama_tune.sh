@@ -113,7 +113,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --num_processes ${TOTAL_NUM_GPUS} \
             --main_process_ip ${LEMA_MASTER_ADDR} \
             --main_process_port 8007 \
-            --multi_gpu \
+            --use_fsdp \
             --config_file configs/accelerate/llama8b.fsdp.yaml \
             -m lema.train \
             -c configs/lema/llama8b.sft.yaml \
@@ -126,11 +126,11 @@ else  # 70B
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
     if [ "$TRAINING_MODE" == "lora" ]; then
-        # Num nodes: 2
+        # Num nodes: 3
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
-        # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
-        # Num steps for 1 epoch: 51,800 / 16 = 3,238
+        # Examples per step: 3 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 24
+        # Num steps for 1 epoch: 51,800 / 16 = 2,159
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -138,12 +138,12 @@ else  # 70B
             --num_processes ${TOTAL_NUM_GPUS} \
             --main_process_ip ${LEMA_MASTER_ADDR} \
             --main_process_port 8007 \
-            --multi_gpu \
+            --use_fsdp \
             --config_file configs/accelerate/llama70b.lora.yaml \
             -m lema.train \
             -c configs/lema/llama70b.lora.yaml \
             "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
-            "training.max_steps=3238"
+            "training.max_steps=2159"
     else  # SFT
         echo "Llama 70B SFT is currently not supported!"
     fi
