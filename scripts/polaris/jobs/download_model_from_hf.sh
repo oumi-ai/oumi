@@ -25,7 +25,7 @@ MODEL="Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
 MODEL_REPO="${REPO}/${MODEL}"
 
 # Various setup for running on Polaris.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 set -x  # Print command with expanded variables
 
