@@ -197,7 +197,7 @@ class PolarisClient:
         except subprocess.TimeoutExpired:
             return PolarisResponse(
                 stdout="",
-                stderr="Timeout while running command: {new_cmd}",
+                stderr=f"Timeout while running command: {new_cmd}",
                 exit_code=1,
             )
 
