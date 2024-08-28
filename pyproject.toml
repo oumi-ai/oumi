@@ -100,7 +100,6 @@ select = [
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
-    "D104",   # Missing docstring in public package, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
 ]
 
