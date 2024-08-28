@@ -187,7 +187,7 @@ class PolarisClient:
                 new_cmd,
                 shell=True,
                 capture_output=True,
-                timeout=180,
+                timeout=180,  # time in seconds
             )
             return PolarisResponse(
                 stdout=child.stdout.decode("utf-8"),
