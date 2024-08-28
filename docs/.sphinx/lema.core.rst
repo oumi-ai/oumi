@@ -1,15 +1,11 @@
 lema.core package
 =================
 
-Overview
------------
-The core package contains definitions for core types and base abstract classes used throughout the library.
-
 Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 4
 
    lema.core.configs
    lema.core.datasets

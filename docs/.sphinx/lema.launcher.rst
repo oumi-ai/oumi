@@ -1,13 +1,24 @@
 lema.launcher package
 =====================
 
-Overview
+Subpackages
 -----------
-The primary API for launching jobs in LeMa.
 
-All methods of the :py:class:`lema.launcher.Launcher` class are exposed as top-level functions in this package.
+.. toctree::
+   :maxdepth: 4
 
-All custom Clouds registered with :py:func:`lema.core.registry.register_cloud_builder` are available for use in this package.
+   lema.launcher.clouds
+
+Submodules
+----------
+
+lema.launcher.launcher module
+-----------------------------
+
+.. automodule:: lema.launcher.launcher
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

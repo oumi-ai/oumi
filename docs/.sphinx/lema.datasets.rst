@@ -1,10 +1,6 @@
 lema.datasets package
 =====================
 
-Overview
------------
-This package contains all predefined dataset types for LeMa.
-
 Submodules
 ----------
 
@@ -84,6 +80,14 @@ lema.datasets.ultrachat\_200k module
 ------------------------------------
 
 .. automodule:: lema.datasets.ultrachat_200k
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: lema.datasets
    :members:
    :undoc-members:
    :show-inheritance:
