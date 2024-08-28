@@ -3,16 +3,11 @@
 This module provides base classes for different types of models used in the
 LeMa framework.
 
-Classes:
-    BaseModel (:class:`lema.core.models.base_model.BaseModel`):
-        Base class for all models in the LeMa framework.
-        This class defines the common interface and functionality that all
-        models in the LeMa framework should implement.
 
 See Also:
     - :mod:`lema.models`: Module containing specific model implementations.
     - :class:`lema.models.mlp.MLPEncoder`: An example of a concrete model
-    implementation.
+        implementation.
 
 Example:
     To create a custom model, inherit from :class:`BaseModel`:
