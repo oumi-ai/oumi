@@ -1,4 +1,4 @@
-# Intended node: 2x 4 A100-40GB GPUs on GCP/Polaris.
+# Intended node: 4 A100-40GB GPUs
 # Referencing this config:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
 compute_environment: LOCAL_MACHINE
