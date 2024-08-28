@@ -1,6 +1,6 @@
 import pathlib
 import tempfile
-from unittest.mock import ANY, Mock, call, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -18,6 +18,15 @@ from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop, w
 from lema.launcher import JobConfig, JobResources
 
 
+class MockThreadPool:
+    def __init__(self):
+        self.mock_result = Mock()
+
+    def apply_async(self, fn):
+        fn()
+        return self.mock_result
+
+
 #
 # Fixtures
 #
@@ -28,9 +37,11 @@ def mock_launcher():
 
 
 @pytest.fixture
-def mock_printer():
-    with patch("lema.launch._print_and_wait") as printer_mock:
-        yield printer_mock
+def mock_threadpool():
+    with patch("lema.launch.ThreadPool") as threadpool_mock:
+        mock_pool = MockThreadPool()
+        threadpool_mock.return_value = mock_pool
+        yield threadpool_mock
 
 
 def _create_training_config() -> TrainingConfig:
@@ -85,7 +96,7 @@ def _create_job_config(training_config_path: str) -> JobConfig:
     )
 
 
-def test_launch_launch_job(mock_launcher, mock_printer):
+def test_launch_launch_job(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -113,11 +124,10 @@ def test_launch_launch_job(mock_launcher, mock_printer):
             done=True,
         )
         launch(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP))
-        mock_printer.assert_called_once_with("Running job job_id", ANY)
-        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
 
 
-def test_launch_launch_job_existing_cluster(mock_launcher, mock_printer):
+def test_launch_launch_job_existing_cluster(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -154,11 +164,10 @@ def test_launch_launch_job_existing_cluster(mock_launcher, mock_printer):
             )
         )
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_printer.assert_called_once_with("Running job job_id", ANY)
-        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
 
 
-def test_launch_launch_job_detach(mock_launcher, mock_printer):
+def test_launch_launch_job_detach(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -186,11 +195,10 @@ def test_launch_launch_job_detach(mock_launcher, mock_printer):
             done=True,
         )
         launch(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, detach=True))
-        mock_printer.assert_not_called()
         mock_cluster.get_job.assert_not_called()
 
 
-def test_launch_launch_job_detached_local(mock_launcher, mock_printer):
+def test_launch_launch_job_detached_local(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -219,8 +227,7 @@ def test_launch_launch_job_detached_local(mock_launcher, mock_printer):
             done=True,
         )
         launch(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.UP, detach=True))
-        mock_printer.assert_called_once_with("Running job job_id", ANY)
-        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
 
 
 def test_launch_launch_job_not_found(mock_launcher):
@@ -260,7 +267,7 @@ def test_launch_launch_job_not_found(mock_launcher):
         assert "No such file or directory" in str(exception_info.value)
 
 
-def test_launch_run_job(mock_launcher, mock_printer):
+def test_launch_run_job(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -295,14 +302,13 @@ def test_launch_run_job(mock_launcher, mock_printer):
                 job=job_yaml_path, action=_LauncherAction.RUN, cluster="cluster_id"
             )
         )
-        mock_printer.assert_called_once_with("Running job job_id", ANY)
-        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
         mock_launcher.get_cloud.assert_called_once_with("aws")
         mock_cloud.get_cluster.assert_called_once_with("cluster_id")
 
 
-def test_launch_run_job_detached(mock_launcher, mock_printer):
+def test_launch_run_job_detached(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -340,14 +346,13 @@ def test_launch_run_job_detached(mock_launcher, mock_printer):
                 detach=True,
             )
         )
-        mock_printer.assert_not_called()
         mock_cluster.get_job.assert_not_called()
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
         mock_launcher.get_cloud.assert_not_called()
         mock_cloud.get_cluster.assert_not_called()
 
 
-def test_launch_run_job_detached_local(mock_launcher, mock_printer):
+def test_launch_run_job_detached_local(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -378,14 +383,13 @@ def test_launch_run_job_detached_local(mock_launcher, mock_printer):
             done=True,
         )
         run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.RUN, cluster="local"))
-        mock_printer.assert_called_once_with("Running job job_id", ANY)
-        mock_cluster.get_job.assert_called_once_with("job_id")
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "local")
         mock_launcher.get_cloud.assert_called_once_with("aws")
         mock_cloud.get_cluster.assert_called_once_with("local")
 
 
-def test_launch_run_job_no_cluster(mock_launcher, mock_printer):
+def test_launch_run_job_no_cluster(mock_launcher, mock_threadpool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -421,7 +425,7 @@ def test_launch_run_job_no_cluster(mock_launcher, mock_printer):
             run(_LaunchArgs(job=job_yaml_path, action=_LauncherAction.RUN))
 
 
-def test_launch_down_with_cloud(mock_launcher, mock_printer):
+def test_launch_down_with_cloud(mock_launcher, mock_threadpool):
     mock_cloud = Mock()
     mock_cluster = Mock()
     mock_launcher.get_cloud.return_value = mock_cloud
@@ -432,7 +436,7 @@ def test_launch_down_with_cloud(mock_launcher, mock_printer):
     mock_cluster.down.assert_called_once()
 
 
-def test_launch_down_no_cloud(mock_launcher, mock_printer):
+def test_launch_down_no_cloud(mock_launcher, mock_threadpool):
     mock_cloud1 = Mock()
     mock_cluster1 = Mock()
     mock_cloud2 = Mock()
@@ -452,7 +456,7 @@ def test_launch_down_no_cloud(mock_launcher, mock_printer):
     mock_cluster1.down.assert_called_once()
 
 
-def test_launch_down_multiple_clusters(mock_launcher, mock_printer):
+def test_launch_down_multiple_clusters(mock_launcher, mock_threadpool):
     mock_cloud1 = Mock()
     mock_cluster1 = Mock()
     mock_cloud2 = Mock()
@@ -474,7 +478,7 @@ def test_launch_down_multiple_clusters(mock_launcher, mock_printer):
     mock_cluster2.down.assert_not_called()
 
 
-def test_launch_down_no_clusters(mock_launcher, mock_printer):
+def test_launch_down_no_clusters(mock_launcher, mock_threadpool):
     mock_cloud1 = Mock()
     mock_cloud2 = Mock()
     mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
@@ -492,7 +496,7 @@ def test_launch_down_no_clusters(mock_launcher, mock_printer):
     mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
 
 
-def test_launch_down_no_cluster_arg(mock_launcher, mock_printer):
+def test_launch_down_no_cluster_arg(mock_launcher, mock_threadpool):
     with pytest.raises(ValueError, match="No cluster specified for `down` action."):
         down(
             _LaunchArgs(
@@ -501,7 +505,7 @@ def test_launch_down_no_cluster_arg(mock_launcher, mock_printer):
         )
 
 
-def test_launch_stop_no_cluster_arg(mock_launcher, mock_printer):
+def test_launch_stop_no_cluster_arg(mock_launcher, mock_threadpool):
     with pytest.raises(ValueError, match="No cluster specified for `stop` action."):
         stop(
             _LaunchArgs(
@@ -512,7 +516,7 @@ def test_launch_stop_no_cluster_arg(mock_launcher, mock_printer):
         )
 
 
-def test_launch_stop_no_cloud_arg(mock_launcher, mock_printer):
+def test_launch_stop_no_cloud_arg(mock_launcher, mock_threadpool):
     with pytest.raises(ValueError, match="No cloud specified for `stop` action."):
         stop(
             _LaunchArgs(
@@ -523,7 +527,7 @@ def test_launch_stop_no_cloud_arg(mock_launcher, mock_printer):
         )
 
 
-def test_launch_stop_no_job_id_arg(mock_launcher, mock_printer):
+def test_launch_stop_no_job_id_arg(mock_launcher, mock_threadpool):
     with pytest.raises(ValueError, match="No job ID specified for `stop` action."):
         stop(
             _LaunchArgs(
@@ -534,7 +538,7 @@ def test_launch_stop_no_job_id_arg(mock_launcher, mock_printer):
         )
 
 
-def test_launch_stop_success(mock_launcher, mock_printer):
+def test_launch_stop_success(mock_launcher, mock_threadpool):
     stop(
         _LaunchArgs(
             cloud="cloud",
@@ -546,6 +550,6 @@ def test_launch_stop_success(mock_launcher, mock_printer):
     mock_launcher.stop.assert_called_once_with("job", "cloud", "cluster")
 
 
-def test_launch_which_success(mock_launcher, mock_printer):
+def test_launch_which_success(mock_launcher, mock_threadpool):
     which()
     mock_launcher.which_clouds.assert_called_once()
