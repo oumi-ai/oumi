@@ -6,29 +6,7 @@ lema.core.trainers package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-lema.core.trainers.base\_trainer module
----------------------------------------
-
-.. automodule:: lema.core.trainers.base_trainer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.trainers.hf\_trainer module
--------------------------------------
-
-.. automodule:: lema.core.trainers.hf_trainer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.trainers.lema\_trainer module
----------------------------------------
-
-.. automodule:: lema.core.trainers.lema_trainer
-   :members:
-   :undoc-members:
-   :show-inheritance:
+#
+# Lema change: we don't want to show submodules
+#

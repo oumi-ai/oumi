@@ -34,7 +34,10 @@ Subpackages
 {{ toctree(subpackages) }}
 {% endif %}
 
-{%- if submodules %}
+#
+# Lema change: we don't want to show submodules
+#
+{# {%- if submodules %}
 Submodules
 ----------
 {% if separatemodules %}
@@ -47,7 +50,7 @@ Submodules
 {{ automodule(submodule, automodule_options) }}
 {% endfor %}
 {%- endif %}
-{%- endif %}
+{%- endif %} #}
 
 {%- if not modulefirst and not is_namespace %}
 Module contents

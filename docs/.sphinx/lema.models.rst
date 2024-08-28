@@ -6,13 +6,7 @@ lema.models package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-lema.models.mlp module
-----------------------
-
-.. automodule:: lema.models.mlp
-   :members:
-   :undoc-members:
-   :show-inheritance:
+#
+# Lema change: we don't want to show submodules
+#

@@ -21,21 +21,7 @@ Subpackages
    lema.core.trainers
    lema.core.types
 
-Submodules
-----------
 
-lema.core.distributed module
-----------------------------
-
-.. automodule:: lema.core.distributed
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.registry module
--------------------------
-
-.. automodule:: lema.core.registry
-   :members:
-   :undoc-members:
-   :show-inheritance:
+#
+# Lema change: we don't want to show submodules
+#

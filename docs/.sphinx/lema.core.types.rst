@@ -6,21 +6,7 @@ lema.core.types package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-lema.core.types.exceptions module
----------------------------------
-
-.. automodule:: lema.core.types.exceptions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.types.turn module
----------------------------
-
-.. automodule:: lema.core.types.turn
-   :members:
-   :undoc-members:
-   :show-inheritance:
+#
+# Lema change: we don't want to show submodules
+#

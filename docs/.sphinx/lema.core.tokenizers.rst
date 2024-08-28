@@ -6,13 +6,7 @@ lema.core.tokenizers package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-lema.core.tokenizers.base\_tokenizer module
--------------------------------------------
-
-.. automodule:: lema.core.tokenizers.base_tokenizer
-   :members:
-   :undoc-members:
-   :show-inheritance:
+#
+# Lema change: we don't want to show submodules
+#
