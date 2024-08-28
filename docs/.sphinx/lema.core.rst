@@ -1,12 +1,18 @@
 lema.core package
 =================
 
+.. automodule:: lema.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
+   lema.core.callbacks
    lema.core.configs
    lema.core.datasets
    lema.core.launcher
@@ -18,26 +24,8 @@ Subpackages
 Submodules
 ----------
 
-lema.core.distributed module
-----------------------------
+.. toctree::
+   :maxdepth: 2
 
-.. automodule:: lema.core.distributed
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.registry module
--------------------------
-
-.. automodule:: lema.core.registry
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: lema.core
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   lema.core.distributed
+   lema.core.registry
