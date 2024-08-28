@@ -18,8 +18,8 @@ __all__ = [
     "build_dataset",
     "build_metrics_function",
     "build_model",
-    "build_peft_model",
     "build_optimizer",
+    "build_peft_model",
     "build_tokenizer",
     "build_trainer",
 ]
