@@ -224,7 +224,7 @@ def main(args):
         for column_fn in column_fns:
             column_name = column_fn(attribute_name)
             if column_name not in df_dataset.columns:
-                df_dataset[column_name] = df_dataset.apply(lambda _: "", axis=1)
+                df_dataset[column_name] = ""
 
     # Iterate over each attribute and judge the dataset entries.
     for attribute_name in attribute_names:
