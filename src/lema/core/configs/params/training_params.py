@@ -37,7 +37,7 @@ class TrainerType(Enum):
     LEMA = "lema"
     """Custom generic trainer implementation.
 
-    This is a custom trainer implementation specific to the Lema project,
+    This is a custom trainer implementation specific to the LeMa project,
     designed to provide additional flexibility and features.
     """
 
@@ -103,8 +103,9 @@ class MixedPrecisionDtype(str, Enum):
     """
 
     BF16 = "bf16"
-    """Same as above, but with bf16 instead. This requires Ampere or higher NVIDIA
-    architecture, or using CPU or Ascend NPU.
+    """Similar to fp16 mixed precision, but with bf16 instead.
+
+    This requires Ampere or higher NVIDIA architecture, or using CPU or Ascend NPU.
     """
 
 
@@ -165,7 +166,9 @@ class TrainingParams(BaseParams):
 
     This technique allows for effectively larger batch sizes without increasing
     memory usage. The gradients from multiple forward passes are accumulated
-    before performing a single optimization step.
+    before performing a single optimization step. Setting this to >1 can increase
+    memory usage for training setups wihout existing gradient accumulation buffers
+    (ex. 1-GPU training).
     """
 
     max_steps: int = -1
@@ -199,7 +202,8 @@ class TrainingParams(BaseParams):
     `save_epoch` are set, then `save_steps` takes precedence.
 
     To disable saving checkpoints during training, set `save_steps` to `0`
-    and `save_epoch` to `False`.
+    and `save_epoch` to `False`. If enabled, a checkpoint will be saved at the end of
+    training if there's any residual steps left.
     """
 
     save_final_model: bool = True
@@ -274,6 +278,7 @@ class TrainingParams(BaseParams):
 
     logging_strategy: str = "steps"
     """The strategy to use for logging during training.
+
     Possible values are:
     - "steps": Log every `logging_steps` steps.
     - "epoch": Log at the end of each epoch.
@@ -282,6 +287,7 @@ class TrainingParams(BaseParams):
 
     logging_dir: str = "output/runs"
     """The directory where training logs will be saved.
+
     This includes TensorBoard logs and other training-related output.
     """
 
@@ -368,6 +374,9 @@ class TrainingParams(BaseParams):
 
     weight_decay: float = 0.0
     """Weight decay (L2 penalty) to apply to the model's parameters.
+
+    In the HF trainers and the LeMa trainer, this is automatically applied to only
+    weight tensors, and skips biases/layernorms.
 
     Default is 0.0 (no weight decay).
     """
