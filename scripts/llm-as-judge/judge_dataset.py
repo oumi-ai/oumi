@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import re
 import time
 
@@ -279,14 +280,17 @@ if __name__ == "__main__":
         "--dataset_in_path",
         type=str,
         default=DEFAULT_DATASET_IN_PATH,
-        help="CSV file containing the dataset to be judged.",
+        help=(
+            "CSV file containing the dataset to be judged. This dataset must have a "
+            "column `prompt_{attribute}` for each attribute to be judged."
+        ),
     )
     parser.add_argument(
         "-o",
         "--dataset_out_path",
         type=str,
         default=DEFAULT_DATASET_OUT_PATH,
-        help="CSV file file to output the judgements.",
+        help="CSV file path to output the judgements.",
     )
     parser.add_argument(
         "-j",
@@ -303,7 +307,13 @@ if __name__ == "__main__":
         default=DEFAULT_SUBSET_SIZE,
         help="Number of samples to judge.",
     )
-    parser.add_argument("-k", "--opena_ai_api_key", type=str, help="Open AI api key.")
+    parser.add_argument(
+        "-k",
+        "--opena_ai_api_key",
+        type=str,
+        default=os.environ.get("OPENAI_API_KEY"),
+        help="Open AI api key.",
+    )
     args = parser.parse_args()
 
     if (args.judge == "gpt") and not args.opena_ai_api_key:
