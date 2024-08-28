@@ -1261,3 +1261,59 @@ def test_polaris_client_put_failure(mock_subprocess, mock_auth):
             ),
         ]
     )
+
+
+def test_polaris_client_get_active_users(mock_subprocess):
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = (
+        b"control-polaris.alcf.anl.gov-22-matthew\n"
+        b"control-polaris.alcf.anl.gov-22-user1\n"
+        b"control-polaris.alcf.anl.gov-22-user2\n"
+    )
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+
+    active_users = PolarisClient.get_active_users()
+    mock_subprocess.run.assert_called_with(
+        "ls ~/.ssh/ | egrep 'control-polaris.alcf.anl.gov-.*-.*'",
+        shell=True,
+        capture_output=True,
+    )
+    assert set(active_users) == {"matthew", "user1", "user2"}
+
+
+def test_polaris_client_get_active_users_empty(mock_subprocess):
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b""
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+
+    active_users = PolarisClient.get_active_users()
+    mock_subprocess.run.assert_called_with(
+        "ls ~/.ssh/ | egrep 'control-polaris.alcf.anl.gov-.*-.*'",
+        shell=True,
+        capture_output=True,
+    )
+    assert active_users == []
+
+
+def test_polaris_client_get_active_users_failure(mock_subprocess):
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = (
+        b"control-polaris.alcf.anl.gov-22-matthew\n"
+        b"control-polaris.alcf.anl.gov-22-user1\n"
+        b"control-polaris.alcf.anl.gov-22-user2\n"
+    )
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 1
+
+    active_users = PolarisClient.get_active_users()
+    mock_subprocess.run.assert_called_with(
+        "ls ~/.ssh/ | egrep 'control-polaris.alcf.anl.gov-.*-.*'",
+        shell=True,
+        capture_output=True,
+    )
+    assert active_users == []

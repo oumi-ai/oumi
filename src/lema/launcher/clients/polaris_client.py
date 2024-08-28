@@ -172,6 +172,27 @@ class PolarisClient:
             logger.error(f"Credential error: {output}")
             raise RuntimeError("Failed to refresh Polaris credentials.")
 
+    @staticmethod
+    def get_active_users() -> List[str]:
+        """Gets the list of users with an open SSH tunnel to Polaris.
+
+        Returns:
+            A list of users.
+        """
+        # List all active users with an open SSH tunnel to Polaris.
+        command = "ls ~/.ssh/ | egrep 'control-polaris.alcf.anl.gov-.*-.*'"
+        result = subprocess.run(command, shell=True, capture_output=True)
+        if result.returncode != 0:
+            return []
+        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-.*-(.*)"
+        lines = result.stdout.decode("utf-8").strip().split("\n")
+        users = set()
+        for line in lines:
+            match = re.match(ssh_tunnel_pattern, line.strip())
+            if match:
+                users.add(match.group(1))
+        return list(users)
+
     @retry_auth
     def run_commands(self, commands: List[str]) -> PolarisResponse:
         """Runs the provided commands in a single SSH command.

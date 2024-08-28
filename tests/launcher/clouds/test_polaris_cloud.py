@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -204,6 +204,28 @@ def test_polaris_cloud_up_cluster_default_queue(
     mock_polaris_client.assert_called_once_with("user")
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
+
+
+def test_polaris_cloud_init_with_users(mock_polaris_client):
+    mock_client = Mock(spec=PolarisClient)
+    mock_polaris_client.side_effect = [mock_client, mock_client]
+    mock_polaris_client.get_active_users.return_value = ["user1", "user2"]
+    cloud = PolarisCloud()
+    cluster_names = [cluster.name() for cluster in cloud.list_clusters()]
+    cluster_names.sort()
+    assert cluster_names == [
+        "debug-scaling.user1",
+        "debug-scaling.user2",
+        "debug.user1",
+        "debug.user2",
+        "demand.user1",
+        "demand.user2",
+        "preemptable.user1",
+        "preemptable.user2",
+        "prod.user1",
+        "prod.user2",
+    ]
+    mock_polaris_client.assert_has_calls([call("user1"), call("user2")])
 
 
 def test_polaris_cloud_initialize_cluster(mock_polaris_client):
