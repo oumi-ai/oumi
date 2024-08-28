@@ -20,7 +20,7 @@ export https_proxy=http://proxy.alcf.anl.gov:3128
 export SHARED_DIR=/eagle/community_ai
 
 # Run several checks and export "LEMA_*" env vars.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 module use /soft/spack/gcc/0.6.1/install/modulefiles/Core
 

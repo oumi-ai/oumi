@@ -12,7 +12,7 @@
 set -e
 
 # Various setup for running on Polaris.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 TRAINING_MODE="fsdp"  # NOTE: Modify this value to configure training mode.
 
@@ -27,10 +27,10 @@ fi
 
 set -x  # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
-    --np $((${LEMA_NUM_NODES} * ${NRANKS_PER_NODE})) \
+    --np $((${LEMA_NUM_NODES} * ${NRANKS})) \
     -ppn ${NRANKS} \
     -d ${NDEPTH}  --cpu-bind "${CPU_BIND}" \
-    ./scripts/polaris/jobs/multinode_example_worker.sh -m "${TRAINING_MODE}"
+    ./scripts/polaris/jobs/llama2b_pt_worker.sh -m "${TRAINING_MODE}"
 
 echo -e "Finished ${TRAINING_MODE} training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"

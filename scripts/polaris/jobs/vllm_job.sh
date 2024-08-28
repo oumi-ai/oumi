@@ -12,7 +12,7 @@
 set -e
 
 # Various setup for running on Polaris.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 export SHARED_DIR=/eagle/community_ai
 export HF_HOME="${SHARED_DIR}/.cache/huggingface"
