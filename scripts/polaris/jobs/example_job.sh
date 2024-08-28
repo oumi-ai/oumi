@@ -12,7 +12,7 @@
 set -e
 
 # Various setup for running on Polaris.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 TRAIN_DATASETS="data.train.datasets=
 - dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"

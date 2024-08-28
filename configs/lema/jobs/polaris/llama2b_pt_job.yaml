@@ -1,4 +1,4 @@
-name: multinode-example
+name: llama2b-pt
 # NOTE: Replace with your username.
 user: your_username
 num_nodes: 2
@@ -23,14 +23,14 @@ setup: |
 run: |
   set -e
   # Various setup for running on Polaris.
-  source ./scripts/polaris/polaris_init.sh
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
   echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
 
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
       --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-      ./scripts/polaris/jobs/multinode_example_worker.sh -m fsdp
+      ./scripts/polaris/jobs/llama2b_pt_worker.sh -m fsdp
 
   echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"
