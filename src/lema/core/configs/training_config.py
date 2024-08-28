@@ -17,9 +17,43 @@ from lema.utils.logging import logger
 @dataclass
 class TrainingConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
+    """Configuration parameters for the dataset.
+
+    This field contains all the necessary settings for data processing and loading.
+    It includes options for train and evaluation datasets and preprocessing steps.
+
+    For more details, see the :class:`lema.core.configs.params.data_params.DataParams`
+    class.
+    """
+
     model: ModelParams = field(default_factory=ModelParams)
+    """Configuration parameters for the model.
+
+    This field defines the model architecture, size, and other model-specific settings.
+    It includes options for model type, pretrained weights, and tokenizer configuration.
+
+    For more details, see :class:`lema.core.configs.params.model_params.ModelParams`
+    class.
+    """
+
     training: TrainingParams = field(default_factory=TrainingParams)
+    """Configuration parameters for the training process.
+
+    This field contains all settings related to the training loop,
+    including learning rate, batch size, number of epochs, and optimization parameters.
+
+    For more details, see
+    :class:`lema.core.configs.params.training_params.TrainingParams`.
+    """
+
     peft: PeftParams = field(default_factory=PeftParams)
+    """Configuration parameters for Parameter-Efficient Fine-Tuning (PEFT).
+
+    This field defines settings for various PEFT methods such as LoRA, or Prefix Tuning.
+    It includes options for rank, alpha values, and other PEFT-specific parameters.
+
+    For more details, see :class:`lema.core.configs.params.peft_params.PeftParams`.
+    """
 
     def __post_init__(self):
         """Verifies/populates params."""
