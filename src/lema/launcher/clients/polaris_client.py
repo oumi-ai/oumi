@@ -182,22 +182,25 @@ class PolarisClient:
         ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
-        child = subprocess.Popen(
-            new_cmd,
-            shell=True,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        exit_code = child.wait(180)
-        parsed_stdout = child.stdout.read().decode("utf-8") if child.stdout else ""
-        parsed_stderr = child.stderr.read().decode("utf-8") if child.stderr else ""
-        return PolarisResponse(
-            stdout=parsed_stdout,
-            stderr=parsed_stderr,
-            exit_code=exit_code,
-        )
+        try:
+            child = subprocess.run(
+                new_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=180,  # time in seconds
+            )
+            return PolarisResponse(
+                stdout=child.stdout.decode("utf-8"),
+                stderr=child.stderr.decode("utf-8"),
+                exit_code=child.returncode,
+            )
+        except subprocess.TimeoutExpired:
+            return PolarisResponse(
+                stdout="",
+                stderr=f"Timeout while running command: {new_cmd}",
+                exit_code=1,
+            )
 
-    @retry_auth
     def submit_job(
         self,
         job_path: str,
@@ -230,7 +233,6 @@ class PolarisClient:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
         return self._get_short_job_id(result.stdout.strip())
 
-    @retry_auth
     def list_jobs(self, queue: SupportedQueues) -> List[JobStatus]:
         """Lists a list of job statuses for the given queue.
 
@@ -268,7 +270,6 @@ class PolarisClient:
             raise RuntimeError("At least one job status was not parsed.")
         return jobs
 
-    @retry_auth
     def get_job(self, job_id: str, queue: SupportedQueues) -> Optional[JobStatus]:
         """Gets the specified job's status.
 
@@ -285,7 +286,6 @@ class PolarisClient:
                 return job
         return None
 
-    @retry_auth
     def cancel(self, job_id, queue: SupportedQueues) -> Optional[JobStatus]:
         """Cancels the specified job.
 
@@ -335,7 +335,6 @@ class PolarisClient:
         except subprocess.TimeoutExpired:
             raise RuntimeError("Timeout while running rsync command.")
 
-    @retry_auth
     def put(self, file_contents: str, destination: str) -> None:
         """Puts the specified file contents to the remote path.
 

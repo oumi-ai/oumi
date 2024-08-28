@@ -36,6 +36,7 @@ def mock_auth():
 @pytest.fixture
 def mock_subprocess():
     with patch("lema.launcher.clients.polaris_client.subprocess") as sp:
+        sp.TimeoutExpired = subprocess.TimeoutExpired
         mock_child = Mock()
         sp.run.return_value = mock_child
         mock_child.returncode = 0
@@ -155,267 +156,387 @@ def test_polaris_client_init_with_auth_fails(
 
 
 def test_polaris_client_submit_job_debug(mock_subprocess):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.DEBUG, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q debug  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q debug  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_demand(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.DEMAND, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q demand  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q demand  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_preemptable(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.PREEMPTABLE, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q preemptable  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q preemptable  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_debug_name(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.DEBUG, "somename"
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q debug -N somename ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q debug -N somename ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_debug_scaling(mock_subprocess):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.DEBUG_SCALING, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q debug-scaling  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q debug-scaling  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_prod(mock_subprocess):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
-    )
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q prod  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "2032"
 
 
 def test_polaris_client_submit_job_invalid_job_format(mock_subprocess):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"3141592653polaris-pbs-01"
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"3141592653polaris-pbs-01"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q prod  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
     assert result == "3141592653polaris-pbs-01"
 
 
 def test_polaris_client_submit_job_error(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b""
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 1
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b"3141592653polaris-pbs-01"
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 1
     client = PolarisClient("user")
     with pytest.raises(RuntimeError, match="Failed to submit job. stderr: foo"):
         _ = client.submit_job(
             "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
         )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q prod  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
 
 
 def test_polaris_client_submit_job_retry_auth(mock_auth, mock_subprocess, mock_pexpect):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"3141592653polaris-pbs-01"
-    mock_popen.stderr.read.return_value = b""
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"3141592653polaris-pbs-01"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.submit_job(
         "./job.sh", "work_dir", 2, client.SupportedQueues.PROD, None
     )
-    mock_subprocess.Popen.assert_called_once_with(
-        _run_commands_template(
-            [
-                "cd work_dir",
-                "qsub -l select=2:system=polaris -q prod  ./job.sh",
-            ]
-        ),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                _run_commands_template(
+                    [
+                        "cd work_dir",
+                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
     )
-    mock_popen.wait.assert_called_once_with(180)
-    assert mock_subprocess.run.call_count == 3
     assert result == "3141592653polaris-pbs-01"
 
 
 def test_polaris_client_list_jobs_success_debug(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
 
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     job_ids = [job.id for job in job_list]
     expected_ids = [
@@ -439,20 +560,19 @@ def test_polaris_client_list_jobs_success_debug(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_list_jobs_success_debug_scaling(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
 
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG_SCALING)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     job_ids = [job.id for job in job_list]
     expected_ids = [
@@ -463,20 +583,19 @@ def test_polaris_client_list_jobs_success_debug_scaling(mock_subprocess, mock_au
 
 
 def test_polaris_client_list_jobs_success_prod(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
 
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.PROD)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     job_ids = [job.id for job in job_list]
     expected_ids = [
@@ -491,20 +610,19 @@ def test_polaris_client_list_jobs_success_prod(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_list_jobs_handles_empty_string(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b""
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b""
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
 
     client = PolarisClient("user")
     job_list = client.list_jobs(client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     job_ids = [job.id for job in job_list]
     expected_ids = []
@@ -512,42 +630,47 @@ def test_polaris_client_list_jobs_handles_empty_string(mock_subprocess, mock_aut
 
 
 def test_polaris_client_list_jobs_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b""
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 1
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b""
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 1
 
     client = PolarisClient("user")
     with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
         client = PolarisClient("user")
         _ = client.list_jobs(client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
 
 
 def test_polaris_client_get_job_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = (
-        _get_test_data("qstat.txt").replace("F", "Q").encode("utf-8")
-    )
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("qstat.txt").replace("F", "Q").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
 
     client = PolarisClient("user")
     job_status = client.get_job("2017652", client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     expected_status = JobStatus(
         id="2017652",
@@ -572,68 +695,87 @@ def test_polaris_client_get_job_success(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_get_job_not_found(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     job_status = client.get_job("2017652", client.SupportedQueues.DEBUG_SCALING)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
     assert job_status is None
 
 
 def test_polaris_client_get_job_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen.stderr.read.return_value = b"foo"
-    mock_popen.wait.return_value = 1
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 1
     client = PolarisClient("user")
     with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
         _ = client.get_job("2017652", client.SupportedQueues.DEBUG_SCALING)
-    mock_subprocess.Popen.assert_called_with(
+    mock_subprocess.run.assert_called_with(
         _run_commands_template(["qstat -s -x -w -u user"]),
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        timeout=180,
     )
 
 
 def test_polaris_client_cancel_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen1 = Mock()
-    mock_popen1.stdout.read.return_value = b""
-    mock_popen1.stderr.read.return_value = b""
-    mock_popen1.wait.return_value = 0
-    mock_popen2 = Mock()
-    mock_subprocess.Popen.side_effect = [mock_popen1, mock_popen2]
-    mock_popen2.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen2.stderr.read.return_value = b"foo"
-    mock_popen2.wait.return_value = 0
+    mock_run2 = Mock()
+    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stderr = b"foo"
+    mock_run2.returncode = 0
+    mock_subprocess.run.return_value = mock_run2
 
     client = PolarisClient("user")
     job_status = client.cancel("2017652", client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
             call(
                 _run_commands_template(["qdel 2017652"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
             ),
             call(
                 _run_commands_template(["qstat -s -x -w -u user"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
@@ -660,85 +802,128 @@ def test_polaris_client_cancel_success(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_cancel_qdel_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen1 = Mock()
-    mock_popen1.stdout.read.return_value = b""
-    mock_popen1.stderr.read.return_value = b"foo"
-    mock_popen1.wait.return_value = 1
-    mock_subprocess.Popen.side_effect = [mock_popen1]
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b""
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 1
     with pytest.raises(RuntimeError, match="Failed to cancel job. stderr: foo"):
         client = PolarisClient("user")
         _ = client.cancel("2017652", client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
             call(
                 _run_commands_template(["qdel 2017652"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
 
 
 def test_polaris_client_cancel_qstat_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen1 = Mock()
-    mock_popen1.stdout.read.return_value = b""
-    mock_popen1.stderr.read.return_value = b""
-    mock_popen1.wait.return_value = 0
-    mock_popen2 = Mock()
-    mock_subprocess.Popen.side_effect = [mock_popen1, mock_popen2]
-    mock_popen2.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen2.stderr.read.return_value = b"foo"
-    mock_popen2.wait.return_value = 1
+    mock_run1 = Mock()
+    mock_run1.stdout = b""
+    mock_run1.stderr = b""
+    mock_run1.returncode = 0
+    mock_run2 = Mock()
+    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stderr = b"foo"
+    mock_run2.returncode = 1
+    mock_subprocess.run.side_effect = [
+        mock_run1,
+        mock_run1,
+        mock_run1,
+        mock_run1,
+        mock_run2,
+    ]
     with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
         client = PolarisClient("user")
         _ = client.cancel("2017652", client.SupportedQueues.DEBUG)
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
             call(
                 _run_commands_template(["qdel 2017652"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
             ),
             call(
                 _run_commands_template(["qstat -s -x -w -u user"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
 
 
 def test_polaris_client_cancel_job_not_found_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen1 = Mock()
-    mock_popen1.stdout.read.return_value = b""
-    mock_popen1.stderr.read.return_value = b""
-    mock_popen1.wait.return_value = 0
-    mock_popen2 = Mock()
-    mock_subprocess.Popen.side_effect = [mock_popen1, mock_popen2]
-    mock_popen2.stdout.read.return_value = _get_test_data("qstat.txt").encode("utf-8")
-    mock_popen2.stderr.read.return_value = b"foo"
-    mock_popen2.wait.return_value = 0
+    mock_run2 = Mock()
+    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stderr = b"foo"
+    mock_run2.returncode = 0
+    mock_subprocess.run.return_value = mock_run2
     client = PolarisClient("user")
     job_status = client.cancel("2017652", client.SupportedQueues.PROD)
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
+            ),
             call(
                 _run_commands_template(["qdel 2017652"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
+            ),
+            call(
+                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@polaris.alcf.anl.gov",
+                shell=True,
+                capture_output=True,
+                timeout=10,
             ),
             call(
                 _run_commands_template(["qstat -s -x -w -u user"]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
@@ -746,12 +931,11 @@ def test_polaris_client_cancel_job_not_found_success(mock_subprocess, mock_auth)
 
 
 def test_polaris_client_run_commands_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     commands = [
         "first command",
         "cd second/command",
@@ -762,15 +946,11 @@ def test_polaris_client_run_commands_success(mock_subprocess, mock_auth):
     ]
     client = PolarisClient("user")
     result = client.run_commands(commands)
-    mock_subprocess.Popen.assert_has_calls(
-        [
-            call(
-                _run_commands_template(commands),
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ),
-        ]
+    mock_subprocess.run.assert_called_with(
+        _run_commands_template(commands),
+        shell=True,
+        capture_output=True,
+        timeout=180,
     )
     assert result.exit_code == 0
     assert result.stdout == "out"
@@ -778,21 +958,20 @@ def test_polaris_client_run_commands_success(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_run_commands_success_empty(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     result = client.run_commands([])
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
             call(
                 _run_commands_template([]),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
@@ -802,23 +981,26 @@ def test_polaris_client_run_commands_success_empty(mock_subprocess, mock_auth):
 
 
 def test_polaris_client_run_commands_fails(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 1
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 1
     client = PolarisClient("user")
     result = client.run_commands([])
-    mock_subprocess.Popen.assert_has_calls(
-        [
-            call(
-                _run_commands_template([]),
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ),
-        ]
+    mock_subprocess.run.assert_called_with(
+        _run_commands_template([]),
+        shell=True,
+        capture_output=True,
+        timeout=180,
     )
     assert result.exit_code == 1
     assert result.stdout == "out"
@@ -1011,18 +1193,17 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
 
 
 def test_polaris_client_put_success(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 0
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 0
     client = PolarisClient("user")
     client.put(
         file_contents="file contents",
         destination="destination/file.txt",
     )
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
             call(
                 _run_commands_template(
@@ -1035,27 +1216,34 @@ def test_polaris_client_put_success(mock_subprocess, mock_auth):
                     ]
                 ),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
 
 
 def test_polaris_client_put_failure(mock_subprocess, mock_auth):
-    mock_subprocess.PIPE = subprocess.PIPE
-    mock_popen = Mock()
-    mock_subprocess.Popen.return_value = mock_popen
-    mock_popen.stdout.read.return_value = b"out"
-    mock_popen.stderr.read.return_value = b"err"
-    mock_popen.wait.return_value = 1
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_run = Mock()
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        mock_run,
+    ]
+    mock_run.stdout = b"out"
+    mock_run.stderr = b"err"
+    mock_run.returncode = 1
     with pytest.raises(RuntimeError, match="Failed to write file. stderr: err"):
         client = PolarisClient("user")
         client.put(
             file_contents="file contents",
             destination="destination/file.txt",
         )
-    mock_subprocess.Popen.assert_has_calls(
+    mock_subprocess.run.assert_has_calls(
         [
             call(
                 _run_commands_template(
@@ -1068,8 +1256,8 @@ def test_polaris_client_put_failure(mock_subprocess, mock_auth):
                     ]
                 ),
                 shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
+                timeout=180,
             ),
         ]
     )
