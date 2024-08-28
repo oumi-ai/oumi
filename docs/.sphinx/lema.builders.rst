@@ -1,10 +1,6 @@
 lema.builders package
 =====================
 
-Overview
---------
-Convenience methods for building various core components.
-
 Submodules
 ----------
 
