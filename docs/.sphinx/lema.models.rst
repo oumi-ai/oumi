@@ -11,3 +11,4 @@ Module contents
 .. automodule:: lema.models
    :members:
    :undoc-members:
+   :show-inheritance:
