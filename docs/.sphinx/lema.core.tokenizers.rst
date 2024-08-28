@@ -9,7 +9,10 @@ lema.core.tokenizers package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.tokenizers.base\_tokenizer module
+-------------------------------------------
 
-   lema.core.tokenizers.base_tokenizer
+.. automodule:: lema.core.tokenizers.base_tokenizer
+   :members:
+   :undoc-members:
+   :show-inheritance:

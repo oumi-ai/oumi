@@ -6,9 +6,26 @@ lema.launcher.clusters namespace
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.launcher.clusters.local\_cluster module
+--------------------------------------------
 
-   lema.launcher.clusters.local_cluster
-   lema.launcher.clusters.polaris_cluster
-   lema.launcher.clusters.sky_cluster
+.. automodule:: lema.launcher.clusters.local_cluster
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clusters.polaris\_cluster module
+----------------------------------------------
+
+.. automodule:: lema.launcher.clusters.polaris_cluster
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clusters.sky\_cluster module
+------------------------------------------
+
+.. automodule:: lema.launcher.clusters.sky_cluster
+   :members:
+   :undoc-members:
+   :show-inheritance:

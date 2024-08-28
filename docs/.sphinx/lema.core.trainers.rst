@@ -9,9 +9,26 @@ lema.core.trainers package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.trainers.base\_trainer module
+---------------------------------------
 
-   lema.core.trainers.base_trainer
-   lema.core.trainers.hf_trainer
-   lema.core.trainers.lema_trainer
+.. automodule:: lema.core.trainers.base_trainer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.trainers.hf\_trainer module
+-------------------------------------
+
+.. automodule:: lema.core.trainers.hf_trainer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.trainers.lema\_trainer module
+---------------------------------------
+
+.. automodule:: lema.core.trainers.lema_trainer
+   :members:
+   :undoc-members:
+   :show-inheritance:

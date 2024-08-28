@@ -9,9 +9,26 @@ lema.evaluation package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.evaluation.compute\_metrics module
+---------------------------------------
 
-   lema.evaluation.compute_metrics
-   lema.evaluation.huggingface_leaderboard
-   lema.evaluation.infer_prob
+.. automodule:: lema.evaluation.compute_metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.evaluation.huggingface\_leaderboard module
+-----------------------------------------------
+
+.. automodule:: lema.evaluation.huggingface_leaderboard
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.evaluation.infer\_prob module
+----------------------------------
+
+.. automodule:: lema.evaluation.infer_prob
+   :members:
+   :undoc-members:
+   :show-inheritance:

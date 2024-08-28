@@ -9,8 +9,18 @@ lema.core.datasets package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.datasets.base\_dataset module
+---------------------------------------
 
-   lema.core.datasets.base_dataset
-   lema.core.datasets.iterable_dataset
+.. automodule:: lema.core.datasets.base_dataset
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.datasets.iterable\_dataset module
+-------------------------------------------
+
+.. automodule:: lema.core.datasets.iterable_dataset
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -9,7 +9,10 @@ lema.models package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.models.mlp module
+----------------------
 
-   lema.models.mlp
+.. automodule:: lema.models.mlp
+   :members:
+   :undoc-members:
+   :show-inheritance:

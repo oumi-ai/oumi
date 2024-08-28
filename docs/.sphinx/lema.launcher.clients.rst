@@ -6,9 +6,26 @@ lema.launcher.clients namespace
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.launcher.clients.local\_client module
+------------------------------------------
 
-   lema.launcher.clients.local_client
-   lema.launcher.clients.polaris_client
-   lema.launcher.clients.sky_client
+.. automodule:: lema.launcher.clients.local_client
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clients.polaris\_client module
+--------------------------------------------
+
+.. automodule:: lema.launcher.clients.polaris_client
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clients.sky\_client module
+----------------------------------------
+
+.. automodule:: lema.launcher.clients.sky_client
+   :members:
+   :undoc-members:
+   :show-inheritance:

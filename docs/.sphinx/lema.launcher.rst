@@ -19,7 +19,10 @@ Subpackages
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.launcher.launcher module
+-----------------------------
 
-   lema.launcher.launcher
+.. automodule:: lema.launcher.launcher
+   :members:
+   :undoc-members:
+   :show-inheritance:

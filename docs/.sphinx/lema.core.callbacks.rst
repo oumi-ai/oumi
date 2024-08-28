@@ -6,10 +6,34 @@ lema.core.callbacks namespace
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.callbacks.hf\_mfu\_callback module
+--------------------------------------------
 
-   lema.core.callbacks.hf_mfu_callback
-   lema.core.callbacks.mfu_callback
-   lema.core.callbacks.profiler_step_callback
-   lema.core.callbacks.telemetry_callback
+.. automodule:: lema.core.callbacks.hf_mfu_callback
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.callbacks.mfu\_callback module
+----------------------------------------
+
+.. automodule:: lema.core.callbacks.mfu_callback
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.callbacks.profiler\_step\_callback module
+---------------------------------------------------
+
+.. automodule:: lema.core.callbacks.profiler_step_callback
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.callbacks.telemetry\_callback module
+----------------------------------------------
+
+.. automodule:: lema.core.callbacks.telemetry_callback
+   :members:
+   :undoc-members:
+   :show-inheritance:

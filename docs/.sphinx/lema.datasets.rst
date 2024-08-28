@@ -9,16 +9,82 @@ lema.datasets package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.datasets.alpaca module
+---------------------------
 
-   lema.datasets.alpaca
-   lema.datasets.chatqa
-   lema.datasets.chatrag_bench
-   lema.datasets.common
-   lema.datasets.debug
-   lema.datasets.mmlu
-   lema.datasets.pretraining_async_text_dataset
-   lema.datasets.prompt_response_sft_preprocessor_factory
-   lema.datasets.trl_dpo_preprocessor
-   lema.datasets.ultrachat_200k
+.. automodule:: lema.datasets.alpaca
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.chatqa module
+---------------------------
+
+.. automodule:: lema.datasets.chatqa
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.chatrag\_bench module
+-----------------------------------
+
+.. automodule:: lema.datasets.chatrag_bench
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.common module
+---------------------------
+
+.. automodule:: lema.datasets.common
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.debug module
+--------------------------
+
+.. automodule:: lema.datasets.debug
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.mmlu module
+-------------------------
+
+.. automodule:: lema.datasets.mmlu
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.pretraining\_async\_text\_dataset module
+------------------------------------------------------
+
+.. automodule:: lema.datasets.pretraining_async_text_dataset
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.prompt\_response\_sft\_preprocessor\_factory module
+-----------------------------------------------------------------
+
+.. automodule:: lema.datasets.prompt_response_sft_preprocessor_factory
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.trl\_dpo\_preprocessor module
+-------------------------------------------
+
+.. automodule:: lema.datasets.trl_dpo_preprocessor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.datasets.ultrachat\_200k module
+------------------------------------
+
+.. automodule:: lema.datasets.ultrachat_200k
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -9,9 +9,26 @@ lema.launcher.clouds package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.launcher.clouds.local\_cloud module
+----------------------------------------
 
-   lema.launcher.clouds.local_cloud
-   lema.launcher.clouds.polaris_cloud
-   lema.launcher.clouds.sky_cloud
+.. automodule:: lema.launcher.clouds.local_cloud
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clouds.polaris\_cloud module
+------------------------------------------
+
+.. automodule:: lema.launcher.clouds.polaris_cloud
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launcher.clouds.sky\_cloud module
+--------------------------------------
+
+.. automodule:: lema.launcher.clouds.sky_cloud
+   :members:
+   :undoc-members:
+   :show-inheritance:

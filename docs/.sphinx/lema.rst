@@ -24,11 +24,42 @@ Subpackages
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.evaluate module
+--------------------
 
-   lema.evaluate
-   lema.evaluate_async
-   lema.infer
-   lema.launch
-   lema.train
+.. automodule:: lema.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.evaluate\_async module
+---------------------------
+
+.. automodule:: lema.evaluate_async
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.infer module
+-----------------
+
+.. automodule:: lema.infer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.launch module
+------------------
+
+.. automodule:: lema.launch
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.train module
+-----------------
+
+.. automodule:: lema.train
+   :members:
+   :undoc-members:
+   :show-inheritance:

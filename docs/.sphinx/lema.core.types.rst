@@ -9,8 +9,18 @@ lema.core.types package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.types.exceptions module
+---------------------------------
 
-   lema.core.types.exceptions
-   lema.core.types.turn
+.. automodule:: lema.core.types.exceptions
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.types.turn module
+---------------------------
+
+.. automodule:: lema.core.types.turn
+   :members:
+   :undoc-members:
+   :show-inheritance:

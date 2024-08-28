@@ -24,8 +24,18 @@ Subpackages
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.distributed module
+----------------------------
 
-   lema.core.distributed
-   lema.core.registry
+.. automodule:: lema.core.distributed
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.registry module
+-------------------------
+
+.. automodule:: lema.core.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:

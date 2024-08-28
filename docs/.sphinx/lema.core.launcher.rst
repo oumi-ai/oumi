@@ -9,8 +9,18 @@ lema.core.launcher package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.launcher.base\_cloud module
+-------------------------------------
 
-   lema.core.launcher.base_cloud
-   lema.core.launcher.base_cluster
+.. automodule:: lema.core.launcher.base_cloud
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.launcher.base\_cluster module
+---------------------------------------
+
+.. automodule:: lema.core.launcher.base_cluster
+   :members:
+   :undoc-members:
+   :show-inheritance:

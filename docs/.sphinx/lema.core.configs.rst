@@ -17,13 +17,58 @@ Subpackages
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+lema.core.configs.async\_evaluation\_config module
+--------------------------------------------------
 
-   lema.core.configs.async_evaluation_config
-   lema.core.configs.base_config
-   lema.core.configs.evaluation_config
-   lema.core.configs.generation_config
-   lema.core.configs.inference_config
-   lema.core.configs.job_config
-   lema.core.configs.training_config
+.. automodule:: lema.core.configs.async_evaluation_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.base\_config module
+-------------------------------------
+
+.. automodule:: lema.core.configs.base_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.evaluation\_config module
+-------------------------------------------
+
+.. automodule:: lema.core.configs.evaluation_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.generation\_config module
+-------------------------------------------
+
+.. automodule:: lema.core.configs.generation_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.inference\_config module
+------------------------------------------
+
+.. automodule:: lema.core.configs.inference_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.job\_config module
+------------------------------------
+
+.. automodule:: lema.core.configs.job_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lema.core.configs.training\_config module
+-----------------------------------------
+
+.. automodule:: lema.core.configs.training_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
