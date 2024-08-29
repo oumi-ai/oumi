@@ -1,6 +1,7 @@
 import argparse
 import copy
 import json
+import os
 
 import gspread
 import pandas as pd
@@ -117,7 +118,7 @@ CONTEXT_COLUMN_NAME = "context"
 RESPONSE_COLUMN_NAME = "response"
 
 # Default file paths and urls (can be overwritten by args).
-SERVICE_ACCOUNT_FILE = "/Users/kostas/.config/gspread/service_account.json"
+SERVICE_ACCOUNT_FILE = f"/Users/{os.getlogin()}/.config/gspread/service_account.json"
 # Inputs.
 PROMPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1pOw3r7Q_7gKWfU44hDS0nlBVa9Syo_d5IxPWsMZmMXM"
 PROMPTS_SHEET_TAB = "v_8-01"
