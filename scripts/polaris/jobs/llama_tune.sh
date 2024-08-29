@@ -126,11 +126,11 @@ else  # 70B
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
     if [ "$TRAINING_MODE" == "lora" ]; then
-        # Num nodes: 3
+        # Num nodes: 2
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
-        # Examples per step: 3 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 24
-        # Num steps for 1 epoch: 51,800 / 16 = 2,159
+        # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
+        # Num steps for 1 epoch: 51,800 / 16 = 3,238
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -145,7 +145,24 @@ else  # 70B
             "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
             "training.max_steps=2159"
     else  # SFT
-        echo "Llama 70B SFT is currently not supported!"
+        # Num nodes: 4
+        # Batch size per GPU: 2
+        # Gradient accumulation steps (GAS): 1
+        # Examples per step: 4 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 32
+        # Num steps for 1 epoch: 51,800 / 32 = 1,619
+        set -x  # Print "accelerate" command with expanded variables
+        accelerate launch \
+            --num_machines ${LEMA_NUM_NODES} \
+            --machine_rank ${POLARIS_NODE_RANK} \
+            --num_processes ${TOTAL_NUM_GPUS} \
+            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_port 8007 \
+            --use_fsdp \
+            --config_file configs/accelerate/llama70b.fsdp.yaml \
+            -m lema.train \
+            -c configs/lema/llama70b.sft.yaml \
+            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
+            "training.max_steps=1619"
     fi
 fi
 
