@@ -3,8 +3,6 @@
 Thanks for considering contributing to LeMa! We welcome contributions for new models,
 incremental improvements, datasets, and bug fixes!
 
-TODO: Add info how to reach out to us: email group, Slack, etc.
-
 ## Prerequisites
 
 To set up the development environment on your local machine, run the commands below.
