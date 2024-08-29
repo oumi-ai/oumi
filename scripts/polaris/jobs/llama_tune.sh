@@ -126,11 +126,11 @@ else  # 70B
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
     if [ "$TRAINING_MODE" == "lora" ]; then
-        # Num nodes: 3
+        # Num nodes: 2
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
-        # Examples per step: 3 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 24
-        # Num steps for 1 epoch: 51,800 / 16 = 2,159
+        # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
+        # Num steps for 1 epoch: 51,800 / 16 = 3,238
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
