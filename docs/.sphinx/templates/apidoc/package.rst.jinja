@@ -1,0 +1,46 @@
+{%- macro automodule(modname, options) -%}
+.. automodule:: {{ modname }}
+{%- for option in options %}
+   :{{ option }}:
+{%- endfor %}
+{%- endmacro %}
+
+{%- macro toctree(docnames) -%}
+.. toctree::
+   :maxdepth: {{ maxdepth }}
+{% for docname in docnames %}
+   {{ docname }}
+{%- endfor %}
+{%- endmacro %}
+
+{#-
+## Lema change: we don't want to show the package|namespace suffix
+-#}
+{{- pkgname | e | heading }}
+
+
+{%- if is_namespace %}
+.. py:module:: {{ pkgname }}
+{% endif %}
+
+{%- if modulefirst and not is_namespace %}
+{{ automodule(pkgname, automodule_options) }}
+{% endif %}
+
+{%- if subpackages %}
+Subpackages
+-----------
+
+{{ toctree(subpackages) }}
+{% endif %}
+
+{#-
+## Lema change: we don't want to show submodules. Removing block.
+#}
+
+{%- if not modulefirst and not is_namespace %}
+Module contents
+---------------
+
+{{ automodule(pkgname, automodule_options) }}
+{% endif %}
