@@ -1,6 +1,8 @@
-lema package
-============
 
+
+
+lema
+====
 .. automodule:: lema
    :members:
    :undoc-members:
@@ -20,8 +22,3 @@ Subpackages
    lema.models
    lema.performance
    lema.utils
-
-
-#
-# Lema change: we don't want to show submodules
-#

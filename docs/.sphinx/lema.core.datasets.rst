@@ -1,12 +1,9 @@
-lema.core.datasets package
-==========================
 
+
+
+lema.core.datasets
+==================
 .. automodule:: lema.core.datasets
    :members:
    :undoc-members:
    :show-inheritance:
-
-
-#
-# Lema change: we don't want to show submodules
-#

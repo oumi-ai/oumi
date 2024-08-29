@@ -1,6 +1,8 @@
-lema.launcher package
-=====================
 
+
+
+lema.launcher
+=============
 .. automodule:: lema.launcher
    :members:
    :undoc-members:
@@ -15,8 +17,3 @@ Subpackages
    lema.launcher.clients
    lema.launcher.clouds
    lema.launcher.clusters
-
-
-#
-# Lema change: we don't want to show submodules
-#

@@ -1,9 +1,6 @@
-lema.utils namespace
-====================
 
+
+
+lema.utils
+==========
 .. py:module:: lema.utils
-
-
-#
-# Lema change: we don't want to show submodules
-#

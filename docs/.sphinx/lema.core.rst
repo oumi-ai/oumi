@@ -1,6 +1,8 @@
-lema.core package
-=================
 
+
+
+lema.core
+=========
 .. automodule:: lema.core
    :members:
    :undoc-members:
@@ -20,8 +22,3 @@ Subpackages
    lema.core.tokenizers
    lema.core.trainers
    lema.core.types
-
-
-#
-# Lema change: we don't want to show submodules
-#

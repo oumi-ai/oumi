@@ -1,9 +1,6 @@
-lema.core.callbacks namespace
-=============================
 
+
+
+lema.core.callbacks
+===================
 .. py:module:: lema.core.callbacks
-
-
-#
-# Lema change: we don't want to show submodules
-#

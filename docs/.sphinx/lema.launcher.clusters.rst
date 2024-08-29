@@ -1,9 +1,6 @@
-lema.launcher.clusters namespace
-================================
 
+
+
+lema.launcher.clusters
+======================
 .. py:module:: lema.launcher.clusters
-
-
-#
-# Lema change: we don't want to show submodules
-#

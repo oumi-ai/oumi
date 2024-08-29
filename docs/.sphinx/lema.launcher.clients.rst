@@ -1,9 +1,6 @@
-lema.launcher.clients namespace
-===============================
 
+
+
+lema.launcher.clients
+=====================
 .. py:module:: lema.launcher.clients
-
-
-#
-# Lema change: we don't want to show submodules
-#

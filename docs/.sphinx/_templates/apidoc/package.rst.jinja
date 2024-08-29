@@ -13,11 +13,16 @@
 {%- endfor %}
 {%- endmacro %}
 
-{%- if is_namespace %}
+{#
+## Lema change: we don't want to show the package|namespace suffix
+#}
+{# {%- if is_namespace %}
 {{- [pkgname, "namespace"] | join(" ") | e | heading }}
 {% else %}
 {{- [pkgname, "package"] | join(" ") | e | heading }}
-{% endif %}
+{% endif %} #}
+{{- pkgname | e | heading }}
+
 
 {%- if is_namespace %}
 .. py:module:: {{ pkgname }}
@@ -34,9 +39,9 @@ Subpackages
 {{ toctree(subpackages) }}
 {% endif %}
 
-#
-# Lema change: we don't want to show submodules
-#
+{#
+## Lema change: we don't want to show submodules
+#}
 {# {%- if submodules %}
 Submodules
 ----------

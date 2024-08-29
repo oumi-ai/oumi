@@ -1,12 +1,9 @@
-lema.evaluation package
-=======================
 
+
+
+lema.evaluation
+===============
 .. automodule:: lema.evaluation
    :members:
    :undoc-members:
    :show-inheritance:
-
-
-#
-# Lema change: we don't want to show submodules
-#

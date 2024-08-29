@@ -1,6 +1,8 @@
-lema.core.configs package
-=========================
 
+
+
+lema.core.configs
+=================
 .. automodule:: lema.core.configs
    :members:
    :undoc-members:
@@ -13,8 +15,3 @@ Subpackages
    :maxdepth: 2
 
    lema.core.configs.params
-
-
-#
-# Lema change: we don't want to show submodules
-#
