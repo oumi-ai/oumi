@@ -46,7 +46,7 @@ These configurations demonstrate how to set up and run full training for differe
 | Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
 | Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
 | Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
-| Llama3.1 70b | SFT | - | Polaris | 🚀 COMING SOON! |
+| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/lema/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ |
 | **Example Models** | | | | |
 | Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/lema/llama3.8b.aya.sft.yaml) | GCP | ✨ |
 | Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/lema/zephyr.7b/sft/qlora.yaml) | GCP | ✨ |
