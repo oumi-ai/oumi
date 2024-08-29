@@ -1,6 +1,5 @@
-lema.evaluation package
-=======================
-
+lema.evaluation
+===============
 .. automodule:: lema.evaluation
    :members:
    :undoc-members:

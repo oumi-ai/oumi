@@ -1,6 +1,5 @@
-lema.models package
-===================
-
+lema.models
+===========
 .. automodule:: lema.models
    :members:
    :undoc-members:

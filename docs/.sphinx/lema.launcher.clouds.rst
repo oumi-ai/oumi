@@ -1,6 +1,6 @@
-lema.core.tokenizers
+lema.launcher.clouds
 ====================
-.. automodule:: lema.core.tokenizers
+.. automodule:: lema.launcher.clouds
    :members:
    :undoc-members:
    :show-inheritance:

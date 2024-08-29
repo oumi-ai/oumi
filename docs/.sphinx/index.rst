@@ -2,7 +2,6 @@
    sphinx-quickstart on Wed Aug 14 15:35:19 2024.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
-
 Learning Machines Documentation
 ===============================
 Welcome to the documentation for Learning Machines.

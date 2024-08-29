@@ -1,6 +1,5 @@
-lema.core.launcher package
-==========================
-
+lema.core.launcher
+==================
 .. automodule:: lema.core.launcher
    :members:
    :undoc-members:

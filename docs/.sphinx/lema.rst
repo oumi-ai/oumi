@@ -1,16 +1,15 @@
 lema
-============
-
-Overview
------------
-The top-level package for LeMa, exposing the main functionalities of the library.
-This package provides convenience methods for training, evaluation, inference, and launching jobs.
+====
+.. automodule:: lema
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    lema.builders
    lema.core
@@ -18,11 +17,5 @@ Subpackages
    lema.evaluation
    lema.launcher
    lema.models
-
-Module contents
----------------
-
-.. automodule:: lema
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   lema.performance
+   lema.utils
