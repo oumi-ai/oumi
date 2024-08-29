@@ -1,5 +1,3 @@
-lema.core.callbacks namespace
-=============================
-
-
+lema.core.callbacks
+===================
 .. py:module:: lema.core.callbacks

@@ -1,7 +1,5 @@
-lema.builders package
-=====================
-
-
+lema.builders
+=============
 .. automodule:: lema.builders
    :members:
    :undoc-members:

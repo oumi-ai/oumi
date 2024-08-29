@@ -1,7 +1,5 @@
-lema.core.configs package
-=========================
-
-
+lema.core.configs
+=================
 .. automodule:: lema.core.configs
    :members:
    :undoc-members:

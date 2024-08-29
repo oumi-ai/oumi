@@ -1,5 +1,3 @@
-lema.performance namespace
-==========================
-
-
+lema.performance
+================
 .. py:module:: lema.performance
