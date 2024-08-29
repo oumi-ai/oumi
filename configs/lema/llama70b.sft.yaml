@@ -1,6 +1,6 @@
-# SFT config for Llama 8B.
+# SFT config for Llama 70B.
 # Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_full.yaml
 
 model:
   # Vocab size: 128256
