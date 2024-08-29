@@ -43,17 +43,17 @@ These configurations demonstrate how to set up and run full training for differe
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
 | **Llama Instruction Finetuning** | | | | |
-| Llama3.1 8b | LoRA | [llama8b_lora.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
-| Llama3.1 8b | SFT | [llama8b_sft.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
-| Llama3.1 70b | LoRA | [llama70b_lora.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
+| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
 | Llama3.1 70b | SFT | - | Polaris | 🚀 COMING SOON! |
 | **Example Models** | | | | |
-| Aya | Full Training | [aya_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/aya_full.yaml) | Polaris | ✨ |
-| Zephir | Full Training | [zephir_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/zephir_full.yaml) | Polaris | ✨ |
-| ChatQA | Full Training | [chatqa_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/chatqa_full.yaml) | Polaris | ✨ |
+| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/lema/llama3.8b.aya.sft.yaml) | GCP | ✨ |
+| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/lema/zephyr.7b/sft/qlora.yaml) | GCP | ✨ |
+| ChatQA | SFT | [chatqa.stage1.yaml](/configs/lema/chatqa/chatqa.stage1.yaml) | GCP | ✨ |
 | **Pre-training** | | | | |
-| GPT-2 | Full Pre-training | [gpt2_pretrain.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/gpt2_pretrain.yaml) | Polaris | ✨ |
-| Llama2 7b | Full Pre-training | [llama2_7b_pretrain.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama2_7b_pretrain.yaml) | Polaris | ✨ |
+| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/lema/gpt2.pt.mac.yaml) | Mac (mps) | ✨ |
+| Llama2 7b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ |
 
 ## Tutorials
 
@@ -61,12 +61,12 @@ We provide several example notebooks to help you get started with LeMa. Here's a
 
 | Notebook | Description |
 |----------|-------------|
-| [LeMa - A Tour](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) | A comprehensive tour of the LeMa repository and its features |
-| [Data Processing](https://github.com/openlema/lema/blob/main/notebooks/Data%20Processing.ipynb) | Demonstrates how to load, preprocess, and prepare data for training |
-| [Model Training](https://github.com/openlema/lema/blob/main/notebooks/Model%20Training.ipynb) | Shows how to configure and train a model using LeMa |
-| [Evaluation](https://github.com/openlema/lema/blob/main/notebooks/Evaluation.ipynb) | Explains how to evaluate trained models using various metrics |
-| [Inference](https://github.com/openlema/lema/blob/main/notebooks/Inference.ipynb) | Guides you through running inference with trained models |
-| [Custom Model](https://github.com/openlema/lema/blob/main/notebooks/Custom%20Model.ipynb) | Demonstrates how to create and use custom model architectures |
+| [A Tour](/notebooks/LeMa%20-%20A%20Tour.ipynb) | A comprehensive tour of the LeMa repository and its features |
+| [Finetuning Tutorial](/notebooks/LeMa%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using LeMa |
+| [Tuning Llama](/notebooks/LeMa%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with LeMa |
+| [Multinode Inference on Polaris](/notebooks/LeMa%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
+| [Datasets Tutorial](/notebooks/Lema%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in LeMa |
+| [Deploying a Job](/notebooks/LeMa%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using LeMa |
 
 ## Documentation
 
