@@ -1,26 +1,32 @@
+# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
+# Example command:
+# lema-launch -p configs/lema/jobs/gcp/llama8b_sft.yaml -c llama8b-sft
 name: llama8b-sft
 
-num_nodes: 1  # Set it to N for multi-node training.
-
+num_nodes: 1
 resources:
-  accelerators: {"A100": 4}
-  any_of:
-    - use_spot: true
-    - use_spot: false
-  disk_size: 200  # Disk size in GBs
+  cloud: gcp
+  accelerators: "A100:4"
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
+  use_spot: true
+  disk_size: 200 # Disk size in GBs
 
-# Upload working directory to remote ~/sky_workdir.
-workdir: .
+# Upload a working directory to remote ~/sky_workdir.
+working_dir: .
 
-# Mount local files.
+# Upload local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token # mount HF token
+  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: llama8b.sft
   ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
@@ -36,10 +42,6 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
-  if test ${TOTAL_NUM_GPUS} -lt 2; then
-    echo "Using FSDP with only 1 GPU may lead to errors. Multiple GPUs are expected."
-  fi
-
   set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
