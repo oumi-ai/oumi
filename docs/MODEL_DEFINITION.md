@@ -47,6 +47,7 @@ for batch in dataloader:
 Digging deeper into the model itself, here is a simple model definition. In this example, we define a simple model that consists of two convolutional layers, followed by a fully connected layer.
 
 Each lines is annotated with the relevant information:
+
 - [LeMa] means this is a LeMa-specific decision, which we can revisit as we see fit.
 - [PT] means this is a Pytorch-specific requirement. We need a strong reason to deviate from this.
 - [HF] means this is a Huggingface-specific requirement. We can revisit if the tradeoff is worth it.
