@@ -53,7 +53,7 @@ run: |
       -c configs/lema/llama70b.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
-      "training.max_steps=10" \
+      "training.save_steps=10" \
       "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
