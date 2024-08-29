@@ -29,6 +29,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx.ext.duration",
     "myst_parser",
     "nbsphinx",
 ]
@@ -41,6 +42,7 @@ source_suffix = {
 
 nbsphinx_execute = "never"
 nbsphinx_allow_errors = True
+napoleon_include_special_with_doc = True
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

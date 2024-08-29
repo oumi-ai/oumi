@@ -215,21 +215,23 @@ class PolarisCluster(BaseCluster):
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if lema is installed in a conda env. If not, install it.
         lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
-        test_response = self._client.run_commands([f"test -d {lema_env_path}"])
-        should_create_env = test_response.exit_code != 0
-        if should_create_env:
-            install_cmds = [
-                "module use /soft/modulefiles",
-                "module load conda",
-                'echo "Creating LeMa Conda environment... ---------------------------"',
-                f"conda create -y python=3.11 --prefix {lema_env_path}",
-                f"conda activate {lema_env_path}",
-                "pip install flash-attn --no-build-isolation",
-                f"cd {remote_working_dir}",
-                'echo "Installing packages... ---------------------------------------"',
-                "pip install -e '.[train]'",
-            ]
-            self._client.run_commands(install_cmds)
+        install_cmds = [
+            f"cd {remote_working_dir}",
+            "module use /soft/modulefiles",
+            "module load conda",
+            f"if [ ! -d {lema_env_path} ]; then",
+            'echo "Creating LeMa Conda environment... ---------------------------"',
+            f"conda create -y python=3.11 --prefix {lema_env_path}",
+            f"conda activate {lema_env_path}",
+            "pip install -e '.[train]'",
+            "pip install flash-attn --no-build-isolation",
+            "else",
+            f"conda activate {lema_env_path}",
+            'echo "Installing packages... ---------------------------------------"',
+            "pip install -e '.[train]'",
+            "fi",
+        ]
+        self._client.run_commands(install_cmds)
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
             self._client.put_recursive(local_path, remote_path)

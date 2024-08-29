@@ -340,7 +340,27 @@ def test_polaris_cluster_run_job(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
+            call(
+                [
+                    "cd /home/user/lema_launcher/myjob",
+                    "module use /soft/modulefiles",
+                    "module load conda",
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
+                    "pip install flash-attn --no-build-isolation",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
+                    "fi",
+                ]
+            ),
             call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
             call(
                 [
@@ -421,21 +441,25 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
             call(
                 [
+                    "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    'echo "Creating LeMa Conda environment... -------------------------'
-                    '--"',
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
                     "pip install flash-attn --no-build-isolation",
-                    "cd /home/user/lema_launcher/myjob",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "pip install -e '.[train]'",
+                    "fi",
                 ]
             ),
             call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
@@ -517,7 +541,27 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
+            call(
+                [
+                    "cd /home/user/lema_launcher/1-2-3",
+                    "module use /soft/modulefiles",
+                    "module load conda",
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
+                    "pip install flash-attn --no-build-isolation",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
+                    "fi",
+                ]
+            ),
             call(["chmod +x /home/user/lema_launcher/1-2-3/lema_job.sh"]),
             call(
                 [
@@ -585,7 +629,27 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
+            call(
+                [
+                    "cd /home/user/lema_launcher/myjob",
+                    "module use /soft/modulefiles",
+                    "module load conda",
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
+                    "pip install flash-attn --no-build-isolation",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
+                    "fi",
+                ]
+            ),
             call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
             call(
                 [
@@ -655,7 +719,27 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
+            call(
+                [
+                    "cd /home/user/lema_launcher/myjob",
+                    "module use /soft/modulefiles",
+                    "module load conda",
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
+                    "pip install flash-attn --no-build-isolation",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
+                    "fi",
+                ]
+            ),
             call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
         ]
     )
@@ -717,7 +801,27 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
     )
     mock_polaris_client.run_commands.assert_has_calls(
         [
-            call(["test -d /home/$USER/miniconda3/envs/lema"]),
+            call(
+                [
+                    "cd /home/user/lema_launcher/myjob",
+                    "module use /soft/modulefiles",
+                    "module load conda",
+                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    'echo "Creating LeMa Conda environment... '
+                    '---------------------------"',
+                    "conda create -y python=3.11 --prefix "
+                    "/home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "pip install -e '.[train]'",
+                    "pip install flash-attn --no-build-isolation",
+                    "else",
+                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    'echo "Installing packages... '
+                    '---------------------------------------"',
+                    "pip install -e '.[train]'",
+                    "fi",
+                ]
+            ),
             call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
         ]
     )
