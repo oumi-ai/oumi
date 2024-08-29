@@ -2,24 +2,53 @@
 
 LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
-- Easy-to-use interface for data preprocessing, model training, and evaluation.
-- Support for various machine learning algorithms and techniques.
-- Visualization tools for model analysis and interpretation.
-- Integration with popular libraries and frameworks.
-
 ## Features
 
-- [x] Easily run in a locally, jupyter notebook, vscode debugger, or remote cluster
-- [x] Full finetuning using SFT, DPO
-- [x] Flexible configuration system using YAML files and command-line arguments
+- [x] Easily run training and evaluation locally, in a jupyter notebook, vscode debugger, or remote cluster
+- [x] Instruction finetuning support: full finetuning using SFT, DPO, LoRA, etc.
 - [x] Support for distributed training and multiple GPUs
 - [x] Support for multiple cloud providers (GCP, AWS, Azure), and DOE ALCF Polaris
+- [x] Flexible configuration system using YAML files and command-line arguments
 - [x] Easy-to-use interface for data preprocessing, model training, and evaluation
 - [x] Extensible architecture allowing easy addition of new models, datasets, and evaluation metrics
 
-Take a [tour of our repository](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) to learn more!
+## Getting Started
 
-Ready to get started? Check out our [Getting Started Guide](https://learning-machines.ai/docs/latest/getting_started.html).
+For an overview of the LeMa features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/LeMa%20-%20A%20Tour.ipynb).
+
+### Quickstart
+
+### Configurations
+
+These configurations demonstrate how to set up and run full training for different model architectures using LeMa.
+
+| Model | Type | Configuration | Cluster | Status |
+|-------|------|---------------|---------|--------|
+| **Llama Instruction Finetuning** | | | | |
+| Llama3.1 8b | LoRA | [llama8b_lora.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 8b | SFT | [llama8b_sft.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
+| Llama3.1 70b | LoRA | [llama70b_lora.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 70b | SFT | - | Polaris | 🚀 COMING SOON! |
+| **Example Models** | | | | |
+| Aya | Full Training | [aya_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/aya_full.yaml) | Polaris | ✨ |
+| Zephir | Full Training | [zephir_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/zephir_full.yaml) | Polaris | ✨ |
+| ChatQA | Full Training | [chatqa_full.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/chatqa_full.yaml) | Polaris | ✨ |
+| **Pre-training** | | | | |
+| GPT-2 | Full Pre-training | [gpt2_pretrain.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/gpt2_pretrain.yaml) | Polaris | ✨ |
+| Llama2 7b | Full Pre-training | [llama2_7b_pretrain.yaml](https://github.com/openlema/lema/blob/main/configs/lema/jobs/polaris/llama2_7b_pretrain.yaml) | Polaris | ✨ |
+
+## Tutorials
+
+We provide several example notebooks to help you get started with LeMa. Here's a list of available notebooks:
+
+| Notebook | Description |
+|----------|-------------|
+| [LeMa - A Tour](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) | A comprehensive tour of the LeMa repository and its features |
+| [Data Processing](https://github.com/openlema/lema/blob/main/notebooks/Data%20Processing.ipynb) | Demonstrates how to load, preprocess, and prepare data for training |
+| [Model Training](https://github.com/openlema/lema/blob/main/notebooks/Model%20Training.ipynb) | Shows how to configure and train a model using LeMa |
+| [Evaluation](https://github.com/openlema/lema/blob/main/notebooks/Evaluation.ipynb) | Explains how to evaluate trained models using various metrics |
+| [Inference](https://github.com/openlema/lema/blob/main/notebooks/Inference.ipynb) | Guides you through running inference with trained models |
+| [Custom Model](https://github.com/openlema/lema/blob/main/notebooks/Custom%20Model.ipynb) | Demonstrates how to create and use custom model architectures |
 
 ## Main Components
 
