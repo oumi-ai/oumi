@@ -1,6 +1,5 @@
+lema.utils namespace
+====================
 
 
-
-lema.utils
-==========
 .. py:module:: lema.utils

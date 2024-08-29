@@ -1,8 +1,7 @@
+lema.datasets package
+=====================
 
 
-
-lema.datasets
-=============
 .. automodule:: lema.datasets
    :members:
    :undoc-members:

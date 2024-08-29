@@ -1,8 +1,7 @@
+lema package
+============
 
 
-
-lema
-====
 .. automodule:: lema
    :members:
    :undoc-members:

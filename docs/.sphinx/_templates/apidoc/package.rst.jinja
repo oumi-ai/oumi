@@ -1,4 +1,4 @@
- {%- macro automodule(modname, options) -%}
+{%- macro automodule(modname, options) -%}
 .. automodule:: {{ modname }}
 {%- for option in options %}
    :{{ option }}:
@@ -13,16 +13,17 @@
 {%- endfor %}
 {%- endmacro %}
 
-{#
+{#-
 ## Lema change: we don't want to show the package|namespace suffix
-#}
-{# {%- if is_namespace %}
+-#}
+{%- if is_namespace %}
 {{- [pkgname, "namespace"] | join(" ") | e | heading }}
 {% else %}
 {{- [pkgname, "package"] | join(" ") | e | heading }}
+{% endif %}
+{# {%- if True %}
+{{- [pkgname]| join(" ") | e | heading }}
 {% endif %} #}
-{{- pkgname | e | heading }}
-
 
 {%- if is_namespace %}
 .. py:module:: {{ pkgname }}
