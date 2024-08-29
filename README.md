@@ -1,5 +1,12 @@
 # Learning Machines (LeMa)
 
+[![PyPI version](https://badge.fury.io/py/lema.svg)](https://badge.fury.io/py/lema)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Pre-review Tests](https://github.com/openlema/lema/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/openlema/lema/actions/workflows/pretest.yaml)
+[![Documentation](https://img.shields.io/badge/docs-lema-blue.svg)](https://learning-machines.ai/docs/latest/index.html)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
 LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
 ## Features
@@ -7,7 +14,7 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
 - **Run anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
 - **Instruction Fine-tuning**: Comprehensive instruction fine-tuning capabilities, including SFT, DPO, LoRA, and more
 - **Scalable Training**: Built-in support for distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
-- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris*
+- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris
 - **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
 - **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
 - **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics
@@ -24,7 +31,7 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
    pip install 'lema[cloud,dev,train,gpu]'
    ```
 
-   For detailled instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
+   For detailed instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
 
@@ -53,7 +60,7 @@ These configurations demonstrate how to set up and run full training for differe
 | ChatQA | SFT | [chatqa.stage1.yaml](/configs/lema/chatqa/chatqa.stage1.yaml) | GCP | ✨ |
 | **Pre-training** | | | | |
 | GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/lema/gpt2.pt.mac.yaml) | Mac (mps) | ✨ |
-| Llama2 7b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ |
+| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ |
 
 ## Tutorials
 
