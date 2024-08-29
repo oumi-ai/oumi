@@ -4,19 +4,37 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
 
 ## Features
 
-- [x] Easily run training and evaluation locally, in a jupyter notebook, vscode debugger, or remote cluster
-- [x] Instruction finetuning support: full finetuning using SFT, DPO, LoRA, etc.
-- [x] Support for distributed training and multiple GPUs
-- [x] Support for multiple cloud providers (GCP, AWS, Azure), and DOE ALCF Polaris
-- [x] Flexible configuration system using YAML files and command-line arguments
-- [x] Easy-to-use interface for data preprocessing, model training, and evaluation
-- [x] Extensible architecture allowing easy addition of new models, datasets, and evaluation metrics
+- **Run anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
+- **Instruction Fine-tuning**: Comprehensive instruction fine-tuning capabilities, including SFT, DPO, LoRA, and more
+- **Scalable Training**: Built-in support for distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
+- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris*
+- **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
+- **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
+- **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics
 
 ## Getting Started
 
 For an overview of the LeMa features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/LeMa%20-%20A%20Tour.ipynb).
 
 ### Quickstart
+
+1. Install the package:
+
+   ```shell
+   pip install 'lema[cloud,dev,train,gpu]'
+   ```
+
+   For detailled instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
+
+2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
+
+3. Run training locally:
+
+   ```shell
+   lema-train -c path/to/your/config.yaml
+   ```
+
+   For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).
 
 ### Configurations
 
@@ -50,59 +68,11 @@ We provide several example notebooks to help you get started with LeMa. Here's a
 | [Inference](https://github.com/openlema/lema/blob/main/notebooks/Inference.ipynb) | Guides you through running inference with trained models |
 | [Custom Model](https://github.com/openlema/lema/blob/main/notebooks/Custom%20Model.ipynb) | Demonstrates how to create and use custom model architectures |
 
-## Main Components
-
-1. **Data Processing**: Supports various dataset formats and provides utilities for data loading, preprocessing, and batching.
-
-2. **Model Building**: Includes a flexible system for building and configuring models, with support for custom architectures.
-
-3. **Training**: Offers a robust training pipeline with support for different optimizers, learning rate schedules, and training strategies.
-
-4. **Evaluation**: Provides comprehensive evaluation tools, including support for multiple metrics and integration with the LM Evaluation Harness.
-
-5. **Inference**: Allows for both batch and interactive inference using trained models.
-
-6. **Logging and Monitoring**: Includes detailed logging and optional integration with wandb and TensorBoard for experiment tracking.
-
 ## Documentation
 
 View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
 
 Reach out to <matthew@learning-machines.ai> if you have problems with access.
-
-## Getting Started
-
-1. Install the package:
-
-   ```shell
-   pip install 'lema[cloud,dev,train]'
-   ```
-
-2. Set up your configuration file (example configs are provided in the `configs` directory).
-
-3. Run training:
-
-   ```shell
-   python -m lema.train -c path/to/your/config.yaml
-   ```
-
-4. Evaluate your model:
-
-   ```shell
-   python -m lema.evaluate -c path/to/your/eval_config.yaml
-   ```
-
-5. Run inference:
-
-   ```shell
-   python -m lema.infer -c path/to/your/inference_config.yaml
-   ```
-
-## Advanced Usage
-
-- **Distributed Training**: LeMa supports multi-GPU training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
-- **Cloud Training**: Integrated with SkyPilot for easy deployment to cloud GPU clusters.
-- **Custom Models and Datasets**: The framework is designed to be easily extensible with custom models and datasets.
 
 ## Contributing
 
