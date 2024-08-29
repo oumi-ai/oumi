@@ -2,8 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/lema.svg)](https://badge.fury.io/py/lema)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Pre-review Tests](https://github.com/openlema/lema/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/openlema/lema/actions/workflows/pretest.yaml)
 [![Documentation Status](https://readthedocs.org/projects/lema/badge/?version=latest)](https://lema.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://github.com/openlema/lema/actions/workflows/pretest.yml/badge.svg?branch=main)](https://github.com/openlema/lema/actions)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
