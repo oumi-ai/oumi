@@ -16,7 +16,7 @@ pip install -e '.[all]'
 If you're using a machine with a GPU, you should also install the `gpu` dependencies:
 
 ```bash
-pip install -e '.[gpu]'
+pip install -e '.[all,gpu]'
 ```
 
 2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats
@@ -31,7 +31,7 @@ pre-commit install
 To submit a contribution:
 
 1. Fork a copy of the [LeMa](https://github.com/openlema/lema) repository into
-your own account, or create a new branch off of the main LeMa repository.
+your own account.
 
 2. Clone your fork locally, and add the LeMa repo as a remote repository:
 
@@ -44,7 +44,7 @@ your own account, or create a new branch off of the main LeMa repository.
 3. Create a branch, and make your proposed changes.
 
     ```shell
-    git checkout -b my-awesome-new-feature
+    git checkout -b my-username/my-awesome-new-feature
     ```
 
 4. When you are ready, submit a pull request into the LeMa repository!
