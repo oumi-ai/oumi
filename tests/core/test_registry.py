@@ -1,12 +1,29 @@
 import pytest
 
-from lema.core.registry import REGISTRY, RegistryType, register, register_dataset
+from lema.core.registry import (
+    REGISTRY,
+    Registry,
+    RegistryType,
+    register,
+    register_dataset,
+)
 
 
 @pytest.fixture(autouse=True)
 def cleanup():
+    snapshot = Registry()
+    for reg_type in RegistryType:
+        for key, value in REGISTRY.get_all(reg_type).items():
+            snapshot.register(key, reg_type, value)
     # Clear the registry before each test.
     REGISTRY.clear()
+    yield
+    # Clear the registry after each test.
+    REGISTRY.clear()
+    # Restore the registry after each test.
+    for reg_type in RegistryType:
+        for key, value in snapshot.get_all(reg_type).items():
+            REGISTRY.register(key, reg_type, value)
 
 
 def test_registry_cloud_builder():
