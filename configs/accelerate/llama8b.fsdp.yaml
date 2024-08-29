@@ -1,4 +1,4 @@
-# Intended node: 4 A100-40GB GPUs on Polaris/GCP.
+# Intended node: 4xA100-40GB GPUs
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: FSDP

@@ -1,9 +1,9 @@
-name: llama70b-fsdp
+name: llama70b-sft
 
-num_nodes: 1  # Set it to N for multi-node training.
+num_nodes: 4
 
 resources:
-  accelerators: {"A100-80GB": 8}
+  accelerators: {"A100": 4}
   any_of:
     - use_spot: true
     - use_spot: false
@@ -19,7 +19,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: llama70b.pt.fsdp
+  LEMA_RUN_NAME: llama70b.sft
   ACCELERATE_LOG_LEVEL: info
 
 setup: |
@@ -29,7 +29,7 @@ setup: |
   # Download model from GCS, which is faster than downloading during training.
   # At the moment, you need to run this manually after ssh-ing into the cluster
   # because it requires manual authentication.
-  # gsutil -m cp -R gs://lema-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B ~/.cache/huggingface/hub
+  # gsutil -m cp -R gs://lema-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B-Instruct ~/.cache/huggingface/hub
 
 run: |
   set -e  # Exit if any command failed.
@@ -50,9 +50,10 @@ run: |
       --use_fsdp \
       --config_file configs/accelerate/llama70b.fsdp.yaml \
       -m lema.train \
-      -c configs/lema/llama70b.pt.yaml \
+      -c configs/lema/llama70b.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
-      "training.save_final_model=false"
+      "training.save_steps=10" \
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,4 +1,4 @@
-# Intended node: 2x 4 A100-40GB GPUs on GCP/Polaris.
+# Intended node: 4xA100-40GB GPUs
 # Referencing this config:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
 compute_environment: LOCAL_MACHINE
@@ -21,7 +21,7 @@ fsdp_config:
   fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
-num_machines: 3
+num_machines: 2
 num_processes: 4
 rdzv_backend: static
 same_network: true
