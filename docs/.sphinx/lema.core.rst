@@ -1,16 +1,17 @@
-lema.core package
-=================
-
-Overview
------------
-The core package contains definitions for core types and base abstract classes used throughout the library.
+lema.core
+=========
+.. automodule:: lema.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
+   lema.core.callbacks
    lema.core.configs
    lema.core.datasets
    lema.core.launcher
@@ -18,30 +19,3 @@ Subpackages
    lema.core.tokenizers
    lema.core.trainers
    lema.core.types
-
-Submodules
-----------
-
-lema.core.distributed module
-----------------------------
-
-.. automodule:: lema.core.distributed
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-lema.core.registry module
--------------------------
-
-.. automodule:: lema.core.registry
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: lema.core
-   :members:
-   :undoc-members:
-   :show-inheritance:

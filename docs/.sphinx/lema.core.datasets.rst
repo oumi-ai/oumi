@@ -1,14 +1,5 @@
-lema.core.datasets package
-==========================
-
-Overview
------------
-Base dataset classes for LeMa.
-
-
-Module contents
----------------
-
+lema.core.datasets
+==================
 .. automodule:: lema.core.datasets
    :members:
    :undoc-members:

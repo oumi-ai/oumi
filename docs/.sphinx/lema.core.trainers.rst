@@ -1,9 +1,5 @@
-lema.core.trainers package
-==========================
-
-Module contents
----------------
-
+lema.core.trainers
+==================
 .. automodule:: lema.core.trainers
    :members:
    :undoc-members:

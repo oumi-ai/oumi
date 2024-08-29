@@ -65,7 +65,7 @@ train = [
     "torchdata>=0.8.0",
     "transformers>=4.43.1,<4.44.0",
     "trl>=0.9.0",
-    "wandb",
+    "wandb<0.17.8",
 ]
 cloud = [
     "google-api-core>=2.19.0",

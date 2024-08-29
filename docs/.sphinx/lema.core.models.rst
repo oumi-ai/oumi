@@ -1,9 +1,5 @@
-lema.core.models package
-========================
-
-Module contents
----------------
-
+lema.core.models
+================
 .. automodule:: lema.core.models
    :members:
    :undoc-members:

@@ -1,13 +1,5 @@
-lema.core.types package
-=======================
-
-Overview
---------
-Core type definitions for LeMa.
-
-Module contents
----------------
-
+lema.core.types
+===============
 .. automodule:: lema.core.types
    :members:
    :undoc-members:

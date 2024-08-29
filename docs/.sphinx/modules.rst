@@ -1,7 +1,7 @@
-API Reference
-============
+lema
+====
 
 .. toctree::
-   :maxdepth: 6
+   :maxdepth: 2
 
    lema
