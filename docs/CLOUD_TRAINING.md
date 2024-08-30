@@ -1,4 +1,4 @@
-## Training on a cloud cluster
+# Training on a cloud cluster
 
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 

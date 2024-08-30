@@ -42,27 +42,30 @@ def configure_logger(
     # Configure the logger
     logger.setLevel(level.upper())
 
-    rank = get_device_rank_info()
+    device_rank_info = get_device_rank_info()
 
     formatter = logging.Formatter(
         "[%(asctime)s][%(name)s]"
-        f"[rank{rank.rank}]"
+        f"[rank{device_rank_info.rank}]"
         "[pid:%(process)d][%(threadName)s]"
         "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
     )
 
-    # Add a console handler to the logger
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level.upper())
-    logger.addHandler(console_handler)
+    # Add a console handler to the logger for only global leader.
+    if device_rank_info.rank == 0:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(level.upper())
+        logger.addHandler(console_handler)
 
     # Add a file handler if log_dir is provided
     if log_dir:
         log_dir = Path(log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(log_dir / f"rank_{rank.rank:04d}.log")
+        file_handler = logging.FileHandler(
+            log_dir / f"rank_{device_rank_info.rank:04d}.log"
+        )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level.upper())
         logger.addHandler(file_handler)

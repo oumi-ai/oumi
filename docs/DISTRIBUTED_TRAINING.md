@@ -1,4 +1,6 @@
-### Multi-GPU Training on a Single Node
+# Distributed Training
+
+## Multi-GPU Training on a Single Node
 
 To configure multi-GPU training, edit the `accelerators` section of your SkyPilot config
  to use `N` GPUs. For example, for 2 `A100` GPUs, set `accelerators: {"A100": 2}`.
@@ -10,7 +12,7 @@ If your model training can run on a single GPU (i.e. one GPU's memory can hold t
 optimizer state, etc.), then consider using DDP. Otherwise, consider using FSDP, which
 shards the model across your GPUs.
 
-#### DDP (Distributed Data Parallel)
+### DDP (Distributed Data Parallel)
 
 To properly configure your machine to do DDP training, either invoke training with the
 [`torchrun`](https://pytorch.org/docs/stable/elastic/run.html) command or
@@ -19,7 +21,7 @@ To properly configure your machine to do DDP training, either invoke training wi
 
 Then run `sky launch ...` as before.
 
-#### FSDP (Fully Sharded Data Parallel)
+### FSDP (Fully Sharded Data Parallel)
 
 NOTE: PyTorch FSDP paper: <https://arxiv.org/abs/2304.11277>
 
