@@ -33,6 +33,9 @@ dependencies = [
     "sshfs",
     "torch",
     "transformers",
+    "vllm",
+    "ray",
+    "locust",
 ]
 
 [project.urls]
