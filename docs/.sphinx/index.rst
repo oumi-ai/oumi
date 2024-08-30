@@ -13,6 +13,7 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
    links/dev_setup
    links/distributed_training
    links/cloud_training
+   links/contributing
 
 Getting Started
 ---------------
@@ -21,8 +22,7 @@ If you're new to LeMa, we recommend starting with the following sections:
 
 1. :doc:`Introduction <links/usage>` - Learn about the core concepts and philosophy behind LeMa.
 2. :doc:`Installation <links/dev_setup>` - Get LeMa up and running on your system.
-3. :doc:`Quickstart` - Dive into a simple example to see LeMa in action.
-4. `A tour of our library <https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of LeMa's features.
+3. `A tour of our library <https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of LeMa's features.
 
 Tutorials
 ---------
