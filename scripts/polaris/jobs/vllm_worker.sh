@@ -18,6 +18,10 @@ echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 
 cd ${PBS_O_WORKDIR}
 
+pip install -U "ray" -q
+pip install vllm -q
+pip install locust -q
+
 export HOSTNAME=$(hostname -f)
 echo "${LOG_PREFIX} HOSTNAME: ${HOSTNAME}"
 IPS=$(hostname -I)
@@ -105,7 +109,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
 
     echo "${LOG_PREFIX} Running inference"
     INFERENCE_LOG_PATH="${TMPDIR}/inference.log"
-    python3 "./src/lema/inference/vllm/vllm_parallel_inference.py" \
+    python3 "./scripts/polaris/jobs/python/vllm_parallel_inference.py" \
         2>&1 | tee "${INFERENCE_LOG_PATH}" &
 
     while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'LEMA INFERENCE JOB DONE'`
