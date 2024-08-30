@@ -37,6 +37,7 @@ help:
 	@echo "  docs        - Build Sphinx documentation"
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
+	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
 
 setup:
 	@if conda env list | grep -q $(CONDA_ENV); then \
@@ -96,4 +97,9 @@ docs-serve: docs
 	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
-.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help docs-serve
+docs-rebuild:
+	rm -rf $(DOCS_BUILDDIR) "$(SOURCEDIR)/apidoc"
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/lema" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild

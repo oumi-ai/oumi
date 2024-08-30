@@ -24,7 +24,7 @@ class BaseTrainer(ABC):
 
         Args:
             config (TrainingConfig): The LeMa training config.
-            final (bool): Whether to save the final model.
+            final (bool): Whether this is the final model being saved during training.
 
         Returns:
             None

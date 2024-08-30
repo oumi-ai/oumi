@@ -1,216 +1,100 @@
 # Learning Machines (LeMa)
 
-LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
+[![PyPI version](https://badge.fury.io/py/lema.svg)](https://badge.fury.io/py/lema)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Pre-review Tests](https://github.com/openlema/lema/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/openlema/lema/actions/workflows/pretest.yaml)
+[![Documentation](https://img.shields.io/badge/docs-lema-blue.svg)](https://learning-machines.ai/docs/latest/index.html)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-- Easy-to-use interface for data preprocessing, model training, and evaluation.
-- Support for various machine learning algorithms and techniques.
-- Visualization tools for model analysis and interpretation.
-- Integration with popular libraries and frameworks.
+LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
-- [x] Easily run in a locally, jupyter notebook, vscode debugger, or remote cluster
-- [x] Full finetuning using SFT, DPO
+- **Run anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
+- **Instruction Fine-tuning**: Comprehensive instruction fine-tuning capabilities, including SFT, DPO, LoRA, and more
+- **Scalable Training**: Built-in support for distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
+- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris
+- **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
+- **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
+- **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics
 
-Take a [tour of our repository](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20A%20Tour.ipynb) to learn more!
+## Getting Started
+
+For an overview of the LeMa features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/LeMa%20-%20A%20Tour.ipynb).
+
+### Quickstart
+
+1. Install the package:
+
+   ```shell
+   pip install 'lema[cloud,dev,train,gpu]'
+   ```
+
+   For detailed instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
+
+2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
+
+3. Run training locally:
+
+   ```shell
+   lema-train -c path/to/your/config.yaml
+   ```
+
+   For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).
+
+### Configurations
+
+These configurations demonstrate how to set up and run full training for different model architectures using LeMa.
+
+| Model | Type | Configuration | Cluster | Status |
+|-------|------|---------------|---------|--------|
+| **Llama Instruction Finetuning** | | | | |
+| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
+| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
+| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/lema/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ |
+| **Example Models** | | | | |
+| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/lema/llama3.8b.aya.sft.yaml) | GCP | ✨ |
+| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/lema/zephyr.7b/sft/qlora.yaml) | GCP | ✨ |
+| ChatQA | SFT | [chatqa.stage1.yaml](/configs/lema/chatqa/chatqa.stage1.yaml) | GCP | ✨ |
+| **Pre-training** | | | | |
+| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/lema/gpt2.pt.mac.yaml) | Mac (mps) | ✨ |
+| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ |
+
+## Tutorials
+
+We provide several example notebooks to help you get started with LeMa. Here's a list of available notebooks:
+
+| Notebook | Description |
+|----------|-------------|
+| [A Tour](/notebooks/LeMa%20-%20A%20Tour.ipynb) | A comprehensive tour of the LeMa repository and its features |
+| [Finetuning Tutorial](/notebooks/LeMa%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using LeMa |
+| [Tuning Llama](/notebooks/LeMa%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with LeMa |
+| [Multinode Inference on Polaris](/notebooks/LeMa%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
+| [Datasets Tutorial](/notebooks/Lema%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in LeMa |
+| [Deploying a Job](/notebooks/LeMa%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using LeMa |
 
 ## Documentation
 
 View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
 
-Reach out to matthew@learning-machines.ai if you have problems with access.
+Reach out to <matthew@learning-machines.ai> if you have problems with access.
 
-## Dev Environment Setup
+## Contributing
 
-### 1. Install Miniconda
+Contributions are welcome! Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
 
-   https://docs.anaconda.com/free/miniconda/miniconda-install/
+## License
 
-[comment]: <> (This is a package/environment manager that we mainly need to pull all the relevant python packages via pip)
-
-
-### 2. Create a new environment for LeMa and activate it
-
-   ```
-   conda create -n lema python=3.11
-   conda activate lema
-   ```
-
-### 3. Install GitHub CLI
-
-#### 3.1 Instructions for Mac
-
-   Install Homebrew (the command below was copied from www.brew.sh)
-
-   ```shell
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-   Then follow "Next steps" (shown after installation) to add `brew` into `.zprofile`
-
-   ```shell
-   brew install gh
-   ```
-
-#### 3.2 Instructions for **Linux**, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
-
-  Follow https://github.com/cli/cli?tab=readme-ov-file#conda
-
-   ```shell
-   conda install gh --channel conda-forge
-   ```
-
-### 4. Authorize Github CLI (easier when using SSH protocol)
-
-   ```shell
-   gh auth login
-   ```
-
-### 5. Set your Github name and email
-
-   ```shell
-   git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@learning-machines.ai
-   ```
-
-### 6. Clone the LeMa repository
-
-   ```shell
-   gh repo clone openlema/lema
-   ```
-
-### 7. Install LeMa package and its dependencies
-
-   ```shell
-   cd lema
-   pip install -e '.[all]'
-   ```
-
-### 8. Install pre-commit hooks
-
-   ```shell
-   pre-commit install  # recommended
-   ```
-
-   If you'd like to only run the pre-commits before a push, you can use:
-   ```shell
-   pre-commit install --install-hooks --hook-type pre-push
-   ```
-
-   Alternatively, you can run the pre-commit hooks manually with:
-   ```shell
-   pre-commit run --all-files
-   ```
-
-### 9. [optional] Add a LeMa shortcut in your environment {.zshrc or .bashrc}
-
-   ```shell
-   alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
-   ```
-
-   Ensure that this works with:
-
-   ```shell
-   source ~/{.zshrc or .bashrc}
-   lema
-   ```
-
-### 10. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management.
-
-## User Setup
-
-To install LeMa, you can use pip:
-`pip install 'lema[cloud,dev,train]'`
-
-
-## Training on a cloud cluster
-To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
-```shell
-pip install 'lema[cloud]'
-```
-
-Then setup your cloud credentials:
-- [Google Cloud](https://github.com/openlema/lema/wiki/Clouds-Setup)
-- [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod)
-- [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
-
-Your environment should be ready! Use this to check:
-```shell
-sky check
-```
-
-You can look at the existing clusters with the following command:
-```shell
-sky status
-```
-
-To see the available GPUs, you can use the following command:
-```shell
-sky show-gpus
-```
-You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), `A100-80GB`, and `A100-80GB-SXM`.
-
-To launch a job on the cloud, you can use the following command:
-```shell
-sky launch -c lema-cluster configs/skypilot/sky_gpt2.yaml
-```
-To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
-
-Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
-```shell
-sky exec -c lema-cluster configs/skypilot/sky_gpt2.yaml
-```
-If you made any code changes to the codebase (not including configs), you need to run
-`pip install '.[train]'` in the `run` section of the SkyPilot config to install the
-changes on the cluster.
-
-Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down lema-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
-```shell
-sky autostop lema-cluster -i 10
-```
-
-Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).
-
-### Multi-GPU Training on a Single Node
-
-To configure multi-GPU training, edit the `accelerators` section of your SkyPilot config
- to use `N` GPUs. For example, for 2 `A100` GPUs, set `accelerators: {"A100": 2}`.
-
-There are two options for multi-GPU training:
-[DDP (Distributed Data Parallel)](https://huggingface.co/docs/transformers/en/perf_train_gpu_many#dataparallel-vs-distributeddataparallel) and
-[FSDP (Fully Sharded Data Parallel)](https://huggingface.co/docs/transformers/en/fsdp).
-If your model training can run on a single GPU (i.e. one GPU's memory can hold the model,
-optimizer state, etc.), then consider using DDP. Otherwise, consider using FSDP, which
-shards the model across your GPUs.
-
-#### DDP (Distributed Data Parallel)
-
-To properly configure your machine to do DDP training, either invoke training with the
-[`torchrun`](https://pytorch.org/docs/stable/elastic/run.html) command or
-[`accelerate launch`](https://huggingface.co/docs/accelerate/en/basic_tutorials/launch#using-accelerate-launch)
- using the `--multi_gpu` flag.
-
-Then run `sky launch ...` as before.
-
-#### FSDP (Fully Sharded Data Parallel)
-
-NOTE: PyTorch FSDP paper: https://arxiv.org/abs/2304.11277
-
-For example, for Phi3 DPO model, there are two related sample configs provided:
-* SkyPilot config: [configs/skypilot/sky_fsdp_phi3_dpo.yaml](configs/skypilot/sky_fsdp_phi3_dpo.yaml)
-  * Set the `accelerators:` section as follows: `accelerators: {"A40": N}`, where `N` is the number of GPUs to use e.g., `2`.
-* [`accelerate`](https://github.com/huggingface/accelerate) config: [configs/accelerate/phi3.fsdp.dpo.yaml](configs/accelerate/phi3.fsdp.dpo.yaml)
-  * Set `num_processes: N`, where `N` is the number of GPUs.
-  * Update `fsdp_transformer_layer_cls_to_wrap` to match transformer layer class name in your model.
-  * Review and tune other parameters in the config, as described in [FSDP Configuration](https://huggingface.co/docs/transformers/main/en/fsdp#fsdp-configuration) and in [accelerate FSDP usage guide](https://huggingface.co/docs/accelerate/en/usage_guides/fsdp). They control various performance trade-offs.
-
-Then run `sky launch ...` as before.
-
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
 ## Troubleshooting
+
 1. Pre-commit hook errors with vscode
    - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
    - To fix this, make sure to start your vscode instance after activating your conda environment.
+
      ```shell
      conda activate lema
      code .  # inside the LeMa directory

@@ -49,10 +49,12 @@ class _LaunchArgs:
     detach: bool = False
 
 
-def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
-    """Prints a message with a loading spinner until is_done returns True."""
+def _print_and_wait(message: str, task: Callable) -> None:
+    """Prints a message with a loading spinner until the provided task is done."""
     spinner = itertools.cycle(["⠁", "⠈", "⠐", "⠠", "⢀", "⡀", "⠄", "⠂"])
-    while not is_done():
+    worker_pool = ThreadPool(processes=1)
+    worker_result = worker_pool.apply_async(task)
+    while not worker_result.ready():
         _ = sys.stdout.write(f" {next(spinner)} {message}\r")
         _ = sys.stdout.flush()
         time.sleep(0.1)
@@ -61,52 +63,58 @@ def _print_and_wait(message: str, is_done: Callable[[], bool]) -> None:
         # \r (written above) moves the cursor to the beginning of the line.
         # \033[K deletes everything from the cursor to the end of the line.
         _ = sys.stdout.write("\033[K")
+    worker_result.wait()
+    # Call get() to reraise any exceptions that occurred in the worker.
+    worker_result.get()
 
 
-def _create_job_poller(
-    job_status: JobStatus, cluster: BaseCluster
-) -> Callable[[], bool]:
+def _create_job_poller(job_status: JobStatus, cluster: BaseCluster) -> Callable:
     """Creates a function that polls the job status."""
 
-    def is_done() -> bool:
+    def poll():
         """Returns True if the job is done."""
         status = cluster.get_job(job_status.id)
-        if status:
-            return status.done
-        return True
+        while not status.done:
+            time.sleep(30)  # Poll every 30 seconds.
+            status = cluster.get_job(job_status.id)
 
-    return is_done
+    return poll
 
 
-def _down_worker(launch_args: _LaunchArgs) -> None:
-    """Turns down a cluster. Executed in a worker thread."""
-    if not launch_args.cluster:
-        raise ValueError("No cluster specified for `down` action.")
-    if launch_args.cloud:
-        cloud = launcher.get_cloud(launch_args.cloud)
-        cluster = cloud.get_cluster(launch_args.cluster)
-        if cluster:
-            cluster.down()
-        else:
+def _create_down_worker(launch_args: _LaunchArgs) -> Callable:
+    """Creates a function that turns down a cluster."""
+
+    def down_worker():
+        """Turns down a cluster."""
+        if not launch_args.cluster:
+            raise ValueError("No cluster specified for `down` action.")
+        if launch_args.cloud:
+            cloud = launcher.get_cloud(launch_args.cloud)
+            cluster = cloud.get_cluster(launch_args.cluster)
+            if cluster:
+                cluster.down()
+            else:
+                print(f"Cluster {launch_args.cluster} not found.")
+            return
+        # Make a best effort to find a single cluster to turn down without a cloud.
+        clusters = []
+        for name in launcher.which_clouds():
+            cloud = launcher.get_cloud(name)
+            cluster = cloud.get_cluster(launch_args.cluster)
+            if cluster:
+                clusters.append(cluster)
+        if len(clusters) == 0:
             print(f"Cluster {launch_args.cluster} not found.")
-        return
-    # Make a best effort to find a single cluster to turn down without a cloud.
-    clusters = []
-    for name in launcher.which_clouds():
-        cloud = launcher.get_cloud(name)
-        cluster = cloud.get_cluster(launch_args.cluster)
-        if cluster:
-            clusters.append(cluster)
-    if len(clusters) == 0:
-        print(f"Cluster {launch_args.cluster} not found.")
-        return
-    if len(clusters) == 1:
-        clusters[0].down()
-    else:
-        print(
-            f"Multiple clusters found with name {launch_args.cluster}. "
-            "Specify a cloud to turn down with `--cloud`."
-        )
+            return
+        if len(clusters) == 1:
+            clusters[0].down()
+        else:
+            print(
+                f"Multiple clusters found with name {launch_args.cluster}. "
+                "Specify a cloud to turn down with `--cloud`."
+            )
+
+    return down_worker
 
 
 def _poll_job(
@@ -127,7 +135,8 @@ def _poll_job(
         print("Cannot detach from jobs in local mode.")
 
     if not running_cluster:
-        running_cluster = launcher.get_cloud(cloud).get_cluster(job_status.cluster)
+        running_cloud = launcher.get_cloud(cloud)
+        running_cluster = running_cloud.get_cluster(job_status.cluster)
 
     assert running_cluster
 
@@ -215,14 +224,14 @@ def status(launch_args: _LaunchArgs) -> None:
         filtered_jobs[cloud] = {}
         for cluster in cloud_obj.list_clusters():
             # Ignore clusters not matching the filter criteria.
-            if launch_args.cluster and cluster.name != launch_args.cluster:
+            if launch_args.cluster and cluster.name() != launch_args.cluster:
                 continue
-            filtered_jobs[cloud][cluster.name] = []
+            filtered_jobs[cloud][cluster.name()] = []
             for job in cluster.get_jobs():
                 # Ignore jobs not matching the filter criteria.
                 if launch_args.job_id and job.id != launch_args.job_id:
                     continue
-                filtered_jobs[cloud][cluster.name].append(job)
+                filtered_jobs[cloud][cluster.name()].append(job)
     # Print the filtered jobs.
     if not filtered_jobs.items():
         print("No jobs found for the specified filter criteria: ")
@@ -262,19 +271,28 @@ def stop(launch_args: _LaunchArgs) -> None:
         raise ValueError("No job ID specified for `stop` action.")
     if not launch_args.cloud:
         raise ValueError("No cloud specified for `stop` action.")
-    launcher.stop(launch_args.job_id, launch_args.cloud, launch_args.cluster)
+
+    def stop_worker():
+        """Stops a job."""
+        if not launch_args.cluster:
+            return
+        if not launch_args.job_id:
+            return
+        if not launch_args.cloud:
+            return
+        launcher.stop(launch_args.job_id, launch_args.cloud, launch_args.cluster)
+
+    _print_and_wait(f"Stopping job {launch_args.job_id}", stop_worker)
 
 
 def down(launch_args: _LaunchArgs) -> None:
     """Turns down a cluster."""
     if not launch_args.cluster:
         raise ValueError("No cluster specified for `down` action.")
-    worker_pool = ThreadPool(processes=1)
-    worker_result = worker_pool.apply_async(_down_worker, (launch_args,))
     _print_and_wait(
-        f"Turning down cluster `{launch_args.cluster}`", worker_result.ready
+        f"Turning down cluster `{launch_args.cluster}`",
+        _create_down_worker(launch_args),
     )
-    worker_result.wait()
 
 
 def run(launch_args: _LaunchArgs) -> None:
@@ -298,10 +316,16 @@ def launch(launch_args: _LaunchArgs) -> None:
         launch_args.job, launch_args.additional_args, logger=logger
     )
     config.validate()
-
+    if launch_args.cluster:
+        cloud = launcher.get_cloud(config.resources.cloud)
+        cluster = cloud.get_cluster(launch_args.cluster)
+        if cluster:
+            print(f"Found an existing cluster: {cluster.name()}.")
+            run(launch_args)
+            return
     # Start the job
     running_cluster, job_status = launcher.up(config, launch_args.cluster)
-    print(f"Job {job_status.id} queued on cluster {running_cluster.name}.")
+    print(f"Job {job_status.id} queued on cluster {running_cluster.name()}.")
 
     _poll_job(
         job_status, launch_args, config.resources.cloud, running_cluster=running_cluster

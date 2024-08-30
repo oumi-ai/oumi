@@ -32,7 +32,7 @@ setup: |
   pip install flash-attn --no-build-isolation
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  pip install huggingface_hub[hf_transfer]
+  pip install hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
 
 run: |

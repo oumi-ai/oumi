@@ -26,11 +26,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "fabric",
     "google-api-python-client",    # To enable GCP in Skypilot
     "numpy",
+    "pexpect",
     "skypilot[gcp,lambda,runpod]",
-    "sshfs",
     "torch",
     "transformers",
     "vllm",
@@ -48,17 +47,13 @@ dev = [
     "isort",
     "mypy",
     "pre-commit",
-    "pynvml",
     "pyright",
     "pytest",
     "ruff",
-    "sphinx",           # for documentation
-    "sphinx-rtd-theme", # for documentation
     "torchfix",
-    "myst_parser",
 ]
 train = [
-    "accelerate",                   # for quantization
+    "accelerate",
     "bitsandbytes",                 # for quantization
     "datasets",
     "deepspeed",
@@ -73,7 +68,7 @@ train = [
     "torchdata>=0.8.0",
     "transformers>=4.43.1,<4.44.0",
     "trl>=0.9.0",
-    "wandb",
+    "wandb<0.17.8",
 ]
 cloud = [
     "google-api-core>=2.19.0",
@@ -81,7 +76,15 @@ cloud = [
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
 ]
-all = ["lema[dev,train,cloud]"]
+gpu = ["flash-attn", "liger-kernel"] # dependecies that require a GPU to install
+docs = [
+    "myst_parser",
+    "nbsphinx",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx_copybutton",
+]
+all = ["lema[dev,train,cloud,docs]"]
 
 [project.scripts]
 lema-evaluate = "lema.evaluate:main"
@@ -106,7 +109,6 @@ select = [
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
-    "D104",   # Missing docstring in public package, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
 ]
 

@@ -1,4 +1,4 @@
-# Intended node: 8 A100-80GB GPUs on GCP.
+# Intended node: 4xA100-40GB GPUs
 # Referencing this config:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_full.yaml
 compute_environment: LOCAL_MACHINE
@@ -21,8 +21,8 @@ fsdp_config:
   fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
-num_machines: 1
-num_processes: 8
+num_machines: 4
+num_processes: 4
 rdzv_backend: static
 same_network: true
 tpu_env: []

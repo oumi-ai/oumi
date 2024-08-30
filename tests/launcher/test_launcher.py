@@ -168,6 +168,34 @@ def test_launcher_up_succeeds(mock_registry):
     assert result == (mock_cluster, expected_job_status)
 
 
+def test_launcher_up_succeeds_kwargs(mock_registry):
+    mock_cluster = Mock(spec=BaseCluster)
+    mock_cloud = Mock(spec=BaseCloud)
+
+    def _builder():
+        return mock_cloud
+
+    mock_registry.get_all.return_value = {
+        "custom": _builder,
+    }
+    expected_job_status = JobStatus(
+        id="job_id",
+        cluster="custom",
+        name="foo",
+        status="running",
+        metadata="bar",
+        done=False,
+    )
+    mock_cloud.up_cluster.return_value = expected_job_status
+    mock_cloud.get_cluster.return_value = mock_cluster
+    launcher = Launcher()
+    job = _get_default_job("custom")
+    result = launcher.up(job, "custom", foo="bar")
+    mock_cloud.up_cluster.assert_called_once_with(job, "custom", foo="bar")
+    mock_cloud.get_cluster.assert_called_once_with("custom")
+    assert result == (mock_cluster, expected_job_status)
+
+
 def test_launcher_up_succeeds_no_name(mock_registry):
     mock_cluster = Mock(spec=BaseCluster)
     mock_cloud = Mock(spec=BaseCloud)

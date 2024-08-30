@@ -12,7 +12,7 @@
 set -e
 
 # Various setup for running on Polaris.
-source ./scripts/polaris/polaris_init.sh
+source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 # NOTE: Update this variable to point to your own LoRA adapter:
 EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B-Instruct/sample_lora_adapters/2073171/"

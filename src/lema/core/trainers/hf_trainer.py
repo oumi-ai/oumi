@@ -38,7 +38,7 @@ class HuggingFaceTrainer(BaseTrainer):
 
         Args:
             config: The LeMa training config.
-            final: Whether to save the final model.
+            final: Whether this is the final model being saved during training.
                 - Applies optimizations for the final model checkpoint.
                 - In the case of FSDP, this will always save the FULL_STATE_DICT
                 instead of the default STATE_DICT.

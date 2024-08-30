@@ -30,6 +30,10 @@ class PolarisCloud(BaseCloud):
         # A mapping from cluster names to Polaris Cluster instances.
         self._clusters = {}
 
+        # Check if any users have open SSH tunnels to Polaris.
+        for user in PolarisClient.get_active_users():
+            self.initialize_clusters(user)
+
     def _parse_cluster_name(self, name: str) -> _ClusterInfo:
         """Parses the cluster name into queue and user components.
 
@@ -93,7 +97,7 @@ class PolarisCloud(BaseCloud):
             clusters.append(cluster)
         return clusters
 
-    def up_cluster(self, job: JobConfig, name: Optional[str]) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")
