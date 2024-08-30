@@ -99,7 +99,8 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             -m lema.train \
             -c configs/lema/llama8b.lora.yaml \
             "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
-            "training.max_steps=203"
+            "training.num_train_epochs=2" \
+            "training.max_steps=-1"
     else  # SFT
         # Num nodes: 1
         # Batch size per GPU: 2
@@ -162,7 +163,8 @@ else  # 70B
             -m lema.train \
             -c configs/lema/llama70b.sft.yaml \
             "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
-            "training.max_steps=1619"
+            "training.num_train_epochs=1" \
+            "training.max_steps=-1"
     fi
 fi
 
