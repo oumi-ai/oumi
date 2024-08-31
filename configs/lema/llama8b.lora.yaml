@@ -17,8 +17,8 @@ model:
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: True
   trust_remote_code: True
-  # Enabling Liger actually slows Lora training.
-  enable_liger_kernel: True
+  # Enabling Liger slows down training.
+  enable_liger_kernel: False
 
 data:
   train:
@@ -31,7 +31,7 @@ data:
 training:
   trainer_type: TRL_SFT
   use_peft: True
-  save_steps: 10000 # 50
+  save_steps: 50
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 32

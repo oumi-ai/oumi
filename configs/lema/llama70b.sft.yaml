@@ -17,7 +17,6 @@ model:
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: True
   trust_remote_code: True
-  enable_liger_kernel: True
 
 data:
   train:

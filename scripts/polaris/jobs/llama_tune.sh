@@ -105,7 +105,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
         # Examples per step: 1 node * 4 GPUs/node * 2 bs * 1 GAS  = 8
-        # Num steps for 1 epoch: 51,760 / 8 = 6,475
+        # Num steps for 1 epoch: 51,760 / 8 = 6,470
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -129,7 +129,7 @@ else  # 70B
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
         # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
-        # Num steps for 1 epoch: 51,760 / 16 = 3,238
+        # Num steps for 1 epoch: 51,760 / 16 = 3,235
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
