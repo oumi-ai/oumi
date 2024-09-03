@@ -6,11 +6,8 @@ from queue import Queue
 
 import gevent
 import jsonlines
+import locust
 import pandas as pd
-from locust import FastHttpUser, events, task
-from locust.env import Environment
-from locust.log import setup_logging
-from locust.stats import stats_history, stats_printer
 from openai import OpenAI
 from tqdm import tqdm
 
@@ -56,7 +53,7 @@ def _get_metrics(
 
 def main():
     """Run parallelized inference against a vLLM server."""
-    setup_logging("INFO")
+    locust.log.setup_logging("INFO")
     random.seed(RANDOM_SEED)
 
     IP = os.environ["THIS_IP_ADDRESS"]
@@ -80,7 +77,8 @@ def main():
     METRIC_FILE_PREFIX = f"{JOB_NUMBER}_vllm_metrics_{TIMESTR}_{MODEL_NAME}.jsonl"
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_PREFIX)
     METRIC_FILE_PATH = os.path.join(OUTPUT_PATH, METRIC_FILE_PREFIX)
-    print(f"Files will be output to {OUTPUT_FILE_PATH}")
+    REQUEST_RETRIES = 3
+    print(f"Files will be output to {OUTPUT_PATH}")
 
     json_objects = pd.read_json(INPUT_FILE, lines=True)
     ALL_MESSAGES = json_objects["messages"].to_list()
@@ -95,18 +93,22 @@ def main():
 
     global REQUEST_TIMES
     REQUEST_TIMES = [(0.0, 0.0) for _ in range(len(ALL_MESSAGES))]
+    global failed_request_counts
+    failed_request_counts = {}
 
-    class VllmUser(FastHttpUser):
+    class VllmWorker(locust.FastHttpUser):
         host = openai_api_base
         network_timeout = 300
         connection_timeout = 300
         max_retries = 3
 
-        @task
-        def t(self):
+        @locust.task
+        def run_inference(self):
+            """Runs inference by pulling indices from queue shared by all workers."""
             global output_queue
             global input_queue
             global REQUEST_TIMES
+            global failed_request_counts
 
             while True:
                 index = input_queue.get()
@@ -118,25 +120,36 @@ def main():
                     response = self.client.post(url="/chat/completions", json=payload)
                     request_complete_time = time.perf_counter()
                     response_dict = response.json()
-
-                    output_queue.put((index, response_dict))
+                    response_message = response_dict["choices"][0]["message"]["content"]
+                    num_input_tokens = response_message["usage"]["prompt_tokens"]
+                    num_output_tokens = response_message["usage"]["completion_tokens"]
+                    output_queue.put(
+                        (index, response_message, num_input_tokens, num_output_tokens)
+                    )
                     REQUEST_TIMES[index] = (request_sent_time, request_complete_time)
                 except Exception as e:
                     print(e)
+                    if index not in failed_request_counts:
+                        failed_request_counts[index] = 0
+
+                    failed_request_counts[index] += 1
+                    if failed_request_counts[index] >= REQUEST_RETRIES:
+                        print(f"Failed for request at index {index}, skipping...")
+                        continue
                     input_queue.put(index)
 
     # setup Environment and Runner
-    env = Environment(user_classes=[VllmUser], events=events)
+    env = locust.env.Environment(user_classes=[VllmWorker], events=locust.events)
     runner = env.create_local_runner()
 
     # execute init event handlers (only really needed if you have registered any)
     env.events.init.fire(environment=env, runner=runner)
 
     # start a greenlet that periodically outputs the current stats
-    gevent.spawn(stats_printer(env.stats))
+    gevent.spawn(locust.stats.stats_printer(env.stats))
 
     # start a greenlet that save current stats to history
-    gevent.spawn(stats_history, env.runner)
+    gevent.spawn(locust.stats.stats_history, env.runner)
 
     # start the test
     runner.start(NUM_WORKERS, spawn_rate=SPAWN_RATE)
@@ -148,24 +161,14 @@ def main():
     total_output_tokens = 0
     requests_completed = 0
     while requests_completed < len(ALL_MESSAGES):
-        i_response = output_queue.get()
-        index, response_dict = i_response
+        queue_item = output_queue.get()
+        index, response_message, num_input_tokens, num_output_tokens = queue_item
+        output_queue.task_done()
         messages = ALL_MESSAGES[index]
-        try:
-            assistant_response = response_dict["choices"][0]["message"]["content"]
-        except KeyError:
-            print(f"Error with response: {assistant_response}")
-            print(f"Retrying messages at index {index}")
-            input_queue.put(index)
-            output_queue.task_done()
-            continue
-
-        num_input_tokens = response_dict["usage"]["prompt_tokens"]
         total_input_tokens += num_input_tokens
-        num_output_tokens = response_dict["usage"]["completion_tokens"]
         total_output_tokens += num_output_tokens
 
-        messages.append({"role": "assistant", "content": assistant_response})
+        messages.append({"role": "assistant", "content": response_message})
         requests_completed += 1
         pbar.update()
 
