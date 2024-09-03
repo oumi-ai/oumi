@@ -1183,6 +1183,7 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
             "source",
             "destination",
         )
+        assert mock_subprocess_no_init.run.call_count == 5
     mock_subprocess_no_init.run.assert_has_calls(
         [
             call(
@@ -1194,7 +1195,6 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
             ),
         ]
     )
-    print("Calls: ", mock_subprocess_no_init.run.call_count)
 
 
 def test_polaris_client_put_success(mock_subprocess, mock_auth):
