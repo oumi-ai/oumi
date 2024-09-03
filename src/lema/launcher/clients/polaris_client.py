@@ -331,6 +331,8 @@ class PolarisClient:
             source: The local file/directory to write.
             destination: The remote path to write the file/directory to.
         """
+        if Path(source).is_dir():
+            self.run_commands([f"mkdir -p {destination}"])
         tests_dir = Path(source) / "tests"
         git_ignore = Path(source) / ".gitignore"
         rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
