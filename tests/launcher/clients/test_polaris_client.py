@@ -1134,6 +1134,8 @@ def test_polaris_client_put_recursive_failure(mock_subprocess_no_init, mock_auth
     mock_subprocess_no_init.run.side_effect = [
         mock_success_run,
         mock_success_run,
+        mock_success_run,
+        mock_success_run,
         mock_run,
     ]
     mock_run.stdout = b"out"
@@ -1166,6 +1168,8 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
     mock_success_run.returncode = 0
     mock_run = Mock()
     mock_subprocess_no_init.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
         mock_success_run,
         mock_success_run,
         subprocess.TimeoutExpired("Timeout!", 1),
