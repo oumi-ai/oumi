@@ -278,6 +278,7 @@ def _load_dataset(
                 split=dataset_params.split,
                 subset=dataset_params.subset,
                 tokenizer=tokenizer,
+                trust_remote_code=dataset_params.trust_remote_code,
                 **dataset_params.dataset_kwargs,
             )
             return dataset.to_hf()
@@ -287,5 +288,6 @@ def _load_dataset(
         name=dataset_params.subset,
         split=dataset_params.split,
         streaming=stream,
+        trust_remote_code=dataset_params.trust_remote_code,
         **dataset_params.dataset_kwargs,
     )

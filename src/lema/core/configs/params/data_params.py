@@ -91,6 +91,9 @@ class DatasetParams(BaseParams):
     shuffle_buffer_size: int = 1000
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
+    trust_remote_code: bool = False
+    """Whether to trust remote code when loading the dataset."""
+
     @staticmethod
     def _default_factory_preprocessing_kwargs() -> dict:
         """Creates default param values for the data preprocessing .map function.
