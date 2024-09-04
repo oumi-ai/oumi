@@ -11,7 +11,7 @@ import torch
 
 from lema.core.configs import EvaluationConfig
 from lema.core.configs.evaluation_config import EvaluationFramework
-from lema.core.distributed import get_device_rank_info, is_world_process_zero
+from lema.core.distributed import is_world_process_zero
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (
@@ -155,9 +155,10 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
-    device_info = get_device_rank_info()
     if torch.cuda.is_available():
-        device = f"cuda:{device_info.local_rank}"
+        # CUDA device may be overwritten if `accelerate launch`,
+        # or `parallelize=True` are used.
+        device = "cuda:0"
     elif torch.backends.mps.is_available():
         device = "mps"
     else:
