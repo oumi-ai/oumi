@@ -32,6 +32,7 @@ dependencies = [
     "skypilot[gcp,lambda,runpod]",
     "torch",
     "transformers",
+    "torchvision",
 ]
 
 [project.urls]
