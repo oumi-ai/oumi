@@ -29,6 +29,7 @@ class ModelParams(BaseParams):
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
     enable_liger_kernel: bool = False
+    shard_for_eval: bool = False
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
@@ -48,6 +49,7 @@ class ModelParams(BaseParams):
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
+            "parallelize": self.shard_for_eval,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
