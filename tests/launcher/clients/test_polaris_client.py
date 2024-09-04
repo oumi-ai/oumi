@@ -1125,71 +1125,77 @@ def test_polaris_client_put_recursive_success_tests_gitignore(
 
 
 def test_polaris_client_put_recursive_failure(mock_subprocess_no_init, mock_auth):
-    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
-    mock_success_run = Mock()
-    mock_success_run.stdout = b"out"
-    mock_success_run.stderr = b"err"
-    mock_success_run.returncode = 0
-    mock_run = Mock()
-    mock_subprocess_no_init.run.side_effect = [
-        mock_success_run,
-        mock_success_run,
-        mock_run,
-    ]
-    mock_run.stdout = b"out"
-    mock_run.stderr = b"err"
-    mock_run.returncode = 1
-    with pytest.raises(RuntimeError, match="Rsync failed. stderr: err"):
-        client = PolarisClient("user")
-        client.put_recursive(
-            "source",
-            "destination",
-        )
-    mock_subprocess_no_init.run.assert_has_calls(
-        [
-            call(
-                'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
-                "source user@polaris.alcf.anl.gov:destination",
-                shell=True,
-                capture_output=True,
-                timeout=40,
-            ),
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+        mock_success_run = Mock()
+        mock_success_run.stdout = b"out"
+        mock_success_run.stderr = b"err"
+        mock_success_run.returncode = 0
+        mock_run = Mock()
+        mock_subprocess_no_init.run.side_effect = [
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            mock_run,
         ]
-    )
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 1
+        with pytest.raises(RuntimeError, match="Rsync failed. stderr: err"):
+            client = PolarisClient("user")
+            client.put_recursive(
+                output_temp_dir,
+                "destination",
+            )
+        mock_subprocess_no_init.run.assert_has_calls(
+            [
+                call(
+                    'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
+                    f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
+                    shell=True,
+                    capture_output=True,
+                    timeout=40,
+                ),
+            ]
+        )
 
 
 def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth):
-    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
-    mock_success_run = Mock()
-    mock_success_run.stdout = b"out"
-    mock_success_run.stderr = b"err"
-    mock_success_run.returncode = 0
-    mock_run = Mock()
-    mock_subprocess_no_init.run.side_effect = [
-        mock_success_run,
-        mock_success_run,
-        subprocess.TimeoutExpired("Timeout!", 1),
-    ]
-    mock_run.stdout = b"out"
-    mock_run.stderr = b"err"
-    mock_run.returncode = 1
-    with pytest.raises(RuntimeError, match="Timeout while running rsync command."):
-        client = PolarisClient("user")
-        client.put_recursive(
-            "source",
-            "destination",
-        )
-    mock_subprocess_no_init.run.assert_has_calls(
-        [
-            call(
-                'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
-                "source user@polaris.alcf.anl.gov:destination",
-                shell=True,
-                capture_output=True,
-                timeout=40,
-            ),
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+        mock_success_run = Mock()
+        mock_success_run.stdout = b"out"
+        mock_success_run.stderr = b"err"
+        mock_success_run.returncode = 0
+        mock_run = Mock()
+        mock_subprocess_no_init.run.side_effect = [
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            subprocess.TimeoutExpired("Timeout!", 1),
         ]
-    )
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 1
+        with pytest.raises(RuntimeError, match="Timeout while running rsync command."):
+            client = PolarisClient("user")
+            client.put_recursive(
+                output_temp_dir,
+                "destination",
+            )
+        mock_subprocess_no_init.run.assert_has_calls(
+            [
+                call(
+                    'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
+                    f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
+                    shell=True,
+                    capture_output=True,
+                    timeout=40,
+                ),
+            ]
+        )
 
 
 def test_polaris_client_put_success(mock_subprocess, mock_auth):

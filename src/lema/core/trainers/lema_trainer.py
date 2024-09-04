@@ -115,12 +115,12 @@ class Trainer(BaseTrainer):
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                model = prepare_model_for_distributed(model, use_fsdp=False)
+                self.model = prepare_model_for_distributed(self.model, use_fsdp=False)
 
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
-                model = cast(torch.nn.Module, torch.compile(model))
+                self.model = cast(torch.nn.Module, torch.compile(self.model))
 
         self.callbacks = callbacks if callbacks is not None else []
 

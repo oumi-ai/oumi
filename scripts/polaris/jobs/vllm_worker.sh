@@ -20,6 +20,7 @@ cd ${PBS_O_WORKDIR}
 
 pip install -U "ray" -q
 pip install vllm -q
+pip install locust -q
 
 export HOSTNAME=$(hostname -f)
 echo "${LOG_PREFIX} HOSTNAME: ${HOSTNAME}"
@@ -82,12 +83,14 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     sleep 60s # Wait for ray cluster nodes to get connected
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
+
     TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
     vllm serve "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT" \
         --tensor-parallel-size=$TENSOR_PARALLEL \
         --distributed-executor-backend=ray \
         --disable-custom-all-reduce \
         --enforce-eager \
+        --disable-log-requests \
         2>&1 | tee "${SERVER_LOG_PATH}" &
 
     echo "${LOG_PREFIX} Waiting for vLLM API server to start..."
@@ -104,9 +107,21 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
         done
     done
 
-    ray status
     echo "${LOG_PREFIX} Running inference"
-    python3 "./scripts/polaris/jobs/vllm_inference.py"
+    INFERENCE_LOG_PATH="${TMPDIR}/inference.log"
+    python3 "./scripts/polaris/jobs/python/vllm_parallel_inference.py" \
+        2>&1 | tee "${INFERENCE_LOG_PATH}" &
+
+    while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'LEMA INFERENCE JOB DONE'`
+    do
+        sleep 30s
+        while `cat "${INFERENCE_LOG_PATH}" | grep -q 'error'`
+        do
+            cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
+            exit 1
+        done
+    done
+
     sleep 5s
     ray stop
     sleep 10s

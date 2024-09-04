@@ -17,11 +17,12 @@ source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 export SHARED_DIR=/eagle/community_ai
 export HF_HOME="${SHARED_DIR}/.cache/huggingface"
 
-REPO="meta-llama"
-MODEL="Meta-Llama-3.1-70B-Instruct"
+export OPENAI_API_KEY="EMPTY"
 
 export SNAPSHOT_DIR="${REPO}--${MODEL}"
-export SNAPSHOT=$(ls "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots")
+SNAPSHOTS=$(ls "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots")
+readarray -t SNAPSHOT_ARRAY <<<"$SNAPSHOTS"
+export SNAPSHOT=${SNAPSHOT_ARRAY[-1]}
 
 echo "Setting up vLLM inference with ${LEMA_NUM_NODES} node(s)..."
 
