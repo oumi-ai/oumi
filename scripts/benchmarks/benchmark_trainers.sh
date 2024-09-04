@@ -11,7 +11,7 @@ time accelerate launch --num_machines 1 --machine_rank 0 --num_processes 1 --gpu
     "training.trainer_type=TRL_SFT" \
     "training.per_device_train_batch_size=3" \
     "training.gradient_accumulation_steps=1" \
-    "training.output_dir=output/trainer-trk/" \
+    "training.output_dir=output/trainer-trl/" \
     "training.include_performance_metrics=true" \
     "training.dep_log_level=debug" \
     "training.logging_steps=5" \
