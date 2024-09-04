@@ -22,16 +22,41 @@ if test ${LEMA_NUM_NODES} -ne 1; then
     exit 1
 fi
 
+EVALUATION_FRAMEWORK="lm_harness"
+
+helpFunction()
+{
+   echo ""
+   echo "Usage: $0 -e (lm_harness|lema)"
+   exit 1 # Exit script after printing help
+}
+
+while getopts "e:" opt
+do
+   case "$opt" in
+      e ) EVALUATION_FRAMEWORK="$OPTARG" ;;
+      ? ) helpFunction ;; # Print a help message for an unknown parameter.
+   esac
+done
+
 echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
 set -x # Enable command tracing.
 
-accelerate launch \
+if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
+    accelerate launch \
       --num_processes=4 \
       --num_machines=1  \
       -m lema.evaluate  \
       -c configs/lema/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
+    python -m lema.evaluate \
+      -c configs/lema/llama8b.eval.yaml \
+      "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+else
+    echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
+fi
 
 echo -e "Finished eval on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"
