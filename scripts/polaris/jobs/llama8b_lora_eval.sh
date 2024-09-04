@@ -2,7 +2,7 @@
 
 #PBS -l select=1:system=polaris
 #PBS -l place=scatter
-#PBS -l walltime=00:60:00
+#PBS -l walltime=01:00:00
 #PBS -l filesystems=home:eagle
 #PBS -q debug
 #PBS -A community_ai
@@ -21,7 +21,7 @@ echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
 set -x # Enable command tracing.
 python -m lema.evaluate \
-      -c configs/lema/llama8b.lora.eval.yaml \
+      -c configs/lema/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 
 echo "Polaris job is all done!"

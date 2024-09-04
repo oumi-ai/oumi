@@ -115,12 +115,12 @@ class Trainer(BaseTrainer):
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                model = prepare_model_for_distributed(model, use_fsdp=False)
+                self.model = prepare_model_for_distributed(self.model, use_fsdp=False)
 
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
-                model = cast(torch.nn.Module, torch.compile(model))
+                self.model = cast(torch.nn.Module, torch.compile(self.model))
 
         self.callbacks = callbacks if callbacks is not None else []
 
@@ -231,7 +231,7 @@ class Trainer(BaseTrainer):
                     self.params.max_steps > 0
                     and (self.state.global_step + 1) >= self.params.max_steps
                 )
-                # End of logical step. May include multiple micro steps
+                # End of global step. May include multiple micro steps
                 # if gradient_accumulation_steps > 1.
                 end_of_global_step = (
                     (micro_step + 1) % gradient_accumulation_steps
@@ -248,11 +248,7 @@ class Trainer(BaseTrainer):
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
                     num_tokens = (
-                        batch["input_ids"]
-                        .to("cpu", non_blocking=True)
-                        .ne(self.tokenizer.pad_token_id)
-                        .sum()
-                        .item()
+                        batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
                     )
                     self.state.total_tokens_seen += num_tokens
 

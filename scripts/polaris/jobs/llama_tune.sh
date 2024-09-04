@@ -73,8 +73,9 @@ TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
-# We currently set the steps needed to reach one epoch given default params.
-# The yahma/alpaca-cleaned dataset has 51,800 examples.
+# Our config is set to train for one epoch. Each section lists the number of steps
+# that it should be equivalent to.
+# For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "8b" ]; then
     # Copy the model to our Polaris machine to avoiding downloading from HF.
@@ -86,7 +87,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 32
         # Examples per step: 1 node * 4 GPUs/node * 2 bs * 32 GAS  = 256
-        # Num steps for 1 epoch: 51,800 / 256 = 203
+        # Num steps for 1 epoch: 51,760 / 256 = 203
         set -x  # Print "accelerate launch" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -98,14 +99,13 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --config_file configs/accelerate/llama.ddp.yaml \
             -m lema.train \
             -c configs/lema/llama8b.lora.yaml \
-            "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
-            "training.max_steps=203"
+            "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'"
     else  # SFT
         # Num nodes: 1
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
         # Examples per step: 1 node * 4 GPUs/node * 2 bs * 1 GAS  = 8
-        # Num steps for 1 epoch: 51,800 / 8 = 6,475
+        # Num steps for 1 epoch: 51,760 / 8 = 6,470
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -117,8 +117,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --config_file configs/accelerate/llama8b.fsdp.yaml \
             -m lema.train \
             -c configs/lema/llama8b.sft.yaml \
-            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
-            "training.max_steps=6475"
+            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'"
     fi
 else  # 70B
     # Copy the model to our Polaris machine to avoiding downloading from HF.
@@ -130,7 +129,7 @@ else  # 70B
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
         # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
-        # Num steps for 1 epoch: 51,800 / 16 = 3,238
+        # Num steps for 1 epoch: 51,760 / 16 = 3,235
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -142,14 +141,13 @@ else  # 70B
             --config_file configs/accelerate/llama70b.lora.yaml \
             -m lema.train \
             -c configs/lema/llama70b.lora.yaml \
-            "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
-            "training.max_steps=2159"
+            "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'"
     else  # SFT
         # Num nodes: 4
         # Batch size per GPU: 2
         # Gradient accumulation steps (GAS): 1
         # Examples per step: 4 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 32
-        # Num steps for 1 epoch: 51,800 / 32 = 1,619
+        # Num steps for 1 epoch: 51,760 / 32 = 1,618
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${LEMA_NUM_NODES} \
@@ -161,8 +159,7 @@ else  # 70B
             --config_file configs/accelerate/llama70b.fsdp.yaml \
             -m lema.train \
             -c configs/lema/llama70b.sft.yaml \
-            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
-            "training.max_steps=1619"
+            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'"
     fi
 fi
 
