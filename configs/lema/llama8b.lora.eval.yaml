@@ -20,7 +20,7 @@ model:
 evaluation_framework: LEMA
 data:
   datasets:
-  - dataset_name: "cais/mmlu"
+    - dataset_name: "cais/mmlu"
 
 generation:
   batch_size: 4
@@ -32,10 +32,10 @@ generation:
 # evaluation_framework: LM_HARNESS
 # num_shots: 5
 # generation:
-#   batch_size: 4
+#  batch_size: 4
 # data:
 #   datasets:
-#   - dataset_name: "m_mmlu_en"
+#    - dataset_name: "m_mmlu_en"
 #   - dataset_name: "m_mmlu_ar"
 #   - dataset_name: "m_mmlu_zh"
 #   - dataset_name: "m_mmlu_fr"
