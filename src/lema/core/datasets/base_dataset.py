@@ -18,6 +18,7 @@ class BaseMapDataset(MapDataPipe, ABC):
     dataset_name_or_path: str
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
+    trust_remote_code: bool
 
     def __init__(
         self,
@@ -25,6 +26,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         dataset_name_or_path: Optional[str],
         subset: Optional[str] = None,
         split: Optional[str] = None,
+        trust_remote_code: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -45,6 +47,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.dataset_name_or_path = dataset_name_or_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
+        self.trust_remote_code = trust_remote_code
 
     #
     # Main API
@@ -139,7 +142,11 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        splits_or_dataset = datasets.load_dataset(path=path, name=self.dataset_subset)
+        splits_or_dataset = datasets.load_dataset(
+            path=path,
+            name=self.dataset_subset,
+            trust_remote_code=self.trust_remote_code,
+        )
 
         if isinstance(
             splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
