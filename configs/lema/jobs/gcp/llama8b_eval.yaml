@@ -1,9 +1,9 @@
 # Config to eval Llama 3.1 8B Instruct on GCP.
 # Example command:
-# lema-launch -p configs/lema/jobs/gcp/llama8b_eval.yaml -c xrdaukar-llama8b-eval-1node4pgu
+# lema-launch -p configs/lema/jobs/gcp/llama8b_eval.yaml -c xrdaukar-llama8b-eval-2node4pgu
 name: llama8b-eval
 
-num_nodes: 1
+num_nodes: 2
 resources:
   cloud: gcp
   accelerators: "A100:4"
@@ -30,7 +30,7 @@ envs:
   WANDB_PROJECT: lema-eval
   # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
-  LEMA_EVALUATION_FRAMEWORK: lm_harness" # Valid values: "lm_harness", "lema"
+  LEMA_EVALUATION_FRAMEWORK: lm_harness # Valid values: "lm_harness", "lema"
 
 setup: |
   set -e
@@ -60,11 +60,17 @@ run: |
       --num_processes=${TOTAL_NUM_GPUS} \
       --num_machines=${LEMA_NUM_NODES} \
       --machine_rank=${SKYPILOT_NODE_RANK} \
+      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_port 8007 \
       -m lema.evaluate  \
       -c configs/lema/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
   elif [ "$LEMA_EVALUATION_FRAMEWORK" == "lema" ]; then
     echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
+    if test ${LEMA_NUM_NODES} -ne 1; then
+      echo "Legacy evaluation can only run on 1 node. Actual: ${LEMA_NUM_NODES} nodes."
+      exit 1
+    fi
     python -m lema.evaluate \
       -c configs/lema/llama8b.eval.legacy.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
