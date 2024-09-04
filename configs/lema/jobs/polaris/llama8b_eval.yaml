@@ -8,7 +8,7 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher.
+# Upload working directory to /home/$USER/lema_launcher/llama8b_eval.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
@@ -27,6 +27,7 @@ run: |
 
   # Various setup for running on Polaris.
   source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+  pip install '.[train]'
 
   # NOTE: For SFT, update this to point to your model checkpoint.
   MODEL_CHECKPOINT_DIR="meta-llama/Meta-Llama-3.1-8B-Instruct"
