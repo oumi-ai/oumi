@@ -22,22 +22,7 @@ if test ${LEMA_NUM_NODES} -ne 1; then
     exit 1
 fi
 
-EVALUATION_FRAMEWORK="lm_harness"
-
-helpFunction()
-{
-   echo ""
-   echo "Usage: $0 -e (lm_harness|lema)"
-   exit 1 # Exit script after printing help
-}
-
-while getopts "e:" opt
-do
-   case "$opt" in
-      e ) EVALUATION_FRAMEWORK="$OPTARG" ;;
-      ? ) helpFunction ;; # Print a help message for an unknown parameter.
-   esac
-done
+EVALUATION_FRAMEWORK="lema" # Valid values: "lm_harness", "lema"
 
 echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
@@ -51,6 +36,7 @@ if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
       -c configs/lema/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
+    echo "The custom eval framwork is deprecated. Use LM_HARNESS instead."
     python -m lema.evaluate \
       -c configs/lema/llama8b.eval.deprecated.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
