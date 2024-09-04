@@ -10,9 +10,7 @@ import torch
 
 from lema.core.configs import EvaluationConfig
 from lema.core.configs.evaluation_config import EvaluationFramework
-from lema.core.distributed import (
-    get_device_rank_info,
-)
+from lema.core.distributed import get_device_rank_info
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (
