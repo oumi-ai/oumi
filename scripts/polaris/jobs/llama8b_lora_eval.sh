@@ -22,7 +22,7 @@ if test ${LEMA_NUM_NODES} -ne 1; then
     exit 1
 fi
 
-EVALUATION_FRAMEWORK="lema" # Valid values: "lm_harness", "lema"
+EVALUATION_FRAMEWORK="lm_harness" # Valid values: "lm_harness", "lema"
 
 echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
