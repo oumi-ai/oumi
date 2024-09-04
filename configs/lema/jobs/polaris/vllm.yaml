@@ -6,7 +6,7 @@ num_nodes: 2
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher/hello-world.
+# Upload working directory to /home/$USER/lema_launcher/vllm.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
