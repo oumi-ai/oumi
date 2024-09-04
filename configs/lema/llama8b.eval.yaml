@@ -10,10 +10,10 @@ model:
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
 
-  # NOTE: For full fine-tuned models, replace with path to model checkpoint.
-  model_name: "meta-llama/Meta-Llama-3.1-8B"
-  adapter_model: null  # NOTE: For LoRA-tuned models, replace with path to adapter.
-  # adapter_model: "/output_dir_gcs/wizeng/runs/20240902_llama8b_lora_alpaca_2epochs"
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  # NOTE: For LoRA, update this to point to your LoRA adapter.
+  adapter_model: null
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"

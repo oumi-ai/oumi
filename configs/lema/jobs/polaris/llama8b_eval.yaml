@@ -28,9 +28,9 @@ run: |
   # Various setup for running on Polaris.
   source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
-  # NOTE: Update this variable to point to your own LoRA adapter:
+  # NOTE: For SFT, update this to point to your model checkpoint.
   MODEL_CHECKPOINT_DIR="meta-llama/Meta-Llama-3.1-8B-Instruct"
-  # NOTE: Update this variable to point to your own LoRA adapter:
+  # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR=""
 
   echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
