@@ -110,6 +110,8 @@ class DatasetParams(BaseParams):
 
     Warning:
         This is deprecated and will be removed in a future release.
+
+        To customize dataset preprocessing, please see `Dataset.transform`.
     """
 
     preprocessing_function_kwargs: Dict[str, Any] = field(
@@ -122,6 +124,8 @@ class DatasetParams(BaseParams):
 
     Warning:
         This is deprecated and will be removed in a future release.
+
+        To customize dataset preprocessing, please see `Dataset.transform`.
     """
 
     def __post_init__(self):
