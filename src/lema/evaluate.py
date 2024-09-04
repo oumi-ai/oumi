@@ -10,6 +10,9 @@ import torch
 
 from lema.core.configs import EvaluationConfig
 from lema.core.configs.evaluation_config import EvaluationFramework
+from lema.core.distributed import (
+    get_device_rank_info,
+)
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (
@@ -153,8 +156,9 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
+    device_info = get_device_rank_info()
     if torch.cuda.is_available():
-        device = "cuda:0"
+        device = f"cuda:{device_info.local_rank}"
     elif torch.backends.mps.is_available():
         device = "mps"
     else:
