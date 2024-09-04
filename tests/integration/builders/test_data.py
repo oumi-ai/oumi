@@ -198,6 +198,7 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
+                trust_remote_code=True,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
@@ -205,6 +206,7 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
                 split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
+                trust_remote_code=True,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
@@ -212,6 +214,7 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
+                trust_remote_code=True,
             ),
         ],
         stream,
@@ -235,6 +238,7 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.1,
+                trust_remote_code=True,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
@@ -242,6 +246,7 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
                 split="test",
                 sample_count=50,
                 mixture_proportion=0.4,
+                trust_remote_code=True,
             ),
             DatasetParams(
                 dataset_name="tasksource/mmlu",
@@ -249,6 +254,7 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
                 split="test",
                 sample_count=5,
                 mixture_proportion=0.5,
+                trust_remote_code=True,
             ),
         ],
         stream,
