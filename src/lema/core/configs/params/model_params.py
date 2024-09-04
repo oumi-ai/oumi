@@ -29,6 +29,9 @@ class ModelParams(BaseParams):
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
     enable_liger_kernel: bool = False
+    #: Whether to shard the model for evaluation. This is needed for large models
+    #: that do not fit on a single GPU. This is used as the value for the `parallelize`
+    #: argument in LM Harness.
     shard_for_eval: bool = False
 
     def torch_dtype(self):
