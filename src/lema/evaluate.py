@@ -186,16 +186,17 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     logger.info(f"Finished eval in {elapsed_time_sec} seconds: {results}")
 
-    for benchmark_name in benchmark_names:
-        metric_dict = results["results"][benchmark_name]  # type: ignore
-        metric_dict["elapsed_time_sec"] = elapsed_time_sec
-        if config.output_dir:
-            save_evaluation_results(
-                output_dir=config.output_dir,
-                benchmark_name=benchmark_name,
-                metric_dict=metric_dict,
-            )
-        logger.info(f"{benchmark_name}'s metric dictionary is {metric_dict}")
+    if device_info.rank == 0:
+        for benchmark_name in benchmark_names:
+            metric_dict = results["results"][benchmark_name]  # type: ignore
+            metric_dict["elapsed_time_sec"] = elapsed_time_sec
+            if config.output_dir:
+                save_evaluation_results(
+                    output_dir=config.output_dir,
+                    benchmark_name=benchmark_name,
+                    metric_dict=metric_dict,
+                )
+            logger.info(f"{benchmark_name}'s metric dictionary is {metric_dict}")
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
