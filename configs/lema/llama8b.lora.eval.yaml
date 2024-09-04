@@ -34,7 +34,7 @@ generation:
 # generation:
 #  batch_size: 4
 # data:
-#   datasets:
+#  datasets:
 #    - dataset_name: "m_mmlu_en"
 #   - dataset_name: "m_mmlu_ar"
 #   - dataset_name: "m_mmlu_zh"
