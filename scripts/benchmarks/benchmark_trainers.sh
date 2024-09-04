@@ -1,46 +1,46 @@
 #!/bin/bash
+set -xe
+
 # Script to benchmark different trainers and model configurations
 # and compare their performance.
 
-set -xe
-
 # HuggingFace model with huggingface trainer
-python -m lema.train -c "configs/lema/gpt2.pt.yaml" \
-    "model.model_name=gpt2" \
-    "model.tokenizer_name=gpt2" \
-    "training.per_device_train_batch_size=16" \
+time accelerate launch \
+    --num_machines 1 \
+    --machine_rank 0 \
+    --num_processes 1 \
+    --gpu_ids 0 \
+    --dynamo_backend inductor \
+    --mixed_precision no \
+    -m lema.train \
+    -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=TRL_SFT" \
-    "training.output_dir=output/model-hf_trainer-hf/" \
-    "training.include_performance_metrics=True" \
-    "training.max_steps=100"
+    "training.per_device_train_batch_size=3" \
+    "training.gradient_accumulation_steps=1" \
+    "training.output_dir=output/trainer-trl/" \
+    "training.include_performance_metrics=true" \
+    "training.dep_log_level=debug" \
+    "training.logging_steps=5" \
+    "training.max_steps=1000" \
+    "training.save_steps=0" \
+    "training.compile=true" \
+    "training.save_final_model=false"
 
 # HuggingFace model with lema trainer
-python -m lema.train -c "configs/lema/gpt2.pt.yaml" \
-    "model.model_name=gpt2" \
-    "model.tokenizer_name=gpt2" \
-    "training.per_device_train_batch_size=10" \
+# time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
+time torchrun --standalone --nproc_per_node 1 \
+    -m lema.train \
+    -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=LEMA" \
-    "training.output_dir=output/model-hf_trainer-lema/" \
-    "training.include_performance_metrics=True" \
-    "training.max_steps=100"
-
-# Lema model with lema trainer
-python -m lema.train -c "configs/lema/gpt2.pt.yaml" \
-    "model.model_name=NanoGPT2" \
-    "model.tokenizer_name=gpt2" \
-    "training.per_device_train_batch_size=12" \
-    "training.trainer_type=LEMA" \
-    "training.output_dir=output/model-lema_trainer-lema/" \
-    "training.include_performance_metrics=True" \
-    "training.max_steps=100"
-
-# Lema model with huggingface trainer
-# TODO: fix issue with DDP in this config
-CUDA_VISIBLE_DEVICES="0" python -m lema.train -c "configs/lema/gpt2.pt.yaml" \
-    "model.model_name=NanoGPT2" \
-    "model.tokenizer_name=gpt2" \
-    "training.per_device_train_batch_size=16" \
-    "training.trainer_type=TRL_SFT" \
-    "training.output_dir=output/model-lema_trainer-hf/" \
-    "training.include_performance_metrics=True" \
-    "training.max_steps=100"
+    "training.per_device_train_batch_size=3" \
+    "training.gradient_accumulation_steps=1" \
+    "training.output_dir=output/trainer-lema/" \
+    "training.include_performance_metrics=true" \
+    "training.dep_log_level=debug" \
+    "training.logging_steps=5" \
+    "training.max_steps=1000" \
+    "training.save_steps=0" \
+    "training.compile=true" \
+    "training.save_final_model=false" \
+    "training.dataloader_prefetch_factor=2" \
+    "training.dataloader_num_workers=1"

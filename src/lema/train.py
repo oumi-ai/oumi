@@ -348,9 +348,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
 
     # Save final checkpoint & training state.
-    logger.info("Saving final state...")
-    trainer.save_state()
     if config.training.save_final_model:
+        logger.info("Saving final state...")
+        trainer.save_state()
+
         logger.info("Saving final model...")
         trainer.save_model(config=config)
 
