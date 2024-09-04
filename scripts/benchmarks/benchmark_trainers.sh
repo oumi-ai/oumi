@@ -5,7 +5,13 @@ set -xe
 # and compare their performance.
 
 # HuggingFace model with huggingface trainer
-time accelerate launch --num_machines 1 --machine_rank 0 --num_processes 1 --gpu_ids 0 --dynamo_backend inductor --mixed_precision no \
+time accelerate launch \
+    --num_machines 1 \
+    --machine_rank 0 \
+    --num_processes 1 \
+    --gpu_ids 0 \
+    --dynamo_backend inductor \
+    --mixed_precision no \
     -m lema.train \
     -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=TRL_SFT" \
