@@ -51,6 +51,10 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model_params.model_name)
 
+    if model_params.freeze_vision_encoder:
+        for param in model.vision_encoder.parameters():
+            param.requires_grad = False
+
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
         # nn.Module. We cast it so that this function can have a useful return type.

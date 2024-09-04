@@ -30,6 +30,8 @@ class ModelParams(BaseParams):
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
     enable_liger_kernel: bool = False
 
+    freeze_vision_encoder: bool = False
+
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
         if self.torch_dtype_str in ["f64", "float64", "double"]:
