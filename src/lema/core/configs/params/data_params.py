@@ -39,33 +39,57 @@ class MixtureStrategy(str, Enum):
 
 @dataclass
 class DatasetParams(BaseParams):
-    #: Parameters for `datasets.load_dataset()`
     dataset_name: str = MISSING
-    #: The subset of the dataset to load, usually a subfolder within the dataset root.
-    subset: Optional[str] = None
-    #: The split of the dataset to load, usually "train", "test", or "validation".
-    split: str = "train"
-    #: Keyword arguments to pass to the dataset constructor.
-    dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """The name of the dataset to load. Required."""
 
-    #: The number of examples to sample from the dataset. Must be non-negative. If
-    #: `sample_count` is larger than the size of the dataset then the required
-    #: additional examples are sampled by looping over the original dataset.
-    #: Defaults to None.
+    subset: Optional[str] = None
+    """The subset of the dataset to load.
+
+    This is usually a subfolder within the dataset root.
+    """
+
+    split: str = "train"
+    """The split of the dataset to load.
+
+    This is typically one of "train", "test", or "validation". Defaults to "train".
+    """
+
+    dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments to pass to the dataset constructor.
+
+    These arguments will be passed directly to the dataset constructor.
+    """
+
     sample_count: Optional[int] = None
-    #: The proportion of examples from this dataset relative to other datasets in the
-    #: mixture. If specified, all datasets must supply this value. Must be a float in
-    #: the range [0, 1.0]. The `mixture_proportion` for all input datasets must sum to
-    #: 1. Examples are sampled after the dataset has been sampled using `sample_count`
-    #: if specified. Defaults to None.
+    """The number of examples to sample from the dataset.
+
+    Must be non-negative. If `sample_count` is larger than the size of the dataset, then
+    the required additional examples are sampled by looping over the original dataset.
+    """
+
     mixture_proportion: Optional[float] = None
-    #: If specified, the dataset is shuffled before any sampling occurs.
+    """The proportion of examples from this dataset relative to other datasets
+        in the mixture.
+
+    If specified, all datasets must supply this value.
+    Must be a float in the range [0, 1.0]. The `mixture_proportion` for all input
+    datasets must sum to 1.
+
+    Examples are sampled after the dataset has been sampled using `sample_count`
+    if specified.
+    """
+
     shuffle: bool = False
-    #: The random seed used for shuffling the dataset before sampling, if specified.
-    #: If set to `None` shuffling will be non-deterministic.
+    """Whether to shuffle the dataset before any sampling occurs."""
+
     seed: Optional[int] = None
-    #: The size of the shuffle buffer used for shuffling the dataset before sampling.
+    """The random seed used for shuffling the dataset before sampling.
+
+    If set to `None`, shuffling will be non-deterministic.
+    """
+
     shuffle_buffer_size: int = 1000
+    """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the dataset."""
@@ -82,9 +106,30 @@ class DatasetParams(BaseParams):
         return defaults
 
     preprocessing_function_name: Optional[str] = None
+    """[Deprecated] The name of the preprocessing function to apply to the dataset.
+
+    If specified, this function will be applied to the dataset using the dataset's
+    `map` method. The function should be defined in the preprocessing module.
+
+    Warning:
+        This is deprecated and will be removed in a future release.
+
+        To customize dataset preprocessing, please see `Dataset.transform`.
+    """
+
     preprocessing_function_kwargs: Dict[str, Any] = field(
         default_factory=_default_factory_preprocessing_kwargs
     )
+    """[Deprecated] Keyword arguments to pass to the preprocessing function.
+
+    These arguments will be passed directly to the preprocessing function when it
+    is applied to the dataset using the `map` method.
+
+    Warning:
+        This is deprecated and will be removed in a future release.
+
+        To customize dataset preprocessing, please see `Dataset.transform`.
+    """
 
     def __post_init__(self):
         """Verifies params."""
@@ -100,20 +145,31 @@ class DatasetParams(BaseParams):
 
 @dataclass
 class DatasetSplitParams(BaseParams):
-    #: The input datasets used for training. This will later be split into train, test,
-    #: and validation.
     datasets: List[DatasetParams] = field(default_factory=list)
-    #: Whether to pack the text into constant-length chunks,
-    #: each the size of the model's max input length.
-    #: This will stream the dataset, and tokenize on the fly
-    #: if the dataset isn't already tokenized (i.e. has an `input_ids` column).
-    #: Requires `stream` to be set to True.
+    """The input datasets used for training.
+
+    This will later be split into train, test, and validation.
+    """
+
     pack: bool = False
+    """Whether to pack the text into constant-length chunks.
+
+    Each chunk will be the size of the model's max input length.
+    This will stream the dataset, and tokenize on the fly
+    if the dataset isn't already tokenized (i.e. has an `input_ids` column).
+    Requires `stream` to be set to True.
+    """
+
     stream: bool = False
-    #: The dataset column name containing the input for training/testing/validation.
-    #: Required for SFTTrainer. If specified, all datasets in this split must contain a
-    #: column with this name.
+    """Whether to stream the dataset."""
+
     target_col: Optional[str] = None
+    """The dataset column name containing the input for training/testing/validation.
+
+    Required for SFTTrainer. If specified, all datasets in this split must contain a
+    column with this name.
+    """
+
     mixture_strategy: str = field(
         default=MixtureStrategy.FIRST_EXHAUSTED.value,
         metadata={
@@ -127,14 +183,31 @@ class DatasetSplitParams(BaseParams):
             f"`{MixtureStrategy.FIRST_EXHAUSTED.value}`."
         },
     )
-    #: The random seed used for mixing this dataset split, if specified.
-    #: If set to `None` mixing will be non-deterministic.
-    seed: Optional[int] = None
+    """The strategy for mixing multiple datasets.
 
-    #: EXPERIMENTAL PARAMS -------------------------
-    #: Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+    When multiple datasets are provided, this parameter determines how they are
+    combined. Two strategies are available:
+
+    1. FIRST_EXHAUSTED: Samples from all datasets until one is fully represented
+       in the mixture. This is the default strategy.
+    2. ALL_EXHAUSTED: Samples from all datasets until each one is fully represented
+       in the mixture. This may lead to significant oversampling.
+    """
+
+    seed: Optional[int] = None
+    """The random seed used for mixing this dataset split, if specified.
+
+    If set to `None` mixing will be non-deterministic.
+    """
+
+    # EXPERIMENTAL PARAMS -------------------------
     experimental_use_async_dataset: bool = False
-    #: END EXPERIMENTAL PARAMS --------------------
+    """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+
+    Warning:
+        This is an experimental feature and may change without notice.
+    """
+    # END EXPERIMENTAL PARAMS --------------------
 
     def __post_init__(self):
         """Verifies params."""
@@ -194,14 +267,14 @@ class DatasetSplitParams(BaseParams):
 
 @dataclass
 class DataParams(BaseParams):
-    #: The input datasets used for training.
     train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for training."""
 
-    #: The input datasets used for testing.
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for testing."""
 
-    #: The input datasets used for validation.
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for validation."""
 
     def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
         """A public getting for individual dataset splits."""
