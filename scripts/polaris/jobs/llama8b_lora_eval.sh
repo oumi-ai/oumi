@@ -17,10 +17,10 @@ source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 # NOTE: Update this variable to point to your own LoRA adapter:
 EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B-Instruct/sample_lora_adapters/2073171/"
 
-# if test ${LEMA_NUM_NODES} -ne 1; then
-#    echo "Evaluation can only run on 1 Polaris node. Actual: ${LEMA_NUM_NODES} nodes."
-#    exit 1
-# fi
+if test ${LEMA_NUM_NODES} -ne 1; then
+    echo "Evaluation can only run on 1 Polaris node. Actual: ${LEMA_NUM_NODES} nodes."
+    exit 1
+fi
 
 EVALUATION_FRAMEWORK="lm_harness" # Valid values: "lm_harness", "lema"
 

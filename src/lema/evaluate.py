@@ -3,6 +3,7 @@ import json
 import os
 import time
 from copy import deepcopy
+from pprint import pformat
 from typing import Any, Dict
 
 import lm_eval
@@ -10,7 +11,7 @@ import torch
 
 from lema.core.configs import EvaluationConfig
 from lema.core.configs.evaluation_config import EvaluationFramework
-from lema.core.distributed import get_device_rank_info
+from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (
@@ -183,7 +184,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
-    if device_info.rank == 0:
+    if is_world_process_zero():
         assert results is not None
         for benchmark_name in benchmark_names:
             metric_dict = results["results"][benchmark_name]  # type: ignore
@@ -194,7 +195,9 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
                     benchmark_name=benchmark_name,
                     metric_dict=metric_dict,
                 )
-            logger.info(f"{benchmark_name}'s metric dictionary is {metric_dict}")
+            logger.info(
+                f"{benchmark_name}'s metric dictionary is {pformat(metric_dict)}"
+            )
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
