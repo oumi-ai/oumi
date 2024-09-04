@@ -32,11 +32,5 @@ accelerate launch \
       -c configs/lema/llama8b.lora.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 
-# mpiexec --verbose \
-#    --np $((${LEMA_NUM_NODES} * ${NRANKS})) \
-#    -ppn ${NRANKS} \
-#    -d ${NDEPTH} --cpu-bind "${CPU_BIND}" \
-#    ./scripts/polaris/jobs/llama8b_lora_eval_worker.sh
-
 echo -e "Finished eval on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"

@@ -184,9 +184,9 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     )
     elapsed_time_sec = time.time() - start_time
 
-    logger.info(f"Finished eval in {elapsed_time_sec} seconds: {results}")
-
+    # Metrics are only available on the main process, and `None` on others.
     if device_info.rank == 0:
+        assert results is not None
         for benchmark_name in benchmark_names:
             metric_dict = results["results"][benchmark_name]  # type: ignore
             metric_dict["elapsed_time_sec"] = elapsed_time_sec
