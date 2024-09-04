@@ -17,20 +17,18 @@ source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 # NOTE: Update this variable to point to your own LoRA adapter:
 EVAL_CHECKPOINT_DIR="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B-Instruct/sample_lora_adapters/2073171/"
 
+if test ${LEMA_NUM_NODES} -ne 1; then
+    echo "Evaluation can only run on 1 Polaris node. Actual: ${LEMA_NUM_NODES} nodes."
+    exit 1
+fi
+
 echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
-NRANKS=4  # Spawn 4 MPI ranks per Polaris node (1 `lema.evaluate` for each GPU)
-NDEPTH=16 # Number of threads per rank
-CPU_BIND="numa"
-
 set -x # Enable command tracing.
-# python -m lema.evaluate \
-#     -c configs/lema/llama8b.lora.eval.yaml
-#     "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
-
 accelerate launch \
       --num_processes=4 \
-      -m lema.evaluate \
+      --num_machines=1  \
+      -m lema.evaluate  \
       -c configs/lema/llama8b.lora.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 
