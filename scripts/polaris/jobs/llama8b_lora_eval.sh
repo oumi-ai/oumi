@@ -21,7 +21,7 @@ echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
 set -x # Enable command tracing.
 python -m lema.evaluate \
-      -c configs/lema/llama8b.lora.eval.yaml \
-      "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+      -c configs/lema/llama8b.lora.eval.yaml
+#     "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 
 echo "Polaris job is all done!"
