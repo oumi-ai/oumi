@@ -52,7 +52,7 @@ if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
     python -m lema.evaluate \
-      -c configs/lema/llama8b.eval.yaml \
+      -c configs/lema/llama8b.eval.deprecated.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 else
     echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
