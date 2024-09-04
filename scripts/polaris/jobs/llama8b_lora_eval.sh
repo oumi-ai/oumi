@@ -38,7 +38,7 @@ if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
 elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
     echo "The custom eval framwork is deprecated. Use LM_HARNESS instead."
     python -m lema.evaluate \
-      -c configs/lema/llama8b.eval.deprecated.yaml \
+      -c configs/lema/llama8b.eval.legacy.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 else
     echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
