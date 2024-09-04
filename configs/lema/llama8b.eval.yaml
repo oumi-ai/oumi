@@ -1,4 +1,4 @@
-# Eval config for Llama 8B.
+# Eval config for Llama 8B Instruct.
 
 model:
   # Vocab size: 128256
@@ -9,11 +9,8 @@ model:
   # Num KV heads: 8
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
-
-  # NOTE: For SFT, update this to point to your model checkpoint.
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-  # NOTE: For LoRA, update this to point to your LoRA adapter.
-  adapter_model: null
+  adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"

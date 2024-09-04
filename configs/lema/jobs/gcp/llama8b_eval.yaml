@@ -40,4 +40,15 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  python -m lema.evaluate -c configs/lema/llama8b.eval.yaml
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  MODEL_CHECKPOINT_DIR="meta-llama/Meta-Llama-3.1-8B-Instruct"
+  # NOTE: For LoRA, update this to point to your LoRA adapter.
+  LORA_ADAPTER_DIR=""
+
+  echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
+
+  set -x # Enable command tracing.
+  python -m lema.evaluate \
+        -c configs/lema/llama8b.eval.yaml \
+        "model.model_name=${MODEL_CHECKPOINT_DIR}" \
+        "model.adapter_model=${LORA_ADAPTER_DIR}"
