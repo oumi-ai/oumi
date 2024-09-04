@@ -31,7 +31,6 @@ model:
 #
 evaluation_framework: LM_HARNESS
 num_shots: 5
-num_samples: 500
 generation:
   batch_size: 4
 data:
