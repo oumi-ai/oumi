@@ -145,7 +145,7 @@ class DatasetSplitParams(BaseParams):
     """
 
     pack: bool = False
-    """ Whether to pack the text into constant-length chunks.
+    """Whether to pack the text into constant-length chunks.
 
     Each chunk will be the size of the model's max input length.
     This will stream the dataset, and tokenize on the fly
@@ -260,14 +260,14 @@ class DatasetSplitParams(BaseParams):
 
 @dataclass
 class DataParams(BaseParams):
-    #: The input datasets used for training.
     train: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for training."""
 
-    #: The input datasets used for testing.
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for testing."""
 
-    #: The input datasets used for validation.
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
+    """The input datasets used for validation."""
 
     def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
         """A public getting for individual dataset splits."""
