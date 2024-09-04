@@ -231,7 +231,7 @@ class Trainer(BaseTrainer):
                     self.params.max_steps > 0
                     and (self.state.global_step + 1) >= self.params.max_steps
                 )
-                # End of logical step. May include multiple micro steps
+                # End of global step. May include multiple micro steps
                 # if gradient_accumulation_steps > 1.
                 end_of_global_step = (
                     (micro_step + 1) % gradient_accumulation_steps
@@ -248,11 +248,7 @@ class Trainer(BaseTrainer):
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
                     num_tokens = (
-                        batch["input_ids"]
-                        .to("cpu", non_blocking=True)
-                        .ne(self.tokenizer.pad_token_id)
-                        .sum()
-                        .item()
+                        batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
                     )
                     self.state.total_tokens_seen += num_tokens
 
