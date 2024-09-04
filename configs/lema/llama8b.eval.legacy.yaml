@@ -1,0 +1,27 @@
+# Eval config for Llama 8B Instruct using the LEMA evaluation framework (deprecated).
+# Use LM_HARNESS config instead: configs/lema/llama8b.eval.yaml
+
+model:
+  # Vocab size: 128256
+  # Hidden size: 4096
+  # MLP intermediate size: 14336
+  # Num layers: 32
+  # Num attention heads: 32
+  # Num KV heads: 8
+  # Weight tying: False
+  # Model max length: 131072 (initially trained with 8192)
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+evaluation_framework: LEMA
+data:
+  datasets:
+    - dataset_name: "cais/mmlu"
+
+generation:
+  batch_size: 4
