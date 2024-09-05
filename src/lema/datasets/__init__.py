@@ -25,6 +25,7 @@ from lema.datasets.alpaca import AlpacaDataset
 from lema.datasets.chatqa import ChatqaDataset
 from lema.datasets.chatrag_bench import ChatRAGBenchDataset
 from lema.datasets.debug import DebugClassificationDataset, DebugPretrainingDataset
+from lema.datasets.vision_language import VisionLanguageSftDataset
 
 __all__ = [
     "AlpacaDataset",
@@ -32,4 +33,5 @@ __all__ = [
     "ChatRAGBenchDataset",
     "DebugClassificationDataset",
     "DebugPretrainingDataset",
+    "VisionLanguageSftDataset",
 ]
