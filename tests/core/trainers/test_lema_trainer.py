@@ -167,7 +167,7 @@ def test_train_epoch(trainer, mock_stateful_dataloader, tmp_path):
     )
     trainer.train_dataloader = mock_stateful_dataloader
     trainer.params.telemetry = MagicMock(spec=TelemetryParams)
-    trainer.params.telemetry.save_telemetry_for_all_ranks = False
+    trainer.params.telemetry.collect_telemetry_for_all_ranks = False
     trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
     trainer.scaler.scale = MagicMock(return_value=MagicMock())
     trainer.scaler.step = MagicMock()
@@ -208,7 +208,7 @@ def test_save_and_load_model(
     trainer.train_dataloader = mock_stateful_dataloader
     trainer.params.output_dir = str(output_dir)
     trainer.params.telemetry = MagicMock(spec=TelemetryParams)
-    trainer.params.telemetry.save_telemetry_for_all_ranks = False
+    trainer.params.telemetry.collect_telemetry_for_all_ranks = False
     trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
 
     trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})

@@ -14,12 +14,10 @@ class TelemetryParams(BaseParams):
     sub-directory in `output_dir`.
     """
 
-    save_telemetry_for_all_ranks: bool = False
-    """Whether to save telemetry for all ranks.
+    collect_telemetry_for_all_ranks: bool = False
+    """Whether to collect telemetry for all ranks.
 
-    By default, only the main rank's telemetry stats are saved.
-    If `True` then telemetry files will include rank number
-    e.g., "telemetry_rank003.json".
+    By default, only the main rank's telemetry stats are collected and saved.
     """
 
     track_gpu_temperature: bool = False

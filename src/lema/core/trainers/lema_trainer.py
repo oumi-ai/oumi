@@ -398,8 +398,9 @@ class Trainer(BaseTrainer):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
-        if self.params.telemetry.save_telemetry_for_all_ranks:
+        if self.params.telemetry.collect_telemetry_for_all_ranks:
             telemetry_dir = self.params.telemetry_dir
+            # TODO: Gather telemetry from all ranks.
             if telemetry_dir:
                 device_rank_info = get_device_rank_info()
                 telemetry_state_path = (
