@@ -1,7 +1,6 @@
 import hashlib
+import logging
 import re
-
-from lema.utils.logging import logger
 
 
 def sanitize_run_name(run_name: str) -> str:
@@ -29,6 +28,7 @@ def sanitize_run_name(run_name: str) -> str:
         result = result[0 : (_MAX_RUN_NAME_LENGTH - len(suffix))] + suffix
 
     if result != run_name:
+        logger = logging.getLogger("lema")
         logger.warning(f"Run name '{run_name}' got sanitized to '{result}'")
     return result
 
