@@ -2,7 +2,7 @@ import argparse
 from typing import List
 
 from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
-from lema.inference import NativeTextInferenceClient
+from lema.inference import NativeTextInferenceEngine
 from lema.utils.logging import logger
 
 
@@ -71,14 +71,14 @@ def infer(
         model_params: The configuration object containing the model parameters.
         generation_config: The configuration object for model generation.
         input: A list of text prompts of shape (num_batches, batch_size).
-        exclude_prompt_from_response: Whether to trim the model's reponse and remove the
-          prepended prompt.
+        exclude_prompt_from_response: Whether to trim the model's response and remove
+          the prepended prompt.
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
-    client = NativeTextInferenceClient(model_params)
-    return client.infer(
+    inference_engine = NativeTextInferenceEngine(model_params)
+    return inference_engine.infer(
         input,
         max_new_tokens=generation_config.max_new_tokens,
         exclude_prompt_from_response=exclude_prompt_from_response,

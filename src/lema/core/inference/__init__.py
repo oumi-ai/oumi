@@ -3,8 +3,8 @@
 This module provides base classes for model inference in the LeMa framework.
 """
 
-from lema.core.inference.base_inference_client import BaseInferenceClient
+from lema.core.inference.base_inference_engine import BaseInferenceEngine
 
 __all__ = [
-    "BaseInferenceClient",
+    "BaseInferenceEngine",
 ]

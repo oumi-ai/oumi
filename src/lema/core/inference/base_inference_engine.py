@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 
-class BaseInferenceClient(ABC):
+class BaseInferenceEngine(ABC):
     """Base interface for running model inference."""
 
     @abstractmethod

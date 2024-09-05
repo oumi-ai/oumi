@@ -12,15 +12,15 @@ from lema.builders import (
     build_tokenizer,
 )
 from lema.core.configs import ModelParams
-from lema.core.inference import BaseInferenceClient
+from lema.core.inference import BaseInferenceEngine
 from lema.core.models import BaseModel
 
 
-class NativeTextInferenceClient(BaseInferenceClient):
-    """Client for running text-to-text model inference."""
+class NativeTextInferenceEngine(BaseInferenceEngine):
+    """Engine for running text-to-text model inference."""
 
     def __init__(self, model_params: ModelParams, model: Optional[BaseModel] = None):
-        """Initializes the inference client.
+        """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
