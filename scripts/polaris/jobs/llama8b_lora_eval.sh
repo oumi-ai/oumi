@@ -44,6 +44,7 @@ elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 else
     echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
+    exit 1
 fi
 
 echo -e "Finished eval on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"

@@ -53,7 +53,7 @@ run: |
   echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
   set -x # Enable command tracing.
-  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * 4))
+  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
 
   if [ "$LEMA_EVALUATION_FRAMEWORK" == "lm_harness" ]; then
     accelerate launch \
