@@ -189,7 +189,7 @@ def _create_training_performance_callbacks_if_needed(
     if config.training.profiler.save_dir or config.training.output_dir:
         telemetry_dir = (
             pathlib.Path(
-                config.training.profiler.save_dir or config.training.output_dir
+                config.training.telemetry.telemetry_dir or config.training.output_dir
             )
             / "telemetry"
         )
