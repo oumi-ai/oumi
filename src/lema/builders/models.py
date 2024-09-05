@@ -126,7 +126,7 @@ def build_huggingface_model(
     # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
     # load the model only on rank 0, which will OOM for large models.
     # See https://github.com/huggingface/transformers/pull/25107.
-    if os.environ.get("ACCELERATE_USE_FSDP", "false"):
+    if os.environ.get("ACCELERATE_USE_FSDP", default=False):
         logger.info("Accelerate FSDP run detected! Setting device_map to None.")
         device_map = None
     elif device_map == "auto" and device_rank_info.world_size > 1:
