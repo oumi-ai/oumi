@@ -65,12 +65,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
                 images=images, text=[text], return_tensors="pt", padding=True
             )
         else:
-            image = images[0]  # only support a single image
+            if len(images) > 0:
+                image = images[0]  # only support a single image
+                image_features = self.transform_image(image)
+            else:
+                image_features = {}
 
             # TODO: fix type ignore
             text_features = self.tokenize(texts)  # type: ignore
-            image_features = self.transform_image(image)
             inputs = {**text_features, **image_features}
+
         return inputs
 
     def _load_image(self, image: Union[str, Message]) -> Image.Image:

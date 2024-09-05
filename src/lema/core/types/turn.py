@@ -44,7 +44,9 @@ class Message(pydantic.BaseModel):
             ValueError: If both content and binary are None.
         """
         if self.content is None and self.binary is None:
-            raise ValueError
+            raise ValueError(
+                "Either content or binary must be provided for the message."
+            )
 
     def is_image(self) -> bool:
         """Checks if the message contains an image."""
