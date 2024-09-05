@@ -31,3 +31,38 @@ def sanitize_run_name(run_name: str) -> str:
     if result != run_name:
         logger.warning(f"Run name '{run_name}' got sanitized to '{result}'")
     return result
+
+
+def str_to_bool(s: str) -> bool:
+    """Convert a string representation to a boolean value.
+
+    This function interprets various string inputs as boolean values.
+    It is case-insensitive and recognizes common boolean representations.
+
+    Args:
+        s: The string to convert to a boolean.
+
+    Returns:
+        bool: The boolean interpretation of the input string.
+
+    Raises:
+        ValueError: If the input string cannot be interpreted as a boolean.
+
+    Examples:
+        >>> str_to_bool("true")
+        True
+        >>> str_to_bool("FALSE")
+        False
+        >>> str_to_bool("1")
+        True
+        >>> str_to_bool("no")
+        False
+    """
+    s = s.strip().lower()
+
+    if s in ("true", "yes", "1", "on", "t", "y"):
+        return True
+    elif s in ("false", "no", "0", "off", "f", "n"):
+        return False
+    else:
+        raise ValueError(f"Cannot convert '{s}' to boolean.")
