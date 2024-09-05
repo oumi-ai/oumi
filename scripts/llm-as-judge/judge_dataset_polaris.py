@@ -68,7 +68,6 @@ def main(args):
     # Shut down the clusters.
     for attribute in attributes:
         print(f"Job {attribute}: Finished with STATUS={jobs_status[attribute].status}")
-        clusters[attribute].down()
 
 
 if __name__ == "__main__":
