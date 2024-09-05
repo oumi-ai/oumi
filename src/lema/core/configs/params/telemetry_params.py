@@ -18,7 +18,13 @@ class TelemetryParams(BaseParams):
     """Whether to save telemetry for all ranks.
 
     By default, only the main rank's telemetry stats are saved.
+    If `True` then telemetry files will include rank number
+    e.g., "telemetry_rank003.json".
     """
 
     track_gpu_temperature: bool = False
-    """Whether to record GPU temperature."""
+    """Whether to record GPU temperature.
+
+    If `save_telemetry_for_all_ranks` is `False`, only the first GPU's temperature
+    is tracked. Otherwise, temperature is recorded for all GPUs.
+    """
