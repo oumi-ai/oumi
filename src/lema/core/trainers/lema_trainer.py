@@ -282,7 +282,8 @@ class Trainer(BaseTrainer):
                         self.optimizer.zero_grad(set_to_none=True)
 
                     self.state.global_step += 1
-                    self.telemetry.record_gpu_temperature()
+                    if self.params.telemetry.track_gpu_temperature:
+                        self.telemetry.record_gpu_temperature()
                     progress_bar.update(1)
 
                     self._process_callbacks("on_step_end")
