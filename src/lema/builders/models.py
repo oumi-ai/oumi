@@ -167,21 +167,23 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
+    transformers_model_class = _get_transformers_model_class(hf_config)
+
     if model_params.load_pretrained_weights:
-        model = transformers.AutoModelForCausalLM.from_pretrained(
+        model = transformers_model_class.from_pretrained(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
             device_map=device_map,
-            pretrained_model_name_or_path=model_params.model_name,
             trust_remote_code=model_params.trust_remote_code,
+            pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
             **kwargs,
         )
     else:
-        # TODO: What about device_map and quantization_config params?
-        model = transformers.AutoModelForCausalLM.from_config(
+        model = transformers_model_class.from_config(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
+            device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             **kwargs,
         )
@@ -198,6 +200,15 @@ def build_huggingface_model(
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
 
     return model
+
+
+def _get_transformers_model_class(config):
+    if config.model_type in ("qwen2_vl",):
+        auto_model_class = transformers.AutoModelForVision2Seq
+    else:
+        auto_model_class = transformers.AutoModelForCausalLM
+    logger.info(f"Using model class: {auto_model_class} to instantiate model.")
+    return auto_model_class
 
 
 def build_tokenizer(
