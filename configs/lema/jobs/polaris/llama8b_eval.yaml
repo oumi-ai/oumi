@@ -27,7 +27,6 @@ run: |
 
   # Various setup for running on Polaris.
   source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
-  pip install '.[train]'
 
   # NOTE: For SFT, update this to point to your model checkpoint.
   MODEL_CHECKPOINT_DIR="meta-llama/Meta-Llama-3.1-8B-Instruct"
