@@ -1,4 +1,3 @@
-import os
 import os.path as osp
 from typing import Optional, Union, cast
 
@@ -9,7 +8,7 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from transformers import BitsAndBytesConfig
 
 from lema.core.configs import ModelParams, PeftParams
-from lema.core.distributed import get_device_rank_info
+from lema.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from lema.core.registry import REGISTRY, RegistryType
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
@@ -122,7 +121,7 @@ def build_huggingface_model(
     # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
     # load the model only on rank 0, which will OOM for large models.
     # See https://github.com/huggingface/transformers/pull/25107.
-    if os.environ.get("ACCELERATE_USE_FSDP", "false"):
+    if is_using_accelerate_fsdp():
         logger.info("Accelerate FSDP run detected! Setting device_map to None.")
         device_map = None
     elif device_map == "auto" and device_rank_info.world_size > 1:

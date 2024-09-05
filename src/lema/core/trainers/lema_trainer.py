@@ -215,14 +215,9 @@ class Trainer(BaseTrainer):
         gradient_accumulation_steps = max(1, self.params.gradient_accumulation_steps)
 
         while True:
-            step_function_name = "step"
-            if gradient_accumulation_steps > 1:
-                step_function_name = (
-                    f"microstep_{(micro_step + 1) % gradient_accumulation_steps}"
-                    f"_of_{gradient_accumulation_steps}"
-                )
-
-            with torch.profiler.record_function(step_function_name):
+            with torch.profiler.record_function(
+                "microstep" if gradient_accumulation_steps > 1 else "step"
+            ):
                 if micro_step % gradient_accumulation_steps == 0:
                     self._process_callbacks("on_step_begin")
 
