@@ -14,5 +14,6 @@
     },
     "[markdown]": {
         "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
-    }
+    },
+    "notebook.formatOnSave.enabled": true
 }
