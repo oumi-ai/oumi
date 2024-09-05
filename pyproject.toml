@@ -27,10 +27,12 @@ classifiers = [
 
 dependencies = [
     "google-api-python-client",    # To enable GCP in Skypilot
+    "jsonlines",
     "numpy",
     "pexpect",
     "skypilot[gcp,lambda,runpod]",
     "torch",
+    "tqdm",
     "transformers",
 ]
 
