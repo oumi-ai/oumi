@@ -42,9 +42,6 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
 
     expected_output = []
     for _ in range(num_batches):
-        batch_output = []
         for _ in range(batch_size):
-            batch_output.append(FIXED_RESPONSE)
-        expected_output.append(batch_output)
-
+            expected_output.append(FIXED_RESPONSE)
     assert output == expected_output

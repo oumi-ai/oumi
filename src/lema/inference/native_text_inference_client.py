@@ -131,7 +131,8 @@ class NativeTextInferenceClient(BaseInferenceClient):
         Returns:
             Any: Inference output.
         """
-        if isinstance(input, str):
+        is_string_input = isinstance(input, str)
+        if is_string_input:
             prompts = [input]
             generations = self._infer([[input]], **kwargs)
         elif isinstance(input, list):
@@ -148,6 +149,6 @@ class NativeTextInferenceClient(BaseInferenceClient):
         flat_generations = [item for sublist in generations for item in sublist]
         if output_filepath:
             self._save_messages(prompts, flat_generations, output_filepath)
-        if len(flat_generations) == 1:
+        if len(flat_generations) == 1 and is_string_input:
             return flat_generations[0]
         return flat_generations
