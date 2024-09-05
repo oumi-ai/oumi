@@ -8,3 +8,6 @@ class TelemetryParams(BaseParams):
     #: Whether to save telemetry for all ranks.
     #: By default, only the main rank's telemetry stats are saved.
     save_telemetry_for_all_ranks: bool = False
+
+    #: Whether to record GPU temperature.
+    track_gpu_temperature: bool = False

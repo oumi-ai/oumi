@@ -197,7 +197,10 @@ def _create_training_performance_callbacks_if_needed(
             telemetry_dir.mkdir(parents=True, exist_ok=True)
     result.append(
         TelemetryCallback(
-            skip_first_steps=2, world_process_zero_only=True, output_dir=telemetry_dir
+            skip_first_steps=2,
+            world_process_zero_only=True,
+            output_dir=telemetry_dir,
+            track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
     )
 
