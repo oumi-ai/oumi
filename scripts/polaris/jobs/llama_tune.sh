@@ -99,7 +99,8 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --config_file configs/accelerate/llama.ddp.yaml \
             -m lema.train \
             -c configs/lema/llama8b.lora.yaml \
-            "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'"
+            "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
+            "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.lora.${PBS_JOBID}"
     else  # SFT
         # Num nodes: 1
         # Batch size per GPU: 2
@@ -117,7 +118,8 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --config_file configs/accelerate/llama8b.fsdp.yaml \
             -m lema.train \
             -c configs/lema/llama8b.sft.yaml \
-            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'"
+            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
+            "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.sft.${PBS_JOBID}"
     fi
 else  # 70B
     # Copy the model to our Polaris machine to avoiding downloading from HF.
@@ -141,7 +143,8 @@ else  # 70B
             --config_file configs/accelerate/llama70b.lora.yaml \
             -m lema.train \
             -c configs/lema/llama70b.lora.yaml \
-            "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'"
+            "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
+            "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.lora.${PBS_JOBID}"
     else  # SFT
         # Num nodes: 4
         # Batch size per GPU: 2
@@ -159,7 +162,8 @@ else  # 70B
             --config_file configs/accelerate/llama70b.fsdp.yaml \
             -m lema.train \
             -c configs/lema/llama70b.sft.yaml \
-            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'"
+            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
+            "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.sft.${PBS_JOBID}"
     fi
 fi
 
