@@ -7,6 +7,7 @@ import trl
 
 from lema.core.configs.params.base_params import BaseParams
 from lema.core.configs.params.profiler_params import ProfilerParams
+from lema.core.configs.params.telemetry_params import TelemetryParams
 from lema.utils.str_utils import sanitize_run_name
 
 
@@ -525,6 +526,12 @@ class TrainingParams(BaseParams):
     This field contains configuration options for the profiler, which can be used
     to analyze the performance of the training process. It uses the ProfilerParams
     class to define specific profiling settings.
+    """
+
+    telemetry: TelemetryParams = field(default_factory=TelemetryParams)
+    """Parameters for telemetry.
+
+    This field contains telemetry configuration options.
     """
 
     empty_device_cache_steps: Optional[int] = None
