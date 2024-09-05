@@ -62,7 +62,6 @@ def infer(
     generation_config: GenerationConfig,
     input: List[str],
     exclude_prompt_from_response: bool = True,
-    batch_size: int = 2,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -82,7 +81,7 @@ def infer(
         input,
         max_new_tokens=generation_config.max_new_tokens,
         exclude_prompt_from_response=exclude_prompt_from_response,
-        batch_size=batch_size,
+        batch_size=generation_config.batch_size,
     )
     return [generation.messages[-1].content for generation in generations]
 
