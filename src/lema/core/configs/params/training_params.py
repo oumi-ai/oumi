@@ -676,7 +676,7 @@ class TrainingParams(BaseParams):
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
-        """Retuns a directory where to write telemetry stats."""
+        """Returns the telemetry stats output directory."""
         result: Optional[Path] = None
         if self.telemetry.telemetry_dir:
             result = Path(self.telemetry.telemetry_dir)
