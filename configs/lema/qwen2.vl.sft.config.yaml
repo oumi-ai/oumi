@@ -1,0 +1,27 @@
+model:
+  model_name: "Qwen/Qwen2-VL-2B"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 2048
+  use_flash_attention: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "coco_captions"
+        split: "train"
+
+training:
+  optimizer: "adamw_torch"
+  output_dir: "output/qwen2_vl_coco_finetuned"
+  trainer_type: "TRL_SFT"
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  learning_rate: 2e-5
+  compile: True
+  warmup_ratio: 0.1
+  logging_steps: 100
+  save_steps: 0
+  dataloader_num_workers: 2
+  include_performance_metrics: true
