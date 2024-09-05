@@ -9,13 +9,17 @@ class TelemetryParams(BaseParams):
     #: Directory where the telemetry data will be saved to.
     #: If not specified, then telemetry files will be written
     #: under `output_dir`.
+    #: If a relative path is specified, then it will be treated
+    #: as a sub-directory under `output_dir`.
     telemetry_dir: Optional[str] = field(
-        default=None,
+        default="telemetry",
         metadata={
             "help": (
                 "Directory where the telemetry data will be saved to. "
                 "If not specified, then telemetry files will be written "
-                "under `output_dir`."
+                "under `output_dir`. "
+                "If a relative path is specified, then it will be treated "
+                "as a sub-directory under `output_dir`."
             )
         },
     )

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import transformers
@@ -672,3 +673,19 @@ class TrainingParams(BaseParams):
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
+
+    @property
+    def telemetry_dir(self) -> Optional[Path]:
+        """Retuns a directory where to write telemetry stats."""
+        result: Optional[Path] = None
+        if self.telemetry.telemetry_dir:
+            result = Path(self.telemetry.telemetry_dir)
+
+        if self.output_dir:
+            output_dir = Path(self.output_dir)
+            # If `telemetry.telemetry_dir` is relative, then treat it
+            # as a sub-directory of `output_dir`.
+            if result and not result.is_absolute():
+                result = output_dir / result
+
+        return result

@@ -399,17 +399,17 @@ class Trainer(BaseTrainer):
         checkpoint_dir = Path(self.params.output_dir)
 
         if self.params.telemetry.save_telemetry_for_all_ranks:
-            telemetry_dir = Path(
-                self.params.telemetry.telemetry_dir or self.params.output_dir
-            )
-            device_rank_info = get_device_rank_info()
-            telemetry_state_path = (
-                telemetry_dir / f"lema_telemetry_rank{device_rank_info.rank:03}.json"
-            )
-            save_json(
-                data=self.telemetry.state_dict(),
-                filename=telemetry_state_path,
-            )
+            telemetry_dir = self.params.telemetry_dir
+            if telemetry_dir:
+                device_rank_info = get_device_rank_info()
+                telemetry_state_path = (
+                    telemetry_dir
+                    / f"lema_telemetry_rank{device_rank_info.rank:03}.json"
+                )
+                save_json(
+                    data=self.telemetry.state_dict(),
+                    filename=telemetry_state_path,
+                )
 
         if is_world_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
