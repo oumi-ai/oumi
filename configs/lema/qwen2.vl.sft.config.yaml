@@ -2,14 +2,13 @@ model:
   model_name: "Qwen/Qwen2-VL-2B"
   torch_dtype_str: "bfloat16"
   model_max_length: 2048
-  use_flash_attention: True
   trust_remote_code: True
 
 data:
   train:
     datasets:
       - dataset_name: "coco_captions"
-        split: "train"
+    target_col: "prompt"
 
 training:
   optimizer: "adamw_torch"
