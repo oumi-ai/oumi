@@ -54,7 +54,6 @@ def _convert_job_to_task(job: JobConfig) -> sky.Task:
         workdir=job.working_dir,
         num_nodes=job.num_nodes,
     )
-    print(f"file_mounts: {job.file_mounts}")
     sky_task.set_file_mounts(job.file_mounts)
     sky_task.set_storage_mounts(_get_sky_storage_mounts_from_job(job))
     sky_task.set_resources(resources)
