@@ -3,7 +3,7 @@
 # lema-launch -p configs/lema/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
 name: llama8b-eval
 
-num_nodes: 2
+num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:4"
