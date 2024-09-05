@@ -280,11 +280,8 @@ class TelemetryTracker:
             log_lines.append(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
 
         if summary["gpu_temperature"]:
-            min_temperature = summary["gpu_temperature"]["min"]
-            max_temperature = summary["gpu_temperature"]["max"]
-            log_lines.append(
-                f"\nGPU temperature: max: {max_temperature}C "
-                f"min: {min_temperature}C"
+            log_lines.extend(
+                self._format_gpu_temperature_stats_as_lines(summary["gpu_temperature"])
             )
 
         # Log everything as a single value to ensure that stats from different
@@ -347,4 +344,17 @@ class TelemetryTracker:
             f"\t\tMax: {stats['max']:.6f} seconds",
             f"\t\tCount: {stats['count']}",
             f"\t\tPercentage of total time: {stats['percentage']:.2f}%",
+        ]
+
+    def _format_gpu_temperature_stats_as_lines(
+        self, stats: Dict[str, float]
+    ) -> List[str]:
+        return [
+            "\tGPU temperature:",
+            f"\t\tMean: {stats['mean']:.2f} C",
+            f"\t\tMedian: {stats['median']:.2f} C",
+            f"\t\tStd Dev: {stats['std_dev']:.4f} C",
+            f"\t\tMin: {stats['min']:.2f} C",
+            f"\t\tMax: {stats['max']:.2f} C",
+            f"\t\tCount: {stats['count']}",
         ]
