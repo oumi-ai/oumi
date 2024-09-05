@@ -1,9 +1,12 @@
 # Config to eval Llama 3.1 8B Instruct on GCP.
+# Example command:
+# lema-launch -p configs/lema/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
 name: llama8b-eval
 
+num_nodes: 1
 resources:
   cloud: gcp
-  accelerators: "A100"
+  accelerators: "A100:4"
   use_spot: true
 
 # Upload working directory to remote ~/sky_workdir.
@@ -15,17 +18,19 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+storage_mounts:
   # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
   # for documentation on using GCS buckets.
   /output_dir_gcs:
     source: gs://lema-dev-us-central1
     store: gcs
-    mode: MOUNT
 
 envs:
   WANDB_PROJECT: lema-eval
   # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
+  LEMA_EVALUATION_FRAMEWORK: lm_harness # Valid values: "lm_harness", "lema"
 
 setup: |
   set -e
@@ -48,7 +53,30 @@ run: |
   echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
   set -x # Enable command tracing.
-  python -m lema.evaluate \
-        -c configs/lema/llama8b.eval.yaml \
-        "model.model_name=${MODEL_CHECKPOINT_DIR}" \
-        "model.adapter_model=${LORA_ADAPTER_DIR}"
+  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * 4))
+
+  if [ "$LEMA_EVALUATION_FRAMEWORK" == "lm_harness" ]; then
+    accelerate launch \
+      --num_processes=${TOTAL_NUM_GPUS} \
+      --num_machines=${LEMA_NUM_NODES} \
+      --machine_rank=${SKYPILOT_NODE_RANK} \
+      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_port 8007 \
+      -m lema.evaluate  \
+      -c configs/lema/llama8b.eval.yaml \
+      "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+  elif [ "$LEMA_EVALUATION_FRAMEWORK" == "lema" ]; then
+    echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
+    if test ${LEMA_NUM_NODES} -ne 1; then
+      echo "Legacy evaluation can only run on 1 node. Actual: ${LEMA_NUM_NODES} nodes."
+      exit 1
+    fi
+    python -m lema.evaluate \
+      -c configs/lema/llama8b.eval.legacy.yaml \
+      "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+  else
+    echo "Unknown evaluation framework: ${LEMA_EVALUATION_FRAMEWORK}"
+    exit 1
+  fi
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
