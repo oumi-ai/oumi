@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 from typing import Optional, Union, cast
 
@@ -8,7 +9,7 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from transformers import BitsAndBytesConfig
 
 from lema.core.configs import ModelParams, PeftParams
-from lema.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
+from lema.core.distributed import get_device_rank_info
 from lema.core.registry import REGISTRY, RegistryType
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
@@ -125,7 +126,7 @@ def build_huggingface_model(
     # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
     # load the model only on rank 0, which will OOM for large models.
     # See https://github.com/huggingface/transformers/pull/25107.
-    if is_using_accelerate_fsdp():
+    if os.environ.get("ACCELERATE_USE_FSDP", default=False):
         logger.info("Accelerate FSDP run detected! Setting device_map to None.")
         device_map = None
     elif device_map == "auto" and device_rank_info.world_size > 1:
@@ -202,7 +203,7 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
-    if config.model_type in ("qwen2_vl",):
+    if config.model_type in ("qwen2_vl", "llava", "blip-2"):
         auto_model_class = transformers.AutoModelForVision2Seq
     else:
         auto_model_class = transformers.AutoModelForCausalLM
@@ -229,6 +230,12 @@ def build_tokenizer(
     else:
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
+    # HACK - TODO
+    return transformers.AutoProcessor.from_pretrained(
+        tokenizer_name,
+        trust_remote_code=model_params.trust_remote_code,
+        **kwargs,
+    )
 
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(

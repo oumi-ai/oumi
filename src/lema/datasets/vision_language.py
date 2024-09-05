@@ -49,17 +49,23 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
 
         images = [turn for turn in conversation.messages if turn.is_image()]
 
-        texts = [
-            {
-                "content": [{"type": "image"}],
-                "role": "user",
-            }
-        ] + [turn for turn in conversation.messages if turn.is_text()]
+        texts = []
+        for turn in conversation.messages:
+            if turn.is_text():
+                texts.append(turn)
+            elif turn.is_image():
+                placeholder = {
+                    "content": [{"type": "image"}],
+                    "role": str(turn.role),
+                }
+                texts.append(placeholder)
+            else:
+                raise ValueError(f"Unsupported message type: {turn.type}")
 
         if self._processor is not None:
             images = [self._load_image(image) for image in images]
             text = self._processor.apply_chat_template(
-                texts, add_generation_prompt=True
+                texts, add_generation_prompt=False
             )
             inputs = self._processor(
                 images=images, text=[text], return_tensors="pt", padding=True
@@ -75,6 +81,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             text_features = self.tokenize(texts)  # type: ignore
             inputs = {**text_features, **image_features}
 
+        inputs["labels"] = inputs["input_ids"]
         return inputs
 
     def _load_image(self, image: Union[str, Message]) -> Image.Image:
