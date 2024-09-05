@@ -19,7 +19,7 @@ export HF_HOME="${SHARED_DIR}/.cache/huggingface"
 
 export OPENAI_API_KEY="EMPTY"
 
-export SNAPSHOT_DIR="${REPO}--${MODEL}"
+export SNAPSHOT_DIR="${LEMA_VLLM_REPO}--${LEMA_VLLM_MODEL_ID}"
 SNAPSHOTS=$(ls "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots")
 readarray -t SNAPSHOT_ARRAY <<<"$SNAPSHOTS"
 export SNAPSHOT=${SNAPSHOT_ARRAY[-1]}
