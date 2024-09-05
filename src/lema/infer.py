@@ -2,7 +2,7 @@ import argparse
 from typing import List
 
 from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
-from lema.inference.native_text_inference_client import NativeTextInferenceClient
+from lema.inference import NativeTextInferenceClient
 from lema.utils.logging import logger
 
 
