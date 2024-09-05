@@ -13,7 +13,7 @@ class HuggingFaceTrainer(BaseTrainer):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
 
-    def train(self, resume_from_checkpoint: Optional[str]) -> None:
+    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
         logger.info(
             f"Starting training with transformers=={transformers.__version__}..."
