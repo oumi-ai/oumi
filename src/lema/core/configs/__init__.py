@@ -33,6 +33,8 @@ The configurations are organized into different categories:
     - :class:`~lema.core.configs.params.training_params.TrainerType`
 - Profiling:
     - :class:`~lema.core.configs.params.profiler_params.ProfilerParams`
+- Telemetry:
+    - :class:`~lema.core.configs.params.telemetry_params.TelemetryParams`
 
 For more information on using these configurations, see the :ref:`configuration_guide`.
 
@@ -71,6 +73,7 @@ from lema.core.configs.params.data_params import (
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.peft_params import PeftParams
 from lema.core.configs.params.profiler_params import ProfilerParams
+from lema.core.configs.params.telemetry_params import TelemetryParams
 from lema.core.configs.params.training_params import (
     MixedPrecisionDtype,
     SchedulerType,
@@ -99,6 +102,7 @@ __all__ = [
     "ProfilerParams",
     "SchedulerType",
     "StorageMount",
+    "TelemetryParams",
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
