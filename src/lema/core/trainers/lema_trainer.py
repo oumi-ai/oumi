@@ -398,6 +398,22 @@ class Trainer(BaseTrainer):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
+        save_telemetry_for_all_ranks = (
+            self.params.telemetry.save_telemetry_for_all_ranks
+        )
+
+        if save_telemetry_for_all_ranks:
+            device_rank_info = get_device_rank_info()
+            telemetry_state_path = (
+                checkpoint_dir
+                / "telemetry"
+                / f"telemetry_rank{device_rank_info.rank}.json"
+            )
+            save_json(
+                data=self.telemetry.state_dict(),
+                filename=telemetry_state_path,
+            )
+
         if is_world_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
 
