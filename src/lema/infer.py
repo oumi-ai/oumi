@@ -49,9 +49,7 @@ def infer_interactive(config: InferenceConfig) -> None:
         model_params=config.model,
         generation_config=config.generation,
         input=[
-            [
-                input_text,
-            ],
+            input_text,
         ],
     )
     print(model_response[0][0])
@@ -62,8 +60,9 @@ def infer_interactive(config: InferenceConfig) -> None:
 def infer(
     model_params: ModelParams,
     generation_config: GenerationConfig,
-    input: List[List[str]],
+    input: List[str],
     exclude_prompt_from_response: bool = True,
+    batch_size: int = 2,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -73,16 +72,19 @@ def infer(
         input: A list of text prompts of shape (num_batches, batch_size).
         exclude_prompt_from_response: Whether to trim the model's response and remove
           the prepended prompt.
+        batch_size: The number of sequences to generate in parallel.
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
     inference_engine = NativeTextInferenceEngine(model_params)
-    return inference_engine.infer(
+    generations = inference_engine.infer(
         input,
         max_new_tokens=generation_config.max_new_tokens,
         exclude_prompt_from_response=exclude_prompt_from_response,
+        batch_size=batch_size,
     )
+    return [generation.messages[-1].content for generation in generations]
 
 
 if __name__ == "__main__":

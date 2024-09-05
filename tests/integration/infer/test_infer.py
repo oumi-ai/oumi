@@ -32,12 +32,13 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
 
     input = []
     for _ in range(num_batches):
-        batch_input = []
         for _ in range(batch_size):
-            batch_input.append(FIXED_PROMPT)
-        input.append(batch_input)
+            input.append(FIXED_PROMPT)
     output = infer(
-        model_params=model_params, generation_config=generation_config, input=input
+        model_params=model_params,
+        generation_config=generation_config,
+        input=input,
+        batch_size=batch_size,
     )
 
     expected_output = []

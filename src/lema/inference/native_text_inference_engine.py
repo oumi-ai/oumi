@@ -14,6 +14,7 @@ from lema.builders import (
 from lema.core.configs import ModelParams
 from lema.core.inference import BaseInferenceEngine
 from lema.core.models import BaseModel
+from lema.core.types.turn import Conversation, Message, Role
 
 
 class NativeTextInferenceEngine(BaseInferenceEngine):
@@ -31,56 +32,66 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self.tokenizer = build_tokenizer(model_params)
 
     def _save_messages(
-        self, prompts: List[str], generations: List[str], output_filepath: str
+        self, conversations: List[Conversation], output_filepath: str
     ) -> None:
         """Saves messages to a file in OpenAI chat format.
 
         Args:
-            prompts: The input prompts use to create `generations`.
-            generations: A list of model responses to save.
+            conversations: A list of conversations to save.
             output_filepath: The path to the file where the generations should be saved.
         """
-        if len(prompts) != len(generations):
-            raise ValueError(
-                f"Number of prompts ({len(prompts)}) must match number of "
-                f"generations ({len(generations)})."
-            )
         # Make the directory if it doesn't exist.
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="w") as writer:
-            for prompt, generation in zip(prompts, generations):
-                messages = [
-                    {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": generation},
+            for conversation in conversations:
+                dict_messages = [
+                    message.model_dump() for message in conversation.messages
                 ]
-                json_obj = {"messages": messages}
+                json_obj = {"messages": dict_messages}
                 writer.write(json_obj)
+
+    def _make_batches(self, input: List[str], batch_size: int) -> List[List[str]]:
+        """Splits the input into batches of the specified size.
+
+        Args:
+            input: A list of text prompts.
+            batch_size: The number of sequences to generate in parallel.
+
+        Returns:
+            List[List[str]]: A list of batches of text prompts.
+        """
+        return [input[i : i + batch_size] for i in range(0, len(input), batch_size)]
 
     def _infer(
         self,
-        input: List[List[str]],
+        input: List[str],
         max_new_tokens: int,
+        batch_size: int = 2,
         exclude_prompt_from_response: bool = True,
-    ) -> List[List[str]]:
+    ) -> List[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
         Args:
             input: A list of text prompts of shape (num_batches, batch_size).
             max_new_tokens: The maximum number of new tokens to generate.
+            batch_size: The number of sequences to generate in parallel.
             exclude_prompt_from_response: Whether to trim the model's response and
                 remove the prepended prompt.
 
         Returns:
             object: A list of model responses of shape (num_batches, batch_size).
         """
+        if batch_size < 1:
+            raise ValueError("Batch size must be greater than or equal to 1.")
         if isinstance(self.model, peft.PeftModel):
             raise NotImplementedError(
                 "Inference does not work yet for pretrained PEFT models."
             )
         model_device = next(self.model.parameters()).device
         # Tokenization of input (in place, batch mode).
-        input_batches: List[BatchEncoding] = [BatchEncoding()] * len(input)
-        for batch_index, batch in enumerate(input):
+        batched_input = self._make_batches(input, batch_size)
+        input_batches: List[BatchEncoding] = [BatchEncoding()] * len(batched_input)
+        for batch_index, batch in enumerate(batched_input):
             batch_tokenized = self.tokenizer(batch, return_tensors="pt", padding=True)
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
@@ -112,8 +123,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     clean_up_tokenization_spaces=True,
                 )
             )
+        flat_output = [item for sublist in output_decoded for item in sublist]
+        output_conversations = []
+        for prompt, response in zip(input, flat_output):
+            messages = [
+                Message(role=Role.USER, content=prompt),
+                Message(role=Role.ASSISTANT, content=response),
+            ]
+            output_conversations.append(Conversation(messages=messages))
 
-        return output_decoded
+        return output_conversations
 
     def infer(self, input: Any, output_filepath: Optional[str] = None, **kwargs) -> Any:
         """Runs model inference.
@@ -125,6 +144,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         Keyword Args:
             max_new_tokens: The maximum number of new tokens to generate.
+            batch_size: The number of sequences to generate in parallel.
             exclude_prompt_from_response: Whether to trim the model's response and
                 remove the prepended prompt.
 
@@ -133,22 +153,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         is_string_input = isinstance(input, str)
         if is_string_input:
-            prompts = [input]
-            generations = self._infer([[input]], **kwargs)
+            generations = self._infer([input], **kwargs)
         elif isinstance(input, list):
             if len(input) == 0:
                 raise ValueError("The input list cannot be empty.")
             if isinstance(input[0], str):
-                prompts = input
-                generations = self._infer([input], **kwargs)
-            else:
-                prompts = [item for sublist in input for item in sublist]
                 generations = self._infer(input, **kwargs)
+            else:
+                raise ValueError(
+                    "Invalid input type. Only str and list[str] are supported."
+                )
         else:
             raise ValueError(f"Invalid input type: {type(input)}")
-        flat_generations = [item for sublist in generations for item in sublist]
         if output_filepath:
-            self._save_messages(prompts, flat_generations, output_filepath)
-        if len(flat_generations) == 1 and is_string_input:
-            return flat_generations[0]
-        return flat_generations
+            self._save_messages(generations, output_filepath)
+        return generations
