@@ -29,6 +29,10 @@ class ModelParams(BaseParams):
     device_map: Optional[str] = "auto"
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
     enable_liger_kernel: bool = False
+    #: Whether to shard the model for evaluation. This is needed for large models
+    #: that do not fit on a single GPU. This is used as the value for the `parallelize`
+    #: argument in LM Harness.
+    shard_for_eval: bool = False
 
     freeze_vision_encoder: bool = False
 
@@ -50,6 +54,7 @@ class ModelParams(BaseParams):
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
+            "parallelize": self.shard_for_eval,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model

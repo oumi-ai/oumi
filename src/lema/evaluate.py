@@ -3,6 +3,7 @@ import json
 import os
 import time
 from copy import deepcopy
+from pprint import pformat
 from typing import Any, Dict
 
 import lm_eval
@@ -10,6 +11,7 @@ import torch
 
 from lema.core.configs import EvaluationConfig
 from lema.core.configs.evaluation_config import EvaluationFramework
+from lema.core.distributed import is_world_process_zero
 from lema.datasets.mmlu import MmluDataset
 from lema.evaluation import compute_multiple_choice_accuracy
 from lema.evaluation.huggingface_leaderboard import (
@@ -154,6 +156,8 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         None.
     """
     if torch.cuda.is_available():
+        # CUDA device may be overwritten if `accelerate launch`,
+        # or `parallelize=True` are used.
         device = "cuda:0"
     elif torch.backends.mps.is_available():
         device = "mps"
@@ -180,16 +184,21 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     )
     elapsed_time_sec = time.time() - start_time
 
-    for benchmark_name in benchmark_names:
-        metric_dict = results["results"][benchmark_name]  # type: ignore
-        metric_dict["elapsed_time_sec"] = elapsed_time_sec
-        if config.output_dir:
-            save_evaluation_results(
-                output_dir=config.output_dir,
-                benchmark_name=benchmark_name,
-                metric_dict=metric_dict,
+    # Metrics are only available on the main process, and `None` on others.
+    if is_world_process_zero():
+        assert results is not None
+        for benchmark_name in benchmark_names:
+            metric_dict = results["results"][benchmark_name]  # type: ignore
+            metric_dict["elapsed_time_sec"] = elapsed_time_sec
+            if config.output_dir:
+                save_evaluation_results(
+                    output_dir=config.output_dir,
+                    benchmark_name=benchmark_name,
+                    metric_dict=metric_dict,
+                )
+            logger.info(
+                f"{benchmark_name}'s metric dictionary is {pformat(metric_dict)}"
             )
-        logger.info(f"{benchmark_name}'s metric dictionary is {metric_dict}")
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
