@@ -308,10 +308,18 @@ def prepare_model_for_distributed(
         # Mixed Precision
         mixed_precision = None
         if fsdp_config.mixed_precision:
+            if fsdp_config.mixed_precision == "bf16":
+                dtype = torch.bfloat16
+            elif fsdp_config.mixed_precision == "fp16":
+                dtype = torch.float16
+            else:
+                raise ValueError(
+                    f"Unsupported mixed precision type: {fsdp_config.mixed_precision}"
+                )
             mixed_precision = MixedPrecision(
-                param_dtype=torch.bfloat16,
-                reduce_dtype=torch.bfloat16,
-                buffer_dtype=torch.bfloat16,
+                param_dtype=dtype,
+                reduce_dtype=dtype,
+                buffer_dtype=dtype,
             )
 
         # CPU Offload

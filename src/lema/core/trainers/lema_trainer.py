@@ -501,11 +501,14 @@ class Trainer(BaseTrainer):
                 state_dict = torch.load(model_path, map_location="cpu")
             self.model.load_state_dict(state_dict)
 
-            if optimizer_path.exists():
-                optimizer_state = torch.load(
-                    optimizer_path, map_location=self.device, weights_only=True
-                )
-                self.optimizer.load_state_dict(optimizer_state)
+        if optimizer_path.exists():
+            optim_state_dict = torch.load(optimizer_path, map_location="cpu")
+            optim_state = FSDP.optim_state_dict_to_load(
+                model=self.model,
+                optim=self.optimizer,
+                optim_state_dict=optim_state_dict,
+            )
+            self.optimizer.load_state_dict(optim_state)
 
     #
     # Logging

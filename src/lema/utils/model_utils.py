@@ -6,10 +6,10 @@ import torch.nn as nn
 
 def guess_transformer_layer_cls(model: nn.Module) -> Type[nn.Module]:
     """Guess the transformer layer class based on the model architecture."""
-    if hasattr(model, "transformer"):
+    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
         return type(model.transformer.h[0])
-    elif hasattr(model, "encoder"):
-        return type(model.encoder.layer[0])
+    elif hasattr(model, "layers"):
+        return type(model.layers[0])
     else:
         raise ValueError(
             "Unable to guess transformer layer class. Please specify it explicitly."
