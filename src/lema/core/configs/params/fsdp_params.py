@@ -14,3 +14,7 @@ class FSDPParams(BaseParams):
     backward_prefetch: str = "BACKWARD_PRE"
     activation_checkpointing: bool = False
     enable_fsdp: bool = False
+    state_dict_type: str = "FULL_STATE_DICT"
+    auto_wrap_policy: str = "size_based"
+    min_num_params: int = 100000
+    transformer_layer_cls: Optional[str] = None

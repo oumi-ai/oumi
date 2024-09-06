@@ -13,12 +13,10 @@ import torch.amp
 import torch.utils.tensorboard as tensorboard
 import wandb
 from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    ShardedStateDictConfig,
-    StateDictType,
+    FullyShardedDataParallel as FSDP,
 )
 from torch.distributed.fsdp import (
-    FullyShardedDataParallel as FSDP,
+    StateDictType,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -63,6 +61,7 @@ class Trainer(BaseTrainer):
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
+        fsdp_config: Optional[FSDPParams] = None,
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
@@ -76,8 +75,8 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
-        self.fsdp_params: FSDPParams = FSDPParams()
-        self.is_using_fsdp: bool = self.fsdp_params.enable_fsdp
+        self.fsdp_params = fsdp_config or FSDPParams()
+        self.is_using_fsdp = self.fsdp_params.enable_fsdp
 
         self.params.validate()
 
@@ -433,21 +432,21 @@ class Trainer(BaseTrainer):
 
     def _save_fsdp_state(self, model_path: Path, optimizer_path: Path):
         """Saves the FSDP model and optimizer state."""
-        full_state_dict_config = FullStateDictConfig(
-            offload_to_cpu=True, rank0_only=True
+        state_dict_type = (
+            StateDictType.FULL_STATE_DICT
+            if self.fsdp_params.state_dict_type == "FULL_STATE_DICT"
+            else StateDictType.SHARDED_STATE_DICT
         )
-        with FSDP.state_dict_type(
-            self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
-        ):
-            model_state = self.model.state_dict()
-        safetensors.torch.save_file(model_state, model_path)
 
-        sharded_state_dict_config = ShardedStateDictConfig()
-        with FSDP.state_dict_type(
-            self.model, StateDictType.SHARDED_STATE_DICT, sharded_state_dict_config
-        ):
+        with FSDP.state_dict_type(self.model, state_dict_type):
+            if state_dict_type == StateDictType.FULL_STATE_DICT:
+                model_state = self.model.state_dict()
+                safetensors.torch.save_file(model_state, model_path)
+            else:
+                torch.save(self.model.state_dict(), model_path)
+
             optimizer_state = FSDP.optim_state_dict(self.model, self.optimizer)
-        torch.save(optimizer_state, optimizer_path)
+            torch.save(optimizer_state, optimizer_path)
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
@@ -489,20 +488,20 @@ class Trainer(BaseTrainer):
 
     def _load_fsdp_state(self, model_path: Path, optimizer_path: Path):
         """Loads the FSDP model and optimizer state."""
-        full_state_dict_config = FullStateDictConfig(
-            offload_to_cpu=True, rank0_only=True
+        state_dict_type = (
+            StateDictType.FULL_STATE_DICT
+            if self.fsdp_params.state_dict_type == "FULL_STATE_DICT"
+            else StateDictType.SHARDED_STATE_DICT
         )
-        with FSDP.state_dict_type(
-            self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
-        ):
-            state_dict = safetensors.torch.load_file(model_path, device="cpu")
+
+        with FSDP.state_dict_type(self.model, state_dict_type):
+            if state_dict_type == StateDictType.FULL_STATE_DICT:
+                state_dict = safetensors.torch.load_file(model_path, device="cpu")
+            else:
+                state_dict = torch.load(model_path, map_location="cpu")
             self.model.load_state_dict(state_dict)
 
-        if optimizer_path.exists():
-            sharded_state_dict_config = ShardedStateDictConfig()
-            with FSDP.state_dict_type(
-                self.model, StateDictType.SHARDED_STATE_DICT, sharded_state_dict_config
-            ):
+            if optimizer_path.exists():
                 optimizer_state = torch.load(optimizer_path, map_location=self.device)
                 self.optimizer.load_state_dict(optimizer_state)
 
