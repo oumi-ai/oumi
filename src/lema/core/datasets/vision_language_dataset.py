@@ -1,4 +1,5 @@
 import io
+from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Union
 
 import requests
@@ -11,7 +12,33 @@ from lema.core.types.turn import Conversation, Message, Role, Type
 from lema.utils.logging import logger
 
 
-class VisionLanguageSftDataset(BaseLMSftDataset):
+class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
+    """Abstract dataset for vision-language models.
+
+    This class extends BaseLMSftDataset to provide functionality specific to
+    vision-language tasks. It handles the processing of both image and text data.
+
+    Note:
+        This dataset is designed to work with models that can process both
+        image and text inputs simultaneously, such as CLIP, BLIP, or other
+        multimodal architectures.
+
+    Example:
+        >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
+        ...     def transform_conversation(self, example: dict) -> Conversation:
+        ...         # Implement the abstract method
+        ...         # Convert the raw example into a Conversation object
+        ...         pass
+        >>>
+        >>> dataset = MyVisionLanguageSftDataset(
+        ...     processor_name="openai/clip-vit-base-patch32",
+        ...     dataset_name="coco_captions",
+        ...     split="train"
+        ... )
+        >>> sample = next(iter(dataset))
+        >>> print(sample.keys())
+    """
+
     def __init__(
         self,
         *,
@@ -49,6 +76,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             # Which takes way to long.
             self._data = self._data.head(limit)
 
+    @abstractmethod
     def transform_conversation(self, example: dict) -> Conversation:
         """Transforms a raw example into a lema Conversation object.
 
@@ -58,7 +86,25 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
         Returns:
             Conversation: A Conversation object representing the conversation.
         """
-        raise NotImplementedError("Subclasses must implement this method")
+
+    def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
+        """Transforms a single image from a message for debugging.
+
+        Args:
+            message (Union[str, Message]): A string representing the image path or a
+                Message object.
+
+        Returns:
+            Image.Image: A PIL image.
+        """
+        if self._image_processor is None:
+            raise ValueError
+
+        image_bin = self._load_image(message)
+        features = self._image_processor(
+            images=image_bin, return_tensors=self._return_tensors
+        )
+        return features
 
     def transform(self, sample: dict) -> dict:
         """Transforms a lema conversation into a dictionary of inputs for a model.
@@ -190,22 +236,3 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             raise ValueError(f"Unsupported image type: {image.type}")
 
         return image_bin
-
-    def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
-        """Transforms a single image from a message.
-
-        Args:
-            message (Union[str, Message]): A string representing the image path or a
-                Message object.
-
-        Returns:
-            Image.Image: A PIL image.
-        """
-        if self._image_processor is None:
-            raise ValueError
-
-        image_bin = self._load_image(message)
-        features = self._image_processor(
-            images=image_bin, return_tensors=self._return_tensors
-        )
-        return features
