@@ -13,11 +13,6 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
 
-  /output_dir_gcs:
-    source: gs://lema-dev-europe-west4
-    store: gcs
-    mode: MOUNT
-
 envs:
   WANDB_PROJECT: lema-train
   LEMA_RUN_NAME: llama2b.pt
@@ -40,9 +35,6 @@ run: |
       --master-port=8007 \
       -m lema.train \
       -c configs/lema/llama2b.pt.yaml \
-      "training.telemetry.collect_telemetry_for_all_ranks=true" \
-      "training.telemetry.track_gpu_temperature=true" \
-      "training.output_dir='/output_dir_gcs/nikolai/runs/${LEMA_RUN_NAME}'" \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.optimizer=adafactor" \
       "training.per_device_train_batch_size=4" \
