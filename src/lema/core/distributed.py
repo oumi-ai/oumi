@@ -2,7 +2,7 @@ import functools
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -15,6 +15,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 from torch.nn.parallel import DistributedDataParallel
 
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.utils.str_utils import str_to_bool
 
 
@@ -250,7 +251,9 @@ def get_default_fsdp_mixed_precision():
 
 
 def prepare_model_for_distributed(
-    model: torch.nn.Module, use_fsdp: bool, fsdp_config: Optional[Dict[str, Any]] = None
+    model: torch.nn.Module,
+    use_fsdp: bool = False,
+    fsdp_config: Union[Optional[Dict[str, Any]], FSDPParams] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
@@ -265,7 +268,7 @@ def prepare_model_for_distributed(
     """
     device_rank_info = get_device_rank_info()
 
-    if use_fsdp:
+    if use_fsdp and isinstance(fsdp_config, dict):
         fsdp_config = fsdp_config or {}
         wrapping_policy = fsdp_config.get(
             "wrapping_policy", get_default_fsdp_wrapping_policy(model)

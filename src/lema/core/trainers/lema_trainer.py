@@ -7,12 +7,19 @@ from pprint import pformat
 from typing import Any, Dict, List, Optional, cast
 
 import pydantic
+import safetensors.torch
 import torch
 import torch.amp
 import torch.utils.tensorboard as tensorboard
-
-import wandb  # isort: skip
-import safetensors.torch
+import wandb
+from torch.distributed.fsdp import (
+    FullStateDictConfig,
+    ShardedStateDictConfig,
+    StateDictType,
+)
+from torch.distributed.fsdp import (
+    FullyShardedDataParallel as FSDP,
+)
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
@@ -21,6 +28,7 @@ from transformers import TrainerCallback
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.distributed import (
     barrier,
     get_device_rank_info,
@@ -68,6 +76,9 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
+        self.fsdp_params: FSDPParams = FSDPParams()
+        self.is_using_fsdp: bool = self.fsdp_params.enable_fsdp
+
         self.params.validate()
 
         self.state = TrainingState()
@@ -111,11 +122,14 @@ class Trainer(BaseTrainer):
 
         self.model.to(self.device)
 
-        # TODO: OPE-219 - hook-up fsdp flag
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                self.model = prepare_model_for_distributed(self.model, use_fsdp=False)
+                self.model = prepare_model_for_distributed(
+                    self.model,
+                    use_fsdp=self.is_using_fsdp,
+                    fsdp_config=self.fsdp_params,
+                )
 
         if self.params.compile:
             self.log("Compiling model...")
@@ -406,24 +420,34 @@ class Trainer(BaseTrainer):
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
 
-            safetensors.torch.save_model(model=self.model, filename=str(model_path))
-            torch.save(
-                self.optimizer.state_dict(),
-                optimizer_path,
-            )
-            torch.save(
-                self.train_dataloader.state_dict(),
-                dataloader_state_path,
-            )
-            save_json(
-                data=self.state.model_dump(),
-                filename=trainer_state_path,
-            )
-            save_json(
-                data=self.telemetry.state_dict(),
-                filename=telemetry_state_path,
-            )
+            if self.is_using_fsdp:
+                self._save_fsdp_state(model_path, optimizer_path)
+            else:
+                safetensors.torch.save_model(model=self.model, filename=str(model_path))
+                torch.save(self.optimizer.state_dict(), optimizer_path)
+
+            torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
+            save_json(data=self.state.model_dump(), filename=trainer_state_path)
+            save_json(data=self.telemetry.state_dict(), filename=telemetry_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
+
+    def _save_fsdp_state(self, model_path: Path, optimizer_path: Path):
+        """Saves the FSDP model and optimizer state."""
+        full_state_dict_config = FullStateDictConfig(
+            offload_to_cpu=True, rank0_only=True
+        )
+        with FSDP.state_dict_type(
+            self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
+        ):
+            model_state = self.model.state_dict()
+        safetensors.torch.save_file(model_state, model_path)
+
+        sharded_state_dict_config = ShardedStateDictConfig()
+        with FSDP.state_dict_type(
+            self.model, StateDictType.SHARDED_STATE_DICT, sharded_state_dict_config
+        ):
+            optimizer_state = FSDP.optim_state_dict(self.model, self.optimizer)
+        torch.save(optimizer_state, optimizer_path)
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
@@ -436,13 +460,22 @@ class Trainer(BaseTrainer):
         telemetry_state_path = checkpoint_dir / "telemetry.json"
 
         if model_path.exists():
-            safetensors.torch.load_model(
-                self.model, filename=str(model_path), strict=True, device=self.device
-            )
-        if optimizer_path.exists():
-            self.optimizer.load_state_dict(
-                torch.load(optimizer_path, map_location=self.device, weights_only=True)
-            )
+            if self.is_using_fsdp:
+                self._load_fsdp_state(model_path, optimizer_path)
+            else:
+                safetensors.torch.load_model(
+                    self.model,
+                    filename=str(model_path),
+                    strict=True,
+                    device=self.device,
+                )
+                if optimizer_path.exists():
+                    self.optimizer.load_state_dict(
+                        torch.load(
+                            optimizer_path, map_location=self.device, weights_only=True
+                        )
+                    )
+
         if dataloader_state_path.exists():
             self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
         if trainer_state_path.exists():
@@ -453,6 +486,25 @@ class Trainer(BaseTrainer):
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
+
+    def _load_fsdp_state(self, model_path: Path, optimizer_path: Path):
+        """Loads the FSDP model and optimizer state."""
+        full_state_dict_config = FullStateDictConfig(
+            offload_to_cpu=True, rank0_only=True
+        )
+        with FSDP.state_dict_type(
+            self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
+        ):
+            state_dict = safetensors.torch.load_file(model_path, device="cpu")
+            self.model.load_state_dict(state_dict)
+
+        if optimizer_path.exists():
+            sharded_state_dict_config = ShardedStateDictConfig()
+            with FSDP.state_dict_type(
+                self.model, StateDictType.SHARDED_STATE_DICT, sharded_state_dict_config
+            ):
+                optimizer_state = torch.load(optimizer_path, map_location=self.device)
+                self.optimizer.load_state_dict(optimizer_state)
 
     #
     # Logging

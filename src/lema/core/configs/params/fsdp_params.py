@@ -13,3 +13,4 @@ class FSDPParams(BaseParams):
     mixed_precision: Optional[str] = None
     backward_prefetch: str = "BACKWARD_PRE"
     activation_checkpointing: bool = False
+    enable_fsdp: bool = False
