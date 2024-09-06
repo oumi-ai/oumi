@@ -1,7 +1,9 @@
 # ruff: noqa: D102
 import io
-from typing import Any, Optional, Union
+import os
+from typing import Any, List, Optional, Tuple, Union
 
+import pandas as pd
 import requests
 from PIL import Image
 
@@ -14,16 +16,11 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
     def __init__(
         self,
         *,
-        image_processor: Optional[Any] = None,
-        tokenizer: Optional[Any] = None,
         processor: Optional[Any] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(**kwargs)
-
-        if processor and (image_processor or tokenizer):
-            raise ValueError()
 
         self._processor = processor
 
@@ -31,8 +28,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             self._tokenizer = self._processor.tokenizer
             self._image_processor = self._processor.image_processor
         else:
-            self._image_processor = image_processor
-            self._tokenizer = tokenizer
+            self._tokenizer = None
+            self._image_processor = None
 
         self._data = self._load_data()
 
@@ -40,56 +37,79 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
         raise NotImplementedError("Subclasses must implement this method")
 
     def transform(self, sample: dict) -> dict:
-        if self._processor is None and (
-            self._tokenizer is None or self._image_processor is None
-        ):
-            raise ValueError
+        if self._processor is None:
+            raise ValueError("Processor required for transform")
 
         conversation = self.transform_conversation(sample)
 
-        images = [turn for turn in conversation.messages if turn.is_image()]
+        if self._processor.chat_template is None:
+            image, prompt = self._prepare_simple_model(conversation)
 
+            inputs = self._processor(
+                images=image, text=prompt, return_tensors="pt", padding=True
+            )
+        else:
+            images, prompt = self._prepare_instruct_model(conversation)
+
+            inputs = self._processor(
+                images=images, text=[prompt], return_tensors="pt", padding=True
+            )
+
+        inputs["labels"] = inputs["input_ids"]
+        return inputs
+
+    def _prepare_simple_model(
+        self, conversation: Conversation
+    ) -> Tuple[Image.Image, str]:
+        last_image_turn = [turn for turn in conversation.messages if turn.is_image()][
+            -1
+        ]
+        last_text_turn = [turn for turn in conversation.messages if turn.is_text()][
+            -1
+        ].content or ""
+
+        prompt = last_text_turn or ""
+        image = self._load_image(last_image_turn)
+
+        return image, prompt
+
+    def _prepare_instruct_model(
+        self, conversation: Conversation
+    ) -> Tuple[List[Image.Image], str]:
+        if self._processor is None:
+            raise ValueError("Processor is required for instruct model")
+
+        # Generates the prompt using the chat template
+        # including image placeholders for each image in the conversation
         texts = []
         for turn in conversation.messages:
             if turn.is_text():
                 texts.append(turn)
+
             elif turn.is_image():
-                placeholder = {
+                image_placeholder = {
                     "content": [{"type": "image"}],
                     "role": str(turn.role),
                 }
-                texts.append(placeholder)
+                texts.append(image_placeholder)
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
-        if self._processor is not None:
-            images = [self._load_image(image) for image in images]
-            text = self._processor.apply_chat_template(
-                texts, add_generation_prompt=False
-            )
-            inputs = self._processor(
-                images=images, text=[text], return_tensors="pt", padding=True
-            )
-        else:
-            if len(images) > 0:
-                image = images[0]  # only support a single image
-                image_features = self.transform_image(image)
-            else:
-                image_features = {}
+        text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
 
-            # TODO: fix type ignore
-            text_features = self.tokenize(texts)  # type: ignore
-            inputs = {**text_features, **image_features}
+        # Loads the images from the conversation
+        images = [turn for turn in conversation.messages if turn.is_image()]
+        images = [self._load_image(image) for image in images]
 
-        inputs["labels"] = inputs["input_ids"]
-        return inputs
+        return images, text
 
     def _load_image(self, image: Union[str, Message]) -> Image.Image:
         if self._image_processor is None:
             raise ValueError("Processor required for transform")
 
         if isinstance(image, str):
-            image = Message(type=Type.IMAGE_PATH, content=image, role=Role.USER)
+            image_type = Type.IMAGE_URL if image.startswith("http") else Type.IMAGE_PATH
+            image = Message(type=image_type, content=image, role=Role.USER)
 
         if image.type == Type.IMAGE_PATH:
             if image.content is None:
@@ -184,3 +204,46 @@ class VQAv2Dataset(VisionLanguageSftDataset):
         ]
 
         return Conversation(messages=messages)
+
+
+class JsonlinesDataset(VisionLanguageSftDataset):
+    def __init__(
+        self,
+        dataset_path: Optional[str] = None,
+        data: Optional[list] = None,
+        data_column: str = "conversation",
+        **kwargs,
+    ):
+        """Initializes a new instance of the JsonlinesDataset class."""
+        self.data_column = data_column
+
+        if dataset_path is not None and data is not None:
+            raise ValueError(
+                "Either dataset_path or data must be provided, but not both"
+            )
+
+        if data is not None:
+            self._data = pd.DataFrame({self.data_column: data})
+
+        elif dataset_path is not None:
+            if not os.path.isfile(dataset_path):
+                raise ValueError(f"Dataset path does not exist: {dataset_path}")
+
+            if not dataset_path.endswith(".jsonl"):
+                raise ValueError("Dataset path must end with .jsonl")
+
+            self._data = pd.read_json(dataset_path, lines=True)
+
+            if self.data_column not in self._data.columns:
+                raise ValueError(f"Data column {self.data_column} not found in dataset")
+        else:
+            raise ValueError("Dataset path or data must be provided")
+
+        super().__init__(**kwargs)
+
+    def _load_data(self):
+        # no-op, data is already loaded in __init__
+        pass
+
+    def transform_conversation(self, example: dict) -> Conversation:
+        return Conversation(messages=example["messages"])
