@@ -50,9 +50,14 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model_params.model_name)
 
-    if model_params.freeze_vision_encoder:
-        for param in model.vision_encoder.parameters():
-            param.requires_grad = False
+    for layer_name in model_params.freeze_layers:
+        if hasattr(model, layer_name):
+            logger.info(f"Freezing layer {layer_name}.")
+
+            for param in getattr(model, layer_name).parameters():
+                param.requires_grad_(False)
+        else:
+            logger.warning(f"Layer {layer_name} not found in vision encoder.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
