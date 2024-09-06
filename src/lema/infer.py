@@ -1,16 +1,9 @@
 import argparse
 from typing import List
 
-import peft
-import torch
-from tqdm import tqdm
-from transformers import BatchEncoding
-
-from lema.builders import (
-    build_model,
-    build_tokenizer,
-)
 from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
+from lema.core.types.turn import Conversation, Message, Role
+from lema.inference import NativeTextInferenceEngine
 from lema.utils.logging import logger
 
 
@@ -57,9 +50,7 @@ def infer_interactive(config: InferenceConfig) -> None:
         model_params=config.model,
         generation_config=config.generation,
         input=[
-            [
-                input_text,
-            ],
+            input_text,
         ],
     )
     print(model_response[0][0])
@@ -70,67 +61,36 @@ def infer_interactive(config: InferenceConfig) -> None:
 def infer(
     model_params: ModelParams,
     generation_config: GenerationConfig,
-    input: List[List[str]],
-    exclude_prompt_from_reponse: bool = True,
-) -> List[List[str]]:
+    input: List[str],
+    exclude_prompt_from_response: bool = True,
+) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
         generation_config: The configuration object for model generation.
         input: A list of text prompts of shape (num_batches, batch_size).
-        exclude_prompt_from_reponse: Whether to trim the model's reponse and remove the
-          prepended prompt.
+        exclude_prompt_from_response: Whether to trim the model's response and remove
+          the prepended prompt.
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
-    tokenizer = build_tokenizer(model_params)
-    model = build_model(model_params)
-
-    if isinstance(model, peft.PeftModel):
-        raise NotImplementedError(
-            "Inference does not work yet for pretrained PEFT models."
-        )
-
-    model_device = next(model.parameters()).device
-
-    # Tokenization of input (in place, batch mode).
-    input_batches: List[BatchEncoding] = [BatchEncoding()] * len(input)
-    for batch_index, batch in enumerate(input):
-        batch_tokenized = tokenizer(batch, return_tensors="pt", padding=True)
-        batch_tokenized = batch_tokenized.to(model_device)
-        input_batches[batch_index] = batch_tokenized
-
-    # Generate model outputs (batch mode).
-    output = []
-    for batch_index in tqdm(
-        range(len(input_batches)), desc="Generating Model Responses"
-    ):
-        batch = input_batches[batch_index]
-        output.append(
-            model.generate(**batch, max_new_tokens=generation_config.max_new_tokens)
-        )
-
-    # Decode the outputs (batch mode).
-    output_decoded = []
-    for batch_index, batch in enumerate(output):
-        # For each batch, remove the prepended prompts from all model reponses.
-        if exclude_prompt_from_reponse:
-            new_batch_data = []
-            for reponse_index, response in enumerate(batch.data):
-                prompt = input_batches[batch_index]["input_ids"][reponse_index]  # type: ignore
-                assert prompt.tolist() == response[: len(prompt)].tolist()
-                new_batch_data.append(response[len(prompt) :])
-            batch.data = torch.stack(new_batch_data, dim=0)
-
-        output_decoded.append(
-            tokenizer.batch_decode(
-                batch.data, skip_special_tokens=True, clean_up_tokenization_spaces=True
-            )
-        )
-
-    return output_decoded
+    inference_engine = NativeTextInferenceEngine(model_params)
+    conversations = [
+        Conversation(messages=[Message(content=content, role=Role.USER)])
+        for content in input
+    ]
+    generations = inference_engine.infer(
+        conversations,
+        output_filepath=generation_config.output_filepath,
+        max_new_tokens=generation_config.max_new_tokens,
+        exclude_prompt_from_response=exclude_prompt_from_response,
+        batch_size=generation_config.batch_size,
+    )
+    if not generations:
+        raise RuntimeError("No generations were returned.")
+    return [conversation.messages[-1].content for conversation in generations]
 
 
 if __name__ == "__main__":
