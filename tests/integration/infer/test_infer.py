@@ -4,7 +4,7 @@ from lema import infer, infer_interactive
 from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
 
 FIXED_PROMPT = "Hello world!"
-FIXED_RESPONSE = "\n\nI'm not"
+FIXED_RESPONSE = "The U.S."
 
 
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):

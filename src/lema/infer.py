@@ -2,6 +2,7 @@ import argparse
 from typing import List
 
 from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
+from lema.core.types.turn import Conversation, Message, Role
 from lema.inference import NativeTextInferenceEngine
 from lema.utils.logging import logger
 
@@ -71,19 +72,25 @@ def infer(
         input: A list of text prompts of shape (num_batches, batch_size).
         exclude_prompt_from_response: Whether to trim the model's response and remove
           the prepended prompt.
-        batch_size: The number of sequences to generate in parallel.
 
     Returns:
         object: A list of model responses of shape (num_batches, batch_size).
     """
     inference_engine = NativeTextInferenceEngine(model_params)
+    conversations = [
+        Conversation(messages=[Message(content=content, role=Role.USER)])
+        for content in input
+    ]
     generations = inference_engine.infer(
-        input,
+        conversations,
+        output_filepath=generation_config.output_filepath,
         max_new_tokens=generation_config.max_new_tokens,
         exclude_prompt_from_response=exclude_prompt_from_response,
         batch_size=generation_config.batch_size,
     )
-    return [generation.messages[-1].content for generation in generations]
+    if not generations:
+        raise RuntimeError("No generations were returned.")
+    return [conversation.messages[-1].content for conversation in generations]
 
 
 if __name__ == "__main__":
