@@ -234,12 +234,6 @@ def build_tokenizer(
     else:
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
-    # HACK - TODO
-    return transformers.AutoProcessor.from_pretrained(
-        tokenizer_name,
-        trust_remote_code=model_params.trust_remote_code,
-        **kwargs,
-    )
 
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
