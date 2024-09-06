@@ -11,7 +11,6 @@ lema = ["LICENSE", "README.md", "*.jinja"]
 [tool.setuptools]
 # default setuptools config.
 
-
 [project]
 name = "lema"
 dynamic = ["version"]
@@ -19,10 +18,17 @@ readme = "README.md"
 requires-python = ">=3.8"
 description = "Learning Machines - Modeling Platform"
 authors = [{ name = "LeMa Team", email = "contact@openlema.com" }]
+license = { file = "LICENSE" } # Add this line
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
@@ -91,7 +97,8 @@ lema-train = "lema.train:main"
 
 [tool.ruff]
 line-length = 88
-extend-include = ["*.ipynb"] # Include ipython notebooks
+extend-include = ["*.ipynb"]
+target-version = "py38"
 
 [tool.ruff.lint]
 select = [
@@ -110,7 +117,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
-# Disallow all relative imports.
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
@@ -133,3 +139,17 @@ reportPrivateImportUsage = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-v --cov=lema --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+]
