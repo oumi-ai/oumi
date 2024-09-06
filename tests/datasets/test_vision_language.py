@@ -6,8 +6,8 @@ import pytest
 import torch
 from PIL import Image
 
+from lema.core.datasets import VisionLanguageSftDataset
 from lema.core.types.turn import Role
-from lema.datasets.vision_language import VisionLanguageSftDataset
 
 
 @pytest.fixture(scope="module")

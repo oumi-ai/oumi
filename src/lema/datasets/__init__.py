@@ -25,7 +25,9 @@ from lema.datasets.alpaca import AlpacaDataset
 from lema.datasets.chatqa import ChatqaDataset
 from lema.datasets.chatrag_bench import ChatRAGBenchDataset
 from lema.datasets.debug import DebugClassificationDataset, DebugPretrainingDataset
-from lema.datasets.vision_language import VisionLanguageSftDataset
+from lema.datasets.vision_language.coco_captions import COCOCaptionsDataset
+from lema.datasets.vision_language.flickr30k import Flickr30kDataset
+from lema.datasets.vision_language.vision_jsonlines import JsonlinesDataset
 
 __all__ = [
     "AlpacaDataset",
@@ -33,5 +35,7 @@ __all__ = [
     "ChatRAGBenchDataset",
     "DebugClassificationDataset",
     "DebugPretrainingDataset",
-    "VisionLanguageSftDataset",
+    "COCOCaptionsDataset",
+    "Flickr30kDataset",
+    "JsonlinesDataset",
 ]
