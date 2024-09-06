@@ -78,8 +78,11 @@ def main():
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_PREFIX)
     METRIC_FILE_PATH = os.path.join(OUTPUT_PATH, METRIC_FILE_PREFIX)
     REQUEST_RETRIES = 3
+    print(f"Input file is {INPUT_FILE}")
     print(f"Files will be output to {OUTPUT_PATH}")
 
+    if not os.path.isfile(INPUT_FILE):
+        raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
     json_objects = pd.read_json(INPUT_FILE, lines=True)
     ALL_MESSAGES = json_objects["messages"].to_list()
 
