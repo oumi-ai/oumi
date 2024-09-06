@@ -1,4 +1,6 @@
-from lema.utils.str_utils import sanitize_run_name
+import pytest
+
+from lema.utils.str_utils import sanitize_run_name, str_to_bool
 
 
 def test_sanitize_run_name_empty():
@@ -31,3 +33,38 @@ def test_sanitize_run_name_too_long():
     assert actual == expected
     # verify it's idempotent
     assert sanitize_run_name(actual) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["true", "True", "TRUE", "yes", "Yes", "YES", "1", "on", "ON", "t", "y", " True "],
+)
+def test_true_values(value):
+    assert str_to_bool(value) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "false",
+        "False",
+        "FALSE",
+        "no",
+        "No",
+        "NO",
+        "0",
+        "off",
+        "OFF",
+        "f",
+        "n",
+        " False ",
+    ],
+)
+def test_false_values(value):
+    assert str_to_bool(value) is False
+
+
+@pytest.mark.parametrize("value", ["maybe", "unknown", "tru", "ye", "2", "nope"])
+def test_invalid_inputs(value):
+    with pytest.raises(ValueError):
+        str_to_bool(value)
