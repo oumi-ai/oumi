@@ -405,7 +405,7 @@ class Trainer(BaseTrainer):
                 device_rank_info = get_device_rank_info()
                 telemetry_state_path = (
                     telemetry_dir
-                    / f"lema_telemetry_rank{device_rank_info.rank:03}.json"
+                    / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
                 )
                 save_json(
                     data=self.telemetry.state_dict(),
