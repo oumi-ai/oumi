@@ -95,7 +95,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 Message object.
 
         Returns:
-            Image.Image: A PIL image.
+            torch.Tensor: a tensor representing the processed image.
         """
         if self._image_processor is None:
             raise ValueError
