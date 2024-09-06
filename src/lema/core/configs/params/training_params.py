@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import transformers
@@ -7,6 +8,7 @@ import trl
 
 from lema.core.configs.params.base_params import BaseParams
 from lema.core.configs.params.profiler_params import ProfilerParams
+from lema.core.configs.params.telemetry_params import TelemetryParams
 from lema.utils.str_utils import sanitize_run_name
 
 
@@ -527,6 +529,12 @@ class TrainingParams(BaseParams):
     class to define specific profiling settings.
     """
 
+    telemetry: TelemetryParams = field(default_factory=TelemetryParams)
+    """Parameters for telemetry.
+
+    This field contains telemetry configuration options.
+    """
+
     empty_device_cache_steps: Optional[int] = None
     """Number of steps to wait before calling `torch.<device>.empty_cache()`.
 
@@ -665,3 +673,19 @@ class TrainingParams(BaseParams):
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
+
+    @property
+    def telemetry_dir(self) -> Optional[Path]:
+        """Returns the telemetry stats output directory."""
+        result: Optional[Path] = None
+        if self.telemetry.telemetry_dir:
+            result = Path(self.telemetry.telemetry_dir)
+
+        if self.output_dir:
+            output_dir = Path(self.output_dir)
+            # If `telemetry.telemetry_dir` is relative, then treat it
+            # as a sub-directory of `output_dir`.
+            if result and not result.is_absolute():
+                result = output_dir / result
+
+        return result

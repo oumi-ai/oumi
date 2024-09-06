@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
-from lema.core.configs import TrainingParams
+from lema.core.configs import TelemetryParams, TrainingParams
 from lema.core.tokenizers import BaseTokenizer
 from lema.core.trainers import Trainer
 from lema.models import MLPEncoder
@@ -156,13 +156,19 @@ def test_train(mock_is_world_process_zero, trainer):
     assert trainer.evaluate.call_count == trainer.params.num_train_epochs
 
 
-def test_train_epoch(trainer, mock_stateful_dataloader):
+def test_train_epoch(trainer, mock_stateful_dataloader, tmp_path):
+    output_dir = tmp_path / "model_output"
+    output_dir.mkdir()
+
     trainer._process_callbacks = MagicMock()
     trainer.telemetry.timer = MagicMock()
     trainer.model.forward = MagicMock(
         return_value={"loss": torch.tensor(0.5), "logits": torch.tensor([1.0, 2.0])}
     )
     trainer.train_dataloader = mock_stateful_dataloader
+    trainer.params.telemetry = MagicMock(spec=TelemetryParams)
+    trainer.params.telemetry.collect_telemetry_for_all_ranks = False
+    trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
     trainer.scaler.scale = MagicMock(return_value=MagicMock())
     trainer.scaler.step = MagicMock()
     trainer.scaler.update = MagicMock()
@@ -201,6 +207,9 @@ def test_save_and_load_model(
     trainer.optimizer = mock_optimizer
     trainer.train_dataloader = mock_stateful_dataloader
     trainer.params.output_dir = str(output_dir)
+    trainer.params.telemetry = MagicMock(spec=TelemetryParams)
+    trainer.params.telemetry.collect_telemetry_for_all_ranks = False
+    trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
 
     trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})
     trainer.optimizer.state_dict = MagicMock(
@@ -218,6 +227,7 @@ def test_save_and_load_model(
     assert (output_dir / "optimizer.pt").exists()
     assert (output_dir / "dataloader.pt").exists()
     assert (output_dir / "trainer_state.json").exists()
+    assert (output_dir / "telemetry.json").exists()
 
     with patch(
         "safetensors.torch.load_model", side_effect=[{"model_key": torch.tensor(1)}]

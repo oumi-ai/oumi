@@ -282,7 +282,8 @@ class Trainer(BaseTrainer):
                         self.optimizer.zero_grad(set_to_none=True)
 
                     self.state.global_step += 1
-                    self.telemetry.record_gpu_temperature()
+                    if self.params.telemetry.track_gpu_temperature:
+                        self.telemetry.record_gpu_temperature()
                     progress_bar.update(1)
 
                     self._process_callbacks("on_step_end")
@@ -396,6 +397,20 @@ class Trainer(BaseTrainer):
     def save_state(self):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
+
+        if self.params.telemetry.collect_telemetry_for_all_ranks:
+            telemetry_dir = self.params.telemetry_dir
+            # TODO: Gather telemetry from all ranks.
+            if telemetry_dir:
+                device_rank_info = get_device_rank_info()
+                telemetry_state_path = (
+                    telemetry_dir
+                    / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
+                )
+                save_json(
+                    data=self.telemetry.state_dict(),
+                    filename=telemetry_state_path,
+                )
 
         if is_world_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
