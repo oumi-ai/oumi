@@ -20,9 +20,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
         *,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
+        limit: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
+        super().__init__(**kwargs)
+
         if processor_name is not None and processor is not None:
             logger.warning(
                 "Both processor and processor_name are provided. "
@@ -43,9 +46,11 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             self._tokenizer = None
             self._image_processor = None
 
-        self._data = self._load_data()
-
-        super().__init__(**kwargs)
+        if limit is not None:
+            # TODO: this should be removed when we switch to datapipes.
+            # Right now, we have to iterate over the whole dataset at init time,
+            # Which takes way to long.
+            self._data = self._data.head(limit)
 
     def transform_conversation(self, example: dict) -> Conversation:
         raise NotImplementedError("Subclasses must implement this method")
@@ -61,13 +66,19 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
-                images=image, text=prompt, return_tensors="pt", padding=True
+                images=image,
+                text=prompt,
+                return_tensors=self._return_tensors,
+                padding=True,
             )
         else:
             images, prompt = self._prepare_instruct_model(conversation)
 
             inputs = self._processor(
-                images=images, text=[prompt], return_tensors="pt", padding=True
+                images=images,
+                text=[prompt],
+                return_tensors=self._return_tensors,
+                padding=True,
             )
 
         inputs["labels"] = inputs["input_ids"]
@@ -195,25 +206,6 @@ class Flickr30kDataset(VisionLanguageSftDataset):
                 role=Role.USER,
                 binary=example["image"]["bytes"],
                 type=Type.IMAGE_BINARY,
-            ),
-            Message(role=Role.ASSISTANT, content=output_text),
-        ]
-
-        return Conversation(messages=messages)
-
-
-@register_dataset("vqa_v2")
-class VQAv2Dataset(VisionLanguageSftDataset):
-    default_dataset = "vqa_v2"
-
-    def transform_conversation(self, example: dict) -> Conversation:
-        input_text = example["question"]
-        output_text = example["answers"][0]["answer"]  # Using the first answer
-
-        messages = [
-            Message(role=Role.USER, content=input_text),
-            Message(
-                role=Role.USER, content=example["image"]["path"], type=Type.IMAGE_PATH
             ),
             Message(role=Role.ASSISTANT, content=output_text),
         ]
