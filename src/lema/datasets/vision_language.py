@@ -6,10 +6,12 @@ from typing import Any, List, Optional, Tuple, Union
 import pandas as pd
 import requests
 from PIL import Image
+from transformers import AutoProcessor
 
 from lema.core.datasets import BaseLMSftDataset
 from lema.core.registry import register_dataset
 from lema.core.types.turn import Conversation, Message, Role, Type
+from lema.utils.logging import logger
 
 
 class VisionLanguageSftDataset(BaseLMSftDataset):
@@ -17,12 +19,22 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
         self,
         *,
         processor: Optional[Any] = None,
+        processor_name: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
-        super().__init__(**kwargs)
+        if processor_name is not None and processor is not None:
+            logger.warning(
+                "Both processor and processor_name are provided. "
+                "Ignoring processor_name: %s",
+                processor_name,
+            )
+
+        if processor_name is not None and processor is None:
+            processor = AutoProcessor.from_pretrained(processor_name)
 
         self._processor = processor
+        self._processor_name = processor_name
 
         if self._processor is not None:
             self._tokenizer = self._processor.tokenizer
@@ -32,6 +44,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
             self._image_processor = None
 
         self._data = self._load_data()
+
+        super().__init__(**kwargs)
 
     def transform_conversation(self, example: dict) -> Conversation:
         raise NotImplementedError("Subclasses must implement this method")
@@ -43,6 +57,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
+            print("Using simple processor")
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
@@ -206,16 +221,20 @@ class VQAv2Dataset(VisionLanguageSftDataset):
         return Conversation(messages=messages)
 
 
+@register_dataset("vision_language_jsonl")
 class JsonlinesDataset(VisionLanguageSftDataset):
+    default_dataset = "custom"
+
     def __init__(
         self,
         dataset_path: Optional[str] = None,
         data: Optional[list] = None,
-        data_column: str = "conversation",
+        data_column: str = "messages",
         **kwargs,
     ):
         """Initializes a new instance of the JsonlinesDataset class."""
         self.data_column = data_column
+        self.dataset_path = dataset_path
 
         if dataset_path is not None and data is not None:
             raise ValueError(
@@ -243,7 +262,7 @@ class JsonlinesDataset(VisionLanguageSftDataset):
 
     def _load_data(self):
         # no-op, data is already loaded in __init__
-        pass
+        return self._data
 
     def transform_conversation(self, example: dict) -> Conversation:
         return Conversation(messages=example["messages"])
