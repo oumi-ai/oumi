@@ -57,7 +57,7 @@ def build_model(
             for param in getattr(model, layer_name).parameters():
                 param.requires_grad_(False)
         else:
-            logger.warning(f"Layer {layer_name} not found in vision encoder.")
+            logger.warning(f"Layer {layer_name} not found in model.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type

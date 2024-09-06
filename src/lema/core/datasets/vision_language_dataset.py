@@ -61,7 +61,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             processor = AutoProcessor.from_pretrained(processor_name)
 
         self._processor = processor
-        self._processor_name = processor_name
 
         if self._processor is not None:
             self._tokenizer = self._processor.tokenizer
