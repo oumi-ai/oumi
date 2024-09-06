@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import jsonlines
 import peft
@@ -42,10 +42,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="w") as writer:
             for conversation in conversations:
-                dict_messages = [
-                    message.model_dump() for message in conversation.messages
-                ]
-                json_obj = {"messages": dict_messages}
+                json_obj = conversation.model_dump()
                 writer.write(json_obj)
 
     def _make_batches(self, input: List[str], batch_size: int) -> List[List[str]]:
@@ -63,8 +60,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: List[Conversation],
-        max_new_tokens: int,
-        batch_size: int = 2,
+        max_new_tokens: Optional[int] = None,
+        batch_size: int = 1,
         exclude_prompt_from_response: bool = True,
     ) -> List[Conversation]:
         """Runs batch inference for a model using the provided configuration.
@@ -143,7 +140,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     conversation_id=conversation.conversation_id,
                 )
             )
-
         return output_conversations
 
     def infer_online(self, input: List[Conversation], **kwargs) -> List[Conversation]:
