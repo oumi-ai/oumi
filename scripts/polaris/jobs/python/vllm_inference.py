@@ -40,8 +40,11 @@ def main() -> None:
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILE_NAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_NAME)
+    print(f"Input file is {INPUT_FILE}")
     print(f"Files will be output to {OUTPUT_FILE_PATH}")
 
+    if not os.path.isfile(INPUT_FILE):
+        raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
     json_objects = pd.read_json(INPUT_FILE, lines=True)
     all_messages = json_objects["messages"].to_list()
     write_queue = Queue()

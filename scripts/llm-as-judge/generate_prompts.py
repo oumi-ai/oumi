@@ -121,17 +121,19 @@ RESPONSE_COLUMN_NAME = "response"
 SERVICE_ACCOUNT_FILE = f"/Users/{os.getlogin()}/.config/gspread/service_account.json"
 # Inputs.
 PROMPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1pOw3r7Q_7gKWfU44hDS0nlBVa9Syo_d5IxPWsMZmMXM"
-PROMPTS_SHEET_TAB = "v_8-01"
+PROMPTS_SHEET_TAB = "v_8-29"
 DATASET_SHEET_URL = "https://docs.google.com/spreadsheets/d/1YO17DygGpFkEkLVK0dN5YvoVmuw8-0BYF0CQx3qYXRM"
 DATASET_SHEET_TAB = "Dataset v_8-22"
 # Output.
 DATASET_OUT_FILE = "./dataset_with_prompts.csv"
+DATASET_OUT_FILE_PREFIX_POLARIS = "./prompts_polaris_"
 
 # Attribute names.
 attribute_names = [
     "helpful",
     "honest",
     "safe",
+    "valid",
 ]
 
 
@@ -171,6 +173,17 @@ def main(args):
     # Save the dataset with prompts.
     df_dataset.to_csv(DATASET_OUT_FILE, index=False)
     print(f"Dataset with prompts saved at {DATASET_OUT_FILE}.")
+
+    # Save the prompts (stand-alone) for Polaris.
+    for attribute_name in attribute_names:
+        prompt_col_name = get_prompt_col_name(attribute_name)
+        file_path = f"{DATASET_OUT_FILE_PREFIX_POLARIS}{attribute_name}.jsonl"
+        with open(file_path, "w") as file_handle:
+            for dataset_index in df_dataset.index:
+                prompt = json.loads(df_dataset[prompt_col_name][dataset_index])
+                entry = {"messages": prompt}
+                print(json.dumps(entry), file=file_handle)
+        print(f"Prompts for `{attribute_name}` saved at {file_path}.")
 
 
 if __name__ == "__main__":
@@ -222,6 +235,12 @@ if __name__ == "__main__":
         type=str,
         default=DATASET_OUT_FILE,
         help="Path of the output CSV file where the prompts will be saved.",
+    )
+    parser.add_argument(
+        "--dataset_out_file_prefix_polaris",
+        type=str,
+        default=DATASET_OUT_FILE_PREFIX_POLARIS,
+        help="Prefix of output JSONL files to save the prompts for Polaris inference.",
     )
     parser.add_argument(
         "--service_account_file",
