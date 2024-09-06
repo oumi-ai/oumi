@@ -34,7 +34,7 @@ def transform_conversation(self, example: dict) -> Conversation:
     """Transform a single conversation example into a Conversation object."""
     text_input = example['text_input']
     text_output = example['text_output']
-    image_source = example['image_path']
+    image_path = example['image_path']
 
     messages = [
         Message(role=Role.USER, content=text_input),
