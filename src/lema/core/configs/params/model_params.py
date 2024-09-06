@@ -34,6 +34,13 @@ class ModelParams(BaseParams):
     #: argument in LM Harness.
     shard_for_eval: bool = False
     freeze_layers: List[str] = field(default_factory=list)
+    """A list of layer names to freeze during training.
+
+    These layers will have their parameters set to not require gradients,
+    effectively preventing them from being updated during the training process.
+    This is useful for fine-tuning specific parts of a model while keeping
+    other parts fixed.
+    """
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
