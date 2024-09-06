@@ -502,7 +502,9 @@ class Trainer(BaseTrainer):
             self.model.load_state_dict(state_dict)
 
             if optimizer_path.exists():
-                optimizer_state = torch.load(optimizer_path, map_location=self.device)
+                optimizer_state = torch.load(
+                    optimizer_path, map_location=self.device, weights_only=True
+                )
                 self.optimizer.load_state_dict(optimizer_state)
 
     #
