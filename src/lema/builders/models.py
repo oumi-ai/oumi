@@ -207,6 +207,8 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
+    # TODO: Remove this once we have a better way to identify the model class
+    # Or we can just ask the user to specify the model class in the config
     if config.model_type in ("qwen2_vl", "llava", "blip-2"):
         auto_model_class = transformers.AutoModelForVision2Seq
     else:
