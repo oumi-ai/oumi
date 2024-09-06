@@ -273,13 +273,14 @@ def prepare_model_for_distributed(
         mixed_precision = fsdp_config.get(
             "mixed_precision", get_default_fsdp_mixed_precision()
         )
+        cpu_offload = fsdp_config.get("cpu_offload", CPUOffload(offload_params=False))
 
         model = FSDP(
             model,
             auto_wrap_policy=wrapping_policy,
             mixed_precision=mixed_precision,
             device_id=torch.cuda.current_device(),
-            cpu_offload=CPUOffload(offload_params=False),
+            cpu_offload=cpu_offload,
             backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
             limit_all_gathers=True,
         )
