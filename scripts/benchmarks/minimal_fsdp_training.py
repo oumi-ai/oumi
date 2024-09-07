@@ -1,39 +1,12 @@
 import torch
-import torch.nn as nn
-from torch.utils.data import Dataset
 
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.training_params import TrainingParams
+from lema.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from lema.core.tokenizers import BaseTokenizer
 from lema.core.trainers.lema_trainer import Trainer
-
-
-# Simple model
-class SimpleModel(nn.Module):
-    def __init__(self):
-        """Simple model for testing FSDP."""
-        super().__init__()
-        self.linear = nn.Linear(10, 1)
-
-    def forward(self, x):
-        """Forward pass."""
-        return self.linear(x)
-
-
-# Simple dataset
-class SimpleDataset(Dataset):
-    def __init__(self, size=1000):
-        """Simple dataset for testing FSDP."""
-        self.data = torch.randn(size, 10)
-        self.labels = torch.randn(size, 1)
-
-    def __len__(self):
-        """Returns the length of the dataset."""
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        """Gets the sample at index `idx`."""
-        return {"input_ids": self.data[idx], "labels": self.labels[idx]}
+from lema.datasets import DebugPretrainingDataset
+from lema.models import MLPEncoder
 
 
 # Simple tokenizer (just a placeholder for this example)
@@ -42,20 +15,38 @@ class SimpleTokenizer(BaseTokenizer):
         """Simple tokenizer for testing FSDP."""
         self.pad_token_id = 0
 
+    def convert_ids_to_tokens(self, input_ids):
+        """Converts input IDs to tokens."""
+        return str(input_ids)
+
+    def convert_tokens_to_ids(self, tokens):
+        """Converts tokens to input IDs."""
+        if isinstance(tokens, list):
+            return [0] * len(tokens)
+        return 0
+
 
 # Test function
 def test_fsdp_trainer():
     """Minimal FSDP loop."""
     # Initialize model and dataset
-    model = SimpleModel()
-    dataset = SimpleDataset()
+
+    if is_distributed():
+        print("Initializing distributed process group")
+        init_distributed()
+    else:
+        print("Not initializing distributed process group")
+
+    model = MLPEncoder(input_dim=1024, hidden_dim=128, output_dim=1024)
+    dataset = DebugPretrainingDataset(vocab_size=1024)
+    tokenizer = SimpleTokenizer()
 
     # Set up FSDP parameters
     fsdp_params = FSDPParams(enable_fsdp=True)
 
     # Set up training parameters
     training_params = TrainingParams(
-        output_dir="./fsdp_test_output",
+        output_dir="output/fsdp_test_output",
         per_device_train_batch_size=32,
         num_train_epochs=2,
         max_steps=10,  # Just for quick testing
@@ -65,7 +56,7 @@ def test_fsdp_trainer():
     # Initialize trainer
     trainer = Trainer(
         model=model,
-        tokenizer=SimpleTokenizer(),
+        tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,
@@ -79,8 +70,8 @@ def test_fsdp_trainer():
 
     # Load the model from checkpoint
     new_trainer = Trainer(
-        model=SimpleModel(),
-        tokenizer=SimpleTokenizer(),
+        model=model,
+        tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,
@@ -91,11 +82,16 @@ def test_fsdp_trainer():
     new_trainer.train()
 
     # Test inference
-    test_input = torch.randn(1, 10)
+    test_input = torch.randint(low=0, high=1024, size=(10, 1024))
+    test_input = test_input.to(new_trainer.device)
     with torch.no_grad():
         output = new_trainer.model(test_input)
 
-    print("Test output:", output)
+    print("Test output:", output.keys())
+    print("Test output:", {k: v.shape for k, v in output.items()})
+
+    if is_distributed():
+        cleanup_distributed()
 
     return True
 
