@@ -22,6 +22,7 @@ from torch.nn.parallel import DistributedDataParallel
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.utils.model_utils import (
     get_module_class_from_name,
+    guess_transformer_layer_cls,
 )
 from lema.utils.str_utils import str_to_bool
 
@@ -226,37 +227,6 @@ def cleanup_distributed():
 #
 # FSDP and DDP
 #
-def get_default_fsdp_wrapping_policy(model: torch.nn.Module):
-    """Get the FSDP wrapping policy based on the model size.
-
-    Note: this is a naive policy that wraps layers if they have
-    more than 100k parameters.
-
-    Args:
-        model: The PyTorch model.
-
-    Returns:
-        The FSDP wrapping policy.
-
-    """
-    return size_based_auto_wrap_policy(
-        model, min_num_params=100000, recurse=True, nonwrapped_numel=0
-    )
-
-
-def get_default_fsdp_mixed_precision():
-    """Get the FSDP mixed precision settings.
-
-    Returns:
-        MixedPrecision: An object containing the default FSDP mixed precision settings.
-    """
-    return MixedPrecision(
-        param_dtype=torch.bfloat16,
-        reduce_dtype=torch.bfloat16,
-        buffer_dtype=torch.bfloat16,
-    )
-
-
 def prepare_model_for_distributed(
     model: torch.nn.Module,
     use_fsdp: bool = False,
@@ -275,97 +245,106 @@ def prepare_model_for_distributed(
     """
     device_rank_info = get_device_rank_info()
 
-    if use_fsdp and fsdp_config:
-        # Sharding Strategy
-        if fsdp_config.sharding_strategy == "FULL_SHARD":
-            sharding_strategy = ShardingStrategy.FULL_SHARD
-        elif fsdp_config.sharding_strategy == "SHARD_GRAD_OP":
-            sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
-        else:
-            sharding_strategy = ShardingStrategy.NO_SHARD
-
-        # Wrapping Policy
-        if fsdp_config.auto_wrap_policy == "transformer":
-            from lema.utils.model_utils import guess_transformer_layer_cls
-
-            transformer_layer_cls = guess_transformer_layer_cls(model)
-            wrapping_policy = transformer_auto_wrap_policy(
-                transformer_layer_cls={transformer_layer_cls},
-                module=model,
-                recurse=True,
-                nonwrapped_numel=fsdp_config.min_num_params,
-            )
-        elif fsdp_config.auto_wrap_policy == "size_based":
-            wrapping_policy = size_based_auto_wrap_policy(
-                min_num_params=fsdp_config.min_num_params,
-                module=model,
-                recurse=True,
-                nonwrapped_numel=fsdp_config.min_num_params,
-            )
-        else:
-            wrapping_policy = None
-
-        # Mixed Precision
-        mixed_precision = None
-        if fsdp_config.mixed_precision:
-            if fsdp_config.mixed_precision == "bf16":
-                dtype = torch.bfloat16
-            elif fsdp_config.mixed_precision == "fp16":
-                dtype = torch.float16
-            else:
-                raise ValueError(
-                    f"Unsupported mixed precision type: {fsdp_config.mixed_precision}"
-                )
-            mixed_precision = MixedPrecision(
-                param_dtype=dtype,
-                reduce_dtype=dtype,
-                buffer_dtype=dtype,
-            )
-
-        # CPU Offload
-        cpu_offload = CPUOffload(offload_params=fsdp_config.cpu_offload)
-
-        # Backward Prefetch
-        backward_prefetch = (
-            BackwardPrefetch.BACKWARD_PRE if fsdp_config.backward_prefetch else None
-        )
-
-        # TODO: fix auto wrap policy
-        model = FSDP(
-            model,
-            sharding_strategy=sharding_strategy,
-            auto_wrap_policy=wrapping_policy,  # type: ignore
-            mixed_precision=mixed_precision,
-            device_id=torch.cuda.current_device(),
-            cpu_offload=cpu_offload,
-            backward_prefetch=backward_prefetch,
-            limit_all_gathers=True,
-        )
-
-        if fsdp_config.activation_checkpointing:
-            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-                apply_activation_checkpointing,
-                checkpoint_wrapper,
-            )
-
-            def check_fn(module):
-                if fsdp_config.transformer_layer_cls:
-                    layer_cls = get_module_class_from_name(
-                        fsdp_config.transformer_layer_cls
-                    )
-                else:
-                    layer_cls = guess_transformer_layer_cls(model)
-                return isinstance(module, layer_cls)
-
-            apply_activation_checkpointing(
-                model,
-                checkpoint_wrapper_fn=checkpoint_wrapper,
-                check_fn=check_fn,
-            )
-    else:
+    if not use_fsdp:
         model = DistributedDataParallel(
             model,
             device_ids=[device_rank_info.local_rank],
+        )
+        return model
+
+    if not fsdp_config:
+        raise ValueError("FSDP is being used but no FSDP config is provided.")
+
+    # Sharding Strategy
+    if fsdp_config.sharding_strategy == "FULL_SHARD":
+        sharding_strategy = ShardingStrategy.FULL_SHARD
+    elif fsdp_config.sharding_strategy == "SHARD_GRAD_OP":
+        sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+    else:
+        sharding_strategy = ShardingStrategy.NO_SHARD
+
+    # Wrapping Policy
+    if fsdp_config.auto_wrap_policy == "transformer":
+        transformer_layer_cls = guess_transformer_layer_cls(model)
+        wrapping_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={transformer_layer_cls},
+            recurse=True,
+            nonwrapped_numel=0,
+        )
+    elif fsdp_config.auto_wrap_policy == "size_based":
+        wrapping_policy = functools.partial(
+            size_based_auto_wrap_policy,
+            min_num_params=fsdp_config.min_num_params,
+            recurse=True,
+            nonwrapped_numel=0,
+        )
+
+    else:
+        wrapping_policy = None
+
+    # Mixed Precision
+    mixed_precision = None
+    if fsdp_config.mixed_precision:
+        if fsdp_config.mixed_precision == "bf16":
+            dtype = torch.bfloat16
+        elif fsdp_config.mixed_precision == "fp16":
+            dtype = torch.float16
+        else:
+            raise ValueError(
+                f"Unsupported mixed precision type: {fsdp_config.mixed_precision}"
+            )
+        mixed_precision = MixedPrecision(
+            param_dtype=dtype,
+            reduce_dtype=dtype,
+            buffer_dtype=dtype,
+        )
+
+    # CPU Offload
+    cpu_offload = CPUOffload(offload_params=fsdp_config.cpu_offload)
+
+    # Backward Prefetch
+    backward_prefetch = (
+        BackwardPrefetch.BACKWARD_PRE if fsdp_config.backward_prefetch else None
+    )
+
+    model = FSDP(
+        model,
+        sharding_strategy=sharding_strategy,
+        cpu_offload=cpu_offload,
+        backward_prefetch=backward_prefetch,
+        mixed_precision=mixed_precision,
+        auto_wrap_policy=wrapping_policy,
+        device_id=torch.cuda.current_device(),
+        limit_all_gathers=True,
+        # Add co
+        sync_module_states=False,
+        forward_prefetch=False,
+        # Leaving these to their default values for now
+        # but we may want to make them configurable later
+        param_init_fn=None,
+        ignored_modules=None,
+    )
+
+    if fsdp_config.activation_checkpointing:
+        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+            apply_activation_checkpointing,
+            checkpoint_wrapper,
+        )
+
+        def check_fn(module):
+            if fsdp_config and fsdp_config.transformer_layer_cls:
+                layer_cls = get_module_class_from_name(
+                    fsdp_config.transformer_layer_cls
+                )
+            else:
+                layer_cls = guess_transformer_layer_cls(model)
+            return isinstance(module, layer_cls)
+
+        apply_activation_checkpointing(
+            model,
+            checkpoint_wrapper_fn=checkpoint_wrapper,
+            check_fn=check_fn,
         )
 
     return model
