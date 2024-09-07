@@ -1,4 +1,5 @@
 import torch
+import torch.multiprocessing as mp
 
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.training_params import TrainingParams
@@ -103,7 +104,9 @@ def test_fsdp_trainer():
     return True
 
 
-# Run the test
 if __name__ == "__main__":
-    success = test_fsdp_trainer()
-    print("FSDP test successful:", success)
+    world_size = torch.cuda.device_count()
+    print(f"Starting FSDP / DDP test with {world_size} GPUs")
+
+    mp.spawn(test_fsdp_trainer, nprocs=world_size, join=True)
+    print("FSDP test successful!")
