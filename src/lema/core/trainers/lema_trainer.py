@@ -61,7 +61,7 @@ class Trainer(BaseTrainer):
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
-        fsdp_config: Optional[FSDPParams] = None,
+        fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
@@ -75,7 +75,7 @@ class Trainer(BaseTrainer):
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
 
-        self.fsdp_params = fsdp_config or FSDPParams()
+        self.fsdp_params = fsdp_params or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
 
         self.params.validate()
