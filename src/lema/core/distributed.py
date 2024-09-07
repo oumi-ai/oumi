@@ -20,10 +20,10 @@ from torch.distributed.fsdp.wrap import (
 from torch.nn.parallel import DistributedDataParallel
 
 from lema.core.configs.params.fsdp_params import FSDPParams
-from lema.utils.model_utils import (
+from lema.utils.str_utils import str_to_bool
+from lema.utils.torch_naming_heuristics import (
     guess_transformer_layer_cls,
 )
-from lema.utils.str_utils import str_to_bool
 
 
 #
