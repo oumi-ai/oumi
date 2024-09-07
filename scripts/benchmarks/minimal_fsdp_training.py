@@ -37,14 +37,18 @@ def test_fsdp_trainer():
     else:
         print("Not initializing distributed process group")
 
+    #
+    # Init model and dataset
+    #
     model = MLPEncoder(input_dim=1024, hidden_dim=128, output_dim=1024)
     dataset = DebugPretrainingDataset(vocab_size=1024)
     tokenizer = SimpleTokenizer()
 
-    # Set up FSDP parameters
+    #
+    # Set up training parameters
+    #
     fsdp_params = FSDPParams(enable_fsdp=True)
 
-    # Set up training parameters
     training_params = TrainingParams(
         output_dir="output/fsdp_test_output",
         per_device_train_batch_size=32,
@@ -62,26 +66,29 @@ def test_fsdp_trainer():
         fsdp_params=fsdp_params,
     )
 
-    # Train for a few steps
+    #
+    # Train session #1: from scratch
+    #
     trainer.train()
-
-    # Save the model
     trainer.save_state()
 
-    # Load the model from checkpoint
+    #
+    # Train session #2: from checkpoint
+    #
+    new_model = MLPEncoder(input_dim=1024, hidden_dim=128, output_dim=1024)
     new_trainer = Trainer(
-        model=model,
+        model=new_model,
         tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,
     )
-    new_trainer._load_from_checkpoint("./fsdp_test_output")
-
     # Resume training
-    new_trainer.train()
+    new_trainer.train(resume_from_checkpoint=training_params.output_dir)
 
+    #
     # Test inference
+    #
     test_input = torch.randint(low=0, high=1024, size=(10, 1024))
     test_input = test_input.to(new_trainer.device)
     with torch.no_grad():
