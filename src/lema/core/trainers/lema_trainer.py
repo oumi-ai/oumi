@@ -261,10 +261,11 @@ class Trainer(BaseTrainer):
                     self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
-                    batch = {
-                        k: v.to(self.device, non_blocking=True)
-                        for k, v in batch.items()
-                    }
+                    if not self.is_using_fsdp:
+                        batch = {
+                            k: v.to(self.device, non_blocking=True)
+                            for k, v in batch.items()
+                        }
 
                 with self.mixed_precision_ctx, self._telemetry_block("model forward"):
                     self.model.require_backward_grad_sync = (  # type: ignore
@@ -366,7 +367,7 @@ class Trainer(BaseTrainer):
     #
     # Evaluation
     #
-    @torch.no_grad
+    @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
         """Evaluates the model on the evaluation dataset."""
         if self.eval_dataloader is None:
@@ -425,6 +426,12 @@ class Trainer(BaseTrainer):
                     filename=telemetry_state_path,
                 )
 
+        if self.is_using_fsdp:
+            model_path = checkpoint_dir / "model.safetensors"
+            optimizer_path = checkpoint_dir / "optimizer.pt"
+
+            self._save_fsdp_state(model_path, optimizer_path)
+
         if is_world_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
 
@@ -434,9 +441,7 @@ class Trainer(BaseTrainer):
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
 
-            if self.is_using_fsdp:
-                self._save_fsdp_state(model_path, optimizer_path)
-            else:
+            if not self.is_using_fsdp:
                 safetensors.torch.save_model(model=self.model, filename=str(model_path))
                 torch.save(self.optimizer.state_dict(), optimizer_path)
 
@@ -513,11 +518,15 @@ class Trainer(BaseTrainer):
             if state_dict_type == StateDictType.FULL_STATE_DICT:
                 state_dict = safetensors.torch.load_file(model_path, device="cpu")
             else:
-                state_dict = torch.load(model_path, map_location="cpu")
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=True
+                )
             self.model.load_state_dict(state_dict)
 
         if optimizer_path.exists():
-            optim_state_dict = torch.load(optimizer_path, map_location="cpu")
+            optim_state_dict = torch.load(
+                optimizer_path, map_location="cpu", weights_only=True
+            )
             optim_state = FSDP.optim_state_dict_to_load(
                 model=self.model,
                 optim=self.optimizer,
