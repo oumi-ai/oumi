@@ -1,5 +1,18 @@
+"""Minimal FSDP training loop.
+
+This script demonstrates a minimal FSDP training loop using the Lema framework.
+
+Run the script using torchrun for multi-GPU training:
+   torchrun --standalone --nproc_per_node=NUM_GPUS \
+        scripts/benchmarks/minimal_fsdp_training.py
+
+   Replace NUM_GPUS with the number of GPUs you want to use.
+
+For single-GPU or CPU training, you can run the script directly:
+   python scripts/benchmarks/minimal_fsdp_training.py
+"""
+
 import torch
-import torch.multiprocessing as mp
 
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.training_params import TrainingParams
@@ -108,5 +121,5 @@ if __name__ == "__main__":
     world_size = torch.cuda.device_count()
     print(f"Starting FSDP / DDP test with {world_size} GPUs")
 
-    mp.spawn(test_fsdp_trainer, nprocs=world_size, join=True)
+    test_fsdp_trainer()
     print("FSDP test successful!")
