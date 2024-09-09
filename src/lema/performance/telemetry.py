@@ -265,7 +265,7 @@ class TelemetryTracker:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
         log_lines: List[str] = [
-            "Telemetry Summary:",
+            f"Telemetry Summary ({summary['hostname']}):",
             f"Total time: {summary['total_time']:.2f} seconds",
         ]
 
