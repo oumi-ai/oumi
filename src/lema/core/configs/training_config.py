@@ -56,7 +56,7 @@ class TrainingConfig(BaseConfig):
     For more details, see :class:`lema.core.configs.params.peft_params.PeftParams`.
     """
 
-    fsdp_config: FSDPParams = field(default_factory=FSDPParams)
+    fsdp: FSDPParams = field(default_factory=FSDPParams)
     """Configuration options for FSDP."""
 
     def __post_init__(self):

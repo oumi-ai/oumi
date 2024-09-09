@@ -321,6 +321,7 @@ def prepare_model_for_distributed(
         forward_prefetch=fsdp_config.forward_prefetch,
         # Leaving these to their default values for now
         # but we may want to make them configurable later
+        use_orig_params=True,  # This needs to be True for torch.compile to work
         param_init_fn=None,
         ignored_modules=None,
     )

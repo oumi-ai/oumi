@@ -16,7 +16,6 @@ import wandb
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
-    set_state_dict,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -435,7 +434,7 @@ class Trainer(BaseTrainer):
                 cpu_offload=self.fsdp_params.cpu_offload,
                 ignore_frozen_params=False,
                 strict=True,
-                broadcast_from_rank0=True,
+                broadcast_from_rank0=False,  # TODO: make this configurable
             )
         else:
             storage_options = None
@@ -446,16 +445,16 @@ class Trainer(BaseTrainer):
             options=storage_options,
         )
 
+        model_path = checkpoint_dir / "model"
+        optimizer_path = checkpoint_dir / "optimizer"
+        dataloader_state_path = checkpoint_dir / "dataloader.pt"
+        trainer_state_path = checkpoint_dir / "trainer_state.json"
+        telemetry_state_path = checkpoint_dir / "telemetry.json"
+
+        dcp.save(model_state_dict, checkpoint_id=model_path)
+        dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
+
         if is_world_process_zero():
-            model_path = checkpoint_dir / "model.safetensors"
-            optimizer_path = checkpoint_dir / "optimizer.pt"
-            dataloader_state_path = checkpoint_dir / "dataloader.pt"
-            trainer_state_path = checkpoint_dir / "trainer_state.json"
-            telemetry_state_path = checkpoint_dir / "telemetry.json"
-
-            dcp.save(model_state_dict, checkpoint_id=model_path)
-            dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
-
             torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
             save_json(data=self.state.model_dump(), filename=trainer_state_path)
             save_json(data=self.telemetry.state_dict(), filename=telemetry_state_path)
@@ -465,8 +464,8 @@ class Trainer(BaseTrainer):
         """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
-        model_path = checkpoint_dir / "model.safetensors"
-        optimizer_path = checkpoint_dir / "optimizer.pt"
+        model_path = checkpoint_dir / "model"
+        optimizer_path = checkpoint_dir / "optimizer"
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
@@ -484,7 +483,7 @@ class Trainer(BaseTrainer):
                 cpu_offload=self.fsdp_params.cpu_offload,
                 ignore_frozen_params=False,
                 strict=True,
-                broadcast_from_rank0=True,
+                broadcast_from_rank0=False,
             )
         else:
             storage_options = None
@@ -497,13 +496,6 @@ class Trainer(BaseTrainer):
 
         dcp.load(model_state_dict, checkpoint_id=model_path)
         dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
-
-        set_state_dict(
-            model=self.model,
-            optimizers=self.optimizer,
-            model_state_dict=model_state_dict,
-            optim_state_dict=optimizer_state_dict,
-        )
 
         if dataloader_state_path.exists():
             self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
