@@ -25,7 +25,8 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 
 ### Quickstart
 
-0. (Optional) Set up a Conda environment + Git
+0. (Optional) Set up Git and Conda
+
    For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
 
 1. Install the package:
