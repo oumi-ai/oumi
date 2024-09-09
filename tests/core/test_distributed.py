@@ -5,6 +5,7 @@ import pytest
 
 from lema.core.distributed import (
     DeviceRankInfo,
+    all_gather_object,
     estimate_dataloader_num_workers,
     global_leader_first,
     global_leader_only,
@@ -284,3 +285,25 @@ def test_estimate_dataloader_num_workers(mock_device_rank_info):
     )
     assert estimate_dataloader_num_workers(None, cpu_count=32) == 8
     assert estimate_dataloader_num_workers(None, cpu_count=8) == 2
+
+
+def test_all_gather_object_single_gpu(mock_device_rank_info, mock_torch_distributed):
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=1, rank=0, local_world_size=1, local_rank=0
+    )
+
+    with assert_function_called(mock_device_rank_info, times=2), assert_function_called(
+        mock_torch_distributed, times=0
+    ):
+        assert all_gather_object({"aa": 12, "bb": 20}) == [{"aa": 12, "bb": 20}]
+
+
+def test_all_gather_object_multi_gpu(mock_device_rank_info, mock_torch_distributed):
+    mock_device_rank_info.return_value = DeviceRankInfo(
+        world_size=4, rank=2, local_world_size=2, local_rank=0
+    )
+
+    with assert_function_called(mock_device_rank_info, times=2), assert_function_called(
+        mock_torch_distributed, times=1
+    ):
+        assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}]
