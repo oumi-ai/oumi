@@ -7,13 +7,13 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
+The LeMa Platform enables the end-to-end development of foundation and specialized models including data curation/synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
-- **Run anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
-- **Instruction Fine-tuning**: Comprehensive instruction fine-tuning capabilities, including SFT, DPO, LoRA, and more
-- **Scalable Training**: Built-in support for distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
+- **Run Anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
+- **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more
+- **Scalability**: Built-in support for multi-node distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP). Inference support for Llama 405B and beyond.
 - **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris
 - **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
 - **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
