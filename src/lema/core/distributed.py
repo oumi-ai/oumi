@@ -21,9 +21,6 @@ from torch.nn.parallel import DistributedDataParallel
 
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.utils.str_utils import str_to_bool
-from lema.utils.torch_naming_heuristics import (
-    guess_transformer_layer_cls,
-)
 
 
 #
@@ -264,6 +261,10 @@ def prepare_model_for_distributed(
 
     # Wrapping Policy
     if fsdp_config.auto_wrap_policy == "transformer":
+        from lema.utils.torch_naming_heuristics import (
+            guess_transformer_layer_cls,
+        )
+
         transformer_layer_cls = guess_transformer_layer_cls(model)
         wrapping_policy = functools.partial(
             transformer_auto_wrap_policy,
