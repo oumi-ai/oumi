@@ -316,36 +316,13 @@ def prepare_model_for_distributed(
         auto_wrap_policy=wrapping_policy,
         device_id=torch.cuda.current_device(),
         limit_all_gathers=True,
-        # TODO: Add flags for these
-        sync_module_states=True,
-        forward_prefetch=False,
+        sync_module_states=fsdp_config.sync_module_states,
+        forward_prefetch=fsdp_config.forward_prefetch,
         # Leaving these to their default values for now
         # but we may want to make them configurable later
         param_init_fn=None,
         ignored_modules=None,
     )
-
-    # TODO: Add activation checkpointing
-    # if fsdp_config.activation_checkpointing:
-    #     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-    #         apply_activation_checkpointing,
-    #         checkpoint_wrapper,
-    #     )
-
-    #     def check_fn(module):
-    #         if fsdp_config and fsdp_config.transformer_layer_cls:
-    #             layer_cls = get_module_class_from_name(
-    #                 fsdp_config.transformer_layer_cls
-    #             )
-    #         else:
-    #             layer_cls = guess_transformer_layer_cls(model)
-    #         return isinstance(module, layer_cls)
-
-    #     apply_activation_checkpointing(
-    #         model,
-    #         checkpoint_wrapper_fn=checkpoint_wrapper,
-    #         check_fn=check_fn,
-    # )
 
     return model
 
