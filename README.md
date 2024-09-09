@@ -25,15 +25,17 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 
 ### Quickstart
 
+0. (Optional) Set up Git and Conda:
+
+   For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
+
 1. Install the package:
 
    ```shell
    pip install 'lema[cloud,dev,train,gpu]'
    ```
 
-   For detailed instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
-
-2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
+2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):
 
 3. Run training locally:
 
