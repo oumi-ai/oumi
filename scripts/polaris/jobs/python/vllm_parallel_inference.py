@@ -120,6 +120,7 @@ def main():
                     response = self.client.post(url="/chat/completions", json=payload)
                     request_complete_time = time.perf_counter()
                     response_dict = response.json()
+                    print("response!------------------------------", response_dict)
                     response_message = response_dict["choices"][0]["message"]["content"]
                     num_input_tokens = response_message["usage"]["prompt_tokens"]
                     num_output_tokens = response_message["usage"]["completion_tokens"]
@@ -128,6 +129,7 @@ def main():
                     )
                     REQUEST_TIMES[index] = (request_sent_time, request_complete_time)
                 except Exception as e:
+                    print("failure!------------------------------")
                     print(e)
                     if index not in failed_request_counts:
                         failed_request_counts[index] = 0
@@ -160,8 +162,10 @@ def main():
     total_input_tokens = 0
     total_output_tokens = 0
     requests_completed = 0
+    print("expected iterations", len(ALL_MESSAGES), "------------------------------")
     while requests_completed < len(ALL_MESSAGES):
         queue_item = output_queue.get()
+        print("got output!------------------------------")
         index, response_message, num_input_tokens, num_output_tokens = queue_item
         output_queue.task_done()
         messages = ALL_MESSAGES[index]
@@ -172,6 +176,7 @@ def main():
         requests_completed += 1
         pbar.update()
 
+        print("writing!------------------------------")
         with jsonlines.open(OUTPUT_FILE_PATH, mode="a") as writer:
             request_sent_time, request_complete_time = REQUEST_TIMES[index]
             elapsed_time = request_complete_time - request_sent_time
