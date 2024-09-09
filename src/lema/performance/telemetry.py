@@ -290,9 +290,11 @@ class TelemetryTracker:
         LOGGER.info("\n".join(log_lines))
 
     def get_summaries_from_all_ranks(self) -> List[Dict[str, Any]]:
-        """Returns a array of telemetry summaries from all ranks.
+        """Returns an array of telemetry summaries from all ranks.
 
-        If distributed training is not used then returns an array with 1 element.
+        To work correctly in distributed environment, the method must be called
+        by all ranks. If distributed training is not used then returns
+        an array with 1 element (the current rank's summary).
 
         Returns:
             A list of telemetry summaries indexed by rank.
@@ -309,6 +311,18 @@ class TelemetryTracker:
     def load_state_dict(self, state_dict: dict) -> None:
         """Loads TelemetryState from state_dict."""
         self.state = TelemetryState.model_validate(state_dict, strict=True)
+
+    def get_state_dicts_from_all_ranks(self) -> List[dict]:
+        """Returns an array of `state_dict`-s from all ranks.
+
+        To work correctly in distributed environment, the method must be called
+        by all ranks. If distributed training is not used then returns
+        an array with 1 element (the current rank's summary).
+
+        Returns:
+            A list of `state_dict`-s indexed by rank.
+        """
+        return all_gather_object(self.state_dict())
 
     #
     # Helper Methods

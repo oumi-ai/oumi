@@ -193,14 +193,17 @@ class TelemetryCallback(transformers.TrainerCallback):
         logger.info(f"Saving telemetry stats to {telemetry_file}...")
         save_json(summary, telemetry_file)
 
-        if is_world_process_zero() and not self._world_process_zero_only:
+        if not self._world_process_zero_only:
             summaries = self._telemetry.get_summaries_from_all_ranks()
-            summaries_dict = {
-                f"rank{rank:04}": summary for rank, summary in enumerate(summaries)
-            }
-            telemetry_file = self._output_dir / "telemetry_for_all_ranks.json"
-            logger.info(f"Saving telemetry stats for all ranks to {telemetry_file}...")
-            save_json(summaries_dict, telemetry_file)
+            if is_world_process_zero():
+                summaries_dict = {
+                    f"rank{rank:04}": summary for rank, summary in enumerate(summaries)
+                }
+                telemetry_file = self._output_dir / "telemetry_for_all_ranks.json"
+                logger.info(
+                    f"Saving telemetry stats for all ranks to {telemetry_file}..."
+                )
+                save_json(summaries_dict, telemetry_file)
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
