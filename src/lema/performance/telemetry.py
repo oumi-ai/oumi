@@ -1,4 +1,5 @@
 import collections
+import socket
 import statistics
 import time
 from contextlib import ContextDecorator
@@ -16,12 +17,13 @@ LOGGER = get_logger("lema.telemetry")
 
 
 class TelemetryState(pydantic.BaseModel):
+    start_time: float = pydantic.Field(default_factory=time.perf_counter)
+    hostname: str = pydantic.Field(default_factory=socket.gethostname)
     measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
     # TODO: OPE-226 - implement async timers
     cuda_measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
     gpu_memory: List[Dict[str, float]] = pydantic.Field(default_factory=list)
     gpu_temperature: List[float] = pydantic.Field(default_factory=list)
-    start_time: float = pydantic.Field(default_factory=time.perf_counter)
 
 
 class TimerContext(ContextDecorator):
@@ -236,6 +238,7 @@ class TelemetryTracker:
         total_time = time.perf_counter() - self.state.start_time
 
         summary = {
+            "hostname": self.state.hostname,
             "total_time": total_time,
             "timers": {},
             "cuda_timers": {},
