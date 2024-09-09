@@ -10,13 +10,13 @@ import pydantic
 import safetensors.torch
 import torch
 import torch.amp
+import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 import wandb
-from torch.distributed.fsdp import (
-    FullyShardedDataParallel as FSDP,
-)
-from torch.distributed.fsdp import (
-    StateDictType,
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_state_dict,
+    set_state_dict,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -412,6 +412,9 @@ class Trainer(BaseTrainer):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
+        if is_local_process_zero():
+            checkpoint_dir.mkdir(exist_ok=True)
+
         if self.params.telemetry.collect_telemetry_for_all_ranks:
             telemetry_dir = self.params.telemetry_dir
             # TODO: Gather telemetry from all ranks.
@@ -427,46 +430,36 @@ class Trainer(BaseTrainer):
                 )
 
         if self.is_using_fsdp:
-            model_path = checkpoint_dir / "model.safetensors"
-            optimizer_path = checkpoint_dir / "optimizer.pt"
+            storage_options = StateDictOptions(
+                full_state_dict=self.fsdp_params.state_dict_type == "FULL_STATE_DICT",
+                cpu_offload=self.fsdp_params.cpu_offload,
+                ignore_frozen_params=False,
+                strict=True,
+                broadcast_from_rank0=True,
+            )
+        else:
+            storage_options = None
 
-            self._save_fsdp_state(model_path, optimizer_path)
+        model_state_dict, optimizer_state_dict = get_state_dict(
+            model=self.model,
+            optimizers=self.optimizer,
+            options=storage_options,
+        )
 
         if is_world_process_zero():
-            checkpoint_dir.mkdir(exist_ok=True)
-
             model_path = checkpoint_dir / "model.safetensors"
             optimizer_path = checkpoint_dir / "optimizer.pt"
             dataloader_state_path = checkpoint_dir / "dataloader.pt"
             trainer_state_path = checkpoint_dir / "trainer_state.json"
             telemetry_state_path = checkpoint_dir / "telemetry.json"
 
-            if not self.is_using_fsdp:
-                safetensors.torch.save_model(model=self.model, filename=str(model_path))
-                torch.save(self.optimizer.state_dict(), optimizer_path)
+            dcp.save(model_state_dict, checkpoint_id=model_path)
+            dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
 
             torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
             save_json(data=self.state.model_dump(), filename=trainer_state_path)
             save_json(data=self.telemetry.state_dict(), filename=telemetry_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
-
-    def _save_fsdp_state(self, model_path: Path, optimizer_path: Path):
-        """Saves the FSDP model and optimizer state."""
-        state_dict_type = (
-            StateDictType.FULL_STATE_DICT
-            if self.fsdp_params.state_dict_type == "FULL_STATE_DICT"
-            else StateDictType.SHARDED_STATE_DICT
-        )
-
-        with FSDP.state_dict_type(self.model, state_dict_type):
-            if state_dict_type == StateDictType.FULL_STATE_DICT:
-                model_state = self.model.state_dict()
-                safetensors.torch.save_file(model_state, model_path)
-            else:
-                torch.save(self.model.state_dict(), model_path)
-
-            optimizer_state = FSDP.optim_state_dict(self.model, self.optimizer)
-            torch.save(optimizer_state, optimizer_path)
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
@@ -478,22 +471,39 @@ class Trainer(BaseTrainer):
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
 
-        if model_path.exists():
-            if self.is_using_fsdp:
-                self._load_fsdp_state(model_path, optimizer_path)
-            else:
-                safetensors.torch.load_model(
-                    self.model,
-                    filename=str(model_path),
-                    strict=True,
-                    device=self.device,
-                )
-                if optimizer_path.exists():
-                    self.optimizer.load_state_dict(
-                        torch.load(
-                            optimizer_path, map_location=self.device, weights_only=True
-                        )
-                    )
+        if (
+            not checkpoint_dir.exists()
+            or not model_path.exists()
+            or not optimizer_path.exists()
+        ):
+            raise ValueError("Invalid checkpoint")
+
+        if self.is_using_fsdp:
+            storage_options = StateDictOptions(
+                full_state_dict=self.fsdp_params.state_dict_type == "FULL_STATE_DICT",
+                cpu_offload=self.fsdp_params.cpu_offload,
+                ignore_frozen_params=False,
+                strict=True,
+                broadcast_from_rank0=True,
+            )
+        else:
+            storage_options = None
+
+        model_state_dict, optimizer_state_dict = get_state_dict(
+            model=self.model,
+            optimizers=self.optimizer,
+            options=storage_options,
+        )
+
+        dcp.load(model_state_dict, checkpoint_id=model_path)
+        dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
+
+        set_state_dict(
+            model=self.model,
+            optimizers=self.optimizer,
+            model_state_dict=model_state_dict,
+            optim_state_dict=optimizer_state_dict,
+        )
 
         if dataloader_state_path.exists():
             self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
@@ -505,34 +515,6 @@ class Trainer(BaseTrainer):
             self.telemetry.load_state_dict(load_json(telemetry_state_path))
 
         self.log(f"Resumed training from checkpoint: {checkpoint_dirname}")
-
-    def _load_fsdp_state(self, model_path: Path, optimizer_path: Path):
-        """Loads the FSDP model and optimizer state."""
-        state_dict_type = (
-            StateDictType.FULL_STATE_DICT
-            if self.fsdp_params.state_dict_type == "FULL_STATE_DICT"
-            else StateDictType.SHARDED_STATE_DICT
-        )
-
-        with FSDP.state_dict_type(self.model, state_dict_type):
-            if state_dict_type == StateDictType.FULL_STATE_DICT:
-                state_dict = safetensors.torch.load_file(model_path, device="cpu")
-            else:
-                state_dict = torch.load(
-                    model_path, map_location="cpu", weights_only=True
-                )
-            self.model.load_state_dict(state_dict)
-
-        if optimizer_path.exists():
-            optim_state_dict = torch.load(
-                optimizer_path, map_location="cpu", weights_only=True
-            )
-            optim_state = FSDP.optim_state_dict_to_load(
-                model=self.model,
-                optim=self.optimizer,
-                optim_state_dict=optim_state_dict,
-            )
-            self.optimizer.load_state_dict(optim_state)
 
     #
     # Logging
