@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, cast
 import pydantic
 import torch
 
+from lema.core.distributed import all_gather_object
 from lema.utils.debugging_utils import get_nvidia_gpu_temperature
 from lema.utils.logging import get_logger
 
@@ -287,6 +288,16 @@ class TelemetryTracker:
         # Log everything as a single value to ensure that stats from different
         # ranks aren't interleaved confusingly.
         LOGGER.info("\n".join(log_lines))
+
+    def get_summaries_from_all_ranks(self) -> List[Dict[str, Any]]:
+        """Returns a array of telemetry summaries from all ranks.
+
+        If distributed training is not used then returns an array with 1 element.
+
+        Returns:
+            A list of telemetry summaries indexed by rank.
+        """
+        return all_gather_object(self.get_summary())
 
     #
     # State Management

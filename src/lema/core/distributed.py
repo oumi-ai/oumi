@@ -2,7 +2,7 @@ import functools
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 import torch
 import torch.distributed as dist
@@ -123,6 +123,20 @@ def barrier(group: Optional[dist.ProcessGroup] = None, monitored: bool = False) 
         return
 
     return
+
+
+def all_gather_object(obj: Any, group: Optional[dist.ProcessGroup] = None) -> List[Any]:
+    """Gathers picklable objects from the whole group into a list."""
+    verify_torch_distributed_initialized_if_needed()
+    if is_distributed():
+        device_rank_info: DeviceRankInfo = get_device_rank_info()
+        # Placeholder array to gather results from all workers.
+        object_list = [None] * device_rank_info.world_size
+        dist.all_gather_object(object_list, obj, group=group)
+    else:
+        object_list = [obj]
+
+    return object_list
 
 
 def local_leader_only(*barrier_args, **barrier_kwargs):

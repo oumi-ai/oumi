@@ -192,7 +192,9 @@ def _create_training_performance_callbacks_if_needed(
     result.append(
         TelemetryCallback(
             skip_first_steps=2,
-            world_process_zero_only=True,
+            world_process_zero_only=(
+                not config.training.telemetry.collect_telemetry_for_all_ranks
+            ),
             output_dir=telemetry_dir,
             track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
