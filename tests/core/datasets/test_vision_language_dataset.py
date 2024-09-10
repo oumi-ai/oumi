@@ -15,8 +15,9 @@ def mock_processor():
     processor.image_processor = Mock()
     processor.chat_template = None
     processor.side_effect = lambda images, text, return_tensors, padding: {
-        "input_ids": Mock(),
+        "input_ids": [[1]],
         "attention_mask": Mock(),
+        "pixel_values": [[1]],
     }
     return processor
 
@@ -72,6 +73,7 @@ def test_transform_simple_model(test_dataset):
     assert "input_ids" in result
     assert "attention_mask" in result
     assert "labels" in result
+    assert "pixel_values" in result
 
 
 def test_transform_instruct_model(test_dataset, mock_processor):
@@ -88,4 +90,5 @@ def test_transform_instruct_model(test_dataset, mock_processor):
     assert "input_ids" in result
     assert "attention_mask" in result
     assert "labels" in result
+    assert "pixel_values" in result
     mock_processor.apply_chat_template.assert_called_once()
