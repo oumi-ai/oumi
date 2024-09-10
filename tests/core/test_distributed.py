@@ -2,7 +2,6 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch.distributed
 
 from lema.core.distributed import (
     DeviceRankInfo,
@@ -304,10 +303,7 @@ def test_all_gather_object_multi_gpu(mock_device_rank_info, mock_torch_distribut
         world_size=4, rank=2, local_world_size=2, local_rank=0
     )
 
-    # mock_torch_distributed.is_distributed.return_value = True
-    # mock_torch_distributed.is_initialized.return_value = True
-
-    assert torch.distributed.is_initialized()
-
-    with assert_function_called(mock_device_rank_info, times=2):
+    with assert_function_called(mock_device_rank_info, times=2), assert_function_called(
+        mock_torch_distributed, times=0
+    ):
         assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}]
