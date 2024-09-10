@@ -199,7 +199,7 @@ class TelemetryCallback(transformers.TrainerCallback):
                 summaries_dict = {
                     f"rank{rank:04}": summary for rank, summary in enumerate(summaries)
                 }
-                telemetry_file = self._output_dir / "telemetry_all_ranks.json"
+                telemetry_file = self._output_dir / "telemetry_callback_all_ranks.json"
                 logger.info(
                     f"Saving telemetry callback stats "
                     f"for all ranks to {telemetry_file}..."
