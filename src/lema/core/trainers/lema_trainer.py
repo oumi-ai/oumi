@@ -406,8 +406,7 @@ class Trainer(BaseTrainer):
             if telemetry_dir:
                 device_rank_info = get_device_rank_info()
                 telemetry_state_path = (
-                    telemetry_dir
-                    / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
+                    telemetry_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
                 )
                 save_json(
                     data=self.telemetry.state_dict(),
@@ -448,7 +447,7 @@ class Trainer(BaseTrainer):
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = (
-            checkpoint_dir / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
+            checkpoint_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
         )
 
         if model_path.exists():

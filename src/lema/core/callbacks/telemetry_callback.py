@@ -189,9 +189,10 @@ class TelemetryCallback(transformers.TrainerCallback):
                 summary = self._telemetry.get_summary()
                 device_rank_info = get_device_rank_info()
                 telemetry_file = (
-                    self._output_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
+                    self._output_dir
+                    / f"telemetry_callback_rank{device_rank_info.rank:04}.json"
                 )
-                logger.info(f"Saving telemetry stats to {telemetry_file}...")
+                logger.info(f"Saving telemetry callback stats to {telemetry_file}...")
                 save_json(summary, telemetry_file)
             else:
                 summaries = self._telemetry.get_summaries_from_all_ranks()
@@ -200,7 +201,8 @@ class TelemetryCallback(transformers.TrainerCallback):
                 }
                 telemetry_file = self._output_dir / "telemetry_all_ranks.json"
                 logger.info(
-                    f"Saving telemetry stats for all ranks to {telemetry_file}..."
+                    f"Saving telemetry callback stats "
+                    f"for all ranks to {telemetry_file}..."
                 )
                 save_json(summaries_dict, telemetry_file)
 
