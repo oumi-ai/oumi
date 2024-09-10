@@ -1,7 +1,7 @@
 name: llama2b-pt
 
 resources:
-  accelerators: {"A100"}
+  accelerators: {"A100": 4}
   any_of:
     - use_spot: true
     - use_spot: false
@@ -41,7 +41,7 @@ run: |
       "training.gradient_accumulation_steps=64" \
       "training.compile=true" \
       "training.max_steps=20" \
-      "training.save_steps=100" \
-      "training.save_final_model=true"
+      "training.save_steps=0" \
+      "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
