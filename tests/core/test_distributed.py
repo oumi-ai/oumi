@@ -313,7 +313,13 @@ def test_all_gather_object_multi_gpu(
         for i in range(len(object_list)):
             object_list[i] = obj
 
-    mock_torch_distributed.all_gather_object = _all_gather_object_replicate
+    mock_torch_distributed.all_gather_object = MagicMock(
+        side_effect=_all_gather_object_replicate
+    )
 
     with assert_function_called(mock_device_rank_info, times=3):
         assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}] * 4
+
+    assert mock_torch_distributed.is_available.call_count == 1
+    assert mock_torch_distributed.is_initialized.call_count == 1
+    assert mock_torch_distributed.all_gather_object.call_count == 1
