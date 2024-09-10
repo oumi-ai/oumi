@@ -62,7 +62,6 @@ def infer(
     model_params: ModelParams,
     generation_config: GenerationConfig,
     input: List[str],
-    exclude_prompt_from_response: bool = True,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
