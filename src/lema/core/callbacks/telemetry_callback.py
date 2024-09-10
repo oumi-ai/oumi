@@ -184,8 +184,8 @@ class TelemetryCallback(transformers.TrainerCallback):
         if self._callback_disabled() or not self._output_dir:
             return
 
-        if is_world_process_zero():
-            if self._world_process_zero_only:
+        if self._world_process_zero_only:
+            if is_world_process_zero():
                 summary = self._telemetry.get_summary()
                 device_rank_info = get_device_rank_info()
                 telemetry_file = (
@@ -194,8 +194,10 @@ class TelemetryCallback(transformers.TrainerCallback):
                 )
                 logger.info(f"Saving telemetry callback summary to {telemetry_file}...")
                 save_json(summary, telemetry_file)
-            else:
-                summaries = self._telemetry.get_summaries_from_all_ranks()
+        else:
+            # The function has to be called by all ranks.
+            summaries = self._telemetry.get_summaries_from_all_ranks()
+            if is_world_process_zero():
                 summaries_dict = {
                     f"rank{rank:04}": summary for rank, summary in enumerate(summaries)
                 }
