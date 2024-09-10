@@ -40,6 +40,12 @@ def mock_torch_barrier():
 
 
 @pytest.fixture
+def mock_torch_all_gather_object():
+    with patch("torch.distributed.all_gather_object") as mock:
+        yield mock
+
+
+@pytest.fixture
 def mock_device_rank_info():
     with patch("lema.core.distributed.get_device_rank_info") as mock_info:
         yield mock_info
@@ -292,18 +298,22 @@ def test_all_gather_object_single_gpu(mock_device_rank_info, mock_torch_distribu
         world_size=1, rank=0, local_world_size=1, local_rank=0
     )
 
-    with assert_function_called(mock_device_rank_info, times=2), assert_function_called(
-        mock_torch_distributed, times=0
-    ):
+    with assert_function_called(mock_device_rank_info, times=2):
         assert all_gather_object({"aa": 12, "bb": 20}) == [{"aa": 12, "bb": 20}]
 
 
-def test_all_gather_object_multi_gpu(mock_device_rank_info, mock_torch_distributed):
+def test_all_gather_object_multi_gpu(
+    mock_device_rank_info, mock_torch_distributed
+):  # , mock_torch_all_gather_object):
     mock_device_rank_info.return_value = DeviceRankInfo(
         world_size=4, rank=2, local_world_size=2, local_rank=0
     )
 
-    with assert_function_called(mock_device_rank_info, times=2), assert_function_called(
-        mock_torch_distributed, times=0
-    ):
-        assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}]
+    def _all_gather_object_replicate(object_list, obj, group):
+        for i in range(len(object_list)):
+            object_list[i] = obj
+
+    mock_torch_distributed.all_gather_object = _all_gather_object_replicate
+
+    with assert_function_called(mock_device_rank_info, times=3):
+        assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}] * 4
