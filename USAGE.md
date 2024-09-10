@@ -9,7 +9,7 @@ First, you'll need to install LeMa and its dependencies:
 ```bash
 git clone https://github.com/openlema/lema.git
 cd lema
-pip install -e "[dev,train]"
+pip install -e ".[all]"
 ```
 
 ## 2. Configuration
