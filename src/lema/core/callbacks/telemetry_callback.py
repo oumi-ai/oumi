@@ -184,10 +184,9 @@ class TelemetryCallback(transformers.TrainerCallback):
         if self._callback_disabled() or not self._output_dir:
             return
 
-        summary = self._telemetry.get_summary()
-
         if is_world_process_zero():
             if self._world_process_zero_only:
+                summary = self._telemetry.get_summary()
                 device_rank_info = get_device_rank_info()
                 telemetry_file = (
                     self._output_dir / f"telemetry_rank{device_rank_info.rank:04}.json"

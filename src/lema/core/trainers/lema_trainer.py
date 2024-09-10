@@ -398,9 +398,11 @@ class Trainer(BaseTrainer):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
-        if self.params.telemetry.collect_telemetry_for_all_ranks:
+        if (
+            self.params.telemetry.collect_telemetry_for_all_ranks
+            or is_world_process_zero()
+        ):
             telemetry_dir = self.params.telemetry_dir
-            # TODO: Gather telemetry from all ranks.
             if telemetry_dir:
                 device_rank_info = get_device_rank_info()
                 telemetry_state_path = (
@@ -419,7 +421,6 @@ class Trainer(BaseTrainer):
             optimizer_path = checkpoint_dir / "optimizer.pt"
             dataloader_state_path = checkpoint_dir / "dataloader.pt"
             trainer_state_path = checkpoint_dir / "trainer_state.json"
-            telemetry_state_path = checkpoint_dir / "telemetry.json"
 
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             torch.save(
@@ -434,21 +435,21 @@ class Trainer(BaseTrainer):
                 data=self.state.model_dump(),
                 filename=trainer_state_path,
             )
-            save_json(
-                data=self.telemetry.state_dict(),
-                filename=telemetry_state_path,
-            )
             logger.info(f"Training state saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
+        device_rank_info = get_device_rank_info()
+
         model_path = checkpoint_dir / "model.safetensors"
         optimizer_path = checkpoint_dir / "optimizer.pt"
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
-        telemetry_state_path = checkpoint_dir / "telemetry.json"
+        telemetry_state_path = (
+            checkpoint_dir / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
+        )
 
         if model_path.exists():
             safetensors.torch.load_model(
