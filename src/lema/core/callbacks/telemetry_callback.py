@@ -201,7 +201,7 @@ class TelemetryCallback(transformers.TrainerCallback):
                 }
                 telemetry_file = self._output_dir / "telemetry_callback_all_ranks.json"
                 logger.info(
-                    f"Saving telemetry callback summaries "
+                    "Saving telemetry callback summaries "
                     f"for all ranks to {telemetry_file}..."
                 )
                 save_json(summaries_dict, telemetry_file)
