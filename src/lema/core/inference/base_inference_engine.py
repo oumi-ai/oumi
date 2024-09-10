@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List, Optional
+
+import jsonlines
 
 from lema.core.configs import GenerationConfig
 from lema.core.types.turn import Conversation
@@ -47,6 +50,41 @@ class BaseInferenceEngine(ABC):
             raise ValueError(
                 "One of input or generation_config.input_filepath must be provided."
             )
+
+    def _read_conversations(self, input_filepath: str) -> List[Conversation]:
+        """Reads conversations from a file in OpenAI chat format.
+
+        Args:
+            input_filepath: The path to the file containing the conversations.
+
+        Returns:
+            List[Conversation]: A list of conversations read from the file.
+        """
+        conversations = []
+        with open(input_filepath) as f:
+            for line in f:
+                # Only parse non-empty lines.
+                if line.strip():
+                    conversation = Conversation.model_validate_json(line)
+                    conversations.append(conversation)
+        return conversations
+
+    def _save_conversations(
+        self, conversations: List[Conversation], output_filepath: str
+    ) -> None:
+        """Saves conversations to a file in OpenAI chat format.
+
+        Args:
+            conversations: A list of conversations to save.
+            output_filepath: The path to the file where the conversations should be
+                saved.
+        """
+        # Make the directory if it doesn't exist.
+        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
+        with jsonlines.open(output_filepath, mode="w") as writer:
+            for conversation in conversations:
+                json_obj = conversation.model_dump()
+                writer.write(json_obj)
 
     @abstractmethod
     def infer_online(
