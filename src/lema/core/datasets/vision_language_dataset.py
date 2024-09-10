@@ -120,7 +120,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
-            print("Using simple processor")
+            # TODO: OPE-354 blip2 and llava need special handling
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
@@ -138,6 +138,14 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 return_tensors=self._return_tensors,
                 padding=True,
             )
+
+        # Processors by default return a list of tensors for each key
+        # We need to squeeze the first dimension so that it works with the data-loader
+        # Images will be of shape (C, H, W) and texts will be of shape (T)
+        # However, this is going to break models that support multiple images
+        # TODO: OPE-355 add support for multiple images
+        inputs["input_ids"] = inputs["input_ids"][0]
+        inputs["pixel_values"] = inputs["pixel_values"][0]
 
         inputs["labels"] = inputs["input_ids"]
         return inputs

@@ -209,7 +209,31 @@ def build_huggingface_model(
 def _get_transformers_model_class(config):
     # TODO: Remove this once we have a better way to identify the model class
     # Or we can just ask the user to specify the model class in the config
-    if config.model_type in ("qwen2_vl", "llava", "blip-2"):
+    if config.model_type in (
+        "blip-2",
+        "blip",
+        "chameleon",
+        "idefics",
+        "idefics2",
+        "idefics3",
+        "instructblip",
+        "llava",
+        "paligemma",
+        "qwen2_vl",
+        "vipllava",
+    ):
+        tested_models = {
+            "blip-2",
+            "llava",
+        }  # TODO: OPE-353, make sure we have all models supported
+
+        if config.model_type not in tested_models:
+            logger.warning(
+                f"Model type {config.model_type} not tested. "
+                "Using AutoModelForCausalLM as the model class."
+                "If you encounter errors, please open an issue at https://github.com/openlema/lema."
+            )
+
         auto_model_class = transformers.AutoModelForVision2Seq
     else:
         auto_model_class = transformers.AutoModelForCausalLM

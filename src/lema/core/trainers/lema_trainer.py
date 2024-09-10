@@ -4,7 +4,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 import pydantic
 import torch
@@ -55,11 +55,13 @@ class Trainer(BaseTrainer):
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
+        data_collator: Optional[Callable] = None,
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
+        self.collator_fn = data_collator
 
         self.model = model
         self.tokenizer = tokenizer
@@ -575,6 +577,7 @@ class Trainer(BaseTrainer):
             prefetch_factor=prefetch_factor,
             pin_memory_device=self.device,
             snapshot_every_n_steps=self.params.save_steps,
+            collate_fn=self.collator_fn,
         )
 
     def _get_eval_dataloader(self) -> DataLoader:
@@ -589,6 +592,7 @@ class Trainer(BaseTrainer):
             batch_size=self.params.per_device_eval_batch_size,
             shuffle=False,
             num_workers=self.params.dataloader_num_workers,
+            collate_fn=self.collator_fn,
         )
 
     def _get_total_training_steps(self) -> int:
