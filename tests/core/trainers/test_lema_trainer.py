@@ -202,6 +202,8 @@ def test_save_and_load_model(
 ):
     output_dir = tmp_path / "model_output"
     output_dir.mkdir()
+    telemetry_dir = output_dir / "telemetry"
+    telemetry_dir.mkdir()
 
     trainer.model = mock_model
     trainer.optimizer = mock_optimizer
@@ -209,7 +211,7 @@ def test_save_and_load_model(
     trainer.params.output_dir = str(output_dir)
     trainer.params.telemetry = MagicMock(spec=TelemetryParams)
     trainer.params.telemetry.collect_telemetry_for_all_ranks = False
-    trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
+    trainer.params.telemetry_dir = telemetry_dir
 
     trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})
     trainer.optimizer.state_dict = MagicMock(
@@ -227,7 +229,7 @@ def test_save_and_load_model(
     assert (output_dir / "optimizer.pt").exists()
     assert (output_dir / "dataloader.pt").exists()
     assert (output_dir / "trainer_state.json").exists()
-    assert (output_dir / "telemetry.json").exists()
+    assert (telemetry_dir / "telemetry_rank0000.json").exists()
 
     with patch(
         "safetensors.torch.load_model", side_effect=[{"model_key": torch.tensor(1)}]
