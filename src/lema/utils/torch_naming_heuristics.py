@@ -79,13 +79,35 @@ def group_trainable_params(
 def guess_transformer_layer_cls(model: nn.Module) -> Type[nn.Module]:
     """Guess the transformer layer class based on the model architecture."""
     if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
+        # GPT-2 style
         return type(model.transformer.h[0])
+    elif hasattr(model, "encoder") and hasattr(model.encoder, "layer"):
+        # BERT style
+        return type(model.encoder.layer[0])
+    elif (
+        hasattr(model, "model")
+        and hasattr(model.model, "decoder")
+        and hasattr(model.model.decoder, "layers")
+    ):
+        # OPT style
+        return type(model.model.decoder.layers[0])
+    elif hasattr(model, "model") and hasattr(model.model, "layers"):
+        # LLaMA style
+        return type(model.model.layers[0])
     elif hasattr(model, "layers"):
+        # Generic layer style
         return type(model.layers[0])
     else:
-        raise ValueError(
-            "Unable to guess transformer layer class. Please specify it explicitly."
-        )
+        for module in model.modules():
+            if any(
+                layer_type in str(type(module)).lower()
+                for layer_type in ["layer", "block", "transformerlayer"]
+            ):
+                return type(module)
+
+    raise ValueError(
+        "Unable to guess transformer layer class. Please specify it explicitly."
+    )
 
 
 def get_module_class_from_name(class_name: str) -> Type[nn.Module]:
