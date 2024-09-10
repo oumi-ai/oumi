@@ -41,8 +41,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         conversations = []
         with open(input_filepath) as f:
             for line in f:
-                conversation = Conversation.model_validate_json(line)
-                conversations.append(conversation)
+                # Only parse non-empty lines.
+                if line.strip():
+                    conversation = Conversation.model_validate_json(line)
+                    conversations.append(conversation)
         return conversations
 
     def _save_conversations(
@@ -176,7 +178,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         conversations = self._infer(input, generation_config)
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
-            return None
         return conversations
 
     def infer_from_file(
@@ -199,5 +200,4 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         conversations = self._infer(input, generation_config)
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
-            return None
         return conversations

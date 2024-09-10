@@ -23,6 +23,9 @@ def _setup_input_conversations(filepath: str, conversations: List[Conversation])
         for conversation in conversations:
             json_obj = conversation.model_dump()
             writer.write(json_obj)
+    # Add some empty lines into the file
+    with open(filepath, "a") as f:
+        f.write("\n\n\n")
 
 
 #
@@ -127,7 +130,7 @@ def test_infer_online_to_file():
                 output_filepath=str(output_path),
             ),
         )
-        assert result is None
+        assert result == expected_result
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
@@ -258,7 +261,7 @@ def test_infer_from_file_to_file():
                 output_filepath=str(output_path),
             ),
         )
-        assert result is None
+        assert result == expected_result
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:

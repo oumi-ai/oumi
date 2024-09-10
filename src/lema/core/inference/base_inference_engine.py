@@ -35,17 +35,18 @@ class BaseInferenceEngine(ABC):
                 "provided."
             )
         if generation_config is None:
-            logger.warning("No generation config provided. Using default the config.")
+            logger.warning("No generation config provided. Using the default config.")
             generation_config = GenerationConfig()
         if input is not None:
             return self.infer_online(input, generation_config)
-        if generation_config.input_filepath is not None:
+        elif generation_config.input_filepath is not None:
             return self.infer_from_file(
                 generation_config.input_filepath, generation_config
             )
-        raise ValueError(
-            "One of input or generation_config.input_filepath must be provided."
-        )
+        else:
+            raise ValueError(
+                "One of input or generation_config.input_filepath must be provided."
+            )
 
     @abstractmethod
     def infer_online(
