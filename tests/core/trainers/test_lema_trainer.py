@@ -223,6 +223,8 @@ def test_save_and_load_model(
 ):
     output_dir = tmp_path / "model_output"
     output_dir.mkdir()
+    telemetry_dir = output_dir / "telemetry"
+    telemetry_dir.mkdir()
 
     trainer.fsdp_params = FSDPParams(enable_fsdp=is_using_fsdp)
     trainer.is_using_fsdp = is_using_fsdp
@@ -230,7 +232,7 @@ def test_save_and_load_model(
     trainer.params.output_dir = str(output_dir)
     trainer.params.telemetry = MagicMock(spec=TelemetryParams)
     trainer.params.telemetry.collect_telemetry_for_all_ranks = False
-    trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
+    trainer.params.telemetry_dir = telemetry_dir
 
     trainer.train_dataloader.state_dict = MagicMock(
         return_value={"dataloader_key": torch.tensor(3)}
@@ -247,7 +249,7 @@ def test_save_and_load_model(
 
         assert (output_dir / "dataloader.pt").exists()
         assert (output_dir / "trainer_state.json").exists()
-        assert (output_dir / "telemetry.json").exists()
+        assert (telemetry_dir / "telemetry_rank0000.json").exists()
 
         # Folder are created by DCP, but since it's a mock, we need to create
         # the folder manually.

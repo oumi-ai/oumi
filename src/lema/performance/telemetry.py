@@ -1,4 +1,5 @@
 import collections
+import socket
 import statistics
 import time
 from contextlib import ContextDecorator
@@ -8,6 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, cast
 import pydantic
 import torch
 
+from lema.core.distributed import all_gather_object
 from lema.utils.debugging_utils import get_nvidia_gpu_temperature
 from lema.utils.logging import get_logger
 
@@ -15,12 +17,13 @@ LOGGER = get_logger("lema.telemetry")
 
 
 class TelemetryState(pydantic.BaseModel):
+    start_time: float = pydantic.Field(default_factory=time.perf_counter)
+    hostname: str = pydantic.Field(default_factory=socket.gethostname)
     measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
     # TODO: OPE-226 - implement async timers
     cuda_measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
     gpu_memory: List[Dict[str, float]] = pydantic.Field(default_factory=list)
     gpu_temperature: List[float] = pydantic.Field(default_factory=list)
-    start_time: float = pydantic.Field(default_factory=time.perf_counter)
 
 
 class TimerContext(ContextDecorator):
@@ -235,6 +238,7 @@ class TelemetryTracker:
         total_time = time.perf_counter() - self.state.start_time
 
         summary = {
+            "hostname": self.state.hostname,
             "total_time": total_time,
             "timers": {},
             "cuda_timers": {},
@@ -261,7 +265,7 @@ class TelemetryTracker:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
         log_lines: List[str] = [
-            "Telemetry Summary:",
+            f"Telemetry Summary ({summary['hostname']}):",
             f"Total time: {summary['total_time']:.2f} seconds",
         ]
 
@@ -288,6 +292,18 @@ class TelemetryTracker:
         # ranks aren't interleaved confusingly.
         LOGGER.info("\n".join(log_lines))
 
+    def get_summaries_from_all_ranks(self) -> List[Dict[str, Any]]:
+        """Returns an array of telemetry summaries from all ranks.
+
+        To work correctly in distributed environment, the method must be called
+        by all ranks. If distributed training is not used then returns
+        an array with 1 element (the current rank's summary).
+
+        Returns:
+            A list of telemetry summaries indexed by rank.
+        """
+        return all_gather_object(self.get_summary())
+
     #
     # State Management
     #
@@ -298,6 +314,18 @@ class TelemetryTracker:
     def load_state_dict(self, state_dict: dict) -> None:
         """Loads TelemetryState from state_dict."""
         self.state = TelemetryState.model_validate(state_dict, strict=True)
+
+    def get_state_dicts_from_all_ranks(self) -> List[dict]:
+        """Returns an array of `state_dict`-s from all ranks.
+
+        To work correctly in distributed environment, the method must be called
+        by all ranks. If distributed training is not used then returns
+        an array with 1 element (the current rank's `state_dict`).
+
+        Returns:
+            A list of `state_dict`-s indexed by rank.
+        """
+        return all_gather_object(self.state_dict())
 
     #
     # Helper Methods

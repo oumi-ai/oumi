@@ -85,6 +85,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Returns:
             Conversation: A Conversation object representing the conversation.
         """
+        raise NotImplementedError
 
     def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
         """Transforms a single image from a message for debugging.
@@ -97,7 +98,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             torch.Tensor: a tensor representing the processed image.
         """
         if self._image_processor is None:
-            raise ValueError
+            raise ValueError("Processor required for transform")
 
         image_bin = self._load_image(message)
         features = self._image_processor(
@@ -158,14 +159,18 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Simple models only use the last image and text turn in the conversation. They
         don't use the chat template, so the prompt is just the last text turn.
         """
-        last_image_turn = [turn for turn in conversation.messages if turn.is_image()][
-            -1
-        ]
-        last_text_turn = [turn for turn in conversation.messages if turn.is_text()][
-            -1
-        ].content or ""
+        image_turns = [turn for turn in conversation.messages if turn.is_image()]
+        text_turns = [turn for turn in conversation.messages if turn.is_text()]
 
-        prompt = last_text_turn or ""
+        if not image_turns:
+            raise ValueError("Conversation must contain at least one image turn")
+        if not text_turns:
+            raise ValueError("Conversation must contain at least one text turn")
+
+        last_image_turn = image_turns[-1]
+        last_text_turn = text_turns[-1].content or ""
+
+        prompt = last_text_turn
         image = self._load_image(last_image_turn)
 
         return image, prompt
@@ -230,8 +235,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         elif image.type == Type.IMAGE_URL:
             if image.content is None:
                 raise ValueError("Image URL is None")
-            response = requests.get(image.content, stream=True)
-            response.raise_for_status()
+            try:
+                response = requests.get(image.content, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logger.exception(f"Failed to download image: '{image.content}'")
+                raise e
             image_bin = Image.open(response.raw).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:

@@ -54,6 +54,7 @@ class TelemetryCallback(transformers.TrainerCallback):
         self._permanently_disabled: bool = (
             world_process_zero_only and not is_world_process_zero()
         )
+        self._world_process_zero_only = world_process_zero_only
         self._step: int = 0
 
     def on_step_begin(
@@ -150,7 +151,6 @@ class TelemetryCallback(transformers.TrainerCallback):
         basename = f"telemetry_rank{device_rank_info.rank:03}"
 
         summary = self._telemetry.get_summary()
-
         if (
             self._include_timer_metrics
             and "timers" in summary
@@ -181,17 +181,32 @@ class TelemetryCallback(transformers.TrainerCallback):
         **kwargs,
     ):
         """Event called at the end of training."""
-        if self._callback_disabled():
+        if self._callback_disabled() or not self._output_dir:
             return
 
-        summary = self._telemetry.get_summary()
-
-        device_rank_info = get_device_rank_info()
-        basename = f"telemetry_rank{device_rank_info.rank:03}"
-        if self._output_dir is not None:
-            telemetry_file = self._output_dir / (basename + ".json")
-            logger.info(f"Saving telemetry stats to {telemetry_file}...")
-            save_json(summary, telemetry_file)
+        if self._world_process_zero_only:
+            if is_world_process_zero():
+                summary = self._telemetry.get_summary()
+                device_rank_info = get_device_rank_info()
+                telemetry_file = (
+                    self._output_dir
+                    / f"telemetry_callback_rank{device_rank_info.rank:04}.json"
+                )
+                logger.info(f"Saving telemetry callback summary to {telemetry_file}...")
+                save_json(summary, telemetry_file)
+        else:
+            # The function has to be called by all ranks.
+            summaries = self._telemetry.get_summaries_from_all_ranks()
+            if is_world_process_zero():
+                summaries_dict = {
+                    f"rank{rank:04}": summary for rank, summary in enumerate(summaries)
+                }
+                telemetry_file = self._output_dir / "telemetry_callback_all_ranks.json"
+                logger.info(
+                    "Saving telemetry callback summaries "
+                    f"for all ranks to {telemetry_file}..."
+                )
+                save_json(summaries_dict, telemetry_file)
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""

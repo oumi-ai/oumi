@@ -41,11 +41,15 @@ def test_jsonlines_transform_conversation(sample_jsonlines_data):
 
 
 def test_jsonlines_init_with_invalid_input():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Dataset path or data must be provided"):
         JsonlinesDataset()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Dataset path does not exist: invalid_path.txt"
+    ):
         JsonlinesDataset(dataset_path="invalid_path.txt")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Either dataset_path or data must be provided, but not both"
+    ):
         JsonlinesDataset(dataset_path="valid_path.jsonl", data=[])
