@@ -312,6 +312,6 @@ def test_all_gather_object_multi_gpu(mock_device_rank_info, mock_torch_distribut
     with assert_function_called(mock_device_rank_info, times=3):
         assert all_gather_object({"aa": 32, "bb": 40}) == [{"aa": 32, "bb": 40}] * 4
 
-    assert mock_torch_distributed.is_available.call_count == 1
-    assert mock_torch_distributed.is_initialized.call_count == 1
-    assert mock_torch_distributed.all_gather_object.call_count == 1
+    assert mock_torch_distributed.is_available.assert_called_once()
+    assert mock_torch_distributed.is_initialized.assert_called_once()
+    assert mock_torch_distributed.all_gather_object.assert_called_once()

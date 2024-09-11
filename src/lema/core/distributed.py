@@ -3,7 +3,7 @@ import logging
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import Any, List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, TypeVar, cast
 
 import torch
 import torch.distributed
@@ -134,9 +134,12 @@ def barrier(
     return
 
 
+T = TypeVar("T")
+
+
 def all_gather_object(
-    obj: Any, group: Optional[torch.distributed.ProcessGroup] = None
-) -> List[Any]:
+    obj: T, group: Optional[torch.distributed.ProcessGroup] = None
+) -> List[T]:
     """Gathers picklable objects from the whole group into a list."""
     verify_torch_distributed_initialized_if_needed()
     if is_distributed():
@@ -147,7 +150,9 @@ def all_gather_object(
     else:
         object_list = [obj]
 
-    return object_list
+    # We have to cast because the inferred type is `List[Optional[T]])`
+    # while `None` must never happen here.
+    return cast(List[T], object_list)
 
 
 def local_leader_only(*barrier_args, **barrier_kwargs):
