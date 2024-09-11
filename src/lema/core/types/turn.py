@@ -70,17 +70,17 @@ class Message(pydantic.BaseModel):
     One of content or binary must be provided.
     """
 
-    role: Role
-    """The role of the entity sending the message (e.g., user, assistant, system)."""
-
-    type: Type = Type.TEXT
-    """The type of the message content (e.g., text, image path, image URL)."""
-
     binary: Optional[bytes] = None
     """Optional binary data for the message, used for image data
 
     One of content or binary must be provided.
     """
+
+    role: Role
+    """The role of the entity sending the message (e.g., user, assistant, system)."""
+
+    type: Type = Type.TEXT
+    """The type of the message content (e.g., text, image path, image URL)."""
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.

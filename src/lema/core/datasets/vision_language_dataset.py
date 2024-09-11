@@ -159,12 +159,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Simple models only use the last image and text turn in the conversation. They
         don't use the chat template, so the prompt is just the last text turn.
         """
-        last_image_turn = [turn for turn in conversation.messages if turn.is_image()][
-            -1
-        ]
-        last_text_turn = [turn for turn in conversation.messages if turn.is_text()][
-            -1
-        ].content or ""
+        image_turns = [turn for turn in conversation.messages if turn.is_image()]
+        text_turns = [turn for turn in conversation.messages if turn.is_text()]
+
+        if not image_turns:
+            raise ValueError("Conversation must contain at least one image turn")
+        if not text_turns:
+            raise ValueError("Conversation must contain at least one text turn")
+
+        last_image_turn = image_turns[-1]
+        last_text_turn = text_turns[-1].content or ""
 
         prompt = last_text_turn
         image = self._load_image(last_image_turn)
