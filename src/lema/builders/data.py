@@ -97,7 +97,7 @@ def build_dataset(
         from lema.builders.lema_data import build_dataset as build_lema_dataset
 
         logger.warning(
-            "Using experimental torch datapipes preprocessing pipep. "
+            "Using experimental torch datapipes preprocessing pipeline. "
             "This is currently in beta and may not be stable."
         )
         # TODO: OPE-271. Some type hackery going on here.
