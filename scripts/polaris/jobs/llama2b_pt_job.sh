@@ -30,7 +30,7 @@ mpiexec --verbose \
     --np $((${LEMA_NUM_NODES} * ${NRANKS})) \
     -ppn ${NRANKS} \
     -d ${NDEPTH}  --cpu-bind "${CPU_BIND}" \
-    ./scripts/polaris/jobs/llama2b_pt_worker.sh -m "${TRAINING_MODE}" -p
+    ./scripts/polaris/jobs/llama2b_pt_worker.sh -m "${TRAINING_MODE}"
 
 echo -e "Finished ${TRAINING_MODE} training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
 echo "Polaris job is all done!"
