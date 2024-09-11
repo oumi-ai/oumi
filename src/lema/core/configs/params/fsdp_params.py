@@ -85,14 +85,15 @@ class BackwardPrefetch(str, Enum):
 
     def to_torch(self) -> Optional[torch_fsdp.BackwardPrefetch]:
         """Convert the enum to the corresponding torch_fsdp.BackwardPrefetch."""
-        if self == BackwardPrefetch.BACKWARD_PRE:
-            return torch_fsdp.BackwardPrefetch.BACKWARD_PRE
-        elif self == BackwardPrefetch.BACKWARD_POST:
-            return torch_fsdp.BackwardPrefetch.BACKWARD_POST
-        elif self == BackwardPrefetch.NONE:
-            return None
-        else:
+        map = {
+            BackwardPrefetch.BACKWARD_PRE: torch_fsdp.BackwardPrefetch.BACKWARD_PRE,
+            BackwardPrefetch.BACKWARD_POST: torch_fsdp.BackwardPrefetch.BACKWARD_POST,
+            BackwardPrefetch.NONE: None,
+        }
+
+        if self not in map:
             raise ValueError(f"Unsupported backward prefetch option: {self}")
+        return map[self]
 
 
 @dataclass
