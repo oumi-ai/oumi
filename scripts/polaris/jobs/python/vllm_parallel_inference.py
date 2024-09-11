@@ -188,7 +188,6 @@ def main():
                 "request_completed_time": request_complete_time,
             }
             writer.write(json_obj)
-            output_queue.task_done()
 
         if requests_completed % 50 == 0:
             metrics = _get_metrics(
