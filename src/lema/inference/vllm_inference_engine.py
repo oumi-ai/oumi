@@ -13,7 +13,7 @@ try:
     from vllm.entrypoints.chat_utils import ChatCompletionMessageParam
     from vllm.sampling_params import SamplingParams
 
-    class VLLMInferenceEngineImplementation(BaseInferenceEngine):
+    class _VLLMInferenceEngineImplementation(BaseInferenceEngine):
         """Engine for running vllm inference locally."""
 
         def __init__(self, model_params: ModelParams):
@@ -111,8 +111,7 @@ try:
                     inference.
 
             Returns:
-                Optional[List[Conversation]]: Inference output. Returns None if the
-                    output is written to a file.
+                Optional[List[Conversation]]: Inference output.
             """
             conversations = self._infer(input, generation_config)
             if generation_config.output_filepath:
@@ -136,8 +135,7 @@ try:
                     inference.
 
             Returns:
-                Optional[List[Conversation]]: Inference output. Returns None if the
-                    output is written to a file.
+                Optional[List[Conversation]]: Inference output.
             """
             input = self._read_conversations(input_filepath)
             conversations = self._infer(input, generation_config)
@@ -161,7 +159,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters to use for inference.
         """
         self._internal_engine = (
-            None if vllm is None else VLLMInferenceEngineImplementation(model_params)
+            None if vllm is None else _VLLMInferenceEngineImplementation(model_params)
         )
 
     def infer_online(
@@ -174,8 +172,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            Optional[List[Conversation]]: Inference output.
         """
         if self._internal_engine is None:
             raise RuntimeError(
@@ -197,8 +194,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            Optional[List[Conversation]]: Inference output.
         """
         if self._internal_engine is None:
             raise RuntimeError(
