@@ -8,6 +8,7 @@ CONDA_RUN := conda run -n $(CONDA_ENV)
 SRC_DIR := .
 TEST_DIR := tests
 DOCS_DIR := docs/.sphinx
+LEMA_SRC_DIR := src/lema
 
 # Sphinx documentation variables
 SPHINXOPTS    ?=
@@ -29,6 +30,7 @@ help:
 	@echo "  torchfix    - Run TorchFix static analysis"
 	@echo "  format      - Run code formatter"
 	@echo "  test        - Run tests"
+	@echo "  coverage    - Run tests with coverage"
 	@echo "  train       - Run training"
 	@echo "  evaluate    - Run evaluation"
 	@echo "  infer       - Run inference"
@@ -69,6 +71,9 @@ format:
 test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
+coverage:
+	$(CONDA_RUN) pytest --cov=$(LEMA_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
+
 train:
 	$(CONDA_RUN) python -m lema.train $(ARGS)
 
@@ -102,4 +107,4 @@ docs-rebuild:
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/lema" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild
+.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild
