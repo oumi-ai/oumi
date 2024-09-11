@@ -351,13 +351,12 @@ def test_polaris_cluster_run_job(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),
@@ -452,13 +451,12 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),
@@ -552,13 +550,12 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),
@@ -640,13 +637,12 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),
@@ -730,13 +726,12 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),
@@ -812,13 +807,12 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
                     "conda activate /home/$USER/miniconda3/envs/lema",
-                    "pip install -e '.[train]'",
-                    "pip install flash-attn --no-build-isolation",
+                    "pip install -e '.[train_gpu]'",
                     "else",
                     "conda activate /home/$USER/miniconda3/envs/lema",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "pip install -e '.[train]'",
+                    "pip install -e '.[train_gpu]'",
                     "fi",
                 ]
             ),

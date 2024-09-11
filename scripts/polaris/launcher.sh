@@ -96,14 +96,12 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   if [ ! -d /home/$USER/miniconda3/envs/lema ]; then
       echo "Creating LeMa Conda environment... -----------------------------------------"
       conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/lema
-      # Install flash-attn manually since it's not in our pyproject.toml.
       conda activate /home/$USER/miniconda3/envs/lema
-      pip install -e '.[train]'
-      pip install flash-attn --no-build-isolation
+      pip install -e '.[train_gpu]'
   else
       conda activate /home/$USER/miniconda3/envs/lema
       echo "Installing packages... -----------------------------------------"
-      pip install -e '.[train]'
+      pip install -e '.[train_gpu]'
   fi
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.

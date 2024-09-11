@@ -33,8 +33,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[all]'
-  pip install flash-attn --no-build-isolation
+  pip install '.[train_gpu]'
 
 run: |
   set -e  # Exit if any command failed.

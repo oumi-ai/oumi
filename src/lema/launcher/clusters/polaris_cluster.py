@@ -223,12 +223,11 @@ class PolarisCluster(BaseCluster):
             'echo "Creating LeMa Conda environment... ---------------------------"',
             f"conda create -y python=3.11 --prefix {lema_env_path}",
             f"conda activate {lema_env_path}",
-            "pip install -e '.[train]'",
-            "pip install flash-attn --no-build-isolation",
+            "pip install -e '.[train_gpu]'",
             "else",
             f"conda activate {lema_env_path}",
             'echo "Installing packages... ---------------------------------------"',
-            "pip install -e '.[train]'",
+            "pip install -e '.[train_gpu]'",
             "fi",
         ]
         self._client.run_commands(install_cmds)
