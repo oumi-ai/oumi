@@ -5,11 +5,16 @@ from unittest.mock import Mock, patch
 
 import jsonlines
 import pytest
-from vllm.outputs import CompletionOutput, RequestOutput
 
 from lema.core.configs import GenerationConfig, ModelParams
 from lema.core.types.turn import Conversation, Message, Role
 from lema.inference import VLLMInferenceEngine
+
+try:
+    vllm_import_failed = False
+    from vllm.outputs import CompletionOutput, RequestOutput
+except ImportError:
+    vllm_import_failed = True
 
 
 #
@@ -65,6 +70,7 @@ def _setup_input_conversations(filepath: str, conversations: List[Conversation])
 #
 # Tests
 #
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_online(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
@@ -105,6 +111,7 @@ def test_infer_online(mock_vllm):
     mock_vllm_instance.chat.assert_called_once()
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_online_empty(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
@@ -114,6 +121,7 @@ def test_infer_online_empty(mock_vllm):
     mock_vllm_instance.chat.assert_not_called()
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_online_to_file(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
@@ -188,6 +196,7 @@ def test_infer_online_to_file(mock_vllm):
             assert expected_result == parsed_conversations
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_from_file(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
@@ -237,6 +246,7 @@ def test_infer_from_file(mock_vllm):
         assert expected_result == infer_result
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_from_file_empty(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
@@ -257,6 +267,7 @@ def test_infer_from_file_empty(mock_vllm):
         mock_vllm_instance.chat.assert_not_called()
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_from_file_to_file(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
