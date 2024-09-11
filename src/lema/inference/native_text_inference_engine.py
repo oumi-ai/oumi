@@ -11,7 +11,7 @@ from lema.builders import (
     build_model,
     build_tokenizer,
 )
-from lema.core.configs import ModelParams
+from lema.core.configs import GenerationConfig, ModelParams
 from lema.core.inference import BaseInferenceEngine
 from lema.core.types.turn import Conversation, Message, Role
 
@@ -27,6 +27,25 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         self._model = build_model(model_params)
         self._tokenizer = build_tokenizer(model_params)
+        self._model_params = model_params
+
+    def _read_conversations(self, input_filepath: str) -> List[Conversation]:
+        """Reads conversations from a file in OpenAI chat format.
+
+        Args:
+            input_filepath: The path to the file containing the conversations.
+
+        Returns:
+            List[Conversation]: A list of conversations read from the file.
+        """
+        conversations = []
+        with open(input_filepath) as f:
+            for line in f:
+                # Only parse non-empty lines.
+                if line.strip():
+                    conversation = Conversation.model_validate_json(line)
+                    conversations.append(conversation)
+        return conversations
 
     def _save_conversations(
         self, conversations: List[Conversation], output_filepath: str
@@ -60,23 +79,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: List[Conversation],
-        max_new_tokens: Optional[int] = None,
-        batch_size: int = 1,
-        exclude_prompt_from_response: bool = True,
+        generation_config: GenerationConfig,
     ) -> List[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
         Args:
             input: A list of conversations to run inference on.
-            max_new_tokens: The maximum number of new tokens to generate.
-            batch_size: The number of sequences to generate in parallel.
-            exclude_prompt_from_response: Whether to trim the model's response and
-                remove the prepended prompt.
+            generation_config: Configuration parameters for generation during inference.
 
         Returns:
             object: A list of model responses of shape (num_batches, batch_size).
         """
-        if batch_size < 1:
+        if generation_config.batch_size < 1:
             raise ValueError("Batch size must be greater than or equal to 1.")
         if isinstance(self._model, peft.PeftModel):
             raise NotImplementedError(
@@ -92,7 +106,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             for conversation in input
         ]
         # Tokenization of input (in place, batch mode).
-        batched_input = self._make_batches(formatted_input, batch_size)
+        batched_input = self._make_batches(
+            formatted_input, generation_config.batch_size
+        )
         input_batches: List[BatchEncoding] = [BatchEncoding()] * len(batched_input)
         for batch_index, batch in enumerate(batched_input):
             batch_tokenized = self._tokenizer(batch, return_tensors="pt", padding=True)
@@ -105,13 +121,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             range(len(input_batches)), desc="Generating Model Responses"
         ):
             batch = input_batches[batch_index]
-            output.append(self._model.generate(**batch, max_new_tokens=max_new_tokens))
+            output.append(
+                self._model.generate(
+                    **batch, max_new_tokens=generation_config.max_new_tokens
+                )
+            )
 
         # Decode the outputs (batch mode).
         output_decoded = []
         for batch_index, batch in enumerate(output):
             # For each batch, remove the prepended prompts from all model reponses.
-            if exclude_prompt_from_response:
+            if generation_config.exclude_prompt_from_response:
                 new_batch_data = []
                 for reponse_index, response in enumerate(batch.data):
                     prompt = input_batches[batch_index]["input_ids"][reponse_index]  # type: ignore
@@ -142,25 +162,42 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             )
         return output_conversations
 
-    def infer_online(self, input: List[Conversation], **kwargs) -> List[Conversation]:
+    def infer_online(
+        self, input: List[Conversation], generation_config: GenerationConfig
+    ) -> Optional[List[Conversation]]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            **kwargs: Additional arguments used for inference.
+            generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output.
+            Optional[List[Conversation]]: Inference output. Returns None if the output
+                is written to a file.
         """
-        return self._infer(input, **kwargs)
+        conversations = self._infer(input, generation_config)
+        if generation_config.output_filepath:
+            self._save_conversations(conversations, generation_config.output_filepath)
+        return conversations
 
-    def infer_batch(self, input: List[Conversation], output_filepath: str, **kwargs):
-        """Runs model inference in batch mode.
+    def infer_from_file(
+        self, input_filepath: str, generation_config: GenerationConfig
+    ) -> Optional[List[Conversation]]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_config.
 
         Args:
-            input: A list of conversations to run inference on.
-            output_filepath: Path to the file where the output should be written.
-            **kwargs: Additional arguments used for inference.
+            input_filepath: Path to the input file containing prompts for generation.
+            generation_config: Configuration parameters for generation during inference.
+
+        Returns:
+            Optional[List[Conversation]]: Inference output. Returns None if the output
+                is written to a file.
         """
-        conversations = self._infer(input, **kwargs)
-        self._save_conversations(conversations, output_filepath)
+        input = self._read_conversations(input_filepath)
+        conversations = self._infer(input, generation_config)
+        if generation_config.output_filepath:
+            self._save_conversations(conversations, generation_config.output_filepath)
+        return conversations
