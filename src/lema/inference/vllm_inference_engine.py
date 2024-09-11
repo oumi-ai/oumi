@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from lema.builders import (
     build_tokenizer,
@@ -106,7 +106,7 @@ try:
 
         def infer_online(
             self, input: List[Conversation], generation_config: GenerationConfig
-        ) -> Optional[List[Conversation]]:
+        ) -> List[Conversation]:
             """Runs model inference online.
 
             Args:
@@ -126,7 +126,7 @@ try:
 
         def infer_from_file(
             self, input_filepath: str, generation_config: GenerationConfig
-        ) -> Optional[List[Conversation]]:
+        ) -> List[Conversation]:
             """Runs model inference on inputs in the provided file.
 
             This is a convenience method to prevent boilerplate from asserting the
@@ -168,7 +168,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     def infer_online(
         self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -187,7 +187,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence

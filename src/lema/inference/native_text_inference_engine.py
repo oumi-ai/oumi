@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 import peft
 import torch
@@ -127,7 +127,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def infer_online(
         self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -135,8 +135,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         conversations = self._infer(input, generation_config)
         if generation_config.output_filepath:
@@ -145,7 +144,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence
@@ -156,8 +155,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
         conversations = self._infer(input, generation_config)

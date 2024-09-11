@@ -52,7 +52,7 @@ class BaseInferenceEngine(ABC):
             )
 
     def _read_conversations(self, input_filepath: str) -> List[Conversation]:
-        """Reads conversations from a file in OpenAI chat format.
+        """Reads conversations from a file in LeMa chat format.
 
         Args:
             input_filepath: The path to the file containing the conversations.
@@ -72,7 +72,7 @@ class BaseInferenceEngine(ABC):
     def _save_conversations(
         self, conversations: List[Conversation], output_filepath: str
     ) -> None:
-        """Saves conversations to a file in OpenAI chat format.
+        """Saves conversations to a file in LeMa chat format.
 
         Args:
             conversations: A list of conversations to save.
@@ -89,7 +89,7 @@ class BaseInferenceEngine(ABC):
     @abstractmethod
     def infer_online(
         self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -97,15 +97,14 @@ class BaseInferenceEngine(ABC):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         raise NotImplementedError
 
     @abstractmethod
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence
@@ -116,7 +115,6 @@ class BaseInferenceEngine(ABC):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         raise NotImplementedError
