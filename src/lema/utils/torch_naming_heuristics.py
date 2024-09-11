@@ -4,13 +4,13 @@
 """
 
 import importlib
+import logging
 from typing import Any, Dict, List, Type
 
 import torch
 import torch.nn as nn
 import transformers
 
-from lema.utils.logging import logger
 from lema.utils.torch_utils import _get_parameter_names
 
 _PARAMS_KEY = "params"
@@ -34,6 +34,8 @@ def disable_dropout(hf_config: transformers.PretrainedConfig) -> None:
         if "drop" in k and isinstance(v, float):
             setattr(hf_config, k, 0.0)
             drop_attrs.append(k)
+
+    logger = logging.getLogger("lema")
     logger.info(
         f"Found these dropout attributes and set their values to 0.0: {drop_attrs}"
     )
