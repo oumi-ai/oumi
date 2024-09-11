@@ -192,4 +192,8 @@ class FSDPParams(BaseParams):
     """
 
     sync_module_states: bool = True
-    """If True, synchronizes module states across processes."""
+    """If True, synchronizes module states across processes.
+
+    When enabled, each FSDP module broadcasts parameters and buffers from rank 0
+    to ensure replication across ranks.
+    """
