@@ -86,7 +86,7 @@ def infer(
     )
     if not generations:
         raise RuntimeError("No generations were returned.")
-    return [conversation.messages[-1].content for conversation in generations]
+    return [conversation.messages[-1].content or "" for conversation in generations]
 
 
 if __name__ == "__main__":
