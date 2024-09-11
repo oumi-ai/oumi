@@ -1,7 +1,8 @@
 # Local experiments
 tmp/
 wandb/
-output/
+output/  # default output directory for training, evaluation, inference, etc.
+coverage_html/  # test coverage report
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
