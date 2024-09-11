@@ -200,6 +200,8 @@ class Trainer(BaseTrainer):
                         )
                         break
 
+            self._process_callbacks("on_train_end")
+
         self.log(
             f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
@@ -413,14 +415,15 @@ class Trainer(BaseTrainer):
         if is_local_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
 
-        if self.params.telemetry.collect_telemetry_for_all_ranks:
+        if (
+            self.params.telemetry.collect_telemetry_for_all_ranks
+            or is_world_process_zero()
+        ):
             telemetry_dir = self.params.telemetry_dir
-            # TODO: Gather telemetry from all ranks.
             if telemetry_dir:
                 device_rank_info = get_device_rank_info()
                 telemetry_state_path = (
-                    telemetry_dir
-                    / f"lema_telemetry_rank{device_rank_info.rank:04}.json"
+                    telemetry_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
                 )
                 save_json(
                     data=self.telemetry.state_dict(),
@@ -449,7 +452,6 @@ class Trainer(BaseTrainer):
         optimizer_path = checkpoint_dir / "optimizer"
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
-        telemetry_state_path = checkpoint_dir / "telemetry.json"
 
         dcp.save(model_state_dict, checkpoint_id=model_path)
         dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
@@ -457,18 +459,21 @@ class Trainer(BaseTrainer):
         if is_world_process_zero():
             torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
             save_json(data=self.state.model_dump(), filename=trainer_state_path)
-            save_json(data=self.telemetry.state_dict(), filename=telemetry_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
+        device_rank_info = get_device_rank_info()
+
         model_path = checkpoint_dir / "model"
         optimizer_path = checkpoint_dir / "optimizer"
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
-        telemetry_state_path = checkpoint_dir / "telemetry.json"
+        telemetry_state_path = (
+            checkpoint_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
+        )
 
         if not checkpoint_dir.exists():
             raise ValueError(f"Checkpoint directory does not exist: {checkpoint_dir}")

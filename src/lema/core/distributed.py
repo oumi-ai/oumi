@@ -3,10 +3,10 @@ import logging
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import NamedTuple, Optional
+from typing import List, NamedTuple, Optional, TypeVar, cast
 
 import torch
-import torch.distributed as dist
+import torch.distributed
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     CPUOffload,
@@ -74,12 +74,14 @@ def verify_torch_distributed_initialized_if_needed() -> None:
     """Checks if torch.dist is initialized if WORLD_SIZE> 1."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     world_size = device_rank_info.world_size
-    if world_size > 1 and not (dist.is_available() and dist.is_initialized()):
+    if world_size > 1 and not (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    ):
         raise RuntimeError(
             f"World size {world_size} is greater than 1, "
             "while distributed torch isn't available/initialized ("
-            f"available: {dist.is_available()}, "
-            f"initialized: {dist.is_initialized()}, "
+            f"available: {torch.distributed.is_available()}, "
+            f"initialized: {torch.distributed.is_initialized()}, "
             f"{device_rank_info}"
             ")"
         )
@@ -118,16 +120,39 @@ def is_distributed() -> bool:
 #
 # Distributed Operations
 #
-def barrier(group: Optional[dist.ProcessGroup] = None, monitored: bool = False) -> None:
+def barrier(
+    group: Optional[torch.distributed.ProcessGroup] = None, monitored: bool = False
+) -> None:
     """Barrier synchronization among all processes in the group."""
-    if dist.is_available() and dist.is_initialized():
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
         if monitored:
-            dist.monitored_barrier(group=group)
+            torch.distributed.monitored_barrier(group=group)
         else:
-            dist.barrier(group=group)
+            torch.distributed.barrier(group=group)
         return
 
     return
+
+
+T = TypeVar("T")
+
+
+def all_gather_object(
+    obj: T, group: Optional[torch.distributed.ProcessGroup] = None
+) -> List[T]:
+    """Gathers picklable objects from the whole group into a list."""
+    verify_torch_distributed_initialized_if_needed()
+    if is_distributed():
+        device_rank_info: DeviceRankInfo = get_device_rank_info()
+        # Placeholder array to gather results from all workers.
+        object_list = [None] * device_rank_info.world_size
+        torch.distributed.all_gather_object(object_list, obj, group=group)
+    else:
+        object_list = [obj]
+
+    # We have to cast because the inferred type is `List[Optional[T]])`
+    # while `None` must never happen here.
+    return cast(List[T], object_list)
 
 
 def local_leader_only(*barrier_args, **barrier_kwargs):
@@ -211,13 +236,13 @@ def init_distributed(
     timeout = (
         timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
     )
-    dist.init_process_group(backend=backend, timeout=timeout)
+    torch.distributed.init_process_group(backend=backend, timeout=timeout)
     torch.cuda.set_device(int(device_rank_info.local_rank))
 
 
 def cleanup_distributed():
     """Clean up the distributed environment."""
-    dist.destroy_process_group()
+    torch.distributed.destroy_process_group()
 
 
 #
