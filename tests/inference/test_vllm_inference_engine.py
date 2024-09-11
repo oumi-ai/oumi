@@ -12,8 +12,32 @@ from lema.inference import VLLMInferenceEngine
 
 try:
     vllm_import_failed = False
-    from vllm.outputs import CompletionOutput, RequestOutput
-except ImportError:
+    from vllm.outputs import (  # pyright: ignore[reportMissingImports]
+        CompletionOutput,
+        RequestOutput,
+    )
+
+    def _create_vllm_output(responses: List[str], output_id: str) -> RequestOutput:
+        outputs = []
+        for ind, response in enumerate(responses):
+            outputs.append(
+                CompletionOutput(
+                    text=response,
+                    index=ind,
+                    token_ids=[],
+                    cumulative_logprob=None,
+                    logprobs=None,
+                )
+            )
+        return RequestOutput(
+            request_id=output_id,
+            outputs=outputs,
+            prompt=None,
+            prompt_token_ids=[],
+            prompt_logprobs=None,
+            finished=True,
+        )
+except ModuleNotFoundError:
     vllm_import_failed = True
 
 
@@ -24,28 +48,6 @@ except ImportError:
 def mock_vllm():
     with patch("lema.inference.vllm_inference_engine.vllm") as mvllm:
         yield mvllm
-
-
-def _create_vllm_output(responses: List[str], output_id: str) -> RequestOutput:
-    outputs = []
-    for ind, response in enumerate(responses):
-        outputs.append(
-            CompletionOutput(
-                text=response,
-                index=ind,
-                token_ids=[],
-                cumulative_logprob=None,
-                logprobs=None,
-            )
-        )
-    return RequestOutput(
-        request_id=output_id,
-        outputs=outputs,
-        prompt=None,
-        prompt_token_ids=[],
-        prompt_logprobs=None,
-        finished=True,
-    )
 
 
 def _get_default_model_params() -> ModelParams:

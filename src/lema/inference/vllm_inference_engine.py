@@ -9,9 +9,13 @@ from lema.core.types.turn import Conversation, Message, Role
 from lema.utils.logging import logger
 
 try:
-    import vllm
-    from vllm.entrypoints.chat_utils import ChatCompletionMessageParam
-    from vllm.sampling_params import SamplingParams
+    import vllm  # pyright: ignore[reportMissingImports]
+    from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
+        ChatCompletionMessageParam,
+    )
+    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+        SamplingParams,
+    )
 
     class _VLLMInferenceEngineImplementation(BaseInferenceEngine):
         """Engine for running vllm inference locally."""
@@ -145,7 +149,7 @@ try:
                 )
             return conversations
 
-except ImportError:
+except ModuleNotFoundError:
     vllm = None
 
 
