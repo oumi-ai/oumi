@@ -320,7 +320,7 @@ class TelemetryTracker:
 
         To work correctly in distributed environment, the method must be called
         by all ranks. If distributed training is not used then returns
-        an array with 1 element (the current rank's summary).
+        an array with 1 element (the current rank's `state_dict`).
 
         Returns:
             A list of `state_dict`-s indexed by rank.

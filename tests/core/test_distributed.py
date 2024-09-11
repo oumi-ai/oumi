@@ -40,12 +40,6 @@ def mock_torch_barrier():
 
 
 @pytest.fixture
-def mock_torch_all_gather_object():
-    with patch("torch.distributed.all_gather_object") as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_device_rank_info():
     with patch("lema.core.distributed.get_device_rank_info") as mock_info:
         yield mock_info
@@ -302,9 +296,7 @@ def test_all_gather_object_single_gpu(mock_device_rank_info, mock_torch_distribu
         assert all_gather_object({"aa": 12, "bb": 20}) == [{"aa": 12, "bb": 20}]
 
 
-def test_all_gather_object_multi_gpu(
-    mock_device_rank_info, mock_torch_distributed
-):  # , mock_torch_all_gather_object):
+def test_all_gather_object_multi_gpu(mock_device_rank_info, mock_torch_distributed):
     mock_device_rank_info.return_value = DeviceRankInfo(
         world_size=4, rank=2, local_world_size=2, local_rank=0
     )
