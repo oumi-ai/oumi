@@ -200,6 +200,8 @@ class Trainer(BaseTrainer):
                         )
                         break
 
+            self._process_callbacks("on_train_end")
+
         self.log(
             f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
