@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from lema.builders.models import _patch_model_for_liger_kernel
+from lema.builders.models import _patch_model_for_liger_kernel, build_chat_template
 from lema.core.configs import ModelParams
 
 
@@ -46,3 +46,50 @@ def test_patch_model_for_liger_kernel_import_error():
         model_params = ModelParams(model_name="llama-7b")
         with pytest.raises(ImportError, match="Liger Kernel not installed"):
             _patch_model_for_liger_kernel(model_params.model_name)
+
+
+@pytest.mark.parametrize(
+    "template_name",
+    ["zephyr"],
+)
+def test_build_chat_template_existing_templates(template_name):
+    template = build_chat_template(template_name)
+
+    assert template is not None
+    assert len(template) > 0
+
+
+def test_build_chat_template_nonexistent_template():
+    with pytest.raises(FileNotFoundError) as exc_info:
+        build_chat_template("nonexistent_template")
+
+    assert "Chat template file not found" in str(exc_info.value)
+
+
+def test_build_chat_template_removes_indentation_and_newlines():
+    template_content = """
+        {{ bos_token }}
+        {% for message in messages %}
+            {% if message['role'] == 'user' %}
+                User: {{ message['content'] }}
+            {% elif message['role'] == 'assistant' %}
+                Assistant: {{ message['content'] }}
+            {% endif %}
+            {{ eos_token }}
+        {% endfor %}
+    """
+    expected = (
+        "{{ bos_token }}{% for message in messages %}{% if message['role'] == 'user' %}"
+        "User: {{ message['content'] }}{% elif message['role'] == 'assistant' %}"
+        "Assistant: {{ message['content'] }}{% endif %}{{ eos_token }}{% endfor %}"
+    )
+
+    with patch("lema.builders.models.Path"), patch(
+        "lema.builders.models.load_file"
+    ) as mock_load_file:
+        mock_load_file.return_value = template_content
+
+        result = build_chat_template("test_template")
+
+        assert result == expected
+        mock_load_file.assert_called_once()
