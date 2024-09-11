@@ -1,9 +1,8 @@
 import logging
+import os
 import warnings
 from pathlib import Path
 from typing import Optional, Union
-
-from lema.core.distributed import get_device_rank_info
 
 
 def get_logger(
@@ -42,17 +41,19 @@ def configure_logger(
     # Configure the logger
     logger.setLevel(level.upper())
 
-    device_rank_info = get_device_rank_info()
+    # Reading the rank from the environment variable
+    # instead of get_device_rank_info to avoid circular imports
+    device_rank = int(os.environ.get("RANK", 0))
 
     formatter = logging.Formatter(
         "[%(asctime)s][%(name)s]"
-        f"[rank{device_rank_info.rank}]"
+        f"[rank{device_rank}]"
         "[pid:%(process)d][%(threadName)s]"
         "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
     )
 
     # Add a console handler to the logger for only global leader.
-    if device_rank_info.rank == 0:
+    if device_rank == 0:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         console_handler.setLevel(level.upper())
@@ -63,9 +64,7 @@ def configure_logger(
         log_dir = Path(log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(
-            log_dir / f"rank_{device_rank_info.rank:04d}.log"
-        )
+        file_handler = logging.FileHandler(log_dir / f"rank_{device_rank:04d}.log")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level.upper())
         logger.addHandler(file_handler)

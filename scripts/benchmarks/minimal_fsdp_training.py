@@ -106,10 +106,7 @@ def test_fsdp_trainer():
     test_input = torch.randint(low=0, high=1024, size=(10, 1024))
     test_input = test_input.to(new_trainer.device)
     with torch.no_grad():
-        output = new_trainer.model(test_input)
-
-    print("Test output:", output.keys())
-    print("Test output:", {k: v.shape for k, v in output.items()})
+        _output = new_trainer.model(test_input)
 
     if is_distributed():
         cleanup_distributed()

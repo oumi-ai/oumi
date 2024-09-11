@@ -1,4 +1,4 @@
-import os.path as osp
+from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -10,6 +10,7 @@ from transformers import BitsAndBytesConfig
 from lema.core.configs import ModelParams, PeftParams
 from lema.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from lema.core.registry import REGISTRY, RegistryType
+from lema.utils.io_utils import load_file
 from lema.utils.logging import logger
 from lema.utils.torch_naming_heuristics import disable_dropout
 
@@ -234,6 +235,13 @@ def build_tokenizer(
     if model_params.chat_template:
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
+    if tokenizer.chat_template is None:
+        logger.warning(
+            "No chat template found for tokenizer. "
+            "Please specify a chat template using the `chat_template` field. "
+            "This will be required in future versions of LeMa."
+        )
+
     return tokenizer
 
 
@@ -276,31 +284,35 @@ def build_peft_model(
 def build_chat_template(template_name: str) -> str:
     """Builds a chat template based on code name.
 
-    NOTE: (internal) This registry is experimental and will be formatted
-    better once we have explored chat-template uses/cases (e.g., enumerate,
-    use .ninja files like them https://github.com/chujiezheng/chat_templates/tree/main
-    , etc.)
-
     Args:
-        template_name (str): the code name describing the chat-template.
+        template_name: the code name describing the chat-template.
 
     Raises:
-        NotImplementedError: if the requested code name does not exist
-        in the registry.
+        FileNotFoundError: if the requested template file does not exist.
 
     Returns:
-        str: a ninja-based chat-template.
+        str: a jinja-based chat-template.
     """
-    lema_top_dir = osp.dirname(osp.dirname(osp.abspath(__file__)))
-    chat_template_directory = osp.join(lema_top_dir, "datasets/chat_templates")
+    lema_top_dir = Path(__file__).parent.parent.resolve()
+    chat_template_directory = lema_top_dir / "datasets" / "chat_templates"
 
-    if template_name.lower() == "zephyr":
-        chat_template_file = osp.join(chat_template_directory, "zephyr.jinja")
-        with open(chat_template_file) as in_file:
-            chat_template = in_file.read()
-        chat_template = chat_template.replace("    ", "").replace("\n", "")
-        return chat_template
-    else:
-        raise NotImplementedError(
-            "Currently only *experimental* template for Zephyr has been added."
+    template_file = f"{template_name.lower()}.jinja"
+    chat_template_file = chat_template_directory / template_file
+
+    if not chat_template_file.exists():
+        existing_templates = [f.stem for f in chat_template_directory.glob("*.jinja")]
+        error_message = (
+            f"Chat template file not found: {chat_template_file}\n"
+            f"Existing templates: {', '.join(existing_templates)}\n"
+            f"To add a new template, create a .jinja file in {chat_template_directory}"
         )
+        raise FileNotFoundError(error_message)
+
+    chat_template = load_file(chat_template_file)
+
+    # Remove indentation and newlines while preserving intentional whitespace
+    lines = chat_template.splitlines()
+    cleaned_lines = [line.strip() for line in lines if line.strip()]
+    chat_template = "".join(cleaned_lines)
+
+    return chat_template

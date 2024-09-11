@@ -34,6 +34,7 @@ def disable_dropout(hf_config: transformers.PretrainedConfig) -> None:
         if "drop" in k and isinstance(v, float):
             setattr(hf_config, k, 0.0)
             drop_attrs.append(k)
+
     logger.info(
         f"Found these dropout attributes and set their values to 0.0: {drop_attrs}"
     )

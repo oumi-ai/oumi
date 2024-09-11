@@ -57,10 +57,10 @@ train = [
     "datasets",
     "deepspeed",
     "lm-eval",
+    "nvidia-ml-py",
     "omegaconf",
     "peft",
     "pydantic>=2",
-    "pynvml",
     "safetensors",
     "sentencepiece",                # for phi-3
     "tensorboard",

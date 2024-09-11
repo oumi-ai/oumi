@@ -22,6 +22,7 @@ from lema.datasets.prompt_response_sft_preprocessor_factory import (
 )
 from lema.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from lema.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
+from lema.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
@@ -91,6 +92,19 @@ def build_dataset(
         dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
+
+    if dataset_split_params.experimental_use_torch_datapipes:
+        from lema.builders.lema_data import build_dataset as build_lema_dataset
+
+        logger.warning(
+            "Using experimental torch datapipes preprocessing pipeline. "
+            "This is currently in beta and may not be stable."
+        )
+        # TODO: OPE-271. Some type hackery going on here.
+        # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
+        # IterableDataset. This is a temporary workaround until torchdata is stable
+        # and becomes the default processign pipeline.
+        return build_lema_dataset(config, tokenizer, dataset_split, seed, **kwargs)  # type: ignore
 
     datasets = [
         _preprocess_dataset(
