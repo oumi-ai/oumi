@@ -25,7 +25,7 @@ from transformers import TrainerCallback
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
-from lema.core.configs.params.fsdp_params import FSDPParams
+from lema.core.configs.params.fsdp_params import FSDPParams, StateDictType
 from lema.core.distributed import (
     barrier,
     get_device_rank_info,
@@ -429,7 +429,8 @@ class Trainer(BaseTrainer):
 
         if self.is_using_fsdp:
             storage_options = StateDictOptions(
-                full_state_dict=self.fsdp_params.state_dict_type == "FULL_STATE_DICT",
+                full_state_dict=self.fsdp_params.state_dict_type
+                == StateDictType.FULL_STATE_DICT,
                 cpu_offload=self.fsdp_params.cpu_offload,
                 ignore_frozen_params=False,
                 strict=True,
@@ -483,7 +484,8 @@ class Trainer(BaseTrainer):
 
         if self.is_using_fsdp:
             storage_options = StateDictOptions(
-                full_state_dict=self.fsdp_params.state_dict_type == "FULL_STATE_DICT",
+                full_state_dict=self.fsdp_params.state_dict_type
+                == StateDictType.FULL_STATE_DICT,
                 cpu_offload=self.fsdp_params.cpu_offload,
                 ignore_frozen_params=False,
                 strict=True,

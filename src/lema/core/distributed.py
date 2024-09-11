@@ -18,7 +18,7 @@ from torch.distributed.fsdp.wrap import (
 )
 from torch.nn.parallel import DistributedDataParallel
 
-from lema.core.configs.params.fsdp_params import FSDPParams
+from lema.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
 from lema.utils.str_utils import str_to_bool
 from lema.utils.torch_naming_heuristics import get_module_class_from_name
 
@@ -255,7 +255,7 @@ def prepare_model_for_distributed(
     sharding_strategy = fsdp_params.sharding_strategy.to_torch()
 
     # Wrapping Policy
-    if fsdp_params.auto_wrap_policy == "transformer":
+    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED:
         from lema.utils.torch_naming_heuristics import (
             guess_transformer_layer_cls,
         )
@@ -281,7 +281,7 @@ def prepare_model_for_distributed(
             recurse=True,
             nonwrapped_numel=0,
         )
-    elif fsdp_params.auto_wrap_policy == "size_based":
+    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED:
         wrapping_policy = functools.partial(
             size_based_auto_wrap_policy,
             min_num_params=fsdp_params.min_num_params,

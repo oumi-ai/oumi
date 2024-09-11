@@ -96,6 +96,19 @@ class BackwardPrefetch(str, Enum):
         return map[self]
 
 
+class AutoWrapPolicy(str, Enum):
+    """Enum representing the auto wrap policies for FSDP."""
+
+    SIZE_BASED = "SIZE_BASED"
+    """Wraps layers based on parameter count."""
+
+    TRANSFORMER_BASED = "TRANSFORMER_BASED"
+    """Wraps layers based on the transformer block layer."""
+
+    NONE = "NONE"
+    """No automatic wrapping is performed."""
+
+
 @dataclass
 class FSDPParams(BaseParams):
     """Configuration options for FullyShardedDataParallel (FSDP).
@@ -163,14 +176,8 @@ class FSDPParams(BaseParams):
     state_dict_type: StateDictType = StateDictType.FULL_STATE_DICT
     """Specifies the type of state dict to use for checkpointing."""
 
-    auto_wrap_policy: Optional[str] = "size_based"
-    """Policy for automatically wrapping layers in FSDP.
-
-    Options:
-        "size_based": wraps layers based on parameter count.
-        "transformer_based": wraps layers based on the transformer block layer.
-        None: No automatic wrapping is performed.
-    """
+    auto_wrap_policy: AutoWrapPolicy = AutoWrapPolicy.SIZE_BASED
+    """Policy for automatically wrapping layers in FSDP."""
 
     min_num_params: int = 100_000
     """Minimum number of parameters for a layer to be wrapped when using
