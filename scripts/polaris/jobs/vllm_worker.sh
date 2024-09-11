@@ -85,16 +85,18 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
 
     TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
-    MODEL = "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
-    # MODEL = "/eagle/community_ai/wizeng/runs/llama8b.sft.2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/checkpoint-1"
+    VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
 
-    vllm serve $MODEL \
+    # VLLM_MODEL="/eagle/community_ai/wizeng/runs/llama70b.sft.2085532"
+    echo "My model-------------------------------------"
+    echo $VLLM_MODEL
+    vllm serve $VLLM_MODEL \
         --tensor-parallel-size=$TENSOR_PARALLEL \
         --distributed-executor-backend=ray \
         --disable-custom-all-reduce \
         --enforce-eager \
         --disable-log-requests \
-        --lora-modules mylora="/eagle/community_ai/models/meta-llama/Meta-Llama-3.1-8B/sample_lora_adapters/2072372/" \
+        --lora-modules mylora="/eagle/community_ai/wizeng/runs/llama70b.lora.2085527/checkpoint-1/" \
         2>&1 | tee "${SERVER_LOG_PATH}" &
 
     echo "${LOG_PREFIX} Waiting for vLLM API server to start..."
@@ -104,12 +106,12 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
         echo "doing an eepy"
         sleep 30s
         # Exit after 30 minutes or on error.
-        # if (( EPOCHSECONDS-start > 1800 )); then exit 1; fi
-        # while `cat "${SERVER_LOG_PATH}" | grep -q 'error'`
-        # do
-        #     cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
-        #     exit 1
-        # done
+        if (( EPOCHSECONDS-start > 1800 )); then exit 1; fi
+        while `cat "${SERVER_LOG_PATH}" | grep -q 'error'`
+        do
+            cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
+            exit 1
+        done
     done
 
     echo "${LOG_PREFIX} Running inference"

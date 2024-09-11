@@ -1,7 +1,7 @@
 name: vllm
 # NOTE: Replace with your username.
 user: your_username
-num_nodes: 1
+num_nodes: 2
 
 resources:
   cloud: polaris
