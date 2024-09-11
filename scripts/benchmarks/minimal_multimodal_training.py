@@ -19,9 +19,13 @@ from transformers import AutoProcessor, DataCollatorWithPadding
 from lema.builders.models import build_model
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.training_params import TrainingParams
+from lema.core.datasets import VisionLanguageSftDataset
 from lema.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from lema.core.trainers.lema_trainer import Trainer
-from lema.datasets import COCOCaptionsDataset, Flickr30kDataset
+from lema.datasets import (
+    COCOCaptionsDataset,
+    Flickr30kDataset,
+)
 
 
 def parse_args():
@@ -56,7 +60,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_dataset(dataset_name, processor, limit=100):
+def get_dataset(
+    dataset_name: str, processor, limit: int = 100
+) -> VisionLanguageSftDataset:
     """Get a dataset for multi-modal training."""
     if dataset_name == "coco_captions":
         return COCOCaptionsDataset(split="train", processor=processor, limit=limit)
@@ -146,11 +152,11 @@ def test_multimodal_trainer(args):
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(args.model_name)
 
-    # TODO: OPE-Add chat template to processor
+    # TODO: Add chat template to processor
     # processor.chat_template = LLAVA_CHAT_TEMPLATE
     # processor.tokenizer.chat_template = LLAVA_CHAT_TEMPLATE
 
-    # TODO: OPE-: Add builder for collator
+    # TODO: OPE-357 Add builder for collator
     collator = MultiModalCollator(processor)
     dataset = get_dataset(args.dataset, processor)
 

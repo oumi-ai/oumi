@@ -85,6 +85,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Returns:
             Conversation: A Conversation object representing the conversation.
         """
+        raise NotImplementedError
 
     def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
         """Transforms a single image from a message for debugging.
@@ -97,7 +98,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             torch.Tensor: a tensor representing the processed image.
         """
         if self._image_processor is None:
-            raise ValueError
+            raise ValueError("Processor required for transform")
 
         image_bin = self._load_image(message)
         features = self._image_processor(
@@ -165,7 +166,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             -1
         ].content or ""
 
-        prompt = last_text_turn or ""
+        prompt = last_text_turn
         image = self._load_image(last_image_turn)
 
         return image, prompt
@@ -230,8 +231,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         elif image.type == Type.IMAGE_URL:
             if image.content is None:
                 raise ValueError("Image URL is None")
-            response = requests.get(image.content, stream=True)
-            response.raise_for_status()
+            try:
+                response = requests.get(image.content, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logger.exception(f"Failed to download image: '{image.content}'")
+                raise e
             image_bin = Image.open(response.raw).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:
