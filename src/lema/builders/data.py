@@ -100,6 +100,10 @@ def build_dataset(
             "Using experimental torch datapipes preprocessing pipep. "
             "This is currently in beta and may not be stable."
         )
+        # TODO: OPE-271. Some type hackery going on here.
+        # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
+        # IterableDataset. This is a temporary workaround until torchdata is stable
+        # and becomes the default processign pipeline.
         return build_lema_dataset(config, tokenizer, dataset_split, seed, **kwargs)  # type: ignore
 
     datasets = [
