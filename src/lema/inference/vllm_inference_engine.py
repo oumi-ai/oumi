@@ -16,19 +16,16 @@ from lema.utils.logging import logger
 class VLLMInferenceEngine(BaseInferenceEngine):
     """Engine for running vllm inference locally."""
 
-    def __init__(self, model: str, model_params: ModelParams):
+    def __init__(self, model_params: ModelParams):
         """Initializes the inference Engine.
 
         Args:
-            model: The model to use for inference. This can be a model name or a path to
-                a model directory.
             model_params: The model parameters to use for inference.
         """
-        self._model = model
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
-            model=model,
+            model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
             dtype=model_params.torch_dtype_str,

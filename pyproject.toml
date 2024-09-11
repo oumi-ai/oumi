@@ -29,6 +29,7 @@ dependencies = [
     "google-api-python-client",    # To enable GCP in Skypilot
     "jsonlines",
     "numpy",
+    "openai",
     "pexpect",
     "skypilot[gcp,lambda,runpod]",
     "torch",
