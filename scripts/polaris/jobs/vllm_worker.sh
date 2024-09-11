@@ -87,9 +87,9 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
     LORA_MODULES=
     VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
-    # For inference on a full fine-tuned model, uncomment the following.
+    # For inference on a full fine-tuned model, uncomment the following line.
     # VLLM_MODEL="/eagle/community_ai/wizeng/runs/llama70b.sft.2085532"
-    # For inference on a LoRA-tuned model, instead uncomment the following.
+    # For inference on a LoRA-tuned model, instead uncomment the following line.
     # LORA_MODULES='--lora-modules my_lora_adapter="/eagle/community_ai/wizeng/runs/llama70b.lora.2085527/checkpoint-1/"'
     vllm serve ${VLLM_MODEL} \
         --tensor-parallel-size=$TENSOR_PARALLEL \
