@@ -85,28 +85,29 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
 
     TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
+    LORA_MODULES=
     VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
-
+    # For inference on a full fine-tuned model, uncomment the following.
     # VLLM_MODEL="/eagle/community_ai/wizeng/runs/llama70b.sft.2085532"
-    echo "My model-------------------------------------"
-    echo $VLLM_MODEL
-    vllm serve $VLLM_MODEL \
+    # For inference on a LoRA-tuned model, instead uncomment the following.
+    # LORA_MODULES='--lora-modules my_lora_adapter="/eagle/community_ai/wizeng/runs/llama70b.lora.2085527/checkpoint-1/"'
+    vllm serve ${VLLM_MODEL} \
         --tensor-parallel-size=$TENSOR_PARALLEL \
         --distributed-executor-backend=ray \
         --disable-custom-all-reduce \
         --enforce-eager \
         --disable-log-requests \
-        --lora-modules mylora="/eagle/community_ai/wizeng/runs/llama70b.lora.2085527/checkpoint-1/" \
+        ${LORA_MODULES} \
         2>&1 | tee "${SERVER_LOG_PATH}" &
 
     echo "${LOG_PREFIX} Waiting for vLLM API server to start..."
     start=$EPOCHSECONDS
     while ! `cat "${SERVER_LOG_PATH}" | grep -q 'Uvicorn running on'`
     do
-        echo "doing an eepy"
         sleep 30s
         # Exit after 30 minutes or on error.
         if (( EPOCHSECONDS-start > 1800 )); then exit 1; fi
+        # TODO: OPE-356 - Have a more specific error check condition.
         while `cat "${SERVER_LOG_PATH}" | grep -q 'error'`
         do
             cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
@@ -122,6 +123,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'LEMA INFERENCE JOB DONE'`
     do
         sleep 30s
+        # TODO: OPE-356 - Have a more specific error check condition.
         while `cat "${INFERENCE_LOG_PATH}" | grep -q 'error'`
         do
             cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"

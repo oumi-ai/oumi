@@ -1,1 +1,0 @@
-{"messages": [{"role": "system", "content": "You are a helpful AI assistant."}, {"role": "user", "content": "Find the degree for the given field extension Q(sqrt(2), sqrt(3), sqrt(18)) over Q.\nChoices: \n0\n4\n2\n6"}]}
