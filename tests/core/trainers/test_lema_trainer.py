@@ -6,8 +6,9 @@ from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
 from lema.core.configs import TelemetryParams, TrainingParams
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.tokenizers import BaseTokenizer
-from lema.core.trainers import Trainer
+from lema.core.trainers.lema_trainer import Trainer
 from lema.models import MLPEncoder
 
 
@@ -197,53 +198,68 @@ def test_evaluate(trainer, mock_dataloader):
     assert trainer.model.forward.call_count > 0
 
 
+@pytest.fixture
+def mock_dcp_save():
+    with patch("torch.distributed.checkpoint.save") as mock_save:
+        yield mock_save
+
+
+@pytest.fixture
+def mock_dcp_load():
+    with patch("torch.distributed.checkpoint.load") as mock_load:
+        yield mock_load
+
+
+@pytest.mark.parametrize("is_using_fsdp", [True, False])
 def test_save_and_load_model(
-    trainer, mock_model, mock_optimizer, mock_stateful_dataloader, tmp_path
+    trainer,
+    mock_model,
+    mock_optimizer,
+    mock_stateful_dataloader,
+    tmp_path,
+    mock_dcp_save,
+    mock_dcp_load,
+    is_using_fsdp,
 ):
     output_dir = tmp_path / "model_output"
     output_dir.mkdir()
 
-    trainer.model = mock_model
-    trainer.optimizer = mock_optimizer
+    trainer.fsdp_params = FSDPParams(enable_fsdp=is_using_fsdp)
+    trainer.is_using_fsdp = is_using_fsdp
     trainer.train_dataloader = mock_stateful_dataloader
     trainer.params.output_dir = str(output_dir)
     trainer.params.telemetry = MagicMock(spec=TelemetryParams)
     trainer.params.telemetry.collect_telemetry_for_all_ranks = False
     trainer.params.telemetry_dir = MagicMock(return_value=(output_dir / "telemetry"))
 
-    trainer.model.state_dict = MagicMock(return_value={"model_key": torch.tensor(1)})
-    trainer.optimizer.state_dict = MagicMock(
-        return_value={"optim_key": torch.tensor(2)}
-    )
     trainer.train_dataloader.state_dict = MagicMock(
         return_value={"dataloader_key": torch.tensor(3)}
     )
     trainer.state.epoch = 1
     trainer.state.global_step = 50
 
-    trainer.save_state()
+    with patch("lema.core.trainers.lema_trainer.get_state_dict") as mock_get_state_dict:
+        mock_get_state_dict.return_value = ({"model": "state"}, {"optimizer": "state"})
 
-    assert (output_dir / "model.safetensors").exists()
-    assert (output_dir / "optimizer.pt").exists()
-    assert (output_dir / "dataloader.pt").exists()
-    assert (output_dir / "trainer_state.json").exists()
-    assert (output_dir / "telemetry.json").exists()
+        trainer.save_state()
 
-    with patch(
-        "safetensors.torch.load_model", side_effect=[{"model_key": torch.tensor(1)}]
-    ), patch(
-        "torch.load",
-        side_effect=[
-            {"optim_key": torch.tensor(2)},
-            {"dataloader_key": torch.tensor(3)},
-        ],
-    ):
+        mock_dcp_save.assert_called()
+
+        assert (output_dir / "dataloader.pt").exists()
+        assert (output_dir / "trainer_state.json").exists()
+        assert (output_dir / "telemetry.json").exists()
+
+        # Folder are created by DCP, but since it's a mock, we need to create
+        # the folder manually.
+        (output_dir / "model").mkdir()
+        (output_dir / "optimizer").mkdir()
+
+        # Test load
         trainer._load_from_checkpoint(str(output_dir))
-
-    assert trainer.optimizer.load_state_dict.called
-    assert trainer.train_dataloader.load_state_dict.called
-    assert trainer.state.epoch == 1
-    assert trainer.state.global_step == 50
+        mock_dcp_load.assert_called()
+        assert trainer.train_dataloader.load_state_dict.called
+        assert trainer.state.epoch == 1
+        assert trainer.state.global_step == 50
 
 
 def test_get_train_dataloader(trainer):
