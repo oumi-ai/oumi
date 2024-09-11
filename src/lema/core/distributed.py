@@ -8,9 +8,7 @@ from typing import NamedTuple, Optional
 import torch
 import torch.distributed as dist
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import ShardingStrategy
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    BackwardPrefetch,
     CPUOffload,
     MixedPrecision,
 )
@@ -254,16 +252,7 @@ def prepare_model_for_distributed(
     logger.info("Using FullyShardedDataParallel (FSDP) for distributed training.")
 
     # Sharding Strategy
-    if fsdp_params.sharding_strategy == "FULL_SHARD":
-        sharding_strategy = ShardingStrategy.FULL_SHARD
-    elif fsdp_params.sharding_strategy == "SHARD_GRAD_OP":
-        sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
-    elif fsdp_params.sharding_strategy == "HYBRID_SHARD":
-        sharding_strategy = ShardingStrategy.HYBRID_SHARD
-    elif fsdp_params.sharding_strategy == "HYBRID_SHARD_ZERO2":
-        sharding_strategy = ShardingStrategy._HYBRID_SHARD_ZERO2
-    else:
-        sharding_strategy = ShardingStrategy.NO_SHARD
+    sharding_strategy = fsdp_params.sharding_strategy.to_torch()
 
     # Wrapping Policy
     if fsdp_params.auto_wrap_policy == "transformer":
@@ -324,12 +313,7 @@ def prepare_model_for_distributed(
     cpu_offload = CPUOffload(offload_params=fsdp_params.cpu_offload)
 
     # Backward Prefetch
-    if fsdp_params.backward_prefetch == "BACKWARD_PRE":
-        backward_prefetch = BackwardPrefetch.BACKWARD_PRE
-    elif fsdp_params.backward_prefetch == "BACKWARD_POST":
-        backward_prefetch = BackwardPrefetch.BACKWARD_POST
-    else:
-        backward_prefetch = None
+    backward_prefetch = fsdp_params.backward_prefetch.to_torch()
 
     model = FSDP(
         model,
