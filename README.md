@@ -7,13 +7,13 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-LeMa is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
+The LeMa Platform enables the end-to-end development of foundation and specialized models including data curation/synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
-- **Run anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
-- **Instruction Fine-tuning**: Comprehensive instruction fine-tuning capabilities, including SFT, DPO, LoRA, and more
-- **Scalable Training**: Built-in support for distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP).
+- **Run Anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
+- **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more
+- **Scalability**: Built-in support for multi-node distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP). Inference support for Llama 405B and beyond.
 - **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris
 - **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
 - **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
@@ -25,15 +25,17 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 
 ### Quickstart
 
+0. (Optional) Set up Git and Conda:
+
+   For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
+
 1. Install the package:
 
    ```shell
    pip install 'lema[cloud,dev,train,gpu]'
    ```
 
-   For detailed instructions to setup your environment, see [installation guide](/docs/DEV_SETUP.md).
-
-2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
+2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):
 
 3. Run training locally:
 
@@ -50,17 +52,17 @@ These configurations demonstrate how to set up and run full training for differe
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
 | **Llama Instruction Finetuning** | | | | |
-| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ |
-| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ |
-| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ |
-| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/lema/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ |
+| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/lema/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/lema/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/lema/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/lema/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ Supported ✨ |
 | **Example Models** | | | | |
-| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/lema/llama3.8b.aya.sft.yaml) | GCP | ✨ |
-| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/lema/zephyr.7b/sft/qlora.yaml) | GCP | ✨ |
-| ChatQA | SFT | [chatqa.stage1.yaml](/configs/lema/chatqa/chatqa.stage1.yaml) | GCP | ✨ |
+| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/lema/llama3.8b.aya.sft.yaml) | GCP | ✨ Supported ✨ |
+| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/lema/zephyr.7b/sft/qlora.yaml) | GCP | ✨ Supported ✨ |
+| ChatQA | SFT | [chatqa.stage1.yaml](/configs/lema/chatqa/chatqa.stage1.yaml) | GCP | ✨ Supported ✨ |
 | **Pre-training** | | | | |
-| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/lema/gpt2.pt.mac.yaml) | Mac (mps) | ✨ |
-| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ |
+| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/lema/gpt2.pt.mac.yaml) | Mac (mps) | ✨ Supported ✨ |
+| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/lema/llama2b.pt.yaml) | Polaris | ✨ Supported ✨ |
 
 ## Tutorials
 

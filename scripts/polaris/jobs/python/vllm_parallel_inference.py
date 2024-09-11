@@ -78,8 +78,11 @@ def main():
     OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_PREFIX)
     METRIC_FILE_PATH = os.path.join(OUTPUT_PATH, METRIC_FILE_PREFIX)
     REQUEST_RETRIES = 3
+    print(f"Input file is {INPUT_FILE}")
     print(f"Files will be output to {OUTPUT_PATH}")
 
+    if not os.path.isfile(INPUT_FILE):
+        raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
     json_objects = pd.read_json(INPUT_FILE, lines=True)
     ALL_MESSAGES = json_objects["messages"].to_list()
 
@@ -121,8 +124,8 @@ def main():
                     request_complete_time = time.perf_counter()
                     response_dict = response.json()
                     response_message = response_dict["choices"][0]["message"]["content"]
-                    num_input_tokens = response_message["usage"]["prompt_tokens"]
-                    num_output_tokens = response_message["usage"]["completion_tokens"]
+                    num_input_tokens = response_dict["usage"]["prompt_tokens"]
+                    num_output_tokens = response_dict["usage"]["completion_tokens"]
                     output_queue.put(
                         (index, response_message, num_input_tokens, num_output_tokens)
                     )
@@ -185,7 +188,6 @@ def main():
                 "request_completed_time": request_complete_time,
             }
             writer.write(json_obj)
-            output_queue.task_done()
 
         if requests_completed % 50 == 0:
             metrics = _get_metrics(

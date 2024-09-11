@@ -61,7 +61,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             processor = AutoProcessor.from_pretrained(processor_name)
 
         self._processor = processor
-        self._processor_name = processor_name
 
         if self._processor is not None:
             self._tokenizer = self._processor.tokenizer
@@ -86,6 +85,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Returns:
             Conversation: A Conversation object representing the conversation.
         """
+        raise NotImplementedError
 
     def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
         """Transforms a single image from a message for debugging.
@@ -98,7 +98,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             torch.Tensor: a tensor representing the processed image.
         """
         if self._image_processor is None:
-            raise ValueError
+            raise ValueError("Processor required for transform")
 
         image_bin = self._load_image(message)
         features = self._image_processor(
@@ -121,7 +121,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
-            print("Using simple processor")
+            # TODO: OPE-354 blip2 and llava need special handling
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
@@ -140,6 +140,14 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 padding=True,
             )
 
+        # Processors by default return a list of tensors for each key
+        # We need to squeeze the first dimension so that it works with the data-loader
+        # Images will be of shape (C, H, W) and texts will be of shape (T)
+        # However, this is going to break models that support multiple images
+        # TODO: OPE-355 add support for multiple images
+        inputs["input_ids"] = inputs["input_ids"][0]
+        inputs["pixel_values"] = inputs["pixel_values"][0]
+
         inputs["labels"] = inputs["input_ids"]
         return inputs
 
@@ -151,14 +159,18 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         Simple models only use the last image and text turn in the conversation. They
         don't use the chat template, so the prompt is just the last text turn.
         """
-        last_image_turn = [turn for turn in conversation.messages if turn.is_image()][
-            -1
-        ]
-        last_text_turn = [turn for turn in conversation.messages if turn.is_text()][
-            -1
-        ].content or ""
+        image_turns = [turn for turn in conversation.messages if turn.is_image()]
+        text_turns = [turn for turn in conversation.messages if turn.is_text()]
 
-        prompt = last_text_turn or ""
+        if not image_turns:
+            raise ValueError("Conversation must contain at least one image turn")
+        if not text_turns:
+            raise ValueError("Conversation must contain at least one text turn")
+
+        last_image_turn = image_turns[-1]
+        last_text_turn = text_turns[-1].content or ""
+
+        prompt = last_text_turn
         image = self._load_image(last_image_turn)
 
         return image, prompt
@@ -223,8 +235,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         elif image.type == Type.IMAGE_URL:
             if image.content is None:
                 raise ValueError("Image URL is None")
-            response = requests.get(image.content, stream=True)
-            response.raise_for_status()
+            try:
+                response = requests.get(image.content, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logger.exception(f"Failed to download image: '{image.content}'")
+                raise e
             image_bin = Image.open(response.raw).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:

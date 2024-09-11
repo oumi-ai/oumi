@@ -185,19 +185,18 @@ def _create_training_performance_callbacks_if_needed(
             "Scheduled profiling is requested, but profiler is not available!"
         )
 
-    telemetry_dir: Optional[pathlib.Path] = None
-    if config.training.profiler.save_dir or config.training.output_dir:
-        telemetry_dir = (
-            pathlib.Path(
-                config.training.profiler.save_dir or config.training.output_dir
-            )
-            / "telemetry"
-        )
-        if is_local_process_zero():
-            telemetry_dir.mkdir(parents=True, exist_ok=True)
+    telemetry_dir: Optional[pathlib.Path] = config.training.telemetry_dir
+    if telemetry_dir and is_local_process_zero():
+        telemetry_dir.mkdir(parents=True, exist_ok=True)
+
     result.append(
         TelemetryCallback(
-            skip_first_steps=2, world_process_zero_only=True, output_dir=telemetry_dir
+            skip_first_steps=2,
+            world_process_zero_only=(
+                not config.training.telemetry.collect_telemetry_for_all_ranks
+            ),
+            output_dir=telemetry_dir,
+            track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
     )
 
@@ -307,6 +306,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         record_function_name="lema.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
+            kwargs = {}
+            if config.training.trainer_type == TrainerType.LEMA:
+                kwargs["fsdp_params"] = config.fsdp
             trainer = create_trainer_fn(
                 model=model,
                 tokenizer=tokenizer,
@@ -317,6 +319,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 callbacks=_create_training_performance_callbacks_if_needed(
                     config, model, profiler
                 ),
+                **kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):

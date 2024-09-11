@@ -25,6 +25,7 @@ The configurations are organized into different categories:
 - Model:
     - :class:`~lema.core.configs.params.model_params.ModelParams`
     - :class:`~lema.core.configs.params.peft_params.PeftParams`
+    - :class:`~lema.core.configs.params.fsdp_params.FSDPParams`
 - Training:
     - :class:`~lema.core.configs.training_config.TrainingConfig`
     - :class:`~lema.core.configs.params.training_params.TrainingParams`
@@ -33,6 +34,8 @@ The configurations are organized into different categories:
     - :class:`~lema.core.configs.params.training_params.TrainerType`
 - Profiling:
     - :class:`~lema.core.configs.params.profiler_params.ProfilerParams`
+- Telemetry:
+    - :class:`~lema.core.configs.params.telemetry_params.TelemetryParams`
 
 For more information on using these configurations, see the :ref:`configuration_guide`.
 
@@ -68,9 +71,11 @@ from lema.core.configs.params.data_params import (
     DatasetSplitParams,
     MixtureStrategy,
 )
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.peft_params import PeftParams
 from lema.core.configs.params.profiler_params import ProfilerParams
+from lema.core.configs.params.telemetry_params import TelemetryParams
 from lema.core.configs.params.training_params import (
     MixedPrecisionDtype,
     SchedulerType,
@@ -88,17 +93,19 @@ __all__ = [
     "DatasetSplitParams",
     "EvaluationConfig",
     "EvaluationFramework",
+    "FSDPParams",
     "GenerationConfig",
     "InferenceConfig",
     "JobConfig",
     "JobResources",
-    "MixtureStrategy",
     "MixedPrecisionDtype",
+    "MixtureStrategy",
     "ModelParams",
     "PeftParams",
     "ProfilerParams",
     "SchedulerType",
     "StorageMount",
+    "TelemetryParams",
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",

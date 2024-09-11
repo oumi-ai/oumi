@@ -1,21 +1,26 @@
 import functools
+import logging
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import Any, Dict, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, TypeVar, cast
 
 import torch
-import torch.distributed as dist
+import torch.distributed
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    BackwardPrefetch,
     CPUOffload,
     MixedPrecision,
 )
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from torch.distributed.fsdp.wrap import (
+    size_based_auto_wrap_policy,
+    transformer_auto_wrap_policy,
+)
 from torch.nn.parallel import DistributedDataParallel
 
+from lema.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
 from lema.utils.str_utils import str_to_bool
+from lema.utils.torch_naming_heuristics import get_module_class_from_name
 
 
 #
@@ -69,12 +74,14 @@ def verify_torch_distributed_initialized_if_needed() -> None:
     """Checks if torch.dist is initialized if WORLD_SIZE> 1."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     world_size = device_rank_info.world_size
-    if world_size > 1 and not (dist.is_available() and dist.is_initialized()):
+    if world_size > 1 and not (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    ):
         raise RuntimeError(
             f"World size {world_size} is greater than 1, "
             "while distributed torch isn't available/initialized ("
-            f"available: {dist.is_available()}, "
-            f"initialized: {dist.is_initialized()}, "
+            f"available: {torch.distributed.is_available()}, "
+            f"initialized: {torch.distributed.is_initialized()}, "
             f"{device_rank_info}"
             ")"
         )
@@ -113,16 +120,39 @@ def is_distributed() -> bool:
 #
 # Distributed Operations
 #
-def barrier(group: Optional[dist.ProcessGroup] = None, monitored: bool = False) -> None:
+def barrier(
+    group: Optional[torch.distributed.ProcessGroup] = None, monitored: bool = False
+) -> None:
     """Barrier synchronization among all processes in the group."""
-    if dist.is_available() and dist.is_initialized():
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
         if monitored:
-            dist.monitored_barrier(group=group)
+            torch.distributed.monitored_barrier(group=group)
         else:
-            dist.barrier(group=group)
+            torch.distributed.barrier(group=group)
         return
 
     return
+
+
+T = TypeVar("T")
+
+
+def all_gather_object(
+    obj: T, group: Optional[torch.distributed.ProcessGroup] = None
+) -> List[T]:
+    """Gathers picklable objects from the whole group into a list."""
+    verify_torch_distributed_initialized_if_needed()
+    if is_distributed():
+        device_rank_info: DeviceRankInfo = get_device_rank_info()
+        # Placeholder array to gather results from all workers.
+        object_list = [None] * device_rank_info.world_size
+        torch.distributed.all_gather_object(object_list, obj, group=group)
+    else:
+        object_list = [obj]
+
+    # We have to cast because the inferred type is `List[Optional[T]])`
+    # while `None` must never happen here.
+    return cast(List[T], object_list)
 
 
 def local_leader_only(*barrier_args, **barrier_kwargs):
@@ -206,88 +236,127 @@ def init_distributed(
     timeout = (
         timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
     )
-    dist.init_process_group(backend=backend, timeout=timeout)
+    torch.distributed.init_process_group(backend=backend, timeout=timeout)
     torch.cuda.set_device(int(device_rank_info.local_rank))
 
 
 def cleanup_distributed():
     """Clean up the distributed environment."""
-    dist.destroy_process_group()
+    torch.distributed.destroy_process_group()
 
 
 #
 # FSDP and DDP
 #
-def get_default_fsdp_wrapping_policy(model: torch.nn.Module):
-    """Get the FSDP wrapping policy based on the model size.
-
-    Note: this is a naive policy that wraps layers if they have
-    more than 100k parameters.
-
-    Args:
-        model: The PyTorch model.
-
-    Returns:
-        The FSDP wrapping policy.
-
-    """
-    return size_based_auto_wrap_policy(
-        model, min_num_params=100000, recurse=True, nonwrapped_numel=0
-    )
-
-
-def get_default_fsdp_mixed_precision():
-    """Get the FSDP mixed precision settings.
-
-    Returns:
-        MixedPrecision: An object containing the default FSDP mixed precision settings.
-    """
-    return MixedPrecision(
-        param_dtype=torch.bfloat16,
-        reduce_dtype=torch.bfloat16,
-        buffer_dtype=torch.bfloat16,
-    )
-
-
 def prepare_model_for_distributed(
-    model: torch.nn.Module, use_fsdp: bool, fsdp_config: Optional[Dict[str, Any]] = None
+    model: torch.nn.Module,
+    fsdp_params: Optional[FSDPParams] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
     Args:
-        model (torch.nn.Module): The model to be wrapped.
-        use_fsdp (bool): Whether to use FSDP for distributed training.
-        fsdp_config (Optional[Dict[str, Any]], optional):
-            Configuration options for FSDP. Defaults to None.
+        model: The model to be wrapped.
+        use_fsdp: Whether to use FSDP for distributed training.
+        fsdp_params: Configuration options for FSDP. Defaults to None.
 
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
     """
+    logger = logging.getLogger("lema")
+
     device_rank_info = get_device_rank_info()
 
-    if use_fsdp:
-        fsdp_config = fsdp_config or {}
-        wrapping_policy = fsdp_config.get(
-            "wrapping_policy", get_default_fsdp_wrapping_policy(model)
-        )
-        mixed_precision = fsdp_config.get(
-            "mixed_precision", get_default_fsdp_mixed_precision()
-        )
-
-        model = FSDP(
-            model,
-            auto_wrap_policy=wrapping_policy,
-            mixed_precision=mixed_precision,
-            device_id=torch.cuda.current_device(),
-            cpu_offload=CPUOffload(offload_params=False),
-            backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
-            limit_all_gathers=True,
-        )
-    else:
+    if fsdp_params is None or not fsdp_params.enable_fsdp:
+        logger.info("Using DistributedDataParallel (DDP) for distributed training.")
         model = DistributedDataParallel(
             model,
             device_ids=[device_rank_info.local_rank],
         )
+        return model
+
+    logger.info("Using FullyShardedDataParallel (FSDP) for distributed training.")
+
+    # Sharding Strategy
+    sharding_strategy = fsdp_params.sharding_strategy.to_torch()
+
+    # Wrapping Policy
+    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED:
+        from lema.utils.torch_naming_heuristics import (
+            guess_transformer_layer_cls,
+        )
+
+        if fsdp_params.transformer_layer_cls is None:
+            transformer_layer_cls = guess_transformer_layer_cls(model)
+            logger.info(
+                "Automatically inffered transformer layer class to wrap: "
+                f"{transformer_layer_cls}"
+            )
+        else:
+            logger.info(
+                "Using transformer layer class to wrap: "
+                f"{fsdp_params.transformer_layer_cls}"
+            )
+            transformer_layer_cls = get_module_class_from_name(
+                fsdp_params.transformer_layer_cls
+            )
+
+        wrapping_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={transformer_layer_cls},
+            recurse=True,
+            nonwrapped_numel=0,
+        )
+    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED:
+        wrapping_policy = functools.partial(
+            size_based_auto_wrap_policy,
+            min_num_params=fsdp_params.min_num_params,
+            recurse=True,
+            nonwrapped_numel=0,
+        )
+
+    else:
+        wrapping_policy = None
+
+    # Mixed Precision
+    mixed_precision = None
+    if fsdp_params.mixed_precision:
+        if fsdp_params.mixed_precision == "bf16":
+            dtype = torch.bfloat16
+        elif fsdp_params.mixed_precision == "fp16":
+            dtype = torch.float16
+        else:
+            raise ValueError(
+                f"Unsupported mixed precision type: {fsdp_params.mixed_precision}"
+            )
+        mixed_precision = MixedPrecision(
+            param_dtype=dtype,
+            reduce_dtype=dtype,
+            buffer_dtype=dtype,
+        )
+
+    # CPU Offload
+    cpu_offload = CPUOffload(offload_params=fsdp_params.cpu_offload)
+
+    # Backward Prefetch
+    backward_prefetch = fsdp_params.backward_prefetch.to_torch()
+
+    model = FSDP(
+        model,
+        sharding_strategy=sharding_strategy,
+        cpu_offload=cpu_offload,
+        backward_prefetch=backward_prefetch,
+        mixed_precision=mixed_precision,
+        auto_wrap_policy=wrapping_policy,
+        device_id=torch.cuda.current_device(),
+        sync_module_states=fsdp_params.sync_module_states,
+        forward_prefetch=fsdp_params.forward_prefetch,
+        # Leaving these to their default values for now
+        # but we may want to make them configurable later
+        use_orig_params=True,  # This needs to be True for torch.compile to work
+        limit_all_gathers=True,
+        param_init_fn=None,
+        ignored_modules=None,
+    )
 
     return model
 

@@ -4,15 +4,19 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 import pydantic
+import safetensors.torch
 import torch
 import torch.amp
+import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-
-import wandb  # isort: skip
-import safetensors.torch
+import wandb
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_state_dict,
+)
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
@@ -21,6 +25,7 @@ from transformers import TrainerCallback
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
+from lema.core.configs.params.fsdp_params import FSDPParams, StateDictType
 from lema.core.distributed import (
     barrier,
     get_device_rank_info,
@@ -55,11 +60,14 @@ class Trainer(BaseTrainer):
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
+        data_collator: Optional[Callable] = None,
+        fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
+        self.collator_fn = data_collator
 
         self.model = model
         self.tokenizer = tokenizer
@@ -67,6 +75,9 @@ class Trainer(BaseTrainer):
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.max_norm: float = args.max_grad_norm
+
+        self.fsdp_params = fsdp_params or FSDPParams()
+        self.is_using_fsdp = self.fsdp_params.enable_fsdp
 
         self.params.validate()
 
@@ -111,11 +122,13 @@ class Trainer(BaseTrainer):
 
         self.model.to(self.device)
 
-        # TODO: OPE-219 - hook-up fsdp flag
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                self.model = prepare_model_for_distributed(self.model, use_fsdp=False)
+                self.model = prepare_model_for_distributed(
+                    self.model,
+                    fsdp_params=self.fsdp_params,
+                )
 
         if self.params.compile:
             self.log("Compiling model...")
@@ -189,6 +202,8 @@ class Trainer(BaseTrainer):
                         )
                         break
 
+            self._process_callbacks("on_train_end")
+
         self.log(
             f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
@@ -248,10 +263,11 @@ class Trainer(BaseTrainer):
                     self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
-                    batch = {
-                        k: v.to(self.device, non_blocking=True)
-                        for k, v in batch.items()
-                    }
+                    if not self.is_using_fsdp:
+                        batch = {
+                            k: v.to(self.device, non_blocking=True)
+                            for k, v in batch.items()
+                        }
 
                 with self.mixed_precision_ctx, self._telemetry_block("model forward"):
                     self.model.require_backward_grad_sync = (  # type: ignore
@@ -282,7 +298,8 @@ class Trainer(BaseTrainer):
                         self.optimizer.zero_grad(set_to_none=True)
 
                     self.state.global_step += 1
-                    self.telemetry.record_gpu_temperature()
+                    if self.params.telemetry.track_gpu_temperature:
+                        self.telemetry.record_gpu_temperature()
                     progress_bar.update(1)
 
                     self._process_callbacks("on_step_end")
@@ -352,7 +369,7 @@ class Trainer(BaseTrainer):
     #
     # Evaluation
     #
-    @torch.no_grad
+    @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
         """Evaluates the model on the evaluation dataset."""
         if self.eval_dataloader is None:
@@ -397,52 +414,102 @@ class Trainer(BaseTrainer):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)
 
-        if is_world_process_zero():
+        if is_local_process_zero():
             checkpoint_dir.mkdir(exist_ok=True)
 
-            model_path = checkpoint_dir / "model.safetensors"
-            optimizer_path = checkpoint_dir / "optimizer.pt"
-            dataloader_state_path = checkpoint_dir / "dataloader.pt"
-            trainer_state_path = checkpoint_dir / "trainer_state.json"
-            telemetry_state_path = checkpoint_dir / "telemetry.json"
+        if (
+            self.params.telemetry.collect_telemetry_for_all_ranks
+            or is_world_process_zero()
+        ):
+            telemetry_dir = self.params.telemetry_dir
+            if telemetry_dir:
+                device_rank_info = get_device_rank_info()
+                telemetry_state_path = (
+                    telemetry_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
+                )
+                save_json(
+                    data=self.telemetry.state_dict(),
+                    filename=telemetry_state_path,
+                )
 
-            safetensors.torch.save_model(model=self.model, filename=str(model_path))
-            torch.save(
-                self.optimizer.state_dict(),
-                optimizer_path,
+        if self.is_using_fsdp:
+            storage_options = StateDictOptions(
+                full_state_dict=self.fsdp_params.state_dict_type
+                == StateDictType.FULL_STATE_DICT,
+                cpu_offload=self.fsdp_params.cpu_offload,
+                ignore_frozen_params=False,
+                strict=True,
+                broadcast_from_rank0=False,  # TODO: make this configurable
             )
-            torch.save(
-                self.train_dataloader.state_dict(),
-                dataloader_state_path,
-            )
-            save_json(
-                data=self.state.model_dump(),
-                filename=trainer_state_path,
-            )
-            save_json(
-                data=self.telemetry.state_dict(),
-                filename=telemetry_state_path,
-            )
+        else:
+            storage_options = None
+
+        model_state_dict, optimizer_state_dict = get_state_dict(
+            model=self.model,
+            optimizers=self.optimizer,
+            options=storage_options,
+        )
+
+        model_path = checkpoint_dir / "model"
+        optimizer_path = checkpoint_dir / "optimizer"
+        dataloader_state_path = checkpoint_dir / "dataloader.pt"
+        trainer_state_path = checkpoint_dir / "trainer_state.json"
+
+        dcp.save(model_state_dict, checkpoint_id=model_path)
+        dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
+
+        if is_world_process_zero():
+            torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
+            save_json(data=self.state.model_dump(), filename=trainer_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""
         checkpoint_dir = Path(checkpoint_dirname)
 
-        model_path = checkpoint_dir / "model.safetensors"
-        optimizer_path = checkpoint_dir / "optimizer.pt"
+        device_rank_info = get_device_rank_info()
+
+        model_path = checkpoint_dir / "model"
+        optimizer_path = checkpoint_dir / "optimizer"
         dataloader_state_path = checkpoint_dir / "dataloader.pt"
         trainer_state_path = checkpoint_dir / "trainer_state.json"
-        telemetry_state_path = checkpoint_dir / "telemetry.json"
+        telemetry_state_path = (
+            checkpoint_dir / f"telemetry_rank{device_rank_info.rank:04}.json"
+        )
 
-        if model_path.exists():
-            safetensors.torch.load_model(
-                self.model, filename=str(model_path), strict=True, device=self.device
+        if not checkpoint_dir.exists():
+            raise ValueError(f"Checkpoint directory does not exist: {checkpoint_dir}")
+        if not model_path.exists():
+            raise ValueError(
+                f"Invalid checkpoint, model state folder does not exist: {model_path}"
             )
-        if optimizer_path.exists():
-            self.optimizer.load_state_dict(
-                torch.load(optimizer_path, map_location=self.device, weights_only=True)
+        if not optimizer_path.exists():
+            raise ValueError(
+                "Invalid checkpoint, optimizer state folder does not exist: "
+                f"{optimizer_path}"
             )
+
+        if self.is_using_fsdp:
+            storage_options = StateDictOptions(
+                full_state_dict=self.fsdp_params.state_dict_type
+                == StateDictType.FULL_STATE_DICT,
+                cpu_offload=self.fsdp_params.cpu_offload,
+                ignore_frozen_params=False,
+                strict=True,
+                broadcast_from_rank0=False,
+            )
+        else:
+            storage_options = None
+
+        model_state_dict, optimizer_state_dict = get_state_dict(
+            model=self.model,
+            optimizers=self.optimizer,
+            options=storage_options,
+        )
+
+        dcp.load(model_state_dict, checkpoint_id=model_path)
+        dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
+
         if dataloader_state_path.exists():
             self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
         if trainer_state_path.exists():
@@ -560,6 +627,7 @@ class Trainer(BaseTrainer):
             prefetch_factor=prefetch_factor,
             pin_memory_device=self.device,
             snapshot_every_n_steps=self.params.save_steps,
+            collate_fn=self.collator_fn,
         )
 
     def _get_eval_dataloader(self) -> DataLoader:
@@ -574,6 +642,7 @@ class Trainer(BaseTrainer):
             batch_size=self.params.per_device_eval_batch_size,
             shuffle=False,
             num_workers=self.params.dataloader_num_workers,
+            collate_fn=self.collator_fn,
         )
 
     def _get_total_training_steps(self) -> int:
