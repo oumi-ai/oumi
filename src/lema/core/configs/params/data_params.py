@@ -207,6 +207,14 @@ class DatasetSplitParams(BaseParams):
     Warning:
         This is an experimental feature and may change without notice.
     """
+
+    experimental_use_torch_datapipes: bool = False
+    """Whether to use the torch DataPipes for dataset processing.
+
+    Warning:
+        This is an experimental feature and may change without notice.
+    """
+
     # END EXPERIMENTAL PARAMS --------------------
 
     def __post_init__(self):
