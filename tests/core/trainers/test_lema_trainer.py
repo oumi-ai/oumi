@@ -243,6 +243,8 @@ def test_save_and_load_model(
     with patch("lema.core.trainers.lema_trainer.get_state_dict") as mock_get_state_dict:
         mock_get_state_dict.return_value = ({"model": "state"}, {"optimizer": "state"})
 
+        trainer.save_state()
+
         mock_dcp_save.assert_called()
 
         assert (output_dir / "dataloader.pt").exists()
