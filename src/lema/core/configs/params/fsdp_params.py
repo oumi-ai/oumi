@@ -31,6 +31,8 @@ class FSDPParams(BaseParams):
             across nodes.
         "NO_SHARD": No sharding is applied. Parameters, gradients, and optimizer states
             are kept in full on each GPU.
+        "HYBRID_SHARD_ZERO2": Apply SHARD_GRAD_OP within a node, and replicate
+            parameters across nodes.
 
     Warning:
         "NO_SHARD" option is deprecated and will be removed in a future release.
@@ -63,6 +65,9 @@ class FSDPParams(BaseParams):
             increase memory usage. This may degrade throughput significantly.
     """
 
+    forward_prefetch: bool = False
+    """If True, prefetches the forward pass results."""
+
     state_dict_type: str = "FULL_STATE_DICT"
     """Specifies the type of state dict to use for checkpointing.
 
@@ -92,6 +97,3 @@ class FSDPParams(BaseParams):
 
     sync_module_states: bool = True
     """If True, synchronizes module states across processes."""
-
-    forward_prefetch: bool = False
-    """If True, prefetches the forward pass results."""

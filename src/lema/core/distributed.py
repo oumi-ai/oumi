@@ -21,6 +21,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.utils.str_utils import str_to_bool
+from lema.utils.torch_naming_heuristics import get_module_class_from_name
 
 
 #
@@ -253,6 +254,8 @@ def prepare_model_for_distributed(
         sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
     elif fsdp_params.sharding_strategy == "HYBRID_SHARD":
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
+    elif fsdp_params.sharding_strategy == "HYBRID_SHARD_ZERO2":
+        sharding_strategy = ShardingStrategy._HYBRID_SHARD_ZERO2
     else:
         sharding_strategy = ShardingStrategy.NO_SHARD
 
@@ -264,6 +267,11 @@ def prepare_model_for_distributed(
 
         if fsdp_params.transformer_layer_cls is None:
             transformer_layer_cls = guess_transformer_layer_cls(model)
+        else:
+            transformer_layer_cls = get_module_class_from_name(
+                fsdp_params.transformer_layer_cls
+            )
+
         wrapping_policy = functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={transformer_layer_cls},
@@ -302,9 +310,12 @@ def prepare_model_for_distributed(
     cpu_offload = CPUOffload(offload_params=fsdp_params.cpu_offload)
 
     # Backward Prefetch
-    backward_prefetch = (
-        BackwardPrefetch.BACKWARD_PRE if fsdp_params.backward_prefetch else None
-    )
+    if fsdp_params.backward_prefetch == "BACKWARD_PRE":
+        backward_prefetch = BackwardPrefetch.BACKWARD_PRE
+    elif fsdp_params.backward_prefetch == "BACKWARD_POST":
+        backward_prefetch = BackwardPrefetch.BACKWARD_POST
+    else:
+        backward_prefetch = None
 
     model = FSDP(
         model,
