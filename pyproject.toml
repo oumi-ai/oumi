@@ -52,6 +52,7 @@ dev = [
     "pre-commit",
     "pyright",
     "pytest",
+    "pytest-cov",
     "ruff",
     "torchfix",
 ]
@@ -139,17 +140,3 @@ reportPrivateImportUsage = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=lema --cov-report=term-missing"
-
-[tool.coverage.run]
-source = ["src"]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "pass",
-    "except ImportError:",
-]
