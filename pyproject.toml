@@ -35,6 +35,7 @@ dependencies = [
     "google-api-python-client",    # To enable GCP in Skypilot
     "jsonlines",
     "numpy",
+    "openai",
     "pexpect",
     "skypilot[gcp,lambda,runpod]",
     "torch",
@@ -83,7 +84,7 @@ cloud = [
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
 ]
-gpu = ["flash-attn", "liger-kernel"] # dependecies that require a GPU to install
+gpu = ["flash-attn", "liger-kernel", "vllm",] # dependencies that require a GPU to install
 docs = [
     "myst_parser",
     "nbsphinx",
