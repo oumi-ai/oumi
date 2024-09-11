@@ -469,12 +469,17 @@ class Trainer(BaseTrainer):
         trainer_state_path = checkpoint_dir / "trainer_state.json"
         telemetry_state_path = checkpoint_dir / "telemetry.json"
 
-        if (
-            not checkpoint_dir.exists()
-            or not model_path.exists()
-            or not optimizer_path.exists()
-        ):
-            raise ValueError("Invalid checkpoint")
+        if not checkpoint_dir.exists():
+            raise ValueError(f"Checkpoint directory does not exist: {checkpoint_dir}")
+        if not model_path.exists():
+            raise ValueError(
+                f"Invalid checkpoint, model state folder does not exist: {model_path}"
+            )
+        if not optimizer_path.exists():
+            raise ValueError(
+                "Invalid checkpoint, optimizer state folder does not exist: "
+                f"{optimizer_path}"
+            )
 
         if self.is_using_fsdp:
             storage_options = StateDictOptions(

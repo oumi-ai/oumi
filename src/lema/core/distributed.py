@@ -1,4 +1,5 @@
 import functools
+import logging
 import os
 from contextlib import contextmanager
 from datetime import timedelta
@@ -238,14 +239,19 @@ def prepare_model_for_distributed(
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
     """
+    logger = logging.getLogger("lema")
+
     device_rank_info = get_device_rank_info()
 
     if fsdp_params is None or not fsdp_params.enable_fsdp:
+        logger.info("Using DistributedDataParallel (DDP) for distributed training.")
         model = DistributedDataParallel(
             model,
             device_ids=[device_rank_info.local_rank],
         )
         return model
+
+    logger.info("Using FullyShardedDataParallel (FSDP) for distributed training.")
 
     # Sharding Strategy
     if fsdp_params.sharding_strategy == "FULL_SHARD":
@@ -267,7 +273,15 @@ def prepare_model_for_distributed(
 
         if fsdp_params.transformer_layer_cls is None:
             transformer_layer_cls = guess_transformer_layer_cls(model)
+            logger.info(
+                "Automatically inffered transformer layer class to wrap: "
+                f"{transformer_layer_cls}"
+            )
         else:
+            logger.info(
+                "Using transformer layer class to wrap: "
+                f"{fsdp_params.transformer_layer_cls}"
+            )
             transformer_layer_cls = get_module_class_from_name(
                 fsdp_params.transformer_layer_cls
             )
