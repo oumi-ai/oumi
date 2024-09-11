@@ -35,6 +35,7 @@ dependencies = [
     "torch",
     "tqdm",
     "transformers",
+    "torchvision",
 ]
 
 [project.urls]

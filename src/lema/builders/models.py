@@ -51,6 +51,15 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model_params.model_name)
 
+    for layer_name in model_params.freeze_layers:
+        if hasattr(model, layer_name):
+            logger.info(f"Freezing layer {layer_name}.")
+
+            for param in getattr(model, layer_name).parameters():
+                param.requires_grad_(False)
+        else:
+            logger.warning(f"Layer {layer_name} not found in model.")
+
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
         # nn.Module. We cast it so that this function can have a useful return type.
@@ -163,21 +172,23 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
+    transformers_model_class = _get_transformers_model_class(hf_config)
+
     if model_params.load_pretrained_weights:
-        model = transformers.AutoModelForCausalLM.from_pretrained(
+        model = transformers_model_class.from_pretrained(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
             device_map=device_map,
-            pretrained_model_name_or_path=model_params.model_name,
             trust_remote_code=model_params.trust_remote_code,
+            pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
             **kwargs,
         )
     else:
-        # TODO: What about device_map and quantization_config params?
-        model = transformers.AutoModelForCausalLM.from_config(
+        model = transformers_model_class.from_config(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
+            device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             **kwargs,
         )
@@ -194,6 +205,41 @@ def build_huggingface_model(
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
 
     return model
+
+
+def _get_transformers_model_class(config):
+    # TODO: Remove this once we have a better way to identify the model class
+    # Or we can just ask the user to specify the model class in the config
+    if config.model_type in (
+        "blip-2",
+        "blip",
+        "chameleon",
+        "idefics",
+        "idefics2",
+        "idefics3",
+        "instructblip",
+        "llava",
+        "paligemma",
+        "qwen2_vl",
+        "vipllava",
+    ):
+        tested_models = {
+            "blip-2",
+            "llava",
+        }  # TODO: OPE-353, make sure we have all models supported
+
+        if config.model_type not in tested_models:
+            logger.warning(
+                f"Model type {config.model_type} not tested. "
+                "Using AutoModelForCausalLM as the model class."
+                "If you encounter errors, please open an issue at https://github.com/openlema/lema."
+            )
+
+        auto_model_class = transformers.AutoModelForVision2Seq
+    else:
+        auto_model_class = transformers.AutoModelForCausalLM
+    logger.info(f"Using model class: {auto_model_class} to instantiate model.")
+    return auto_model_class
 
 
 def build_tokenizer(

@@ -16,10 +16,12 @@ from lema.core.datasets.iterable_dataset import (
     BaseIterableDataset,
     BasePretrainingIterableDataset,
 )
+from lema.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 
 __all__ = [
     "BaseIterableDataset",
     "BaseLMSftDataset",
     "BaseMapDataset",
     "BasePretrainingIterableDataset",
+    "VisionLanguageSftDataset",
 ]
