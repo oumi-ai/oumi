@@ -1,4 +1,4 @@
-from typing import List
+from __future__ import annotations
 
 from lema.builders import (
     build_tokenizer,
@@ -47,7 +47,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
-    ) -> List[ChatCompletionMessageParam]:
+    ) -> list[ChatCompletionMessageParam]:
         """Converts a conversation to a list of vllm input messages.
 
         Args:
@@ -65,8 +65,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], generation_config: GenerationConfig
+    ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
@@ -106,8 +106,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], generation_config: GenerationConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -125,7 +125,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
