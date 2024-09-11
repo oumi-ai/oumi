@@ -6,7 +6,12 @@ from lema.core.configs.params.base_params import BaseParams
 
 @dataclass
 class FSDPParams(BaseParams):
-    """Configuration options for FullyShardedDataParallel (FSDP)."""
+    """Configuration options for FullyShardedDataParallel (FSDP).
+
+    Note:
+        This config is currently only used by the `LEMA` trainer. Support for other
+        trainers will be added in future releases.
+    """
 
     enable_fsdp: bool = False
     """If True, enables FullyShardedDataParallel training.
@@ -64,7 +69,7 @@ class FSDPParams(BaseParams):
     Options: "FULL_STATE_DICT", "SHARDED_STATE_DICT".
     """
 
-    auto_wrap_policy: str = "size_based"
+    auto_wrap_policy: Optional[str] = "size_based"
     """Policy for automatically wrapping layers in FSDP.
 
     Options:
@@ -73,9 +78,9 @@ class FSDPParams(BaseParams):
         None: No automatic wrapping is performed.
     """
 
-    min_num_params: int = 100000
+    min_num_params: int = 100_000
     """Minimum number of parameters for a layer to be wrapped when using
-    size_based policy. This has transformer_basedno effect when using
+    size_based policy. This has no effect when using
     transformer_based policy.
     """
 

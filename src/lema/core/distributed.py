@@ -225,57 +225,55 @@ def cleanup_distributed():
 #
 def prepare_model_for_distributed(
     model: torch.nn.Module,
-    use_fsdp: bool = False,
-    fsdp_config: Optional[FSDPParams] = None,
+    fsdp_params: Optional[FSDPParams] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
     Args:
-        model (torch.nn.Module): The model to be wrapped.
-        use_fsdp (bool): Whether to use FSDP for distributed training.
-        fsdp_config (Optional[Dict[str, Any]], optional):
-            Configuration options for FSDP. Defaults to None.
+        model: The model to be wrapped.
+        use_fsdp: Whether to use FSDP for distributed training.
+        fsdp_params: Configuration options for FSDP. Defaults to None.
 
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
     """
     device_rank_info = get_device_rank_info()
 
-    if not use_fsdp:
+    if fsdp_params is None or not fsdp_params.enable_fsdp:
         model = DistributedDataParallel(
             model,
             device_ids=[device_rank_info.local_rank],
         )
         return model
 
-    if not fsdp_config:
-        raise ValueError("FSDP is being used but no FSDP config is provided.")
-
     # Sharding Strategy
-    if fsdp_config.sharding_strategy == "FULL_SHARD":
+    if fsdp_params.sharding_strategy == "FULL_SHARD":
         sharding_strategy = ShardingStrategy.FULL_SHARD
-    elif fsdp_config.sharding_strategy == "SHARD_GRAD_OP":
+    elif fsdp_params.sharding_strategy == "SHARD_GRAD_OP":
         sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+    elif fsdp_params.sharding_strategy == "HYBRID_SHARD":
+        sharding_strategy = ShardingStrategy.HYBRID_SHARD
     else:
         sharding_strategy = ShardingStrategy.NO_SHARD
 
     # Wrapping Policy
-    if fsdp_config.auto_wrap_policy == "transformer":
+    if fsdp_params.auto_wrap_policy == "transformer":
         from lema.utils.torch_naming_heuristics import (
             guess_transformer_layer_cls,
         )
 
-        transformer_layer_cls = guess_transformer_layer_cls(model)
+        if fsdp_params.transformer_layer_cls is None:
+            transformer_layer_cls = guess_transformer_layer_cls(model)
         wrapping_policy = functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={transformer_layer_cls},
             recurse=True,
             nonwrapped_numel=0,
         )
-    elif fsdp_config.auto_wrap_policy == "size_based":
+    elif fsdp_params.auto_wrap_policy == "size_based":
         wrapping_policy = functools.partial(
             size_based_auto_wrap_policy,
-            min_num_params=fsdp_config.min_num_params,
+            min_num_params=fsdp_params.min_num_params,
             recurse=True,
             nonwrapped_numel=0,
         )
@@ -285,14 +283,14 @@ def prepare_model_for_distributed(
 
     # Mixed Precision
     mixed_precision = None
-    if fsdp_config.mixed_precision:
-        if fsdp_config.mixed_precision == "bf16":
+    if fsdp_params.mixed_precision:
+        if fsdp_params.mixed_precision == "bf16":
             dtype = torch.bfloat16
-        elif fsdp_config.mixed_precision == "fp16":
+        elif fsdp_params.mixed_precision == "fp16":
             dtype = torch.float16
         else:
             raise ValueError(
-                f"Unsupported mixed precision type: {fsdp_config.mixed_precision}"
+                f"Unsupported mixed precision type: {fsdp_params.mixed_precision}"
             )
         mixed_precision = MixedPrecision(
             param_dtype=dtype,
@@ -301,11 +299,11 @@ def prepare_model_for_distributed(
         )
 
     # CPU Offload
-    cpu_offload = CPUOffload(offload_params=fsdp_config.cpu_offload)
+    cpu_offload = CPUOffload(offload_params=fsdp_params.cpu_offload)
 
     # Backward Prefetch
     backward_prefetch = (
-        BackwardPrefetch.BACKWARD_PRE if fsdp_config.backward_prefetch else None
+        BackwardPrefetch.BACKWARD_PRE if fsdp_params.backward_prefetch else None
     )
 
     model = FSDP(
@@ -316,12 +314,12 @@ def prepare_model_for_distributed(
         mixed_precision=mixed_precision,
         auto_wrap_policy=wrapping_policy,
         device_id=torch.cuda.current_device(),
-        limit_all_gathers=True,
-        sync_module_states=fsdp_config.sync_module_states,
-        forward_prefetch=fsdp_config.forward_prefetch,
+        sync_module_states=fsdp_params.sync_module_states,
+        forward_prefetch=fsdp_params.forward_prefetch,
         # Leaving these to their default values for now
         # but we may want to make them configurable later
         use_orig_params=True,  # This needs to be True for torch.compile to work
+        limit_all_gathers=True,
         param_init_fn=None,
         ignored_modules=None,
     )

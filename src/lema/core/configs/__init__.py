@@ -25,6 +25,7 @@ The configurations are organized into different categories:
 - Model:
     - :class:`~lema.core.configs.params.model_params.ModelParams`
     - :class:`~lema.core.configs.params.peft_params.PeftParams`
+    - :class:`~lema.core.configs.params.fsdp_params.FSDPParams`
 - Training:
     - :class:`~lema.core.configs.training_config.TrainingConfig`
     - :class:`~lema.core.configs.params.training_params.TrainingParams`
@@ -70,6 +71,7 @@ from lema.core.configs.params.data_params import (
     DatasetSplitParams,
     MixtureStrategy,
 )
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.peft_params import PeftParams
 from lema.core.configs.params.profiler_params import ProfilerParams
@@ -91,12 +93,13 @@ __all__ = [
     "DatasetSplitParams",
     "EvaluationConfig",
     "EvaluationFramework",
+    "FSDPParams",
     "GenerationConfig",
     "InferenceConfig",
     "JobConfig",
     "JobResources",
-    "MixtureStrategy",
     "MixedPrecisionDtype",
+    "MixtureStrategy",
     "ModelParams",
     "PeftParams",
     "ProfilerParams",

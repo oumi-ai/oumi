@@ -125,8 +125,7 @@ class Trainer(BaseTrainer):
             with self._telemetry_block("wrap model for distributed"):
                 self.model = prepare_model_for_distributed(
                     self.model,
-                    use_fsdp=self.is_using_fsdp,
-                    fsdp_config=self.fsdp_params,
+                    fsdp_params=self.fsdp_params,
                 )
 
         if self.params.compile:
