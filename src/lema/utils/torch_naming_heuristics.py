@@ -3,9 +3,11 @@
 # TODO(OPE-303): These should be replaced with something more robust.
 """
 
-from typing import Any, Dict, List
+import importlib
+from typing import Any, Dict, List, Type
 
 import torch
+import torch.nn as nn
 import transformers
 
 from lema.utils.logging import logger
@@ -32,6 +34,7 @@ def disable_dropout(hf_config: transformers.PretrainedConfig) -> None:
         if "drop" in k and isinstance(v, float):
             setattr(hf_config, k, 0.0)
             drop_attrs.append(k)
+
     logger.info(
         f"Found these dropout attributes and set their values to 0.0: {drop_attrs}"
     )
@@ -72,3 +75,22 @@ def group_trainable_params(
             _WEIGHT_DECAY_KEY: 0.0,
         },
     ]
+
+
+def guess_transformer_layer_cls(model: nn.Module) -> Type[nn.Module]:
+    """Guess the transformer layer class based on the model architecture."""
+    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
+        return type(model.transformer.h[0])
+    elif hasattr(model, "layers"):
+        return type(model.layers[0])
+    else:
+        raise ValueError(
+            "Unable to guess transformer layer class. Please specify it explicitly."
+        )
+
+
+def get_module_class_from_name(class_name: str) -> Type[nn.Module]:
+    """Get a module class from its string name."""
+    module_name, class_name = class_name.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, class_name)
