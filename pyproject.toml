@@ -39,9 +39,10 @@ dependencies = [
     "pexpect",
     "skypilot[gcp,lambda,runpod]",
     "torch",
+    "torchvision",
     "tqdm",
     "transformers",
-    "torchvision",
+    "typer",
 ]
 
 [project.urls]
@@ -64,7 +65,6 @@ train = [
     "accelerate",
     "bitsandbytes",                 # for quantization
     "datasets",
-    "deepspeed",
     "lm-eval",
     "nvidia-ml-py",
     "omegaconf",
@@ -84,7 +84,11 @@ cloud = [
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
 ]
-gpu = ["flash-attn", "liger-kernel", "vllm",] # dependencies that require a GPU to install
+gpu = [
+    "flash-attn",
+    "liger-kernel",
+    "vllm",
+] # dependencies that require a GPU to install
 docs = [
     "myst_parser",
     "nbsphinx",
@@ -103,7 +107,6 @@ lema-train = "lema.train:main"
 [tool.ruff]
 extend-include = ["*.ipynb"] # Include ipython notebooks
 line-length = 88
-target-version = "py38"      # Target Python version, similar to torch
 
 [tool.ruff.lint]
 select = [

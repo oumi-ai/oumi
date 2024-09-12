@@ -131,6 +131,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     set -x  # Print "accelerate" command with expanded variables
+    pip install deepspeed  # Deepspeed is not installed by default
     accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
       --machine_rank ${POLARIS_NODE_RANK} \
