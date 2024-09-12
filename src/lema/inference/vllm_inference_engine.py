@@ -58,7 +58,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         return [
             {
-                "content": message.content,
+                "content": message.content or "",
                 "role": message.role,
             }
             for message in conversation.messages
