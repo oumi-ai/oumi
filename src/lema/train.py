@@ -132,14 +132,22 @@ def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -
 
 
 def _log_training_info_and_create_dirs(config: TrainingConfig) -> None:
+    device_rank_info = get_device_rank_info()
     telemetry_dir = config.training.telemetry_dir
     if telemetry_dir:
         _ensure_dir_exists(telemetry_dir, "training.telemetry_dir")
+        if is_world_process_zero():
+            filepath = telemetry_dir / "world_size.txt"
+            with filepath.open("w", encoding="utf-8") as f:
+                f.write(f"LOCAL_WORLD_SIZE: {device_rank_info.local_world_size}")
+                f.write(f"WORLD_SIZE: {device_rank_info.world_size}")
 
     if is_local_process_zero():
         log_versioning_info()
         log_devices_info(
-            (telemetry_dir / "devices_info.txt") if telemetry_dir else None
+            (telemetry_dir / "devices_info.txt")
+            if telemetry_dir and is_world_process_zero()
+            else None
         )
         _ensure_dir_exists(config.training.output_dir, "training.output_dir")
 
