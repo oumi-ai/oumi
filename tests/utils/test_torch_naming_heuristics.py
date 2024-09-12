@@ -51,6 +51,26 @@ def test_group_trainable_params():
     assert group_trainable_params(model, 0.1) == expected
 
 
+MODEL_CONFIGS = [
+    ("gpt2", "GPT2Block"),
+    ("facebook/opt-125m", "OPTDecoderLayer"),
+    ("meta-llama/Llama-2-7b-hf", "LlamaDecoderLayer"),
+    ("bert-base-uncased", "BertLayer"),
+    ("roberta-base", "RobertaLayer"),
+    ("t5-small", "T5Block"),
+    ("HuggingFaceFW/ablation-model-fineweb-v1", "LlamaDecoderLayer"),
+    ("meta-llama/Meta-Llama-3.1-8B-Instruct", "LlamaDecoderLayer"),
+    ("meta-llama/Meta-Llama-3.1-70B-Instruct", "LlamaDecoderLayer"),
+    ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer"),
+    ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer"),
+    ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer"),
+    ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer"),
+    ("llava-hf/llava-1.5-7b-hf", "LlavaDecoderLayer"),
+    ("Salesforce/blip2-opt-2.7b", "Blip2DecoderLayer"),
+    ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer"),
+]
+
+
 def test_guess_transformer_layer_empty_model():
     # Test with an empty model
     empty_model = nn.Module()
@@ -58,20 +78,8 @@ def test_guess_transformer_layer_empty_model():
         guess_transformer_layer_cls(empty_model)
 
 
-@pytest.mark.parametrize(
-    "model_name, expected_layer_name",
-    [
-        ("gpt2", "GPT2Block"),
-        ("facebook/opt-125m", "OPTDecoderLayer"),
-        ("meta-llama/Llama-2-7b-hf", "LlamaDecoderLayer"),
-        ("bert-base-uncased", "BertLayer"),
-        ("roberta-base", "RobertaLayer"),
-        ("t5-small", "T5Block"),
-    ],
-)
-def test_guess_transformer_layer_cls_huggingface_models(
-    model_name, expected_layer_name
-):
+@pytest.mark.parametrize("model_name, expected_layer_name", MODEL_CONFIGS)
+def test_guess_transformer_layer_cls(model_name, expected_layer_name):
     # Load only the configuration to avoid downloading the full model
     config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModel.from_config(config)
@@ -79,14 +87,11 @@ def test_guess_transformer_layer_cls_huggingface_models(
     # Guess the transformer layer class
     layer_cls = guess_transformer_layer_cls(model)
 
+    # Check if the guessed class name matches the expected name
     assert (
         layer_cls.__name__ == expected_layer_name
-    ), f"Expected {expected_layer_name}, but got {layer_cls.__name__}"
+    ), f"For {model_name}: Expected {expected_layer_name}, but got {layer_cls.__name__}"
 
-    # Additional check: ensure the guessed class is actually used in the model
-    found = False
-    for module in model.modules():
-        if isinstance(module, layer_cls):
-            found = True
-            break
-    assert found, f"Guessed layer class {layer_cls.__name__} not found in model"
+    # Verify that the guessed class is actually used in the model
+    found = any(isinstance(module, layer_cls) for module in model.modules())
+    assert found, f"Guessed layer class {layer_cls.__name__} not found in {model_name}"
