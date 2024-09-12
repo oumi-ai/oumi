@@ -118,3 +118,28 @@ class BaseInferenceEngine(ABC):
             List[Conversation]: Inference output.
         """
         raise NotImplementedError
+
+    def apply_chat_template(
+        self, conversation: Conversation, **tokenizer_kwargs
+    ) -> str:
+        """Applies the chat template to the conversation.
+
+        Args:
+            conversation: The conversation to apply the chat template to.
+            tokenizer_kwargs: Additional keyword arguments to pass to the tokenizer.
+
+        Returns:
+            str: The conversation with the chat template applied.
+        """
+        tokenizer = getattr(self, "_tokenizer", None)
+
+        if tokenizer is None:
+            raise ValueError("Tokenizer is not initialized.")
+
+        if tokenizer.chat_template is None:
+            raise ValueError("Tokenizer does not have a chat template.")
+
+        if "tokenize" not in tokenizer_kwargs:
+            tokenizer_kwargs["tokenize"] = False
+
+        return tokenizer.apply_chat_template(conversation, **tokenizer_kwargs)
