@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from omegaconf import MISSING
@@ -33,6 +33,14 @@ class ModelParams(BaseParams):
     #: that do not fit on a single GPU. This is used as the value for the `parallelize`
     #: argument in LM Harness.
     shard_for_eval: bool = False
+    freeze_layers: List[str] = field(default_factory=list)
+    """A list of layer names to freeze during training.
+
+    These layers will have their parameters set to not require gradients,
+    effectively preventing them from being updated during the training process.
+    This is useful for fine-tuning specific parts of a model while keeping
+    other parts fixed.
+    """
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""

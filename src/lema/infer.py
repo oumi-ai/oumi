@@ -62,7 +62,6 @@ def infer(
     model_params: ModelParams,
     generation_config: GenerationConfig,
     input: List[str],
-    exclude_prompt_from_response: bool = True,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -82,15 +81,12 @@ def infer(
         for content in input
     ]
     generations = inference_engine.infer(
-        conversations,
-        output_filepath=generation_config.output_filepath,
-        max_new_tokens=generation_config.max_new_tokens,
-        exclude_prompt_from_response=exclude_prompt_from_response,
-        batch_size=generation_config.batch_size,
+        input=conversations,
+        generation_config=generation_config,
     )
     if not generations:
         raise RuntimeError("No generations were returned.")
-    return [conversation.messages[-1].content for conversation in generations]
+    return [conversation.messages[-1].content or "" for conversation in generations]
 
 
 if __name__ == "__main__":

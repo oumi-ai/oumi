@@ -159,3 +159,14 @@ def test_telemetry_tracker_get_summary():
         summary["timers"]["operation2"]["total"]
         > summary["timers"]["operation1"]["total"]
     )
+
+    all_summaries = tracker.get_summaries_from_all_ranks()
+    assert len(all_summaries) == 1
+    assert "total_time" in all_summaries[0]
+    assert "timers" in all_summaries[0]
+    assert "operation1" in all_summaries[0]["timers"]
+    assert "operation2" in all_summaries[0]["timers"]
+    assert (
+        all_summaries[0]["timers"]["operation2"]["total"]
+        > all_summaries[0]["timers"]["operation1"]["total"]
+    )

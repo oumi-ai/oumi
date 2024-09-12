@@ -4,6 +4,7 @@ import torch
 
 from lema.core.configs.base_config import BaseConfig
 from lema.core.configs.params.data_params import DataParams
+from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.peft_params import PeftParams
 from lema.core.configs.params.training_params import (
@@ -54,6 +55,9 @@ class TrainingConfig(BaseConfig):
 
     For more details, see :class:`lema.core.configs.params.peft_params.PeftParams`.
     """
+
+    fsdp: FSDPParams = field(default_factory=FSDPParams)
+    """Configuration options for FSDP."""
 
     def __post_init__(self):
         """Verifies/populates params."""

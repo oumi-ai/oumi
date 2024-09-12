@@ -124,8 +124,8 @@ def main():
                     request_complete_time = time.perf_counter()
                     response_dict = response.json()
                     response_message = response_dict["choices"][0]["message"]["content"]
-                    num_input_tokens = response_message["usage"]["prompt_tokens"]
-                    num_output_tokens = response_message["usage"]["completion_tokens"]
+                    num_input_tokens = response_dict["usage"]["prompt_tokens"]
+                    num_output_tokens = response_dict["usage"]["completion_tokens"]
                     output_queue.put(
                         (index, response_message, num_input_tokens, num_output_tokens)
                     )
@@ -188,7 +188,6 @@ def main():
                 "request_completed_time": request_complete_time,
             }
             writer.write(json_obj)
-            output_queue.task_done()
 
         if requests_completed % 50 == 0:
             metrics = _get_metrics(

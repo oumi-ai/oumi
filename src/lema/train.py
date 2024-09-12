@@ -192,7 +192,9 @@ def _create_training_performance_callbacks_if_needed(
     result.append(
         TelemetryCallback(
             skip_first_steps=2,
-            world_process_zero_only=True,
+            world_process_zero_only=(
+                not config.training.telemetry.collect_telemetry_for_all_ranks
+            ),
             output_dir=telemetry_dir,
             track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
@@ -304,6 +306,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         record_function_name="lema.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
+            kwargs = {}
+            if config.training.trainer_type == TrainerType.LEMA:
+                kwargs["fsdp_params"] = config.fsdp
             trainer = create_trainer_fn(
                 model=model,
                 tokenizer=tokenizer,
@@ -314,6 +319,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 callbacks=_create_training_performance_callbacks_if_needed(
                     config, model, profiler
                 ),
+                **kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):

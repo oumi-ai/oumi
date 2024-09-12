@@ -1,12 +1,53 @@
 import tempfile
 from pathlib import Path
 from typing import List
+from unittest.mock import Mock, patch
 
 import jsonlines
+import pytest
 
 from lema.core.configs import GenerationConfig, ModelParams
 from lema.core.types.turn import Conversation, Message, Role
-from lema.inference import NativeTextInferenceEngine
+from lema.inference import VLLMInferenceEngine
+
+try:
+    vllm_import_failed = False
+    from vllm.outputs import (  # pyright: ignore[reportMissingImports]
+        CompletionOutput,
+        RequestOutput,
+    )
+
+    def _create_vllm_output(responses: List[str], output_id: str) -> RequestOutput:
+        outputs = []
+        for ind, response in enumerate(responses):
+            outputs.append(
+                CompletionOutput(
+                    text=response,
+                    index=ind,
+                    token_ids=[],
+                    cumulative_logprob=None,
+                    logprobs=None,
+                )
+            )
+        return RequestOutput(
+            request_id=output_id,
+            outputs=outputs,
+            prompt=None,
+            prompt_token_ids=[],
+            prompt_logprobs=None,
+            finished=True,
+        )
+except ModuleNotFoundError:
+    vllm_import_failed = True
+
+
+#
+# Fixtures
+#
+@pytest.fixture
+def mock_vllm():
+    with patch("lema.inference.vllm_inference_engine.vllm") as mvllm:
+        yield mvllm
 
 
 def _get_default_model_params() -> ModelParams:
@@ -31,8 +72,15 @@ def _setup_input_conversations(filepath: str, conversations: List[Conversation])
 #
 # Tests
 #
-def test_infer_online():
-    engine = NativeTextInferenceEngine(_get_default_model_params())
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
     conversation = Conversation(
         messages=[
             Message(
@@ -62,17 +110,29 @@ def test_infer_online():
     ]
     result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
     assert expected_result == result
+    mock_vllm_instance.chat.assert_called_once()
 
 
-def test_infer_online_empty():
-    engine = NativeTextInferenceEngine(_get_default_model_params())
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_empty(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    engine = VLLMInferenceEngine(_get_default_model_params())
     result = engine.infer_online([], GenerationConfig(max_new_tokens=5))
     assert [] == result
+    mock_vllm_instance.chat.assert_not_called()
 
 
-def test_infer_online_to_file():
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_to_file(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.side_effect = [
+        [_create_vllm_output(["The first time I saw"], "123")],
+        [_create_vllm_output(["The U.S."], "123")],
+    ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        engine = NativeTextInferenceEngine(_get_default_model_params())
+        engine = VLLMInferenceEngine(_get_default_model_params())
         conversation_1 = Conversation(
             messages=[
                 Message(
@@ -138,9 +198,15 @@ def test_infer_online_to_file():
             assert expected_result == parsed_conversations
 
 
-def test_infer_from_file():
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_from_file(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        engine = NativeTextInferenceEngine(_get_default_model_params())
+        engine = VLLMInferenceEngine(_get_default_model_params())
         conversation = Conversation(
             messages=[
                 Message(
@@ -182,11 +248,14 @@ def test_infer_from_file():
         assert expected_result == infer_result
 
 
-def test_infer_from_file_empty():
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_from_file_empty(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
         _setup_input_conversations(str(input_path), [])
-        engine = NativeTextInferenceEngine(_get_default_model_params())
+        engine = VLLMInferenceEngine(_get_default_model_params())
         result = engine.infer_from_file(
             str(input_path), GenerationConfig(max_new_tokens=5)
         )
@@ -197,11 +266,19 @@ def test_infer_from_file_empty():
             )
         )
         assert [] == infer_result
+        mock_vllm_instance.chat.assert_not_called()
 
 
-def test_infer_from_file_to_file():
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_from_file_to_file(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.side_effect = [
+        [_create_vllm_output(["The first time I saw"], "123")],
+        [_create_vllm_output(["The U.S."], "123")],
+    ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        engine = NativeTextInferenceEngine(_get_default_model_params())
+        engine = VLLMInferenceEngine(_get_default_model_params())
         conversation_1 = Conversation(
             messages=[
                 Message(

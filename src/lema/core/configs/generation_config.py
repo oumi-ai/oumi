@@ -21,6 +21,9 @@ class GenerationConfig(BaseConfig):
     Default is 2.
     """
 
+    exclude_prompt_from_response: bool = True
+    """Whether to trim the model's response and remove the prepended prompt."""
+
     input_filepath: Optional[str] = None
     """Path to the input file containing prompts for text generation."""
 
