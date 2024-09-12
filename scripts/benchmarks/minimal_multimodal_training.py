@@ -2,18 +2,18 @@
 
 Run the script using:
    python scripts/benchmarks/minimal_multimodal_training.py \
-    --model-name <model_name> --dataset <dataset_name>
+    --model-name<model_name> --dataset-name <dataset_name>
 
 For multi-GPU training, use torchrun:
    torchrun --standalone --nproc_per_node=$(nvidia-smi --list-gpus | wc -l) \
         scripts/benchmarks/minimal_multimodal_training.py \
-            --model-name <model_name> --dataset <dataset_name>
+            --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
-    --model-name Salesforce/blip2-opt-2.7b --dataset coco_captions
-    --model-name Salesforce/blip2-opt-2.7b --dataset flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset coco_captions --test_fsdp
-    --model-name llava-hf/llava-1.5-7b-hf --dataset flickr30k --test_fsdp
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name flickr30k
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test_fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name flickr30k --test_fsdp
 """
 
 from enum import Enum
@@ -147,11 +147,11 @@ def test_multimodal_trainer(
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value)
 
-    if model_name == ModelName.LLAVA:
-        chat_template = build_chat_template("llava")
-
-        processor.chat_template = chat_template
-        processor.tokenizer.chat_template = chat_template
+    # TODO: assign the right chat template for each model
+    # For now, we use the LLaVA chat template for all models
+    chat_template = build_chat_template("llava")
+    processor.chat_template = chat_template
+    processor.tokenizer.chat_template = chat_template
 
     collator = MultiModalCollator(processor)
     dataset = get_dataset(dataset_name, processor)
