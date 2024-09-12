@@ -1,5 +1,6 @@
 import argparse
 import os
+from datetime import datetime
 from time import sleep
 
 import lema.launcher as launcher
@@ -19,12 +20,21 @@ INPUT_PATH_PREFIX_POLARIS = (
     f"/home/{POLARIS_USERNAME}/data/judge_test_dataset/prompts_polaris_"
 )
 OUTPUT_PATH_PREFIX_POLARIS = (
-    f"/eagle/{PROJECT}/{POLARIS_USERNAME}/judge-inference-llama-70B-q/judge-inference-"
+    f"/eagle/{PROJECT}/{POLARIS_USERNAME}/judge-inference-llama-70B/judge-inference-"
 )
 
 LOG_PATH = f"/eagle/{PROJECT}/jobs/logs/"
 LOG_OUT_POLARIS = LOG_PATH + "{job_id}.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov.OU"
 LOG_ERR_POLARIS = LOG_PATH + "{job_id}.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov.ER"
+
+# We have verified that judge works with the following models, which are available in
+# the Polaris cluster. In addition, we recommend adjusting the number of nodes:
+# For 70B: 2 and for 70B_Q: 1.
+LLAMA_70B_REPO = "meta-llama"
+LLAMA_70B_MODEL = "Meta-Llama-3.1-70B-Instruct"
+LLAMA_70B_Q_REPO = "neuralmagic"
+LLAMA_70B_Q_MODEL = "Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
+NUM_NODES = 2
 
 
 def main(args):
@@ -42,10 +52,11 @@ def main(args):
         job.name = f"judge-inference-{attribute}"
         job.resources.cloud = "polaris"
         job.user = POLARIS_USERNAME
+        job.num_nodes = NUM_NODES
         job.working_dir = "."
 
-        job.envs["REPO"] = "neuralmagic"
-        job.envs["MODEL"] = "Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
+        job.envs["REPO"] = LLAMA_70B_REPO
+        job.envs["MODEL"] = LLAMA_70B_MODEL
         job.envs["LEMA_VLLM_INPUT_PATH"] = input_path
         job.envs["LEMA_VLLM_OUTPUT_PATH"] = output_path
         job.envs["LEMA_VLLM_NUM_WORKERS"] = 10
@@ -64,6 +75,7 @@ def main(args):
 
     # Track status of each job.
     while any([(not job_status.done) for job_status in jobs_status.values()]):
+        print("*****", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), "*****")
         for attribute in attributes:
             jobs_status[attribute] = clusters[attribute].get_job(
                 jobs_status[attribute].id
@@ -73,7 +85,7 @@ def main(args):
                 f"ID={jobs_status[attribute].id}, "
                 f"STATUS={jobs_status[attribute].status}"
             )
-        sleep(10)
+        sleep(20)
 
     # All jobs finished.
     for attribute in attributes:

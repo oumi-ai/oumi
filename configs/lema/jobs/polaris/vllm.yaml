@@ -1,7 +1,7 @@
 name: vllm
 # NOTE: Replace with your username.
 user: your_username
-num_nodes: 1
+num_nodes: 2
 
 resources:
   cloud: polaris
@@ -13,7 +13,6 @@ working_dir: .
 # directives in the `setup` section. Additional commands can also be run here after the
 # PBS directives.
 setup: |
-  #PBS -l select=1:system=polaris
   #PBS -l place=scatter
   #PBS -l walltime=00:40:00
   #PBS -l filesystems=home:eagle
