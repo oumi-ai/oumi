@@ -1,4 +1,6 @@
 import argparse
+import os
+from datetime import datetime
 from time import sleep
 
 import lema.launcher as launcher
@@ -9,17 +11,35 @@ import lema.launcher as launcher
 #  - "debug"          : 8-24 jobs, duration up to 1 hr
 POLARIS_QUEUE = "preemptable"
 
-USERNAME = "kaisopos"
+POLARIS_USERNAME = "kaisopos"
 PROJECT = "community_ai"
-VLLM_JOB_PATH = f"/Users/{USERNAME}/Code/lema/configs/lema/jobs/polaris/vllm.yaml"
+VLLM_JOB_PATH = "/Users/{user}/Code/lema/configs/lema/jobs/polaris/vllm.yaml"
 DATA_FILE_TYPE = "jsonl"
 
-INPUT_PATH_PREFIX_POLARIS = f"/home/{USERNAME}/data/judge_test_dataset/prompts_polaris_"
-OUTPUT_PATH_PREFIX_POLARIS = f"/eagle/{PROJECT}/{USERNAME}/judge-inference-"
+INPUT_PATH_PREFIX_POLARIS = (
+    f"/home/{POLARIS_USERNAME}/data/judge_test_dataset/prompts_polaris_"
+)
+OUTPUT_PATH_PREFIX_POLARIS = (
+    f"/eagle/{PROJECT}/{POLARIS_USERNAME}/judge-inference-llama-70B/judge-inference-"
+)
+
+LOG_PATH = f"/eagle/{PROJECT}/jobs/logs/"
+LOG_OUT_POLARIS = LOG_PATH + "{job_id}.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov.OU"
+LOG_ERR_POLARIS = LOG_PATH + "{job_id}.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov.ER"
+
+# We have verified that judge works with the following models, which are available in
+# the Polaris cluster. In addition, we recommend adjusting the number of nodes:
+# For 70B: 2 and for 70B_Q: 1.
+LLAMA_70B_REPO = "meta-llama"
+LLAMA_70B_MODEL = "Meta-Llama-3.1-70B-Instruct"
+LLAMA_70B_Q_REPO = "neuralmagic"
+LLAMA_70B_Q_MODEL = "Meta-Llama-3.1-70B-Instruct-quantized.w8a8"
+NUM_NODES = 2
 
 
 def main(args):
     """Main function to launch Polaris inference for our LLM judge."""
+    local_username = os.getlogin()
     attributes = ["helpful", "honest", "safe", "valid"]
 
     # Create jobs for each attribute
@@ -28,14 +48,15 @@ def main(args):
         input_path = f"{INPUT_PATH_PREFIX_POLARIS}{attribute}.{DATA_FILE_TYPE}"
         output_path = f"{OUTPUT_PATH_PREFIX_POLARIS}{attribute}"
 
-        job = launcher.JobConfig.from_yaml(VLLM_JOB_PATH)
+        job = launcher.JobConfig.from_yaml(VLLM_JOB_PATH.format(user=local_username))
         job.name = f"judge-inference-{attribute}"
         job.resources.cloud = "polaris"
-        job.user = USERNAME
+        job.user = POLARIS_USERNAME
+        job.num_nodes = NUM_NODES
         job.working_dir = "."
 
-        job.envs["LEMA_VLLM_MODEL"] = "meta-llama"
-        job.envs["LEMA_VLLM_MODEL_ID"] = "Meta-Llama-3.1-70B-Instruct"
+        job.envs["REPO"] = LLAMA_70B_REPO
+        job.envs["MODEL"] = LLAMA_70B_MODEL
         job.envs["LEMA_VLLM_INPUT_PATH"] = input_path
         job.envs["LEMA_VLLM_OUTPUT_PATH"] = output_path
         job.envs["LEMA_VLLM_NUM_WORKERS"] = 10
@@ -48,12 +69,13 @@ def main(args):
     for attribute in attributes:
         print(f"Kicking off inference for `{attribute}`")
         clusters[attribute], jobs_status[attribute] = launcher.up(
-            job=jobs[attribute], cluster_name=f"{POLARIS_QUEUE}.{USERNAME}"
+            job=jobs[attribute], cluster_name=f"{POLARIS_QUEUE}.{POLARIS_USERNAME}"
         )
         print(f"Kicked off inference for `{attribute}` ID: {jobs_status[attribute].id}")
 
     # Track status of each job.
     while any([(not job_status.done) for job_status in jobs_status.values()]):
+        print("*****", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), "*****")
         for attribute in attributes:
             jobs_status[attribute] = clusters[attribute].get_job(
                 jobs_status[attribute].id
@@ -63,11 +85,14 @@ def main(args):
                 f"ID={jobs_status[attribute].id}, "
                 f"STATUS={jobs_status[attribute].status}"
             )
-        sleep(10)
+        sleep(20)
 
-    # Shut down the clusters.
+    # All jobs finished.
     for attribute in attributes:
         print(f"Job {attribute}: Finished with STATUS={jobs_status[attribute].status}")
+        print(f" - Output: {OUTPUT_PATH_PREFIX_POLARIS}{attribute}")
+        print(" - Log (OUT):", LOG_OUT_POLARIS.format(job_id=jobs_status[attribute].id))
+        print(" - Log (ERR):", LOG_ERR_POLARIS.format(job_id=jobs_status[attribute].id))
 
 
 if __name__ == "__main__":
@@ -75,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--username",
         type=str,
-        default=USERNAME,
+        default=POLARIS_USERNAME,
         help="Polaris username.",
     )
     parser.add_argument(
