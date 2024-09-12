@@ -22,7 +22,9 @@ def _get_model_name(model_id: str) -> str:
             return f"{model_name}_{snapshot}"
     # If the model_id is not in the HF format (ex. it's a path to a custom model),
     # return up to the last 20 characters.
-    return model_id[-20:]
+    # We replace slashes in the directory path with underscores since the model
+    # name is used as part of a filename.
+    return model_id.replace("/", "_")[-20:]
 
 
 def main() -> None:
