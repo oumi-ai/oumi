@@ -188,7 +188,6 @@ def build_huggingface_model(
         model = transformers_model_class.from_config(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
-            device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             **kwargs,
         )
