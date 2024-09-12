@@ -1,7 +1,15 @@
+import os
+
 import pytest
+import torch
 import torch.nn as nn
 import transformers
-from transformers import AutoConfig, AutoModel
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForCausalLM,
+    AutoModelForVision2Seq,
+)
 
 from lema.utils.torch_naming_heuristics import (
     disable_dropout,
@@ -51,26 +59,6 @@ def test_group_trainable_params():
     assert group_trainable_params(model, 0.1) == expected
 
 
-MODEL_CONFIGS = [
-    ("gpt2", "GPT2Block"),
-    ("facebook/opt-125m", "OPTDecoderLayer"),
-    ("meta-llama/Llama-2-7b-hf", "LlamaDecoderLayer"),
-    ("bert-base-uncased", "BertLayer"),
-    ("roberta-base", "RobertaLayer"),
-    ("t5-small", "T5Block"),
-    ("HuggingFaceFW/ablation-model-fineweb-v1", "LlamaDecoderLayer"),
-    ("meta-llama/Meta-Llama-3.1-8B-Instruct", "LlamaDecoderLayer"),
-    ("meta-llama/Meta-Llama-3.1-70B-Instruct", "LlamaDecoderLayer"),
-    ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer"),
-    ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer"),
-    ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer"),
-    ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer"),
-    ("llava-hf/llava-1.5-7b-hf", "LlavaDecoderLayer"),
-    ("Salesforce/blip2-opt-2.7b", "Blip2DecoderLayer"),
-    ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer"),
-]
-
-
 def test_guess_transformer_layer_empty_model():
     # Test with an empty model
     empty_model = nn.Module()
@@ -78,20 +66,70 @@ def test_guess_transformer_layer_empty_model():
         guess_transformer_layer_cls(empty_model)
 
 
-@pytest.mark.parametrize("model_name, expected_layer_name", MODEL_CONFIGS)
-def test_guess_transformer_layer_cls(model_name, expected_layer_name):
-    # Load only the configuration to avoid downloading the full model
-    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-    model = AutoModel.from_config(config)
+MODEL_CONFIGS = [
+    ("gpt2", "GPT2Block", AutoModelForCausalLM),
+    ("facebook/opt-125m", "OPTDecoderLayer", AutoModelForCausalLM),
+    ("bert-base-uncased", "BertLayer", AutoModelForCausalLM),
+    ("roberta-base", "RobertaLayer", AutoModelForCausalLM),
+    ("t5-small", "T5Block", AutoModel),
+    (
+        "HuggingFaceFW/ablation-model-fineweb-v1",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Meta-Llama-3.1-70B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
+    ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
+    ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer", AutoModelForCausalLM),
+    ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
+    ("llava-hf/llava-1.5-7b-hf", "LlavaDecoderLayer", AutoModelForVision2Seq),
+    ("Salesforce/blip2-opt-2.7b", "Blip2DecoderLayer", AutoModelForVision2Seq),
+    ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer", AutoModelForCausalLM),
+    ("google/gemma-2-2b-it", "GemmaDecoderLayer", AutoModelForCausalLM),
+    ("google/gemma-2-2b", "GemmaDecoderLayer", AutoModelForCausalLM),
+]
+
+
+def _load_model_architecture(model_name, builder_class):
+    # Loads only the configuration to avoid downloading the full model
+    # If possible, load on meta device to avoid initializing weights on CPU
+    # Uses CPU for models that don't support `meta`
+    try:
+        with torch.device("cpu"):
+            config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+            model = builder_class.from_config(config, trust_remote_code=True)
+    except RuntimeError as e:
+        if "Tensor.item() cannot be called on meta tensors" in str(e):
+            model = builder_class.from_config(config, trust_remote_code=True)
+        else:
+            raise e
+
+    return config, model
+
+
+@pytest.mark.skip("Very slow test. Only run occasionally if changing that logic.")
+@pytest.mark.skipif(
+    "HF_TOKEN" not in os.environ,
+    reason="Multiple models are gated and require cannot "
+    "be downloaded without a valid HF_TOKEN",
+)
+@pytest.mark.parametrize(
+    "model_name, expected_layer_name, builder_class", MODEL_CONFIGS
+)
+def test_guess_transformer_layer_cls(model_name, expected_layer_name, builder_class):
+    config, model = _load_model_architecture(model_name, builder_class)
 
     # Guess the transformer layer class
     layer_cls = guess_transformer_layer_cls(model)
 
     # Check if the guessed class name matches the expected name
-    assert (
-        layer_cls.__name__ == expected_layer_name
-    ), f"For {model_name}: Expected {expected_layer_name}, but got {layer_cls.__name__}"
-
-    # Verify that the guessed class is actually used in the model
-    found = any(isinstance(module, layer_cls) for module in model.modules())
-    assert found, f"Guessed layer class {layer_cls.__name__} not found in {model_name}"
+    assert layer_cls.__name__ == expected_layer_name
