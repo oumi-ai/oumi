@@ -38,6 +38,7 @@ from lema.utils.debugging_utils import (
     log_nvidia_gpu_memory_utilization,
     log_nvidia_gpu_temperature,
 )
+from lema.utils.io_utils import save_json
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
     count_model_parameters,
@@ -131,16 +132,26 @@ def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -
         )
 
 
-def _log_training_info_and_create_dirs(config: TrainingConfig) -> None:
-    device_rank_info = get_device_rank_info()
+def _create_training_dirs(config: TrainingConfig) -> None:
+    """Creates misc directoris referenced in config."""
+    _ensure_dir_exists(config.training.output_dir, "training.output_dir")
     telemetry_dir = config.training.telemetry_dir
     if telemetry_dir:
         _ensure_dir_exists(telemetry_dir, "training.telemetry_dir")
-        if is_world_process_zero():
-            filepath = telemetry_dir / "world_size.txt"
-            with filepath.open("w", encoding="utf-8") as f:
-                f.write(f"LOCAL_WORLD_SIZE: {device_rank_info.local_world_size}")
-                f.write(f"WORLD_SIZE: {device_rank_info.world_size}")
+
+
+def _log_training_info(config: TrainingConfig) -> None:
+    """Logs misc infos about training config/devices/etc. Writes to files."""
+    telemetry_dir = config.training.telemetry_dir
+    if telemetry_dir and is_world_process_zero():
+        device_rank_info = get_device_rank_info()
+        save_json(
+            {
+                "LOCAL_WORLD_SIZE": device_rank_info.local_world_size,
+                "WORLD_SIZE": device_rank_info.world_size,
+            },
+            telemetry_dir / "world_size.json",
+        )
 
     if is_local_process_zero():
         log_versioning_info()
@@ -149,7 +160,6 @@ def _log_training_info_and_create_dirs(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-        _ensure_dir_exists(config.training.output_dir, "training.output_dir")
 
 
 def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
@@ -265,7 +275,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
-    _log_training_info_and_create_dirs(config)
+    _create_training_dirs(config)
+    _log_training_info(config)
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
