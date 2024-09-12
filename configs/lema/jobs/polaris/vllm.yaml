@@ -13,8 +13,8 @@ working_dir: .
 envs:
   REPO: meta-llama  # HF model repo.
   MODEL: Meta-Llama-3.1-70B-Instruct  # HF model name.
-  LEMA_VLLM_INPUT_PATH: your_input_path  # Path to input data file.
-  LEMA_VLLM_OUTPUT_PATH: your_output_path  # Path to output dir.
+  LEMA_VLLM_INPUT_FILEPATH: your_input_filepath  # Path to input data file.
+  LEMA_VLLM_OUTPUT_DIR: your_output_dir  # Output dir.
   LEMA_VLLM_NUM_WORKERS: 10  # Samples will be divided amongst workers
   LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND: 10
 
