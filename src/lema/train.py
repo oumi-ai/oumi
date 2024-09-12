@@ -287,13 +287,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     config = _finalize_training_config(config)
 
     if is_local_process_zero():
-        # Only write the config file once from rank 0 for telemetry.
-        training_config_filename = (
-            telemetry_dir / "training_config.txt"
-            if telemetry_dir and is_world_process_zero()
-            else None
-        )
-        log_training_config(config, training_config_filename)
+        log_training_config(config)
+        if telemetry_dir and is_world_process_zero():
+            config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)

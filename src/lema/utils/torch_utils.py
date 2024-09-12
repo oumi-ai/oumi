@@ -38,16 +38,9 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
-def log_training_config(
-    config: TrainingConfig, filepath: Optional[Path] = None
-) -> None:
+def log_training_config(config: TrainingConfig) -> None:
     """Logs training config."""
-    config_text = pformat(config)
-    logger.info(f"TrainingConfig: {config_text}")
-
-    if filepath:
-        with filepath.open("w", encoding="utf-8") as f:
-            f.write(config_text)
+    logger.info(f"TrainingConfig: {pformat(config)}")
 
 
 def log_versioning_info() -> None:
