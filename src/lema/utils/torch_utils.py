@@ -112,7 +112,7 @@ def create_model_summary(model: Any) -> str:
     return "\n".join(lines)
 
 
-def log_model_summary(model, filepath: Optional[Path]) -> None:
+def log_model_summary(model, filepath: Optional[Path] = None) -> None:
     """Logs a model summary."""
     model_summary = create_model_summary(model)
     logger.info(model_summary)
