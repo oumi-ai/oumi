@@ -65,7 +65,6 @@ train = [
     "accelerate",
     "bitsandbytes",                 # for quantization
     "datasets",
-    "deepspeed",
     "lm-eval",
     "nvidia-ml-py",
     "omegaconf",
