@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from pprint import pformat
 from typing import Any, List, NamedTuple, Optional
 
@@ -37,9 +38,16 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
-def log_training_config(config: TrainingConfig) -> None:
+def log_training_config(
+    config: TrainingConfig, filepath: Optional[Path] = None
+) -> None:
     """Logs training config."""
-    logger.info(f"TrainingConfig: {pformat(config)}")
+    config_text = pformat(config)
+    logger.info(f"TrainingConfig: {config_text}")
+
+    if filepath:
+        with filepath.open("w", encoding="utf-8") as f:
+            f.write(config_text)
 
 
 def log_versioning_info() -> None:
@@ -61,14 +69,14 @@ def log_versioning_info() -> None:
     )
 
 
-def log_devices_info() -> None:
+def log_devices_info(filepath: Optional[Path] = None) -> None:
     """Logs high-level info about all available accelerator devices."""
     if not torch.cuda.is_available():
         return
 
     ncpus = os.cpu_count()
     num_devices = torch.cuda.device_count()
-    logger.info(f"CPU cores: {ncpus} CUDA devices: {num_devices}")
+    log_lines = [f"CPU cores: {ncpus} CUDA devices: {num_devices}"]
 
     def _mem_to_gib(x):
         return round(float(x) / 1024**3, 2)
@@ -79,7 +87,7 @@ def log_devices_info() -> None:
         mem_allocated = torch.cuda.memory_allocated(i)
         mem_reserved = torch.cuda.memory_reserved(i)
         capability = torch.cuda.get_device_capability(i)
-        logger.info(
+        log_lines.append(
             f"device({i})='{device_name}' "
             f"Capability: {capability} "
             f"Memory: [Total: {_mem_to_gib(mem_total)}GiB "
@@ -87,6 +95,13 @@ def log_devices_info() -> None:
             f"Allocated: {_mem_to_gib(mem_allocated)}GiB "
             f"Cached: {_mem_to_gib(mem_reserved)}GiB]"
         )
+
+    all_text = "\n".join(log_lines)
+    logger.info(all_text)
+
+    if filepath:
+        with filepath.open("w", encoding="utf-8") as f:
+            f.write(all_text)
 
 
 def create_model_summary(model: Any) -> str:
@@ -104,9 +119,14 @@ def create_model_summary(model: Any) -> str:
     return "\n".join(lines)
 
 
-def log_model_summary(model) -> None:
+def log_model_summary(model, filepath: Optional[Path]) -> None:
     """Logs a model summary."""
-    logger.info(create_model_summary(model))
+    model_summary = create_model_summary(model)
+    logger.info(model_summary)
+
+    if filepath:
+        with filepath.open("w", encoding="utf-8") as f:
+            f.write(model_summary)
 
 
 class ModelParameterCount(NamedTuple):
