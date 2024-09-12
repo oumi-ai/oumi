@@ -8,6 +8,12 @@ For multi-GPU training, use torchrun:
    torchrun --standalone --nproc_per_node=$(nvidia-smi --list-gpus | wc -l) \
         scripts/benchmarks/minimal_multimodal_training.py \
             --model-name <model_name> --dataset <dataset_name>
+
+Working configs:
+    --model-name Salesforce/blip2-opt-2.7b --dataset coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset flickr30k
+    --model-name llava-hf/llava-1.5-7b-hf --dataset coco_captions --test_fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset flickr30k --test_fsdp
 """
 
 from enum import Enum
@@ -17,7 +23,7 @@ import torch
 import typer
 from transformers import AutoProcessor, DataCollatorWithPadding
 
-from lema.builders.models import build_model
+from lema.builders.models import build_chat_template, build_model
 from lema.core.configs import FSDPParams, ModelParams, TrainingParams
 from lema.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from lema.core.trainers.lema_trainer import Trainer
@@ -141,23 +147,12 @@ def test_multimodal_trainer(
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value)
 
-    # TODO: OPE-Add chat template to processor
-    LLAVA_CHAT_TEMPLATE = """A chat between a curious user and an artificial
-    intelligence assistant. The assistant gives helpful, detailed, and polite
-    answers to the user's questions.
-{% for message in messages %}
-    {% if message['role'] == 'user' %}USER: {% else %}ASSISTANT: {% endif %}
-    {% for item in message['content'] %}
-        {% if item['type'] == 'text' %}{{ item['text'] }}
-        {% elif item['type'] == 'image' %}<image>{% endif %}
-    {% endfor %}
-    {% if message['role'] == 'user' %} {% else %}{{eos_token}}{% endif %}
-{% endfor %}"""
+    if model_name == ModelName.LLAVA:
+        chat_template = build_chat_template("llava")
 
-    processor.chat_template = LLAVA_CHAT_TEMPLATE
-    processor.tokenizer.chat_template = LLAVA_CHAT_TEMPLATE
+        processor.chat_template = chat_template
+        processor.tokenizer.chat_template = chat_template
 
-    # TODO: OPE-: Add builder for collator
     collator = MultiModalCollator(processor)
     dataset = get_dataset(dataset_name, processor)
 
