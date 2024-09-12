@@ -2,7 +2,7 @@ import argparse
 import random
 import time
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Union
 
 import numpy as np
 import torch
@@ -113,19 +113,35 @@ def _find_checkpoint_to_resume_from(
     return None
 
 
-def _ensure_training_output_dir_exists(output_dir: str) -> None:
+def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -> None:
     if not output_dir:
-        raise ValueError("training.output_dir is not specified!")
+        raise ValueError(f"{human_readable_name} is not specified!")
     output_dir_path: Path = Path(output_dir)
     if output_dir_path.exists():
         if not output_dir_path.is_dir():
-            raise ValueError(f"training.output_dir='{output_dir}' is not a directory!")
-    else:
-        logger.info(f"Creating output dir: {output_dir}...")
+            raise ValueError(
+                f"{human_readable_name}='{output_dir}' is not a directory!"
+            )
+    elif is_local_process_zero():
+        logger.info(f"Creating {human_readable_name}: {output_dir}...")
         output_dir_path.mkdir(parents=True, exist_ok=True)
-    logger.info(
-        f"Training output dir absolute path : {str(output_dir_path.absolute())}"
-    )
+        logger.info(
+            f"Created {human_readable_name} "
+            f"absolute path: {str(output_dir_path.absolute())}"
+        )
+
+
+def _log_training_info_and_create_dirs(config: TrainingConfig) -> None:
+    telemetry_dir = config.training.telemetry_dir
+    if telemetry_dir:
+        _ensure_dir_exists(telemetry_dir, "training.telemetry_dir")
+
+    if is_local_process_zero():
+        log_versioning_info()
+        log_devices_info(
+            (telemetry_dir / "devices_info.txt") if telemetry_dir else None
+        )
+        _ensure_dir_exists(config.training.output_dir, "training.output_dir")
 
 
 def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
@@ -241,18 +257,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
-    telemetry_dir = config.training.telemetry_dir if is_world_process_zero() else None
-    if telemetry_dir and is_local_process_zero():
-        telemetry_dir.mkdir(parents=True, exist_ok=True)
+    _log_training_info_and_create_dirs(config)
 
-    # Only write telemetry from rank 0
-    if not is_world_process_zero():
-        telemetry_dir = None
-
-    if is_local_process_zero():
-        log_versioning_info()
-        log_devices_info(telemetry_dir / "devices_info.txt" if telemetry_dir else None)
-        _ensure_training_output_dir_exists(config.training.output_dir)
+    # Only write telemetry files from rank 0.
+    effective_telemetry_dir = (
+        config.training.telemetry_dir if is_world_process_zero() else None
+    )
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
@@ -262,7 +272,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     if is_local_process_zero():
         log_training_config(
-            config, telemetry_dir / "training_config.txt" if telemetry_dir else None
+            config,
+            effective_telemetry_dir / "training_config.txt"
+            if effective_telemetry_dir
+            else None,
         )
 
     # Initialize model and tokenizer.
