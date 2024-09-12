@@ -14,6 +14,7 @@ LeMa is a learning machines modeling platform that allows you to build foundatio
    links/distributed_training
    links/cloud_training
    links/contributing
+   links/new_multimodal_dataset
 
 Getting Started
 ---------------
