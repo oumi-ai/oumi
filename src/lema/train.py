@@ -267,24 +267,22 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     _log_training_info_and_create_dirs(config)
 
-    # Only write telemetry files from rank 0.
-    effective_telemetry_dir = (
-        config.training.telemetry_dir if is_world_process_zero() else None
-    )
-
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
     configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
 
+    telemetry_dir = config.training.telemetry_dir
+
     config = _finalize_training_config(config)
 
     if is_local_process_zero():
-        log_training_config(
-            config,
-            effective_telemetry_dir / "training_config.txt"
-            if effective_telemetry_dir
-            else None,
+        # Only write the config file once from rank 0 for telemetry.
+        training_config_filename = (
+            telemetry_dir / "training_config.txt"
+            if telemetry_dir and is_world_process_zero()
+            else None
         )
+        log_training_config(config, training_config_filename)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
