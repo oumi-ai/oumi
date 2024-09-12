@@ -90,9 +90,10 @@ MODEL_CONFIGS = [
     ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer", AutoModelForCausalLM),
-    ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
-    ("llava-hf/llava-1.5-7b-hf", "LlavaDecoderLayer", AutoModelForVision2Seq),
-    ("Salesforce/blip2-opt-2.7b", "Blip2DecoderLayer", AutoModelForVision2Seq),
+    # Only available on nightly build
+    # ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
+    ("llava-hf/llava-1.5-7b-hf", "CLIPEncoderLayer", AutoModelForVision2Seq),
+    ("Salesforce/blip2-opt-2.7b", "Blip2EncoderLayer", AutoModelForVision2Seq),
     ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b-it", "GemmaDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b", "GemmaDecoderLayer", AutoModelForCausalLM),
@@ -126,7 +127,7 @@ def _load_model_architecture(model_name, builder_class):
     "model_name, expected_layer_name, builder_class", MODEL_CONFIGS
 )
 def test_guess_transformer_layer_cls(model_name, expected_layer_name, builder_class):
-    config, model = _load_model_architecture(model_name, builder_class)
+    _config, model = _load_model_architecture(model_name, builder_class)
 
     # Guess the transformer layer class
     layer_cls = guess_transformer_layer_cls(model)
