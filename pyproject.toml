@@ -108,7 +108,6 @@ lema-train = "lema.train:main"
 [tool.ruff]
 extend-include = ["*.ipynb"] # Include ipython notebooks
 line-length = 88
-target-version = "py38"      # Target Python version, similar to torch
 
 [tool.ruff.lint]
 select = [
