@@ -14,6 +14,7 @@ Subpackages
    lema.core.callbacks
    lema.core.configs
    lema.core.datasets
+   lema.core.inference
    lema.core.launcher
    lema.core.models
    lema.core.tokenizers

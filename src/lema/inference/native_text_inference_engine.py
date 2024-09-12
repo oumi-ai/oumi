@@ -1,7 +1,5 @@
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-import jsonlines
 import peft
 import torch
 from tqdm import tqdm
@@ -28,41 +26,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = build_model(model_params)
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
-
-    def _read_conversations(self, input_filepath: str) -> List[Conversation]:
-        """Reads conversations from a file in OpenAI chat format.
-
-        Args:
-            input_filepath: The path to the file containing the conversations.
-
-        Returns:
-            List[Conversation]: A list of conversations read from the file.
-        """
-        conversations = []
-        with open(input_filepath) as f:
-            for line in f:
-                # Only parse non-empty lines.
-                if line.strip():
-                    conversation = Conversation.model_validate_json(line)
-                    conversations.append(conversation)
-        return conversations
-
-    def _save_conversations(
-        self, conversations: List[Conversation], output_filepath: str
-    ) -> None:
-        """Saves conversations to a file in OpenAI chat format.
-
-        Args:
-            conversations: A list of conversations to save.
-            output_filepath: The path to the file where the conversations should be
-                saved.
-        """
-        # Make the directory if it doesn't exist.
-        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
-        with jsonlines.open(output_filepath, mode="w") as writer:
-            for conversation in conversations:
-                json_obj = conversation.model_dump()
-                writer.write(json_obj)
 
     def _make_batches(self, input: List[str], batch_size: int) -> List[List[str]]:
         """Splits the input into batches of the specified size.
@@ -164,7 +127,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def infer_online(
         self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -172,8 +135,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         conversations = self._infer(input, generation_config)
         if generation_config.output_filepath:
@@ -182,7 +144,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence
@@ -193,8 +155,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             generation_config: Configuration parameters for generation during inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
         conversations = self._infer(input, generation_config)
