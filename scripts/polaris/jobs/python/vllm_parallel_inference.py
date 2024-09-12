@@ -65,8 +65,6 @@ def main():
         base_url=openai_api_base,
     )
     models = client.models.list()
-    print("all models-23490812734287490128430-12i348-0123481-20u9")
-    print(models)
     MODEL = models.data[0].id
     MODEL_NAME = _get_model_name(MODEL)
 
