@@ -106,10 +106,12 @@ class PeftParams(BaseParams):
     )
     """The number of bits to use for quantization in Q-LoRA.
 
+    This is only used if `q_lora` is True.
+
     Defaults to 4-bit quantization.
     """
 
-    # FIXME the names below use the bnb short for bits-and bytes
+    # FIXME the names below use the bnb short for bits-and-bytes
     # If we consider wrapping more quantization libraries a better
     # naming convention should be applied.
     bnb_4bit_quant_type: str = field(
