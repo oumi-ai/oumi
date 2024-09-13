@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 
 import torch
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
 from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
@@ -15,7 +16,7 @@ from lema.utils.torch_utils import (
 
 def build_training_callbacks(
     config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
-) -> List[Any]:
+) -> List[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 
     This function creates a list of callback objects to be used during training.
@@ -30,12 +31,13 @@ def build_training_callbacks(
         profiler: The profiler object, if profiling is enabled.
 
     Returns:
-        List[Any]: A list of callback objects to be used during training.
+        List[BaseTrainerCallback]: A list of callback objects to be used
+        during training.
 
     Note:
         - MFU logging is only supported on GPU and is skipped for PEFT models.
     """
-    result = []
+    result: List[BaseTrainerCallback] = []
     if not config.training.include_performance_metrics:
         return result
 

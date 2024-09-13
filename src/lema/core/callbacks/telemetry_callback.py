@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import transformers
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.performance.telemetry import TelemetryTracker, TimerContext
@@ -15,7 +16,7 @@ from lema.utils.logging import logger
 _LOGS_KWARG = "logs"
 
 
-class TelemetryCallback(transformers.TrainerCallback):
+class TelemetryCallback(BaseTrainerCallback):
     """Trainer callback to collect sub-step/step/epoch timings.
 
     Based on `lema.performance.telemetry.TelemetryTracker`.

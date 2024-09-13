@@ -6,10 +6,11 @@ from typing import Optional, Union
 import torch
 import transformers
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.configs import TrainingParams
 
 
-class ProfilerStepCallback(transformers.TrainerCallback):
+class ProfilerStepCallback(BaseTrainerCallback):
     """Trainer callback to notify PyTorch profiler about training steps completion.
 
     Also, adds microstep function labels using `torch.profiler.record_function()`.
