@@ -349,7 +349,7 @@ class PolarisClient:
                 rsync_cmd,
                 shell=True,
                 capture_output=True,
-                timeout=40,
+                timeout=300,
             )
             logger.info(f"Rsync command completed with exit code: {child.returncode}")
             if child.returncode != 0:
