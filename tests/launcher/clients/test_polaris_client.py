@@ -1025,7 +1025,7 @@ def test_polaris_client_put_recursive_success(mock_subprocess, mock_auth):
                 "source user@polaris.alcf.anl.gov:destination",
                 shell=True,
                 capture_output=True,
-                timeout=40,
+                timeout=300,
             ),
         ]
     )
@@ -1053,7 +1053,7 @@ def test_polaris_client_put_recursive_success_gitignore(mock_subprocess, mock_au
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
                     capture_output=True,
-                    timeout=40,
+                    timeout=300,
                 ),
             ]
         )
@@ -1083,7 +1083,7 @@ def test_polaris_client_put_recursive_success_tests(mock_subprocess, mock_auth):
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
                     capture_output=True,
-                    timeout=40,
+                    timeout=300,
                 ),
             ]
         )
@@ -1118,7 +1118,7 @@ def test_polaris_client_put_recursive_success_tests_gitignore(
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
                     capture_output=True,
-                    timeout=40,
+                    timeout=300,
                 ),
             ]
         )
@@ -1155,7 +1155,7 @@ def test_polaris_client_put_recursive_failure(mock_subprocess_no_init, mock_auth
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
                     capture_output=True,
-                    timeout=40,
+                    timeout=300,
                 ),
             ]
         )
@@ -1192,7 +1192,7 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
                     f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
                     shell=True,
                     capture_output=True,
-                    timeout=40,
+                    timeout=300,
                 ),
             ]
         )
