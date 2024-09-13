@@ -23,7 +23,7 @@ class NanInfDetectionCallback(BaseTrainerCallback):
         self,
         metrics: List[str] = ["loss"],
     ):
-        """Initialize the MfuTrainerCallback.
+        """Initialize the NanInfDetectionCallback.
 
         Args:
             metrics: The list of metrics to monitor.
