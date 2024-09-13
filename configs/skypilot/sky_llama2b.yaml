@@ -45,7 +45,3 @@ run: |
       "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-
-
-# sky launch -i 10 --env LEMA_RUN_NAME=llama2b.1node.4xA10040GB.5steps.bs4gas64.v100 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:4" --cluster xrdaukar-1node4gpu-01-lema-cluster ./configs/skypilot/sky_llama2b.yaml

@@ -3,6 +3,7 @@
 import copy
 import pathlib
 import sys
+from pprint import pformat
 from typing import Dict, Optional, Union
 
 import transformers
@@ -59,7 +60,7 @@ class TelemetryCallback(BaseTrainerCallback):
         self._world_process_zero_only = world_process_zero_only
         self._step: int = 0
 
-        self._last_logs: Optional[Dict[str, float]] = None
+        self._last_metrics_dict: Optional[Dict[str, float]] = None
 
     def on_step_begin(
         self,
@@ -178,7 +179,7 @@ class TelemetryCallback(BaseTrainerCallback):
                 kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
         if _LOGS_KWARG in kwargs and is_world_process_zero():
-            self._last_logs = copy.deepcopy(kwargs[_LOGS_KWARG])
+            self._last_metrics_dict = copy.deepcopy(kwargs[_LOGS_KWARG])
 
     def on_train_end(
         self,
@@ -194,10 +195,10 @@ class TelemetryCallback(BaseTrainerCallback):
         device_rank_info = get_device_rank_info()
 
         if is_world_process_zero():
-            logs_to_save = self._last_logs or {}
-            logger.info(f"Metrics: {logs_to_save}")
+            metrics_dict = self._last_metrics_dict or {}
+            logger.info(f"Metrics:\n{pformat(metrics_dict)}")
             save_json(
-                logs_to_save,
+                metrics_dict,
                 self._output_dir
                 / f"telemetry_callback_metrics_rank{device_rank_info.rank:04}.json",
             )
