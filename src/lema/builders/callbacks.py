@@ -16,7 +16,25 @@ from lema.utils.torch_utils import (
 def build_training_callbacks(
     config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
 ) -> List[Any]:
-    """Builds the training callbacks for the given training config and model."""
+    """Builds the training callbacks for the given training config and model.
+
+    This function creates a list of callback objects to be used during training.
+    It includes callbacks for performance metrics, profiling, telemetry, and
+    Model Flops Utilization (MFU) logging based on the provided configuration.
+
+    Args:
+        config: The training configuration object.
+        model: The PyTorch model being trained. This is needed to calculate
+               the number of parameters for MFU (Model Flops Utilization) logging,
+               and to determine the model's data type for accurate MFU calculations.
+        profiler: The profiler object, if profiling is enabled.
+
+    Returns:
+        List[Any]: A list of callback objects to be used during training.
+
+    Note:
+        - MFU logging is only supported on GPU and is skipped for PEFT models.
+    """
     result = []
     if not config.training.include_performance_metrics:
         return result
