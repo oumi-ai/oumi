@@ -41,7 +41,7 @@ training:
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  optimizer: "adafactor"
+  optimizer: "adamw_torch_fused"
   compile: True
 
   dataloader_num_workers: "auto"

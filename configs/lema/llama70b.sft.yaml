@@ -33,7 +33,8 @@ training:
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: True
+  # Don't enable here; set to true in the accelerate config
+  enable_gradient_checkpointing: False
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
