@@ -89,6 +89,7 @@ def build_training_callbacks(
         ):
             result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
+    # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
         TelemetryCallback(
             skip_first_steps=2,
