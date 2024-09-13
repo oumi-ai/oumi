@@ -2,7 +2,7 @@ import argparse
 import random
 import time
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -15,11 +15,8 @@ from lema.builders import (
     build_peft_model,
     build_tokenizer,
     build_trainer,
+    build_training_callbacks,
 )
-from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
-from lema.core.callbacks.mfu_callback import MfuTrainerCallback
-from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
-from lema.core.callbacks.telemetry_callback import TelemetryCallback
 from lema.core.configs import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.distributed import (
     barrier,
@@ -41,7 +38,6 @@ from lema.utils.debugging_utils import (
 from lema.utils.io_utils import save_json
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
-    count_model_parameters,
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
@@ -206,69 +202,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
-def _create_training_performance_callbacks_if_needed(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
-) -> List[Any]:
-    result = []
-    if not config.training.include_performance_metrics:
-        return result
-
-    if profiler is not None:
-        result.append(ProfilerStepCallback(profiler=profiler))
-    elif config.training.profiler.schedule.enable_schedule:
-        logger.warning(
-            "Scheduled profiling is requested, but profiler is not available!"
-        )
-
-    result.append(
-        TelemetryCallback(
-            skip_first_steps=2,
-            world_process_zero_only=(
-                not config.training.telemetry.collect_telemetry_for_all_ranks
-            ),
-            output_dir=config.training.telemetry_dir,
-            track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
-        )
-    )
-
-    if not torch.cuda.is_available():
-        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
-        return result
-    elif config.training.use_peft:
-        logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
-        return result
-
-    if config.model.model_max_length is not None and config.model.model_max_length > 0:
-        num_total_params = count_model_parameters(model)
-        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
-        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-        # Ignore attention and rematerialization to ensure metric matches most
-        # common implementations.
-        mfu_callback = MfuTrainerCallback(
-            dtype=model.dtype,
-            num_params=num_mfu_params,
-            sequence_length=config.model.model_max_length,
-        )
-        result.append(mfu_callback)
-    else:
-        logger.warning(
-            "model_max_length must be set to log MFU performance information."
-        )
-
-    if (
-        config.training.include_alternative_mfu_metrics
-        and config.training.trainer_type
-        in (
-            TrainerType.TRL_SFT,
-            TrainerType.TRL_DPO,
-            TrainerType.HF,
-        )
-    ):
-        result.append(HfMfuTrainerCallback(dtype=model.dtype))
-
-    return result
-
-
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -345,6 +278,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
             kwargs = {}
             if config.training.trainer_type == TrainerType.LEMA:
                 kwargs["fsdp_params"] = config.fsdp
+
+            callbacks = build_training_callbacks(config, model, profiler)
+
             trainer = create_trainer_fn(
                 model=model,
                 tokenizer=tokenizer,
@@ -352,9 +288,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
-                callbacks=_create_training_performance_callbacks_if_needed(
-                    config, model, profiler
-                ),
+                callbacks=callbacks,
                 **kwargs,
             )
 
