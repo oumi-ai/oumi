@@ -161,10 +161,26 @@ def build_dataset_from_params(
     dataset_params: DatasetParams,
     tokenizer: BaseTokenizer,
     seed: Optional[int] = None,
+    stream: bool = False,
+    pack: bool = False,
+    experimental_use_torch_datapipes: bool = False,
+    experimental_use_async_dataset: bool = False,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
-    """Builds a dataset from a dataset params object."""
+    """Builds a dataset from a dataset params object.
+
+    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
+    the all the arguments.
+    """
     training_config = TrainingConfig(
-        data=DataParams(train=DatasetSplitParams(datasets=[dataset_params]))
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[dataset_params],
+                stream=stream,
+                pack=pack,
+                experimental_use_async_dataset=experimental_use_async_dataset,
+                experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+            )
+        )
     )
 
     return build_dataset_mixture(
@@ -179,16 +195,30 @@ def build_dataset(
     dataset_name: str,
     tokenizer: BaseTokenizer,
     seed: Optional[int] = None,
+    stream: bool = False,
+    pack: bool = False,
+    experimental_use_torch_datapipes: bool = False,
+    experimental_use_async_dataset: bool = False,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
-    """Builds a dataset from a dataset name."""
+    """Builds a dataset from a dataset name.
+
+    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
+    the all the arguments.
+    """
     dataset_params = DatasetParams(
         dataset_name=dataset_name,
         **kwargs,
     )
 
     return build_dataset_from_params(
-        dataset_params=dataset_params, tokenizer=tokenizer, seed=seed
+        dataset_params=dataset_params,
+        tokenizer=tokenizer,
+        seed=seed,
+        stream=stream,
+        pack=pack,
+        experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+        experimental_use_async_dataset=experimental_use_async_dataset,
     )
 
 
