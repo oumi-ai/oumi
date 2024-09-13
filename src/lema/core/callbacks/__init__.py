@@ -7,7 +7,15 @@ early stopping, etc.
 """
 
 from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
+from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
+from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
+from lema.core.callbacks.telemetry_callback import TelemetryCallback
 
 __all__ = [
     "BaseTrainerCallback",
+    "HfMfuTrainerCallback",
+    "MfuTrainerCallback",
+    "ProfilerStepCallback",
+    "TelemetryCallback",
 ]
