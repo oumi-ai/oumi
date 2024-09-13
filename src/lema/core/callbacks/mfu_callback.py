@@ -6,6 +6,7 @@ from typing import Optional, Union
 import torch
 import transformers
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.performance.mfu import calculate_mfu
@@ -19,7 +20,7 @@ _TRAIN_STEP_MFU = "train_step_mfu"
 _TRAIN_MFU = "train_mfu"
 
 
-class MfuTrainerCallback(transformers.TrainerCallback):
+class MfuTrainerCallback(BaseTrainerCallback):
     """Trainer callback to calculate the MFU of the model during training.
 
     Should be compatible with all trainers that inherit from transformers.Trainer.
