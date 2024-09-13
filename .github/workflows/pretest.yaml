@@ -13,19 +13,22 @@ jobs:
         # Checkout using commit hash to make "no-commit-to-branch" test pass.
         ref: ${{ github.sha }}
 
-    - name: Setup Python
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
+    - name: "Set up Python"
       uses: actions/setup-python@v5
-      id: setup-python
       with:
         python-version: '3.11'
 
-    - name: Setup LeMa Dependencies
+    - name: Install Dependencies
       run: |
-        set -e  # Exit if any command failed
-        python -m pip install uv
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[all]' --system -v
+        uv pip install -e '.[all]' --system
 
     - name: Cache pre-commit
       uses: actions/cache@v4
@@ -33,11 +36,11 @@ jobs:
         path: ~/.cache/pre-commit
         key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-    - name: Check LeMa Pre-commit rules
+    - name: Run pre-commit checks
       run: |
         pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run LeMa Tests
+    - name: Run tests
       run: |
         cd ./tests/
         pytest -s
