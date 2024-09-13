@@ -9,7 +9,7 @@ import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
-    build_dataset,
+    build_dataset_mixture,
     build_metrics_function,
     build_model,
     build_peft_model,
@@ -256,11 +256,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
+        eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
