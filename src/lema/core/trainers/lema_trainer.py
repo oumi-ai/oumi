@@ -12,6 +12,8 @@ import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
+
+import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -21,7 +23,6 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
-import wandb
 from lema.builders.lr_schedules import build_lr_scheduler
 from lema.builders.optimizers import build_optimizer
 from lema.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
