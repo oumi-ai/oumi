@@ -48,6 +48,48 @@ def build_training_callbacks(
             "Scheduled profiling is requested, but profiler is not available!"
         )
 
+    add_mfu_callbacks: bool = True
+    if not torch.cuda.is_available():
+        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
+        add_mfu_callbacks = False
+    elif config.training.use_peft:
+        logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
+        add_mfu_callbacks = False
+
+    if add_mfu_callbacks:
+        if config.model.model_max_length is not None and (
+            config.model.model_max_length > 0
+        ):
+            num_total_params = count_model_parameters(model)
+            num_mfu_params = (
+                num_total_params.all_params - num_total_params.embedding_params
+            )
+            logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
+            # Ignore attention and rematerialization to ensure metric matches most
+            # common implementations.
+            mfu_callback = MfuTrainerCallback(
+                dtype=model.dtype,
+                num_params=num_mfu_params,
+                sequence_length=config.model.model_max_length,
+            )
+            result.append(mfu_callback)
+        else:
+            logger.warning(
+                "model_max_length must be set to log MFU performance information."
+            )
+
+        if (
+            config.training.include_alternative_mfu_metrics
+            and config.training.trainer_type
+            in (
+                TrainerType.TRL_SFT,
+                TrainerType.TRL_DPO,
+                TrainerType.HF,
+            )
+        ):
+            result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
         TelemetryCallback(
             skip_first_steps=2,
@@ -58,40 +100,5 @@ def build_training_callbacks(
             track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
     )
-
-    if not torch.cuda.is_available():
-        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
-        return result
-    elif config.training.use_peft:
-        logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
-        return result
-
-    if config.model.model_max_length is not None and config.model.model_max_length > 0:
-        num_total_params = count_model_parameters(model)
-        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
-        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-        # Ignore attention and rematerialization to ensure metric matches most
-        # common implementations.
-        mfu_callback = MfuTrainerCallback(
-            dtype=model.dtype,
-            num_params=num_mfu_params,
-            sequence_length=config.model.model_max_length,
-        )
-        result.append(mfu_callback)
-    else:
-        logger.warning(
-            "model_max_length must be set to log MFU performance information."
-        )
-
-    if (
-        config.training.include_alternative_mfu_metrics
-        and config.training.trainer_type
-        in (
-            TrainerType.TRL_SFT,
-            TrainerType.TRL_DPO,
-            TrainerType.HF,
-        )
-    ):
-        result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
     return result
