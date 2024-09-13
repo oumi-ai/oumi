@@ -90,7 +90,10 @@ def build_training_callbacks(
         ):
             result.append(HfMfuTrainerCallback(dtype=model.dtype))
 
-    result.append(NanInfDetectionCallback(metrics=["loss"]))
+    # Loss can have different names, depending on context.
+    result.append(
+        NanInfDetectionCallback(metrics=["loss", "train/loss", " train_loss"])
+    )
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
