@@ -37,7 +37,7 @@ def build_training_callbacks(
     Note:
         - MFU logging is only supported on GPU and is skipped for PEFT models.
     """
-    result = []
+    result: List[BaseTrainerCallback] = []
     if not config.training.include_performance_metrics:
         return result
 
