@@ -24,7 +24,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Setup LeMa Dependencies
+    - name: Install Dependencies
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
@@ -36,11 +36,11 @@ jobs:
         path: ~/.cache/pre-commit
         key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-    - name: Check LeMa Pre-commit rules
+    - name: Run pre-commit checks
       run: |
         pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run LeMa Tests
+    - name: Run tests
       run: |
         cd ./tests/
         pytest -s
