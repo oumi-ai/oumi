@@ -157,6 +157,14 @@ def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Call
     return wrapper
 
 
+_SUMMARY_KEY_HOSTNAME = "hostname"
+_SUMMARY_KEY_TOTAL_TIME = "total_time"
+_SUMMARY_KEY_TIMERS = "timers"
+_SUMMARY_KEY_CUDA_TIMERS = "cuda_timers"
+_SUMMARY_KEY_GPU_MEMORY = "gpu_memory"
+_SUMMARY_KEY_GPU_TEMPERATURE = "gpu_temperature"
+
+
 class TelemetryTracker:
     """A class for tracking various telemetry metrics."""
 
@@ -238,24 +246,26 @@ class TelemetryTracker:
         total_time = time.perf_counter() - self.state.start_time
 
         summary = {
-            "hostname": self.state.hostname,
-            "total_time": total_time,
-            "timers": {},
-            "cuda_timers": {},
-            "gpu_memory": self.state.gpu_memory,
-            "gpu_temperature": {},
+            _SUMMARY_KEY_HOSTNAME: self.state.hostname,
+            _SUMMARY_KEY_TOTAL_TIME: total_time,
+            _SUMMARY_KEY_TIMERS: {},
+            _SUMMARY_KEY_CUDA_TIMERS: {},
+            _SUMMARY_KEY_GPU_MEMORY: self.state.gpu_memory,
+            _SUMMARY_KEY_GPU_TEMPERATURE: {},
         }
 
         for name, measurements in self.state.measurements.items():
-            summary["timers"][name] = self._calculate_timer_stats(
+            summary[_SUMMARY_KEY_TIMERS][name] = self._calculate_timer_stats(
                 measurements, total_time
             )
 
         for name, measurements in self.state.cuda_measurements.items():
-            summary["cuda_timers"][name] = self._calculate_timer_stats(measurements)
+            summary[_SUMMARY_KEY_CUDA_TIMERS][name] = self._calculate_timer_stats(
+                measurements
+            )
 
         if self.state.gpu_temperature:
-            summary["gpu_temperature"] = self._calculate_basic_stats(
+            summary[_SUMMARY_KEY_GPU_TEMPERATURE] = self._calculate_basic_stats(
                 self.state.gpu_temperature
             )
 
@@ -265,27 +275,31 @@ class TelemetryTracker:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
         log_lines: List[str] = [
-            f"Telemetry Summary ({summary['hostname']}):",
+            f"Telemetry Summary ({summary[_SUMMARY_KEY_HOSTNAME]}):",
             f"Total time: {summary['total_time']:.2f} seconds",
         ]
 
-        if summary["timers"]:
+        if summary[_SUMMARY_KEY_TIMERS]:
             log_lines.append("\nCPU Timers:")
-            for name, stats in summary["timers"].items():
+            for name, stats in summary[_SUMMARY_KEY_TIMERS].items():
                 log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
-        if summary["cuda_timers"]:
+        if summary[_SUMMARY_KEY_CUDA_TIMERS]:
             log_lines.append("\nCUDA Timers:")
-            for name, stats in summary["cuda_timers"].items():
+            for name, stats in summary[_SUMMARY_KEY_CUDA_TIMERS].items():
                 log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
-        if summary["gpu_memory"]:
-            max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
+        if summary[_SUMMARY_KEY_GPU_MEMORY]:
+            max_memory = max(
+                usage["allocated"] for usage in summary[_SUMMARY_KEY_GPU_MEMORY]
+            )
             log_lines.append(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
 
-        if summary["gpu_temperature"]:
+        if summary[_SUMMARY_KEY_GPU_TEMPERATURE]:
             log_lines.extend(
-                self._format_gpu_temperature_stats_as_lines(summary["gpu_temperature"])
+                self._format_gpu_temperature_stats_as_lines(
+                    summary[_SUMMARY_KEY_GPU_TEMPERATURE]
+                )
             )
 
         # Log everything as a single value to ensure that stats from different
