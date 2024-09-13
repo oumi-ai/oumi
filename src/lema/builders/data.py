@@ -72,7 +72,7 @@ def build_prompt_generation_fn(
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 
 
-def build_dataset(
+def build_dataset_mixture(
     config: TrainingConfig,
     tokenizer: BaseTokenizer,
     dataset_split: DatasetSplit,
@@ -94,7 +94,7 @@ def build_dataset(
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
     if dataset_split_params.experimental_use_torch_datapipes:
-        from lema.builders.lema_data import build_dataset as build_lema_dataset
+        from lema.builders.lema_data import build_dataset_mixture as build_lema_dataset
 
         logger.warning(
             "Using experimental torch datapipes preprocessing pipeline. "

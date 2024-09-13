@@ -13,7 +13,7 @@ from torch.utils.data import IterableDataset as TorchIterableDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
-from lema.builders import build_dataset, build_tokenizer
+from lema.builders import build_dataset_mixture, build_tokenizer
 from lema.core.distributed import (
     cleanup_distributed,
     init_distributed,
@@ -70,7 +70,7 @@ def main(args):
 
         tokenizer = build_tokenizer(config.model)
         init_time, dataset = _load_dataset(
-            build_dataset, config, tokenizer, DatasetSplit.TRAIN
+            build_dataset_mixture, config, tokenizer, DatasetSplit.TRAIN
         )
 
         # Anything that's useful for debugging / slicing plots.
