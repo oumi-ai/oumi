@@ -14,7 +14,7 @@ from tqdm import tqdm
 RANDOM_SEED = 42
 
 
-def _get_model_name(model_id: str):
+def _get_model_name(model_id: str) -> str:
     segments = model_id.split("/")
 
     # Get first 5 characters of the snapshot id to keep the name small.
@@ -24,6 +24,11 @@ def _get_model_name(model_id: str):
         if model_segment_key in s:
             model_name = s[len(model_segment_key) :]
             return f"{model_name}_{snapshot}"
+    # If the model_id is not in the HF format (ex. it's a path to a custom model),
+    # return up to the last 20 characters.
+    # We replace slashes in the directory path with underscores since the model
+    # name is used as part of a filename.
+    return model_id.replace("/", "_")[-20:]
 
 
 def _get_metrics(
@@ -69,21 +74,21 @@ def main():
     SPAWN_RATE = int(os.environ["LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND"])
     print(f"Num workers: {NUM_WORKERS}")
     JOB_NUMBER = os.environ["JOB_NUMBER"]
-    INPUT_FILE = os.environ["LEMA_VLLM_INPUT_PATH"]
-    OUTPUT_PATH = os.environ["LEMA_VLLM_OUTPUT_PATH"]
-    Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+    INPUT_FILEPATH = os.environ["LEMA_VLLM_INPUT_FILEPATH"]
+    OUTPUT_DIR = os.environ["LEMA_VLLM_OUTPUT_DIR"]
+    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
-    OUTPUT_FILE_PREFIX = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
-    METRIC_FILE_PREFIX = f"{JOB_NUMBER}_vllm_metrics_{TIMESTR}_{MODEL_NAME}.jsonl"
-    OUTPUT_FILE_PATH = os.path.join(OUTPUT_PATH, OUTPUT_FILE_PREFIX)
-    METRIC_FILE_PATH = os.path.join(OUTPUT_PATH, METRIC_FILE_PREFIX)
+    OUTPUT_FILENAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
+    METRIC_FILENAME = f"{JOB_NUMBER}_vllm_metrics_{TIMESTR}_{MODEL_NAME}.jsonl"
+    OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
+    METRIC_FILEPATH = os.path.join(OUTPUT_DIR, METRIC_FILENAME)
     REQUEST_RETRIES = 3
-    print(f"Input file is {INPUT_FILE}")
-    print(f"Files will be output to {OUTPUT_PATH}")
+    print(f"Input file is {INPUT_FILEPATH}")
+    print(f"Files will be output to {OUTPUT_DIR}")
 
-    if not os.path.isfile(INPUT_FILE):
-        raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
-    json_objects = pd.read_json(INPUT_FILE, lines=True)
+    if not os.path.isfile(INPUT_FILEPATH):
+        raise FileNotFoundError(f"Input file not found: {INPUT_FILEPATH}")
+    json_objects = pd.read_json(INPUT_FILEPATH, lines=True)
     ALL_MESSAGES = json_objects["messages"].to_list()
 
     global output_queue
@@ -175,7 +180,7 @@ def main():
         requests_completed += 1
         pbar.update()
 
-        with jsonlines.open(OUTPUT_FILE_PATH, mode="a") as writer:
+        with jsonlines.open(OUTPUT_FILEPATH, mode="a") as writer:
             request_sent_time, request_complete_time = REQUEST_TIMES[index]
             elapsed_time = request_complete_time - request_sent_time
             json_obj = {
@@ -197,7 +202,7 @@ def main():
                 requests_completed,
             )
 
-            with jsonlines.open(METRIC_FILE_PATH, "a") as metric_writer:
+            with jsonlines.open(METRIC_FILEPATH, "a") as metric_writer:
                 metric_writer.write(metrics)
 
     average_request_completion_time = sum([x[1] - x[0] for x in REQUEST_TIMES]) / len(
@@ -213,7 +218,7 @@ def main():
         average_request_completion_time, 2
     )
 
-    with jsonlines.open(METRIC_FILE_PATH, "a") as metric_writer:
+    with jsonlines.open(METRIC_FILEPATH, "a") as metric_writer:
         metric_writer.write(metrics)
 
     print("All responses written to file.")

@@ -45,6 +45,7 @@ from lema.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
+    log_model_summary,
     log_training_config,
     log_versioning_info,
 )
@@ -308,6 +309,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info("Building PEFT model...")
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
+        )
+
+    if config.training.log_model_summary and is_local_process_zero():
+        log_model_summary(
+            model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
         )
 
     # Enable gradient checkpointing
