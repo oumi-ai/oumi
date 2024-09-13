@@ -3,7 +3,6 @@
 import copy
 import pathlib
 import sys
-from pprint import pformat
 from typing import Dict, Optional, Union
 
 import transformers
@@ -196,7 +195,6 @@ class TelemetryCallback(BaseTrainerCallback):
 
         if is_world_process_zero():
             metrics_dict = self._last_metrics_dict or {}
-            logger.info(f"Metrics:\n{pformat(metrics_dict)}")
             save_json(
                 metrics_dict,
                 self._output_dir
