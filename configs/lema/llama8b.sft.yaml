@@ -30,7 +30,8 @@ data:
 
 training:
   trainer_type: TRL_SFT
-  save_steps: 800
+  save_steps: 0
+  max_steps: 20
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
