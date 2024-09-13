@@ -1,5 +1,6 @@
 """A callback to detect NaN/INF metric values."""
 
+import copy
 from typing import List, Optional, Union
 
 import numpy as np
@@ -23,12 +24,12 @@ class NanInfDetectionCallback(BaseTrainerCallback):
         self,
         metrics: List[str] = ["loss"],
     ):
-        """Initialize the NanInfDetectionCallback.
+        """Initializes the NanInfDetectionCallback.
 
         Args:
             metrics: The list of metrics to monitor.
         """
-        self._metrics = metrics
+        self._metrics = copy.deepcopy(metrics)
 
     def on_log(
         self,
