@@ -22,7 +22,7 @@ class NanInfDetectionCallback(BaseTrainerCallback):
 
     def __init__(
         self,
-        metrics: List[str] = ["loss"],
+        metrics: List[str],
     ):
         """Initializes the NanInfDetectionCallback.
 
