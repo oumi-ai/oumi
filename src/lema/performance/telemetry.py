@@ -336,7 +336,6 @@ class TelemetryTracker:
         if isinstance(keys, dict):
             for key in keys:
                 if isinstance(keys[key], (dict, set)):
-                    print(f"key-dict-or-set: {key}")
                     next_level_summaries = []
                     for i in range(len(rank_summaries)):
                         if key in rank_summaries[i] and isinstance(
@@ -348,7 +347,6 @@ class TelemetryTracker:
                             next_level_summaries, keys[key]
                         )
                 else:
-                    print(f"key-other: {key}")
                     measurements = []
                     for i in range(len(rank_summaries)):
                         if key in rank_summaries[i] and isinstance(
@@ -362,7 +360,6 @@ class TelemetryTracker:
         else:
             assert isinstance(keys, set)
             for key in keys:
-                print(f"key-set2: {key}")
                 measurements = []
                 for i in range(len(rank_summaries)):
                     if key in rank_summaries[i] and isinstance(
