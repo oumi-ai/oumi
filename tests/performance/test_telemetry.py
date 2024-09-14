@@ -170,3 +170,10 @@ def test_telemetry_tracker_get_summary():
         all_summaries[0]["timers"]["operation2"]["total"]
         > all_summaries[0]["timers"]["operation1"]["total"]
     )
+
+    assert (
+        tracker.compute_cross_rank_summaries(
+            all_summaries, {"timers": {"operation1", "operation2"}}
+        )
+        == {}
+    )

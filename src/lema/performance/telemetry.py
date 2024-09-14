@@ -4,7 +4,7 @@ import statistics
 import time
 from contextlib import ContextDecorator
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Set, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Union, cast
 
 import numpy as np
 import pydantic
@@ -322,7 +322,7 @@ class TelemetryTracker:
     def compute_cross_rank_summaries(
         self,
         rank_summaries: List[Dict[str, Any]],
-        keys: Optional[Dict[str, Set[str]]] = None,
+        keys: Optional[Dict[str, Union[Set[str], Dict[str, Set[str]]]]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
 
@@ -357,9 +357,11 @@ class TelemetryTracker:
                         and sub_key in rank_summaries[i][key]
                     ):
                         measurements.append(rank_summaries[i][key][sub_key])
-                result[key][sub_key] = self._calculate_basic_stats(
-                    measurements, include_index=True
-                )
+
+                if measurements:
+                    result[key][sub_key] = self._calculate_basic_stats(
+                        measurements, include_index=True
+                    )
 
         return result
 
