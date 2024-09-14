@@ -610,6 +610,8 @@ class TrainingParams(BaseParams):
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
+            gradient_checkpointing=self.enable_gradient_checkpointing,
+            gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
             include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
