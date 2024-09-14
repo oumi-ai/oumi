@@ -144,6 +144,35 @@ def test_telemetry_tracker_record_gpu_temperature():
 
 def test_telemetry_tracker_get_summary():
     tracker = TelemetryTracker()
+    with tracker.timer("operation1"):
+        time.sleep(0.1)
+    with tracker.timer("operation2"):
+        time.sleep(0.2)
+
+    summary = tracker.get_summary()
+    assert "total_time" in summary
+    assert "timers" in summary
+    assert "operation1" in summary["timers"]
+    assert "operation2" in summary["timers"]
+    assert (
+        summary["timers"]["operation2"]["total"]
+        > summary["timers"]["operation1"]["total"]
+    )
+    all_summaries = tracker.get_summaries_from_all_ranks()
+    assert len(all_summaries) == 1
+    assert "total_time" in all_summaries[0]
+    assert "timers" in all_summaries[0]
+    assert "operation1" in all_summaries[0]["timers"]
+    assert "operation2" in all_summaries[0]["timers"]
+    assert (
+        all_summaries[0]["timers"]["operation2"]["total"]
+        > all_summaries[0]["timers"]["operation1"]["total"]
+    )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_telemetry_tracker_get_summary_with_gpu_temperature():
+    tracker = TelemetryTracker()
 
     with tracker.timer("operation1"):
         time.sleep(0.1)
