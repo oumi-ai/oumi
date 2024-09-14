@@ -4,8 +4,9 @@ import statistics
 import time
 from contextlib import ContextDecorator
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Set, cast
 
+import numpy as np
 import pydantic
 import torch
 
@@ -318,6 +319,33 @@ class TelemetryTracker:
         """
         return all_gather_object(self.get_summary())
 
+    @staticmethod
+    def compute_cross_rank_summaries(
+        rank_summaries: List[Dict[str, Any]], keys: Optional[Dict[str, Set[str]]] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """Computes a cross-rank summary from summaries produced by individual ranks.
+
+        For example, it can be useful to see distribution
+        of `{"gpu_temperature": {"max"}}` over ranks.
+        """
+        if keys:
+            keys_dict = keys
+        else:
+            keys_dict = {}
+            # Collect all known keys.
+            for summary in rank_summaries:
+                for key, val in summary.items():
+                    if isinstance(val, dict):
+                        if key in keys_dict:
+                            keys_dict[key].update(val.keys())
+                        else:
+                            keys_dict[key] = set(val.keys())
+
+        if not keys_dict:
+            return {}
+
+        return {}
+
     #
     # State Management
     #
@@ -344,7 +372,9 @@ class TelemetryTracker:
     #
     # Helper Methods
     #
-    def _calculate_basic_stats(self, measurements: List[float]) -> Dict[str, float]:
+    def _calculate_basic_stats(
+        self, measurements: List[float], include_index: bool = False
+    ) -> Dict[str, float]:
         count = len(measurements)
         # Use `defaultdict()` to make `_format_timer_stats_as_lines()` and
         # other functions usable even if `count` is zero, which can happen
@@ -356,8 +386,16 @@ class TelemetryTracker:
             stats["mean"] = statistics.mean(measurements)
             stats["median"] = statistics.median(measurements)
             stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
-            stats["min"] = min(measurements)
-            stats["max"] = max(measurements)
+
+            min_index = np.argmin(measurements)
+            stats["min"] = measurements[min_index]
+            if include_index:
+                stats["min_index"] = float(min_index)
+
+            max_index = np.argmax(measurements)
+            stats["max"] = measurements[max_index]
+            if include_index:
+                stats["max_index"] = float(max_index)
         return stats
 
     def _calculate_timer_stats(
