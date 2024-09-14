@@ -319,9 +319,10 @@ class TelemetryTracker:
         """
         return all_gather_object(self.get_summary())
 
-    @staticmethod
     def compute_cross_rank_summaries(
-        rank_summaries: List[Dict[str, Any]], keys: Optional[Dict[str, Set[str]]] = None
+        self,
+        rank_summaries: List[Dict[str, Any]],
+        keys: Optional[Dict[str, Set[str]]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
 
@@ -332,7 +333,7 @@ class TelemetryTracker:
             keys_dict = keys
         else:
             keys_dict = {}
-            # Collect all known keys.
+            # Collect all known keys and sub-keys.
             for summary in rank_summaries:
                 for key, val in summary.items():
                     if isinstance(val, dict):
@@ -344,7 +345,23 @@ class TelemetryTracker:
         if not keys_dict:
             return {}
 
-        return {}
+        result = {}
+        for key, subkeys in keys_dict.items():
+            result[key] = {}
+            for sub_key in subkeys:
+                measurements = []
+                for i in range(len(rank_summaries)):
+                    if (
+                        key in rank_summaries[i]
+                        and isinstance(rank_summaries[i][key], dict)
+                        and sub_key in rank_summaries[i][key]
+                    ):
+                        measurements.append(rank_summaries[i][key][sub_key])
+                result[key][sub_key] = self._calculate_basic_stats(
+                    measurements, include_index=True
+                )
+
+        return result
 
     #
     # State Management
