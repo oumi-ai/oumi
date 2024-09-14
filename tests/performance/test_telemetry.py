@@ -117,6 +117,7 @@ def test_telemetry_tracker_record_gpu_temperature():
     tracker.record_gpu_temperature()
 
     summary = tracker.get_summary()
+    assert "gpu_temperature" in summary
     assert len(summary["gpu_temperature"]) == 6
     assert summary["gpu_temperature"]["count"] == 3
 
@@ -150,8 +151,14 @@ def test_telemetry_tracker_get_summary():
     with tracker.timer("operation2"):
         time.sleep(0.2)
 
+    tracker.record_gpu_temperature()
+    tracker.record_gpu_temperature()
+    tracker.record_gpu_temperature()
+
     summary = tracker.get_summary()
     assert "total_time" in summary
+    assert "gpu_temperature" in summary
+    assert len(summary["gpu_temperature"]) == 6
     assert "timers" in summary
     assert "operation1" in summary["timers"]
     assert "operation2" in summary["timers"]
@@ -163,6 +170,7 @@ def test_telemetry_tracker_get_summary():
     all_summaries = tracker.get_summaries_from_all_ranks()
     assert len(all_summaries) == 1
     assert "total_time" in all_summaries[0]
+    assert "gpu_temperature" in all_summaries[0]
     assert "timers" in all_summaries[0]
     assert "operation1" in all_summaries[0]["timers"]
     assert "operation2" in all_summaries[0]["timers"]
@@ -172,19 +180,29 @@ def test_telemetry_tracker_get_summary():
     )
 
     info = tracker.compute_cross_rank_summaries(all_summaries, {"total_time"})
+    assert "total_time" in info
+    assert len(info) == 1
+
+    info = info["total_time"]
+    assert len(info) == 8
     assert "count" in info and info["count"] == 1.0
     assert "max" in info and info["max"] > 0.0
-    assert "max_index" in info and info["max_index"] == 1
+    assert "max_index" in info and info["max_index"] == 0
     assert "mean" in info and info["mean"] > 0.0 and info["mean"] == info["max"]
     assert "median" in info and info["median"] > 0.0 and info["median"] == info["max"]
     assert "min" in info and info["min"] > 0.0 and info["min"] == info["max"]
-    assert "min_index" in info and info["min_index"] == 1
+    assert "min_index" in info and info["min_index"] == 0
     assert "std_dev" in info and info["std_dev"] == 0
 
-    assert (
-        tracker.compute_cross_rank_summaries(
-            all_summaries,
-            {"timers": {"operation1": {"total"}, "operation12": {"total"}}},
-        )
-        == {}
+    info = tracker.compute_cross_rank_summaries(
+        all_summaries,
+        {
+            "timers": {
+                "operation1": {"total", "median"},
+                "operation2": {"total", "max"},
+            },
+            "gpu_temperature": {"max"},
+        },
     )
+    assert "timers" in info
+    assert "gpu_temperature" in info
