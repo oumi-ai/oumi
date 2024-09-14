@@ -3,6 +3,7 @@
 import copy
 import pathlib
 import sys
+from pprint import pformat
 from typing import Dict, Optional, Union
 
 import transformers
@@ -231,6 +232,9 @@ class TelemetryCallback(BaseTrainerCallback):
                             "gpu_temperature": {"max", "mean", "median"},
                         },
                     )
+                )
+                logger.info(
+                    f"GPU temperature summary:\n{pformat(gpu_temperature_info_dict)}"
                 )
                 save_json(
                     gpu_temperature_info_dict,
