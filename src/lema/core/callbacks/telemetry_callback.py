@@ -224,6 +224,20 @@ class TelemetryCallback(BaseTrainerCallback):
                 )
                 save_json(summaries_dict, telemetry_file)
 
+                gpu_temperature_info_dict = (
+                    self._telemetry.compute_cross_rank_summaries(
+                        summaries,
+                        {
+                            "gpu_temperature": {"max", "mean", "median"},
+                        },
+                    )
+                )
+                save_json(
+                    gpu_temperature_info_dict,
+                    self._output_dir
+                    / "telemetry_callback_gpu_temperature_summary.json",
+                )
+
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
         if self._permanently_disabled:

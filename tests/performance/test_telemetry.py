@@ -198,11 +198,44 @@ def test_telemetry_tracker_get_summary():
         all_summaries,
         {
             "timers": {
-                "operation1": {"total", "median"},
+                "operation1": {"median"},
                 "operation2": {"total", "max"},
             },
             "gpu_temperature": {"max"},
         },
     )
+    print(info)
     assert "timers" in info
+    assert isinstance(info["timers"], dict)
+    assert len(info["timers"]) == 2
     assert "gpu_temperature" in info
+    assert isinstance(info["gpu_temperature"], dict)
+    assert len(info["gpu_temperature"]) == 1
+
+    assert "max" in info["gpu_temperature"]
+    assert isinstance(info["gpu_temperature"]["max"], dict)
+    assert len(info["gpu_temperature"]["max"]) == 8
+
+    assert "count" in info["gpu_temperature"]["max"]
+    assert "mean" in info["gpu_temperature"]["max"]
+    assert "median" in info["gpu_temperature"]["max"]
+    assert "std_dev" in info["gpu_temperature"]["max"]
+    assert "min" in info["gpu_temperature"]["max"]
+    assert "min_index" in info["gpu_temperature"]["max"]
+    assert "max" in info["gpu_temperature"]["max"]
+    assert "max_index" in info["gpu_temperature"]["max"]
+
+    assert "operation1" in info["timers"]
+    assert isinstance(info["timers"]["operation1"], dict)
+    assert len(info["timers"]["operation1"]) == 1
+    assert "median" in info["timers"]["operation1"]
+    assert isinstance(info["timers"]["operation1"]["median"], dict)
+    assert len(info["timers"]["operation1"]["median"]) == 8
+
+    assert "operation2" in info["timers"]
+    assert "total" in info["timers"]["operation2"]
+    assert isinstance(info["timers"]["operation2"]["total"], dict)
+    assert len(info["timers"]["operation2"]["total"]) == 8
+    assert "max" in info["timers"]["operation2"]
+    assert isinstance(info["timers"]["operation2"]["max"], dict)
+    assert len(info["timers"]["operation2"]["max"]) == 8
