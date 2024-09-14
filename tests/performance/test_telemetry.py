@@ -204,7 +204,6 @@ def test_telemetry_tracker_get_summary():
             "gpu_temperature": {"max"},
         },
     )
-    print(info)
     assert "timers" in info
     assert isinstance(info["timers"], dict)
     assert len(info["timers"]) == 2
