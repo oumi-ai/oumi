@@ -5,6 +5,7 @@ import torch
 from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from lema.core.callbacks.mfu_callback import MfuTrainerCallback
+from lema.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
 from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
 from lema.core.callbacks.telemetry_callback import TelemetryCallback
 from lema.core.configs import TrainerType, TrainingConfig
@@ -88,6 +89,11 @@ def build_training_callbacks(
             )
         ):
             result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    # Loss can have different names, depending on context.
+    result.append(
+        NanInfDetectionCallback(metrics=["loss", "train/loss", " train_loss"])
+    )
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
