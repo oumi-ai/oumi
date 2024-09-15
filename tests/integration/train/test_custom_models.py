@@ -4,7 +4,7 @@ import unittest
 from transformers import Trainer
 
 from lema import train
-from lema.builders.data import build_dataset
+from lema.builders.data import build_dataset_mixture
 from lema.builders.models import build_model, build_tokenizer
 from lema.core.configs import (
     DataParams,
@@ -63,7 +63,7 @@ def test_train_native_pt_model_from_api():
 
         tokenizer = build_tokenizer(config.model)
 
-        dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+        dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 
         model = build_model(model_params=config.model)
 
