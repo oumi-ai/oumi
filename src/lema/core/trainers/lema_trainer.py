@@ -122,7 +122,6 @@ class Trainer(BaseTrainer):
         # ----------------------------------
         # Prepare model for training
         # ----------------------------------
-        # Enable gradient checkpointing if requested
         if args.enable_gradient_checkpointing:
             model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
         model.to(self.device)
