@@ -97,12 +97,12 @@ def torch_profile(
     params: ProfilerParams,
     *,
     training_output_dir: Optional[str],
-    record_function_name: str = "lema.train",
+    record_function_name: str = "oumi.train",
 ):
     """Creates PyTorch Profiler context manager.
 
     Example:
-        with torch_profile(profiler_params, record_function_name="lema.train") as prof:
+        with torch_profile(profiler_params, record_function_name="oumi.train") as prof:
             for i in range(n):
                 training_step()
                 if prof is not None:

@@ -23,7 +23,7 @@ class TrainingConfig(BaseConfig):
     This field contains all the necessary settings for data processing and loading.
     It includes options for train and evaluation datasets and preprocessing steps.
 
-    For more details, see the :class:`lema.core.configs.params.data_params.DataParams`
+    For more details, see the :class:`oumi.core.configs.params.data_params.DataParams`
     class.
     """
 
@@ -33,7 +33,7 @@ class TrainingConfig(BaseConfig):
     This field defines the model architecture, size, and other model-specific settings.
     It includes options for model type, pretrained weights, and tokenizer configuration.
 
-    For more details, see :class:`lema.core.configs.params.model_params.ModelParams`
+    For more details, see :class:`oumi.core.configs.params.model_params.ModelParams`
     class.
     """
 
@@ -44,7 +44,7 @@ class TrainingConfig(BaseConfig):
     including learning rate, batch size, number of epochs, and optimization parameters.
 
     For more details, see
-    :class:`lema.core.configs.params.training_params.TrainingParams`.
+    :class:`oumi.core.configs.params.training_params.TrainingParams`.
     """
 
     peft: PeftParams = field(default_factory=PeftParams)
@@ -53,7 +53,7 @@ class TrainingConfig(BaseConfig):
     This field defines settings for various PEFT methods such as LoRA, or Prefix Tuning.
     It includes options for rank, alpha values, and other PEFT-specific parameters.
 
-    For more details, see :class:`lema.core.configs.params.peft_params.PeftParams`.
+    For more details, see :class:`oumi.core.configs.params.peft_params.PeftParams`.
     """
 
     fsdp: FSDPParams = field(default_factory=FSDPParams)

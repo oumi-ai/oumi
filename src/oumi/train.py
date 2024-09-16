@@ -266,7 +266,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
-        record_function_name="lema.train",
+        record_function_name="oumi.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
             kwargs = {}

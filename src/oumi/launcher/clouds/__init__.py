@@ -4,7 +4,7 @@ This module provides implementations for various cloud platforms that can be use
 with the LeMa launcher for running and managing jobs.
 
 Example:
-    >>> from lema.launcher.clouds import LocalCloud
+    >>> from oumi.launcher.clouds import LocalCloud
     >>> local_cloud = LocalCloud()
     >>> local_cloud.run_job(job_config)
 

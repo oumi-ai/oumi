@@ -6,7 +6,7 @@ Exceptions:
     :class:`HardwareException`: Exception raised for hardware-related errors.
 
 Example:
-    >>> from lema.core.types import HardwareException
+    >>> from oumi.core.types import HardwareException
     >>> try:
     ...     # Some hardware-related operation
     ...     pass

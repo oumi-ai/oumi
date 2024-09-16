@@ -20,7 +20,7 @@ _LOGS_KWARG = "logs"
 class TelemetryCallback(BaseTrainerCallback):
     """Trainer callback to collect sub-step/step/epoch timings.
 
-    Based on `lema.performance.telemetry.TelemetryTracker`.
+    Based on `oumi.performance.telemetry.TelemetryTracker`.
     """
 
     def __init__(

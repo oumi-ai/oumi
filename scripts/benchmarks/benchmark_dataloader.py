@@ -13,18 +13,18 @@ from torch.utils.data import IterableDataset as TorchIterableDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
-from lema.builders import build_dataset_mixture, build_tokenizer
-from lema.core.distributed import (
+from oumi.builders import build_dataset_mixture, build_tokenizer
+from oumi.core.distributed import (
     cleanup_distributed,
     init_distributed,
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
 )
-from lema.core.types import DatasetSplit, TrainingConfig
-from lema.datasets.debug import DebugPretrainingDataset
-from lema.utils.io_utils import save_json
-from lema.utils.logging import logger, update_logger_level
+from oumi.core.types import DatasetSplit, TrainingConfig
+from oumi.datasets.debug import DebugPretrainingDataset
+from oumi.utils.io_utils import save_json
+from oumi.utils.logging import logger, update_logger_level
 
 #
 # Parameters to benchmark

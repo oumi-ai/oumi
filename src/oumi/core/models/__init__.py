@@ -5,14 +5,14 @@ LeMa framework.
 
 
 See Also:
-    - :mod:`lema.models`: Module containing specific model implementations.
-    - :class:`lema.models.mlp.MLPEncoder`: An example of a concrete model
+    - :mod:`oumi.models`: Module containing specific model implementations.
+    - :class:`oumi.models.mlp.MLPEncoder`: An example of a concrete model
         implementation.
 
 Example:
     To create a custom model, inherit from :class:`BaseModel`:
 
-    >>> from lema.core.models import BaseModel
+    >>> from oumi.core.models import BaseModel
     >>> class CustomModel(BaseModel):
     ...     def __init__(self, *args, **kwargs):
     ...         super().__init__(*args, **kwargs)

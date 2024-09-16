@@ -49,7 +49,7 @@ run: |
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/llama70b.fsdp.yaml \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/llama70b.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \

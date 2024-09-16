@@ -40,7 +40,7 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 3. Run training locally:
 
    ```shell
-   lema-train -c path/to/your/config.yaml
+   oumi-train -c path/to/your/config.yaml
    ```
 
    For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).

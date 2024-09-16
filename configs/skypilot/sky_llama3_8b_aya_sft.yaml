@@ -37,7 +37,7 @@ run: |
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/llama3.8b.aya.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \

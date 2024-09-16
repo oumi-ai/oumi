@@ -4,7 +4,7 @@ This module provides various evaluation metrics and utility functions for assess
 the performance of machine learning models in the LeMa framework.
 
 Example:
-    >>> from lema.evaluation import compute_multiple_choice_accuracy
+    >>> from oumi.evaluation import compute_multiple_choice_accuracy
     >>> accuracy = compute_multiple_choice_accuracy(predictions, labels)
     >>> print(f"Multiple choice accuracy: {accuracy}")
 

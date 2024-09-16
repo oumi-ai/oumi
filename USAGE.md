@@ -44,10 +44,10 @@ For more advanced use cases, and examples of other configuration options, see th
 To train a model using LeMa, use the `train` script:
 
 ```bash
-lema-train -c config.yaml
+oumi-train -c config.yaml
 
 # Or, if the script is not in your PATH:
-python -m lema.train -c config.yaml
+python -m oumi.train -c config.yaml
 
 # On the other hand, this does not work!
 python src/lema/train.py -c config.yaml
@@ -67,10 +67,10 @@ You can monitor the training progress in the console output. Checkpoints and log
 After training, you can evaluate your model using the `evaluate` script:
 
 ```bash
-lema-evaluate -c eval_config.yaml
+oumi-evaluate -c eval_config.yaml
 
 # Alternatively:
-python -m lema.evaluate -c eval_config.yaml
+python -m oumi.evaluate -c eval_config.yaml
 ```
 
 Create an `eval_config.yaml` file with evaluation-specific settings:
@@ -96,10 +96,10 @@ This will evaluate your model on the specified dataset(s) and save the results i
 To run inference on your trained model, use the `infer` script:
 
 ```bash
-lema-infer -c infer_config.yaml
+oumi-infer -c infer_config.yaml
 
 # Alternatively:
-python -m lema.infer -c infer_config.yaml
+python -m oumi.infer -c infer_config.yaml
 ```
 
 Create an `infer_config.yaml` file with inference settings:
@@ -116,7 +116,7 @@ generation:
 You can also use the `-i` flag for interactive mode:
 
 ```bash
-lema-infer -c infer_config.yaml -i
+oumi-infer -c infer_config.yaml -i
 ```
 
 This will allow you to input prompts and get responses from your model interactively.
@@ -126,8 +126,8 @@ This will allow you to input prompts and get responses from your model interacti
 LeMa supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
 
 ```python
-from lema.core.datasets import BaseLMSftDataset
-from lema.core.registry import register_dataset
+from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.registry import register_dataset
 
 @register_dataset("my_custom_dataset")
 class MyCustomDataset(BaseLMSftDataset):
@@ -153,14 +153,14 @@ For more details, see this notebook [Custom Datasets](https://github.com/openlem
 LeMa supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
 
 ```bash
-torchrun --standalone --nproc_per_node=4 -m lema.train -c config.yaml
+torchrun --standalone --nproc_per_node=4 -m oumi.train -c config.yaml
 ```
 
 This will launch the training script on 4 GPUs.
 
 ## 8.  Distributed Training
 
-To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `lema-launcher`, which makes it straightforward to run jobs on remote machines.
+To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `oumi-launcher`, which makes it straightforward to run jobs on remote machines.
 
 You can find a detailled example here: [notebook](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20Running%20Jobs%20Remotely.ipynb)
 

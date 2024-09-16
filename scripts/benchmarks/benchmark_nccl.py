@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from lema.core.distributed import (
+from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
     get_device_rank_info,
@@ -13,8 +13,8 @@ from lema.core.distributed import (
     is_distributed,
     is_local_process_zero,
 )
-from lema.models.mlp import MLPEncoder
-from lema.utils.logging import logger, update_logger_level
+from oumi.models.mlp import MLPEncoder
+from oumi.utils.logging import logger, update_logger_level
 
 
 def benchmark_barrier(device_info, num_iterations: int = 1):

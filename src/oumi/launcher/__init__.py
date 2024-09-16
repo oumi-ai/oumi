@@ -4,7 +4,7 @@ This module provides functionality for launching and managing jobs across variou
 cloud platforms.
 
 Example:
-    >>> from lema.launcher import Launcher, JobConfig
+    >>> from oumi.launcher import Launcher, JobConfig
     >>> launcher = Launcher()
     >>> job_config = JobConfig(name="my_job", command="python train.py")
     >>> launcher.run(job_config)

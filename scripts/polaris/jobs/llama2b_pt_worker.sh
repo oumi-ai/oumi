@@ -103,7 +103,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
         --master-addr=${LEMA_MASTER_ADDR} \
         --master-port=8007 \
-        -m lema.train \
+        -m oumi.train \
         -c configs/lema/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
@@ -120,7 +120,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         --nproc-per-node=1 \
         --master-addr=${LEMA_MASTER_ADDR} \
         --master-port=8007 \
-        -m lema.train \
+        -m oumi.train \
         -c configs/lema/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
@@ -138,7 +138,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       --main_process_port 8007 \
       --use_deepspeed \
       --config_file configs/accelerate/llama.deepspeed.yaml \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
@@ -157,7 +157,7 @@ else  # FSDP
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/llama2b.pt.fsdp.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \

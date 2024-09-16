@@ -5,7 +5,7 @@ These trainers are designed to facilitate the training process for different
 types of models and tasks.
 
 Example:
-    >>> from lema.core.trainers import Trainer
+    >>> from oumi.core.trainers import Trainer
     >>> trainer = Trainer(model=my_model, dataset=my_dataset)
     >>> trainer.train()
 

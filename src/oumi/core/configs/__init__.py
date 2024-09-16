@@ -6,41 +6,41 @@ and job management.
 
 The configurations are organized into different categories:
 - Evaluation:
-    - :class:`~lema.core.configs.async_evaluation_config.AsyncEvaluationConfig`
-    - :class:`~lema.core.configs.evaluation_config.EvaluationConfig`
-    - :class:`~lema.core.configs.evaluation_config.EvaluationFramework`
+    - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
+    - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
+    - :class:`~oumi.core.configs.evaluation_config.EvaluationFramework`
 - Generation and Inference:
-    - :class:`~lema.core.configs.generation_config.GenerationConfig`
-    - :class:`~lema.core.configs.inference_config.InferenceConfig`
+    - :class:`~oumi.core.configs.generation_config.GenerationConfig`
+    - :class:`~oumi.core.configs.inference_config.InferenceConfig`
 - Job Management:
-    - :class:`~lema.core.configs.job_config.JobConfig`
-    - :class:`~lema.core.configs.job_config.JobResources`
-    - :class:`~lema.core.configs.job_config.StorageMount`
+    - :class:`~oumi.core.configs.job_config.JobConfig`
+    - :class:`~oumi.core.configs.job_config.JobResources`
+    - :class:`~oumi.core.configs.job_config.StorageMount`
 - Data:
-    - :class:`~lema.core.configs.params.data_params.DataParams`
-    - :class:`~lema.core.configs.params.data_params.DatasetParams`
-    - :class:`~lema.core.configs.params.data_params.DatasetSplit`
-    - :class:`~lema.core.configs.params.data_params.DatasetSplitParams`
-    - :class:`~lema.core.configs.params.data_params.MixtureStrategy`
+    - :class:`~oumi.core.configs.params.data_params.DataParams`
+    - :class:`~oumi.core.configs.params.data_params.DatasetParams`
+    - :class:`~oumi.core.configs.params.data_params.DatasetSplit`
+    - :class:`~oumi.core.configs.params.data_params.DatasetSplitParams`
+    - :class:`~oumi.core.configs.params.data_params.MixtureStrategy`
 - Model:
-    - :class:`~lema.core.configs.params.model_params.ModelParams`
-    - :class:`~lema.core.configs.params.peft_params.PeftParams`
-    - :class:`~lema.core.configs.params.fsdp_params.FSDPParams`
+    - :class:`~oumi.core.configs.params.model_params.ModelParams`
+    - :class:`~oumi.core.configs.params.peft_params.PeftParams`
+    - :class:`~oumi.core.configs.params.fsdp_params.FSDPParams`
 - Training:
-    - :class:`~lema.core.configs.training_config.TrainingConfig`
-    - :class:`~lema.core.configs.params.training_params.TrainingParams`
-    - :class:`~lema.core.configs.params.training_params.MixedPrecisionDtype`
-    - :class:`~lema.core.configs.params.training_params.SchedulerType`
-    - :class:`~lema.core.configs.params.training_params.TrainerType`
+    - :class:`~oumi.core.configs.training_config.TrainingConfig`
+    - :class:`~oumi.core.configs.params.training_params.TrainingParams`
+    - :class:`~oumi.core.configs.params.training_params.MixedPrecisionDtype`
+    - :class:`~oumi.core.configs.params.training_params.SchedulerType`
+    - :class:`~oumi.core.configs.params.training_params.TrainerType`
 - Profiling:
-    - :class:`~lema.core.configs.params.profiler_params.ProfilerParams`
+    - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
-    - :class:`~lema.core.configs.params.telemetry_params.TelemetryParams`
+    - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
 
 For more information on using these configurations, see the :ref:`configuration_guide`.
 
 Example:
-    >>> from lema.core.configs import TrainingConfig, ModelParams
+    >>> from oumi.core.configs import TrainingConfig, ModelParams
     >>> model_params = ModelParams(model_name="gpt2", num_labels=2)
     >>> training_config = TrainingConfig(
     ...     model_params=model_params,
@@ -51,7 +51,7 @@ Example:
 
 Note:
     All configuration classes inherit from
-        :class:`~lema.core.configs.base_config.BaseConfig`,
+        :class:`~oumi.core.configs.base_config.BaseConfig`,
         which provides common functionality such as serialization and validation.
 """
 

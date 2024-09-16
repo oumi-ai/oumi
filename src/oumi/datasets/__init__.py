@@ -5,18 +5,18 @@ These datasets are designed for different machine learning tasks and can be used
 with the models and training pipelines provided by LeMa.
 
 For more information on the available datasets and their usage, see the
-:mod:`lema.datasets` documentation.
+:mod:`oumi.datasets` documentation.
 
 Each dataset is implemented as a separate class, inheriting from appropriate base
-classes in the :mod:`lema.core.datasets` module. For usage examples and more detailed
+classes in the :mod:`oumi.core.datasets` module. For usage examples and more detailed
 information on each dataset, please refer to their respective class documentation.
 
 See Also:
-    - :mod:`lema.models`: Compatible models for use with these datasets.
-    - :mod:`lema.core.datasets`: Base classes for dataset implementations.
+    - :mod:`oumi.models`: Compatible models for use with these datasets.
+    - :mod:`oumi.core.datasets`: Base classes for dataset implementations.
 
 Example:
-    >>> from lema.datasets import AlpacaDataset
+    >>> from oumi.datasets import AlpacaDataset
     >>> dataset = AlpacaDataset()
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
