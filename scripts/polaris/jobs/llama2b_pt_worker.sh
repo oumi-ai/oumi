@@ -108,7 +108,6 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.optimizer=adafactor" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
@@ -126,7 +125,6 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.optimizer=adafactor" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
@@ -145,13 +143,11 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.optimizer=adafactor" \
-      "training.enable_gradient_checkpointing=false" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
       "model.torch_dtype_str=float32" \
       "training.mixed_precision_dtype=BF16"
-else
+else  # FSDP
     set -x  # Print "accelerate" command with expanded variables
     accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
@@ -162,13 +158,10 @@ else
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m lema.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/lema/llama2b.pt.fsdp.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
-      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.optimizer=adafactor" \
-      "training.per_device_train_batch_size=14" \
-      "training.gradient_accumulation_steps=19"
+      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'"
 fi
 
 echo "${LOG_PREFIX} All done!"

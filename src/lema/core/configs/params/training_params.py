@@ -139,6 +139,16 @@ class TrainingParams(BaseParams):
     backward pass, it recomputes these activations during the backward pass.
     This can make the training slower, but it can also significantly reduce memory
     usage.
+
+    For FSDP training via Accelerate, do not set this to true. Instead, set
+    `fsdp_config.fsdp_activation_checkpointing` to true in the accelerate yaml config.
+    """
+
+    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments for gradient checkpointing.
+
+    The `use_reentrant` parameter is required and is recommended to be set to False.
+    For more details, see: https://pytorch.org/docs/stable/checkpoint.html
     """
 
     output_dir: str = "output"
@@ -411,13 +421,6 @@ class TrainingParams(BaseParams):
     Default is 0.9.
     """
 
-    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
-    """Keyword arguments for gradient checkpointing.
-
-    The `use_reentrant` parameter is required and is recommended to be set to False.
-    For more details, see: https://pytorch.org/docs/stable/checkpoint.html
-    """
-
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
     """The data type to use for mixed precision training.
 
@@ -607,6 +610,7 @@ class TrainingParams(BaseParams):
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
+            gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
             include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,

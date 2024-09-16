@@ -249,12 +249,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
         )
 
-    # Enable gradient checkpointing
-    if config.training.enable_gradient_checkpointing:
-        model.gradient_checkpointing_enable(
-            config.training.gradient_checkpointing_kwargs
-        )
-
     # Load data & preprocessing
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 

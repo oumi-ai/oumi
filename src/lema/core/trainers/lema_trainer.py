@@ -70,7 +70,6 @@ class Trainer(BaseTrainer):
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
 
-        self.model = model
         self.tokenizer = tokenizer
         self.params = args
         self.train_dataset = train_dataset
@@ -121,20 +120,24 @@ class Trainer(BaseTrainer):
         else:
             self.device = "cpu"
 
-        self.model.to(self.device)
-
+        # ----------------------------------
+        # Prepare model for training
+        # ----------------------------------
+        if args.enable_gradient_checkpointing:
+            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+        model.to(self.device)
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                self.model = prepare_model_for_distributed(
-                    self.model,
+                model = prepare_model_for_distributed(
+                    model,
                     fsdp_params=self.fsdp_params,
                 )
-
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
-                self.model = cast(torch.nn.Module, torch.compile(self.model))
+                model = cast(torch.nn.Module, torch.compile(model))
+        self.model = model
 
         self.callbacks = callbacks if callbacks is not None else []
 

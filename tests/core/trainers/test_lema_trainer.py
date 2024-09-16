@@ -84,6 +84,7 @@ def mock_params():
     args.compile = False
     args.dataloader_num_workers = 0
     args.dataloader_prefetch_factor = 2
+    args.enable_gradient_checkpointing = False
     args.enable_tensorboard = False
     args.enable_wandb = False
     args.eval_steps = 50
