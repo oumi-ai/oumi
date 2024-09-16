@@ -172,7 +172,9 @@ def test_telemetry_tracker_get_summary():
         > all_summaries[0]["timers"]["operation1"]["total"]
     )
 
-    info = tracker.compute_cross_rank_summaries(all_summaries, {"total_time"})
+    info = tracker.compute_cross_rank_summaries(
+        all_summaries, measurement_names={"total_time"}
+    )
     assert "total_time" in info
     assert len(info) == 1
 
@@ -189,7 +191,7 @@ def test_telemetry_tracker_get_summary():
 
     info = tracker.compute_cross_rank_summaries(
         all_summaries,
-        {
+        measurement_names={
             "timers": {
                 "operation1": {"median"},
                 "operation2": {"total", "max"},
@@ -254,7 +256,9 @@ def test_telemetry_tracker_get_summary_with_gpu_temperature():
         > all_summaries[0]["timers"]["operation1"]["total"]
     )
 
-    info = tracker.compute_cross_rank_summaries(all_summaries, {"total_time"})
+    info = tracker.compute_cross_rank_summaries(
+        all_summaries, measurement_names={"total_time"}
+    )
     assert "total_time" in info
     assert len(info) == 1
 
@@ -271,7 +275,7 @@ def test_telemetry_tracker_get_summary_with_gpu_temperature():
 
     info = tracker.compute_cross_rank_summaries(
         all_summaries,
-        {
+        measurement_names={
             "timers": {
                 "operation1": {"median"},
                 "operation2": {"total", "max"},

@@ -228,7 +228,7 @@ class TelemetryCallback(BaseTrainerCallback):
                 gpu_temperature_info_dict = (
                     self._telemetry.compute_cross_rank_summaries(
                         summaries,
-                        {
+                        measurement_names={
                             "gpu_temperature": {"max", "mean", "median"},
                         },
                     )

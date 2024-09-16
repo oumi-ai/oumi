@@ -322,6 +322,7 @@ class TelemetryTracker:
     def compute_cross_rank_summaries(
         self,
         rank_summaries: List[Dict[str, Any]],
+        *,
         measurement_names: Union[Set[str], Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
@@ -332,7 +333,8 @@ class TelemetryTracker:
         Arguments:
             rank_summaries: An array of summaries indexed by rank e.g.,
                 returned by the `get_summaries_from_all_ranks()` method.
-            measurement_names: A hierarchy of measurment names of interest.
+            measurement_names: A hierarchy of measurment names of interest,
+                which must match the hierarchical naming structure in `rank_summaries`.
                 For example:
                 1 level:  {"total_time"}
                 2 levels: {"gpu_temperature": {"max", "median"}}
@@ -371,7 +373,8 @@ class TelemetryTracker:
                             next_level_summaries.append(rank_summary[key])
                     if next_level_summaries:
                         result[key] = self.compute_cross_rank_summaries(
-                            next_level_summaries, measurement_names[key]
+                            next_level_summaries,
+                            measurement_names=measurement_names[key],
                         )
                 else:
                     measurements = []
