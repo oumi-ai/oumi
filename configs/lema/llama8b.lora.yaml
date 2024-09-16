@@ -37,9 +37,9 @@ training:
   gradient_accumulation_steps: 32
 
   enable_gradient_checkpointing: False
-  ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
+  ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   learning_rate: 3.0e-04
   lr_scheduler_type: "cosine"

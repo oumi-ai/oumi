@@ -33,10 +33,10 @@ training:
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: True
-  ddp_find_unused_parameters: False
+  enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
+  ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   compile: False

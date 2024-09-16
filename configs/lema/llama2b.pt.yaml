@@ -41,9 +41,9 @@ training:
 
   # If enabled, reduces VRAM consumption at the expense of gradients re-computation
   enable_gradient_checkpointing: False
-  ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
+  ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   compile: True
 
