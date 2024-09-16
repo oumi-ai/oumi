@@ -100,7 +100,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --multi_gpu \
             --config_file configs/accelerate/llama.ddp.yaml \
             -m oumi.train \
-            -c configs/lema/llama8b.lora.yaml \
+            -c configs/oumi/llama8b.lora.yaml \
             "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
             "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.lora.${JOBNUM}"
     else  # SFT
@@ -119,7 +119,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --use_fsdp \
             --config_file configs/accelerate/llama8b.fsdp.yaml \
             -m oumi.train \
-            -c configs/lema/llama8b.sft.yaml \
+            -c configs/oumi/llama8b.sft.yaml \
             "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
             "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.sft.${JOBNUM}"
     fi
@@ -144,7 +144,7 @@ else  # 70B
             --use_fsdp \
             --config_file configs/accelerate/llama70b.lora.yaml \
             -m oumi.train \
-            -c configs/lema/llama70b.lora.yaml \
+            -c configs/oumi/llama70b.lora.yaml \
             "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
             "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.lora.${JOBNUM}"
     else  # SFT
@@ -163,7 +163,7 @@ else  # 70B
             --use_fsdp \
             --config_file configs/accelerate/llama70b.fsdp.yaml \
             -m oumi.train \
-            -c configs/lema/llama70b.sft.yaml \
+            -c configs/oumi/llama70b.sft.yaml \
             "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
             "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.sft.${JOBNUM}"
     fi

@@ -46,7 +46,7 @@ run: |
       ${ACCELERATE_MULTI_GPU_OPTION} \
       --config_file configs/accelerate/llama.ddp.yaml \
       -m oumi.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/oumi/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \

@@ -8,7 +8,7 @@
 #   --multi-gpu \
 #   --config_file configs/accelerate/llama.ddp.yaml \
 #   -m oumi.train \
-#   -c configs/lema/llama2b.pt.yaml \
+#   -c configs/oumi/llama2b.pt.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \

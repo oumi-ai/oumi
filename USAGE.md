@@ -37,7 +37,7 @@ training:
   learning_rate: 5e-5
 ```
 
-For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/openlema/lema/tree/main/configs/lema) directory.
+For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/openlema/lema/tree/main/configs/oumi) directory.
 
 ## 3. Training
 

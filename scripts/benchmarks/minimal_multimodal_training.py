@@ -26,7 +26,7 @@ from transformers import AutoProcessor, DataCollatorWithPadding
 from oumi.builders.models import build_chat_template, build_model
 from oumi.core.configs import FSDPParams, ModelParams, TrainingParams
 from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
-from oumi.core.trainers.lema_trainer import Trainer
+from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.datasets import COCOCaptionsDataset, Flickr30kDataset
 from oumi.utils.str_utils import sanitize_run_name
 

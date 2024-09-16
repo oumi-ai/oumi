@@ -27,7 +27,7 @@ def _backtrack_on_path(path, n):
 
 
 def _get_all_config_paths() -> List[str]:
-    """Recursively returns all configs in the /configs/lema/ dir of the repo."""
+    """Recursively returns all configs in the /configs/oumi/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)
     yaml_pattern = os.path.join(repo_root, "configs", "lema", "**", "*.yaml")

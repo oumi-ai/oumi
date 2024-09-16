@@ -36,7 +36,7 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/lema/chatqa/chatqa.stage2.yaml \
+      -c configs/oumi/chatqa/chatqa.stage2.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \

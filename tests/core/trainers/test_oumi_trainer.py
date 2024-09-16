@@ -8,7 +8,7 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.trainers.lema_trainer import Trainer
+from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
 
 
@@ -241,7 +241,7 @@ def test_save_and_load_model(
     trainer.state.epoch = 1
     trainer.state.global_step = 50
 
-    with patch("oumi.core.trainers.lema_trainer.get_state_dict") as mock_get_state_dict:
+    with patch("oumi.core.trainers.oumi_trainer.get_state_dict") as mock_get_state_dict:
         mock_get_state_dict.return_value = ({"model": "state"}, {"optimizer": "state"})
 
         trainer.save_state()

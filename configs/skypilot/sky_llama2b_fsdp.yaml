@@ -44,7 +44,7 @@ run: |
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m oumi.train \
-      -c configs/lema/llama2b.pt.fsdp.yaml \
+      -c configs/oumi/llama2b.pt.fsdp.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

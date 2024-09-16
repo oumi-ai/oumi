@@ -35,4 +35,4 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   python -m oumi.evaluate_async \
-      -c configs/lema/gpt2.asynceval.nvidia.yaml
+      -c configs/oumi/gpt2.asynceval.nvidia.yaml

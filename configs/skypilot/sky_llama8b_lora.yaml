@@ -53,7 +53,7 @@ run: |
       ${ACCELERATE_MULTI_GPU_OPTION} \
       --config_file configs/accelerate/llama.ddp.yaml \
       -m oumi.train \
-      -c configs/lema/llama8b.lora.yaml \
+      -c configs/oumi/llama8b.lora.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=100" \
       "training.save_final_model=false"

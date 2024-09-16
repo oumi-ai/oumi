@@ -35,12 +35,12 @@ if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
       --num_processes=${TOTAL_NUM_GPUS} \
       --num_machines=${LEMA_NUM_NODES} \
       -m oumi.evaluate  \
-      -c configs/lema/llama8b.eval.yaml \
+      -c configs/oumi/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
     echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
     python -m oumi.evaluate \
-      -c configs/lema/llama8b.eval.legacy.yaml \
+      -c configs/oumi/llama8b.eval.legacy.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
 else
     echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"

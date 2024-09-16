@@ -53,6 +53,6 @@ run: |
     --target_col text \
     --input_dataset "${INPUT_DATA}/train/" \
     --output_dir "${OUTPUT_DATA}/train/" \
-    --config ./configs/lema/llama2b.pt.yaml \
+    --config ./configs/oumi/llama2b.pt.yaml \
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

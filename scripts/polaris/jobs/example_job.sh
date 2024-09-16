@@ -29,7 +29,7 @@ torchrun \
     --master-addr=${LEMA_MASTER_ADDR} \
     --master-port=8007 \
     -m oumi.train \
-    -c configs/lema/gpt2.pt.yaml \
+    -c configs/oumi/gpt2.pt.yaml \
     "training.run_name='gpt2.pt.${PBS_JOBID}'" \
     "$TRAIN_DATASETS" \
     "training.max_steps=100" \

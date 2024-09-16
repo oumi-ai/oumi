@@ -94,7 +94,7 @@ def build_dataset_mixture(
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
 
     if dataset_split_params.experimental_use_torch_datapipes:
-        from oumi.builders.lema_data import build_dataset_mixture as build_lema_dataset
+        from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
         logger.warning(
             "Using experimental torch datapipes preprocessing pipeline. "
@@ -104,7 +104,7 @@ def build_dataset_mixture(
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
         # and becomes the default processign pipeline.
-        return build_lema_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
+        return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     datasets = [
         _preprocess_dataset(
