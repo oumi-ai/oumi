@@ -1,7 +1,7 @@
 name: vllm
 # NOTE: Replace with your username.
 user: your_username
-num_nodes: 2
+num_nodes: 1
 
 resources:
   cloud: polaris
@@ -15,7 +15,7 @@ envs:
   MODEL: Meta-Llama-3.1-70B-Instruct  # HF model name.
   LEMA_VLLM_INPUT_FILEPATH: your_input_filepath  # Path to input data file.
   LEMA_VLLM_OUTPUT_DIR: your_output_dir  # Output dir.
-  LEMA_VLLM_NUM_WORKERS: 10  # Samples will be divided amongst workers
+  LEMA_VLLM_NUM_WORKERS: 100  # Samples will be divided amongst workers
   LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND: 10
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
