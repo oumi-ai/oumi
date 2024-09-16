@@ -3,6 +3,7 @@
 import copy
 import pathlib
 import sys
+from pprint import pformat
 from typing import Dict, Optional, Union
 
 import transformers
@@ -223,6 +224,23 @@ class TelemetryCallback(BaseTrainerCallback):
                     f"for all ranks to {telemetry_file}..."
                 )
                 save_json(summaries_dict, telemetry_file)
+
+                gpu_temperature_info_dict = (
+                    self._telemetry.compute_cross_rank_summaries(
+                        summaries,
+                        measurement_names={
+                            "gpu_temperature": {"max", "mean", "median"},
+                        },
+                    )
+                )
+                logger.info(
+                    f"GPU temperature summary:\n{pformat(gpu_temperature_info_dict)}"
+                )
+                save_json(
+                    gpu_temperature_info_dict,
+                    self._output_dir
+                    / "telemetry_callback_gpu_temperature_summary.json",
+                )
 
     def _callback_disabled(self) -> bool:
         """Check if the callback should be disabled."""
