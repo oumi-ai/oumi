@@ -63,6 +63,8 @@ dev = [
 ]
 train = [
     "accelerate",
+    "aiohttp",
+    "aioresponses",
     "bitsandbytes",                 # for quantization
     "datasets",
     "deepspeed",

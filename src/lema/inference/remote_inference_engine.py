@@ -31,8 +31,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             ValueError: If the API key or URL is not provided in the
                 generation_config.
         """
-        if not generation_config.api_key:
-            raise ValueError("An API key must be provided in generation_config.")
         if not generation_config.api_url:
             raise ValueError("The API URL must be provided in generation_config.")
         if generation_config.num_workers < 1:
@@ -120,77 +118,73 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
+        message = response["choices"][0]["message"]
         return Conversation(
             messages=[
                 *original_conversation.messages,
-                *[
-                    Message(
-                        content=message["content"][0]["text"],
-                        role=Role(message["role"]),
-                        type=Type.TEXT,
-                    )
-                    for message in response["choices"]
-                ],
+                Message(
+                    content=message["content"],
+                    role=Role(message["role"]),
+                    type=Type.TEXT,
+                ),
             ],
             metadata=original_conversation.metadata,
             conversation_id=original_conversation.conversation_id,
         )
 
     async def _query_api(
-        self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> List[Conversation]:
+        self,
+        conversation: Conversation,
+        generation_config: GenerationConfig,
+        semaphore: asyncio.Semaphore,
+        session: aiohttp.ClientSession,
+    ) -> Conversation:
         """Queries the API with the provided input.
 
         Args:
-            input: A list of conversations to run inference on.
+            conversation: The conversations to run inference on.
             generation_config: Configuration parameters for generation during
                 inference.
+            semaphore: Semaphore to limit concurrent requests.
+            session: The aiohttp session to use for the request.
 
         Returns:
-            List[Conversation]: Inference output.
+            Conversation: Inference output.
         """
-        if generation_config.api_key is None:
-            raise ValueError("An API key must be provided in generation_config.")
         assert generation_config.api_url
-        # Create a semaphore to limit concurrent requests.
-        semaphore = asyncio.BoundedSemaphore(generation_config.num_workers)
-        output_conversations = []
         async with semaphore:
-            async with aiohttp.ClientSession() as session:
-                for conversation in input:
-                    openai_input = self._convert_conversation_to_openai_input(
-                        conversation, generation_config
-                    )
-                    headers = {}
-                    if generation_config.api_key is not None:
-                        headers["Authorization"] = f"Bearer {generation_config.api_key}"
-                    retries = 0
-                    while True:
-                        async with session.post(
-                            generation_config.api_url,
-                            json=openai_input,
-                            headers=headers,
-                        ) as response:
-                            response_json = await response.json()
-                            if response.status == 200:
-                                output_conversations.append(
-                                    self._convert_openai_output_to_conversation(
-                                        response_json, conversation
-                                    )
-                                )
-                                await asyncio.sleep(generation_config.politeness_policy)
-                                break
-                            else:
-                                retries += 1
-                                if retries > generation_config.max_retries:
-                                    raise RuntimeError(
-                                        "Failed to query API after "
-                                        f"{generation_config.max_retries} retries."
-                                    )
-                                await asyncio.sleep(generation_config.politeness_policy)
-        return output_conversations
+            openai_input = self._convert_conversation_to_openai_input(
+                conversation, generation_config
+            )
+            headers = {}
+            if generation_config.api_key is not None:
+                headers["Authorization"] = f"Bearer {generation_config.api_key}"
+            retries = 0
+            # Retry the request if it fails.
+            while True:
+                async with session.post(
+                    generation_config.api_url,
+                    json=openai_input,
+                    headers=headers,
+                    timeout=generation_config.connection_timeout,
+                ) as response:
+                    response_json = await response.json()
+                    if response.status == 200:
+                        result = self._convert_openai_output_to_conversation(
+                            response_json, conversation
+                        )
+                        await asyncio.sleep(generation_config.politeness_policy)
+                        return result
+                    else:
+                        retries += 1
+                        if retries > generation_config.max_retries:
+                            raise RuntimeError(
+                                "Failed to query API after "
+                                f"{generation_config.max_retries} retries."
+                            )
+                        await asyncio.sleep(generation_config.politeness_policy)
 
-    def _infer(
+    async def _infer(
         self, input: List[Conversation], generation_config: GenerationConfig
     ) -> List[Conversation]:
         """Runs model inference on the provided input.
@@ -204,7 +198,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         self._validate_generation_config(generation_config)
-        return asyncio.run(self._query_api(input, generation_config))
+        connector = aiohttp.TCPConnector(limit=generation_config.num_workers)
+        semaphore = asyncio.BoundedSemaphore(generation_config.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            return await asyncio.gather(
+                *[
+                    self._query_api(conversation, generation_config, semaphore, session)
+                    for conversation in input
+                ]
+            )
 
     def infer_online(
         self, input: List[Conversation], generation_config: GenerationConfig
@@ -219,7 +221,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Optional[List[Conversation]]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
+        conversations = asyncio.run(self._infer(input, generation_config))
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
@@ -242,7 +244,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             Optional[List[Conversation]]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
+        conversations = asyncio.run(self._infer(input, generation_config))
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
