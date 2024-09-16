@@ -116,6 +116,45 @@ def test_infer_online_empty():
     assert expected_result == result
 
 
+def test_infer_online_validates_generation_config():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    with pytest.raises(
+        ValueError, match="The API URL must be provided in generation_config."
+    ):
+        _ = engine.infer_online(
+            [],
+            GenerationConfig(),
+        )
+    with pytest.raises(
+        ValueError, match="Number of num_workers must be greater than or equal to 1."
+    ):
+        _ = engine.infer_online(
+            [],
+            GenerationConfig(api_url="foo", num_workers=0),
+        )
+    with pytest.raises(
+        ValueError, match="Politeness policy must be greater than or equal to 0."
+    ):
+        _ = engine.infer_online(
+            [],
+            GenerationConfig(api_url="foo", politeness_policy=-1),
+        )
+    with pytest.raises(
+        ValueError, match="Connection timeout must be greater than or equal to 0."
+    ):
+        _ = engine.infer_online(
+            [],
+            GenerationConfig(api_url="foo", connection_timeout=-1),
+        )
+    with pytest.raises(
+        ValueError, match="Max retries must be greater than or equal to 0."
+    ):
+        _ = engine.infer_online(
+            [],
+            GenerationConfig(api_url="foo", max_retries=-1),
+        )
+
+
 def test_infer_online_fails():
     with aioresponses() as m:
         m.post(_TARGET_SERVER, status=401)
