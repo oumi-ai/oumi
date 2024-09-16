@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
+
 from lema.core.configs.base_config import BaseConfig
+from lema.core.configs.params.remote_params import RemoteParams
 
 
 @dataclass
@@ -30,30 +33,33 @@ class GenerationConfig(BaseConfig):
     output_filepath: Optional[str] = None
     """Path where the generated text will be saved."""
 
-    api_url: Optional[str] = None
-    """URL of the API endpoint to use for inference."""
-
-    api_key: Optional[str] = None
-    """API key to use for authentication."""
-
-    max_retries: int = 3
-    """Maximum number of retries to attempt when calling an API."""
-
-    connection_timeout: float = 20.0
-    """Timeout in seconds for a request to an API."""
-
-    num_workers: int = 1
-    """Number of workers to use for parallel inference."""
-
-    politeness_policy: float = 0.0
-    """Politeness policy to use when calling an API.
-
-    If greater than zero, this is the amount of time in seconds a worker will sleep
-    before making a subsequent request.
-    """
-
     seed: Optional[int] = None
     """Seed to use for random number determinism.
 
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
+
+    remote_params: Optional[RemoteParams] = None
+    """Parameters for running inference against a remote API."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if self.remote_params is not None:
+            if not self.remote_params.api_url:
+                raise ValueError("The API URL must be provided in remote_params.")
+            if self.remote_params.num_workers < 1:
+                raise ValueError(
+                    "Number of num_workers must be greater than or equal to 1."
+                )
+            if self.remote_params.politeness_policy < 0:
+                raise ValueError(
+                    "Politeness policy must be greater than or equal to 0."
+                )
+            if self.remote_params.connection_timeout < 0:
+                raise ValueError(
+                    "Connection timeout must be greater than or equal to 0."
+                )
+            if not np.isfinite(self.remote_params.politeness_policy):
+                raise ValueError("Politeness policy must be finite.")
+            if self.remote_params.max_retries < 0:
+                raise ValueError("Max retries must be greater than or equal to 0.")

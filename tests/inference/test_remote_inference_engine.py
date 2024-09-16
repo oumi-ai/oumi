@@ -7,7 +7,7 @@ import jsonlines
 import pytest
 from aioresponses import aioresponses
 
-from lema.core.configs import GenerationConfig, ModelParams
+from lema.core.configs import GenerationConfig, ModelParams, RemoteParams
 from lema.core.types.turn import Conversation, Message, Role, Type
 from lema.inference import RemoteInferenceEngine
 
@@ -102,7 +102,10 @@ def test_infer_online():
             )
         ]
         result = engine.infer_online(
-            [conversation], GenerationConfig(max_new_tokens=5, api_url=_TARGET_SERVER)
+            [conversation],
+            GenerationConfig(
+                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+            ),
         )
         assert expected_result == result
 
@@ -111,48 +114,12 @@ def test_infer_online_empty():
     engine = RemoteInferenceEngine(_get_default_model_params())
     expected_result = []
     result = engine.infer_online(
-        [], GenerationConfig(max_new_tokens=5, api_url=_TARGET_SERVER)
+        [],
+        GenerationConfig(
+            max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        ),
     )
     assert expected_result == result
-
-
-def test_infer_online_validates_generation_config():
-    engine = RemoteInferenceEngine(_get_default_model_params())
-    with pytest.raises(
-        ValueError, match="The API URL must be provided in generation_config."
-    ):
-        _ = engine.infer_online(
-            [],
-            GenerationConfig(),
-        )
-    with pytest.raises(
-        ValueError, match="Number of num_workers must be greater than or equal to 1."
-    ):
-        _ = engine.infer_online(
-            [],
-            GenerationConfig(api_url="foo", num_workers=0),
-        )
-    with pytest.raises(
-        ValueError, match="Politeness policy must be greater than or equal to 0."
-    ):
-        _ = engine.infer_online(
-            [],
-            GenerationConfig(api_url="foo", politeness_policy=-1),
-        )
-    with pytest.raises(
-        ValueError, match="Connection timeout must be greater than or equal to 0."
-    ):
-        _ = engine.infer_online(
-            [],
-            GenerationConfig(api_url="foo", connection_timeout=-1),
-        )
-    with pytest.raises(
-        ValueError, match="Max retries must be greater than or equal to 0."
-    ):
-        _ = engine.infer_online(
-            [],
-            GenerationConfig(api_url="foo", max_retries=-1),
-        )
 
 
 def test_infer_online_fails():
@@ -180,7 +147,9 @@ def test_infer_online_fails():
         with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
             _ = engine.infer_online(
                 [conversation],
-                GenerationConfig(max_new_tokens=5, api_url=_TARGET_SERVER),
+                GenerationConfig(
+                    max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+                ),
             )
 
 
@@ -231,7 +200,10 @@ def test_infer_online_recovers_from_retries():
             )
         ]
         result = engine.infer_online(
-            [conversation], GenerationConfig(max_new_tokens=5, api_url=_TARGET_SERVER)
+            [conversation],
+            GenerationConfig(
+                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+            ),
         )
         assert expected_result == result
 
@@ -322,7 +294,9 @@ def test_infer_online_multiple_requests():
         ]
         result = engine.infer_online(
             [conversation1, conversation2],
-            GenerationConfig(max_new_tokens=5, api_url=_TARGET_SERVER),
+            GenerationConfig(
+                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+            ),
         )
         assert expected_result == result
 
@@ -415,7 +389,10 @@ def test_infer_online_multiple_requests_politeness():
         result = engine.infer_online(
             [conversation1, conversation2],
             GenerationConfig(
-                max_new_tokens=5, api_url=_TARGET_SERVER, politeness_policy=0.5
+                max_new_tokens=5,
+                remote_params=RemoteParams(
+                    api_url=_TARGET_SERVER, politeness_policy=0.5
+                ),
             ),
         )
         total_time = time.time() - start
@@ -512,9 +489,11 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             [conversation1, conversation2],
             GenerationConfig(
                 max_new_tokens=5,
-                api_url=_TARGET_SERVER,
-                politeness_policy=0.5,
-                num_workers=2,
+                remote_params=RemoteParams(
+                    api_url=_TARGET_SERVER,
+                    politeness_policy=0.5,
+                    num_workers=2,
+                ),
             ),
         )
         total_time = time.time() - start
@@ -533,8 +512,7 @@ def test_infer_from_file_empty():
             GenerationConfig(
                 max_new_tokens=5,
                 input_filepath=str(input_path),
-                api_url=_TARGET_SERVER,
-                num_workers=2,
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
                 output_filepath=str(output_path),
             ),
         )
@@ -543,8 +521,7 @@ def test_infer_from_file_empty():
             generation_config=GenerationConfig(
                 max_new_tokens=5,
                 input_filepath=str(input_path),
-                api_url=_TARGET_SERVER,
-                num_workers=2,
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
                 output_filepath=str(output_path),
             )
         )
@@ -643,8 +620,7 @@ def test_infer_from_file_to_file():
                 [conversation1, conversation2],
                 GenerationConfig(
                     max_new_tokens=5,
-                    api_url=_TARGET_SERVER,
-                    num_workers=2,
+                    remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
                     output_filepath=str(output_path),
                 ),
             )

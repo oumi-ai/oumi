@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 import aiohttp
 
-from lema.core.configs import GenerationConfig, ModelParams
+from lema.core.configs import GenerationConfig, ModelParams, RemoteParams
 from lema.core.inference import BaseInferenceEngine
 from lema.core.types.turn import Conversation, Message, Role, Type
 
@@ -28,30 +28,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters to use for inference.
         """
         self._model = model_params.model_name
-
-    def _validate_generation_config(self, generation_config: GenerationConfig):
-        """Validates the generation config.
-
-        Args:
-            generation_config: Configuration parameters for generation during
-                inference.
-
-        Raises:
-            ValueError: If the API key or URL is not provided in the
-                generation_config.
-        """
-        if not generation_config.api_url:
-            raise ValueError("The API URL must be provided in generation_config.")
-        if generation_config.num_workers < 1:
-            raise ValueError(
-                "Number of num_workers must be greater than or equal to 1."
-            )
-        if generation_config.politeness_policy < 0:
-            raise ValueError("Politeness policy must be greater than or equal to 0.")
-        if generation_config.connection_timeout < 0:
-            raise ValueError("Connection timeout must be greater than or equal to 0.")
-        if generation_config.max_retries < 0:
-            raise ValueError("Max retries must be greater than or equal to 0.")
 
     def _get_content_for_message(self, message: Message) -> Dict[str, Any]:
         """Returns the content for a message.
@@ -145,6 +121,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         conversation: Conversation,
         generation_config: GenerationConfig,
+        remote_params: RemoteParams,
         semaphore: asyncio.Semaphore,
         session: aiohttp.ClientSession,
     ) -> Conversation:
@@ -154,45 +131,49 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             conversation: The conversations to run inference on.
             generation_config: Configuration parameters for generation during
                 inference.
+            remote_params: Parameters for running inference against a remote API.
             semaphore: Semaphore to limit concurrent requests.
             session: The aiohttp session to use for the request.
 
         Returns:
             Conversation: Inference output.
         """
-        assert generation_config.api_url
+        assert remote_params.api_url
         async with semaphore:
             openai_input = self._convert_conversation_to_openai_input(
                 conversation, generation_config
             )
             headers = {}
-            if generation_config.api_key is not None:
-                headers[_AUTHORIZATION_KEY] = f"Bearer {generation_config.api_key}"
+            if remote_params.api_key is not None:
+                headers[_AUTHORIZATION_KEY] = f"Bearer {remote_params.api_key}"
             retries = 0
             # Retry the request if it fails.
-            for _ in range(generation_config.max_retries + 1):
+            for _ in range(remote_params.max_retries + 1):
                 async with session.post(
-                    generation_config.api_url,
+                    remote_params.api_url,
                     json=openai_input,
                     headers=headers,
-                    timeout=generation_config.connection_timeout,
+                    timeout=remote_params.connection_timeout,
                 ) as response:
                     response_json = await response.json()
                     if response.status == 200:
                         result = self._convert_openai_output_to_conversation(
                             response_json, conversation
                         )
-                        await asyncio.sleep(generation_config.politeness_policy)
+                        await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
                         retries += 1
-                        await asyncio.sleep(generation_config.politeness_policy)
+                        await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
-                "Failed to query API after " f"{generation_config.max_retries} retries."
+                "Failed to query API after " f"{remote_params.max_retries} retries."
             )
 
     async def _infer(
-        self, input: List[Conversation], generation_config: GenerationConfig
+        self,
+        input: List[Conversation],
+        generation_config: GenerationConfig,
+        remote_params: RemoteParams,
     ) -> List[Conversation]:
         """Runs model inference on the provided input.
 
@@ -200,25 +181,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             input: A list of conversations to run inference on.
             generation_config: Configuration parameters for generation during
                 inference.
+            remote_params: Parameters for running inference against a remote API.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        self._validate_generation_config(generation_config)
         # Limit number of HTTP connections to the number of workers.
-        connector = aiohttp.TCPConnector(limit=generation_config.num_workers)
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
         # Control the number of concurrent tasks via a semaphore.
-        semaphore = asyncio.BoundedSemaphore(generation_config.num_workers)
+        semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
             return await asyncio.gather(
                 *[
-                    self._query_api(conversation, generation_config, semaphore, session)
+                    self._query_api(
+                        conversation,
+                        generation_config,
+                        remote_params,
+                        semaphore,
+                        session,
+                    )
                     for conversation in input
                 ]
             )
 
     def infer_online(
-        self, input: List[Conversation], generation_config: GenerationConfig
+        self,
+        input: List[Conversation],
+        generation_config: GenerationConfig,
     ) -> List[Conversation]:
         """Runs model inference online.
 
@@ -228,9 +217,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output.
+            List[Conversation]: Inference output.
         """
-        conversations = asyncio.run(self._infer(input, generation_config))
+        assert generation_config.remote_params
+        conversations = asyncio.run(
+            self._infer(input, generation_config, generation_config.remote_params)
+        )
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
@@ -250,10 +242,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output.
+            List[Conversation]: Inference output.
         """
+        assert generation_config.remote_params
         input = self._read_conversations(input_filepath)
-        conversations = asyncio.run(self._infer(input, generation_config))
+        conversations = asyncio.run(
+            self._infer(input, generation_config, generation_config.remote_params)
+        )
         if generation_config.output_filepath:
             self._save_conversations(conversations, generation_config.output_filepath)
         return conversations

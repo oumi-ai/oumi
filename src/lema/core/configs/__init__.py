@@ -75,6 +75,7 @@ from lema.core.configs.params.fsdp_params import FSDPParams
 from lema.core.configs.params.model_params import ModelParams
 from lema.core.configs.params.peft_params import PeftParams
 from lema.core.configs.params.profiler_params import ProfilerParams
+from lema.core.configs.params.remote_params import RemoteParams
 from lema.core.configs.params.telemetry_params import TelemetryParams
 from lema.core.configs.params.training_params import (
     MixedPrecisionDtype,
@@ -103,6 +104,7 @@ __all__ = [
     "ModelParams",
     "PeftParams",
     "ProfilerParams",
+    "RemoteParams",
     "SchedulerType",
     "StorageMount",
     "TelemetryParams",

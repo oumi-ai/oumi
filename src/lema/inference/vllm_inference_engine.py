@@ -128,7 +128,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output.
+            List[Conversation]: Inference output.
         """
         conversations = self._infer(input, generation_config)
         if generation_config.output_filepath:
@@ -150,7 +150,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 inference.
 
         Returns:
-            Optional[List[Conversation]]: Inference output.
+            List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
         conversations = self._infer(input, generation_config)
