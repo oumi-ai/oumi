@@ -4,8 +4,9 @@ import statistics
 import time
 from contextlib import ContextDecorator
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Union, cast
 
+import numpy as np
 import pydantic
 import torch
 
@@ -157,6 +158,14 @@ def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Call
     return wrapper
 
 
+_SUMMARY_KEY_HOSTNAME = "hostname"
+_SUMMARY_KEY_TOTAL_TIME = "total_time"
+_SUMMARY_KEY_TIMERS = "timers"
+_SUMMARY_KEY_CUDA_TIMERS = "cuda_timers"
+_SUMMARY_KEY_GPU_MEMORY = "gpu_memory"
+_SUMMARY_KEY_GPU_TEMPERATURE = "gpu_temperature"
+
+
 class TelemetryTracker:
     """A class for tracking various telemetry metrics."""
 
@@ -238,24 +247,26 @@ class TelemetryTracker:
         total_time = time.perf_counter() - self.state.start_time
 
         summary = {
-            "hostname": self.state.hostname,
-            "total_time": total_time,
-            "timers": {},
-            "cuda_timers": {},
-            "gpu_memory": self.state.gpu_memory,
-            "gpu_temperature": {},
+            _SUMMARY_KEY_HOSTNAME: self.state.hostname,
+            _SUMMARY_KEY_TOTAL_TIME: total_time,
+            _SUMMARY_KEY_TIMERS: {},
+            _SUMMARY_KEY_CUDA_TIMERS: {},
+            _SUMMARY_KEY_GPU_MEMORY: self.state.gpu_memory,
+            _SUMMARY_KEY_GPU_TEMPERATURE: {},
         }
 
         for name, measurements in self.state.measurements.items():
-            summary["timers"][name] = self._calculate_timer_stats(
+            summary[_SUMMARY_KEY_TIMERS][name] = self._calculate_timer_stats(
                 measurements, total_time
             )
 
         for name, measurements in self.state.cuda_measurements.items():
-            summary["cuda_timers"][name] = self._calculate_timer_stats(measurements)
+            summary[_SUMMARY_KEY_CUDA_TIMERS][name] = self._calculate_timer_stats(
+                measurements
+            )
 
         if self.state.gpu_temperature:
-            summary["gpu_temperature"] = self._calculate_basic_stats(
+            summary[_SUMMARY_KEY_GPU_TEMPERATURE] = self._calculate_basic_stats(
                 self.state.gpu_temperature
             )
 
@@ -265,27 +276,31 @@ class TelemetryTracker:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
         log_lines: List[str] = [
-            f"Telemetry Summary ({summary['hostname']}):",
+            f"Telemetry Summary ({summary[_SUMMARY_KEY_HOSTNAME]}):",
             f"Total time: {summary['total_time']:.2f} seconds",
         ]
 
-        if summary["timers"]:
+        if summary[_SUMMARY_KEY_TIMERS]:
             log_lines.append("\nCPU Timers:")
-            for name, stats in summary["timers"].items():
+            for name, stats in summary[_SUMMARY_KEY_TIMERS].items():
                 log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
-        if summary["cuda_timers"]:
+        if summary[_SUMMARY_KEY_CUDA_TIMERS]:
             log_lines.append("\nCUDA Timers:")
-            for name, stats in summary["cuda_timers"].items():
+            for name, stats in summary[_SUMMARY_KEY_CUDA_TIMERS].items():
                 log_lines.extend(self._format_timer_stats_as_lines(name, stats))
 
-        if summary["gpu_memory"]:
-            max_memory = max(usage["allocated"] for usage in summary["gpu_memory"])
+        if summary[_SUMMARY_KEY_GPU_MEMORY]:
+            max_memory = max(
+                usage["allocated"] for usage in summary[_SUMMARY_KEY_GPU_MEMORY]
+            )
             log_lines.append(f"\nPeak GPU memory usage: {max_memory:.2f} MiB")
 
-        if summary["gpu_temperature"]:
+        if summary[_SUMMARY_KEY_GPU_TEMPERATURE]:
             log_lines.extend(
-                self._format_gpu_temperature_stats_as_lines(summary["gpu_temperature"])
+                self._format_gpu_temperature_stats_as_lines(
+                    summary[_SUMMARY_KEY_GPU_TEMPERATURE]
+                )
             )
 
         # Log everything as a single value to ensure that stats from different
@@ -303,6 +318,94 @@ class TelemetryTracker:
             A list of telemetry summaries indexed by rank.
         """
         return all_gather_object(self.get_summary())
+
+    def compute_cross_rank_summaries(
+        self,
+        rank_summaries: List[Dict[str, Any]],
+        *,
+        measurement_names: Union[Set[str], Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Computes a cross-rank summary from summaries produced by individual ranks.
+
+        For example, it can be used to compute distribution
+        of `{"gpu_temperature": {"max"}}` over ranks.
+
+        Arguments:
+            rank_summaries: An array of summaries indexed by rank e.g.,
+                returned by the `get_summaries_from_all_ranks()` method.
+            measurement_names: A hierarchy of measurment names of interest,
+                which must match the hierarchical naming structure in `rank_summaries`.
+                For example:
+                1 level:  {"total_time"}
+                2 levels: {"gpu_temperature": {"max", "median"}}
+                3 levels: {"timers": { "compile": {"mean"}, "forward": {"max", "min"}}}
+                ...
+
+        Returns:
+            A dictionary containing the statistics specified in `measurement_names`,
+            and aggregated across ranks.
+            The returned object can be nested (e.g., a dictionary of dictionaries)
+            with potentially multiple levels of nesting, forming a tree whose
+            structure mimics the structure of `measurement_names` with one additional
+            layer containing cross-rank stats.
+
+            For example, if input `measurement_names` is
+            `{"gpu_temperature": {"max", "median"}}` then the returned value
+            will look as follows:
+            {
+                "gpu_temperature":{
+                    "max": { "count": 7, "max": 75, ... },
+                    "median": { "count": 7, "max": 68, ... }
+                }
+            }
+
+        """
+        if not measurement_names:
+            return {}
+
+        result = {}
+
+        def _aggregate_cross_rank_stats(
+            key: str, rank_summaries: List[Dict[str, Any]]
+        ) -> Optional[Dict[str, float]]:
+            measurements = []
+            for rank_summary in rank_summaries:
+                if key in rank_summary and isinstance(rank_summary[key], (float, int)):
+                    measurements.append(rank_summary[key])
+            if not measurements:
+                return None
+            return self._calculate_basic_stats(measurements, include_index=True)
+
+        if isinstance(measurement_names, dict):
+            for key in measurement_names:
+                if isinstance(measurement_names[key], (dict, set)):
+                    # If a value associated with this `key` is a dictionary or a set
+                    # then recurse (support hierarchical naming).
+                    next_level_summaries = []
+                    for rank_summary in rank_summaries:
+                        if key in rank_summary and isinstance(rank_summary[key], dict):
+                            next_level_summaries.append(rank_summary[key])
+                    if next_level_summaries:
+                        result[key] = self.compute_cross_rank_summaries(
+                            next_level_summaries,
+                            measurement_names=measurement_names[key],
+                        )
+                else:
+                    # If a value associated with this `key` is not a dictionary or a set
+                    # then we've reached the last layer. Let's compute stats.
+                    stats = _aggregate_cross_rank_stats(key, rank_summaries)
+                    if stats is not None:
+                        result[key] = stats
+        else:
+            # If `measurement_names` is a set then iterate over its elements
+            # and compute stats for each measurement.
+            assert isinstance(measurement_names, set)
+            for key in measurement_names:
+                stats = _aggregate_cross_rank_stats(key, rank_summaries)
+                if stats is not None:
+                    result[key] = stats
+
+        return result
 
     #
     # State Management
@@ -330,7 +433,9 @@ class TelemetryTracker:
     #
     # Helper Methods
     #
-    def _calculate_basic_stats(self, measurements: List[float]) -> Dict[str, float]:
+    def _calculate_basic_stats(
+        self, measurements: List[float], include_index: bool = False
+    ) -> Dict[str, float]:
         count = len(measurements)
         # Use `defaultdict()` to make `_format_timer_stats_as_lines()` and
         # other functions usable even if `count` is zero, which can happen
@@ -342,8 +447,16 @@ class TelemetryTracker:
             stats["mean"] = statistics.mean(measurements)
             stats["median"] = statistics.median(measurements)
             stats["std_dev"] = statistics.stdev(measurements) if count > 1 else 0
-            stats["min"] = min(measurements)
-            stats["max"] = max(measurements)
+
+            min_index = np.argmin(measurements)
+            stats["min"] = measurements[min_index]
+            if include_index:
+                stats["min_index"] = float(min_index)
+
+            max_index = np.argmax(measurements)
+            stats["max"] = measurements[max_index]
+            if include_index:
+                stats["max_index"] = float(max_index)
         return stats
 
     def _calculate_timer_stats(
