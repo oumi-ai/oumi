@@ -288,7 +288,7 @@ def prepare_model_for_distributed(
         if fsdp_params.transformer_layer_cls is None:
             transformer_layer_cls = guess_transformer_layer_cls(model)
             logger.info(
-                "Automatically inffered transformer layer class to wrap: "
+                "Automatically inferred transformer layer class to wrap: "
                 f"{transformer_layer_cls}"
             )
         else:
