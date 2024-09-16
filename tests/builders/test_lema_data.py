@@ -5,7 +5,7 @@ from datasets import Dataset as HFDataset
 from torch.utils.data import IterDataPipe
 
 import lema.builders.lema_data
-from lema.builders.lema_data import _load_dataset, build_dataset
+from lema.builders.lema_data import _load_dataset, build_dataset_mixture
 from lema.core.configs import (
     DataParams,
     DatasetParams,
@@ -126,31 +126,31 @@ def test_load_dataset_huggingface(tokenizer, monkeypatch):
     assert len(list(result)) == 10
 
 
-def test_build_dataset_single(tokenizer):
+def test_build_dataset_mixture_single(tokenizer):
     config = create_training_config([create_dataset_params("small_map_dataset")])
-    result = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 10
 
 
-def test_build_dataset_multiple(tokenizer):
+def test_build_dataset_mixture_multiple(tokenizer):
     config = create_training_config(
         [
             create_dataset_params("small_map_dataset"),
             create_dataset_params("small_iterable_dataset"),
         ]
     )
-    result = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 20  # 10 from each dataset
 
 
-def test_build_dataset_sampling(tokenizer):
+def test_build_dataset_mixture_sampling(tokenizer):
     dataset_params = create_dataset_params("small_map_dataset")
     dataset_params.sample_count = 5
     dataset_params.shuffle_buffer_size = 10
     config = create_training_config([dataset_params])
-    result = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 5
 
@@ -164,19 +164,21 @@ def test_build_dataset_mixture(tokenizer):
     )
     config.data.train.datasets[0].mixture_proportion = 0.7
     config.data.train.datasets[1].mixture_proportion = 0.3
-    result = build_dataset(config, tokenizer, DatasetSplit.TRAIN, seed=42)
+    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN, seed=42)
     assert isinstance(result, IterDataPipe)
     samples = list(result)
     assert len(samples) == 20
 
 
-def test_build_dataset_with_no_datasets(base_config, tokenizer):
+def test_build_dataset_mixture_with_no_datasets(base_config, tokenizer):
     base_config.data.train.datasets = []
     with pytest.raises(ValueError):
-        build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+        build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
 
 
-def test_build_dataset_with_multiple_datasets_different_sizes(base_config, tokenizer):
+def test_build_dataset_mixture_with_multiple_datasets_different_sizes(
+    base_config, tokenizer
+):
     base_config.data.train.datasets = [
         DatasetParams(
             dataset_name="small_map_dataset",
@@ -193,10 +195,10 @@ def test_build_dataset_with_multiple_datasets_different_sizes(base_config, token
     ]
     # The first dataset will be exhausted first
     base_config.data.train.mixture_strategy = "first_exhausted"
-    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
     assert len(list(dataset)) == 200
 
     # All datasets will be exhausted
     base_config.data.train.mixture_strategy = "all_exhausted"
-    dataset = build_dataset(base_config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
     assert len(list(dataset)) == 300

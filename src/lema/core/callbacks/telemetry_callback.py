@@ -1,11 +1,13 @@
 """Collects sub-step/step/epoch timings."""
 
+import copy
 import pathlib
 import sys
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import transformers
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.performance.telemetry import TelemetryTracker, TimerContext
@@ -15,7 +17,7 @@ from lema.utils.logging import logger
 _LOGS_KWARG = "logs"
 
 
-class TelemetryCallback(transformers.TrainerCallback):
+class TelemetryCallback(BaseTrainerCallback):
     """Trainer callback to collect sub-step/step/epoch timings.
 
     Based on `lema.performance.telemetry.TelemetryTracker`.
@@ -56,6 +58,8 @@ class TelemetryCallback(transformers.TrainerCallback):
         )
         self._world_process_zero_only = world_process_zero_only
         self._step: int = 0
+
+        self._last_metrics_dict: Optional[Dict[str, float]] = None
 
     def on_step_begin(
         self,
@@ -173,6 +177,9 @@ class TelemetryCallback(transformers.TrainerCallback):
                 metric_name = f"{basename}_gpu_temperature_{stats_key}"
                 kwargs[_LOGS_KWARG][metric_name] = float(stats[stats_key])
 
+        if _LOGS_KWARG in kwargs and is_world_process_zero():
+            self._last_metrics_dict = copy.deepcopy(kwargs[_LOGS_KWARG])
+
     def on_train_end(
         self,
         args: Union[transformers.TrainingArguments, TrainingParams],
@@ -184,10 +191,19 @@ class TelemetryCallback(transformers.TrainerCallback):
         if self._callback_disabled() or not self._output_dir:
             return
 
+        device_rank_info = get_device_rank_info()
+
+        if is_world_process_zero():
+            metrics_dict = self._last_metrics_dict or {}
+            save_json(
+                metrics_dict,
+                self._output_dir
+                / f"telemetry_callback_metrics_rank{device_rank_info.rank:04}.json",
+            )
+
         if self._world_process_zero_only:
             if is_world_process_zero():
                 summary = self._telemetry.get_summary()
-                device_rank_info = get_device_rank_info()
                 telemetry_file = (
                     self._output_dir
                     / f"telemetry_callback_rank{device_rank_info.rank:04}.json"

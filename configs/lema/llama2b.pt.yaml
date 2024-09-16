@@ -38,9 +38,9 @@ training:
   gradient_accumulation_steps: 64
 
   enable_gradient_checkpointing: False
-  ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
+  ddp_find_unused_parameters: False
   optimizer: "adafactor"
   compile: True
 

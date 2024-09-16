@@ -20,7 +20,7 @@ from lema.core.registry import REGISTRY
 from lema.core.tokenizers import BaseTokenizer
 
 
-def build_dataset(
+def build_dataset_mixture(
     config: TrainingConfig,
     tokenizer: BaseTokenizer,
     dataset_split: DatasetSplit,

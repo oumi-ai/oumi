@@ -12,7 +12,8 @@ import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-import wandb
+
+import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -69,7 +70,6 @@ class Trainer(BaseTrainer):
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
 
-        self.model = model
         self.tokenizer = tokenizer
         self.params = args
         self.train_dataset = train_dataset
@@ -120,20 +120,24 @@ class Trainer(BaseTrainer):
         else:
             self.device = "cpu"
 
-        self.model.to(self.device)
-
+        # ----------------------------------
+        # Prepare model for training
+        # ----------------------------------
+        if args.enable_gradient_checkpointing:
+            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+        model.to(self.device)
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                self.model = prepare_model_for_distributed(
-                    self.model,
+                model = prepare_model_for_distributed(
+                    model,
                     fsdp_params=self.fsdp_params,
                 )
-
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
-                self.model = cast(torch.nn.Module, torch.compile(self.model))
+                model = cast(torch.nn.Module, torch.compile(model))
+        self.model = model
 
         self.callbacks = callbacks if callbacks is not None else []
 
@@ -329,7 +333,7 @@ class Trainer(BaseTrainer):
                             "tokens_per_step_per_gpu": self.state.total_tokens_seen
                             / self.state.global_step,
                         }
-                        callback_metrics = self._process_callbacks("on_log")
+                        callback_metrics = self._process_callbacks("on_log", metrics)
                         metrics.update(callback_metrics)
 
                         self.log_metrics(metrics, self.state.global_step)
@@ -658,13 +662,15 @@ class Trainer(BaseTrainer):
     #
     # Handle callbacks
     #
-    def _process_callbacks(self, event: str) -> Dict[str, Any]:
+    def _process_callbacks(
+        self, event: str, logs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
         Just here to unblock debugging with our MfuCallback
         """
-        logs = {}
+        logs = logs or {}
 
         for callback in self.callbacks:
             if hasattr(callback, event):

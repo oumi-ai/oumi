@@ -4,13 +4,22 @@ from typing import Any, Iterator, Optional, Set, Tuple
 
 @dataclasses.dataclass
 class BaseParams:
-    def validate(self) -> None:
-        """Recursively validates the parameters."""
-        self._validate(set())
+    """Base class for all parameter classes.
+
+    This class provides a common interface for all parameter classes,
+    and provides a `validate` method to recursively validate the parameters.
+
+    Subclasses should implement the `__validate__` method to perform
+    custom validation logic.
+    """
 
     #
     # Public methods
     #
+    def validate(self) -> None:
+        """Recursively validates the parameters."""
+        self._validate(set())
+
     def __validate__(self) -> None:
         """Validates the parameters of this object.
 
