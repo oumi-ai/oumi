@@ -1,8 +1,8 @@
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 
-from lema.core.types.turn import Conversation, Type
-from lema.datasets.vision_language.vision_jsonlines import JsonlinesDataset
+from oumi.core.types.turn import Conversation, Type
+from oumi.datasets.vision_language.vision_jsonlines import JsonlinesDataset
 
 
 @pytest.fixture

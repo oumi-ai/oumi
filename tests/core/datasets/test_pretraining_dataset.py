@@ -5,7 +5,7 @@ import pytest
 import torch
 from transformers import AutoTokenizer
 
-from lema.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingIterableDataset
 
 
 #

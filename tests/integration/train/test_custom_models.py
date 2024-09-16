@@ -3,10 +3,10 @@ import unittest
 
 from transformers import Trainer
 
-from lema import train
-from lema.builders.data import build_dataset_mixture
-from lema.builders.models import build_model, build_tokenizer
-from lema.core.configs import (
+from oumi import train
+from oumi.builders.data import build_dataset_mixture
+from oumi.builders.models import build_model, build_tokenizer
+from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,

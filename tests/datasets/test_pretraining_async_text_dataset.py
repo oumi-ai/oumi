@@ -1,7 +1,7 @@
 import datasets
 import transformers
 
-from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 
 _DATASET_LENGTH = 3
 _BATCH_SIZE = 1

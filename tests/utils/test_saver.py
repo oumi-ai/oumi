@@ -2,7 +2,7 @@ import tempfile
 
 import pytest
 
-from lema.utils.saver import (
+from oumi.utils.saver import (
     load_infer_prob,
     load_infer_prob_csv,
     save_infer_prob,

@@ -2,9 +2,9 @@ from unittest.mock import ANY, Mock, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.launcher.clients.sky_client import SkyClient
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.launcher.clients.sky_client import SkyClient
 
 
 #

@@ -3,8 +3,8 @@ import tempfile
 
 import pytest
 
-from lema import train
-from lema.core.configs import (
+from oumi import train
+from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,

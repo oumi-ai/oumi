@@ -23,12 +23,12 @@ import torch
 import typer
 from transformers import AutoProcessor, DataCollatorWithPadding
 
-from lema.builders.models import build_chat_template, build_model
-from lema.core.configs import FSDPParams, ModelParams, TrainingParams
-from lema.core.distributed import cleanup_distributed, init_distributed, is_distributed
-from lema.core.trainers.lema_trainer import Trainer
-from lema.datasets import COCOCaptionsDataset, Flickr30kDataset
-from lema.utils.str_utils import sanitize_run_name
+from oumi.builders.models import build_chat_template, build_model
+from oumi.core.configs import FSDPParams, ModelParams, TrainingParams
+from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
+from oumi.core.trainers.lema_trainer import Trainer
+from oumi.datasets import COCOCaptionsDataset, Flickr30kDataset
+from oumi.utils.str_utils import sanitize_run_name
 
 
 class ModelName(str, Enum):

@@ -9,11 +9,11 @@ import datasets
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from lema.builders import (
+from oumi.builders import (
     build_tokenizer,
 )
-from lema.core.types import TrainingConfig
-from lema.utils.logging import logger
+from oumi.core.types import TrainingConfig
+from oumi.utils.logging import logger
 
 _TOKEN_IDS_COLUMN_NAME = "input_ids"  # The common convention.
 

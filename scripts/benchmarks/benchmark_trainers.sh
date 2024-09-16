@@ -12,7 +12,7 @@ time accelerate launch \
     --gpu_ids 0 \
     --dynamo_backend inductor \
     --mixed_precision no \
-    -m lema.train \
+    -m oumi.train \
     -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=TRL_SFT" \
     "training.per_device_train_batch_size=4" \
@@ -29,7 +29,7 @@ time accelerate launch \
 # HuggingFace model with lema trainer
 # time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
 time torchrun --standalone --nproc_per_node 1 \
-    -m lema.train \
+    -m oumi.train \
     -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=LEMA" \
     "training.per_device_train_batch_size=4" \

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from lema.utils.debugging_utils import (
+from oumi.utils.debugging_utils import (
     get_nvidia_gpu_memory_utilization,
     get_nvidia_gpu_temperature,
     log_nvidia_gpu_memory_utilization,

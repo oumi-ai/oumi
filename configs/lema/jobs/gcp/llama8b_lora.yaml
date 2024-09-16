@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.1 8B Instruct on GCP.
 # Example command:
-# lema-launch -p configs/lema/jobs/gcp/llama8b_lora.yaml -c llama8b-lora
+# oumi-launch -p configs/lema/jobs/gcp/llama8b_lora.yaml -c llama8b-lora
 name: llama8b-lora
 
 resources:
@@ -54,7 +54,7 @@ run: |
       --main_process_port 8007 \
       ${ACCELERATE_MULTI_GPU_OPTION} \
       --config_file configs/accelerate/llama.ddp.yaml \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/llama8b.lora.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=100" \

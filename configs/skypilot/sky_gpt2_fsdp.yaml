@@ -41,7 +41,7 @@ run: |
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/gpt2.fsdp.yaml \
-      -m lema.train \
+      -m oumi.train \
       -c configs/lema/gpt2.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \

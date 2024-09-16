@@ -14,5 +14,5 @@ Note:
    Please refer to the contribution guidelines for more information.
 
 See Also:
-    :mod:`lema.core`: For stable, production-ready features
+    :mod:`oumi.core`: For stable, production-ready features
 """

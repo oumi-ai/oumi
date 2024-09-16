@@ -7,9 +7,9 @@ import jsonlines
 import pytest
 from aioresponses import aioresponses
 
-from lema.core.configs import GenerationConfig, ModelParams, RemoteParams
-from lema.core.types.turn import Conversation, Message, Role, Type
-from lema.inference import RemoteInferenceEngine
+from oumi.core.configs import GenerationConfig, ModelParams, RemoteParams
+from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.inference import RemoteInferenceEngine
 
 _TARGET_SERVER: str = "http://fakeurl"
 

@@ -34,5 +34,5 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  python -m lema.evaluate_async \
+  python -m oumi.evaluate_async \
       -c configs/lema/gpt2.asynceval.nvidia.yaml

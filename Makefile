@@ -75,13 +75,13 @@ coverage:
 	$(CONDA_RUN) pytest --cov=$(LEMA_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
 train:
-	$(CONDA_RUN) python -m lema.train $(ARGS)
+	$(CONDA_RUN) python -m oumi.train $(ARGS)
 
 evaluate:
-	$(CONDA_RUN) python -m lema.evaluate $(ARGS)
+	$(CONDA_RUN) python -m oumi.evaluate $(ARGS)
 
 infer:
-	$(CONDA_RUN) python -m lema.infer $(ARGS)
+	$(CONDA_RUN) python -m oumi.infer $(ARGS)
 
 skyssh:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml

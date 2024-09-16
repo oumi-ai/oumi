@@ -2,10 +2,10 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.launcher.clients.polaris_client import PolarisClient
-from lema.launcher.clusters.polaris_cluster import PolarisCluster
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.launcher.clients.polaris_client import PolarisClient
+from oumi.launcher.clusters.polaris_cluster import PolarisCluster
 
 
 #
@@ -512,7 +512,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
     )
     job = _get_default_job("polaris")
     job.name = None
-    with patch("lema.launcher.clusters.polaris_cluster.uuid") as mock_uuid:
+    with patch("oumi.launcher.clusters.polaris_cluster.uuid") as mock_uuid:
         mock_hex = Mock()
         mock_hex.hex = "1-2-3"
         mock_uuid.uuid1.return_value = mock_hex

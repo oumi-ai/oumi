@@ -2,7 +2,7 @@
 # accelerate launch \
 #   --use_fsdp \
 #   --config_file configs/accelerate/phi3.fsdp.dpo.yaml \
-#   -m lema.train \
+#   -m oumi.train \
 #   -c configs/lema/phi3.dpo.nvidia.24g.yaml \
 #   "training.output_dir=train/" \
 #   "training.enable_wandb=true" \
