@@ -1,4 +1,5 @@
-# Pretraining (PT) config for Llama 2B.
+# FSDP pretraining (PT) config for Llama 2B.
+# Accelerate config: configs/accelerate/llama.fsdp.yaml
 
 model:
   # Vocab size: 50272
@@ -33,15 +34,12 @@ data:
 training:
   trainer_type: TRL_SFT # or LEMA
   save_steps: 500
-  # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 64
+  per_device_train_batch_size: 14
+  gradient_accumulation_steps: 19
 
   enable_gradient_checkpointing: False
-  gradient_checkpointing_kwargs:
-    use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "adafactor"
+  optimizer: "adamw_torch_fused"
   compile: True
 
   dataloader_num_workers: "auto"
@@ -49,6 +47,6 @@ training:
 
   logging_steps: 10
   log_model_summary: False
-  output_dir: "output/llama2b.pt"
+  output_dir: "output/llama2b.pt.fsdp"
   include_performance_metrics: True
   enable_wandb: True

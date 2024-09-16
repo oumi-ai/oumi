@@ -97,6 +97,9 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
         --disable-custom-all-reduce \
         --enforce-eager \
         --disable-log-requests \
+        --enable-chunked-prefill=True \
+        --gpu-memory-utilization=0.95 \
+        --max-model-len=8192 \
         ${LORA_MODULES} \
         2>&1 | tee "${SERVER_LOG_PATH}" &
 
