@@ -1,6 +1,6 @@
 # Config to eval Llama 3.1 8B Instruct on GCP.
 # Example command:
-# oumi-launch -p configs/lema/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
+# oumi-launch -p configs/oumi/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
 name: llama8b-eval
 
 num_nodes: 1
@@ -63,7 +63,7 @@ run: |
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
       -m oumi.evaluate  \
-      -c configs/lema/llama8b.eval.yaml \
+      -c configs/oumi/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
   elif [ "$LEMA_EVALUATION_FRAMEWORK" == "lema" ]; then
     echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
@@ -72,7 +72,7 @@ run: |
       exit 1
     fi
     python -m oumi.evaluate \
-      -c configs/lema/llama8b.eval.legacy.yaml \
+      -c configs/oumi/llama8b.eval.legacy.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
   else
     echo "Unknown evaluation framework: ${LEMA_EVALUATION_FRAMEWORK}"

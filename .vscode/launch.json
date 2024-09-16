@@ -28,7 +28,7 @@
             "module": "oumi.train",
             "args": [
                 "-c",
-                "configs/lema/phi3.lora.yaml"
+                "configs/oumi/phi3.lora.yaml"
             ],
             "justMyCode": true
         },
@@ -39,7 +39,7 @@
             "module": "oumi.train",
             "args": [
                 "-c",
-                "configs/lema/gpt2.pt.mac.yaml"
+                "configs/oumi/gpt2.pt.mac.yaml"
             ],
             "justMyCode": true
         },
@@ -56,7 +56,7 @@
                 "-m",
                 "oumi.train",
                 "-c",
-                "configs/lema/gpt2.pt.yaml"
+                "configs/oumi/gpt2.pt.yaml"
             ]
         },
         {
@@ -78,7 +78,7 @@
                 "-m",
                 "oumi.train",
                 "-c",
-                "configs/lema/llama8b.sft.yaml",
+                "configs/oumi/llama8b.sft.yaml",
                 "training.max_steps=2",
                 "training.save_steps=1",
                 "training.save_final_model=true",
@@ -106,7 +106,7 @@
             "module": "oumi.evaluate",
             "args": [
                 "-c",
-                "configs/lema/phi3.eval.lema.mac.yaml"
+                "configs/oumi/phi3.eval.lema.mac.yaml"
             ],
             "justMyCode": true
         },
@@ -117,7 +117,7 @@
             "module": "oumi.evaluate",
             "args": [
                 "-c",
-                "configs/lema/phi3.eval.lm_harness.yaml"
+                "configs/oumi/phi3.eval.lm_harness.yaml"
             ],
             "justMyCode": true
         },

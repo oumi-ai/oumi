@@ -104,7 +104,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         --master-addr=${LEMA_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
-        -c configs/lema/llama2b.pt.yaml \
+        -c configs/oumi/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
@@ -121,7 +121,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         --master-addr=${LEMA_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
-        -c configs/lema/llama2b.pt.yaml \
+        -c configs/oumi/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
@@ -139,7 +139,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       --use_deepspeed \
       --config_file configs/accelerate/llama.deepspeed.yaml \
       -m oumi.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/oumi/llama2b.pt.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
@@ -158,7 +158,7 @@ else  # FSDP
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m oumi.train \
-      -c configs/lema/llama2b.pt.fsdp.yaml \
+      -c configs/oumi/llama2b.pt.fsdp.yaml \
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'"

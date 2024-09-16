@@ -1,5 +1,5 @@
 # Eval config for Llama 8B Instruct using the LEMA evaluation framework (deprecated).
-# Use LM_HARNESS config instead: configs/lema/llama8b.eval.yaml
+# Use LM_HARNESS config instead: configs/oumi/llama8b.eval.yaml
 
 model:
   # Vocab size: 128256

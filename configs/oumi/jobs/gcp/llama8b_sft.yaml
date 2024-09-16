@@ -1,27 +1,29 @@
-# Config to LoRA tune Llama 3.1 8B Instruct on GCP.
+# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
 # Example command:
-# oumi-launch -p configs/lema/jobs/gcp/llama8b_lora.yaml -c llama8b-lora
-name: llama8b-lora
+# oumi-launch -p configs/oumi/jobs/gcp/llama8b_sft.yaml -c llama8b-sft
+name: llama8b-sft
 
+num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:4"
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
+  disk_size: 200 # Disk size in GBs
 
-# Upload working directory to remote ~/sky_workdir.
+# Upload a working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
+# Upload local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: llama8b.lora
+  LEMA_RUN_NAME: llama8b.sft
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
@@ -40,11 +42,6 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
-  ACCELERATE_MULTI_GPU_OPTION=
-  if [${TOTAL_NUM_GPUS} -gt 1]; then
-    ACCELERATE_MULTI_GPU_OPTION="--multi_gpu"
-  fi
-
   set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${LEMA_NUM_NODES} \
@@ -52,12 +49,13 @@ run: |
       --num_processes ${TOTAL_NUM_GPUS} \
       --main_process_ip ${LEMA_MASTER_ADDR} \
       --main_process_port 8007 \
-      ${ACCELERATE_MULTI_GPU_OPTION} \
-      --config_file configs/accelerate/llama.ddp.yaml \
+      --use_fsdp \
+      --config_file configs/accelerate/llama8b.fsdp.yaml \
       -m oumi.train \
-      -c configs/lema/llama8b.lora.yaml \
+      -c configs/oumi/llama8b.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
-      "training.save_final_model=false"
+      "training.max_steps=10" \
+      "training.save_steps=10" \
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

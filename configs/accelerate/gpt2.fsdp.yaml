@@ -3,7 +3,7 @@
 #   --use_fsdp \
 #   --config_file configs/accelerate/gpt2.fsdp.yaml \
 #   -m oumi.train \
-#   -c configs/lema/gpt2.pt.yaml \
+#   -c configs/oumi/gpt2.pt.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \

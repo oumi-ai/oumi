@@ -48,7 +48,7 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/lema/zephyr.7b/sft/full.yaml \
+      -c configs/oumi/zephyr.7b/sft/full.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

@@ -41,7 +41,7 @@ run: |
       --use_deepspeed \
       --config_file configs/accelerate/llama.deepspeed.yaml \
       -m oumi.train \
-      -c configs/lema/llama2b.pt.yaml \
+      -c configs/oumi/llama2b.pt.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

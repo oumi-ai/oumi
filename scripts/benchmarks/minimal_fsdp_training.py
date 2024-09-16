@@ -18,7 +18,7 @@ from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.training_params import TrainingParams
 from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.trainers.lema_trainer import Trainer
+from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.datasets import DebugPretrainingDataset
 from oumi.models import MLPEncoder
 

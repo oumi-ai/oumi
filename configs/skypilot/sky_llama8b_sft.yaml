@@ -50,7 +50,7 @@ run: |
       --use_fsdp \
       --config_file configs/accelerate/llama8b.fsdp.yaml \
       -m oumi.train \
-      -c configs/lema/llama8b.sft.yaml \
+      -c configs/oumi/llama8b.sft.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
       "training.save_steps=10" \

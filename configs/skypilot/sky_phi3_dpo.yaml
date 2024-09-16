@@ -49,7 +49,7 @@ run: |
       --master-addr=${LEMA_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/lema/phi3.dpo.nvidia.24g.yaml \
+      -c configs/oumi/phi3.dpo.nvidia.24g.yaml \
       "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \

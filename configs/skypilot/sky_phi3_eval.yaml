@@ -37,4 +37,4 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   python -m oumi.evaluate \
-    -c configs/lema/phi3.eval.lm_harness.yaml
+    -c configs/oumi/phi3.eval.lm_harness.yaml

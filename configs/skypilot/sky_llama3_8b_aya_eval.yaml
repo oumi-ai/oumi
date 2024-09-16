@@ -27,4 +27,4 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   python -m oumi.evaluate \
-      -c configs/lema/llama3.8b.aya.eval.yaml
+      -c configs/oumi/llama3.8b.aya.eval.yaml
