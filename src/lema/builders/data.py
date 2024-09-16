@@ -169,7 +169,7 @@ def build_dataset_from_params(
     """Builds a dataset from a dataset params object.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
-    the all the arguments.
+    all the arguments.
     """
     training_config = TrainingConfig(
         data=DataParams(
