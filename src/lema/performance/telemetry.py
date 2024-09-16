@@ -364,6 +364,18 @@ class TelemetryTracker:
             return {}
 
         result = {}
+
+        def _aggregate_cross_rank_stats(
+            key: str, rank_summaries: List[Dict[str, Any]]
+        ) -> Optional[Dict[str, float]]:
+            measurements = []
+            for rank_summary in rank_summaries:
+                if key in rank_summary and isinstance(rank_summary[key], (float, int)):
+                    measurements.append(rank_summary[key])
+            if not measurements:
+                return None
+            return self._calculate_basic_stats(measurements, include_index=True)
+
         if isinstance(measurement_names, dict):
             for key in measurement_names:
                 if isinstance(measurement_names[key], (dict, set)):
@@ -377,29 +389,15 @@ class TelemetryTracker:
                             measurement_names=measurement_names[key],
                         )
                 else:
-                    measurements = []
-                    for rank_summary in rank_summaries:
-                        if key in rank_summary and isinstance(
-                            rank_summary[key], (float, int)
-                        ):
-                            measurements.append(rank_summary[key])
-                    if measurements:
-                        result[key] = self._calculate_basic_stats(
-                            measurements, include_index=True
-                        )
+                    stats = _aggregate_cross_rank_stats(key, rank_summaries)
+                    if stats is not None:
+                        result[key] = stats
         else:
             assert isinstance(measurement_names, set)
             for key in measurement_names:
-                measurements = []
-                for rank_summary in rank_summaries:
-                    if key in rank_summary and isinstance(
-                        rank_summary[key], (float, int)
-                    ):
-                        measurements.append(rank_summary[key])
-                if measurements:
-                    result[key] = self._calculate_basic_stats(
-                        measurements, include_index=True
-                    )
+                stats = _aggregate_cross_rank_stats(key, rank_summaries)
+                if stats is not None:
+                    result[key] = stats
 
         return result
 
