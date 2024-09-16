@@ -90,7 +90,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 inference.
 
         Returns:
-            List[ChatCompletionMessageParam]: A list of vllm input messages.
+            Dict[str, Any]: A dictionary representing the OpenAI input.
         """
         return {
             "model": self._model,
@@ -198,7 +198,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         self._validate_generation_config(generation_config)
+        # Limit number of HTTP connections to the number of workers.
         connector = aiohttp.TCPConnector(limit=generation_config.num_workers)
+        # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(generation_config.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
             return await asyncio.gather(

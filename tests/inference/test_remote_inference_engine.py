@@ -8,7 +8,7 @@ import pytest
 from aioresponses import aioresponses
 
 from lema.core.configs import GenerationConfig, ModelParams
-from lema.core.types.turn import Conversation, Message, Role
+from lema.core.types.turn import Conversation, Message, Role, Type
 from lema.inference import RemoteInferenceEngine
 
 _TARGET_SERVER: str = "http://fakeurl"
@@ -70,8 +70,19 @@ def test_infer_online():
                     role=Role.USER,
                 ),
                 Message(
-                    content="Hello again!",
+                    binary=b"Hello again!",
                     role=Role.USER,
+                    type=Type.IMAGE_PATH,
+                ),
+                Message(
+                    content="a url for our image",
+                    role=Role.USER,
+                    type=Type.IMAGE_URL,
+                ),
+                Message(
+                    binary=b"a binary image",
+                    role=Role.USER,
+                    type=Type.IMAGE_BINARY,
                 ),
             ],
             metadata={"foo": "bar"},
