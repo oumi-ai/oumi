@@ -379,6 +379,8 @@ class TelemetryTracker:
         if isinstance(measurement_names, dict):
             for key in measurement_names:
                 if isinstance(measurement_names[key], (dict, set)):
+                    # If a value associated with this `key` is a dictionary or a set
+                    # then recurse (support hierarchical naming).
                     next_level_summaries = []
                     for rank_summary in rank_summaries:
                         if key in rank_summary and isinstance(rank_summary[key], dict):
@@ -389,10 +391,14 @@ class TelemetryTracker:
                             measurement_names=measurement_names[key],
                         )
                 else:
+                    # If a value associated with this `key` is not a dictionary or a set
+                    # then we've reached the last layer. Let's compute stats.
                     stats = _aggregate_cross_rank_stats(key, rank_summaries)
                     if stats is not None:
                         result[key] = stats
         else:
+            # If `measurement_names` is a set then iterate over its elements
+            # and compute stats for each measurement.
             assert isinstance(measurement_names, set)
             for key in measurement_names:
                 stats = _aggregate_cross_rank_stats(key, rank_summaries)
