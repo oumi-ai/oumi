@@ -14,13 +14,13 @@ For single-GPU or CPU training, you can run the script directly:
 
 import torch
 
-from lema.core.configs.params.fsdp_params import FSDPParams
-from lema.core.configs.params.training_params import TrainingParams
-from lema.core.distributed import cleanup_distributed, init_distributed, is_distributed
-from lema.core.tokenizers import BaseTokenizer
-from lema.core.trainers.lema_trainer import Trainer
-from lema.datasets import DebugPretrainingDataset
-from lema.models import MLPEncoder
+from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.configs.params.training_params import TrainingParams
+from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
+from oumi.core.tokenizers import BaseTokenizer
+from oumi.core.trainers.lema_trainer import Trainer
+from oumi.datasets import DebugPretrainingDataset
+from oumi.models import MLPEncoder
 
 
 # Simple tokenizer (just a placeholder for this example)

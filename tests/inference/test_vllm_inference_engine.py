@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 import jsonlines
 import pytest
 
-from lema.core.configs import GenerationConfig, ModelParams
-from lema.core.types.turn import Conversation, Message, Role
-from lema.inference import VLLMInferenceEngine
+from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.types.turn import Conversation, Message, Role
+from oumi.inference import VLLMInferenceEngine
 
 try:
     vllm_import_failed = False
@@ -46,7 +46,7 @@ except ModuleNotFoundError:
 #
 @pytest.fixture
 def mock_vllm():
-    with patch("lema.inference.vllm_inference_engine.vllm") as mvllm:
+    with patch("oumi.inference.vllm_inference_engine.vllm") as mvllm:
         yield mvllm
 
 

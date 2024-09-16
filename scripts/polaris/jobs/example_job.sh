@@ -28,7 +28,7 @@ torchrun \
     --nproc-per-node=4 \
     --master-addr=${LEMA_MASTER_ADDR} \
     --master-port=8007 \
-    -m lema.train \
+    -m oumi.train \
     -c configs/lema/gpt2.pt.yaml \
     "training.run_name='gpt2.pt.${PBS_JOBID}'" \
     "$TRAIN_DATASETS" \

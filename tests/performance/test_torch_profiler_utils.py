@@ -5,8 +5,8 @@ import pytest
 import torch
 from torch import nn
 
-from lema.core.configs.params.profiler_params import ProfilerParams
-from lema.performance.torch_profiler_utils import torch_profile
+from oumi.core.configs.params.profiler_params import ProfilerParams
+from oumi.performance.torch_profiler_utils import torch_profile
 
 
 class SimpleMLP(nn.Module):

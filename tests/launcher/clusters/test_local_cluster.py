@@ -2,10 +2,10 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.launcher.clients.local_client import LocalClient
-from lema.launcher.clusters.local_cluster import LocalCluster
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.launcher.clients.local_client import LocalClient
+from oumi.launcher.clusters.local_cluster import LocalCluster
 
 
 #
@@ -318,7 +318,7 @@ def test_local_cluster_run_job_no_name(mock_local_client):
     )
     job = _get_default_job("local")
     job.name = None
-    with patch("lema.launcher.clusters.local_cluster.uuid") as mock_uuid:
+    with patch("oumi.launcher.clusters.local_cluster.uuid") as mock_uuid:
         mock_hex = Mock()
         mock_hex.hex = "1-2-3"
         mock_uuid.uuid1.return_value = mock_hex

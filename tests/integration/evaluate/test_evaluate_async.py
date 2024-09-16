@@ -1,8 +1,8 @@
 import datetime
 import tempfile
 
-from lema import evaluate_async
-from lema.core.configs import (
+from oumi import evaluate_async
+from oumi.core.configs import (
     AsyncEvaluationConfig,
     DatasetParams,
     DatasetSplitParams,

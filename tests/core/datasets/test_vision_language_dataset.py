@@ -4,8 +4,8 @@ import pytest
 from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
 
-from lema.core.datasets.vision_language_dataset import VisionLanguageSftDataset
-from lema.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
+from oumi.core.types.turn import Conversation, Message, Role, Type
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ import time
 import pytest
 import torch
 
-from lema.performance.telemetry import (
+from oumi.performance.telemetry import (
     CudaTimerContext,
     TelemetryTracker,
     TimerContext,

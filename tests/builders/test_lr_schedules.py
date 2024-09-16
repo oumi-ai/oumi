@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from lema.builders.lr_schedules import build_lr_scheduler
-from lema.core.configs import SchedulerType, TrainingParams
+from oumi.builders.lr_schedules import build_lr_scheduler
+from oumi.core.configs import SchedulerType, TrainingParams
 
 #
 # Fixtures
@@ -205,7 +205,7 @@ def test_scheduler_specific_kwargs_warning(
         assert "Unrecognized scheduler kwargs" in caplog.text
 
 
-@patch("lema.utils.logging.logger.info")
+@patch("oumi.utils.logging.logger.info")
 def test_warmup_ratio_logging(mock_logger_info, optimizer, training_params):
     training_params.warmup_steps = None
     training_params.warmup_ratio = 0.1
@@ -216,7 +216,7 @@ def test_warmup_ratio_logging(mock_logger_info, optimizer, training_params):
     )
 
 
-@patch("lema.utils.logging.logger.info")
+@patch("oumi.utils.logging.logger.info")
 def test_no_warmup_logging(mock_logger_info, optimizer, training_params):
     training_params.warmup_steps = None
     training_params.warmup_ratio = None

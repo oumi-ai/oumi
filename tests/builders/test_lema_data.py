@@ -4,9 +4,9 @@ import torch.utils.data.datapipes as dp
 from datasets import Dataset as HFDataset
 from torch.utils.data import IterDataPipe
 
-import lema.builders.lema_data
-from lema.builders.lema_data import _load_dataset, build_dataset_mixture
-from lema.core.configs import (
+import oumi.builders.lema_data
+from oumi.builders.lema_data import _load_dataset, build_dataset_mixture
+from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,
@@ -14,9 +14,9 @@ from lema.core.configs import (
     ModelParams,
     TrainingConfig,
 )
-from lema.core.datasets import BaseIterableDataset, BaseMapDataset
-from lema.core.registry import register_dataset
-from lema.core.tokenizers import BaseTokenizer
+from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
+from oumi.core.registry import register_dataset
+from oumi.core.tokenizers import BaseTokenizer
 
 
 #
@@ -115,7 +115,7 @@ def test_load_dataset_iterable(tokenizer):
 
 def test_load_dataset_huggingface(tokenizer, monkeypatch):
     monkeypatch.setattr(
-        lema.builders.lema_data,
+        oumi.builders.lema_data,
         "HuggingFaceHubReader",
         mock_hf_hub_reader,
     )

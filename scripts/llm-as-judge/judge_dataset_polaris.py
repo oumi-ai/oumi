@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from time import sleep
 
-import lema.launcher as launcher
+import oumi.launcher as launcher
 
 # Queue to submit jobs (see https://docs.alcf.anl.gov/polaris/running-jobs)
 #  - "preemptable"    : up to 20 jobs, duration up to 72 hrs

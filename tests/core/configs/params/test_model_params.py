@@ -2,14 +2,14 @@ from unittest.mock import patch
 
 import pytest
 
-from lema.core.configs import ModelParams
-from lema.core.types import HardwareException
+from oumi.core.configs import ModelParams
+from oumi.core.types import HardwareException
 
 
 def test_flash_attention_hardware_check():
     # flash_attention_2 is requested and available
     with patch(
-        "lema.core.configs.params.model_params.is_flash_attn_2_available",
+        "oumi.core.configs.params.model_params.is_flash_attn_2_available",
         return_value=True,
     ):
         config = ModelParams()
@@ -23,7 +23,7 @@ def test_flash_attention_hardware_check():
 
     # flash_attention_2 is requested but is NOT available
     with patch(
-        "lema.core.configs.params.model_params.is_flash_attn_2_available",
+        "oumi.core.configs.params.model_params.is_flash_attn_2_available",
         return_value=False,
     ):
         config = ModelParams()

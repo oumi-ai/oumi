@@ -2,7 +2,7 @@
 # accelerate launch \
 #   --use_fsdp \
 #   --config_file configs/accelerate/llama.fsdp.yaml \
-#   -m lema.train \
+#   -m oumi.train \
 #   -c configs/lema/llama3.8b.aya.sft.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \

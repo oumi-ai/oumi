@@ -5,15 +5,15 @@ import tempfile
 import pytest
 import torch
 
-from lema import evaluate_lema, evaluate_lm_harness
-from lema.core.configs import (
+from oumi import evaluate_lema, evaluate_lm_harness
+from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
     EvaluationConfig,
     EvaluationFramework,
     ModelParams,
 )
-from lema.evaluate import SAVE_FILENAME_JSON
+from oumi.evaluate import SAVE_FILENAME_JSON
 
 
 def test_evaluate_lema():

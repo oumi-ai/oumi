@@ -4,13 +4,13 @@ from typing import List
 
 import pytest
 
-from lema.core.configs import (
+from oumi.core.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
     JobConfig,
     TrainingConfig,
 )
-from lema.core.types import HardwareException
+from oumi.core.types import HardwareException
 
 
 def _is_config_file(path: str) -> bool:

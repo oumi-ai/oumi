@@ -5,7 +5,7 @@
             "name": "LeMa - Train From CLI Example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.train",
+            "module": "oumi.train",
             "args": [
                 "data.train.datasets.0.dataset_name=yahma/alpaca-cleaned",
                 "data.train.datasets.0.preprocessing_function_name=alpaca",
@@ -25,7 +25,7 @@
             "name": "LeMa - Train From Config Example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.train",
+            "module": "oumi.train",
             "args": [
                 "-c",
                 "configs/lema/phi3.lora.yaml"
@@ -36,7 +36,7 @@
             "name": "LeMa - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.train",
+            "module": "oumi.train",
             "args": [
                 "-c",
                 "configs/lema/gpt2.pt.mac.yaml"
@@ -54,7 +54,7 @@
                 "--nproc_per_node",
                 "4",
                 "-m",
-                "lema.train",
+                "oumi.train",
                 "-c",
                 "configs/lema/gpt2.pt.yaml"
             ]
@@ -76,7 +76,7 @@
                 "--config_file",
                 "configs/accelerate/llama8b.fsdp.yaml",
                 "-m",
-                "lema.train",
+                "oumi.train",
                 "-c",
                 "configs/lema/llama8b.sft.yaml",
                 "training.max_steps=2",
@@ -90,7 +90,7 @@
             "name": "LeMa - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.infer",
+            "module": "oumi.infer",
             "args": [
                 "--interactive",
                 "model.model_name=openai-community/gpt2",
@@ -103,7 +103,7 @@
             "name": "LeMa - Evaluate with custom LeMa framework from config example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.evaluate",
+            "module": "oumi.evaluate",
             "args": [
                 "-c",
                 "configs/lema/phi3.eval.lema.mac.yaml"
@@ -114,7 +114,7 @@
             "name": "LeMa - Evaluate with the LM Harness framework from config example",
             "type": "debugpy",
             "request": "launch",
-            "module": "lema.evaluate",
+            "module": "oumi.evaluate",
             "args": [
                 "-c",
                 "configs/lema/phi3.eval.lm_harness.yaml"

@@ -15,7 +15,7 @@ Subpackages
    lema.core
    lema.datasets
    lema.evaluation
-   lema.inference
+   oumi.inference
    lema.launcher
    lema.models
    lema.performance

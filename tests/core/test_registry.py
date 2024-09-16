@@ -1,6 +1,6 @@
 import pytest
 
-from lema.core.registry import (
+from oumi.core.registry import (
     REGISTRY,
     Registry,
     RegistryType,
