@@ -29,7 +29,7 @@ envs:
 setup: |
   set -e
   pip install '.[train]'
-  pip install flash-attn --no-build-isolation
+  pip install '.[gpu]'
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
