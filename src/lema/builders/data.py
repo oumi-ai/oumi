@@ -6,6 +6,7 @@ import datasets
 from trl.trainer import ConstantLengthDataset
 
 from lema.core.configs import (
+    DataParams,
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
@@ -77,7 +78,6 @@ def build_dataset_mixture(
     tokenizer: BaseTokenizer,
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
-    **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset for the specified split.
 
@@ -104,7 +104,7 @@ def build_dataset_mixture(
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
         # and becomes the default processign pipeline.
-        return build_lema_dataset(config, tokenizer, dataset_split, seed, **kwargs)  # type: ignore
+        return build_lema_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     datasets = [
         _preprocess_dataset(
@@ -155,6 +155,71 @@ def build_dataset_mixture(
             )
 
     return dataset
+
+
+def build_dataset_from_params(
+    dataset_params: DatasetParams,
+    tokenizer: BaseTokenizer,
+    seed: Optional[int] = None,
+    stream: bool = False,
+    pack: bool = False,
+    experimental_use_torch_datapipes: bool = False,
+    experimental_use_async_dataset: bool = False,
+) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+    """Builds a dataset from a dataset params object.
+
+    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
+    all the arguments.
+    """
+    training_config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[dataset_params],
+                stream=stream,
+                pack=pack,
+                experimental_use_async_dataset=experimental_use_async_dataset,
+                experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+            )
+        )
+    )
+
+    return build_dataset_mixture(
+        config=training_config,
+        dataset_split=DatasetSplit.TRAIN,
+        tokenizer=tokenizer,
+        seed=seed,
+    )
+
+
+def build_dataset(
+    dataset_name: str,
+    tokenizer: BaseTokenizer,
+    seed: Optional[int] = None,
+    stream: bool = False,
+    pack: bool = False,
+    experimental_use_torch_datapipes: bool = False,
+    experimental_use_async_dataset: bool = False,
+    **kwargs,
+) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+    """Builds a dataset from a dataset name.
+
+    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
+    the all the arguments.
+    """
+    dataset_params = DatasetParams(
+        dataset_name=dataset_name,
+        **kwargs,
+    )
+
+    return build_dataset_from_params(
+        dataset_params=dataset_params,
+        tokenizer=tokenizer,
+        seed=seed,
+        stream=stream,
+        pack=pack,
+        experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+        experimental_use_async_dataset=experimental_use_async_dataset,
+    )
 
 
 def _mix_datasets(

@@ -4,7 +4,12 @@ import pytest
 from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
-from lema.builders import build_dataset_mixture, build_tokenizer
+from lema.builders import (
+    build_dataset,
+    build_dataset_from_params,
+    build_dataset_mixture,
+    build_tokenizer,
+)
 from lema.core.configs import (
     DataParams,
     DatasetParams,
@@ -75,7 +80,7 @@ def _get_dataset_size(
         return dataset.num_rows
 
 
-def test_data_single_dataset(stream: bool):
+def test_data_single_dataset_in_mixture(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
@@ -89,6 +94,45 @@ def test_data_single_dataset(stream: bool):
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    assert _get_dataset_size(dataset, stream) == 100
+
+
+def test_data_single_dataset_from_kwargs(stream: bool):
+    config = _get_default_config(
+        [],
+        stream,
+        DatasetSplit.TRAIN,
+    )
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset(
+        dataset_name="tasksource/mmlu",
+        split="test",
+        subset="abstract_algebra",
+        tokenizer=tokenizer,
+        stream=stream,
+    )
+    assert _get_dataset_size(dataset, stream) == 100
+
+
+def test_data_single_dataset_from_params(stream: bool):
+    config = _get_default_config(
+        [],
+        stream,
+        DatasetSplit.TRAIN,
+    )
+
+    dataset_params = DatasetParams(
+        dataset_name="tasksource/mmlu",
+        subset="abstract_algebra",
+        split="test",
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_from_params(
+        dataset_params=dataset_params,
+        tokenizer=tokenizer,
+        stream=stream,
+    )
     assert _get_dataset_size(dataset, stream) == 100
 
 
