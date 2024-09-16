@@ -65,8 +65,8 @@ def build_optimizer(
         return Adafactor(
             trainable_param_groups,
             lr=config.learning_rate,
-            beta1=config.adam_beta1,
             relative_step=False,
+            scale_parameter=False,
         )
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
