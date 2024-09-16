@@ -322,50 +322,77 @@ class TelemetryTracker:
     def compute_cross_rank_summaries(
         self,
         rank_summaries: List[Dict[str, Any]],
-        keys: Union[Set[str], Dict[str, Any]],
+        measurement_names: Union[Set[str], Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
 
-        For example, it can be useful to see distribution
+        For example, it can be used to compute distribution
         of `{"gpu_temperature": {"max"}}` over ranks.
+
+        Arguments:
+            rank_summaries: An array of summaries indexed by rank e.g.,
+                returned by the `get_summaries_from_all_ranks()` method.
+            measurement_names: A hierarchy of measurment names of interest.
+                For example:
+                1 level:  {"total_time"}
+                2 levels: {"gpu_temperature": {"max", "median"}}
+                3 levels: {"timers": { "compile": {"mean"}, "forward": {"max", "min"}}}
+                ...
+
+        Returns:
+            A dictionary containing the statistics specified in `measurement_names`,
+            and aggregated across ranks.
+            The returned object can be nested (e.g., a dictionary of dictionaries)
+            with potentially multiple levels of nesting, forming a tree whose
+            structure mimics the structure of `measurement_names` with one additional
+            layer containing cross-rank stats.
+
+            For example, if input `measurement_names` is
+            `{"gpu_temperature": {"max", "median"}}` then the returned value
+            will look as follows:
+            {
+                "gpu_temperature":{
+                    "max": { "count": 7, "max": 75, ... },
+                    "median": { "count": 7, "max": 68, ... }
+                }
+            }
+
         """
-        if not keys:
+        if not measurement_names:
             return {}
 
         result = {}
-        if isinstance(keys, dict):
-            for key in keys:
-                if isinstance(keys[key], (dict, set)):
+        if isinstance(measurement_names, dict):
+            for key in measurement_names:
+                if isinstance(measurement_names[key], (dict, set)):
                     next_level_summaries = []
-                    for i in range(len(rank_summaries)):
-                        if key in rank_summaries[i] and isinstance(
-                            rank_summaries[i][key], dict
-                        ):
-                            next_level_summaries.append(rank_summaries[i][key])
+                    for rank_summary in rank_summaries:
+                        if key in rank_summary and isinstance(rank_summary[key], dict):
+                            next_level_summaries.append(rank_summary[key])
                     if next_level_summaries:
                         result[key] = self.compute_cross_rank_summaries(
-                            next_level_summaries, keys[key]
+                            next_level_summaries, measurement_names[key]
                         )
                 else:
                     measurements = []
-                    for i in range(len(rank_summaries)):
-                        if key in rank_summaries[i] and isinstance(
-                            rank_summaries[i][key], (float, int)
+                    for rank_summary in rank_summaries:
+                        if key in rank_summary and isinstance(
+                            rank_summary[key], (float, int)
                         ):
-                            measurements.append(rank_summaries[i][key])
+                            measurements.append(rank_summary[key])
                     if measurements:
                         result[key] = self._calculate_basic_stats(
                             measurements, include_index=True
                         )
         else:
-            assert isinstance(keys, set)
-            for key in keys:
+            assert isinstance(measurement_names, set)
+            for key in measurement_names:
                 measurements = []
-                for i in range(len(rank_summaries)):
-                    if key in rank_summaries[i] and isinstance(
-                        rank_summaries[i][key], (float, int)
+                for rank_summary in rank_summaries:
+                    if key in rank_summary and isinstance(
+                        rank_summary[key], (float, int)
                     ):
-                        measurements.append(rank_summaries[i][key])
+                        measurements.append(rank_summary[key])
                 if measurements:
                     result[key] = self._calculate_basic_stats(
                         measurements, include_index=True
