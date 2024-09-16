@@ -63,6 +63,9 @@ dev = [
 ]
 train = [
     "accelerate",
+    "aiohttp",
+    "aioresponses",
+    "asyncio",
     "bitsandbytes",                 # for quantization
     "datasets",
     "lm-eval",
