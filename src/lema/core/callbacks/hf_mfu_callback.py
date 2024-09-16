@@ -6,6 +6,7 @@ from typing import Optional, Union
 import torch
 import transformers
 
+from lema.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from lema.core.configs import TrainingParams
 from lema.core.distributed import get_device_rank_info, is_world_process_zero
 from lema.performance.mfu import (
@@ -23,7 +24,7 @@ _HF_TRAIN_STEP_MFU = "hf_train_step_mfu"
 _HF_TRAIN_MFU = "hf_train_mfu"
 
 
-class HfMfuTrainerCallback(transformers.TrainerCallback):
+class HfMfuTrainerCallback(BaseTrainerCallback):
     """Trainer callback to calculate the MFU of the model during training.
 
     Relies on model's flops estimate computed by HuggingFace in `total_flos` metric.

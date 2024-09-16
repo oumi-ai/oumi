@@ -12,7 +12,8 @@ import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-import wandb
+
+import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -329,7 +330,7 @@ class Trainer(BaseTrainer):
                             "tokens_per_step_per_gpu": self.state.total_tokens_seen
                             / self.state.global_step,
                         }
-                        callback_metrics = self._process_callbacks("on_log")
+                        callback_metrics = self._process_callbacks("on_log", metrics)
                         metrics.update(callback_metrics)
 
                         self.log_metrics(metrics, self.state.global_step)
@@ -658,13 +659,15 @@ class Trainer(BaseTrainer):
     #
     # Handle callbacks
     #
-    def _process_callbacks(self, event: str) -> Dict[str, Any]:
+    def _process_callbacks(
+        self, event: str, logs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
         Just here to unblock debugging with our MfuCallback
         """
-        logs = {}
+        logs = logs or {}
 
         for callback in self.callbacks:
             if hasattr(callback, event):

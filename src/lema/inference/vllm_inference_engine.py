@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from lema.builders import (
-    build_tokenizer,
-)
+from lema.builders import build_tokenizer
 from lema.core.configs import GenerationConfig, ModelParams
 from lema.core.inference import BaseInferenceEngine
 from lema.core.types.turn import Conversation, Message, Role
@@ -23,11 +21,20 @@ except ModuleNotFoundError:
 class VLLMInferenceEngine(BaseInferenceEngine):
     """Engine for running vllm inference locally."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(
+        self,
+        model_params: ModelParams,
+        tensor_parallel_size: int = 1,
+        quantization: str | None = None,
+        enable_prefix_caching: bool = False,
+    ):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            tensor_parallel_size: The number of tensor parallel processes to use.
+            quantization: The quantization method to use for inference.
+            enable_prefix_caching: Whether to enable prefix caching.
         """
         if not vllm:
             raise RuntimeError(
@@ -41,6 +48,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
             dtype=model_params.torch_dtype_str,
+            # TODO: these params should be settable via config,
+            # but they don't belong to model_params
+            quantization=quantization,
+            tensor_parallel_size=tensor_parallel_size,
+            enable_prefix_caching=enable_prefix_caching,
         )
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)

@@ -45,8 +45,8 @@ def main(args):
     # Create jobs for each attribute
     jobs = {}
     for attribute in attributes:
-        input_path = f"{INPUT_PATH_PREFIX_POLARIS}{attribute}.{DATA_FILE_TYPE}"
-        output_path = f"{OUTPUT_PATH_PREFIX_POLARIS}{attribute}"
+        input_filepath = f"{INPUT_PATH_PREFIX_POLARIS}{attribute}.{DATA_FILE_TYPE}"
+        output_dir = f"{OUTPUT_PATH_PREFIX_POLARIS}{attribute}"
 
         job = launcher.JobConfig.from_yaml(VLLM_JOB_PATH.format(user=local_username))
         job.name = f"judge-inference-{attribute}"
@@ -57,10 +57,10 @@ def main(args):
 
         job.envs["REPO"] = LLAMA_70B_REPO
         job.envs["MODEL"] = LLAMA_70B_MODEL
-        job.envs["LEMA_VLLM_INPUT_PATH"] = input_path
-        job.envs["LEMA_VLLM_OUTPUT_PATH"] = output_path
-        job.envs["LEMA_VLLM_NUM_WORKERS"] = 10
-        job.envs["LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND"] = 10
+        job.envs["LEMA_VLLM_INPUT_FILEPATH"] = input_filepath
+        job.envs["LEMA_VLLM_OUTPUT_DIR"] = output_dir
+        job.envs["LEMA_VLLM_NUM_WORKERS"] = str(10)
+        job.envs["LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND"] = str(10)
         jobs[attribute] = job
 
     # Launch an inference job for each attribute.
