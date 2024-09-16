@@ -15,7 +15,7 @@ time accelerate launch \
     -m lema.train \
     -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=TRL_SFT" \
-    "training.per_device_train_batch_size=3" \
+    "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \
     "training.output_dir=output/trainer-trl/" \
     "training.include_performance_metrics=true" \
@@ -32,7 +32,7 @@ time torchrun --standalone --nproc_per_node 1 \
     -m lema.train \
     -c "configs/lema/llama2b.pt.yaml" \
     "training.trainer_type=LEMA" \
-    "training.per_device_train_batch_size=3" \
+    "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \
     "training.output_dir=output/trainer-lema/" \
     "training.include_performance_metrics=true" \
