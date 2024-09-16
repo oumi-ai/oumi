@@ -8,6 +8,15 @@ from lema.core.configs import GenerationConfig, ModelParams
 from lema.core.inference import BaseInferenceEngine
 from lema.core.types.turn import Conversation, Message, Role, Type
 
+_CONTENT_KEY: str = "content"
+_MESSAGE_KEY: str = "message"
+_ROLE_KEY: str = "role"
+_TYPE_KEY: str = "type"
+_TEXT_KEY: str = "text"
+_IMAGE_URL_KEY: str = "image_url"
+_AUTHORIZATION_KEY: str = "Authorization"
+_URL_KEY: str = "url"
+
 
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
@@ -54,26 +63,26 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             Dict[str, Any]: The content for the message.
         """
         content: Dict[str, Any] = {
-            "type": message.type.value,
+            _TYPE_KEY: message.type.value,
         }
         b64_image = None if message.binary is None else base64.b64encode(message.binary)
 
         if message.type == Type.TEXT:
-            content["text"] = message.content or ""
+            content[_TEXT_KEY] = message.content or ""
         elif message.type == Type.IMAGE_URL:
-            content["image_url"] = {
-                "url": b64_image or message.content,
+            content[_IMAGE_URL_KEY] = {
+                _URL_KEY: b64_image or message.content,
             }
         elif message.type == Type.IMAGE_PATH:
             if message.content and not b64_image:
                 with open(message.content, "rb") as image_file:
                     b64_image = base64.b64encode(image_file.read())
-            content["image_url"] = {
-                "url": b64_image or message.content,
+            content[_IMAGE_URL_KEY] = {
+                _URL_KEY: b64_image or message.content,
             }
         elif message.type == Type.IMAGE_BINARY:
-            content["image_url"] = {
-                "url": b64_image or message.content,
+            content[_IMAGE_URL_KEY] = {
+                _URL_KEY: b64_image or message.content,
             }
         else:
             raise ValueError(f"Unsupported message type: {message.type}")
@@ -96,8 +105,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "model": self._model,
             "messages": [
                 {
-                    "content": [self._get_content_for_message(message)],
-                    "role": message.role.value,
+                    _CONTENT_KEY: [self._get_content_for_message(message)],
+                    _ROLE_KEY: message.role.value,
                 }
                 for message in conversation.messages
             ],
@@ -118,13 +127,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
-        message = response["choices"][0]["message"]
+        message = response["choices"][0][_MESSAGE_KEY]
         return Conversation(
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message["content"],
-                    role=Role(message["role"]),
+                    content=message[_CONTENT_KEY],
+                    role=Role(message[_ROLE_KEY]),
                     type=Type.TEXT,
                 ),
             ],
@@ -158,7 +167,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             headers = {}
             if generation_config.api_key is not None:
-                headers["Authorization"] = f"Bearer {generation_config.api_key}"
+                headers[_AUTHORIZATION_KEY] = f"Bearer {generation_config.api_key}"
             retries = 0
             # Retry the request if it fails.
             for _ in range(generation_config.max_retries + 1):
