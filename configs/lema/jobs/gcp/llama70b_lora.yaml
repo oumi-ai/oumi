@@ -30,7 +30,8 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train_gpu]'
+  pip install '.[train]'
+  pip install '.[gpu]'
   # Download model from GCS, which is faster than downloading during training.
   # At the moment, you need to run this manually after ssh-ing into the cluster
   # because it requires manual authentication.

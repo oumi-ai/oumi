@@ -83,7 +83,6 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx_copybutton",
 ]
-train_gpu = ["lema[train,gpu]"]
 all = ["lema[dev,train,cloud,docs]"]
 
 [project.scripts]
