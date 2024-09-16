@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from lema.core.distributed import (
+from oumi.core.distributed import (
     DeviceRankInfo,
     all_gather_object,
     estimate_dataloader_num_workers,
@@ -29,7 +29,7 @@ def mock_torch_distributed():
 
 @pytest.fixture
 def mock_lema_barrier():
-    with patch("lema.core.distributed.barrier") as mock_dist:
+    with patch("oumi.core.distributed.barrier") as mock_dist:
         yield mock_dist
 
 
@@ -41,7 +41,7 @@ def mock_torch_barrier():
 
 @pytest.fixture
 def mock_device_rank_info():
-    with patch("lema.core.distributed.get_device_rank_info") as mock_info:
+    with patch("oumi.core.distributed.get_device_rank_info") as mock_info:
         yield mock_info
 
 

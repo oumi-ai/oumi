@@ -1,7 +1,7 @@
 import pytest
 
-from lema import infer, infer_interactive
-from lema.core.configs import GenerationConfig, InferenceConfig, ModelParams
+from oumi import infer, infer_interactive
+from oumi.core.configs import GenerationConfig, InferenceConfig, ModelParams
 
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."

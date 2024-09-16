@@ -3,13 +3,13 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from lema.builders.models import _patch_model_for_liger_kernel, build_chat_template
-from lema.core.configs import ModelParams
+from oumi.builders.models import _patch_model_for_liger_kernel, build_chat_template
+from oumi.core.configs import ModelParams
 
 
 @pytest.fixture
 def mock_liger_kernel():
-    with patch("lema.builders.models.liger_kernel.transformers") as mock:
+    with patch("oumi.builders.models.liger_kernel.transformers") as mock:
         yield mock
 
 
@@ -42,7 +42,7 @@ def test_patch_model_for_liger_kernel_unsupported():
 
 
 def test_patch_model_for_liger_kernel_import_error():
-    with patch("lema.builders.models.liger_kernel", None):
+    with patch("oumi.builders.models.liger_kernel", None):
         model_params = ModelParams(model_name="llama-7b")
         with pytest.raises(ImportError, match="Liger Kernel not installed"):
             _patch_model_for_liger_kernel(model_params.model_name)
@@ -84,8 +84,8 @@ def test_build_chat_template_removes_indentation_and_newlines():
         "Assistant: {{ message['content'] }}{% endif %}{{ eos_token }}{% endfor %}"
     )
 
-    with patch("lema.builders.models.Path"), patch(
-        "lema.builders.models.load_file"
+    with patch("oumi.builders.models.Path"), patch(
+        "oumi.builders.models.load_file"
     ) as mock_load_file:
         mock_load_file.return_value = template_content
 

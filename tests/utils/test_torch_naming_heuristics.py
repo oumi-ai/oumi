@@ -11,7 +11,7 @@ from transformers import (
     AutoModelForVision2Seq,
 )
 
-from lema.utils.torch_naming_heuristics import (
+from oumi.utils.torch_naming_heuristics import (
     disable_dropout,
     group_trainable_params,
     guess_transformer_layer_cls,

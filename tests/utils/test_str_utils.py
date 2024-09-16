@@ -1,6 +1,6 @@
 import pytest
 
-from lema.utils.str_utils import sanitize_run_name, str_to_bool
+from oumi.utils.str_utils import sanitize_run_name, str_to_bool
 
 
 def test_sanitize_run_name_empty():

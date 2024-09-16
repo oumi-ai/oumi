@@ -2,12 +2,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.core.registry import REGISTRY, RegistryType
-from lema.launcher.clients.local_client import LocalClient
-from lema.launcher.clouds.local_cloud import LocalCloud
-from lema.launcher.clusters.local_cluster import LocalCluster
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.core.registry import REGISTRY, RegistryType
+from oumi.launcher.clients.local_client import LocalClient
+from oumi.launcher.clouds.local_cloud import LocalCloud
+from oumi.launcher.clusters.local_cluster import LocalCluster
 
 
 #
@@ -15,13 +15,13 @@ from lema.launcher.clusters.local_cluster import LocalCluster
 #
 @pytest.fixture
 def mock_local_client():
-    with patch("lema.launcher.clouds.local_cloud.LocalClient") as client:
+    with patch("oumi.launcher.clouds.local_cloud.LocalClient") as client:
         yield client
 
 
 @pytest.fixture
 def mock_local_cluster():
-    with patch("lema.launcher.clouds.local_cloud.LocalCluster") as cluster:
+    with patch("oumi.launcher.clouds.local_cloud.LocalCluster") as cluster:
         yield cluster
 
 

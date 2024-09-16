@@ -1,8 +1,8 @@
 import pytest
 
-from lema.core.configs import ModelParams
-from lema.core.tokenizers import BaseTokenizer
-from lema.evaluation import infer_prob, most_probable_tokens
+from oumi.core.configs import ModelParams
+from oumi.core.tokenizers import BaseTokenizer
+from oumi.evaluation import infer_prob, most_probable_tokens
 
 PROMPTS = [
     [

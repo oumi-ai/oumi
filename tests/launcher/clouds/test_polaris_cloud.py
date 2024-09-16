@@ -2,12 +2,12 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.core.registry import REGISTRY, RegistryType
-from lema.launcher.clients.polaris_client import PolarisClient
-from lema.launcher.clouds.polaris_cloud import PolarisCloud
-from lema.launcher.clusters.polaris_cluster import PolarisCluster
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.core.registry import REGISTRY, RegistryType
+from oumi.launcher.clients.polaris_client import PolarisClient
+from oumi.launcher.clouds.polaris_cloud import PolarisCloud
+from oumi.launcher.clusters.polaris_cluster import PolarisCluster
 
 
 #
@@ -15,14 +15,14 @@ from lema.launcher.clusters.polaris_cluster import PolarisCluster
 #
 @pytest.fixture
 def mock_polaris_client():
-    with patch("lema.launcher.clouds.polaris_cloud.PolarisClient") as client:
+    with patch("oumi.launcher.clouds.polaris_cloud.PolarisClient") as client:
         client.SupportedQueues = PolarisClient.SupportedQueues
         yield client
 
 
 @pytest.fixture
 def mock_polaris_cluster():
-    with patch("lema.launcher.clouds.polaris_cloud.PolarisCluster") as cluster:
+    with patch("oumi.launcher.clouds.polaris_cloud.PolarisCluster") as cluster:
         yield cluster
 
 

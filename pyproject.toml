@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-lema = ["LICENSE", "README.md", "*.jinja"]
+oumi = ["LICENSE", "README.md", "*.jinja"]
 
 [tool.setuptools_scm]
 # default scm config.
@@ -12,12 +12,12 @@ lema = ["LICENSE", "README.md", "*.jinja"]
 # default setuptools config.
 
 [project]
-name = "lema"
+name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.8"
-description = "Learning Machines - Modeling Platform"
-authors = [{ name = "LeMa Team", email = "contact@openlema.com" }]
+description = "OUMI - Modeling Platform"
+authors = [{ name = "OUMI Team", email = "contact@openlema.com" }]
 license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -46,8 +46,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/openlema/lema"
-Issues = "https://github.com/openlema/lema/issues"
+Homepage = "https://github.com/oumi-ai/oumi"
+Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -96,13 +96,13 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx_copybutton",
 ]
-all = ["lema[dev,train,cloud,docs]"]
+all = ["oumi[dev,train,cloud,docs]"]
 
 [project.scripts]
-lema-evaluate = "lema.evaluate:main"
-lema-infer = "lema.infer:main"
-lema-launch = "lema.launch:main"
-lema-train = "lema.train:main"
+oumi-evaluate = "oumi.evaluate:main"
+oumi-infer = "oumi.infer:main"
+oumi-launch = "oumi.launch:main"
+oumi-train = "oumi.train:main"
 
 [tool.ruff]
 extend-include = ["*.ipynb"] # Include ipython notebooks
@@ -134,11 +134,11 @@ ban-relative-imports = "all" # Disallow all relative imports.
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["lema"]
+known-first-party = ["oumi"]
 
 [tool.pyright]
-include = ["src/lema/**", "tests/**"]
-exclude = ["src/lema/experimental/**"]
+include = ["src/oumi/**", "tests/**"]
+exclude = ["src/oumi/experimental/**"]
 typeCheckingMode = "basic"
 pythonVersion = "3.8"
 pythonPlatform = "All"                 # Include linux, mac, windows

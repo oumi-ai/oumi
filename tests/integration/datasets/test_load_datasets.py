@@ -3,8 +3,8 @@ from typing import List
 import pytest
 from transformers import AutoTokenizer
 
-from lema.core.datasets import BaseLMSftDataset
-from lema.core.registry import REGISTRY, RegistryType
+from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.registry import REGISTRY, RegistryType
 
 
 def _get_all_sft_datasets_private_key() -> List[str]:

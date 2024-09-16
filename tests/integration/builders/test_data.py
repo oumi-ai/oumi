@@ -4,13 +4,13 @@ import pytest
 from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
-from lema.builders import (
+from oumi.builders import (
     build_dataset,
     build_dataset_from_params,
     build_dataset_mixture,
     build_tokenizer,
 )
-from lema.core.configs import (
+from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplit,
@@ -20,7 +20,7 @@ from lema.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from lema.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
 

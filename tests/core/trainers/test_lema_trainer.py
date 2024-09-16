@@ -5,11 +5,11 @@ import torch
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
-from lema.core.configs import TelemetryParams, TrainingParams
-from lema.core.configs.params.fsdp_params import FSDPParams
-from lema.core.tokenizers import BaseTokenizer
-from lema.core.trainers.lema_trainer import Trainer
-from lema.models import MLPEncoder
+from oumi.core.configs import TelemetryParams, TrainingParams
+from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.tokenizers import BaseTokenizer
+from oumi.core.trainers.lema_trainer import Trainer
+from oumi.models import MLPEncoder
 
 
 #
@@ -143,7 +143,7 @@ def test_get_total_training_steps(trainer):
         assert trainer._get_total_training_steps() == trainer.params.max_steps
 
 
-@patch("lema.core.distributed.is_world_process_zero", return_value=True)
+@patch("oumi.core.distributed.is_world_process_zero", return_value=True)
 def test_train(mock_is_world_process_zero, trainer):
     trainer._train_epoch = MagicMock()
     trainer.save_state = MagicMock()
@@ -241,7 +241,7 @@ def test_save_and_load_model(
     trainer.state.epoch = 1
     trainer.state.global_step = 50
 
-    with patch("lema.core.trainers.lema_trainer.get_state_dict") as mock_get_state_dict:
+    with patch("oumi.core.trainers.lema_trainer.get_state_dict") as mock_get_state_dict:
         mock_get_state_dict.return_value = ({"model": "state"}, {"optimizer": "state"})
 
         trainer.save_state()

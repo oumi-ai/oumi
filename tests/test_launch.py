@@ -4,7 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.configs import (
+from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,
@@ -13,9 +13,9 @@ from lema.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from lema.core.launcher import JobStatus
-from lema.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop, which
-from lema.launcher import JobConfig, JobResources
+from oumi.core.launcher import JobStatus
+from oumi.launch import _LaunchArgs, _LauncherAction, down, launch, run, stop, which
+from oumi.launcher import JobConfig, JobResources
 
 
 class MockThreadPool:
@@ -32,13 +32,13 @@ class MockThreadPool:
 #
 @pytest.fixture
 def mock_launcher():
-    with patch("lema.launch.launcher") as launcher_mock:
+    with patch("oumi.launch.launcher") as launcher_mock:
         yield launcher_mock
 
 
 @pytest.fixture
 def mock_threadpool():
-    with patch("lema.launch.ThreadPool") as threadpool_mock:
+    with patch("oumi.launch.ThreadPool") as threadpool_mock:
         mock_pool = MockThreadPool()
         threadpool_mock.return_value = mock_pool
         yield threadpool_mock
@@ -92,7 +92,7 @@ def _create_job_config(training_config_path: str) -> JobConfig:
             disk_size=512,
             disk_tier="low",
         ),
-        run=f"python -m lema.launch {training_config_path}",
+        run=f"python -m oumi.launch {training_config_path}",
     )
 
 

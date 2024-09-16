@@ -4,9 +4,9 @@ from typing import List
 
 import jsonlines
 
-from lema.core.configs import GenerationConfig, ModelParams
-from lema.core.types.turn import Conversation, Message, Role
-from lema.inference import NativeTextInferenceEngine
+from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.types.turn import Conversation, Message, Role
+from oumi.inference import NativeTextInferenceEngine
 
 
 def _get_default_model_params() -> ModelParams:

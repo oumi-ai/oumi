@@ -7,9 +7,9 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import JobStatus
-from lema.launcher.clients.local_client import LocalClient
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import JobStatus
+from oumi.launcher.clients.local_client import LocalClient
 
 
 #
@@ -17,31 +17,31 @@ from lema.launcher.clients.local_client import LocalClient
 #
 @pytest.fixture
 def mock_time():
-    with patch("lema.launcher.clients.local_client.time") as time_mock:
+    with patch("oumi.launcher.clients.local_client.time") as time_mock:
         yield time_mock
 
 
 @pytest.fixture
 def mock_thread():
-    with patch("lema.launcher.clients.local_client.Thread") as thread_mock:
+    with patch("oumi.launcher.clients.local_client.Thread") as thread_mock:
         yield thread_mock
 
 
 @pytest.fixture
 def mock_popen():
-    with patch("lema.launcher.clients.local_client.Popen") as popen_mock:
+    with patch("oumi.launcher.clients.local_client.Popen") as popen_mock:
         yield popen_mock
 
 
 @pytest.fixture
 def mock_os():
-    with patch("lema.launcher.clients.local_client.os") as os_mock:
+    with patch("oumi.launcher.clients.local_client.os") as os_mock:
         yield os_mock
 
 
 @pytest.fixture
 def mock_datetime():
-    with patch("lema.launcher.clients.local_client.datetime") as datetime_mock:
+    with patch("oumi.launcher.clients.local_client.datetime") as datetime_mock:
         yield datetime_mock
 
 

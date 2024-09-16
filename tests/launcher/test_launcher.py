@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from lema.core.configs import JobConfig, JobResources, StorageMount
-from lema.core.launcher import BaseCloud, BaseCluster, JobStatus
-from lema.launcher.launcher import (
+from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
+from oumi.launcher.launcher import (
     LAUNCHER,
     Launcher,
     down,
@@ -22,7 +22,7 @@ from lema.launcher.launcher import (
 #
 @pytest.fixture
 def mock_registry():
-    with patch("lema.launcher.launcher.REGISTRY") as registry:
+    with patch("oumi.launcher.launcher.REGISTRY") as registry:
         yield registry
 
 

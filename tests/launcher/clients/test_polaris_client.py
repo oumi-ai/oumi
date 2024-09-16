@@ -7,8 +7,8 @@ from unittest.mock import Mock, call, patch
 import pexpect
 import pytest
 
-from lema.core.launcher import JobStatus
-from lema.launcher.clients.polaris_client import PolarisClient
+from oumi.core.launcher import JobStatus
+from oumi.launcher.clients.polaris_client import PolarisClient
 
 
 #
@@ -16,26 +16,26 @@ from lema.launcher.clients.polaris_client import PolarisClient
 #
 @pytest.fixture
 def mock_subprocess_no_init():
-    with patch("lema.launcher.clients.polaris_client.subprocess") as sp:
+    with patch("oumi.launcher.clients.polaris_client.subprocess") as sp:
         yield sp
 
 
 @pytest.fixture
 def mock_pexpect():
-    with patch("lema.launcher.clients.polaris_client.pexpect") as px:
+    with patch("oumi.launcher.clients.polaris_client.pexpect") as px:
         yield px
 
 
 @pytest.fixture
 def mock_auth():
-    with patch("lema.launcher.clients.polaris_client.getpass") as mock_getpass:
+    with patch("oumi.launcher.clients.polaris_client.getpass") as mock_getpass:
         mock_getpass.return_value = "password"
         yield mock_getpass
 
 
 @pytest.fixture
 def mock_subprocess():
-    with patch("lema.launcher.clients.polaris_client.subprocess") as sp:
+    with patch("oumi.launcher.clients.polaris_client.subprocess") as sp:
         sp.TimeoutExpired = subprocess.TimeoutExpired
         mock_child = Mock()
         sp.run.return_value = mock_child

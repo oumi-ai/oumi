@@ -4,7 +4,7 @@ from typing import NamedTuple, Optional
 import pytest
 import torch
 
-from lema.performance.mfu import (
+from oumi.performance.mfu import (
     calculate_mfu,
     calculate_mfu_from_model_flops_per_second,
 )
