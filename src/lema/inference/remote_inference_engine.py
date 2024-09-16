@@ -102,7 +102,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 for message in conversation.messages
             ],
             "max_completion_tokens": generation_config.max_new_tokens,
-            "n": 1,
+            "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_config.seed,
         }
 
