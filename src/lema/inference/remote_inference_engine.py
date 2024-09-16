@@ -161,7 +161,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 headers["Authorization"] = f"Bearer {generation_config.api_key}"
             retries = 0
             # Retry the request if it fails.
-            while True:
+            for _ in range(generation_config.max_retries + 1):
                 async with session.post(
                     generation_config.api_url,
                     json=openai_input,
@@ -177,12 +177,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         return result
                     else:
                         retries += 1
-                        if retries > generation_config.max_retries:
-                            raise RuntimeError(
-                                "Failed to query API after "
-                                f"{generation_config.max_retries} retries."
-                            )
                         await asyncio.sleep(generation_config.politeness_policy)
+            raise RuntimeError(
+                "Failed to query API after " f"{generation_config.max_retries} retries."
+            )
 
     async def _infer(
         self, input: List[Conversation], generation_config: GenerationConfig
