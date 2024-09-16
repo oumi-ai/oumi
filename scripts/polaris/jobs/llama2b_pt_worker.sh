@@ -162,8 +162,7 @@ else
       "$TRAIN_DATASETS" \
       $SHARED_TRAINING_PARAMS \
       "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.optimizer=sgd" \
-      "training.sgd_momentum=0.9" \
+      "training.optimizer=adamw_torch_fused" \
       "training.per_device_train_batch_size=14" \
       "training.gradient_accumulation_steps=19"
 fi

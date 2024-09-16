@@ -12,45 +12,29 @@ model:
   # Weight tying: False
   # Model max length: 131072 (initially trained with 8192)
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-  model_max_length: 4096
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  load_pretrained_weights: False
+  load_pretrained_weights: True
   trust_remote_code: True
   # Improves training speed by 20% with default config.
-  # enable_liger_kernel: True
+  enable_liger_kernel: True
 
-# data:
-#   train:
-#     datasets:
-#       - dataset_name: "yahma/alpaca-cleaned"
-#         preprocessing_function_name: "alpaca"
-#     target_col: "prompt"
-#     experimental_use_async_dataset: True
 data:
   train:
     datasets:
-      - dataset_name: "HuggingFaceFW/fineweb-edu"
-        subset: "sample-10BT"
-        split: "train"
-      # Polaris copy of the dataset:
-      # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
-      #   subset: "default"
-      #   split: "train"
-    stream: True
-    pack: True
-    target_col: "text"
+      - dataset_name: "yahma/alpaca-cleaned"
+        preprocessing_function_name: "alpaca"
+    target_col: "prompt"
     experimental_use_async_dataset: True
 
 training:
   trainer_type: TRL_SFT
-  save_steps: 0
-  max_steps: 20
+  save_steps: 800
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
 
-  # Don't enable here; set to true in the accelerate config
   enable_gradient_checkpointing: False
   ddp_find_unused_parameters: False
   gradient_checkpointing_kwargs:
