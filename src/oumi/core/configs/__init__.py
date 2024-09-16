@@ -75,6 +75,7 @@ from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
+from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import (
     MixedPrecisionDtype,
@@ -103,6 +104,7 @@ __all__ = [
     "ModelParams",
     "PeftParams",
     "ProfilerParams",
+    "RemoteParams",
     "SchedulerType",
     "StorageMount",
     "TelemetryParams",

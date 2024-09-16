@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
+
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.params.remote_params import RemoteParams
 
 
 @dataclass
@@ -29,3 +32,33 @@ class GenerationConfig(BaseConfig):
 
     output_filepath: Optional[str] = None
     """Path where the generated text will be saved."""
+
+    seed: Optional[int] = None
+    """Seed to use for random number determinism.
+    If specified, APIs may use this parameter to make a best-effort at determinism.
+    """
+
+    remote_params: Optional[RemoteParams] = None
+    """Parameters for running inference against a remote API."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if self.remote_params is not None:
+            if not self.remote_params.api_url:
+                raise ValueError("The API URL must be provided in remote_params.")
+            if self.remote_params.num_workers < 1:
+                raise ValueError(
+                    "Number of num_workers must be greater than or equal to 1."
+                )
+            if self.remote_params.politeness_policy < 0:
+                raise ValueError(
+                    "Politeness policy must be greater than or equal to 0."
+                )
+            if self.remote_params.connection_timeout < 0:
+                raise ValueError(
+                    "Connection timeout must be greater than or equal to 0."
+                )
+            if not np.isfinite(self.remote_params.politeness_policy):
+                raise ValueError("Politeness policy must be finite.")
+            if self.remote_params.max_retries < 0:
+                raise ValueError("Max retries must be greater than or equal to 0.")
