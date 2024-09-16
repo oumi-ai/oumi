@@ -144,6 +144,13 @@ class TrainingParams(BaseParams):
     `fsdp_config.fsdp_activation_checkpointing` to true in the accelerate yaml config.
     """
 
+    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments for gradient checkpointing.
+
+    The `use_reentrant` parameter is required and is recommended to be set to False.
+    For more details, see: https://pytorch.org/docs/stable/checkpoint.html
+    """
+
     output_dir: str = "output"
     """Directory where the output files will be saved.
 
@@ -412,13 +419,6 @@ class TrainingParams(BaseParams):
 
     Only used when optimizer is set to "sgd".
     Default is 0.9.
-    """
-
-    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
-    """Keyword arguments for gradient checkpointing.
-
-    The `use_reentrant` parameter is required and is recommended to be set to False.
-    For more details, see: https://pytorch.org/docs/stable/checkpoint.html
     """
 
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
