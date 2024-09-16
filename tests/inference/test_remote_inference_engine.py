@@ -110,6 +110,18 @@ def test_infer_online():
         assert expected_result == result
 
 
+def test_infer_no_remote_params():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    with pytest.raises(
+        ValueError, match="Remote params must be provided in generation_config."
+    ):
+        engine.infer_online([], GenerationConfig())
+    with pytest.raises(
+        ValueError, match="Remote params must be provided in generation_config."
+    ):
+        engine.infer_from_file("path", GenerationConfig())
+
+
 def test_infer_online_empty():
     engine = RemoteInferenceEngine(_get_default_model_params())
     expected_result = []

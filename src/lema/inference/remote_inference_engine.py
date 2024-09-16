@@ -219,7 +219,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        assert generation_config.remote_params
+        if not generation_config.remote_params:
+            raise ValueError("Remote params must be provided in generation_config.")
         conversations = asyncio.run(
             self._infer(input, generation_config, generation_config.remote_params)
         )
@@ -244,7 +245,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        assert generation_config.remote_params
+        if not generation_config.remote_params:
+            raise ValueError("Remote params must be provided in generation_config.")
         input = self._read_conversations(input_filepath)
         conversations = asyncio.run(
             self._infer(input, generation_config, generation_config.remote_params)
