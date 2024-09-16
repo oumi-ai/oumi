@@ -40,3 +40,24 @@ def save_json(
     file_path = Path(filename)
     with file_path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=indent, ensure_ascii=False)
+
+
+def load_file(filename: Union[str, Path], encoding: str = "utf-8") -> str:
+    """Load a file as a string.
+
+    Args:
+        filename: Path to the file.
+        encoding: Encoding to use when reading the file. Defaults to "utf-8".
+
+    Returns:
+        str: The content of the file.
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist.
+    """
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"The file {filename} does not exist.")
+
+    with file_path.open("r", encoding=encoding) as file:
+        return file.read()

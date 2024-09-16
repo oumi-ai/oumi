@@ -1,25 +1,22 @@
 import argparse
-import pathlib
 import random
 import time
-from typing import Any, Callable, List, Optional
+from pathlib import Path
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from lema.builders import (
-    build_dataset,
+    build_dataset_mixture,
     build_metrics_function,
     build_model,
     build_peft_model,
     build_tokenizer,
     build_trainer,
+    build_training_callbacks,
 )
-from lema.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
-from lema.core.callbacks.mfu_callback import MfuTrainerCallback
-from lema.core.callbacks.profiler_step_callback import ProfilerStepCallback
-from lema.core.callbacks.telemetry_callback import TelemetryCallback
 from lema.core.configs import DatasetSplit, TrainerType, TrainingConfig
 from lema.core.distributed import (
     barrier,
@@ -29,6 +26,7 @@ from lema.core.distributed import (
     init_distributed,
     is_distributed,
     is_local_process_zero,
+    is_world_process_zero,
     verify_torch_distributed_initialized_if_needed,
 )
 from lema.core.trainers import BaseTrainer
@@ -37,9 +35,9 @@ from lema.utils.debugging_utils import (
     log_nvidia_gpu_memory_utilization,
     log_nvidia_gpu_temperature,
 )
+from lema.utils.io_utils import save_json
 from lema.utils.logging import configure_logger, logger
 from lema.utils.torch_utils import (
-    count_model_parameters,
     device_cleanup,
     limit_per_process_memory,
     log_devices_info,
@@ -113,19 +111,52 @@ def _find_checkpoint_to_resume_from(
     return None
 
 
-def _ensure_training_output_dir_exists(output_dir: str) -> None:
+def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -> None:
     if not output_dir:
-        raise ValueError("training.output_dir is not specified!")
-    output_dir_path: pathlib.Path = pathlib.Path(output_dir)
+        raise ValueError(f"{human_readable_name} is not specified!")
+    output_dir_path: Path = Path(output_dir)
     if output_dir_path.exists():
         if not output_dir_path.is_dir():
-            raise ValueError(f"training.output_dir='{output_dir}' is not a directory!")
-    else:
-        logger.info(f"Creating output dir: {output_dir}...")
+            raise ValueError(
+                f"{human_readable_name}='{output_dir}' is not a directory!"
+            )
+    elif is_local_process_zero():
+        logger.info(f"Creating {human_readable_name}: {output_dir}...")
         output_dir_path.mkdir(parents=True, exist_ok=True)
-    logger.info(
-        f"Training output dir absolute path : {str(output_dir_path.absolute())}"
-    )
+        logger.info(
+            f"Created {human_readable_name} "
+            f"absolute path: {str(output_dir_path.absolute())}"
+        )
+
+
+def _create_training_dirs(config: TrainingConfig) -> None:
+    """Creates misc directoris referenced in config."""
+    _ensure_dir_exists(config.training.output_dir, "training.output_dir")
+    telemetry_dir = config.training.telemetry_dir
+    if telemetry_dir:
+        _ensure_dir_exists(telemetry_dir, "training.telemetry_dir")
+
+
+def _log_training_info(config: TrainingConfig) -> None:
+    """Logs misc infos about training config/devices/etc. Writes to files."""
+    telemetry_dir = config.training.telemetry_dir
+    if telemetry_dir and is_world_process_zero():
+        device_rank_info = get_device_rank_info()
+        save_json(
+            {
+                "LOCAL_WORLD_SIZE": device_rank_info.local_world_size,
+                "WORLD_SIZE": device_rank_info.world_size,
+            },
+            telemetry_dir / "world_size.json",
+        )
+
+    if is_local_process_zero():
+        log_versioning_info()
+        log_devices_info(
+            (telemetry_dir / "devices_info.txt")
+            if telemetry_dir and is_world_process_zero()
+            else None
+        )
 
 
 def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
@@ -171,73 +202,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
-def _create_training_performance_callbacks_if_needed(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
-) -> List[Any]:
-    result = []
-    if not config.training.include_performance_metrics:
-        return result
-
-    if profiler is not None:
-        result.append(ProfilerStepCallback(profiler=profiler))
-    elif config.training.profiler.schedule.enable_schedule:
-        logger.warning(
-            "Scheduled profiling is requested, but profiler is not available!"
-        )
-
-    telemetry_dir: Optional[pathlib.Path] = config.training.telemetry_dir
-    if telemetry_dir and is_local_process_zero():
-        telemetry_dir.mkdir(parents=True, exist_ok=True)
-
-    result.append(
-        TelemetryCallback(
-            skip_first_steps=2,
-            world_process_zero_only=(
-                not config.training.telemetry.collect_telemetry_for_all_ranks
-            ),
-            output_dir=telemetry_dir,
-            track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
-        )
-    )
-
-    if not torch.cuda.is_available():
-        logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
-        return result
-    elif config.training.use_peft:
-        logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
-        return result
-
-    if config.model.model_max_length is not None and config.model.model_max_length > 0:
-        num_total_params = count_model_parameters(model)
-        num_mfu_params = num_total_params.all_params - num_total_params.embedding_params
-        logger.info(f"Number of model parameters for MFU: {num_mfu_params:,}")
-        # Ignore attention and rematerialization to ensure metric matches most
-        # common implementations.
-        mfu_callback = MfuTrainerCallback(
-            dtype=model.dtype,
-            num_params=num_mfu_params,
-            sequence_length=config.model.model_max_length,
-        )
-        result.append(mfu_callback)
-    else:
-        logger.warning(
-            "model_max_length must be set to log MFU performance information."
-        )
-
-    if (
-        config.training.include_alternative_mfu_metrics
-        and config.training.trainer_type
-        in (
-            TrainerType.TRL_SFT,
-            TrainerType.TRL_DPO,
-            TrainerType.HF,
-        )
-    ):
-        result.append(HfMfuTrainerCallback(dtype=model.dtype))
-
-    return result
-
-
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -245,17 +209,21 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
-    if is_local_process_zero():
-        log_versioning_info()
-        log_devices_info()
-        log_training_config(config)
-        _ensure_training_output_dir_exists(config.training.output_dir)
+    _create_training_dirs(config)
+    _log_training_info(config)
 
     # Configure logging to file
-    log_dir = pathlib.Path(config.training.output_dir) / "logs"
+    log_dir = Path(config.training.output_dir) / "logs"
     configure_logger("lema", level=config.training.log_level, log_dir=log_dir)
 
+    telemetry_dir = config.training.telemetry_dir
+
     config = _finalize_training_config(config)
+
+    if is_local_process_zero():
+        log_training_config(config)
+        if telemetry_dir and is_world_process_zero():
+            config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
@@ -276,9 +244,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, config.training.enable_gradient_checkpointing, config.peft
         )
 
-    if config.training.log_model_summary:
-        if is_local_process_zero():
-            log_model_summary(model)
+    if config.training.log_model_summary and is_local_process_zero():
+        log_model_summary(
+            model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
+        )
 
     # Enable gradient checkpointing
     if config.training.enable_gradient_checkpointing:
@@ -287,11 +256,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     # Load data & preprocessing
-    dataset = build_dataset(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset(config, tokenizer, DatasetSplit.VALIDATION)
+        eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
@@ -309,6 +278,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
             kwargs = {}
             if config.training.trainer_type == TrainerType.LEMA:
                 kwargs["fsdp_params"] = config.fsdp
+
+            callbacks = build_training_callbacks(config, model, profiler)
+
             trainer = create_trainer_fn(
                 model=model,
                 tokenizer=tokenizer,
@@ -316,9 +288,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
-                callbacks=_create_training_performance_callbacks_if_needed(
-                    config, model, profiler
-                ),
+                callbacks=callbacks,
                 **kwargs,
             )
 

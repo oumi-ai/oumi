@@ -4,7 +4,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -12,7 +12,8 @@ import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-import wandb
+
+import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -60,12 +61,14 @@ class Trainer(BaseTrainer):
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
+        data_collator: Optional[Callable] = None,
         fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
     ):
         """Initializes the LeMa trainer."""
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
+        self.collator_fn = data_collator
 
         self.model = model
         self.tokenizer = tokenizer
@@ -327,7 +330,7 @@ class Trainer(BaseTrainer):
                             "tokens_per_step_per_gpu": self.state.total_tokens_seen
                             / self.state.global_step,
                         }
-                        callback_metrics = self._process_callbacks("on_log")
+                        callback_metrics = self._process_callbacks("on_log", metrics)
                         metrics.update(callback_metrics)
 
                         self.log_metrics(metrics, self.state.global_step)
@@ -625,6 +628,7 @@ class Trainer(BaseTrainer):
             prefetch_factor=prefetch_factor,
             pin_memory_device=self.device,
             snapshot_every_n_steps=self.params.save_steps,
+            collate_fn=self.collator_fn,
         )
 
     def _get_eval_dataloader(self) -> DataLoader:
@@ -639,6 +643,7 @@ class Trainer(BaseTrainer):
             batch_size=self.params.per_device_eval_batch_size,
             shuffle=False,
             num_workers=self.params.dataloader_num_workers,
+            collate_fn=self.collator_fn,
         )
 
     def _get_total_training_steps(self) -> int:
@@ -654,13 +659,15 @@ class Trainer(BaseTrainer):
     #
     # Handle callbacks
     #
-    def _process_callbacks(self, event: str) -> Dict[str, Any]:
+    def _process_callbacks(
+        self, event: str, logs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.
         Just here to unblock debugging with our MfuCallback
         """
-        logs = {}
+        logs = logs or {}
 
         for callback in self.callbacks:
             if hasattr(callback, event):
