@@ -69,3 +69,11 @@ Note: this is using the `git` cli, but you can also use the GitHub CLI (`gh`) or
     ```shell
     git push
     ```
+
+## pre-commit
+
+   You can run the pre-commit hooks manually with:
+
+   ```shell
+   pre-commit run --all-files
+   ```
