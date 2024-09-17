@@ -3,15 +3,15 @@
 At a high level, this is the pseudo code for a Pytorch training loop:
 
 ```python
-# The LeMa config defines everything required to train a model.
+# The OUMI config defines everything required to train a model.
 # The config is immutable and serializable.
 config = load_config()
 
-# The first major component: LemaDataset
-# A LeMa dataset object implements the pytorch dataset spec.
+# The first major component: OumiDataset
+# An OUMI dataset object implements the pytorch dataset spec.
 # A dataset can be either a map-style dataset (`torch.utils.data.Dataset`, or an iterable-style dataset (`torch.utils.data.IterableDataset`), or both.
 # It can be either streamed, or fully loaded in memory.
-dataset = LemaDataset(config.data)  # Pytorch Dataset object
+dataset = OumiDataset(config.data)  # Pytorch Dataset object
 
 sample = dataset[0] # Load and preprocess an individual training sample
 # Each sample contains both the model inputs, and optionally any labels required to compute the loss and/or metrics.
@@ -48,22 +48,22 @@ Digging deeper into the model itself, here is a simple model definition. In this
 
 Each lines is annotated with the relevant information:
 
-- [LeMa] means this is a LeMa-specific decision, which we can revisit as we see fit.
+- [OUMI] means this is a OUMI-specific decision, which we can revisit as we see fit.
 - [PT] means this is a Pytorch-specific requirement. We need a strong reason to deviate from this.
 - [HF] means this is a Huggingface-specific requirement. We can revisit if the tradeoff is worth it.
 
 ```python
-# [LeMa] We will use Pytorch as the base library for our models
-# [LeMa] We will aim to keep maximal compatibility with Native Pytorch
-# [LeMa] We will aim to keep moderate compatibility with Huggingface Transformers
+# [OUMI] We will use Pytorch as the base library for our models
+# [OUMI] We will aim to keep maximal compatibility with Native Pytorch
+# [OUMI] We will aim to keep moderate compatibility with Huggingface Transformers
 class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
     def __init__(self, *args, **kwargs):
         # [PT] *args and **kwargs contain all the argments needed to build the model scaffold
         # [PT] weights should not be loaded, or moved to devices at this point
         super(SimpleModel, self).__init__()
 
-        # [LeMa]: Keep free-form args and kwargs at this time.
-        # [LeMa] Downstream (more opinionated models) can use structured config file that inherits from a dict.
+        # [OUMI]: Keep free-form args and kwargs at this time.
+        # [OUMI] Downstream (more opinionated models) can use structured config file that inherits from a dict.
 
         self.conv1 = nn.Conv2d(1, 20, 5)
         self.conv2 = nn.Conv2d(20, 20, 5)
@@ -73,7 +73,7 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
         # [PT] forward function is required for all Pytorch models
         # [PT] It needs to be able to consume all the outputs from the dataloader
         # [PT] It needs to be able to consume either a batch or individual samples.
-        # [Lema] For simplicity we exclusively use batched inputs
+        # [OUMI] For simplicity we exclusively use batched inputs
 
         # [HF] To be compatible with HF trainers,
         # [HF] labels are optional, and are only used during training
@@ -88,13 +88,13 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
             loss = None
 
         # Can technically be a Tuple or a Dict
-        # [LeMa]: Keep free-form args and kwargs at this time.
+        # [OUMI]: Keep free-form args and kwargs at this time.
         # Downstream (more opinionated models) can use structured config file that inherits from a dict.
         return {"outputs": outputs, "loss": loss}
 
     @property
     def criterion(self):
-        # [LeMa] Keep loss function as an attribute
+        # [OUMI] Keep loss function as an attribute
         return nn.CrossEntropyLoss()
 
     #

@@ -3,12 +3,12 @@
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
 ```shell
-pip install 'lema[cloud]'
+pip install 'oumi[cloud]'
 ```
 
 Then setup your cloud credentials:
 
-- [Google Cloud](https://github.com/openlema/lema/wiki/Clouds-Setup)
+- [Google Cloud](https://github.com/oumi-ai/oumi/wiki/Clouds-Setup)
 - [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod)
 - [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
 
@@ -35,7 +35,7 @@ You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), 
 To launch a job on the cloud, you can use the following command:
 
 ```shell
-sky launch -c lema-cluster configs/skypilot/sky_gpt2.yaml
+sky launch -c oumi-cluster configs/skypilot/sky_gpt2.yaml
 ```
 
 To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
@@ -43,17 +43,17 @@ To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`
 Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
 
 ```shell
-sky exec -c lema-cluster configs/skypilot/sky_gpt2.yaml
+sky exec -c oumi-cluster configs/skypilot/sky_gpt2.yaml
 ```
 
 If you made any code changes to the codebase (not including configs), you need to run
 `pip install '.[train]'` in the `run` section of the SkyPilot config to install the
 changes on the cluster.
 
-Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down lema-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
+Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down oumi-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
 
 ```shell
-sky autostop lema-cluster -i 10
+sky autostop oumi-cluster -i 10
 ```
 
 Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).

@@ -16,7 +16,7 @@ Note: this is using the `git` cli, but you can also use the GitHub CLI (`gh`) or
 1. If not done already, clone the repository:
 
     ```shell
-    git clone https://github.com/openlema/lema
+    git clone https://github.com/oumi-ai/oumi
     ```
 
     OR if you already have cloned the repository, make sure you are in the main branch and pull the latest changes:
