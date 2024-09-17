@@ -20,7 +20,7 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
   /dataset_parent_dir:
-    source: gs://lema-dev-europe-west4/
+    source: gs://oumi-dev-europe-west4/
     store: gcs
     mode: MOUNT
 
