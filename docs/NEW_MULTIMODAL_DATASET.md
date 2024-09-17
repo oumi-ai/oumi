@@ -3,18 +3,18 @@
 This tutorial will guide you through the process of implementing a new Vision-Language dataset. We'll create a generic dataset called "NewVisionLanguageDataset" that can be adapted for various vision-language tasks.
 
 **Note:**
-If your dataset is already in the `lema` jsonl format, you can skip this step and simply use the `vision_language_jsonl` dataset.
+If your dataset is already in the `oumi` jsonl format, you can skip this step and simply use the `vision_language_jsonl` dataset.
 
 ## Step 1: Set Up the Dataset File
 
-1. Create a new file in the `src/lema/datasets/vision_language/` directory. Let's call it `new_vision_language_dataset.py`.
+1. Create a new file in the `src/oumi/datasets/vision_language/` directory. Let's call it `new_vision_language_dataset.py`.
 
 2. Import the necessary modules:
 
 ```python
-from lema.core.datasets import VisionLanguageSftDataset
-from lema.core.registry import register_dataset
-from lema.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.datasets import VisionLanguageSftDataset
+from oumi.core.registry import register_dataset
+from oumi.core.types.turn import Conversation, Message, Role, Type
 ```
 
 ## Step 2: Define the Dataset Class
@@ -62,10 +62,10 @@ Message(role=Role.USER, binary=image_source, type=Type.IMAGE_BINARY)
 
 ## Step 4: Register the Dataset
 
-Ensure your dataset is registered in `src/lema/datasets/__init__.py`:
+Ensure your dataset is registered in `src/oumi/datasets/__init__.py`:
 
 ```python
-from lema.datasets.vision_language.new_vision_language_dataset import NewVisionLanguageDataset
+from oumi.datasets.vision_language.new_vision_language_dataset import NewVisionLanguageDataset
 
 __all__ = [
     # ... other datasets ...
@@ -110,7 +110,7 @@ Create a test file in the `tests/datasets/` directory, e.g., `test_new_vision_la
 
 ```python
 import pytest
-from lema.datasets import NewVisionLanguageDataset
+from oumi.datasets import NewVisionLanguageDataset
 
 def test_new_vision_language_dataset():
     dataset = NewVisionLanguageDataset(split="train")

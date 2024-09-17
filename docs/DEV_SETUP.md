@@ -4,11 +4,11 @@
 
    <https://docs.anaconda.com/free/miniconda/miniconda-install/>
 
-## 2. Create a new environment for LeMa and activate it
+## 2. Create a new environment for OUMI and activate it
 
    ```shell
-   conda create -n lema python=3.11
-   conda activate lema
+   conda create -n oumi python=3.11
+   conda activate oumi
    ```
 
 ## 3. Install GitHub CLI
@@ -48,16 +48,16 @@
    git config --global user.email YOUR_USERNAME@learning-machines.ai
    ```
 
-## 6. Clone the LeMa repository
+## 6. Clone the OUMI repository
 
    ```shell
-   gh repo clone openlema/lema
+   gh repo clone oumi-ai/oumi
    ```
 
-## 7. Install LeMa package and its dependencies
+## 7. Install OUMI package and its dependencies
 
    ```shell
-   cd lema
+   cd oumi
    pip install -e '.[all]'
    ```
 
@@ -79,17 +79,17 @@
    pre-commit run --all-files
    ```
 
-## 9. [optional] Add a LeMa shortcut in your environment {.zshrc or .bashrc}
+## 9. [optional] Add a OUMI shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
-   alias lema="cd ~/<YOUR_PATH>/lema && conda activate lema"
+   alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
    ```
 
    Ensure that this works with:
 
    ```shell
    source ~/{.zshrc or .bashrc}
-   lema
+   oumi
    ```
 
 ## 10. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
