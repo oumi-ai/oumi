@@ -71,7 +71,7 @@ html_show_sphinx = False
 html_static_path = ["_static"]
 html_theme_options = {
     "navigation_with_keys": True,
-    "repository_url": "https://github.com/openlema/lema",
+    "repository_url": "https://github.com/oumi-ai/oumi",
     "use_repository_button": True,
     "repository_branch": "main",
     "show_toc_level": 3,
