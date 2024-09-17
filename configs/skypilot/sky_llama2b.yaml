@@ -14,8 +14,8 @@ file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
 
 envs:
-  WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: llama2b.pt
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama2b.pt
 
 setup: |
   set -e
@@ -28,14 +28,14 @@ run: |
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
+      --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/llama2b.pt.yaml \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.per_device_train_batch_size=4" \
       "training.gradient_accumulation_steps=64" \
       "training.compile=true" \

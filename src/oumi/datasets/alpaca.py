@@ -66,8 +66,8 @@ class AlpacaDataset(BaseLMSftDataset):
 #
 # Deprecated
 #
-def _convert_to_lema_format(example: dict) -> dict:
-    """Converts the input example to the LeMa format."""
+def _convert_to_oumi_format(example: dict) -> dict:
+    """Converts the input example to the OUMI format."""
     messages = []
     metadata = {}
 
@@ -104,7 +104,7 @@ def alpaca_preprocessing_fn(
     """
 
     def prompt_generation_fn(sample) -> dict:
-        sample = _convert_to_lema_format(sample)
+        sample = _convert_to_oumi_format(sample)
         results = apply_chat_template(sample, tokenizer=tokenizer, task="sft")
         return results
 

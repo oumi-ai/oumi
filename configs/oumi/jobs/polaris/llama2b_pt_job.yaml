@@ -6,7 +6,7 @@ num_nodes: 2
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher/llama2b_pt_job.
+# Upload working directory to /home/$USER/oumi_launcher/llama2b_pt_job.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
@@ -25,12 +25,12 @@ run: |
   # Various setup for running on Polaris.
   source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
-  echo "Starting training with ${LEMA_NUM_NODES} node(s)..."
+  echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
 
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
-      --np $LEMA_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+      --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
       ./scripts/polaris/jobs/llama2b_pt_worker.sh -m fsdp
 
-  echo -e "Finished training on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"

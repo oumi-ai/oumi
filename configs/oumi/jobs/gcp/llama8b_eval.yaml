@@ -20,17 +20,17 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 storage_mounts:
-  # See https://github.com/openlema/lema/wiki/Clouds-Setup#mounting-gcs-buckets
+  # See https://github.com/oumi-ai/oumi/wiki/Clouds-Setup#mounting-gcs-buckets
   # for documentation on using GCS buckets.
   /output_dir_gcs:
     source: gs://lema-dev-us-central1
     store: gcs
 
 envs:
-  WANDB_PROJECT: lema-eval
+  WANDB_PROJECT: oumi-eval
   # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
-  LEMA_EVALUATION_FRAMEWORK: lm_harness # Valid values: "lm_harness", "lema"
+  OUMI_EVALUATION_FRAMEWORK: lm_harness # Valid values: "lm_harness", "oumi"
 
 setup: |
   set -e
@@ -53,29 +53,29 @@ run: |
   echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
   set -x # Enable command tracing.
-  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
+  TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
 
-  if [ "$LEMA_EVALUATION_FRAMEWORK" == "lm_harness" ]; then
+  if [ "$OUMI_EVALUATION_FRAMEWORK" == "lm_harness" ]; then
     accelerate launch \
       --num_processes=${TOTAL_NUM_GPUS} \
-      --num_machines=${LEMA_NUM_NODES} \
+      --num_machines=${OUMI_NUM_NODES} \
       --machine_rank=${SKYPILOT_NODE_RANK} \
-      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       -m oumi.evaluate  \
       -c configs/oumi/llama8b.eval.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
-  elif [ "$LEMA_EVALUATION_FRAMEWORK" == "lema" ]; then
+  elif [ "$OUMI_EVALUATION_FRAMEWORK" == "oumi" ]; then
     echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
-    if test ${LEMA_NUM_NODES} -ne 1; then
-      echo "Legacy evaluation can only run on 1 node. Actual: ${LEMA_NUM_NODES} nodes."
+    if test ${OUMI_NUM_NODES} -ne 1; then
+      echo "Legacy evaluation can only run on 1 node. Actual: ${OUMI_NUM_NODES} nodes."
       exit 1
     fi
     python -m oumi.evaluate \
       -c configs/oumi/llama8b.eval.legacy.yaml \
       "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
   else
-    echo "Unknown evaluation framework: ${LEMA_EVALUATION_FRAMEWORK}"
+    echo "Unknown evaluation framework: ${OUMI_EVALUATION_FRAMEWORK}"
     exit 1
   fi
 

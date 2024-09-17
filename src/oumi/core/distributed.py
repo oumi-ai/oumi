@@ -262,7 +262,7 @@ def prepare_model_for_distributed(
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
     """
-    logger = logging.getLogger("lema")
+    logger = logging.getLogger("oumi")
 
     device_rank_info = get_device_rank_info()
 

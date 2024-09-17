@@ -5,7 +5,7 @@ import tempfile
 import pytest
 import torch
 
-from oumi import evaluate_lema, evaluate_lm_harness
+from oumi import evaluate_lm_harness, evaluate_oumi
 from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
@@ -16,7 +16,7 @@ from oumi.core.configs import (
 from oumi.evaluate import SAVE_FILENAME_JSON
 
 
-def test_evaluate_lema():
+def test_evaluate_oumi():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         output_file = os.path.join(
@@ -37,11 +37,11 @@ def test_evaluate_lema():
                 model_name="openai-community/gpt2",
                 trust_remote_code=True,
             ),
-            evaluation_framework=EvaluationFramework.LEMA,
+            evaluation_framework=EvaluationFramework.OUMI,
             num_samples=4,
         )
 
-        evaluate_lema(config)
+        evaluate_oumi(config)
         with open(output_file, encoding="utf-8") as f:
             computed_metrics = json.load(f)
             # expected metrics: {"accuracy": 0.0}

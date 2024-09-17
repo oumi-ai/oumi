@@ -19,8 +19,8 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
-  WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: llama70b.lora
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama70b.lora
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
@@ -38,19 +38,19 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
+  TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
   set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
-      --num_machines ${LEMA_NUM_NODES} \
+      --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
       --num_processes ${TOTAL_NUM_GPUS} \
-      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/llama70b.lora.yaml \
       -m oumi.train \
       -c configs/oumi/llama70b.lora.yaml \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
       "training.save_steps=10" \
       "training.save_final_model=true"

@@ -15,7 +15,7 @@ resources:
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
   any_of:
-    - use_spot: true  # See https://github.com/openlema/lema/wiki/Clouds-Setup#spot-vms-on-gcp
+    - use_spot: true  # See https://github.com/oumi-ai/oumi/wiki/Clouds-Setup#spot-vms-on-gcp
     - use_spot: false
 
 # Upload working directory to remote ~/sky_workdir.
@@ -24,13 +24,10 @@ workdir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: phi3.dpo.nvidia.24g
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: phi3.dpo.nvidia.24g
 
 setup: |
   set -e
@@ -43,14 +40,14 @@ run: |
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
+      --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/phi3.dpo.nvidia.24g.yaml \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \
       "training.enable_tensorboard=true" \

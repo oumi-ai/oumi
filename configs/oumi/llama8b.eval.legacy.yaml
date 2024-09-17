@@ -1,4 +1,4 @@
-# Eval config for Llama 8B Instruct using the LEMA evaluation framework (deprecated).
+# Eval config for Llama 8B Instruct using the OUMI evaluation framework (deprecated).
 # Use LM_HARNESS config instead: configs/oumi/llama8b.eval.yaml
 
 model:
@@ -18,7 +18,7 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
 
-evaluation_framework: LEMA
+evaluation_framework: OUMI
 data:
   datasets:
     - dataset_name: "cais/mmlu"

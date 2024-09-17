@@ -15,9 +15,9 @@ file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
 
 envs:
-  WANDB_PROJECT: lema-train
+  WANDB_PROJECT: oumi-train
   HF_TOKEN: null # forces the user to pass it
-  LEMA_RUN_NAME: chatqa.stage2
+  OUMI_RUN_NAME: chatqa.stage2
 
 setup: |
   set -e
@@ -30,14 +30,14 @@ run: |
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
+      --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/chatqa/chatqa.stage2.yaml \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.ddp_find_unused_parameters=false" \
       "training.dataloader_num_workers=2" \
       "training.dataloader_prefetch_factor=4" \

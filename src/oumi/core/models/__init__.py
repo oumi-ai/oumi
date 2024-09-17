@@ -1,7 +1,7 @@
-"""Core models module for the LeMa (Learning Machines) library.
+"""Core models module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides base classes for different types of models used in the
-LeMa framework.
+OUMI framework.
 
 
 See Also:

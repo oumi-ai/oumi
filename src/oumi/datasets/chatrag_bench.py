@@ -51,7 +51,7 @@ class ChatRAGBenchDataset(BaseLMSftDataset):
             raise ValueError("This dataset can only be used for evaluation tasks")
 
         # Get the test split name for this subset, which may be different
-        # from the lema user facing split.
+        # from the OUMI user facing split.
         internal_split = self._get_test_dataset_split(subset)
 
         super().__init__(

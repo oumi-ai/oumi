@@ -1,6 +1,6 @@
-"""Core trainers module for the LeMa (Learning Machines) library.
+"""Core trainers module for the OUMI (Open Unified Machine Intelligence) library.
 
-This module provides various trainer implementations for use in the LeMa framework.
+This module provides various trainer implementations for use in the OUMI framework.
 These trainers are designed to facilitate the training process for different
 types of models and tasks.
 

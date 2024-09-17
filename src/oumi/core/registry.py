@@ -122,7 +122,7 @@ REGISTRY = Registry()
 
 
 def register(registry_name: str, registry_type: RegistryType) -> Callable:
-    """Returns function to register decorated `obj` in the LeMa global registry.
+    """Returns function to register decorated `obj` in the OUMI global registry.
 
     Args:
         registry_name: The name that the object should be registered with.
@@ -141,7 +141,7 @@ def register(registry_name: str, registry_type: RegistryType) -> Callable:
 
 
 def register_dataset(registry_name: str, subset: Optional[str] = None) -> Callable:
-    """Returns function to register decorated `obj` in the LeMa global registry.
+    """Returns function to register decorated `obj` in the OUMI global registry.
 
     Args:
         registry_name: The name that the object should be registered with.
@@ -161,7 +161,7 @@ def register_dataset(registry_name: str, subset: Optional[str] = None) -> Callab
 
 
 def register_cloud_builder(registry_name: str) -> Callable:
-    """Returns a function to register decorated builder in the LeMa global registry.
+    """Returns a function to register decorated builder in the OUMI global registry.
 
     Use this decorator to register cloud builder functions in the global registry.
     A cloud builder function is a function that accepts no arguments and returns an

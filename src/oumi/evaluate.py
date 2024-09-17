@@ -36,7 +36,7 @@ def parse_cli():
 
 
 def main() -> None:
-    """Main entry point for evaluating LeMa.
+    """Main entry point for evaluating OUMI.
 
     Evaluation arguments are fetched from the following sources, ordered by
     decreasing priority:
@@ -65,8 +65,8 @@ def evaluate(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
-    if config.evaluation_framework == EvaluationFramework.LEMA:
-        evaluate_lema(config)
+    if config.evaluation_framework == EvaluationFramework.OUMI:
+        evaluate_oumi(config)
     elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
         if (
             len(config.data.datasets) == 1
@@ -81,7 +81,7 @@ def evaluate(config: EvaluationConfig) -> None:
         )
 
 
-def evaluate_lema(config: EvaluationConfig) -> None:
+def evaluate_oumi(config: EvaluationConfig) -> None:
     """Evaluates a model using the provided configuration.
 
     Overview:

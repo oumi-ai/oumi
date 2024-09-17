@@ -1,9 +1,9 @@
 # Sample command:
 # accelerate launch \
-#   --num_machines ${LEMA_NUM_NODES} \
+#   --num_machines ${OUMI_NUM_NODES} \
 #   --machine_rank ${SKYPILOT_NODE_RANK} \
-#   --num_processes $((${LEMA_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
-#   --main_process_ip ${LEMA_MASTER_ADDR} \
+#   --num_processes $((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
+#   --main_process_ip ${OUMI_MASTER_ADDR} \
 #   --main_process_port 8007 \
 #   --multi-gpu \
 #   --config_file configs/accelerate/llama.ddp.yaml \

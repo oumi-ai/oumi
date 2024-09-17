@@ -8,7 +8,7 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher/llama8b_eval.
+# Upload working directory to /home/$USER/oumi_launcher/llama8b_eval.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
@@ -33,27 +33,27 @@ run: |
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR=""
 
-  if test ${LEMA_NUM_NODES} -ne 1; then
-    echo "Evaluation can only run on 1 Polaris node. Actual: ${LEMA_NUM_NODES} nodes."
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "Evaluation can only run on 1 Polaris node. Actual: ${OUMI_NUM_NODES} nodes."
     exit 1
   fi
 
-  EVALUATION_FRAMEWORK="lm_harness" # Valid values: "lm_harness", "lema"
+  EVALUATION_FRAMEWORK="lm_harness" # Valid values: "lm_harness", "oumi"
 
   echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
   set -x # Enable command tracing.
 
-  TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * 4))
+  TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * 4))
 
   if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
       accelerate launch \
         --num_processes=${TOTAL_NUM_GPUS} \
-        --num_machines=${LEMA_NUM_NODES} \
+        --num_machines=${OUMI_NUM_NODES} \
         -m oumi.evaluate  \
         -c configs/oumi/llama8b.eval.yaml \
         "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
-  elif [ "$EVALUATION_FRAMEWORK" == "lema" ]; then
+  elif [ "$EVALUATION_FRAMEWORK" == "oumi" ]; then
       echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
       python -m oumi.evaluate \
         -c configs/oumi/llama8b.eval.legacy.yaml \
@@ -63,5 +63,5 @@ run: |
       exit 1
   fi
 
-  echo -e "Finished eval on ${LEMA_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo -e "Finished eval on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"

@@ -143,6 +143,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    update_logger_level("lema", level=args.log_level)
+    update_logger_level("oumi", level=args.log_level)
 
     main(args)

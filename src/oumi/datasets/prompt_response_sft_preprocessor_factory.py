@@ -26,7 +26,7 @@ class PromptResponseSftPreprocessorFactory:
         """
 
         def prompt_generation_fn(sample) -> dict:
-            sample = self._convert_to_lema_format(
+            sample = self._convert_to_oumi_format(
                 sample, prompt_key, response_key, system_instruction
             )
             results = apply_chat_template(sample, tokenizer=self.tokenizer, task="sft")
@@ -34,14 +34,14 @@ class PromptResponseSftPreprocessorFactory:
 
         return prompt_generation_fn
 
-    def _convert_to_lema_format(
+    def _convert_to_oumi_format(
         self,
         example: dict,
         prompt_key: str,
         response_key: str,
         system_instruction: Optional[str] = None,
     ) -> dict:
-        """Converts the input example to the LeMa format."""
+        """Converts the input example to the OUMI format."""
         prompt = example[prompt_key]
         response = example[response_key]
 

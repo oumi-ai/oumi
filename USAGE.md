@@ -1,20 +1,20 @@
-# LeMa Usage Overview
+# OUMI Usage Overview
 
-LeMa is a framework for training and evaluating large language models. This tutorial will guide you through the process of setting up, training, and evaluating a model using LeMa.
+OUMI is a framework for training and evaluating large language models. This tutorial will guide you through the process of setting up, training, and evaluating a model using OUMI.
 
 ## 1. Installation
 
-First, you'll need to install LeMa and its dependencies:
+First, you'll need to install OUMI and its dependencies:
 
 ```bash
-git clone https://github.com/openlema/lema.git
-cd lema
+git clone https://github.com/oumi-ai/oumi.git
+cd oumi
 pip install -e ".[all]"
 ```
 
 ## 2. Configuration
 
-LeMa uses configuration files to specify model and training parameters. Create a YAML file (e.g., `config.yaml`) with your desired settings. Here's a basic example:
+OUMI uses configuration files to specify model and training parameters. Create a YAML file (e.g., `config.yaml`) with your desired settings. Here's a basic example:
 
 ```yaml
 model:
@@ -37,11 +37,11 @@ training:
   learning_rate: 5e-5
 ```
 
-For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/openlema/lema/tree/main/configs/oumi) directory.
+For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/oumi-ai/oumi/tree/main/configs/oumi) directory.
 
 ## 3. Training
 
-To train a model using LeMa, use the `train` script:
+To train a model using OUMI, use the `train` script:
 
 ```bash
 oumi-train -c config.yaml
@@ -50,7 +50,7 @@ oumi-train -c config.yaml
 python -m oumi.train -c config.yaml
 
 # On the other hand, this does not work!
-python src/lema/train.py -c config.yaml
+python src/oumi/train.py -c config.yaml
 ```
 
 This will start the training process using the configuration specified in `config.yaml`. The script will:
@@ -123,7 +123,7 @@ This will allow you to input prompts and get responses from your model interacti
 
 ## 6. Custom Datasets
 
-LeMa supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
+OUMI supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
 
 ```python
 from oumi.core.datasets import BaseLMSftDataset
@@ -146,11 +146,11 @@ data:
         split: "train"
 ```
 
-For more details, see this notebook [Custom Datasets](https://github.com/openlema/lema/blob/main/notebooks/Lema%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in lema [here](https://github.com/openlema/lema/tree/main/src/lema/datasets).
+For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in OUMI [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 
 ## 7. Multi-GPU Training
 
-LeMa supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
+OUMI supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
 
 ```bash
 torchrun --standalone --nproc_per_node=4 -m oumi.train -c config.yaml
@@ -162,11 +162,11 @@ This will launch the training script on 4 GPUs.
 
 To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `oumi-launcher`, which makes it straightforward to run jobs on remote machines.
 
-You can find a detailled example here: [notebook](https://github.com/openlema/lema/blob/main/notebooks/LeMa%20-%20Running%20Jobs%20Remotely.ipynb)
+You can find a detailled example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Running%20Jobs%20Remotely.ipynb)
 
 ## 9. Monitoring and Logging
 
-LeMa supports Weights & Biases (wandb) and TensorBoard for logging.
+OUMI supports Weights & Biases (wandb) and TensorBoard for logging.
 
 To enable wandb logging, set `enable_wandb: true` in your config file.  logging is enabled by default.
 To enable tensorboard logging, set `enable_tensorboard: true` in your config file. TensorBoard logging is enabled by default.

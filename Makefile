@@ -1,6 +1,6 @@
 # General makefile
 # Conda environment name
-CONDA_ENV := lema
+CONDA_ENV := oumi
 CONDA_ACTIVE := $(shell conda info --envs | grep -q "*" && echo "true" || echo "false")
 CONDA_RUN := conda run -n $(CONDA_ENV)
 
@@ -8,7 +8,7 @@ CONDA_RUN := conda run -n $(CONDA_ENV)
 SRC_DIR := .
 TEST_DIR := tests
 DOCS_DIR := docs/.sphinx
-LEMA_SRC_DIR := src/lema
+OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
 SPHINXOPTS    ?=
@@ -72,7 +72,7 @@ test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
 coverage:
-	$(CONDA_RUN) pytest --cov=$(LEMA_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
+	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
 train:
 	$(CONDA_RUN) python -m oumi.train $(ARGS)
@@ -104,7 +104,7 @@ docs-serve: docs
 
 docs-rebuild:
 	rm -rf $(DOCS_BUILDDIR) "$(SOURCEDIR)/apidoc"
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/lema" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 .PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild

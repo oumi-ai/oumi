@@ -1,7 +1,7 @@
-"""Configuration module for the LeMa (Learning Machines) library.
+"""Configuration module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides various configuration classes and parameters used throughout
-the LeMa framework for tasks such as training, evaluation, inference,
+the OUMI framework for tasks such as training, evaluation, inference,
 and job management.
 
 The configurations are organized into different categories:

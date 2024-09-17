@@ -266,13 +266,13 @@ def _benchmark_dataloader_epoch(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark DataLoader performance")
     parser.add_argument(
-        "-c", "--config", type=str, help="Path to the LeMa configuration file."
+        "-c", "--config", type=str, help="Path to the OUMI configuration file."
     )
     parser.add_argument(
         "-d",
         "--dummy",
         action="store_true",
-        help="Use a dummy dataset instead of a LeMa dataset.",
+        help="Use a dummy dataset instead of a OUMI dataset.",
     )
     parser.add_argument(
         "--output",
@@ -297,6 +297,6 @@ if __name__ == "__main__":
     if not args.config and not args.dummy:
         raise ValueError("Either --config or --dummy must be provided")
 
-    update_logger_level("lema", level=args.log_level)
+    update_logger_level("oumi", level=args.log_level)
 
     main(args)

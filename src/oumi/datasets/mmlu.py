@@ -71,7 +71,7 @@ SPLITS = [
 DEFAULT_NUM_SHOTS = 0  # Values: 0-5; 0 is consistent with LM Evaluation Harness.
 
 
-# FIXME: Inherit from `LemaDataset`.
+# FIXME: Inherit from `OumiDataset`.
 class MmluDataset:
     # MMLU questions always have 4 possible answers, which are labelled A, B, C, D.
     answer_tokens = ["A", "B", "C", "D"]
@@ -198,7 +198,7 @@ class MmluDataset:
         return [example["answer"] for example in dataset]  # type: ignore
 
     # Instance methods (global).
-    # All these will potentially be required by the base `LemaDataset`.
+    # All these will potentially be required by the base `OumiDataset`.
     def get_test_split(self, num_entries: Optional[int] = None) -> List[str]:
         """Returns the test split of this dataset."""
         return self._get_formatted_dataset(split="test", num_entries=num_entries)

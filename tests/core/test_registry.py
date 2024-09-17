@@ -113,44 +113,44 @@ def test_registry_failure_get_unregistered_class():
 
 
 def test_registry_model():
-    @register("learning-machines/dummy", RegistryType.MODEL_CONFIG)
+    @register("oumi/dummy", RegistryType.MODEL_CONFIG)
     class DummyModelConfig:
         pass
 
-    @register("learning-machines/dummy", RegistryType.MODEL)
+    @register("oumi/dummy", RegistryType.MODEL)
     class DummyModelClass:
         pass
 
-    model_class = REGISTRY.get_model("learning-machines/dummy")
+    model_class = REGISTRY.get_model("oumi/dummy")
     assert model_class
     assert model_class == DummyModelClass
 
-    model_config = REGISTRY.get_model_config("learning-machines/dummy")
+    model_config = REGISTRY.get_model_config("oumi/dummy")
     assert model_config
     assert model_config == DummyModelConfig
 
 
 def test_registry_failure_model_not_present_in_registry():
-    @register("learning-machines/dummy1", RegistryType.MODEL_CONFIG)
+    @register("oumi/dummy1", RegistryType.MODEL_CONFIG)
     class DummyModelConfig:
         pass
 
-    @register("learning-machines/dummy2", RegistryType.MODEL)
+    @register("oumi/dummy2", RegistryType.MODEL)
     class DummyModelClass:
         pass
 
     # Non-existent model (without exception).
-    assert REGISTRY.get_model(name="learning-machines/yet_another_dummy") is None
+    assert REGISTRY.get_model(name="oumi/yet_another_dummy") is None
 
     # Non-existent model (with exception).
     with pytest.raises(KeyError) as exception_info:
-        REGISTRY["learning-machines/yet_another_dummy", RegistryType.MODEL]
+        REGISTRY["oumi/yet_another_dummy", RegistryType.MODEL]
 
     assert "does not exist" in str(exception_info.value)
 
     # Incomplete model (without exception).
-    assert REGISTRY.get_model(name="learning-machines/dummy1") is None
-    assert REGISTRY.get_model_config(name="learning-machines/dummy2") is None
+    assert REGISTRY.get_model(name="oumi/dummy1") is None
+    assert REGISTRY.get_model_config(name="oumi/dummy2") is None
 
 
 def test_registry_metrics_function():

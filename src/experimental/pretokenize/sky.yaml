@@ -1,5 +1,5 @@
 # Sample command:
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=pretokenize.v01 --num-nodes 1 --no-use-spot --cluster xrdaukar-cpu-01-lema-cluster src/experimental/pretokenize/sky.yaml
+# sky launch --cloud GCP -i 10 --env OUMI_RUN_NAME=pretokenize.v01 --num-nodes 1 --no-use-spot --cluster xrdaukar-cpu-01-oumi-cluster src/experimental/pretokenize/sky.yaml
 
 name: pretokenize-example
 
@@ -18,9 +18,6 @@ workdir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
   /dataset_parent_dir:
     source: gs://lema-dev-europe-west4/
@@ -28,11 +25,11 @@ file_mounts:
     mode: MOUNT
 
 envs:
-  LEMA_RUN_NAME: pretokenize
+  OUMI_RUN_NAME: pretokenize
 
 setup: |
   set -e
-  pip install 'lema[train]'
+  pip install 'oumi[train]'
 
 run: |
   set -e  # Exit if any command failed.

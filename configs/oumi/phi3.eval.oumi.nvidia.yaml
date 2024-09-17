@@ -9,6 +9,6 @@ data:
     - dataset_name: "cais/mmlu"
 
 generation:
-  batch_size: 2
+  batch_size: 32
 
-evaluation_framework: LEMA
+evaluation_framework: OUMI

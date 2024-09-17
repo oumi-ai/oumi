@@ -1,15 +1,15 @@
-"""Models module for the LeMa (Learning Machines) library.
+"""Models module for the OUMI (Open Unified Machine Intelligence) library.
 
-This module provides various model implementations for use in the LeMa framework.
+This module provides various model implementations for use in the OUMI framework.
 These models are designed for different machine learning tasks and can be used
-with the datasets and training pipelines provided by LeMa.
+with the datasets and training pipelines provided by OUMI.
 
 Available models:
     - :py:class:`~oumi.models.mlp.MLPEncoder`: A Multi-Layer Perceptron (MLP)
     encoder model.
 
 Each model is implemented as a separate class, inheriting from appropriate base classes
-in the LeMa framework.
+in the OUMI framework.
 
 Example:
     >>> from oumi.models import MLPEncoder

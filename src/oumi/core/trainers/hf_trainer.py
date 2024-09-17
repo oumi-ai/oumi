@@ -37,7 +37,7 @@ class HuggingFaceTrainer(BaseTrainer):
         """Saves the model's weights to the specified output directory.
 
         Args:
-            config: The LeMa training config.
+            config: The OUMI training config.
             final: Whether this is the final model being saved during training.
                 - Applies optimizations for the final model checkpoint.
                 - In the case of FSDP, this will always save the FULL_STATE_DICT

@@ -13,13 +13,13 @@ echo "Current dir: $(pwd)"
 echo "Work dir: ${PBS_O_WORKDIR}"
 echo "Polaris node file: ${PBS_NODEFILE}"
 echo ""
-export LEMA_NUM_NODES=`wc -l < $PBS_NODEFILE`
-export LEMA_MASTER_ADDR=`head -n1 $PBS_NODEFILE`
-echo "Master address: ${LEMA_MASTER_ADDR}"
-echo "Number of nodes: ${LEMA_NUM_NODES}"
+export OUMI_NUM_NODES=`wc -l < $PBS_NODEFILE`
+export OUMI_MASTER_ADDR=`head -n1 $PBS_NODEFILE`
+echo "Master address: ${OUMI_MASTER_ADDR}"
+echo "Number of nodes: ${OUMI_NUM_NODES}"
 echo "All nodes: $(cat $PBS_NODEFILE)"
 
-if [[ -z "${LEMA_MASTER_ADDR}" ]]; then
+if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
     exit 1
 fi
@@ -43,7 +43,7 @@ CPU_BIND="depth"
 module use /soft/modulefiles
 module load conda
 
-# Activate the LeMa Conda environment.
-conda activate /home/$USER/miniconda3/envs/lema
+# Activate the OUMI Conda environment.
+conda activate /home/$USER/miniconda3/envs/oumi
 echo "Conda path:"
 echo $CONDA_PREFIX

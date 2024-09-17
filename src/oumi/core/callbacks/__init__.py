@@ -1,7 +1,7 @@
-"""Trainer callbacks module for the LeMa (Learning Machines) library.
+"""Trainer callbacks module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides trainer callbacks, which can be used to customize
-the behavior of the training loop in the LeMa Trainer
+the behavior of the training loop in the OUMI Trainer
 that can inspect the training loop state for progress reporting, logging,
 early stopping, etc.
 """

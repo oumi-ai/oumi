@@ -14,7 +14,7 @@ from oumi.core.distributed import all_gather_object
 from oumi.utils.debugging_utils import get_nvidia_gpu_temperature
 from oumi.utils.logging import get_logger
 
-LOGGER = get_logger("lema.telemetry")
+LOGGER = get_logger("oumi.telemetry")
 
 
 class TelemetryState(pydantic.BaseModel):

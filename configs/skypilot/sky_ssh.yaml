@@ -1,4 +1,4 @@
-name: lema-ssh
+name: oumi-ssh
 
 num_nodes: 1  # Set it to N for multi-node training.
 
@@ -19,7 +19,7 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
-  WANDB_PROJECT: lema-debug
+  WANDB_PROJECT: oumi-debug
 
 setup: |
   set -e

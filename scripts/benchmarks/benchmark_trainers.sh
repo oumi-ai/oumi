@@ -26,15 +26,15 @@ time accelerate launch \
     "training.compile=true" \
     "training.save_final_model=false"
 
-# HuggingFace model with lema trainer
+# HuggingFace model with OUMI trainer
 # time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
 time torchrun --standalone --nproc_per_node 1 \
     -m oumi.train \
     -c "configs/oumi/llama2b.pt.yaml" \
-    "training.trainer_type=LEMA" \
+    "training.trainer_type=OUMI" \
     "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \
-    "training.output_dir=output/trainer-lema/" \
+    "training.output_dir=output/trainer-oumi/" \
     "training.include_performance_metrics=true" \
     "training.dep_log_level=debug" \
     "training.logging_steps=5" \

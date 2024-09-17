@@ -11,7 +11,7 @@ from oumi.core.configs.params.model_params import ModelParams
 class EvaluationFramework(Enum):
     """Enum representing the evaluation framework to use."""
 
-    LEMA = "lema"
+    OUMI = "oumi"
     LM_HARNESS = "lm_harness"
 
 
@@ -44,7 +44,7 @@ class EvaluationConfig(BaseConfig):
 
     LM_HARNESS is the default, which is a comprehensive benchmark
     for evaluating large language models across various tasks.
-    LEMA is an alternative framework that may be used for specific
+    OUMI is an alternative framework that may be used for specific
     evaluation scenarios.
     """
 

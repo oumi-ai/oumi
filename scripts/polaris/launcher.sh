@@ -93,12 +93,12 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   # Set up Conda env if it doesn't exist and activate it.
   module use /soft/modulefiles
   module load conda
-  if [ ! -d /home/$USER/miniconda3/envs/lema ]; then
-      echo "Creating LeMa Conda environment... -----------------------------------------"
-      conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/lema
+  if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then
+      echo "Creating OUMI Conda environment... -----------------------------------------"
+      conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/oumi
    fi
    echo "Installing packages... -----------------------------------------"
-   conda activate /home/$USER/miniconda3/envs/lema
+   conda activate /home/$USER/miniconda3/envs/oumi
    pip install -e '.[train]'
    pip install -e '.[gpu]'
 

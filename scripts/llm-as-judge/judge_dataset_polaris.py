@@ -13,7 +13,7 @@ POLARIS_QUEUE = "preemptable"
 
 POLARIS_USERNAME = "kaisopos"
 PROJECT = "community_ai"
-VLLM_JOB_PATH = "/Users/{user}/Code/lema/configs/oumi/jobs/polaris/vllm.yaml"
+VLLM_JOB_PATH = "/Users/{user}/Code/oumi/configs/oumi/jobs/polaris/vllm.yaml"
 DATA_FILE_TYPE = "jsonl"
 
 INPUT_PATH_PREFIX_POLARIS = (
@@ -57,10 +57,10 @@ def main(args):
 
         job.envs["REPO"] = LLAMA_70B_REPO
         job.envs["MODEL"] = LLAMA_70B_MODEL
-        job.envs["LEMA_VLLM_INPUT_FILEPATH"] = input_filepath
-        job.envs["LEMA_VLLM_OUTPUT_DIR"] = output_dir
-        job.envs["LEMA_VLLM_NUM_WORKERS"] = str(10)
-        job.envs["LEMA_VLLM_WORKERS_SPAWNED_PER_SECOND"] = str(10)
+        job.envs["OUMI_VLLM_INPUT_FILEPATH"] = input_filepath
+        job.envs["OUMI_VLLM_OUTPUT_DIR"] = output_dir
+        job.envs["OUMI_VLLM_NUM_WORKERS"] = str(10)
+        job.envs["OUMI_VLLM_WORKERS_SPAWNED_PER_SECOND"] = str(10)
         jobs[attribute] = job
 
     # Launch an inference job for each attribute.

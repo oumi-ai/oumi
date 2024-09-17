@@ -17,8 +17,8 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
-  WANDB_PROJECT: lema-train
-  LEMA_RUN_NAME: llama3.8b.aya.sft
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama3.8b.aya.sft
   TOKENIZERS_PARALLELISM: true
 
 setup: |
@@ -32,14 +32,14 @@ run: |
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
-      --nnodes=${LEMA_NUM_NODES} \
+      --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${LEMA_MASTER_ADDR} \
+      --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/llama3.8b.aya.sft.yaml \
-      "training.run_name='${LEMA_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=false" \
       "training.enable_tensorboard=true" \

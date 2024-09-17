@@ -1,4 +1,4 @@
-"""Experimental package for the LeMa (Learning Machines) library.
+"""Experimental package for the OUMI (Open Unified Machine Intelligence) library.
 
 This package contains experimental features and components that are still
 under development or testing. Contents here may change frequently and are

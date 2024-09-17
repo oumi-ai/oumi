@@ -65,7 +65,7 @@ class Trainer(BaseTrainer):
         fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
     ):
-        """Initializes the LeMa trainer."""
+        """Initializes the OUMI trainer."""
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
@@ -560,7 +560,7 @@ class Trainer(BaseTrainer):
         self.log(f"Logging to {self.params.output_dir}")
 
         if self.params.enable_wandb:
-            project_name = os.environ.get("WANDB_PROJECT", "lema")
+            project_name = os.environ.get("WANDB_PROJECT", "oumi")
             self.log(f"Logging to Weights and Biases project: '{project_name}'")
             run = wandb.init(project=project_name, name=self.params.run_name)
             self.log(f"View wandb run {run.id} at: {run.get_url()}")

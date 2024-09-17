@@ -25,7 +25,7 @@ def build_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds and returns a model based on the provided LeMa configuration.
+    """Builds and returns a model based on the provided OUMI configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
@@ -36,7 +36,7 @@ def build_model(
         model: The built model.
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
-        model = build_lema_model(
+        model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
@@ -90,12 +90,12 @@ def _patch_model_for_liger_kernel(model_name: str) -> None:
         raise ValueError(f"Unsupported model: {model_name}")
 
 
-def build_lema_model(
+def build_oumi_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds a custom model from our LeMa registry."""
+    """Builds a custom model from our OUMI registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
     model = model_class(**model_params.model_kwargs)
 
@@ -231,7 +231,7 @@ def _get_transformers_model_class(config):
             logger.warning(
                 f"Model type {config.model_type} not tested. "
                 "Using AutoModelForCausalLM as the model class."
-                "If you encounter errors, please open an issue at https://github.com/openlema/lema."
+                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
 
         auto_model_class = transformers.AutoModelForVision2Seq
@@ -244,7 +244,7 @@ def _get_transformers_model_class(config):
 def build_tokenizer(
     model_params: ModelParams, **kwargs
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
-    """Builds and returns a tokenizer based on the provided LeMa configuration.
+    """Builds and returns a tokenizer based on the provided OUMI configuration.
 
     Args:
         model_params (ModelParams): The configuration object containing
@@ -284,7 +284,7 @@ def build_tokenizer(
         logger.warning(
             "No chat template found for tokenizer. "
             "Please specify a chat template using the `chat_template` field. "
-            "This will be required in future versions of LeMa."
+            "This will be required in future versions of OUMI."
         )
 
     return tokenizer
@@ -338,8 +338,8 @@ def build_chat_template(template_name: str) -> str:
     Returns:
         str: a jinja-based chat-template.
     """
-    lema_top_dir = Path(__file__).parent.parent.resolve()
-    chat_template_directory = lema_top_dir / "datasets" / "chat_templates"
+    oumi_top_dir = Path(__file__).parent.parent.resolve()
+    chat_template_directory = oumi_top_dir / "datasets" / "chat_templates"
 
     template_file = f"{template_name.lower()}.jinja"
     chat_template_file = chat_template_directory / template_file

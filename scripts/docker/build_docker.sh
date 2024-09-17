@@ -7,7 +7,7 @@ DOCKER_HUB="TBD" # OPE-251
 VERSION=latest
 
 echo "Building docker image $DOCKER_HUB:$VERSION"
-docker build -t $DOCKER_HUB/lema:$VERSION .
+docker build -t $DOCKER_HUB/oumi:$VERSION .
 
 echo "Pushing docker image $DOCKER_HUB:$VERSION"
-docker push $DOCKER_HUB/lema:$VERSION
+docker push $DOCKER_HUB/oumi:$VERSION

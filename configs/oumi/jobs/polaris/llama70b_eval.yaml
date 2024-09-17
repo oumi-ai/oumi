@@ -8,7 +8,7 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher/llama70b_eval.
+# Upload working directory to /home/$USER/oumi_launcher/llama70b_eval.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS

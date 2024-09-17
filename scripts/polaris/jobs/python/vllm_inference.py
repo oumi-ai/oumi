@@ -41,8 +41,8 @@ def main() -> None:
     MODEL = models.data[0].id
     MODEL_NAME = _get_model_name(MODEL)
     JOB_NUMBER = os.environ["JOB_NUMBER"]
-    INPUT_FILEPATH = os.environ["LEMA_VLLM_INPUT_FILEPATH"]
-    OUTPUT_DIR = os.environ["LEMA_VLLM_OUTPUT_DIR"]
+    INPUT_FILEPATH = os.environ["OUMI_VLLM_INPUT_FILEPATH"]
+    OUTPUT_DIR = os.environ["OUMI_VLLM_OUTPUT_DIR"]
     Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILENAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"

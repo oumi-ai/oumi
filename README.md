@@ -1,13 +1,13 @@
-# Learning Machines (LeMa)
+# Open Unified Machine Intelligence (OUMI)
 
 [![PyPI version](https://badge.fury.io/py/lema.svg)](https://badge.fury.io/py/lema)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Pre-review Tests](https://github.com/openlema/lema/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/openlema/lema/actions/workflows/pretest.yaml)
+[![Pre-review Tests](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml)
 [![Documentation](https://img.shields.io/badge/docs-lema-blue.svg)](https://learning-machines.ai/docs/latest/index.html)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-The LeMa Platform enables the end-to-end development of foundation and specialized models including data curation/synthesis, pretraining, tuning, and evaluation.
+The OUMI Platform enables the end-to-end development of foundation and specialized models including data curation/synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
@@ -21,7 +21,7 @@ The LeMa Platform enables the end-to-end development of foundation and specializ
 
 ## Getting Started
 
-For an overview of the LeMa features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/LeMa%20-%20A%20Tour.ipynb).
+For an overview of the OUMI features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/OUMI%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
@@ -32,7 +32,7 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 1. Install the package:
 
    ```shell
-   pip install 'lema[cloud,dev,train,gpu]'
+   pip install 'oumi[cloud,dev,train,gpu]'
    ```
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):
@@ -47,7 +47,7 @@ For an overview of the LeMa features and usage, checkout the [user guide](/USAGE
 
 ### Configurations
 
-These configurations demonstrate how to set up and run full training for different model architectures using LeMa.
+These configurations demonstrate how to set up and run full training for different model architectures using OUMI.
 
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
@@ -66,16 +66,16 @@ These configurations demonstrate how to set up and run full training for differe
 
 ## Tutorials
 
-We provide several example notebooks to help you get started with LeMa. Here's a list of available notebooks:
+We provide several example notebooks to help you get started with OUMI. Here's a list of available notebooks:
 
 | Notebook | Description |
 |----------|-------------|
-| [A Tour](/notebooks/LeMa%20-%20A%20Tour.ipynb) | A comprehensive tour of the LeMa repository and its features |
-| [Finetuning Tutorial](/notebooks/LeMa%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using LeMa |
-| [Tuning Llama](/notebooks/LeMa%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with LeMa |
-| [Multinode Inference on Polaris](/notebooks/LeMa%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
-| [Datasets Tutorial](/notebooks/Lema%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in LeMa |
-| [Deploying a Job](/notebooks/LeMa%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using LeMa |
+| [A Tour](/notebooks/OUMI%20-%20A%20Tour.ipynb) | A comprehensive tour of the OUMI repository and its features |
+| [Finetuning Tutorial](/notebooks/OUMI%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using OUMI |
+| [Tuning Llama](/notebooks/OUMI%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with OUMI |
+| [Multinode Inference on Polaris](/notebooks/OUMI%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
+| [Datasets Tutorial](/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in OUMI |
+| [Deploying a Job](/notebooks/OUMI%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using OUMI |
 
 ## Documentation
 
@@ -98,6 +98,6 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
    - To fix this, make sure to start your vscode instance after activating your conda environment.
 
      ```shell
-     conda activate lema
-     code .  # inside the LeMa directory
+     conda activate oumi
+     code .  # inside the OUMI directory
      ```
