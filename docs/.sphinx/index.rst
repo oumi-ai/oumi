@@ -1,8 +1,8 @@
-Learning Machines (OUMI) Documentation
+Open Unified Machine Intelligence (OUMI) Documentation
 ======================================
-Welcome to the documentation for Learning Machines (OUMI) !
+Welcome to the documentation for Open Unified Machine Intelligence (OUMI) !
 
-OUMI is a learning machines modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
+OUMI is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
 .. toctree::
    :maxdepth: 1
