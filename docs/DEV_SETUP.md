@@ -4,16 +4,9 @@
 
    <https://docs.anaconda.com/free/miniconda/miniconda-install/>
 
-## 2. Create a new environment for OUMI and activate it
+## 2. Set up GitHub
 
-   ```shell
-   conda create -n oumi python=3.11
-   conda activate oumi
-   ```
-
-## 3. Install GitHub CLI
-
-### 3.1 Instructions for Mac
+### 2.1.1 Installation instructions for Mac
 
    Install Homebrew (the command below was copied from <www.brew.sh>)
 
@@ -27,7 +20,7 @@
    brew install gh
    ```
 
-### 3.2 Instructions for **Linux**, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
+### 2.1.2 Installation instructions for **Linux**, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
 
   Follow <https://github.com/cli/cli?tab=readme-ov-file#conda>
 
@@ -35,51 +28,44 @@
    conda install gh --channel conda-forge
    ```
 
-## 4. Authorize Github CLI (easier when using SSH protocol)
+### 2.2 Authorize Github CLI (easier when using SSH protocol)
 
    ```shell
    gh auth login
    ```
 
-## 5. Set your Github name and email
+### 2.3 Set your Github name and email
 
    ```shell
    git config --global user.name "YOUR_NAME"
    git config --global user.email YOUR_USERNAME@learning-machines.ai
    ```
 
-## 6. Clone the OUMI repository
+### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
+
+## 3. Set up OUMI
+
+### 3.1 Clone the OUMI repository
 
    ```shell
    gh repo clone oumi-ai/oumi
-   ```
-
-## 7. Install OUMI package and its dependencies
-
-   ```shell
    cd oumi
-   pip install -e '.[all]'
    ```
 
-## 8. Install pre-commit hooks
+### 3.2 Install OUMI package and its dependencies
 
+   This command creates a new Conda env, installs relevant packages, and installs pre-commit.
    ```shell
-   pre-commit install  # recommended
+   make setup
    ```
 
-   If you'd like to only run the pre-commits before a push, you can use:
+   If you'd like to only run the pre-commits before a push, you can run:
 
    ```shell
    pre-commit install --install-hooks --hook-type pre-push
    ```
 
-   Alternatively, you can run the pre-commit hooks manually with:
-
-   ```shell
-   pre-commit run --all-files
-   ```
-
-## 9. [optional] Add a OUMI shortcut in your environment {.zshrc or .bashrc}
+## 4. [optional] Add an OUMI shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
    alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
@@ -91,5 +77,3 @@
    source ~/{.zshrc or .bashrc}
    oumi
    ```
-
-## 10. [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management

@@ -32,7 +32,7 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 1. Install the package:
 
    ```shell
-   pip install 'oumi[cloud,dev,train,gpu]'
+   pip install 'oumi[all]'
    ```
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):
