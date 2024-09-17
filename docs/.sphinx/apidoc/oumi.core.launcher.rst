@@ -1,6 +1,6 @@
-lema.core.datasets
+oumi.core.launcher
 ==================
-.. automodule:: lema.core.datasets
+.. automodule:: oumi.core.launcher
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,6 +1,6 @@
-lema.core.inference
+oumi.core.callbacks
 ===================
-.. automodule:: lema.core.inference
+.. automodule:: oumi.core.callbacks
    :members:
    :undoc-members:
    :show-inheritance:

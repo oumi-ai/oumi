@@ -1,6 +1,6 @@
-lema.core.trainers
+oumi.core.datasets
 ==================
-.. automodule:: lema.core.trainers
+.. automodule:: oumi.core.datasets
    :members:
    :undoc-members:
    :show-inheritance:

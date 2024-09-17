@@ -1,6 +1,6 @@
-lema.core.launcher
+oumi.core.trainers
 ==================
-.. automodule:: lema.core.launcher
+.. automodule:: oumi.core.trainers
    :members:
    :undoc-members:
    :show-inheritance:

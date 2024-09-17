@@ -1,6 +1,6 @@
-lema.launcher.clouds
+oumi.launcher.clouds
 ====================
-.. automodule:: lema.launcher.clouds
+.. automodule:: oumi.launcher.clouds
    :members:
    :undoc-members:
    :show-inheritance:

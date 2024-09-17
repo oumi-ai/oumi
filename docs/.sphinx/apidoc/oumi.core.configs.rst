@@ -1,6 +1,6 @@
-lema.core.configs
+oumi.core.configs
 =================
-.. automodule:: lema.core.configs
+.. automodule:: oumi.core.configs
    :members:
    :undoc-members:
    :show-inheritance:
@@ -11,4 +11,4 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
-   lema.core.configs.params
+   oumi.core.configs.params
