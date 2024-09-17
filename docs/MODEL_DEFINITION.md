@@ -48,7 +48,7 @@ Digging deeper into the model itself, here is a simple model definition. In this
 
 Each lines is annotated with the relevant information:
 
-- [OUMI] means this is a OUMI-specific decision, which we can revisit as we see fit.
+- [OUMI] means this is an OUMI-specific decision, which we can revisit as we see fit.
 - [PT] means this is a Pytorch-specific requirement. We need a strong reason to deviate from this.
 - [HF] means this is a Huggingface-specific requirement. We can revisit if the tradeoff is worth it.
 

@@ -46,12 +46,13 @@ setup:
 		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
 	else \
 		conda create -n $(CONDA_ENV) python=3.11 -y; \
-		$(CONDA_RUN) pip install -e ".[dev,train]"; \
-		$(CONDA_RUN) pre-commit install; \
+		conda activate $(CONDA_ENV); \
+		pip install -e ".[all]"; \
+		pre-commit install; \
 	fi
 
 upgrade:
-	$(CONDA_RUN) pip install --upgrade -e ".[dev,train]"
+	$(CONDA_RUN) pip install --upgrade -e ".[all]"
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
