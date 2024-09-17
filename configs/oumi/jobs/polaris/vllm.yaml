@@ -6,7 +6,7 @@ num_nodes: 1
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/lema_launcher/vllm.
+# Upload working directory to /home/$USER/oumi_launcher/vllm.
 working_dir: .
 
 # NOTE: Replace with your input/output paths, and adjust other parameters as needed.

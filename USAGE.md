@@ -8,7 +8,7 @@ First, you'll need to install OUMI and its dependencies:
 
 ```bash
 git clone https://github.com/oumi-ai/oumi.git
-cd lema
+cd oumi
 pip install -e ".[all]"
 ```
 
@@ -146,7 +146,7 @@ data:
         split: "train"
 ```
 
-For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in lema [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
+For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in OUMI [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 
 ## 7. Multi-GPU Training
 

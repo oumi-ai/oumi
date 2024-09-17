@@ -24,12 +24,9 @@ workdir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-  # /artifacts:
-  #   name: lema-dev-private # Not available on lambda
-  #   mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-train
+  WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: phi3.dpo.nvidia.24g
 
 setup: |

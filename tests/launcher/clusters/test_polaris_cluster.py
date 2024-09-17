@@ -326,7 +326,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/myjob",
+                "/home/user/oumi_launcher/myjob",
             ),
             call(
                 "~/local/path.bar",
@@ -342,7 +342,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/myjob",
+                    "cd /home/user/oumi_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -358,7 +358,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -373,11 +373,11 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/myjob/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/myjob/lema_job.sh",
-        "/home/user/lema_launcher/myjob",
+        "/home/user/oumi_launcher/myjob/oumi_job.sh",
+        "/home/user/oumi_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -424,7 +424,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/myjob",
+                "/home/user/oumi_launcher/myjob",
             ),
             call(
                 "~/local/path.bar",
@@ -440,7 +440,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/myjob",
+                    "cd /home/user/oumi_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -456,7 +456,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -471,11 +471,11 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/myjob/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/myjob/lema_job.sh",
-        "/home/user/lema_launcher/myjob",
+        "/home/user/oumi_launcher/myjob/oumi_job.sh",
+        "/home/user/oumi_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -521,7 +521,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/1-2-3",
+                "/home/user/oumi_launcher/1-2-3",
             ),
             call(
                 "~/local/path.bar",
@@ -537,7 +537,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/1-2-3",
+                    "cd /home/user/oumi_launcher/1-2-3",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -553,7 +553,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/1-2-3/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/1-2-3/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -568,11 +568,11 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/1-2-3/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/1-2-3/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/1-2-3/lema_job.sh",
-        "/home/user/lema_launcher/1-2-3",
+        "/home/user/oumi_launcher/1-2-3/oumi_job.sh",
+        "/home/user/oumi_launcher/1-2-3",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "1-2-3",
@@ -614,7 +614,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/myjob",
+                "/home/user/oumi_launcher/myjob",
             ),
         ],
     )
@@ -622,7 +622,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/myjob",
+                    "cd /home/user/oumi_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -638,7 +638,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p some/log",
@@ -653,11 +653,11 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/myjob/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/myjob/lema_job.sh",
-        "/home/user/lema_launcher/myjob",
+        "/home/user/oumi_launcher/myjob/oumi_job.sh",
+        "/home/user/oumi_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -701,7 +701,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/myjob",
+                "/home/user/oumi_launcher/myjob",
             ),
         ],
     )
@@ -709,7 +709,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/myjob",
+                    "cd /home/user/oumi_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -725,18 +725,18 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
         ]
     )
     job_script = (
         "#!/bin/bash\n\n" "export var1=val1\n\n" "small setup\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/myjob/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/myjob/lema_job.sh",
-        "/home/user/lema_launcher/myjob",
+        "/home/user/oumi_launcher/myjob/oumi_job.sh",
+        "/home/user/oumi_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -780,7 +780,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/lema_launcher/myjob",
+                "/home/user/oumi_launcher/myjob",
             ),
         ],
     )
@@ -788,7 +788,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/lema_launcher/myjob",
+                    "cd /home/user/oumi_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -804,16 +804,16 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
                     "pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/lema_launcher/myjob/lema_job.sh"]),
+            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
         ]
     )
     job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/lema_launcher/myjob/lema_job.sh"
+        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/lema_launcher/myjob/lema_job.sh",
-        "/home/user/lema_launcher/myjob",
+        "/home/user/oumi_launcher/myjob/oumi_job.sh",
+        "/home/user/oumi_launcher/myjob",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",

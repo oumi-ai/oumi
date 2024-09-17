@@ -22,7 +22,7 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
-  WANDB_PROJECT: lema-train
+  WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama8b.sft
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758

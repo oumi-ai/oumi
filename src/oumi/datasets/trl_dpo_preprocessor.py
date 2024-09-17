@@ -19,7 +19,7 @@ def trl_dpo_chat_preprocessor_fn(
     DPOTrainer expects prompts, as well as the chosen and rejected responses
     for each prompt.
     """
-    return _convert_to_lema_format
+    return _convert_to_oumi_format
 
 
 def _extract_from_chat_format(sample):
@@ -31,7 +31,7 @@ def _extract_from_chat_format(sample):
     raise ValueError("No chat turn was found with an 'assistant' role.")
 
 
-def _convert_to_lema_format(samples: dict) -> dict:
+def _convert_to_oumi_format(samples: dict) -> dict:
     prompt = samples[_PROMPT_KEY]
     chosen_chat = samples[_CHOSEN_KEY]
     rejected_chat = samples[_REJECTED_KEY]

@@ -28,7 +28,7 @@ module use /soft/spack/gcc/0.6.1/install/modulefiles/Core
 module load apptainer
 
 set -x  # Print commands
-export APPTAINER_TMPDIR="/home/$USER/lema/temp"
+export APPTAINER_TMPDIR="/home/$USER/oumi/temp"
 apptainer -v build --fakeroot "${SHARED_DIR}/apptainer/vllm_vllm_openai_v0.5.4.sif" docker://vllm/vllm-openai:v0.5.4
 
 echo "Polaris job is all done!"

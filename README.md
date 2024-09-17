@@ -98,6 +98,6 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
    - To fix this, make sure to start your vscode instance after activating your conda environment.
 
      ```shell
-     conda activate lema
+     conda activate oumi
      code .  # inside the OUMI directory
      ```

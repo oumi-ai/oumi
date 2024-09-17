@@ -36,7 +36,7 @@ def build_model(
         model: The built model.
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
-        model = build_lema_model(
+        model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
@@ -90,7 +90,7 @@ def _patch_model_for_liger_kernel(model_name: str) -> None:
         raise ValueError(f"Unsupported model: {model_name}")
 
 
-def build_lema_model(
+def build_oumi_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
@@ -338,8 +338,8 @@ def build_chat_template(template_name: str) -> str:
     Returns:
         str: a jinja-based chat-template.
     """
-    lema_top_dir = Path(__file__).parent.parent.resolve()
-    chat_template_directory = lema_top_dir / "datasets" / "chat_templates"
+    oumi_top_dir = Path(__file__).parent.parent.resolve()
+    chat_template_directory = oumi_top_dir / "datasets" / "chat_templates"
 
     template_file = f"{template_name.lower()}.jinja"
     chat_template_file = chat_template_directory / template_file

@@ -18,7 +18,7 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # mount HF token
 
 envs:
-  WANDB_PROJECT: lema-train
+  WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama8b.sft
   ACCELERATE_LOG_LEVEL: info
 

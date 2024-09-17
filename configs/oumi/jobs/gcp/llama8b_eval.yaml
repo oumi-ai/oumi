@@ -27,7 +27,7 @@ storage_mounts:
     store: gcs
 
 envs:
-  WANDB_PROJECT: lema-eval
+  WANDB_PROJECT: oumi-eval
   # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
   OUMI_EVALUATION_FRAMEWORK: lm_harness # Valid values: "lm_harness", "oumi"

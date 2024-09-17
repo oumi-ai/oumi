@@ -28,7 +28,7 @@ def mock_torch_distributed():
 
 
 @pytest.fixture
-def mock_lema_barrier():
+def mock_oumi_barrier():
     with patch("oumi.core.distributed.barrier") as mock_dist:
         yield mock_dist
 
@@ -72,7 +72,7 @@ def test_decorators_without_distributed(
     tested_decorator,
     mock_work_function,
     mock_torch_distributed,
-    mock_lema_barrier,
+    mock_oumi_barrier,
     mock_torch_barrier,
 ):
     # Disable distributed
@@ -80,7 +80,7 @@ def test_decorators_without_distributed(
 
     # In non-distributed mode, the decorated function should be executed
     # exaclty once without calling any barrier
-    with assert_function_called(mock_lema_barrier, times=1):
+    with assert_function_called(mock_oumi_barrier, times=1):
         with assert_function_called(mock_torch_barrier, times=0):
             with assert_function_called(mock_work_function, times=1):
 
@@ -100,7 +100,7 @@ def test_context_managers_without_distributed(
     decorator,
     mock_work_function,
     mock_torch_distributed,
-    mock_lema_barrier,
+    mock_oumi_barrier,
     mock_torch_barrier,
 ):
     # Disable distributed
@@ -108,7 +108,7 @@ def test_context_managers_without_distributed(
 
     # In non-distributed mode, the decorated function should be executed
     # exaclty once without calling any barrier
-    with assert_function_called(mock_lema_barrier, times=1):
+    with assert_function_called(mock_oumi_barrier, times=1):
         with assert_function_called(mock_torch_barrier, times=0):
             with assert_function_called(mock_work_function, times=1):
                 with decorator():
@@ -121,7 +121,7 @@ def test_context_managers_without_distributed(
     [local_leader_only, global_leader_only],
 )
 def test_leaders_only_should_do_work(
-    tested_decorator, mock_work_function, mock_lema_barrier, mock_device_rank_info
+    tested_decorator, mock_work_function, mock_oumi_barrier, mock_device_rank_info
 ):
     # Decorated function should be called by local leader
     # Barrier should be called ONCE
@@ -132,7 +132,7 @@ def test_leaders_only_should_do_work(
     assert is_world_process_zero() is True
 
     with assert_function_called(mock_work_function, times=1):
-        with assert_function_called(mock_lema_barrier):
+        with assert_function_called(mock_oumi_barrier):
 
             @tested_decorator()
             def test_function_should_execute():
@@ -149,7 +149,7 @@ def test_leaders_only_should_do_work(
     assert is_world_process_zero() is False
 
     with assert_function_called(mock_work_function, times=0):
-        with assert_function_called(mock_lema_barrier):
+        with assert_function_called(mock_oumi_barrier):
 
             @tested_decorator()
             def test_function_should_not_execute():
@@ -160,7 +160,7 @@ def test_leaders_only_should_do_work(
 
 
 def test_global_leader_only_should_do_work(
-    mock_work_function, mock_lema_barrier, mock_device_rank_info
+    mock_work_function, mock_oumi_barrier, mock_device_rank_info
 ):
     # Decorated function should be called by local leader
     # Barrier should be called ONCE
@@ -171,7 +171,7 @@ def test_global_leader_only_should_do_work(
     assert is_world_process_zero() is True
 
     with assert_function_called(mock_work_function, times=1):
-        with assert_function_called(mock_lema_barrier):
+        with assert_function_called(mock_oumi_barrier):
 
             @global_leader_only()
             def test_function_should_execute():
@@ -188,7 +188,7 @@ def test_global_leader_only_should_do_work(
     assert is_world_process_zero() is False
 
     with assert_function_called(mock_work_function, times=0):
-        with assert_function_called(mock_lema_barrier):
+        with assert_function_called(mock_oumi_barrier):
 
             @global_leader_only()
             def test_function_should_not_execute():
@@ -206,7 +206,7 @@ def test_global_leader_only_should_do_work(
     assert is_world_process_zero() is False
 
     with assert_function_called(mock_work_function, times=0):
-        with assert_function_called(mock_lema_barrier):
+        with assert_function_called(mock_oumi_barrier):
 
             @global_leader_only()
             def test_function_should_not_execute():
@@ -223,7 +223,7 @@ def test_global_leader_only_should_do_work(
 def test_decorators_with_distributed(
     tested_decorator,
     mock_work_function,
-    mock_lema_barrier,
+    mock_oumi_barrier,
     mock_torch_barrier,
 ):
     # The decorated function should be executed
@@ -233,7 +233,7 @@ def test_decorators_with_distributed(
         world_size=2, rank=0, local_world_size=2, local_rank=0
     )
 
-    with assert_function_called(mock_lema_barrier, times=1):
+    with assert_function_called(mock_oumi_barrier, times=1):
         with assert_function_called(mock_work_function, times=1):
 
             @tested_decorator()
@@ -248,7 +248,7 @@ def test_decorators_with_distributed(
         world_size=2, rank=1, local_world_size=2, local_rank=1
     )
 
-    with assert_function_called(mock_lema_barrier, times=1):
+    with assert_function_called(mock_oumi_barrier, times=1):
         with assert_function_called(mock_work_function, times=1):
 
             @tested_decorator()

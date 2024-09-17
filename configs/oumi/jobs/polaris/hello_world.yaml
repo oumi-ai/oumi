@@ -4,7 +4,7 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$ALCF_USER/lema_launcher/hello-world.
+# Upload working directory to /home/$ALCF_USER/oumi_launcher/hello-world.
 working_dir: .
 
 # Mount local files.

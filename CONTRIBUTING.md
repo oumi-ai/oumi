@@ -37,7 +37,7 @@ your own account.
 
     ```shell
     git clone git@github.com:<github_id>/oumi-ai/oumi.git
-    cd ./lema/
+    cd ./oumi/
     git remote add upstream https://github.com/oumi-ai/oumi.git
     ```
 

@@ -21,7 +21,7 @@ file_mounts:
     mode: MOUNT
 
 envs:
-  WANDB_PROJECT: lema-eval
+  WANDB_PROJECT: oumi-eval
   # The HellaSwag dataset requires trusted code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
 
