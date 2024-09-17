@@ -50,7 +50,7 @@ See Also:
 """
 
 from oumi import models
-from oumi.evaluate import evaluate_oumi, evaluate_lm_harness
+from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
 from oumi.train import train

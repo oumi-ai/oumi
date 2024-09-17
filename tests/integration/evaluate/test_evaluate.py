@@ -5,7 +5,7 @@ import tempfile
 import pytest
 import torch
 
-from oumi import evaluate_oumi, evaluate_lm_harness
+from oumi import evaluate_lm_harness, evaluate_oumi
 from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
