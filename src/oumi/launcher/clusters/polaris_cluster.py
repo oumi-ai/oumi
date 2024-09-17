@@ -220,7 +220,7 @@ class PolarisCluster(BaseCluster):
             "module use /soft/modulefiles",
             "module load conda",
             f"if [ ! -d {lema_env_path} ]; then",
-            'echo "Creating LeMa Conda environment... ---------------------------"',
+            'echo "Creating OUMI Conda environment... ---------------------------"',
             f"conda create -y python=3.11 --prefix {lema_env_path}",
             "fi",
             'echo "Installing packages... ---------------------------------------"',

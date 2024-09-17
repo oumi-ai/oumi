@@ -38,7 +38,7 @@ class LocalClient:
     # The maximum number of characters to read from the subprocess's stdout and stderr.
     _MAX_BUFFER_SIZE = 1024
     # The environment variable used to specify the logging directory.
-    _LEMA_LOGGING_DIR = "LEMA_LOGGING_DIR"
+    _OUMI_LOGGING_DIR = "OUMI_LOGGING_DIR"
 
     def __init__(self):
         """Initializes a new instance of the LocalClient class."""
@@ -66,8 +66,8 @@ class LocalClient:
         env_copy = os.environ.copy()
         env_copy.update(job.config.envs)
         # Check if the user has specified a logging directory.
-        if self._LEMA_LOGGING_DIR in env_copy:
-            logging_dir = Path(env_copy[self._LEMA_LOGGING_DIR])
+        if self._OUMI_LOGGING_DIR in env_copy:
+            logging_dir = Path(env_copy[self._OUMI_LOGGING_DIR])
             logging_dir.mkdir(parents=True, exist_ok=True)
             dt = datetime.now()
             log_format = f"{dt:%Y_%m_%d_%H_%M_%S}_{dt.microsecond // 1000:03d}"

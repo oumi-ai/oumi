@@ -346,7 +346,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
@@ -444,7 +444,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
@@ -541,7 +541,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
@@ -626,7 +626,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
@@ -713,7 +713,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",
@@ -792,7 +792,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
-                    'echo "Creating LeMa Conda environment... '
+                    'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/lema",

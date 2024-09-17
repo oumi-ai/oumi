@@ -1,4 +1,4 @@
-"""Launcher module for the LeMa (Learning Machines) library.
+"""Launcher module for the OUMI (Learning Machines) library.
 
 This module provides functionality for launching and managing jobs across various
 cloud platforms.

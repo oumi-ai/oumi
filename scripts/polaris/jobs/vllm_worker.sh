@@ -6,9 +6,9 @@ LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
-echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
-echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
-echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
+echo "${LOG_PREFIX} OUMI_MASTER_ADDR: $OUMI_MASTER_ADDR"
+echo "${LOG_PREFIX} OUMI_MASTER_PORT: $OUMI_MASTER_PORT"
+echo "${LOG_PREFIX} OUMI_NUM_NODES: $OUMI_NUM_NODES"
 echo "${LOG_PREFIX} PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
 echo "${LOG_PREFIX} PMI_RANK: $PMI_RANK"
 echo "${LOG_PREFIX} NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
@@ -35,9 +35,9 @@ fi
 # Command setup for head or worker node
 RAY_START_CMD=(ray start -v --block)
 if [ "${POLARIS_NODE_RANK}" == "0" ]; then
-    RAY_START_CMD+=( --head --node-ip-address=${LEMA_MASTER_ADDR} --port=6379 --include-dashboard=false)
+    RAY_START_CMD+=( --head --node-ip-address=${OUMI_MASTER_ADDR} --port=6379 --include-dashboard=false)
 else
-    RAY_START_CMD+=( --node-ip-address=${HOSTNAME} --address=${LEMA_MASTER_ADDR}:6379)
+    RAY_START_CMD+=( --node-ip-address=${HOSTNAME} --address=${OUMI_MASTER_ADDR}:6379)
 fi
 
 ORIGINAL_TMPDIR="${TMPDIR}"
@@ -84,7 +84,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
 
-    TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * LEMA_NUM_NODES ))
+    TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * OUMI_NUM_NODES ))
     LORA_MODULES=
     VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
     # For inference on a full fine-tuned model, uncomment the following line.
@@ -123,7 +123,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     python3 "./scripts/polaris/jobs/python/vllm_parallel_inference.py" \
         2>&1 | tee "${INFERENCE_LOG_PATH}" &
 
-    while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'LEMA INFERENCE JOB DONE'`
+    while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'OUMI INFERENCE JOB DONE'`
     do
         sleep 30s
         # TODO: OPE-356 - Have a more specific error check condition.

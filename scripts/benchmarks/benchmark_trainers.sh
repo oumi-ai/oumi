@@ -31,7 +31,7 @@ time accelerate launch \
 time torchrun --standalone --nproc_per_node 1 \
     -m oumi.train \
     -c "configs/oumi/llama2b.pt.yaml" \
-    "training.trainer_type=LEMA" \
+    "training.trainer_type=OUMI" \
     "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \
     "training.output_dir=output/trainer-lema/" \

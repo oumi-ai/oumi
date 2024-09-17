@@ -65,7 +65,7 @@ def parse_cli():
 
 
 def main() -> None:
-    """Main entry point for training LeMa.
+    """Main entry point for training OUMI.
 
     Training arguments are fetched from the following sources, ordered by
     decreasing priority:
@@ -270,7 +270,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
             kwargs = {}
-            if config.training.trainer_type == TrainerType.LEMA:
+            if config.training.trainer_type == TrainerType.OUMI:
                 kwargs["fsdp_params"] = config.fsdp
 
             callbacks = build_training_callbacks(config, model, profiler)

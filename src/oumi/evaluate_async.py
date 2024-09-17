@@ -23,7 +23,7 @@ def parse_cli():
 
 
 def main() -> None:
-    """Main entry point for running aynsc LeMa evals.
+    """Main entry point for running aynsc OUMI evals.
 
     Evaluation arguments are fetched from the following sources, ordered by
     decreasing priority:

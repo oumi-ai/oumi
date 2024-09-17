@@ -67,9 +67,9 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
         return _create_hf_builder_fn(trl.DPOTrainer)
     elif trainer_type == TrainerType.HF:
         return _create_hf_builder_fn(transformers.Trainer)
-    elif trainer_type == TrainerType.LEMA:
+    elif trainer_type == TrainerType.OUMI:
         warnings.warn(
-            "LEMA trainer is still in development model. Please use HF trainer for now."
+            "OUMI trainer is still in development model. Please use HF trainer for now."
         )
         return lambda *args, **kwargs: LemaTrainer(*args, **kwargs)
 

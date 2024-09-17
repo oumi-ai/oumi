@@ -37,7 +37,7 @@ def test_evaluate_lema():
                 model_name="openai-community/gpt2",
                 trust_remote_code=True,
             ),
-            evaluation_framework=EvaluationFramework.LEMA,
+            evaluation_framework=EvaluationFramework.OUMI,
             num_samples=4,
         )
 

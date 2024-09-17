@@ -24,13 +24,13 @@ SNAPSHOTS=$(ls "${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots")
 readarray -t SNAPSHOT_ARRAY <<<"$SNAPSHOTS"
 export SNAPSHOT=${SNAPSHOT_ARRAY[-1]}
 
-echo "Setting up vLLM inference with ${LEMA_NUM_NODES} node(s)..."
+echo "Setting up vLLM inference with ${OUMI_NUM_NODES} node(s)..."
 
 set -x  # Print command with expanded variables
 
 # Start worker nodes
 mpiexec --verbose \
-    --np ${LEMA_NUM_NODES} \
+    --np ${OUMI_NUM_NODES} \
     --ppn ${NRANKS} \
     --depth ${NDEPTH} \
     --cpu-bind ${CPU_BIND} \

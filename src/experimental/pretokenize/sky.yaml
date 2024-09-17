@@ -1,5 +1,5 @@
 # Sample command:
-# sky launch --cloud GCP -i 10 --env LEMA_RUN_NAME=pretokenize.v01 --num-nodes 1 --no-use-spot --cluster xrdaukar-cpu-01-lema-cluster src/experimental/pretokenize/sky.yaml
+# sky launch --cloud GCP -i 10 --env OUMI_RUN_NAME=pretokenize.v01 --num-nodes 1 --no-use-spot --cluster xrdaukar-cpu-01-lema-cluster src/experimental/pretokenize/sky.yaml
 
 name: pretokenize-example
 
@@ -28,7 +28,7 @@ file_mounts:
     mode: MOUNT
 
 envs:
-  LEMA_RUN_NAME: pretokenize
+  OUMI_RUN_NAME: pretokenize
 
 setup: |
   set -e

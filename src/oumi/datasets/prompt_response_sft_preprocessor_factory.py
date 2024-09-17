@@ -41,7 +41,7 @@ class PromptResponseSftPreprocessorFactory:
         response_key: str,
         system_instruction: Optional[str] = None,
     ) -> dict:
-        """Converts the input example to the LeMa format."""
+        """Converts the input example to the OUMI format."""
         prompt = example[prompt_key]
         response = example[response_key]
 

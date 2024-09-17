@@ -114,7 +114,7 @@ class FSDPParams(BaseParams):
     """Configuration options for FullyShardedDataParallel (FSDP).
 
     Note:
-        This config is currently only used by the `LEMA` trainer. Support for other
+        This config is currently only used by the `OUMI` trainer. Support for other
         trainers will be added in future releases.
     """
 

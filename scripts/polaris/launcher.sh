@@ -94,7 +94,7 @@ ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $va
   module use /soft/modulefiles
   module load conda
   if [ ! -d /home/$USER/miniconda3/envs/lema ]; then
-      echo "Creating LeMa Conda environment... -----------------------------------------"
+      echo "Creating OUMI Conda environment... -----------------------------------------"
       conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/lema
    fi
    echo "Installing packages... -----------------------------------------"

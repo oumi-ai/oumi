@@ -206,7 +206,7 @@ def parse_cli() -> _LaunchArgs:
 
 
 def status(launch_args: _LaunchArgs) -> None:
-    """Prints the status of jobs on LeMa.
+    """Prints the status of jobs on OUMI.
 
     Optionally, the caller may specify a job id, cluster, or cloud to further filter
     results.
@@ -264,7 +264,7 @@ def which() -> None:
 
 
 def stop(launch_args: _LaunchArgs) -> None:
-    """Stops a job on LeMa."""
+    """Stops a job on OUMI."""
     if not launch_args.cluster:
         raise ValueError("No cluster specified for `stop` action.")
     if not launch_args.job_id:
@@ -311,7 +311,7 @@ def run(launch_args: _LaunchArgs) -> None:
 
 
 def launch(launch_args: _LaunchArgs) -> None:
-    """Launches a job on LeMa."""
+    """Launches a job on OUMI."""
     config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         launch_args.job, launch_args.additional_args, logger=logger
     )
@@ -333,7 +333,7 @@ def launch(launch_args: _LaunchArgs) -> None:
 
 
 def main() -> None:
-    """Main entry point for launching jobs on LeMa.
+    """Main entry point for launching jobs on OUMI.
 
     Arguments are fetched from the following sources, ordered by
     decreasing priority:

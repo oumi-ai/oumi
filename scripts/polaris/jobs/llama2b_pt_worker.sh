@@ -10,9 +10,9 @@ LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
 echo "${LOG_PREFIX} USER: ${USER}"
-echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
-echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
-echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
+echo "${LOG_PREFIX} OUMI_MASTER_ADDR: $OUMI_MASTER_ADDR"
+echo "${LOG_PREFIX} OUMI_MASTER_PORT: $OUMI_MASTER_PORT"
+echo "${LOG_PREFIX} OUMI_NUM_NODES: $OUMI_NUM_NODES"
 echo "${LOG_PREFIX} PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
 echo "${LOG_PREFIX} PMI_RANK: $PMI_RANK"
 echo "${LOG_PREFIX} NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
@@ -94,14 +94,14 @@ training.log_model_summary=false
 ${PROFILER_TRAINING_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
-TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
+TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 if [ "$TRAINING_MODE" == "ddp" ]; then
     set -x  # Print "torchrun" command with expanded variables
     torchrun \
-        --nnodes=${LEMA_NUM_NODES} \
+        --nnodes=${OUMI_NUM_NODES} \
         --node-rank=${POLARIS_NODE_RANK} \
         --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
-        --master-addr=${LEMA_MASTER_ADDR} \
+        --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
         -c configs/oumi/llama2b.pt.yaml \
@@ -118,7 +118,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         --nnodes=${TOTAL_NUM_GPUS} \
         --node-rank=${POLARIS_NODE_RANK} \
         --nproc-per-node=1 \
-        --master-addr=${LEMA_MASTER_ADDR} \
+        --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
         -c configs/oumi/llama2b.pt.yaml \
@@ -131,10 +131,10 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     set -x  # Print "accelerate" command with expanded variables
     pip install deepspeed  # Deepspeed is not installed by default
     accelerate launch \
-      --num_machines ${LEMA_NUM_NODES} \
+      --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${POLARIS_NODE_RANK} \
       --num_processes ${TOTAL_NUM_GPUS} \
-      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_deepspeed \
       --config_file configs/accelerate/llama.deepspeed.yaml \
@@ -150,10 +150,10 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
 else  # FSDP
     set -x  # Print "accelerate" command with expanded variables
     accelerate launch \
-      --num_machines ${LEMA_NUM_NODES} \
+      --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${POLARIS_NODE_RANK} \
       --num_processes ${TOTAL_NUM_GPUS} \
-      --main_process_ip ${LEMA_MASTER_ADDR} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \

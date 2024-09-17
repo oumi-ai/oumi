@@ -1,7 +1,7 @@
-"""Builders module for the LeMa (Learning Machines) library.
+"""Builders module for the OUMI (Learning Machines) library.
 
 This module provides builder functions to construct and configure
-different components of the LeMa framework, including datasets, models,
+different components of the OUMI framework, including datasets, models,
 optimizers, and trainers.
 
 The builder functions encapsulate the complexity of creating these components,

@@ -149,7 +149,7 @@ def test_local_client_submit_job_execution_with_logging(
         client = LocalClient()
         mock_os.environ.copy.return_value = {
             "preset": "value",
-            "LEMA_LOGGING_DIR": output_temp_dir,
+            "OUMI_LOGGING_DIR": output_temp_dir,
         }
         mock_datetime.fromtimestamp.return_value = datetime.fromtimestamp(10)
         mock_datetime.now.return_value = datetime.fromtimestamp(10.1234, timezone.utc)
@@ -174,7 +174,7 @@ pip install -r requirements.txt
             shell=True,
             env={
                 "preset": "value",
-                "LEMA_LOGGING_DIR": output_temp_dir,
+                "OUMI_LOGGING_DIR": output_temp_dir,
                 "var1": "val1",
             },
             stdout=OpenEquivalent(stdout_handler),

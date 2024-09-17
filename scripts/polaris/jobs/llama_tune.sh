@@ -10,9 +10,9 @@ LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
 echo "${LOG_PREFIX} USER: ${USER}"
-echo "${LOG_PREFIX} LEMA_MASTER_ADDR: $LEMA_MASTER_ADDR"
-echo "${LOG_PREFIX} LEMA_MASTER_PORT: $LEMA_MASTER_PORT"
-echo "${LOG_PREFIX} LEMA_NUM_NODES: $LEMA_NUM_NODES"
+echo "${LOG_PREFIX} OUMI_MASTER_ADDR: $OUMI_MASTER_ADDR"
+echo "${LOG_PREFIX} OUMI_MASTER_PORT: $OUMI_MASTER_PORT"
+echo "${LOG_PREFIX} OUMI_NUM_NODES: $OUMI_NUM_NODES"
 echo "${LOG_PREFIX} PMI_LOCAL_RANK: $PMI_LOCAL_RANK"
 echo "${LOG_PREFIX} PMI_RANK: $PMI_RANK"
 echo "${LOG_PREFIX} NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
@@ -69,7 +69,7 @@ if ! (echo "${ALLOWED_MODEL_SIZES[@]}" | grep -q -w "${MODEL_SIZE}"); then
     helpFunction
 fi
 
-TOTAL_NUM_GPUS=$((${LEMA_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
+TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
@@ -92,10 +92,10 @@ if [ "$MODEL_SIZE" == "8b" ]; then
         # Num steps for 1 epoch: 51,760 / 256 = 203
         set -x  # Print "accelerate launch" command with expanded variables
         accelerate launch \
-            --num_machines ${LEMA_NUM_NODES} \
+            --num_machines ${OUMI_NUM_NODES} \
             --machine_rank ${POLARIS_NODE_RANK} \
             --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_ip ${OUMI_MASTER_ADDR} \
             --main_process_port 8007 \
             --multi_gpu \
             --config_file configs/accelerate/llama.ddp.yaml \
@@ -111,10 +111,10 @@ if [ "$MODEL_SIZE" == "8b" ]; then
         # Num steps for 1 epoch: 51,760 / 8 = 6,470
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
-            --num_machines ${LEMA_NUM_NODES} \
+            --num_machines ${OUMI_NUM_NODES} \
             --machine_rank ${POLARIS_NODE_RANK} \
             --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_ip ${OUMI_MASTER_ADDR} \
             --main_process_port 8007 \
             --use_fsdp \
             --config_file configs/accelerate/llama8b.fsdp.yaml \
@@ -136,10 +136,10 @@ else  # 70B
         # Num steps for 1 epoch: 51,760 / 16 = 3,235
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
-            --num_machines ${LEMA_NUM_NODES} \
+            --num_machines ${OUMI_NUM_NODES} \
             --machine_rank ${POLARIS_NODE_RANK} \
             --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_ip ${OUMI_MASTER_ADDR} \
             --main_process_port 8007 \
             --use_fsdp \
             --config_file configs/accelerate/llama70b.lora.yaml \
@@ -155,10 +155,10 @@ else  # 70B
         # Num steps for 1 epoch: 51,760 / 32 = 1,618
         set -x  # Print "accelerate" command with expanded variables
         accelerate launch \
-            --num_machines ${LEMA_NUM_NODES} \
+            --num_machines ${OUMI_NUM_NODES} \
             --machine_rank ${POLARIS_NODE_RANK} \
             --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${LEMA_MASTER_ADDR} \
+            --main_process_ip ${OUMI_MASTER_ADDR} \
             --main_process_port 8007 \
             --use_fsdp \
             --config_file configs/accelerate/llama70b.fsdp.yaml \

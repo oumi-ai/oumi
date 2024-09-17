@@ -1,4 +1,4 @@
-"""Inference module for the LeMa (Learning Machines) library.
+"""Inference module for the OUMI (Learning Machines) library.
 
 This module provides various implementations for running model inference.
 """

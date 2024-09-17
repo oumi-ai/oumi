@@ -36,10 +36,10 @@ class TrainerType(Enum):
     library, suitable for a wide range of training tasks.
     """
 
-    LEMA = "lema"
+    OUMI = "oumi"
     """Custom generic trainer implementation.
 
-    This is a custom trainer implementation specific to the LeMa project,
+    This is a custom trainer implementation specific to the OUMI project,
     designed to provide additional flexibility and features.
     """
 
@@ -47,7 +47,7 @@ class TrainerType(Enum):
 class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers.
 
-    For optional args for each scheduler, see src/lema/builders/lr_schedules.py.
+    For optional args for each scheduler, see src/oumi/builders/lr_schedules.py.
     """
 
     LINEAR = "linear"
@@ -128,7 +128,7 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
-    - LEMA: Custom generic trainer implementation
+    - OUMI: Custom generic trainer implementation
     """
 
     enable_gradient_checkpointing: bool = False
@@ -251,7 +251,7 @@ class TrainingParams(BaseParams):
     """
 
     metrics_function: Optional[str] = None
-    """The name of the metrics function in the LeMa registry to use for evaluation
+    """The name of the metrics function in the OUMI registry to use for evaluation
     during training.
 
     The method must accept as input a HuggingFace EvalPrediction and
@@ -260,7 +260,7 @@ class TrainingParams(BaseParams):
     """
 
     log_level: str = "info"
-    """The logging level for the main LeMa logger.
+    """The logging level for the main OUMI logger.
 
     Possible values are "debug", "info", "warning", "error", "critical".
     """
@@ -350,7 +350,7 @@ class TrainingParams(BaseParams):
     Possible values include "linear", "cosine", "cosine_with_restarts",
       "cosine_with_min_lr" and "constant".
 
-    See `src/lema/builders/lr_schedules.py` for more details on each scheduler.
+    See `src/oumi/builders/lr_schedules.py` for more details on each scheduler.
     """
 
     lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -387,7 +387,7 @@ class TrainingParams(BaseParams):
     weight_decay: float = 0.0
     """Weight decay (L2 penalty) to apply to the model's parameters.
 
-    In the HF trainers and the LeMa trainer, this is automatically applied to only
+    In the HF trainers and the OUMI trainer, this is automatically applied to only
     weight tensors, and skips biases/layernorms.
 
     Default is 0.0 (no weight decay).
@@ -559,7 +559,7 @@ class TrainingParams(BaseParams):
     """
 
     def to_hf(self):
-        """Converts LeMa config to HuggingFace's TrainingArguments."""
+        """Converts OUMI config to HuggingFace's TrainingArguments."""
         save_strategy: str = "no"
         if self.save_epoch:
             save_strategy = "epoch"

@@ -23,10 +23,10 @@ TRAIN_DATASETS="data.train.datasets=
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
 # 4 gradient accumulation steps.
 torchrun \
-    --nnodes=${LEMA_NUM_NODES} \
+    --nnodes=${OUMI_NUM_NODES} \
     --node-rank=${PBS_NODENUM} \
     --nproc-per-node=4 \
-    --master-addr=${LEMA_MASTER_ADDR} \
+    --master-addr=${OUMI_MASTER_ADDR} \
     --master-port=8007 \
     -m oumi.train \
     -c configs/oumi/gpt2.pt.yaml \

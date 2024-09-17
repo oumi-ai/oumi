@@ -150,7 +150,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
 # Deprecated
 #
 def _convert_to_lema_format(example: dict) -> dict:
-    """Converts the input example to the LeMa format."""
+    """Converts the input example to the OUMI format."""
     messages = example["messages"].copy()
     metadata = {}
 
