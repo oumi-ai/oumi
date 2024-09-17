@@ -35,7 +35,7 @@ setup: |
   # Download model from GCS, which is faster than downloading during training.
   # At the moment, you need to run this manually after ssh-ing into the cluster
   # because it requires manual authentication.
-  # gsutil -m cp -R gs://lema-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B-Instruct ~/.cache/huggingface/hub
+  # gsutil -m cp -R gs://oumi-dev-us-central1/wizeng/models/models--meta-llama--Meta-Llama-3.1-70B-Instruct ~/.cache/huggingface/hub
 
 run: |
   set -e  # Exit if any command failed.

@@ -22,7 +22,7 @@ file_mounts:
   # See https://github.com/oumi-ai/oumi/wiki/Clouds-Setup#mounting-gcs-buckets
   # for documentation on using GCS buckets.
   /output_dir_gcs:
-    source: gs://lema-dev-us-central1
+    source: gs://oumi-dev-us-central1
     store: gcs
     mode: MOUNT
 
