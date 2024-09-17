@@ -1,6 +1,6 @@
-lema.core.tokenizers
+oumi.core.tokenizers
 ====================
-.. automodule:: lema.core.tokenizers
+.. automodule:: oumi.core.tokenizers
    :members:
    :undoc-members:
    :show-inheritance:

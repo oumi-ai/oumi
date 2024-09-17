@@ -1,6 +1,6 @@
-lema.core.models
+oumi.core.models
 ================
-.. automodule:: lema.core.models
+.. automodule:: oumi.core.models
    :members:
    :undoc-members:
    :show-inheritance:

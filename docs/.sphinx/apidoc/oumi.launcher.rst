@@ -1,6 +1,6 @@
-lema.launcher
+oumi.launcher
 =============
-.. automodule:: lema.launcher
+.. automodule:: oumi.launcher
    :members:
    :undoc-members:
    :show-inheritance:
@@ -11,6 +11,6 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
-   lema.launcher.clients
-   lema.launcher.clouds
-   lema.launcher.clusters
+   oumi.launcher.clients
+   oumi.launcher.clouds
+   oumi.launcher.clusters

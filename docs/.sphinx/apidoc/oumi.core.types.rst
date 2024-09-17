@@ -1,6 +1,6 @@
-lema.evaluation
+oumi.core.types
 ===============
-.. automodule:: lema.evaluation
+.. automodule:: oumi.core.types
    :members:
    :undoc-members:
    :show-inheritance:

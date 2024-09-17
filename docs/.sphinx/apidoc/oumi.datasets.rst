@@ -1,6 +1,6 @@
-lema.datasets
+oumi.datasets
 =============
-.. automodule:: lema.datasets
+.. automodule:: oumi.datasets
    :members:
    :undoc-members:
    :show-inheritance:
@@ -11,4 +11,4 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
-   lema.datasets.vision_language
+   oumi.datasets.vision_language

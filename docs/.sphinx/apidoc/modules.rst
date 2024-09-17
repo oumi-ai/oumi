@@ -1,7 +1,7 @@
-lema
+oumi
 ====
 
 .. toctree::
    :maxdepth: 2
 
-   lema
+   oumi

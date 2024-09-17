@@ -1,6 +1,6 @@
-lema.builders
+oumi.builders
 =============
-.. automodule:: lema.builders
+.. automodule:: oumi.builders
    :members:
    :undoc-members:
    :show-inheritance:
