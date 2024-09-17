@@ -1,4 +1,4 @@
-"""Lema (Learning Machines) library.
+"""OUMI (Open Unified Machine Intelligence) library.
 
 This library provides tools and utilities for training, evaluating, and
 inferring with machine learning models, particularly focused on language tasks.
@@ -14,7 +14,7 @@ Modules:
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
-    - :func:`~oumi.evaluate.evaluate_lema`: Evaluate a model using OUMI benchmarks.
+    - :func:`~oumi.evaluate.evaluate_oumi`: Evaluate a model using OUMI benchmarks.
     - :func:`~oumi.evaluate.evaluate_lm_harness`: Evaluate a model using Language
         Model Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
@@ -23,7 +23,7 @@ Functions:
 Examples:
     Training a model::
 
-        from lema import train
+        from oumi import train
         from oumi.core.configs import TrainingConfig
 
         config = TrainingConfig(...)
@@ -31,15 +31,15 @@ Examples:
 
     Evaluating a model::
 
-        from lema import evaluate_lema
+        from oumi import evaluate_oumi
         from oumi.core.configs import EvaluationConfig
 
         config = EvaluationConfig(...)
-        results = evaluate_lema(config)
+        results = evaluate_oumi(config)
 
     Performing inference::
 
-        from lema import infer
+        from oumi import infer
         from oumi.core.configs import InferenceConfig
 
         config = InferenceConfig(...)
@@ -50,7 +50,7 @@ See Also:
 """
 
 from oumi import models
-from oumi.evaluate import evaluate_lema, evaluate_lm_harness
+from oumi.evaluate import evaluate_oumi, evaluate_lm_harness
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
 from oumi.train import train
@@ -62,7 +62,7 @@ logging.configure_dependency_warnings()
 __all__ = [
     "train",
     "evaluate_async",
-    "evaluate_lema",
+    "evaluate_oumi",
     "evaluate_lm_harness",
     "infer",
     "infer_interactive",

@@ -114,4 +114,4 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
 
 
 # Default logger for the package
-logger = get_logger("lema")
+logger = get_logger("oumi")

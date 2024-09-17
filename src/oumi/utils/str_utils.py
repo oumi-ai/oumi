@@ -28,7 +28,7 @@ def sanitize_run_name(run_name: str) -> str:
         result = result[0 : (_MAX_RUN_NAME_LENGTH - len(suffix))] + suffix
 
     if result != run_name:
-        logger = logging.getLogger("lema")
+        logger = logging.getLogger("oumi")
         logger.warning(f"Run name '{run_name}' got sanitized to '{result}'")
     return result
 

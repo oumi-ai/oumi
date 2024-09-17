@@ -345,15 +345,15 @@ def test_polaris_cluster_run_job(mock_polaris_client):
                     "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]
@@ -443,15 +443,15 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
                     "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]
@@ -540,15 +540,15 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
                     "cd /home/user/lema_launcher/1-2-3",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]
@@ -625,15 +625,15 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
                     "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]
@@ -712,15 +712,15 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
                     "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]
@@ -791,15 +791,15 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
                     "cd /home/user/lema_launcher/myjob",
                     "module use /soft/modulefiles",
                     "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/lema ]; then",
+                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
                     'echo "Creating OUMI Conda environment... '
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/lema",
+                    "/home/$USER/miniconda3/envs/oumi",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/lema",
+                    "conda activate /home/$USER/miniconda3/envs/oumi",
                     "pip install -e '.[train]'",
                     "pip install -e '.[gpu]'",
                 ]

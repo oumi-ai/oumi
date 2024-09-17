@@ -1,4 +1,4 @@
-"""Core datasets module for the OUMI (Learning Machines) library.
+"""Core datasets module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides base classes for different types of datasets used in
 the OUMI framework. These base classes serve as foundations for creating custom

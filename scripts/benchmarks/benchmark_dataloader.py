@@ -297,6 +297,6 @@ if __name__ == "__main__":
     if not args.config and not args.dummy:
         raise ValueError("Either --config or --dummy must be provided")
 
-    update_logger_level("lema", level=args.log_level)
+    update_logger_level("oumi", level=args.log_level)
 
     main(args)

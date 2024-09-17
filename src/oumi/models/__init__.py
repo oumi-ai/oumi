@@ -1,4 +1,4 @@
-"""Models module for the OUMI (Learning Machines) library.
+"""Models module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides various model implementations for use in the OUMI framework.
 These models are designed for different machine learning tasks and can be used

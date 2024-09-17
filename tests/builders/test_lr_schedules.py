@@ -197,7 +197,7 @@ def test_scheduler_specific_kwargs_warning(
     training_params.lr_scheduler_type = scheduler_type
 
     # Enable propagation of log messages to the pytest logger for testing
-    LOGGER = logging.getLogger("lema")
+    LOGGER = logging.getLogger("oumi")
     LOGGER.propagate = True
 
     with caplog.at_level("WARNING"):

@@ -195,7 +195,7 @@ class PolarisCluster(BaseCluster):
 
         For Polaris this method consists of 5 parts:
         1. Copy the working directory to /home/$USER/lema_launcher/$JOB_NAME.
-        2. Check if there is a conda installation at /home/$USER/miniconda3/envs/lema.
+        2. Check if there is a conda installation at /home/$USER/miniconda3/envs/oumi.
             If not, install it.
         3. Copy all file mounts.
         4. Create a job script with all env vars, setup, and run commands.
@@ -214,7 +214,7 @@ class PolarisCluster(BaseCluster):
         # Copy the working directory to Polaris /home/ system.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if lema is installed in a conda env. If not, install it.
-        lema_env_path = Path("/home/$USER/miniconda3/envs/lema")
+        lema_env_path = Path("/home/$USER/miniconda3/envs/oumi")
         install_cmds = [
             f"cd {remote_working_dir}",
             "module use /soft/modulefiles",
@@ -234,7 +234,7 @@ class PolarisCluster(BaseCluster):
             self._client.put_recursive(local_path, remote_path)
         # Create the job script by merging envs, setup, and run commands.
         job_script = _create_job_script(job)
-        script_path = remote_working_dir / "lema_job.sh"
+        script_path = remote_working_dir / "oumi_job.sh"
         self._client.put(job_script, str(script_path))
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])

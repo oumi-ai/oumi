@@ -66,7 +66,7 @@ def evaluate(config: EvaluationConfig) -> None:
         None.
     """
     if config.evaluation_framework == EvaluationFramework.OUMI:
-        evaluate_lema(config)
+        evaluate_oumi(config)
     elif config.evaluation_framework == EvaluationFramework.LM_HARNESS:
         if (
             len(config.data.datasets) == 1
@@ -81,7 +81,7 @@ def evaluate(config: EvaluationConfig) -> None:
         )
 
 
-def evaluate_lema(config: EvaluationConfig) -> None:
+def evaluate_oumi(config: EvaluationConfig) -> None:
     """Evaluates a model using the provided configuration.
 
     Overview:

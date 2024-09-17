@@ -1,4 +1,4 @@
-"""Configuration module for the OUMI (Learning Machines) library.
+"""Configuration module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides various configuration classes and parameters used throughout
 the OUMI framework for tasks such as training, evaluation, inference,

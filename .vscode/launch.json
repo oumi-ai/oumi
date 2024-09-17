@@ -44,7 +44,7 @@
             "justMyCode": true
         },
         {
-            "name": "Lema Distributed",
+            "name": "OUMI Distributed",
             "type": "debugpy",
             "module": "torch.distributed.run",
             "request": "launch",
@@ -60,7 +60,7 @@
             ]
         },
         {
-            "name": "Lema Distributed - Accelerate",
+            "name": "OUMI Distributed - Accelerate",
             "type": "debugpy",
             "module": "accelerate.commands.launch",
             "request": "launch",
@@ -106,7 +106,7 @@
             "module": "oumi.evaluate",
             "args": [
                 "-c",
-                "configs/oumi/phi3.eval.lema.mac.yaml"
+                "configs/oumi/phi3.eval.oumi.mac.yaml"
             ],
             "justMyCode": true
         },

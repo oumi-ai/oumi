@@ -8,7 +8,7 @@ import trl
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer
-from oumi.core.trainers import Trainer as LemaTrainer
+from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 
 
@@ -71,6 +71,6 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
         warnings.warn(
             "OUMI trainer is still in development model. Please use HF trainer for now."
         )
-        return lambda *args, **kwargs: LemaTrainer(*args, **kwargs)
+        return lambda *args, **kwargs: OumiTrainer(*args, **kwargs)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

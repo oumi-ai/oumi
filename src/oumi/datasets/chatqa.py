@@ -67,7 +67,7 @@ class ChatqaDataset(BaseLMSftDataset):
             raw_conversation: The raw conversation example.
 
         Returns:
-            dict: The preprocessed inputs as a Lema conversation.
+            dict: The preprocessed inputs as an OUMI conversation.
         """
         messages = []
 

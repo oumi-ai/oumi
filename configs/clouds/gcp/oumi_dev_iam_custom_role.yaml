@@ -1,5 +1,5 @@
-title: "LeMa Core Developer"
-description: "Custom IAM role for SkyPilot Service Accounts used by LeMa core team developers"
+title: "OUMI Core Developer"
+description: "Custom IAM role for SkyPilot Service Accounts used by OUMI core team developers"
 stage: "ALPHA"
 includedPermissions:
 - compute.disks.create
@@ -78,6 +78,6 @@ includedPermissions:
 # https://skypilot.readthedocs.io/en/latest/cloud-setup/cloud-permissions/gcp.html
 # https://cloud.google.com/iam/docs/creating-custom-roles#gcloud
 
-# gcloud iam roles create lemaCoreDeveloper --project=PROJECT_ID --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
-# name: projects/PROJECT_ID/roles/lemaCoreDeveloper
-# gcloud iam roles create lemaCoreDeveloper --organization=ORGANIZATION --file=configs/clouds/gcp/lema_dev_iam_custom_role.yaml
+# gcloud iam roles create oumiCoreDeveloper --project=PROJECT_ID --file=configs/clouds/gcp/oumi_dev_iam_custom_role.yaml
+# name: projects/PROJECT_ID/roles/oumiCoreDeveloper
+# gcloud iam roles create oumiCoreDeveloper --organization=ORGANIZATION --file=configs/clouds/gcp/oumi_dev_iam_custom_role.yaml

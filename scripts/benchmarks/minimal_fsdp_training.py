@@ -1,6 +1,6 @@
 """Minimal FSDP training loop.
 
-This script demonstrates a minimal FSDP training loop using the Lema framework.
+This script demonstrates a minimal FSDP training loop using the OUMI framework.
 
 Run the script using torchrun for multi-GPU training:
    torchrun --standalone --nproc_per_node=NUM_GPUS \

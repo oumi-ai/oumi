@@ -1,4 +1,4 @@
-# Learning Machines (OUMI)
+# Open Unified Machine Intelligence (OUMI)
 
 [![PyPI version](https://badge.fury.io/py/lema.svg)](https://badge.fury.io/py/lema)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -32,7 +32,7 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 1. Install the package:
 
    ```shell
-   pip install 'lema[cloud,dev,train,gpu]'
+   pip install 'oumi[cloud,dev,train,gpu]'
    ```
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):

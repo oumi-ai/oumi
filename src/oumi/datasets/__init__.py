@@ -1,4 +1,4 @@
-"""Datasets module for the OUMI (Learning Machines) library.
+"""Datasets module for the OUMI (Open Unified Machine Intelligence) library.
 
 This module provides various dataset implementations for use in the OUMI framework.
 These datasets are designed for different machine learning tasks and can be used
