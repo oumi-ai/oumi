@@ -65,7 +65,7 @@
    pre-commit install --install-hooks --hook-type pre-push
    ```
 
-## 4. [optional] Add a OUMI shortcut in your environment {.zshrc or .bashrc}
+## 4. [optional] Add an OUMI shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
    alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"

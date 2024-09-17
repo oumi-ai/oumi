@@ -272,7 +272,7 @@ if __name__ == "__main__":
         "-d",
         "--dummy",
         action="store_true",
-        help="Use a dummy dataset instead of a OUMI dataset.",
+        help="Use a dummy dataset instead of an OUMI dataset.",
     )
     parser.add_argument(
         "--output",
