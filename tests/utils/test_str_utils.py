@@ -28,7 +28,7 @@ def test_sanitize_run_name_too_long():
     assert len(actual) == 100
     expected = (
         "llama2b.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
-        "sky-2024-07...addf327b6c0264e4"
+        "sky-2024-07...35cb245cc965ef2c"
     )
     assert actual == expected
     # verify it's idempotent
