@@ -29,7 +29,7 @@ run: |
 
   TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
   ACCELERATE_MULTI_GPU_OPTION=
-  if [${TOTAL_NUM_GPUS} -gt 1]; then
+  if test ${TOTAL_NUM_GPUS} -gt 1; then
     ACCELERATE_MULTI_GPU_OPTION="--multi_gpu"
   fi
 
