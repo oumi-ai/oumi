@@ -24,7 +24,7 @@ setup: |
   pip install '.[gpu]'
 
 run: |
-  set -e  # Exit if any command failed.
+  set -xe  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
   TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
