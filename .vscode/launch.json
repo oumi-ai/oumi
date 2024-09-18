@@ -7,9 +7,8 @@
             "request": "launch",
             "module": "oumi.train",
             "args": [
-                "data.train.datasets.0.dataset_name=yahma/alpaca-cleaned",
-                "data.train.datasets.0.preprocessing_function_name=alpaca",
-                "data.train.datasets.0.target_col=prompt",
+                "data.train.datasets=[{'dataset_name':'yahma/alpaca-cleaned', 'preprocessing_function_name': 'alpaca'}]",
+                "data.train.target_col=prompt",
                 "model.model_name=openai-community/gpt2",
                 "model.trust_remote_code=true",
                 "training.trainer_type=TRL_SFT",

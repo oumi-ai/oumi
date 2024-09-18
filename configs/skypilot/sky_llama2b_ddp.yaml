@@ -1,7 +1,7 @@
 name: llama2b-ddp
 
 resources:
-  accelerators: {"A100": 2}
+  accelerators: {"A100": 4}
   any_of:
     - use_spot: true
     - use_spot: false

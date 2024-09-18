@@ -1,20 +1,24 @@
-# FSDP pretraining (PT) config for Llama 2B.
-# Accelerate config: configs/accelerate/llama.fsdp.yaml
+# SFT config for Llama 8B.
+# Borrows param values from:
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
 
 model:
-  # Vocab size: 50272
-  # Hidden size: 2048
-  # MLP intermediate size: 8192
-  # Num layers: 24
+  # Vocab size: 128256
+  # Hidden size: 4096
+  # MLP intermediate size: 14336
+  # Num layers: 32
   # Num attention heads: 32
-  # Num KV heads: 32
-  # Weight tying: True
-  model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
+  # Num KV heads: 8
+  # Weight tying: False
+  # Model max length: 131072 (initially trained with 8192)
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: False
   trust_remote_code: True
+  # Improves training speed by 20% with default config.
+  # enable_liger_kernel: True
 
 data:
   train:
@@ -32,28 +36,26 @@ data:
     experimental_use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT # or OUMI
-  save_steps: 500
-  per_device_train_batch_size: 14
-  gradient_accumulation_steps: 19
+  trainer_type: TRL_SFT
+  save_steps: 800
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: False
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  compile: True
+  learning_rate: 2.0e-05
+  compile: False
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  logging_steps: 10
+  logging_steps: 100
   log_model_summary: False
-  output_dir: "output/llama2b.pt.fsdp"
+  empty_device_cache_steps: 50
+  output_dir: "output/llama8b.pt"
   include_performance_metrics: True
   enable_wandb: True
-
-fsdp:
-  enable_fsdp: True
-  sharding_strategy: "HYBRID_SHARD"
-  mixed_precision: "bf16"
-  auto_wrap_policy: "TRANSFORMER_BASED"
-  transformer_layer_cls: "transformers.models.auto.modeling_auto.AutoModelForCausalLM"
