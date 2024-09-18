@@ -1,8 +1,4 @@
-# Simple Git Merge Workflow
-
-This document outlines a `merge` based workflow.
-
-The other option is a `rebase` based workflow, which some people prefer. `rebase` can rewrite history and make it difficult to track changes. The `merge` based workflow is simpler and easier to understand.
+# Git Workflow
 
 ## Resources
 
@@ -10,6 +6,10 @@ The other option is a `rebase` based workflow, which some people prefer. `rebase
 - GitHub CLI [documentation](https://cli.github.com/manual/)
 
 ## Feature development
+
+This document outlines a `merge` based workflow.
+
+The other option is a `rebase` based workflow, which some people prefer. `rebase` can rewrite history and make it difficult to track changes. The `merge` based workflow is simpler and easier to understand.
 
 Note: this is using the `git` cli, but you can also use the GitHub CLI (`gh`) or `vscode` to perform these operations.
 
@@ -69,3 +69,11 @@ Note: this is using the `git` cli, but you can also use the GitHub CLI (`gh`) or
     ```shell
     git push
     ```
+
+## pre-commit
+
+   You can run the pre-commit hooks manually with:
+
+   ```shell
+   pre-commit run --all-files
+   ```
