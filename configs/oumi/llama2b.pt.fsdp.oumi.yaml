@@ -1,5 +1,8 @@
 # OUMI FSDP pretraining (PT) config for Llama 2B.
 # This uses the OUMI trainer instead of HF Accelerate.
+# Compared to llama2b.pt.fsdp.yaml, the main difference is this has FSDPParams,
+# and gradient checkpointing in enabled within this config as opposed to the
+# Accelerate config.
 
 model:
   # Vocab size: 50272
