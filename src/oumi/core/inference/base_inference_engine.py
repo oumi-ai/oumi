@@ -16,7 +16,7 @@ class BaseInferenceEngine(ABC):
         self,
         input: Optional[List[Conversation]] = None,
         generation_config: Optional[GenerationConfig] = None,
-    ) -> Optional[List[Conversation]]:
+    ) -> List[Conversation]:
         """Runs model inference.
 
         Args:
@@ -25,8 +25,7 @@ class BaseInferenceEngine(ABC):
                 If not specified, a default config is inferred.
 
         Returns:
-            Optional[List[Conversation]]: Inference output. Returns None if the output
-                is written to a file.
+            List[Conversation]: Inference output.
         """
         if (
             input is not None

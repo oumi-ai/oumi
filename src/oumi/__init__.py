@@ -10,6 +10,7 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
+    - :mod:`~oumi.judge`: Functions for judging datasets and model responses.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
@@ -19,6 +20,7 @@ Functions:
         Model Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
+    - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
     Training a model::
@@ -45,6 +47,14 @@ Examples:
         config = InferenceConfig(...)
         outputs = infer(config)
 
+    Judging a dataset::
+
+        from oumi import judge
+        from oumi.core.configs import JudgeConfig
+
+        config = JudgeConfig(...)
+        judge_dataset(config, dataset, attributes)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in OUMI
 """
@@ -53,6 +63,7 @@ from oumi import models
 from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
+from oumi.judge import judge
 from oumi.train import train
 from oumi.utils import logging
 
@@ -67,4 +78,5 @@ __all__ = [
     "infer",
     "infer_interactive",
     "models",
+    "judge",
 ]
