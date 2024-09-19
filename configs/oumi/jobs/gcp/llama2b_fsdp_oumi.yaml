@@ -1,4 +1,4 @@
-name: llama2b-fsdp-oumi
+name: llama2b-fsdp-oumi-trainer
 
 resources:
   cloud: gcp

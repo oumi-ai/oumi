@@ -1,7 +1,7 @@
 # OUMI FSDP pretraining (PT) config for Llama 2B.
 # This uses the OUMI trainer instead of HF Accelerate.
-# Compared to llama2b.pt.fsdp.yaml, the main difference is this has FSDPParams,
-# and gradient checkpointing in enabled within this config as opposed to the
+# Compared to llama2b.pt.fsdp.trl.yaml, the main difference is this has FSDPParams,
+# and gradient checkpointing is enabled within this config as opposed to the
 # Accelerate config.
 
 model:
@@ -61,4 +61,4 @@ fsdp:
   sharding_strategy: "HYBRID_SHARD"
   mixed_precision: "bf16"
   auto_wrap_policy: "TRANSFORMER_BASED"
-  transformer_layer_cls: "transformers.models.auto.modeling_auto.AutoModelForCausalLM"
+  transformer_layer_cls: "transformers.models.llama.modeling_llama.LlamaDecoderLayer"
