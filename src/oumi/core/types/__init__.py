@@ -1,6 +1,6 @@
-"""Types module for the OUMI (Open Unified Machine Intelligence) library.
+"""Types module for the Oumi (Open Unified Machine Intelligence) library.
 
-This module provides custom types and exceptions used throughout the OUMI framework.
+This module provides custom types and exceptions used throughout the Oumi framework.
 
 Exceptions:
     :class:`HardwareException`: Exception raised for hardware-related errors.
@@ -14,7 +14,7 @@ Example:
     ...     print(f"Hardware error occurred: {e}")
 
 Note:
-    This module is part of the core OUMI framework and is used across various
+    This module is part of the core Oumi framework and is used across various
     components to ensure consistent error handling and type definitions.
 """
 

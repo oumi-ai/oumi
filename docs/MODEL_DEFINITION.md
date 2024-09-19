@@ -3,12 +3,12 @@
 At a high level, this is the pseudo code for a Pytorch training loop:
 
 ```python
-# The OUMI config defines everything required to train a model.
+# The Oumi config defines everything required to train a model.
 # The config is immutable and serializable.
 config = load_config()
 
 # The first major component: OumiDataset
-# An OUMI dataset object implements the pytorch dataset spec.
+# An Oumi dataset object implements the pytorch dataset spec.
 # A dataset can be either a map-style dataset (`torch.utils.data.Dataset`, or an iterable-style dataset (`torch.utils.data.IterableDataset`), or both.
 # It can be either streamed, or fully loaded in memory.
 dataset = OumiDataset(config.data)  # Pytorch Dataset object
@@ -48,22 +48,22 @@ Digging deeper into the model itself, here is a simple model definition. In this
 
 Each lines is annotated with the relevant information:
 
-- [OUMI] means this is an OUMI-specific decision, which we can revisit as we see fit.
+- [Oumi] means this is an Oumi-specific decision, which we can revisit as we see fit.
 - [PT] means this is a Pytorch-specific requirement. We need a strong reason to deviate from this.
 - [HF] means this is a Huggingface-specific requirement. We can revisit if the tradeoff is worth it.
 
 ```python
-# [OUMI] We will use Pytorch as the base library for our models
-# [OUMI] We will aim to keep maximal compatibility with Native Pytorch
-# [OUMI] We will aim to keep moderate compatibility with Huggingface Transformers
+# [Oumi] We will use Pytorch as the base library for our models
+# [Oumi] We will aim to keep maximal compatibility with Native Pytorch
+# [Oumi] We will aim to keep moderate compatibility with Huggingface Transformers
 class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
     def __init__(self, *args, **kwargs):
         # [PT] *args and **kwargs contain all the argments needed to build the model scaffold
         # [PT] weights should not be loaded, or moved to devices at this point
         super(SimpleModel, self).__init__()
 
-        # [OUMI]: Keep free-form args and kwargs at this time.
-        # [OUMI] Downstream (more opinionated models) can use structured config file that inherits from a dict.
+        # [Oumi]: Keep free-form args and kwargs at this time.
+        # [Oumi] Downstream (more opinionated models) can use structured config file that inherits from a dict.
 
         self.conv1 = nn.Conv2d(1, 20, 5)
         self.conv2 = nn.Conv2d(20, 20, 5)
@@ -73,7 +73,7 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
         # [PT] forward function is required for all Pytorch models
         # [PT] It needs to be able to consume all the outputs from the dataloader
         # [PT] It needs to be able to consume either a batch or individual samples.
-        # [OUMI] For simplicity we exclusively use batched inputs
+        # [Oumi] For simplicity we exclusively use batched inputs
 
         # [HF] To be compatible with HF trainers,
         # [HF] labels are optional, and are only used during training
@@ -88,13 +88,13 @@ class SimpleModel(nn.Module):  # [PT] Needs to inherit from nn.Module
             loss = None
 
         # Can technically be a Tuple or a Dict
-        # [OUMI]: Keep free-form args and kwargs at this time.
+        # [Oumi]: Keep free-form args and kwargs at this time.
         # Downstream (more opinionated models) can use structured config file that inherits from a dict.
         return {"outputs": outputs, "loss": loss}
 
     @property
     def criterion(self):
-        # [OUMI] Keep loss function as an attribute
+        # [Oumi] Keep loss function as an attribute
         return nn.CrossEntropyLoss()
 
     #

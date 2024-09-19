@@ -23,7 +23,7 @@ class BaseTrainer(ABC):
         """Saves the model's state dictionary to the specified output directory.
 
         Args:
-            config (TrainingConfig): The OUMI training config.
+            config (TrainingConfig): The Oumi training config.
             final (bool): Whether this is the final model being saved during training.
 
         Returns:

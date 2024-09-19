@@ -266,13 +266,13 @@ def _benchmark_dataloader_epoch(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark DataLoader performance")
     parser.add_argument(
-        "-c", "--config", type=str, help="Path to the OUMI configuration file."
+        "-c", "--config", type=str, help="Path to the Oumi configuration file."
     )
     parser.add_argument(
         "-d",
         "--dummy",
         action="store_true",
-        help="Use a dummy dataset instead of an OUMI dataset.",
+        help="Use a dummy dataset instead of an Oumi dataset.",
     )
     parser.add_argument(
         "--output",

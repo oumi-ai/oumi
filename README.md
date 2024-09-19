@@ -1,4 +1,4 @@
-# Open Unified Machine Intelligence (OUMI)
+# Open Unified Machine Intelligence (Oumi)
 
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -7,7 +7,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-The OUMI Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
+The Oumi Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
@@ -21,7 +21,7 @@ The OUMI Platform enables the end-to-end development of foundation and specializ
 
 ## Getting Started
 
-For an overview of the OUMI features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/OUMI%20-%20A%20Tour.ipynb).
+For an overview of the Oumi features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
@@ -29,7 +29,7 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 
    For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
 
-1. Install OUMI:
+1. Install Oumi:
 
    ```shell
    pip install 'oumi[all]'
@@ -47,7 +47,7 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 
 ### Configurations
 
-These configurations demonstrate how to setup and run full training for different model architectures using OUMI.
+These configurations demonstrate how to setup and run full training for different model architectures using Oumi.
 
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
@@ -66,16 +66,16 @@ These configurations demonstrate how to setup and run full training for differen
 
 ## Tutorials
 
-We provide several Jupyter notebooks to help you get started with OUMI. Here's a list of available examples:
+We provide several Jupyter notebooks to help you get started with Oumi. Here's a list of available examples:
 
 | Notebook | Description |
 |----------|-------------|
-| [A Tour](/notebooks/OUMI%20-%20A%20Tour.ipynb) | A comprehensive tour of the OUMI repository and its features |
-| [Finetuning Tutorial](/notebooks/OUMI%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using OUMI |
-| [Tuning Llama](/notebooks/OUMI%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with OUMI |
-| [Multinode Inference on Polaris](/notebooks/OUMI%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
-| [Datasets Tutorial](/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in OUMI |
-| [Deploying a Job](/notebooks/OUMI%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using OUMI |
+| [A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | A comprehensive tour of the Oumi repository and its features |
+| [Finetuning Tutorial](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using Oumi |
+| [Tuning Llama](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with Oumi |
+| [Multinode Inference on Polaris](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
+| [Datasets Tutorial](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in Oumi |
+| [Deploying a Job](/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using Oumi |
 
 ## Documentation
 
@@ -99,5 +99,5 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 
      ```shell
      conda activate oumi
-     code .  # inside the OUMI directory
+     code .  # inside the Oumi directory
      ```

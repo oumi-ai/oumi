@@ -36,7 +36,7 @@ def parse_cli():
 
 
 def main() -> None:
-    """Main entry point for evaluating OUMI.
+    """Main entry point for evaluating Oumi.
 
     Evaluation arguments are fetched from the following sources, ordered by
     decreasing priority:

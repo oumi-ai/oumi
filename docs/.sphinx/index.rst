@@ -1,8 +1,8 @@
-Open Unified Machine Intelligence (OUMI) Documentation
+Open Unified Machine Intelligence (Oumi) Documentation
 ======================================
-Welcome to the documentation for Open Unified Machine Intelligence (OUMI) !
+Welcome to the documentation for Open Unified Machine Intelligence (Oumi) !
 
-OUMI is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
+Oumi is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
 .. toctree::
    :maxdepth: 1
@@ -19,29 +19,29 @@ OUMI is an open, collaborative modeling platform that allows you to build founda
 Getting Started
 ---------------
 
-If you're new to OUMI, we recommend starting with the following sections:
+If you're new to Oumi, we recommend starting with the following sections:
 
-1. :doc:`Introduction <links/usage>` - Learn about the core concepts and philosophy behind OUMI.
-2. :doc:`Installation <links/dev_setup>` - Get OUMI up and running on your system.
-3. `A tour of our library <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of OUMI's features.
+1. :doc:`Introduction <links/usage>` - Learn about the core concepts and philosophy behind Oumi.
+2. :doc:`Installation <links/dev_setup>` - Get Oumi up and running on your system.
+3. `A tour of our library <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of Oumi's features.
 
 Tutorials
 ---------
 
-Explore our :doc:`tutorials` for in-depth guides on using OUMI for various tasks:
+Explore our :doc:`tutorials` for in-depth guides on using Oumi for various tasks:
 
-- `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Finetuning%20Tutorial.ipynb>`_
-- `Using the OUMI job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Deploying%20a%20Job.ipynb>`_
-- `Running jobs remotely <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Running%20Jobs%20Remotely.ipynb>`_
-- `Launching jobs on custom clusters <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb>`_
-- `Working with Datasets in OUMI <https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb>`_
+- `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb>`_
+- `Using the Oumi job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb>`_
+- `Running jobs remotely <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb>`_
+- `Launching jobs on custom clusters <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb>`_
+- `Working with Datasets in Oumi <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb>`_
 
 API Reference
 -------------
 
-For detailed information about the OUMI library, check out the :doc:`API Reference <apidoc/oumi>` section.
+For detailed information about the Oumi library, check out the :doc:`API Reference <apidoc/oumi>` section.
 
-This includes comprehensive documentation for all modules, classes, and functions in the OUMI library.
+This includes comprehensive documentation for all modules, classes, and functions in the Oumi library.
 
 Contributing
 ------------
@@ -61,4 +61,4 @@ If you encounter any issues or have questions, please don't hesitate to:
 
 1. Check our `FAQ section <https://github.com/oumi-ai/oumi/blob/main/FAQ.md>`_ for common questions and answers.
 2. Open an issue on our `GitHub Issues page <https://github.com/oumi-ai/oumi/issues>`_ for bug reports or feature requests.
-3. Join our `community <https://learning-machines.ai/community>`_ to discuss with other OUMI users and developers.
+3. Join our `community <https://learning-machines.ai/community>`_ to discuss with other Oumi users and developers.
