@@ -68,7 +68,7 @@ train = [
     "asyncio",
     "bitsandbytes",                 # for quantization
     "datasets",
-    "lm-eval",
+    "lm-eval==0.4.3",               # OPE-390
     "nvidia-ml-py",
     "omegaconf",
     "peft",
@@ -76,6 +76,7 @@ train = [
     "safetensors",
     "sentencepiece",                # for phi-3
     "tensorboard",
+    "torch==2.4.0",                 # OPE-390
     "torchdata>=0.8.0",
     "transformers>=4.43.1,<4.44.0",
     "trl>=0.9.0",
