@@ -1,11 +1,11 @@
-import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
-import pandas as pd
+import pydantic
+from jinja2 import Template
 from omegaconf import MISSING
 
 from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
@@ -13,27 +13,66 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import RemoteInferenceEngine
+from oumi.utils.io_utils import load_file
 from oumi.utils.logging import logger
 
 
-@dataclass
-class JudgeParams(BaseParams):
-    """Configuration parameters for the judge."""
+class BaseJudgeMessage(pydantic.BaseModel):
+    template: str
+    role: Role
 
-    template_file: str = MISSING
-    """The path to the JSONL file containing prompt templates."""
+    @property
+    def content(self) -> str:
+        """Renders the content of the message."""
+        template = Template(self.template)
 
-    attributes: List[str] = MISSING
-    """The attributes to judge."""
+        fields = self.model_dump()
+        fields.pop("template")  # remove the template from the fields
 
-    request_column_name: str = "request"
-    """Name of column that includes the request."""
+        return template.render(**fields).strip()
 
-    context_column_name: str = "context"
-    """Name of column that includes the request's context."""
+    @property
+    def message(self) -> Message:
+        """Returns the message in oumi format."""
+        return Message(content=self.content, role=self.role)
 
-    response_column_name: str = "response"
-    """Name of column that includes the response."""
+
+class JudgeInput(BaseJudgeMessage):
+    role: Role = Role.USER
+    request: str
+    response: Optional[str] = None
+    context: Optional[str] = None
+    template: str = """<request>{{ request }}</request>
+{% if context %}<context>{{ context }}</context>{% endif %}
+{% if response %}<response>{{ response }}</response>{% endif %}
+"""
+
+
+class JudgeOutput(BaseJudgeMessage):
+    role: Role = Role.ASSISTANT
+    judgement: str
+    explanation: Optional[str] = None
+    template: str = (
+        "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>"
+    )
+
+
+class JudgeSpec(pydantic.BaseModel):
+    system_prompt: str
+    examples: List[Union[JudgeInput, JudgeOutput]] = field(default_factory=list)
+
+    @property
+    def conversation(self) -> Conversation:
+        """Returns the conversation in oumi format."""
+        return Conversation(messages=self.messages)
+
+    @property
+    def messages(self) -> List[Message]:
+        """Returns the messages in oumi format."""
+        messages = [Message(content=self.system_prompt, role=Role.SYSTEM)]
+        for example in self.examples:
+            messages.append(example.message)
+        return messages
 
 
 class JudgeAttributeValueType(str, Enum):
@@ -56,22 +95,20 @@ class JudgeAttribute(BaseParams):
     name: str = MISSING
     """The name of the attribute."""
 
-    value_type: JudgeAttributeValueType = MISSING
+    value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
     """The type of the attribute."""
 
-    few_shots: int = MISSING
+    few_shots: int = -1
     """The template to use for the judge."""
 
-    template: str = MISSING
-    """The template to use for the judge."""
-
-    attributes: List[str] = MISSING
-    """The attributes to judge."""
+    spec_path: str = MISSING
+    """The path to the specification file."""
 
 
 @dataclass
 class JudgeConfig(BaseConfig):
-    judge: JudgeParams = field(default_factory=JudgeParams)
+    attributes: List[JudgeAttribute] = MISSING
+    """The attributes to judge."""
 
     model: ModelParams = field(default_factory=ModelParams)
     """Configuration parameters for the model used in inference."""
@@ -81,37 +118,52 @@ class JudgeConfig(BaseConfig):
 
 
 class Judge:
-    def __init__(self, config: JudgeConfig):
+    def __init__(
+        self,
+        config: JudgeConfig,
+        inference_engine: Optional[BaseInferenceEngine] = None,
+    ):
         """Initialize the Judge."""
         self.config = config
-        self.inference_engine = self._create_inference_engine()
 
-    def judge(self, prompt: List[Message]) -> Tuple[Optional[str], Optional[str]]:
+        if inference_engine is None:
+            self.inference_engine = self._create_inference_engine(config)
+        else:
+            self.inference_engine = inference_engine
+
+    def judge(
+        self, conversations: List[Conversation]
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Judge a prompt."""
-        conversation = Conversation(messages=prompt)
-
-        if not self.config.generation:
-            raise ValueError("Generation config is required.")
-
-        if not self.config.generation.remote_params:
-            raise ValueError("Remote params are required.")
-
-        if not self.inference_engine:
-            raise ValueError("Inference engine is required.")
-
         response = self.inference_engine.infer(
-            input=[conversation], generation_config=self.config.generation
+            input=conversations, generation_config=self.config.generation
         )[0]
         return response.messages[-1].content, None
 
-    def _create_inference_engine(self) -> BaseInferenceEngine:
+    def generate_prompts(self, judge_input: JudgeInput) -> Dict[str, Conversation]:
+        """Generate judge prompts for a dataset."""
+        prompts = {}
+
+        for attribute in self.config.attributes:
+            spec = JudgeSpec.model_validate_json(load_file(attribute.spec_path))
+            messages = spec.messages
+            messages.append(Message(content=judge_input.content, role=Role.USER))
+
+            prompts[attribute.name] = Conversation(messages=messages)
+
+        return prompts
+
+    def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
         """Create the inference engine."""
         # TODO: Initialize the appropriate inference engine based on the config
+        # For now, we default to the remote inference engine
+        # Users can override this method to provide their own inference engine
+        # to the constructor of the Judge class.
         return RemoteInferenceEngine(self.config.model)
 
     @staticmethod
     def _extract_bool_answer(full_answer: str) -> Optional[bool]:
-        MATCH_PATTERN = r"<answer>.*</answer>"
+        MATCH_PATTERN = r"*<judgment>.*</judgment>*"
 
         if not full_answer:
             logger.error(f"Full Answer ERROR: {full_answer}")
@@ -132,102 +184,20 @@ class Judge:
             logger.error(f"Extraction ERROR: {full_answer}")
             return None
 
-    def _load_prompt_templates(
-        self, attribute_name: str
-    ) -> Dict[str, List[Dict[str, str]]]:
-        """Load prompt templates from a JSONL file."""
-        prompt_templates = {}
-        template_file = Path(self.config.judge.template_file)
 
-        if not template_file.exists():
-            raise FileNotFoundError(f"Template file not found: {template_file}")
+def _get_default_judge_config() -> JudgeConfig:
+    oumi_top_dir = Path(__file__).parent.resolve()
+    judges_directory = oumi_top_dir / "judges"
 
-        with template_file.open("r") as file:
-            for line in file:
-                template = json.loads(line)
-                attribute = template.pop("attribute")
-                prompt_templates[attribute] = template["messages"]
-
-        return prompt_templates
-
-    def generate_prompts(self, df_dataset: pd.DataFrame) -> pd.DataFrame:
-        """Generate judge prompts for a dataset."""
-        for attribute_name in self.config.judge.attributes:
-            prompt_template = self._load_prompt_templates(attribute_name)
-
-            prompt_template = self._load_prompt_templates(attribute_name)
-
-            df_dataset[attribute_name] = df_dataset.apply(
-                self.generate_judge_prompt,
-                args=(
-                    prompt_template,
-                    self.config.judge.request_column_name,
-                    self.config.judge.context_column_name,
-                    self.config.judge.response_column_name,
-                ),
-                axis=1,
-            )
-
-        return df_dataset
-
-    @staticmethod
-    def generate_judge_prompt(
-        row: pd.Series,
-        prompt_template: List[Dict[str, str]],
-        request_col_name: str,
-        context_col_name: str,
-        response_col_name: str,
-    ) -> str:
-        """Replace variables in prompt templates and return as json."""
-        content = prompt_template[-1]["content"]
-        content = content.replace("$user_input_request", str(row[request_col_name]))
-        content = content.replace("$ai_response", str(row[response_col_name]))
-        if not context_col_name or pd.isna(row[context_col_name]).any():
-            content = content.replace("\n\n$optional_context", "")
-        else:
-            content = content.replace("$optional_context", str(row[context_col_name]))
-        prompt = prompt_template.copy()
-        prompt[-1]["content"] = content
-        return json.dumps(prompt)
-
-
-def judge(*args, **kwargs):
-    """Judge a dataset."""
-    return judge_dataset(*args, **kwargs)
-
-
-def judge_dataset(
-    judge: Judge, dataset: List[dict], attributes: List[str]
-) -> List[dict]:
-    """Judge a dataset."""
-    judged_dataset = []
-
-    for entry in dataset:
-        judged_entry = entry.copy()
-        for attribute in attributes:
-            prompt = [Message(content=entry[f"prompt_{attribute}"], role=Role.USER)]
-            response, exception = judge.judge(prompt)
-
-            judged_entry[f"judge_answer_{attribute}"] = response
-            judged_entry[f"judge_answer_tf_{attribute}"] = (
-                judge._extract_bool_answer(response) if response else None
-            )
-            judged_entry[f"judge_exception_{attribute}"] = (
-                exception if exception else ""
-            )
-
-        judged_dataset.append(judged_entry)
-
-    return judged_dataset
-
-
-def test():
-    """Test the judge module."""
     config = JudgeConfig(
-        judge=JudgeParams(
-            attributes=["helpful", "honest", "safe", "valid"],
-            template_file="path/to/your/template_file.jsonl",
-        ),
+        attributes=[
+            JudgeAttribute(
+                name="helpful",
+                spec_path=str(judges_directory / "helpful.json"),
+                value_type=JudgeAttributeValueType.BOOL,
+                few_shots=2,
+            ),
+        ],
         model=ModelParams(
             model_name="GPT-3.5-turbo",
         ),
@@ -239,48 +209,47 @@ def test():
             ),
         ),
     )
+    return config
 
+
+def test():
+    """Tests the Judge class."""
     # Create a Judge instance
-    judge = Judge(config)
+    judge = Judge(_get_default_judge_config())
 
-    # Create a small test dataset
-    dataset = [
-        {
-            "request": "What is the capital of France?",
-            "context": "We are discussing European geography.",
-            "response": "The capital of France is Paris.",
-        },
-        {
-            "request": "How do you bake a cake?",
-            "context": "We are talking about baking.",
-            "response": "To bake a cake, you need flour, eggs, sugar, and butter.",
-        },
-    ]
+    # Create a sample JudgeInput
+    sample_input = JudgeInput(
+        request="What is the capital of France?",
+        response="The capital of France is Paris.",
+        context="This is a geography question.",
+    )
 
-    # Create a DataFrame from the dataset
-    df_dataset = pd.DataFrame(dataset)
+    # Test the to_message() method
+    formatted_message = sample_input.content
+    print("Formatted message:")
+    print(formatted_message)
 
     # Generate prompts
-    df_dataset_with_prompts = judge.generate_prompts(df_dataset)
+    prompts = judge.generate_prompts(sample_input)
+    conversation = prompts["helpful"]
 
-    # Convert DataFrame back to list of dictionaries
-    dataset_with_prompts = df_dataset_with_prompts.to_dict("records")
+    print("Generated Prompts:")
+    for message in conversation.messages:
+        print(f"{message.role}: {message.content}")
 
-    # Judge the dataset
-    judged_dataset = judge_dataset(judge, dataset_with_prompts, config.judge.attributes)
+    # Judge the prompts
+    judgement, exception = judge.judge([conversation])
+    print("\nRaw Judgement:")
+    print(judgement)
 
-    # Print the results
-    for entry in judged_dataset:
-        for attribute in config.judge.attributes:
-            print(f"Original prompt ({attribute}):", entry[f"prompt_{attribute}"])
-            print(f"Judge's answer ({attribute}):", entry[f"judge_answer_{attribute}"])
-            print(
-                f"Judge's boolean answer ({attribute}):",
-                entry[f"judge_answer_tf_{attribute}"],
-            )
-            print(f"Exception ({attribute}):", entry[f"judge_exception_{attribute}"])
-            print()
-        print("=" * 50)
+    if exception:
+        print("\nException:")
+        print(exception)
+
+    # Parsed judgment
+    bool_result = judge._extract_bool_answer(judgement or "")
+    print("\nExtracted Boolean Result:")
+    print(bool_result)
 
 
 # Example usage
