@@ -1,6 +1,7 @@
 import asyncio
 import base64
-from typing import Any, Dict, List
+import os
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
@@ -64,7 +65,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError(f"Unsupported message type: {message.type}")
         return content
 
-    def _convert_conversation_to_openai_input(
+    def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_config: GenerationConfig
     ) -> Dict[str, Any]:
         """Converts a conversation to an OpenAI input.
@@ -91,7 +92,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "seed": generation_config.seed,
         }
 
-    def _convert_openai_output_to_conversation(
+    def _convert_api_output_to_conversation(
         self, response: Dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an OpenAI response to a conversation.
@@ -117,6 +118,30 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             conversation_id=original_conversation.conversation_id,
         )
 
+    def _get_api_key(self, remote_params: RemoteParams) -> Optional[str]:
+        if not remote_params:
+            return None
+
+        if remote_params.api_key:
+            return remote_params.api_key
+
+        if remote_params.api_key_env_varname:
+            return os.environ.get(remote_params.api_key_env_varname)
+
+        return None
+
+    def _get_request_headers(
+        self, remote_params: Optional[RemoteParams]
+    ) -> Dict[str, str]:
+        headers = {}
+
+        if not remote_params:
+            return headers
+
+        if remote_params.api_key is not None:
+            headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        return headers
+
     async def _query_api(
         self,
         conversation: Conversation,
@@ -140,12 +165,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         assert remote_params.api_url
         async with semaphore:
-            openai_input = self._convert_conversation_to_openai_input(
+            openai_input = self._convert_conversation_to_api_input(
                 conversation, generation_config
             )
-            headers = {}
-            if remote_params.api_key is not None:
-                headers[_AUTHORIZATION_KEY] = f"Bearer {remote_params.api_key}"
+            headers = self._get_request_headers(generation_config.remote_params)
             retries = 0
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
@@ -157,13 +180,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 ) as response:
                     response_json = await response.json()
                     if response.status == 200:
-                        result = self._convert_openai_output_to_conversation(
+                        result = self._convert_api_output_to_conversation(
                             response_json, conversation
                         )
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
                         retries += 1
+                        text = await response.text()
+                        print(text)
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 "Failed to query API after " f"{remote_params.max_retries} retries."
