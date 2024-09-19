@@ -68,7 +68,7 @@ train = [
     "asyncio",
     "bitsandbytes",                 # for quantization
     "datasets",
-    "lm-eval",
+    "lm-eval==0.4.3",               # OPE-390
     "nvidia-ml-py",
     "omegaconf",
     "peft",
