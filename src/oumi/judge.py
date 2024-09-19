@@ -10,7 +10,10 @@ from jinja2 import Template
 from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference.remote_inference_engine import (
+    #    AnthropicInferenceEngine,
+    RemoteInferenceEngine,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import str_to_bool
 
@@ -187,6 +190,7 @@ class Judge:
         # For now, we default to the remote inference engine
         # Users can override this method to provide their own inference engine
         # to the constructor of the Judge class.
+        # return RemoteInferenceEngine(self.config.model)
         return RemoteInferenceEngine(self.config.model)
 
 
@@ -203,13 +207,21 @@ def _get_default_judge_config() -> JudgeConfig:
     config = JudgeConfig(
         attributes=attributes,
         model=ModelParams(
-            model_name="GPT-3.5-turbo",
+            model_name="claude-3-5-sonnet-20240620",
         ),
+        # generation=GenerationConfig(
+        #     max_new_tokens=1024,
+        #     remote_params=RemoteParams(
+        #         api_url="http://localhost:1234/v1/chat/completions",
+        #         max_retries=2,
+        #     ),
+        # ),
         generation=GenerationConfig(
-            max_new_tokens=100,
+            max_new_tokens=1024,
             remote_params=RemoteParams(
-                api_url="http://localhost:1234/v1/chat/completions",
-                max_retries=2,
+                api_url="https://api.anthropic.com/v1/messages",
+                api_key_env_varname="ANTHROPIC_API_KEY",
+                max_retries=0,
             ),
         ),
     )
