@@ -11,7 +11,7 @@ The OUMI Platform enables the end-to-end development of foundation and specializ
 
 ## Features
 
-- **Run Anywhere**: Training and evaluating models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
+- **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
 - **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more.
 - **Scalability**: Built-in support for multi-node distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP). Inference support for Llama 405B and beyond.
 - **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris.
