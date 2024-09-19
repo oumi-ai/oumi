@@ -6,7 +6,6 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pydantic
 from jinja2 import Template
-from omegaconf import MISSING
 
 from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
@@ -29,10 +28,6 @@ class BaseJudgeMessage(pydantic.BaseModel):
         fields.pop("template")  # remove the template from the fields
 
         return template.render(**fields).strip()
-
-    @content.setter
-    def content(self, value: str):
-        raise RuntimeError("content is read-only")
 
     @property
     def message(self) -> Message:
@@ -109,10 +104,27 @@ class JudgeAttribute(pydantic.BaseModel):
             raise FileNotFoundError(path)
         return cls.model_validate_json(path.read_text())
 
+    def parse_label(self, raw_judgement: Optional[str]) -> Optional[bool]:
+        """Parses the judgement."""
+        if not raw_judgement:
+            return None
+
+        explanation_match = re.search(
+            r"<explanation>(.*?)</explanation>", raw_judgement, re.DOTALL
+        )
+        judgment_match = re.search(
+            r"<judgement>(.*?)</judgement>", raw_judgement, re.DOTALL
+        )
+
+        _explanation = explanation_match.group(1).strip() if explanation_match else None
+        judgment = judgment_match.group(1).strip() if judgment_match else None
+
+        return str_to_bool(judgment) if judgment else None
+
 
 @dataclass
 class JudgeConfig(BaseConfig):
-    attributes: List[JudgeAttribute] = MISSING
+    attributes: Dict[str, JudgeAttribute] = field(default_factory=dict)
     """The attributes to judge."""
 
     model: ModelParams = field(default_factory=ModelParams)
@@ -149,13 +161,25 @@ class Judge:
         """Generate judge prompts for a dataset."""
         prompts = {}
 
-        for attribute in self.config.attributes:
+        for attribute_name, attribute in self.config.attributes.items():
             messages = attribute.messages.copy()
             messages.append(Message(content=judge_input.content, role=Role.USER))
 
-            prompts[attribute.name] = Conversation(messages=messages)
+            prompts[attribute.name] = Conversation(
+                messages=messages,
+                metadata={
+                    "judge_attribute_name": attribute_name,
+                    "judge_name": "oumi_v1",
+                },
+            )
 
         return prompts
+
+    def parse_judgement(
+        self, judgement: Optional[str], attribute_name: str
+    ) -> Optional[bool]:
+        """Parse the judgement."""
+        return self.config.attributes[attribute_name].parse_label(judgement)
 
     def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
         """Create the inference engine."""
@@ -165,30 +189,16 @@ class Judge:
         # to the constructor of the Judge class.
         return RemoteInferenceEngine(self.config.model)
 
-    @staticmethod
-    def _extract_bool_answer(full_answer: str) -> Optional[bool]:
-        explanation_match = re.search(
-            r"<explanation>(.*?)</explanation>", full_answer, re.DOTALL
-        )
-        judgment_match = re.search(
-            r"<judgement>(.*?)</judgement>", full_answer, re.DOTALL
-        )
-
-        explanation = explanation_match.group(1).strip() if explanation_match else None
-        judgment = judgment_match.group(1).strip() if judgment_match else None
-        print(explanation)
-        return str_to_bool(judgment) if judgment else None
-
 
 def _get_default_judge_config() -> JudgeConfig:
     oumi_top_dir = Path(__file__).parent.resolve()
     judges_directory = oumi_top_dir / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe", "valid"]
-    attributes = [
-        JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+    attributes = {
+        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
         for attribute in attribute_names
-    ]
+    }
 
     config = JudgeConfig(
         attributes=attributes,
@@ -241,7 +251,7 @@ def test():
         print(exception)
 
     # Parsed judgment
-    bool_result = judge._extract_bool_answer(judgement or "")
+    bool_result = judge.parse_judgement(judgement, "helpful")
     print("\nExtracted Boolean Result:")
     print(bool_result)
 
