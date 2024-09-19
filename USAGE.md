@@ -1,10 +1,10 @@
-# OUMI Usage Overview
+# Oumi Usage Overview
 
-OUMI is a framework for training and evaluating large language models. This tutorial will guide you through the process of setting up, training, and evaluating a model using OUMI.
+Oumi is a framework for training and evaluating large language models. This tutorial will guide you through the process of setting up, training, and evaluating a model using Oumi.
 
 ## 1. Installation
 
-First, you'll need to install OUMI and its dependencies:
+First, you'll need to install Oumi and its dependencies:
 
 ```bash
 git clone https://github.com/oumi-ai/oumi.git
@@ -14,7 +14,7 @@ pip install -e ".[all]"
 
 ## 2. Configuration
 
-OUMI uses configuration files to specify model and training parameters. Create a YAML file (e.g., `config.yaml`) with your desired settings. Here's a basic example:
+Oumi uses configuration files to specify model and training parameters. Create a YAML file (e.g., `config.yaml`) with your desired settings. Here's a basic example:
 
 ```yaml
 model:
@@ -41,7 +41,7 @@ For more advanced use cases, and examples of other configuration options, see th
 
 ## 3. Training
 
-To train a model using OUMI, use the `train` script:
+To train a model using Oumi, use the `train` script:
 
 ```bash
 oumi-train -c config.yaml
@@ -123,7 +123,7 @@ This will allow you to input prompts and get responses from your model interacti
 
 ## 6. Custom Datasets
 
-OUMI supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
+Oumi supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
 
 ```python
 from oumi.core.datasets import BaseLMSftDataset
@@ -146,11 +146,11 @@ data:
         split: "train"
 ```
 
-For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in OUMI [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
+For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in Oumi [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 
 ## 7. Multi-GPU Training
 
-OUMI supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
+Oumi supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
 
 ```bash
 torchrun --standalone --nproc_per_node=4 -m oumi.train -c config.yaml
@@ -162,11 +162,11 @@ This will launch the training script on 4 GPUs.
 
 To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `oumi-launcher`, which makes it straightforward to run jobs on remote machines.
 
-You can find a detailled example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/OUMI%20-%20Running%20Jobs%20Remotely.ipynb)
+You can find a detailled example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
 
 ## 9. Monitoring and Logging
 
-OUMI supports Weights & Biases (wandb) and TensorBoard for logging.
+Oumi supports Weights & Biases (wandb) and TensorBoard for logging.
 
 To enable wandb logging, set `enable_wandb: true` in your config file.  logging is enabled by default.
 To enable tensorboard logging, set `enable_tensorboard: true` in your config file. TensorBoard logging is enabled by default.

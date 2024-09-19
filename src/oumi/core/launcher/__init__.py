@@ -1,7 +1,7 @@
-"""Launcher module for the OUMI (Open Unified Machine Intelligence) library.
+"""Launcher module for the Oumi (Open Unified Machine Intelligence) library.
 
 This module provides base classes for cloud and cluster management in
-the OUMI framework.
+the Oumi framework.
 
 These classes serve as foundations for implementing cloud-specific and cluster-specific
 launchers for running machine learning jobs.

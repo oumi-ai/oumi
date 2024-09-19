@@ -39,7 +39,7 @@ class TrainerType(Enum):
     OUMI = "oumi"
     """Custom generic trainer implementation.
 
-    This is a custom trainer implementation specific to the OUMI project,
+    This is a custom trainer implementation specific to the Oumi project,
     designed to provide additional flexibility and features.
     """
 
@@ -251,7 +251,7 @@ class TrainingParams(BaseParams):
     """
 
     metrics_function: Optional[str] = None
-    """The name of the metrics function in the OUMI registry to use for evaluation
+    """The name of the metrics function in the Oumi registry to use for evaluation
     during training.
 
     The method must accept as input a HuggingFace EvalPrediction and
@@ -260,7 +260,7 @@ class TrainingParams(BaseParams):
     """
 
     log_level: str = "info"
-    """The logging level for the main OUMI logger.
+    """The logging level for the main Oumi logger.
 
     Possible values are "debug", "info", "warning", "error", "critical".
     """
@@ -559,7 +559,7 @@ class TrainingParams(BaseParams):
     """
 
     def to_hf(self):
-        """Converts OUMI config to HuggingFace's TrainingArguments."""
+        """Converts Oumi config to HuggingFace's TrainingArguments."""
         save_strategy: str = "no"
         if self.save_epoch:
             save_strategy = "epoch"

@@ -1,7 +1,7 @@
-"""Core models module for the OUMI (Open Unified Machine Intelligence) library.
+"""Core models module for the Oumi (Open Unified Machine Intelligence) library.
 
 This module provides base classes for different types of models used in the
-OUMI framework.
+Oumi framework.
 
 
 See Also:

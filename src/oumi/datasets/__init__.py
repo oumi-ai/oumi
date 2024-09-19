@@ -1,8 +1,8 @@
-"""Datasets module for the OUMI (Open Unified Machine Intelligence) library.
+"""Datasets module for the Oumi (Open Unified Machine Intelligence) library.
 
-This module provides various dataset implementations for use in the OUMI framework.
+This module provides various dataset implementations for use in the Oumi framework.
 These datasets are designed for different machine learning tasks and can be used
-with the models and training pipelines provided by OUMI.
+with the models and training pipelines provided by Oumi.
 
 For more information on the available datasets and their usage, see the
 :mod:`oumi.datasets` documentation.

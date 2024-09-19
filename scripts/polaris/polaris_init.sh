@@ -43,7 +43,7 @@ CPU_BIND="depth"
 module use /soft/modulefiles
 module load conda
 
-# Activate the OUMI Conda environment.
+# Activate the Oumi Conda environment.
 conda activate /home/$USER/miniconda3/envs/oumi
 echo "Conda path:"
 echo $CONDA_PREFIX

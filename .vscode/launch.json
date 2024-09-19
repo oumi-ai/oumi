@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "OUMI - Train From CLI Example",
+            "name": "Oumi - Train From CLI Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.train",
@@ -21,7 +21,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI - Train From Config Example",
+            "name": "Oumi - Train From Config Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.train",
@@ -32,7 +32,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI - Pretrain From Config Example",
+            "name": "Oumi - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.train",
@@ -43,7 +43,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI Distributed",
+            "name": "Oumi Distributed",
             "type": "debugpy",
             "module": "torch.distributed.run",
             "request": "launch",
@@ -59,7 +59,7 @@
             ]
         },
         {
-            "name": "OUMI Distributed - Accelerate",
+            "name": "Oumi Distributed - Accelerate",
             "type": "debugpy",
             "module": "accelerate.commands.launch",
             "request": "launch",
@@ -86,7 +86,7 @@
             ]
         },
         {
-            "name": "OUMI - Inference From CLI Example",
+            "name": "Oumi - Inference From CLI Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.infer",
@@ -99,7 +99,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI - Evaluate with custom OUMI framework from config example",
+            "name": "Oumi - Evaluate with custom Oumi framework from config example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.evaluate",
@@ -110,7 +110,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI - Evaluate with the LM Harness framework from config example",
+            "name": "Oumi - Evaluate with the LM Harness framework from config example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.evaluate",
