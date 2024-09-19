@@ -7,21 +7,21 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-The OUMI Platform enables the end-to-end development of foundation and specialized models including data curation/synthesis, pretraining, tuning, and evaluation.
+The OUMI Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
 
 ## Features
 
-- **Run Anywhere**: Run training and evaluation seamlessly across local environments, Jupyter notebooks, vscode debugger, or remote clusters
-- **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more
+- **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
+- **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more.
 - **Scalability**: Built-in support for multi-node distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP). Inference support for Llama 405B and beyond.
-- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris
-- **Reproducibility**: Flexible configuration system using YAML files and command-line arguments
-- **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation
-- **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics
+- **Cloud Flexibility**: Compatible with major cloud providers (GCP, AWS, Azure, ...) and specialized platforms like DOE ALCF Polaris.
+- **Reproducibility**: Flexible configuration system using YAML files and command-line arguments.
+- **Unified Interface**: Streamlined processes for data preprocessing, model training, and evaluation.
+- **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics.
 
 ## Getting Started
 
-For an overview of the OUMI features and usage, checkout the [user guide](/USAGE.md) and the [hands on tour of the repository](/notebooks/OUMI%20-%20A%20Tour.ipynb).
+For an overview of the OUMI features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/OUMI%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
@@ -29,13 +29,13 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 
    For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
 
-1. Install the package:
+1. Install OUMI:
 
    ```shell
    pip install 'oumi[all]'
    ```
 
-2. Set up your configuration file (example configs are provided in the [configs](/configs) directory):
+2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
 
 3. Run training locally:
 
@@ -47,7 +47,7 @@ For an overview of the OUMI features and usage, checkout the [user guide](/USAGE
 
 ### Configurations
 
-These configurations demonstrate how to set up and run full training for different model architectures using OUMI.
+These configurations demonstrate how to setup and run full training for different model architectures using OUMI.
 
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
@@ -66,7 +66,7 @@ These configurations demonstrate how to set up and run full training for differe
 
 ## Tutorials
 
-We provide several example notebooks to help you get started with OUMI. Here's a list of available notebooks:
+We provide several Jupyter notebooks to help you get started with OUMI. Here's a list of available examples:
 
 | Notebook | Description |
 |----------|-------------|
@@ -85,7 +85,7 @@ Reach out to <matthew@learning-machines.ai> if you have problems with access.
 
 ## Contributing
 
-Contributions are welcome! Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Contributions are welcome! After all, this is a community-based effort. Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
 
 ## License
 
@@ -93,7 +93,7 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 
 ## Troubleshooting
 
-1. Pre-commit hook errors with vscode
+1. Pre-commit hook errors with VS Code
    - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
    - To fix this, make sure to start your vscode instance after activating your conda environment.
 
