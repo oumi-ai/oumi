@@ -18,7 +18,7 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
 
-evaluation_framework: Oumi
+evaluation_framework: OUMI
 data:
   datasets:
     - dataset_name: "cais/mmlu"
