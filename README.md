@@ -85,7 +85,7 @@ Reach out to <matthew@learning-machines.ai> if you have problems with access.
 
 ## Contributing
 
-Contributions are most welcome! After all, this is a community-based effort. Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Contributions are welcome! After all, this is a community-based effort. Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
 
 ## License
 
