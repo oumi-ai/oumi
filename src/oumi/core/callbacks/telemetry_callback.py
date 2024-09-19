@@ -205,8 +205,8 @@ class TelemetryCallback(BaseTrainerCallback):
             if wandb.run:
                 save_json(
                     {
-                        "name": wandb.run.name,
                         "id": wandb.run.id,
+                        "name": wandb.run.name,
                         "url": wandb.run.get_url(),
                     },
                     self._output_dir
