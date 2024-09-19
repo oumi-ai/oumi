@@ -15,6 +15,7 @@ from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import RemoteInferenceEngine
 from oumi.utils.io_utils import load_file
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import str_to_bool
 
 
 class BaseJudgeMessage(pydantic.BaseModel):
@@ -31,10 +32,15 @@ class BaseJudgeMessage(pydantic.BaseModel):
 
         return template.render(**fields).strip()
 
+    @content.setter
+    def content(self, value: str):
+        raise RuntimeError("content is read-only")
+
     @property
     def message(self) -> Message:
         """Returns the message in oumi format."""
-        return Message(content=self.content, role=self.role)
+        content = str(self.content)
+        return Message(content=content, role=self.role)
 
 
 class JudgeInput(BaseJudgeMessage):
@@ -84,7 +90,7 @@ class JudgeAttributeValueType(str, Enum):
     CATEGORICAL = "categorical"
     """The attribute is a categorical."""
 
-    LIKERT = "likert"
+    LIKERT_5 = "likert-5"
     """The attribute is a Likert scale."""
 
 
@@ -163,37 +169,46 @@ class Judge:
 
     @staticmethod
     def _extract_bool_answer(full_answer: str) -> Optional[bool]:
-        MATCH_PATTERN = r"*<judgment>.*</judgment>*"
+        explanation_match = re.search(
+            r"<explanation>(.*?)</explanation>", full_answer, re.DOTALL
+        )
+        judgment_match = re.search(
+            r"<judgement>(.*?)</judgement>", full_answer, re.DOTALL
+        )
 
-        if not full_answer:
-            logger.error(f"Full Answer ERROR: {full_answer}")
-            return None
-
-        answer_match = re.search(MATCH_PATTERN, full_answer)
-        if not answer_match:
-            logger.error(f"Answer ERROR: {full_answer}")
-            return None
-
-        answer = answer_match.group(0).replace("<answer>", "").replace("</answer>", "")
-
-        if answer[:3].lower() == "yes":
-            return True
-        elif answer[:2].lower() == "no":
-            return False
-        else:
-            logger.error(f"Extraction ERROR: {full_answer}")
-            return None
+        explanation = explanation_match.group(1).strip() if explanation_match else None
+        judgment = judgment_match.group(1).strip() if judgment_match else None
+        print(explanation)
+        return str_to_bool(judgment) if judgment else None
 
 
 def _get_default_judge_config() -> JudgeConfig:
     oumi_top_dir = Path(__file__).parent.resolve()
-    judges_directory = oumi_top_dir / "judges"
+    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
 
     config = JudgeConfig(
         attributes=[
             JudgeAttribute(
                 name="helpful",
                 spec_path=str(judges_directory / "helpful.json"),
+                value_type=JudgeAttributeValueType.BOOL,
+                few_shots=2,
+            ),
+            JudgeAttribute(
+                name="honest",
+                spec_path=str(judges_directory / "honest.json"),
+                value_type=JudgeAttributeValueType.BOOL,
+                few_shots=2,
+            ),
+            JudgeAttribute(
+                name="safe",
+                spec_path=str(judges_directory / "safe.json"),
+                value_type=JudgeAttributeValueType.BOOL,
+                few_shots=2,
+            ),
+            JudgeAttribute(
+                name="valid",
+                spec_path=str(judges_directory / "valid.json"),
                 value_type=JudgeAttributeValueType.BOOL,
                 few_shots=2,
             ),
@@ -226,7 +241,7 @@ def test():
 
     # Test the to_message() method
     formatted_message = sample_input.content
-    print("Formatted message:")
+    logger.info("Formatted message:")
     print(formatted_message)
 
     # Generate prompts
