@@ -26,7 +26,7 @@ time accelerate launch \
     "training.compile=true" \
     "training.save_final_model=false"
 
-# HuggingFace model with OUMI trainer
+# HuggingFace model with Oumi trainer
 # time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
 time torchrun --standalone --nproc_per_node 1 \
     -m oumi.train \

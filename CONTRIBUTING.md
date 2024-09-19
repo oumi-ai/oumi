@@ -1,6 +1,6 @@
-# Contributing to OUMI
+# Contributing to Oumi
 
-Thanks for considering contributing to OUMI! We welcome contributions for new models,
+Thanks for considering contributing to Oumi! We welcome contributions for new models,
 incremental improvements, datasets, and bug fixes!
 
 ## Prerequisites
@@ -30,10 +30,10 @@ pre-commit install
 
 To submit a contribution:
 
-1. Fork a copy of the [OUMI](https://github.com/oumi-ai/oumi) repository into
+1. Fork a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into
 your own account.
 
-2. Clone your fork locally, and add the OUMI repo as a remote repository:
+2. Clone your fork locally, and add the Oumi repo as a remote repository:
 
     ```shell
     git clone git@github.com:<github_id>/oumi-ai/oumi.git
@@ -47,7 +47,7 @@ your own account.
     git checkout -b my-username/my-awesome-new-feature
     ```
 
-4. When you are ready, submit a pull request into the OUMI repository!
+4. When you are ready, submit a pull request into the Oumi repository!
 
 ## Pull request (PR) guidelines
 
@@ -81,5 +81,5 @@ To run pre-commit hooks manually, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-See the [OUMI Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure,
+See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure,
 and format your code.

@@ -67,7 +67,7 @@ class AlpacaDataset(BaseLMSftDataset):
 # Deprecated
 #
 def _convert_to_oumi_format(example: dict) -> dict:
-    """Converts the input example to the OUMI format."""
+    """Converts the input example to the Oumi format."""
     messages = []
     metadata = {}
 

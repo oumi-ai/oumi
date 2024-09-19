@@ -1,11 +1,11 @@
-"""OUMI (Open Unified Machine Intelligence) library.
+"""Oumi (Open Unified Machine Intelligence) library.
 
 This library provides tools and utilities for training, evaluating, and
 inferring with machine learning models, particularly focused on language tasks.
 
 Modules:
     - :mod:`~oumi.models`: Contains model architectures and related utilities.
-    - :mod:`~oumi.evaluate` : Functions for evaluating models using OUMI and LM Harness.
+    - :mod:`~oumi.evaluate` : Functions for evaluating models using Oumi and LM Harness.
     - :mod:`~oumi.evaluate_async`: Asynchronous evaluation functionality.
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
@@ -14,7 +14,7 @@ Modules:
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
-    - :func:`~oumi.evaluate.evaluate_oumi`: Evaluate a model using OUMI benchmarks.
+    - :func:`~oumi.evaluate.evaluate_oumi`: Evaluate a model using Oumi benchmarks.
     - :func:`~oumi.evaluate.evaluate_lm_harness`: Evaluate a model using Language
         Model Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
@@ -46,7 +46,7 @@ Examples:
         outputs = infer(config)
 
 See Also:
-    - :mod:`oumi.core.configs`: For configuration classes used in OUMI
+    - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
 
 from oumi import models

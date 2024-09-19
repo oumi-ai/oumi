@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     git vim htop tree screen \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OUMI dependencies
+# Install Oumi dependencies
 COPY pyproject.toml /oumi_workdir
 RUN pip install --no-cache-dir -e ".[dev,train]"
 

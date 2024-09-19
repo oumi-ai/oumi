@@ -65,7 +65,7 @@ def parse_cli():
 
 
 def main() -> None:
-    """Main entry point for training OUMI.
+    """Main entry point for training Oumi.
 
     Training arguments are fetched from the following sources, ordered by
     decreasing priority:
