@@ -2,18 +2,16 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pydantic
 from jinja2 import Template
 from omegaconf import MISSING
 
 from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
-from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import RemoteInferenceEngine
-from oumi.utils.io_utils import load_file
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import str_to_bool
 
@@ -63,9 +61,32 @@ class JudgeOutput(BaseJudgeMessage):
     )
 
 
-class JudgeSpec(pydantic.BaseModel):
+class JudgeAttributeValueType(str, Enum):
+    """The type of the attribute."""
+
+    BOOL = "bool"
+    """The attribute is a boolean."""
+
+    CATEGORICAL = "categorical"
+    """The attribute is a categorical."""
+
+    LIKERT_5 = "likert-5"
+    """The attribute is a Likert scale."""
+
+
+class JudgeAttribute(pydantic.BaseModel):
+    """Configuration parameters for the judge."""
+
+    name: str
+    """The name of the attribute."""
+
     system_prompt: str
+
     examples: List[Union[JudgeInput, JudgeOutput]] = field(default_factory=list)
+
+    value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
+
+    limit_examples: Optional[int] = 5
 
     @property
     def conversation(self) -> Conversation:
@@ -80,35 +101,13 @@ class JudgeSpec(pydantic.BaseModel):
             messages.append(example.message)
         return messages
 
-
-class JudgeAttributeValueType(str, Enum):
-    """The type of the attribute."""
-
-    BOOL = "bool"
-    """The attribute is a boolean."""
-
-    CATEGORICAL = "categorical"
-    """The attribute is a categorical."""
-
-    LIKERT_5 = "likert-5"
-    """The attribute is a Likert scale."""
-
-
-@dataclass
-class JudgeAttribute(BaseParams):
-    """Configuration parameters for the judge."""
-
-    name: str = MISSING
-    """The name of the attribute."""
-
-    value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
-    """The type of the attribute."""
-
-    few_shots: int = -1
-    """The template to use for the judge."""
-
-    spec_path: str = MISSING
-    """The path to the specification file."""
+    @classmethod
+    def load(cls: Type, filename: str) -> "JudgeAttribute":
+        """Loads the judge attribute from a file."""
+        path = Path(filename)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        return cls.model_validate_json(path.read_text())
 
 
 @dataclass
@@ -151,8 +150,7 @@ class Judge:
         prompts = {}
 
         for attribute in self.config.attributes:
-            spec = JudgeSpec.model_validate_json(load_file(attribute.spec_path))
-            messages = spec.messages
+            messages = attribute.messages.copy()
             messages.append(Message(content=judge_input.content, role=Role.USER))
 
             prompts[attribute.name] = Conversation(messages=messages)
@@ -186,33 +184,14 @@ def _get_default_judge_config() -> JudgeConfig:
     oumi_top_dir = Path(__file__).parent.resolve()
     judges_directory = oumi_top_dir / "judges" / "oumi_v1"
 
+    attribute_names = ["helpful", "honest", "safe", "valid"]
+    attributes = [
+        JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+        for attribute in attribute_names
+    ]
+
     config = JudgeConfig(
-        attributes=[
-            JudgeAttribute(
-                name="helpful",
-                spec_path=str(judges_directory / "helpful.json"),
-                value_type=JudgeAttributeValueType.BOOL,
-                few_shots=2,
-            ),
-            JudgeAttribute(
-                name="honest",
-                spec_path=str(judges_directory / "honest.json"),
-                value_type=JudgeAttributeValueType.BOOL,
-                few_shots=2,
-            ),
-            JudgeAttribute(
-                name="safe",
-                spec_path=str(judges_directory / "safe.json"),
-                value_type=JudgeAttributeValueType.BOOL,
-                few_shots=2,
-            ),
-            JudgeAttribute(
-                name="valid",
-                spec_path=str(judges_directory / "valid.json"),
-                value_type=JudgeAttributeValueType.BOOL,
-                few_shots=2,
-            ),
-        ],
+        attributes=attributes,
         model=ModelParams(
             model_name="GPT-3.5-turbo",
         ),
