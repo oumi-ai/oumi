@@ -1,4 +1,4 @@
-"""Types module for the Oumi (Open Unified Machine Intelligence) library.
+"""Types module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides custom types and exceptions used throughout the Oumi framework.
 

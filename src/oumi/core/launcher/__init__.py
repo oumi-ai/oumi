@@ -1,4 +1,4 @@
-"""Launcher module for the Oumi (Open Unified Machine Intelligence) library.
+"""Launcher module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides base classes for cloud and cluster management in
 the Oumi framework.
