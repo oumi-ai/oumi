@@ -6,6 +6,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.judge_config import JudgeAttribute
 
 
 def _get_default_judge_config() -> JudgeConfig:
