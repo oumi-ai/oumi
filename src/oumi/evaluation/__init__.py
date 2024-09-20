@@ -1,4 +1,4 @@
-"""Evaluation module for the Oumi (Open Unified Machine Intelligence) library.
+"""Evaluation module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides various evaluation metrics and utility functions for assessing
 the performance of machine learning models in the Oumi framework.
