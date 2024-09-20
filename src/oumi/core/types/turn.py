@@ -138,6 +138,50 @@ class Conversation(pydantic.BaseModel):
         """
         return self.messages[idx]
 
+    def first_message(self, role: Optional[Role] = None) -> Optional[Message]:
+        """Get the first message in the conversation, optionally filtered by role.
+
+        Args:
+            role: The role to filter messages by.
+                If None, considers all messages.
+
+        Returns:
+            Optional[Message]: The first message matching the criteria,
+                or None if no messages are found.
+        """
+        messages = self.all_messages(role)
+        return messages[0] if len(messages) > 0 else None
+
+    def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
+        """Get the last message in the conversation, optionally filtered by role.
+
+        Args:
+            role: The role to filter messages by.
+                If None, considers all messages.
+
+        Returns:
+            Optional[Message]: The last message matching the criteria,
+                or None if no messages are found.
+        """
+        messages = self.all_messages(role)
+        return messages[-1] if len(messages) > 0 else None
+
+    def all_messages(self, role: Optional[Role] = None) -> List[Message]:
+        """Get all messages in the conversation, optionally filtered by role.
+
+        Args:
+            role: The role to filter messages by.
+                If None, returns all messages.
+
+        Returns:
+            List[Message]: A list of all messages matching the criteria.
+        """
+        if role is not None:
+            messages = [message for message in self.messages if role == message.role]
+        else:
+            messages = self.messages
+        return messages
+
 
 class TemplatedMessage(pydantic.BaseModel):
     """Represents a templated message.
