@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from pathlib import Path
-from typing import cast
+from typing import Dict, List, cast
 
 from tqdm.auto import tqdm
 
@@ -79,16 +77,16 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 f"Model not found at {model_params.model_name}. "
                 "Please provide a valid model path."
             )
-            # logger.info(
-            #     f"Loading model from Huggingface Hub: {model_params.model_name}."
-            # )
-            # self._llm = Llama.from_pretrained(
-            #     repo_id=model_params.model_name, n_ctx=model_max_length, **kwargs
-            # )
+            logger.info(
+                f"Loading model from Huggingface Hub: {model_params.model_name}."
+            )
+            self._llm = Llama.from_pretrained(
+                repo_id=model_params.model_name, n_ctx=model_max_length, **kwargs
+            )
 
     def _convert_conversation_to_llama_input(
         self, conversation: Conversation
-    ) -> list[dict[str, str]]:
+    ) -> List[Dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages.
 
         Args:
@@ -106,8 +104,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: list[Conversation], generation_config: GenerationConfig
-    ) -> list[Conversation]:
+        self, input: List[Conversation], generation_config: GenerationConfig
+    ) -> List[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
@@ -153,8 +151,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         return output_conversations
 
     def infer_online(
-        self, input: list[Conversation], generation_config: GenerationConfig
-    ) -> list[Conversation]:
+        self, input: List[Conversation], generation_config: GenerationConfig
+    ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -172,7 +170,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> list[Conversation]:
+    ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
