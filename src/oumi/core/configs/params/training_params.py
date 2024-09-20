@@ -681,8 +681,8 @@ class TrainingParams(BaseParams):
         if (self.output_dir != self.__dataclass_fields__["output_dir"].default) and (
             self.logging_dir == self.__dataclass_fields__["logging_dir"].default
         ):
-            # push the logging_dir inside the output_dir if only the latter is
-            # specified explicitly by the user
+            # Push the logging_dir inside the output_dir if only the latter is
+            # specified explicitly by the user.
             self.logging_dir = str(Path(self.output_dir).joinpath("runs"))
 
     @property
