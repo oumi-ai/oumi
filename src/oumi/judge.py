@@ -1,15 +1,13 @@
 import re
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import field
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
 
 import pydantic
-from jinja2 import Template
 
-from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
+from oumi.core.configs import JudgeAttributeValueType, JudgeConfig
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
@@ -19,28 +17,7 @@ from oumi.utils.logging import logger
 from oumi.utils.str_utils import str_to_bool
 
 
-class BaseJudgeMessage(pydantic.BaseModel):
-    template: str
-    role: Role
-
-    @property
-    def content(self) -> str:
-        """Renders the content of the message."""
-        template = Template(self.template)
-
-        fields = self.model_dump()
-        fields.pop("template")  # remove the template from the fields
-
-        return template.render(**fields).strip()
-
-    @property
-    def message(self) -> Message:
-        """Returns the message in oumi format."""
-        content = str(self.content)
-        return Message(content=content, role=self.role)
-
-
-class JudgeInput(BaseJudgeMessage):
+class JudgeInput(TemplatedMessage):
     role: Role = Role.USER
     request: str
     response: Optional[str] = None
@@ -51,26 +28,13 @@ class JudgeInput(BaseJudgeMessage):
 """
 
 
-class JudgeOutput(BaseJudgeMessage):
+class JudgeOutput(TemplatedMessage):
     role: Role = Role.ASSISTANT
     judgement: str
     explanation: Optional[str] = None
     template: str = (
         "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>"
     )
-
-
-class JudgeAttributeValueType(str, Enum):
-    """The type of the attribute."""
-
-    BOOL = "bool"
-    """The attribute is a boolean."""
-
-    CATEGORICAL = "categorical"
-    """The attribute is a categorical."""
-
-    LIKERT_5 = "likert-5"
-    """The attribute is a Likert scale."""
 
 
 class JudgeAttribute(pydantic.BaseModel):
@@ -124,18 +88,6 @@ class JudgeAttribute(pydantic.BaseModel):
         judgment = judgment_match.group(1).strip() if judgment_match else None
 
         return str_to_bool(judgment) if judgment else None
-
-
-@dataclass
-class JudgeConfig(BaseConfig):
-    attributes: Dict[str, JudgeAttribute] = field(default_factory=dict)
-    """The attributes to judge."""
-
-    model: ModelParams = field(default_factory=ModelParams)
-    """Configuration parameters for the model used in inference."""
-
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
-    """Configuration parameters for text generation during inference."""
 
 
 class Judge:
@@ -216,61 +168,6 @@ class Judge:
         return RemoteInferenceEngine(self.config.model)
 
 
-def _get_default_judge_config() -> JudgeConfig:
-    oumi_top_dir = Path(__file__).parent.resolve()
-    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
-
-    attribute_names = ["helpful", "honest", "safe", "valid"]
-    attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
-        for attribute in attribute_names
-    }
-
-    config = JudgeConfig(
-        attributes=attributes,
-        model=ModelParams(
-            model_name="claude-3-5-sonnet-20240620",
-        ),
-        # generation=GenerationConfig(
-        #     max_new_tokens=1024,
-        #     remote_params=RemoteParams(
-        #         api_url="http://localhost:1234/v1/chat/completions",
-        #         max_retries=2,
-        #     ),
-        # ),
-        generation=GenerationConfig(
-            max_new_tokens=1024,
-            remote_params=RemoteParams(
-                api_url="https://api.anthropic.com/v1/messages",
-                api_key_env_varname="ANTHROPIC_API_KEY",
-                max_retries=0,
-            ),
-        ),
-    )
-    return config
-
-
-def _get_default_local_judge_config() -> JudgeConfig:
-    oumi_top_dir = Path(__file__).parent.resolve()
-    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
-
-    attribute_names = ["helpful", "honest", "safe", "valid"]
-    attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
-        for attribute in attribute_names
-    }
-    config = JudgeConfig(
-        attributes=attributes,
-        model=ModelParams(
-            model_name=str(judges_directory / "Q4_K_M-00001-of-00001.gguf"),
-        ),
-        generation=GenerationConfig(
-            max_new_tokens=1024,
-        ),
-    )
-    return config
-
-
 def test():
     """Tests the Judge class."""
     # Create a Judge instance
@@ -309,6 +206,5 @@ def test():
     print(bool_result)
 
 
-# Example usage
 if __name__ == "__main__":
     test()
