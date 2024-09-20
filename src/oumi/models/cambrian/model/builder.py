@@ -16,21 +16,14 @@
 import os
 import warnings
 
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, BitsAndBytesConfig
 import torch
-from cambrian.constants import (
-    DEFAULT_IM_END_TOKEN,
-    DEFAULT_IM_START_TOKEN,
-    DEFAULT_IMAGE_PATCH_TOKEN,
-)
+from cambrian.constants import DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
+
+from ezcolorlog import root_logger as logger
+
 from cambrian.model.language_model.cambrian_llama import CambrianLlamaForCausalLM
 from cambrian.model.language_model.cambrian_mistral import CambrianMistralForCausalLM
-from ezcolorlog import root_logger as logger
-from transformers import (
-    AutoConfig,
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-)
 
 
 def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
@@ -114,9 +107,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                     **kwargs
                 )
             elif 'phi3' in model_name.lower():
-                from cambrian.model.language_model.cambrian_phi3 import (
-                    CambrianPhi3ForCausalLM,
-                )
+                from cambrian.model.language_model.cambrian_phi3 import CambrianPhi3ForCausalLM
                 tokenizer = AutoTokenizer.from_pretrained(model_path)
                 model = CambrianPhi3ForCausalLM.from_pretrained(
                     model_path,
@@ -141,7 +132,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             model = AutoModelForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, **kwargs)
             print(f"Loading LoRA weights from {model_path}")
             model = PeftModel.from_pretrained(model, model_path)
-            print("Merging weights")
+            print(f"Merging weights")
             model = model.merge_and_unload()
             print('Convert to FP16...')
             model.to(torch.float16)

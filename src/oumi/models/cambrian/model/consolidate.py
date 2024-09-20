@@ -1,9 +1,10 @@
 import os
-from collections import OrderedDict
 from glob import glob
 
-import torch
+from collections import OrderedDict
 from tqdm import tqdm
+
+import torch
 
 
 def _numel(shape):
