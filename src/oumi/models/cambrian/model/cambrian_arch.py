@@ -26,7 +26,6 @@ from cambrian.constants import (
     IMAGE_TOKEN_INDEX,
 )
 from cambrian.utils import IS_XLA_AVAILABLE
-from ezcolorlog import root_logger as logger
 
 from .multimodal_encoder.builder import build_vision_tower_aux_list
 from .multimodal_projector.builder import build_vision_projector

@@ -111,10 +111,8 @@ oumi-train = "oumi.train:main"
 
 [tool.ruff]
 line-length = 88
-# force-exclude = true
 extend-include = [
     "*.ipynb", # Include ipython notebooks
-    # "src/oumi/models/cambrian/**", # Exclude Cambrian codebase.
 ]
 
 
@@ -148,7 +146,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "E721",   # Ignore pycodestyle: Do not compare types, use `isinstance()`
     "E722",   # Ignore pycodestyle: Do not use bare `except`
     "E731",   # Ignore pycodestyle: Do not assign a `lambda` expression, use a `def`
-     "E741",   # Ignore pycodestyle: Ambiguous variable name
+    "E741",   # Ignore pycodestyle: Ambiguous variable name
     "D",      # Ignore docstring checks in Cambrian
     "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
     "W291",   # Ignore pycodestyle: warnings: Trailing whitespace

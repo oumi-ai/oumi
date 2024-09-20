@@ -21,7 +21,7 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
-        exclude: src/oumi/models/cambrian
+        # exclude: src/oumi/models/cambrian
       - id: fix-byte-order-marker
       - id: mixed-line-ending
         args: [--fix=lf]
@@ -30,14 +30,13 @@ repos:
       - id: no-commit-to-branch
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
-        exclude: src/oumi/models/cambrian
+        # exclude: src/oumi/models/cambrian
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.10
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]
         args: [--fix, --exit-non-zero-on-fix]
-        # exclude: src/oumi/models/cambrian
       - id: ruff-format
         types_or: [python, pyi, jupyter]
         exclude: src/oumi/models/cambrian
