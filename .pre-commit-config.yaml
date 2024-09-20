@@ -29,6 +29,7 @@ repos:
       - id: no-commit-to-branch
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
+        exclude: src/oumi/models/cambrian
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.10
     hooks:
@@ -37,6 +38,7 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
+        exclude: src/oumi/models/cambrian
   - repo: local
     hooks:
     - id: pyright
@@ -52,6 +54,7 @@ repos:
     hooks:
     -   id: pyupgrade
         args: [--py38-plus]
+        exclude: src/oumi/models/cambrian
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.16.1
     hooks:

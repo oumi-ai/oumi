@@ -28,10 +28,10 @@ def _consolidate_param(state_dict_list, shard_metadata, name, prefix, suffix):
     full_param = torch.cat(p_shard_list, dim=0)
     if full_param.dim() == 1:
         # it's a flattened tensor as in the (usual) case with `shard_param_on_dim_0=False`
-        full_param = full_param[: _numel(orig_size)].view(*orig_size)
+        full_param = full_param[:_numel(orig_size)].view(*orig_size)
     else:
         # handle those FSDP models trained with `shard_param_on_dim_0=True`
-        full_param = full_param[: orig_size[0]]
+        full_param = full_param[:orig_size[0]]
 
     full_name = orig_name
     if prefix != "":
@@ -42,7 +42,9 @@ def _consolidate_param(state_dict_list, shard_metadata, name, prefix, suffix):
 
 def _unflatten_param(p, metadata, prefix):
     param_names, param_shapes, param_numels = metadata
-    full_params = [t.view(s) for (t, s) in zip(p.split(param_numels), param_shapes)]
+    full_params = [
+        t.view(s) for (t, s) in zip(p.split(param_numels), param_shapes)
+    ]
     full_names = param_names
     if prefix != "":
         full_names = [prefix + "." + n for n in full_names]
@@ -84,9 +86,9 @@ def consolidate_sharded_state_dicts(state_dict_list, shard_metadata):
                 break
 
         if is_sharded:
-            full_param, full_name = _consolidate_param(
-                state_dict_list, shard_metadata, name, prefix, suffix
-            )
+            full_param, full_name = _consolidate_param(state_dict_list,
+                                                       shard_metadata, name, prefix,
+                                                       suffix)
         else:
             print(name)
             unsharded_flag = True
@@ -130,15 +132,15 @@ def consolidate_sharded_state_dicts(state_dict_list, shard_metadata):
 
     full_state_dict = OrderedDict(
         (k.replace("_fsdp_wrapped_module.", "").replace("_fpw_module.", ""), v)
-        for k, v in full_state_dict.items()
-    )
+        for k, v in full_state_dict.items())
 
     return full_state_dict
 
 
-def consolidate_sharded_model_checkpoints(
-    ckpt_prefix, ckpt_suffix="*.pth", save_path="", save_model=True
-):
+def consolidate_sharded_model_checkpoints(ckpt_prefix,
+                                          ckpt_suffix="*.pth",
+                                          save_path="",
+                                          save_model=True):
     """
     Consolidate the sharded FSDP checkpoints into a single model checkpoint.
 
@@ -168,7 +170,8 @@ def consolidate_sharded_model_checkpoints(
     """
     ckpt_path_pattern = ckpt_prefix + ckpt_suffix
     ckpt_paths = glob(ckpt_path_pattern)
-    assert len(ckpt_paths) > 0, f"Cannot find any files matching {ckpt_path_pattern}."
+    assert len(
+        ckpt_paths) > 0, f"Cannot find any files matching {ckpt_path_pattern}."
     print(f"found {len(ckpt_paths)} checkpoint files in {ckpt_path_pattern}")
     checkpoints_and_paths = []
     for path in tqdm(ckpt_paths, desc="loading checkpoints"):
@@ -190,7 +193,8 @@ def consolidate_sharded_model_checkpoints(
 
     state_dict_list = [ckpt["model"] for ckpt in checkpoints]
     shard_metadata = checkpoints[0]["shard_metadata"]
-    full_state_dict = consolidate_sharded_state_dicts(state_dict_list, shard_metadata)
+    full_state_dict = consolidate_sharded_state_dicts(state_dict_list,
+                                                      shard_metadata)
 
     actual_save_path = None
     if save_model:
@@ -202,19 +206,17 @@ def consolidate_sharded_model_checkpoints(
 
 
 def main(ckpt_path, ckpt_prefix, ckpt_suffix, save_path, skip_existing=False):
+
     if not os.path.exists(ckpt_path):
         raise FileNotFoundError(f"Checkpoint path {ckpt_path} does not exist")
     elif not os.path.isdir(ckpt_path):
-        raise FileNotFoundError(f"Checkpoint path {ckpt_path} is not a directory")
+        raise FileNotFoundError(
+            f"Checkpoint path {ckpt_path} is not a directory")
     elif os.path.exists(save_path):
         if skip_existing:
-            print(
-                f"Save path {save_path} already exists. Passed `skip_existing=True`, skipping..."
-            )
+            print(f"Save path {save_path} already exists. Passed `skip_existing=True`, skipping...")
             return
-        print(
-            f"Save path {save_path} already exists. Passed `skip_existing=False`, overwriting..."
-        )
+        print(f"Save path {save_path} already exists. Passed `skip_existing=False`, overwriting...")
 
     print(f"""Consolidating checkpoints:
     Path: {ckpt_path}
@@ -226,7 +228,9 @@ def main(ckpt_path, ckpt_prefix, ckpt_suffix, save_path, skip_existing=False):
     ckpt_prefix = os.path.join(ckpt_path, ckpt_prefix)
 
     state_dict, _ = consolidate_sharded_model_checkpoints(
-        ckpt_prefix=ckpt_prefix, ckpt_suffix=ckpt_suffix, save_model=False
+        ckpt_prefix=ckpt_prefix,
+        ckpt_suffix=ckpt_suffix,
+        save_model=False
     )
 
     print(f"Successfully consolidated checkpoints. Saving to {save_path}")
@@ -235,28 +239,16 @@ def main(ckpt_path, ckpt_prefix, ckpt_suffix, save_path, skip_existing=False):
     print(f"Saved consolidated model to {save_path}")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import argparse
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ckpt_path", type=str, required=True)
-    parser.add_argument("--ckpt_prefix", type=str, default="model_ckpt")
-    parser.add_argument("--ckpt_suffix", type=str, default="_rank-*-of-*.pth")
-    parser.add_argument("--save_filename", type=str, default="full_model.pth")
-    parser.add_argument(
-        "--skip_existing",
-        action="store_true",
-        default=False,
-        help="Skip if the save path already exists",
-    )
+    parser.add_argument('--ckpt_path', type=str, required=True)
+    parser.add_argument('--ckpt_prefix', type=str, default='model_ckpt')
+    parser.add_argument('--ckpt_suffix', type=str, default='_rank-*-of-*.pth')
+    parser.add_argument('--save_filename', type=str, default='full_model.pth')
+    parser.add_argument('--skip_existing', action='store_true', default=False, help='Skip if the save path already exists')
     args = parser.parse_args()
 
     save_path = os.path.join(args.ckpt_path, args.save_filename)
 
-    main(
-        args.ckpt_path,
-        args.ckpt_prefix,
-        args.ckpt_suffix,
-        save_path,
-        args.skip_existing,
-    )
+    main(args.ckpt_path, args.ckpt_prefix, args.ckpt_suffix, save_path, args.skip_existing)
