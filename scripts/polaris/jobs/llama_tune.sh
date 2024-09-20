@@ -90,15 +90,14 @@ if [ "$MODEL_SIZE" == "8b" ]; then
         # Gradient accumulation steps (GAS): 32
         # Examples per step: 1 node * 4 GPUs/node * 2 bs * 32 GAS  = 256
         # Num steps for 1 epoch: 51,760 / 256 = 203
-        set -x  # Print "accelerate launch" command with expanded variables
-        accelerate launch \
-            --num_machines ${OUMI_NUM_NODES} \
-            --machine_rank ${POLARIS_NODE_RANK} \
-            --num_processes ${TOTAL_NUM_GPUS} \
-            --main_process_ip ${OUMI_MASTER_ADDR} \
-            --main_process_port 8007 \
-            --multi_gpu \
-            --config_file configs/accelerate/llama.ddp.yaml \
+        set -x  # Print "torchrun" command with expanded variables
+        # DDP training with torchrun
+        torchrun \
+            --nnodes=${OUMI_NUM_NODES} \
+            --node-rank=${POLARIS_NODE_RANK} \
+            --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+            --master-addr=${OUMI_MASTER_ADDR} \
+            --master-port=8007 \
             -m oumi.train \
             -c configs/oumi/llama8b.lora.yaml \
             "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
@@ -124,7 +123,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.sft.${JOBNUM}"
     fi
 else  # 70B
-    # Copy the model to our Polaris machine to avoiding downloading from HF.
+    # Copy the model to our Polaris machine to avoid downloading from HF.
     rsync -av \
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct

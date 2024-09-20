@@ -18,9 +18,9 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Learning Machines"
-copyright = "2024, Learning Machines"
-author = "Learning Machines"
+project = "Open Universal Machine Intelligence"
+copyright = "2024, Open Universal Machine Intelligence"
+author = "Open Universal Machine Intelligence"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -71,7 +71,7 @@ html_show_sphinx = False
 html_static_path = ["_static"]
 html_theme_options = {
     "navigation_with_keys": True,
-    "repository_url": "https://github.com/openlema/lema",
+    "repository_url": "https://github.com/oumi-ai/oumi",
     "use_repository_button": True,
     "repository_branch": "main",
     "show_toc_level": 3,
