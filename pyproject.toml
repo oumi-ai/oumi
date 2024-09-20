@@ -53,7 +53,9 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 dev = [
     "black",
     "isort",
+    "ipywidgets",
     "mypy",
+    "notebook",
     "pre-commit",
     "pyright",
     "pytest",
