@@ -680,7 +680,7 @@ class TrainingParams(BaseParams):
 
         if self.logging_dir is None:
             # Push the logging_dir inside the output_dir.
-            self.logging_dir = str(Path(self.output_dir).joinpath("logs"))
+            self.logging_dir = str(Path(self.output_dir) / "logs")
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
