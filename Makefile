@@ -49,8 +49,8 @@ setup:
 		if [ -f ~/.zshrc ]; then \
     			source ~/.zshrc \
 		elif [ -f ~/.bashrc ]; then \
-			source ~/.bashrc
-		fi	
+			source ~/.bashrc \
+		fi \
 		source ~/.bashrc 2>dev/null \
 		source ~/.zshrc 2>dev/null \		
 		conda activate $(CONDA_ENV); \
