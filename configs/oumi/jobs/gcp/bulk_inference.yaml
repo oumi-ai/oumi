@@ -1,6 +1,6 @@
-# Config to LoRA tune Llama 3.1 70B Instruct on 2 GCP nodes.
+# Config to run inference on a large dataset using GCP.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama70b_lora.yaml -c llama70b-lora
+# oumi-launch -p ./configs/oumi/jobs/gcp/bulk_inference.yaml
 name: oumi-bulk-inference
 
 num_nodes: 1
