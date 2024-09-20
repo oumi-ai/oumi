@@ -65,7 +65,7 @@ class Trainer(BaseTrainer):
         fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
     ):
-        """Initializes the OUMI trainer."""
+        """Initializes the Oumi trainer."""
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator

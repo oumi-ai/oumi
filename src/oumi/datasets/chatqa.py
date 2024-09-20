@@ -67,7 +67,7 @@ class ChatqaDataset(BaseLMSftDataset):
             raw_conversation: The raw conversation example.
 
         Returns:
-            dict: The preprocessed inputs as an OUMI conversation.
+            dict: The preprocessed inputs as an Oumi conversation.
         """
         messages = []
 
@@ -150,7 +150,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
 # Deprecated
 #
 def _convert_to_oumi_format(example: dict) -> dict:
-    """Converts the input example to the OUMI format."""
+    """Converts the input example to the Oumi format."""
     messages = example["messages"].copy()
     metadata = {}
 

@@ -42,13 +42,6 @@ def build_training_callbacks(
     if not config.training.include_performance_metrics:
         return result
 
-    if profiler is not None:
-        result.append(ProfilerStepCallback(profiler=profiler))
-    elif config.training.profiler.schedule.enable_schedule:
-        logger.warning(
-            "Scheduled profiling is requested, but profiler is not available!"
-        )
-
     add_mfu_callbacks: bool = True
     if not torch.cuda.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
@@ -89,6 +82,13 @@ def build_training_callbacks(
             )
         ):
             result.append(HfMfuTrainerCallback(dtype=model.dtype))
+
+    if profiler is not None:
+        result.append(ProfilerStepCallback(profiler=profiler))
+    elif config.training.profiler.schedule.enable_schedule:
+        logger.warning(
+            "Scheduled profiling is requested, but profiler is not available!"
+        )
 
     # Loss can have different names, depending on context.
     result.append(

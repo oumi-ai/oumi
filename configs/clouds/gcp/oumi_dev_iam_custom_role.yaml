@@ -1,5 +1,5 @@
-title: "OUMI Core Developer"
-description: "Custom IAM role for SkyPilot Service Accounts used by OUMI core team developers"
+title: "Oumi Core Developer"
+description: "Custom IAM role for SkyPilot Service Accounts used by Oumi core team developers"
 stage: "ALPHA"
 includedPermissions:
 - compute.disks.create

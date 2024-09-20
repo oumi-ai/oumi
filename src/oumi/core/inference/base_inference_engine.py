@@ -51,7 +51,7 @@ class BaseInferenceEngine(ABC):
             )
 
     def _read_conversations(self, input_filepath: str) -> List[Conversation]:
-        """Reads conversations from a file in OUMI chat format.
+        """Reads conversations from a file in Oumi chat format.
 
         Args:
             input_filepath: The path to the file containing the conversations.
@@ -71,7 +71,7 @@ class BaseInferenceEngine(ABC):
     def _save_conversations(
         self, conversations: List[Conversation], output_filepath: str
     ) -> None:
-        """Saves conversations to a file in OUMI chat format.
+        """Saves conversations to a file in Oumi chat format.
 
         Args:
             conversations: A list of conversations to save.

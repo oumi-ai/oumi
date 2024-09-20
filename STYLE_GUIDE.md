@@ -1,10 +1,10 @@
-# OUMI Style Guide
+# Oumi Style Guide
 
 ## 1. Style and Conventions
 
 ### 1.1 Style Guide
 
-OUMI follows Google's [Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+Oumi follows Google's [Python Style Guide](https://google.github.io/styleguide/pyguide.html)
 for how to format and structure code.
 
 Prefer using descriptive-style verbs (ex. "Builds") over imperative-style (ex. "Build")
@@ -14,7 +14,7 @@ for more details.
 
 ### 1.2. Pre-Commit Hooks
 
-OUMI uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
+Oumi uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
     ```shell
     pip install '.[dev]'
     pre-commit install
@@ -29,7 +29,7 @@ pre-commit run --all-files  # or, run all hooks on all files
 
 ### 1.3. Code Formatting
 
-OUMI uses the [ruff](https://github.com/astral-sh/ruff) formatter for code formatting.
+Oumi uses the [ruff](https://github.com/astral-sh/ruff) formatter for code formatting.
 These checks run through pre-commit (see section 1.2). These checks can also be
 run manually via:
 
@@ -42,7 +42,7 @@ The configuration is stored in [pyproject.toml](pyproject.toml) and
 
 ## 2. Type Annotations and Static Type Checking
 
-OUMI aims to annotate all functions with type annotations (introduced in
+Oumi aims to annotate all functions with type annotations (introduced in
 [PEP 526](https://www.python.org/dev/peps/pep-0526/)).
 
 To validate type annotations using [PyRight](https://github.com/microsoft/pyright), run one of these commands:
@@ -54,7 +54,7 @@ pre-commit run pyright --all-files
 
 ## 3. Imports and `__init__.py`
 
-All imports in OUMI should be absolute.
+All imports in Oumi should be absolute.
 
 ## 4. Documentation
 

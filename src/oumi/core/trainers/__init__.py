@@ -1,6 +1,6 @@
-"""Core trainers module for the OUMI (Open Unified Machine Intelligence) library.
+"""Core trainers module for the Oumi (Open Unified Machine Intelligence) library.
 
-This module provides various trainer implementations for use in the OUMI framework.
+This module provides various trainer implementations for use in the Oumi framework.
 These trainers are designed to facilitate the training process for different
 types of models and tasks.
 

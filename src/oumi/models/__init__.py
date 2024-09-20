@@ -1,15 +1,15 @@
-"""Models module for the OUMI (Open Unified Machine Intelligence) library.
+"""Models module for the Oumi (Open Unified Machine Intelligence) library.
 
-This module provides various model implementations for use in the OUMI framework.
+This module provides various model implementations for use in the Oumi framework.
 These models are designed for different machine learning tasks and can be used
-with the datasets and training pipelines provided by OUMI.
+with the datasets and training pipelines provided by Oumi.
 
 Available models:
     - :py:class:`~oumi.models.mlp.MLPEncoder`: A Multi-Layer Perceptron (MLP)
     encoder model.
 
 Each model is implemented as a separate class, inheriting from appropriate base classes
-in the OUMI framework.
+in the Oumi framework.
 
 Example:
     >>> from oumi.models import MLPEncoder

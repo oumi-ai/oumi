@@ -1,4 +1,4 @@
-# Eval config for Llama 8B Instruct using the OUMI evaluation framework (deprecated).
+# Eval config for Llama 8B Instruct using the Oumi evaluation framework (deprecated).
 # Use LM_HARNESS config instead: configs/oumi/llama8b.eval.yaml
 
 model:

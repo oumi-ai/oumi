@@ -213,14 +213,14 @@ class PolarisCluster(BaseCluster):
         remote_working_dir = Path(f"/home/{user}/oumi_launcher/{job_name}")
         # Copy the working directory to Polaris /home/ system.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
-        # Check if OUMI is installed in a conda env. If not, install it.
+        # Check if Oumi is installed in a conda env. If not, install it.
         oumi_env_path = Path("/home/$USER/miniconda3/envs/oumi")
         install_cmds = [
             f"cd {remote_working_dir}",
             "module use /soft/modulefiles",
             "module load conda",
             f"if [ ! -d {oumi_env_path} ]; then",
-            'echo "Creating OUMI Conda environment... ---------------------------"',
+            'echo "Creating Oumi Conda environment... ---------------------------"',
             f"conda create -y python=3.11 --prefix {oumi_env_path}",
             "fi",
             'echo "Installing packages... ---------------------------------------"',

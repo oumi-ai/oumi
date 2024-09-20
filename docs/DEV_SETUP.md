@@ -43,16 +43,16 @@
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
 
-## 3. Set up OUMI
+## 3. Set up Oumi
 
-### 3.1 Clone the OUMI repository
+### 3.1 Clone the Oumi repository
 
    ```shell
    gh repo clone oumi-ai/oumi
    cd oumi
    ```
 
-### 3.2 Install OUMI package and its dependencies
+### 3.2 Install Oumi package and its dependencies
 
    This command creates a new Conda env, installs relevant packages, and installs pre-commit.
    ```shell
@@ -65,7 +65,7 @@
    pre-commit install --install-hooks --hook-type pre-push
    ```
 
-## 4. [optional] Add an OUMI shortcut in your environment {.zshrc or .bashrc}
+## 4. [optional] Add an Oumi shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
    alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"

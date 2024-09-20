@@ -14,7 +14,7 @@
 {%- endmacro %}
 
 {#-
-## OUMI change: we don't want to show the package|namespace suffix
+## Oumi change: we don't want to show the package|namespace suffix
 -#}
 {{- pkgname | e | heading }}
 
@@ -35,7 +35,7 @@ Subpackages
 {% endif %}
 
 {#-
-## OUMI change: we don't want to show submodules. Removing block.
+## Oumi change: we don't want to show submodules. Removing block.
 #}
 
 {%- if not modulefirst and not is_namespace %}
