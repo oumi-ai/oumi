@@ -141,7 +141,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 "tests/*" = ["D"] # Ignore docstring checks in tests
 "src/oumi/models/cambrian/**" = [
     "F401", # Ignore pyflakes: `torch_xla` imported but unused;
-    # "F841", # Ignore pyflakes: Local variable is assigned to but never used
+    "F841", # Ignore pyflakes: Local variable is assigned but never used
     "E501", # Ignore pycodestyle: Line too long
     # "E",    # Ignore pycodestyle: errors
     "D", # Ignore docstring checks in Cambrian
