@@ -21,6 +21,7 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
+        exclude: src/oumi/models/cambrian
       - id: fix-byte-order-marker
       - id: mixed-line-ending
         args: [--fix=lf]
