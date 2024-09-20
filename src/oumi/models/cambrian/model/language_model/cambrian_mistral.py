@@ -18,6 +18,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 from cambrian.utils import IS_XLA_AVAILABLE
+from torch.nn import CrossEntropyLoss
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -39,7 +40,7 @@ class CambrianMistralModel(CambrianMetaModel, MistralModel):
     config_class = CambrianMistralConfig
 
     def __init__(self, config: MistralConfig):
-        super().__init__(config)
+        super(CambrianMistralModel, self).__init__(config)
 
 
 class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
@@ -72,6 +73,7 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
         image_sizes: Optional[List[List[int]]] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
+
         if inputs_embeds is None:
             (
                 input_ids,
@@ -79,7 +81,7 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
                 attention_mask,
                 past_key_values,
                 inputs_embeds,
-                labels,
+                labels
             ) = self.prepare_inputs_labels_for_multimodal(
                 input_ids,
                 position_ids,
@@ -87,15 +89,14 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
                 past_key_values,
                 labels,
                 images,
-                image_sizes,
+                image_sizes
             )
 
         if IS_XLA_AVAILABLE:
             # Very Important for TorchXLA
-            # self.model.gradient_checkpointing = False
+            #self.model.gradient_checkpointing = False
 
             from torch_xla.utils.checkpoint import checkpoint
-
             self.model._gradient_checkpointing_func = checkpoint
 
         return super().forward(
@@ -108,7 +109,7 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+            return_dict=return_dict
         )
 
     @torch.no_grad()
@@ -125,16 +126,21 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
             raise NotImplementedError("`inputs_embeds` is not supported")
 
         if images is not None:
-            (inputs, position_ids, attention_mask, _, inputs_embeds, _) = (
-                self.prepare_inputs_labels_for_multimodal(
-                    inputs,
-                    position_ids,
-                    attention_mask,
-                    None,
-                    None,
-                    images,
-                    image_sizes=image_sizes,
-                )
+            (
+                inputs,
+                position_ids,
+                attention_mask,
+                _,
+                inputs_embeds,
+                _
+            ) = self.prepare_inputs_labels_for_multimodal(
+                inputs,
+                position_ids,
+                attention_mask,
+                None,
+                None,
+                images,
+                image_sizes=image_sizes
             )
         else:
             inputs_embeds = self.get_model().embed_tokens(inputs)
@@ -143,26 +149,21 @@ class CambrianMistralForCausalLM(MistralForCausalLM, CambrianMetaForCausalLM):
             position_ids=position_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
-            **kwargs,
+            **kwargs
         )
 
-    def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, inputs_embeds=None, **kwargs
-    ):
+    def prepare_inputs_for_generation(self, input_ids, past_key_values=None,
+                                      inputs_embeds=None, **kwargs):
         images = kwargs.pop("images", None)
         image_sizes = kwargs.pop("image_sizes", None)
         inputs = super().prepare_inputs_for_generation(
-            input_ids,
-            past_key_values=past_key_values,
-            inputs_embeds=inputs_embeds,
-            **kwargs,
+            input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
         )
         if images is not None:
-            inputs["images"] = images
+            inputs['images'] = images
         if image_sizes is not None:
-            inputs["image_sizes"] = image_sizes
+            inputs['image_sizes'] = image_sizes
         return inputs
-
 
 AutoConfig.register("cambrian_mistral", CambrianMistralConfig)
 AutoModelForCausalLM.register(CambrianMistralConfig, CambrianMistralForCausalLM)

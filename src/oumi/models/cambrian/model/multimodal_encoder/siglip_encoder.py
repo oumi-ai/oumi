@@ -8,13 +8,13 @@ from .clip_encoder import ClipVisionTower
 
 def extract_res_interp(model_name):
     valid_model_prefixes = {
-        "siglip/CLIP-ViT-SO400M-14-384": "hf-hub:timm/ViT-SO400M-14-SigLIP-384",
-        "timm/ViT-SO400M-14-SigLIP-384": "hf-hub:timm/ViT-SO400M-14-SigLIP-384",
-        "siglip/CLIP-ViT-SO400M-14": "hf-hub:timm/ViT-SO400M-14-SigLIP",
-        "timm/ViT-SO400M-14-SigLIP": "hf-hub:timm/ViT-SO400M-14-SigLIP",
+        "siglip/CLIP-ViT-SO400M-14-384":"hf-hub:timm/ViT-SO400M-14-SigLIP-384",
+        "timm/ViT-SO400M-14-SigLIP-384":"hf-hub:timm/ViT-SO400M-14-SigLIP-384",
+        "siglip/CLIP-ViT-SO400M-14":"hf-hub:timm/ViT-SO400M-14-SigLIP",
+        "timm/ViT-SO400M-14-SigLIP":"hf-hub:timm/ViT-SO400M-14-SigLIP"
     }
 
-    res = 384 if "384" in model_name else 224
+    res = 384 if '384' in model_name else 224
     interp = None
 
     for prefix in valid_model_prefixes:
@@ -58,12 +58,11 @@ class SiglipVisionTower(ClipVisionTower):
         self._hidden_size = self.vision_tower.embed_dim
         self._image_size = self.vision_tower.patch_embed.img_size[0]
         self._patch_size = self.vision_tower.patch_embed.patch_size[0]
-        self.image_processor = ProcessorWrapper(
-            processor, height=self._image_size, width=self._image_size
-        )
+        self.image_processor = ProcessorWrapper(processor, height=self._image_size, width=self._image_size)
 
         self.vision_tower.requires_grad_(self.unfreeze_mm_vision_tower)
         self.is_loaded = True
+
 
     def interpolate(self, image_features):
         if self._interp_size is None:
@@ -72,8 +71,8 @@ class SiglipVisionTower(ClipVisionTower):
         b, num_tokens, dim = image_features.shape
 
         if num_tokens != self.num_patches:
-            target_h = target_w = int(self._interp_size**0.5)
-            h = w = int(num_tokens**0.5)
+            target_h = target_w = int(self._interp_size ** 0.5)
+            h = w = int(num_tokens ** 0.5)
 
             image_features = image_features.view(b, h, w, dim)
             image_features = image_features.permute(0, 3, 1, 2).contiguous()
@@ -81,8 +80,8 @@ class SiglipVisionTower(ClipVisionTower):
             image_features = F.interpolate(
                 image_features.to(torch.float32),
                 size=(target_h, target_w),
-                mode="bilinear",
-                align_corners=False,
+                mode='bilinear',
+                align_corners=False
             ).to(image_features.dtype)
 
             # Permute the dimensions back to (b, target_h, target_w, dim)
@@ -93,10 +92,8 @@ class SiglipVisionTower(ClipVisionTower):
 
         return image_features
 
-    def _forward(self, images, interpolate_token=576):
+    def _forward(self, images, interpolate_token = 576):
         with torch.set_grad_enabled(self.unfreeze_mm_vision_tower):
-            image_features = self.vision_tower.forward_features(
-                images.to(device=self.device, dtype=self.dtype)
-            )
+            image_features = self.vision_tower.forward_features(images.to(device=self.device, dtype=self.dtype))
             interp_features = self.interpolate(image_features)
             return interp_features

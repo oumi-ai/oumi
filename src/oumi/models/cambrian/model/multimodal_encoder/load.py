@@ -27,9 +27,7 @@ def load_vision_model(vision_tower_name: str, args, **kwargs):
     """
 
     if vision_tower_name.lower().startswith("hybridmodel"):
-        raise ValueError(
-            "HybridModels must be loaded using the `multimodal_encoder.builderbuild_vision_tower()` function."
-        )
+        raise ValueError("HybridModels must be loaded using the `multimodal_encoder.builderbuild_vision_tower()` function.")
 
     # CLIP-based Vision Towers
     if "openai/clip" in vision_tower_name.lower():
@@ -81,4 +79,4 @@ def load_vision_model(vision_tower_name: str, args, **kwargs):
         logger.info(f"Loading **SAM Vision Tower: {vision_tower_name}")
         return SAMVisionTower(vision_tower_name, args=args, **kwargs)
 
-    raise ValueError(f"Unknown vision tower: {vision_tower_name}")
+    raise ValueError(f'Unknown vision tower: {vision_tower_name}')

@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -6,13 +8,16 @@ from einops import rearrange
 # from timm.models.regnet import RegStage
 
 
-def build_pos_embeds(num_input_tokens: int, vision_hidden_size: int):
+
+
+def build_pos_embeds(
+    num_input_tokens: int, vision_hidden_size: int
+):
     # pos emb
     pos_emb = torch.nn.Parameter(torch.zeros(1, num_input_tokens, vision_hidden_size))
     nn.init.trunc_normal_(pos_emb, mean=0.0, std=0.02)
 
     return pos_emb
-
 
 def build_mlp(depth, hidden_size, output_hidden_size):
     layers = [nn.Linear(hidden_size, output_hidden_size)]
@@ -65,7 +70,6 @@ class Projector(nn.Module):
 
         return x.to(dtype)
 
-
 class ConvProjector(Projector):
     def _forward(self, x):
         hw = int(x.size(1) ** 0.5)
@@ -74,6 +78,8 @@ class ConvProjector(Projector):
         x = rearrange(x, "b d h w -> b (h w) d")
         x = self.readout(x)
         return x
+
+
 
 
 class CAbstractor(nn.Module):
@@ -94,19 +100,15 @@ class CAbstractor(nn.Module):
         self.pos_emb = None
 
         self.downsamples = nn.Conv2d(
-            encoder_hidden_size,
-            self.hidden_size,
-            kernel_size=3,
-            stride=2,
-            padding=1,
-            bias=False,
-        )
+                    encoder_hidden_size,
+                    self.hidden_size,
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                )
 
-        self.readout = nn.Sequential(
-            nn.Linear(self.hidden_size, output_hidden_size),
-            nn.GELU(),
-            nn.Linear(output_hidden_size, output_hidden_size),
-        )
+        self.readout = nn.Sequential(nn.Linear(self.hidden_size, output_hidden_size), nn.GELU(), nn.Linear(output_hidden_size, output_hidden_size))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
@@ -119,6 +121,8 @@ class CAbstractor(nn.Module):
         x = self.readout(x)
 
         return x.to(dtype)
+
+
 
 
 # class CAbstractor(ConvProjector):

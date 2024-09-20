@@ -8,7 +8,7 @@ repos:
     rev: v4.6.0
     hooks:
       - id: check-added-large-files
-        args: ['--maxkb=500']
+        args: ["--maxkb=500"]
       - id: check-ast
       - id: check-case-conflict
       - id: check-docstring-first
@@ -21,7 +21,6 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
-        # exclude: src/oumi/models/cambrian
       - id: fix-byte-order-marker
       - id: mixed-line-ending
         args: [--fix=lf]
@@ -30,7 +29,6 @@ repos:
       - id: no-commit-to-branch
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
-        # exclude: src/oumi/models/cambrian
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.10
     hooks:
@@ -42,18 +40,18 @@ repos:
         exclude: src/oumi/models/cambrian
   - repo: local
     hooks:
-    - id: pyright
-      name: pyright
-      entry: pyright
-      language: node
-      types: [python]
-      pass_filenames: false
-      args: [--warnings]
-      additional_dependencies: ["pyright@1.1.368"]
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        types: [python]
+        pass_filenames: false
+        args: [--warnings]
+        additional_dependencies: ["pyright@1.1.368"]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.16.0
     hooks:
-    -   id: pyupgrade
+      - id: pyupgrade
         args: [--py38-plus]
         exclude: src/oumi/models/cambrian
   - repo: https://github.com/gitleaks/gitleaks

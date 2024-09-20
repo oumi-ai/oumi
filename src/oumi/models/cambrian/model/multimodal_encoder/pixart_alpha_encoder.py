@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from diffusers import (
     DDIMScheduler,
+    DPMSolverMultistepScheduler,
+    PixArtAlphaPipeline,
     StableDiffusionPipeline,
 )
 from diffusers.models import AutoencoderKL, Transformer2DModel
@@ -33,7 +35,7 @@ class MyUNet2DConditionModel(UNet2DConditionModel):
         # factor.The overall upsampling factor is equal to 2 ** (#upsampling layers).
         # However, the upsampling interpolation output size can be forced to fit any i
         # upsampling size on the fly if necessary.
-        default_overall_up_factor = 2**self.num_upsamplers
+        default_overall_up_factor = 2 ** self.num_upsamplers
 
         # upsample size should be forwarded when sample is not a multiple of
         # `default_overall_up_factor`
@@ -158,8 +160,9 @@ class OneStepSDPipeline(StableDiffusionPipeline):
 
 
 class StableDiffusionVisionTower(BaseVisionTower):
+
     def __init__(self, vision_tower, args, delay_load=False):
-        super().__init__(vision_tower, args, delay_load)
+        super(StableDiffusionVisionTower, self).__init__(vision_tower, args, delay_load)
 
         if not self.delay_load:
             self.load_model()
@@ -195,7 +198,7 @@ class StableDiffusionVisionTower(BaseVisionTower):
                 [""],
                 device=self.device,
                 num_images_per_prompt=1,
-                do_classifier_free_guidance=False,
+                do_classifier_free_guidance=False
             )
             self.empty_prompt_embeds = self.empty_prompt_embeds[0]
         # print("text embeds", self.empty_prompt_embeds.shape)
@@ -204,33 +207,26 @@ class StableDiffusionVisionTower(BaseVisionTower):
         self._image_size = 512
         self._patch_size = 16
         # print(self._image_size, self._patch_size)
-        preprocess = transforms.Compose(
-            [
-                transforms.Resize(512),  # Resize the shorter side to 512 pixels
-                transforms.CenterCrop(512),  # Crop the center to make it 512x512
-                transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-                transforms.Normalize(
-                    mean=[0.5, 0.5, 0.5],  # Normalize the tensor
-                    std=[0.5, 0.5, 0.5],
-                ),
-            ]
-        )
+        preprocess = transforms.Compose([
+            transforms.Resize(512),                 # Resize the shorter side to 512 pixels
+            transforms.CenterCrop(512),             # Crop the center to make it 512x512
+            transforms.ToTensor(),                  # Convert the image to a PyTorch tensor
+            transforms.Normalize(mean=[0.5, 0.5, 0.5],  # Normalize the tensor
+                                 std=[0.5, 0.5, 0.5])
+        ])
 
-        self.image_processor = ProcessorWrapper(
-            preprocess, height=self._image_size, width=self._image_size
-        )
+        self.image_processor = ProcessorWrapper(preprocess, height=self._image_size, width=self._image_size)
 
         # freeze or unfreeze the unet
         self.unet.requires_grad_(self.unfreeze_mm_vision_tower)
         self.is_loaded = True
 
     def extract_features(self, images, time_step=250, output="dense", layers=[1, 2, 3]):
+
         batch_size = images.shape[0]
 
         # Repeat the empty prompt embeddings to match the batch size
-        prompt_embeds = (self.empty_prompt_embeds.repeat(batch_size, 1, 1)).to(
-            device=self.device, dtype=self.dtype
-        )
+        prompt_embeds = (self.empty_prompt_embeds.repeat(batch_size, 1, 1)).to(device=self.device, dtype=self.dtype)
 
         # Pass the images and prompts through the model
         with torch.no_grad():
@@ -240,21 +236,16 @@ class StableDiffusionVisionTower(BaseVisionTower):
 
             t = torch.tensor(time_step, dtype=torch.long, device=self.device)
             noise = torch.randn_like(latents)
-            latents_noisy = self.scheduler.add_noise(latents, noise, t).to(
-                dtype=self.dtype, device=self.device
-            )
+            latents_noisy = self.scheduler.add_noise(latents, noise, t).to(dtype=self.dtype, device=self.device)
 
-            # print("image dtype, latent dtype, noise dtype, t dtype, latents_noisy dtype:", images.dtype, latents.dtype, noise.dtype, t.dtype, latents_noisy.dtype)
+            #print("image dtype, latent dtype, noise dtype, t dtype, latents_noisy dtype:", images.dtype, latents.dtype, noise.dtype, t.dtype, latents_noisy.dtype)
 
             unet_output = self.unet(
-                latents_noisy,
-                t,
-                self.up_ft_index,
-                encoder_hidden_states=prompt_embeds.detach(),
+                latents_noisy, t, self.up_ft_index, encoder_hidden_states=prompt_embeds.detach()
             )
 
         unet_output = unet_output["up_ft"]
-        # print(len(unet_output))
+        #print(len(unet_output))
 
         # Process the extracted features
         features = []
@@ -263,37 +254,24 @@ class StableDiffusionVisionTower(BaseVisionTower):
             if output == "gap":
                 features.append(layer_output.mean(dim=(2, 3)))
             elif output == "dense":
-                h, w = (
-                    images.shape[2] // self.patch_size,
-                    images.shape[3] // self.patch_size,
-                )
-                features.append(
-                    torch.nn.functional.interpolate(
-                        layer_output, size=(h, w), mode="bilinear", align_corners=False
-                    )
-                )
+                h, w = images.shape[2] // self.patch_size, images.shape[3] // self.patch_size
+                features.append(torch.nn.functional.interpolate(layer_output, size=(h, w), mode="bilinear", align_corners=False))
 
         # Concatenate features from different layers along the channel dimension
         concatenated_features = torch.cat(features, dim=1)
 
         # Reshape the features to (batch_size, number_of_tokens, token_dimension)
         batch_size = concatenated_features.shape[0]
-        number_of_tokens = (
-            concatenated_features.shape[2] * concatenated_features.shape[3]
-        )
+        number_of_tokens = concatenated_features.shape[2] * concatenated_features.shape[3]
         token_dimension = concatenated_features.shape[1]
-        reshaped_features = concatenated_features.permute(0, 2, 3, 1).reshape(
-            batch_size, number_of_tokens, token_dimension
-        )
+        reshaped_features = concatenated_features.permute(0, 2, 3, 1).reshape(batch_size, number_of_tokens, token_dimension)
 
         return reshaped_features
 
     def _forward(self, images):
         # print(self.device, self.dtype)
         with torch.set_grad_enabled(self.unfreeze_mm_vision_tower):
-            image_features = self.extract_features(
-                images.to(device=self.device, dtype=self.dtype)
-            ).to(images.dtype)
+            image_features = self.extract_features(images.to(device=self.device, dtype=self.dtype)).to(images.dtype)
             # print("Image output shape, device and dtype:", image_features.shape, image_features.device, image_features.dtype)
             # image_features = image_features.to(device=self.device, dtype=self.dtype)
             return image_features
@@ -313,21 +291,17 @@ class StableDiffusionVisionTower(BaseVisionTower):
     @property
     def dtype(self):
         # Dynamically infer the dtype from the first parameter, if not explicitly specified
-        if hasattr(self.vae, "dtype"):
+        if hasattr(self.vae, 'dtype'):
             return self.vae.dtype
         else:
             params = list(self.vae.parameters())
-            return (
-                params[0].dtype if len(params) > 0 else torch.float32
-            )  # Default to torch.float32 if no parameters
+            return params[0].dtype if len(params) > 0 else torch.float32  # Default to torch.float32 if no parameters
 
     @property
     def device(self):
         # Dynamically infer the device from the first parameter, if not explicitly specified
-        if hasattr(self.vae, "device"):
+        if hasattr(self.vae, 'device'):
             return self.vae.device
         else:
             params = list(self.vae.parameters())
-            return (
-                params[0].device if len(params) > 0 else torch.device("cpu")
-            )  # Default to CPU if no parameters
+            return params[0].device if len(params) > 0 else torch.device("cpu") # Default to CPU if no parameters
