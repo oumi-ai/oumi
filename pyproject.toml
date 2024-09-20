@@ -144,7 +144,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
     # "F841", # Ignore pyflakes: Local variable is assigned to but never used
     # "E",    # Ignore pycodestyle: errors
     # "D",    # Ignore docstring checks in Cambrian
-    "TID",  # Ignore flake8-tidy-imports: check import tidiness
+    # "TID",  # Ignore flake8-tidy-imports: check import tidiness
 ]
 
 [tool.ruff.lint.pydocstyle]
