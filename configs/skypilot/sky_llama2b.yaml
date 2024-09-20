@@ -1,7 +1,7 @@
 name: llama2b-pt
 
 resources:
-  accelerators: {"A100"}
+  accelerators: {"A100":4}
   any_of:
     - use_spot: true
     - use_spot: false
@@ -25,6 +25,7 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
+  pip install '.[train]'
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \

@@ -90,6 +90,7 @@ cloud = [
 gpu = [
     "flash-attn",
     "liger-kernel",
+    "vllm",
 ] # dependencies that require a GPU to install
 docs = [
     "myst_parser",
