@@ -1,4 +1,4 @@
-"""Tokenizers module for the Oumi (Open Unified Machine Intelligence) library.
+"""Tokenizers module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides base classes for tokenizers used in the Oumi framework.
 These base classes serve as foundations for creating custom tokenizers for various
