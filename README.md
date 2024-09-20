@@ -70,12 +70,12 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 | Notebook | Description |
 |----------|-------------|
-| [A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | A comprehensive tour of the Oumi repository and its features |
-| [Finetuning Tutorial](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using Oumi |
-| [Tuning Llama](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with Oumi |
-| [Multinode Inference on Polaris](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
-| [Datasets Tutorial](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in Oumi |
-| [Deploying a Job](/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using Oumi |
+| [A Tour](/notebooks/OUMI%20-%20A%20Tour.ipynb) | A comprehensive tour of the Oumi repository and its features |
+| [Finetuning Tutorial](/notebooks/OUMI%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using Oumi |
+| [Tuning Llama](/notebooks/OUMI%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with Oumi |
+| [Multinode Inference on Polaris](/notebooks/OUMI%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
+| [Datasets Tutorial](/notebooks/OUMI%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in Oumi |
+| [Deploying a Job](/notebooks/OUMI%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using Oumi |
 
 ## Documentation
 
