@@ -61,4 +61,4 @@ If you encounter any issues or have questions, please don't hesitate to:
 
 1. Check our `FAQ section <https://github.com/oumi-ai/oumi/blob/main/FAQ.md>`_ for common questions and answers.
 2. Open an issue on our `GitHub Issues page <https://github.com/oumi-ai/oumi/issues>`_ for bug reports or feature requests.
-3. Join our `community <https://learning-machines.ai/community>`_ to discuss with other Oumi users and developers.
+3. Join our `community <https://oumi.ai/community>`_ to discuss with other Oumi users and developers.
