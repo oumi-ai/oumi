@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Pre-review Tests](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml)
-[![Documentation](https://img.shields.io/badge/docs-oumi-blue.svg)](https://learning-machines.ai/docs/latest/index.html)
+[![Documentation](https://img.shields.io/badge/docs-oumi-blue.svg)](https://oumi.ai/docs/latest/index.html)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
@@ -79,7 +79,7 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 ## Documentation
 
-View our API documentation [here](https://learning-machines.ai/docs/latest/index.html).
+View our API documentation [here](https://oumi.ai/docs/latest/index.html).
 
 Reach out to <matthew@learning-machines.ai> if you have problems with access.
 
