@@ -47,6 +47,8 @@ setup:
 	else \
 		conda create -n $(CONDA_ENV) python=3.11 -y; \
 		conda activate $(CONDA_ENV); \
+		source ~/.bashrc 2>dev/null \
+		source ~/.zshrc 2>dev/null \
 		pip install -e ".[all]"; \
 		pre-commit install; \
 	fi
