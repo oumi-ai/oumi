@@ -187,8 +187,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         return result
                     else:
                         retries += 1
-                        text = await response.text()
-                        print(text)
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 "Failed to query API after " f"{remote_params.max_retries} retries."

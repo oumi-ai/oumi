@@ -10,9 +10,9 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
 
 __all__ = [
+    "AnthropicInferenceEngine",
+    "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "RemoteInferenceEngine",
     "VLLMInferenceEngine",
-    "AnthropicInferenceEngine",
-    "LlamaCppInferenceEngine",
 ]
