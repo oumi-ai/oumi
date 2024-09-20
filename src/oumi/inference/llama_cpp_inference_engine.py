@@ -15,19 +15,57 @@ except ModuleNotFoundError:
 
 
 class LlamaCppInferenceEngine(BaseInferenceEngine):
-    """Engine for running llama.cpp inference locally."""
+    """Engine for running llama.cpp inference locally.
+
+    This class provides an interface for running inference using the llama.cpp library
+    on local hardware. It allows for efficient execution of large language models
+    with quantization, kv-caching, prefix filling, ...
+
+    Note:
+        This engine requires the llama-cpp-python package to be installed.
+        If not installed, it will raise a RuntimeError.
+
+    Example:
+        >>> from oumi.core.configs import ModelParams
+        >>> model_params = ModelParams(
+        ...     model_name="path/to/model.gguf",
+        ...     model_kwargs={
+        ...         "n_gpu_layers": -1,
+        ...         "n_threads": 8,
+        ...         "flash_attn": True
+        ...     }
+        ... )
+        >>> engine = LlamaCppInferenceEngine(model_params)
+        >>> # Use the engine for inference
+    """
 
     def __init__(
         self,
         model_params: ModelParams,
     ):
-        """Initializes the inference Engine.
+        """Initializes the LlamaCppInferenceEngine.
+
+        This method sets up the engine for running inference using llama.cpp.
+        It loads the specified model and configures the inference parameters.
 
         Args:
-            model_params: The model parameters to use for inference.
-            n_ctx: The context size to use for inference.
-            n_gpu_layers: The number of GPU layers to use.
-            n_threads: The number of threads to use for CPU inference.
+            model_params (ModelParams): Configuration parameters for the model,
+                including the model name, maximum length, and any additional
+                keyword arguments for model initialization.
+
+        Raises:
+            RuntimeError: If the llama-cpp-python package is not installed.
+            ValueError: If the specified model file is not found.
+
+        Note:
+            This method automatically sets some default values for model initialization:
+            - verbose: False (reduces log output for bulk inference)
+            - n_gpu_layers: -1 (uses GPU acceleration for all layers if available)
+            - n_threads: 4
+            - filename: "*q8_0.gguf" (applies Q8 quantization by default)
+            - flash_attn: True
+            These defaults can be overridden by specifying them in
+            `model_params.model_kwargs`.
         """
         if not Llama:
             raise RuntimeError(
@@ -73,10 +111,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 model_path=model_params.model_name, n_ctx=model_max_length, **kwargs
             )
         else:
-            raise ValueError(
-                f"Model not found at {model_params.model_name}. "
-                "Please provide a valid model path."
-            )
             logger.info(
                 f"Loading model from Huggingface Hub: {model_params.model_name}."
             )
@@ -87,14 +121,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _convert_conversation_to_llama_input(
         self, conversation: Conversation
     ) -> List[Dict[str, str]]:
-        """Converts a conversation to a list of llama.cpp input messages.
-
-        Args:
-            conversation: The conversation to convert.
-
-        Returns:
-            List[dict]: A list of llama.cpp input messages.
-        """
+        """Converts a conversation to a list of llama.cpp input messages."""
         return [
             {
                 "content": message.content or "",
@@ -106,24 +133,31 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _infer(
         self, input: List[Conversation], generation_config: GenerationConfig
     ) -> List[Conversation]:
-        """Runs model inference on the provided input.
+        """Runs model inference on the provided input using llama.cpp.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_config: Configuration parameters for generation during
-                inference.
+                Each conversation should contain at least one message.
+            generation_config: Configuration parameters for text
+                generation during inference.
 
         Returns:
-            List[Conversation]: Inference output.
+            List[Conversation]: A list of conversations with the model's responses
+            appended. Each conversation in the output list corresponds to an input
+            conversation, with an additional message from the assistant (model) added.
         """
         output_conversations = []
 
+        # skip using a progress for single turns
         disable_tgdm = len(input) < 2
 
         for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
                 logger.warn("Conversation must have at least one message.")
+                # add the conversation to keep input and output the same length.
+                output_conversations.append(conversation)
                 continue
+
             llama_input = self._convert_conversation_to_llama_input(conversation)
 
             response = self._llm.create_chat_completion(
