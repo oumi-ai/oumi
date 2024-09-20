@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 import pydantic
 from jinja2 import Template
@@ -10,8 +10,9 @@ from jinja2 import Template
 from oumi.core.configs import BaseConfig, GenerationConfig, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
-from oumi.inference.remote_inference_engine import (
-    #    AnthropicInferenceEngine,
+from oumi.inference import (
+    AnthropicInferenceEngine,
+    LlamaCppInferenceEngine,
     RemoteInferenceEngine,
 )
 from oumi.utils.logging import logger
@@ -152,13 +153,31 @@ class Judge:
             self.inference_engine = inference_engine
 
     def judge(
-        self, conversations: List[Conversation]
-    ) -> Tuple[Optional[str], Optional[str]]:
+        self, conversations: Union[List[Conversation], Dict[str, List[Conversation]]]
+    ) -> Union[List[Conversation], Dict[str, List[Conversation]]]:
         """Judge a prompt."""
-        response = self.inference_engine.infer(
+        if isinstance(conversations, list):
+            return self.judge_attribute(conversations)
+        else:
+            return {
+                attribute_name: self.judge_attribute(attribute_conversations)
+                for attribute_name, attribute_conversations in conversations.items()
+            }
+
+    def judge_attribute(self, conversations: List[Conversation]) -> List[Conversation]:
+        """Judge a single attribute."""
+        metadatas = [convo.metadata for convo in conversations]
+
+        responses = self.inference_engine.infer(
             input=conversations, generation_config=self.config.generation
-        )[0]
-        return response.messages[-1].content, None
+        )
+
+        assert len(responses) == len(metadatas)
+
+        for response, metadata in zip(responses, metadatas):
+            response.metadata.update(metadata)
+
+        return responses
 
     def generate_prompts(self, judge_input: JudgeInput) -> Dict[str, Conversation]:
         """Generate judge prompts for a dataset."""
@@ -190,7 +209,10 @@ class Judge:
         # For now, we default to the remote inference engine
         # Users can override this method to provide their own inference engine
         # to the constructor of the Judge class.
-        # return RemoteInferenceEngine(self.config.model)
+        if config.model.model_name.endswith(".gguf"):
+            return LlamaCppInferenceEngine(config.model)
+        elif config.model.model_name:
+            return AnthropicInferenceEngine(config.model)
         return RemoteInferenceEngine(self.config.model)
 
 
@@ -228,6 +250,27 @@ def _get_default_judge_config() -> JudgeConfig:
     return config
 
 
+def _get_default_local_judge_config() -> JudgeConfig:
+    oumi_top_dir = Path(__file__).parent.resolve()
+    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
+
+    attribute_names = ["helpful", "honest", "safe", "valid"]
+    attributes = {
+        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+        for attribute in attribute_names
+    }
+    config = JudgeConfig(
+        attributes=attributes,
+        model=ModelParams(
+            model_name=str(judges_directory / "Q4_K_M-00001-of-00001.gguf"),
+        ),
+        generation=GenerationConfig(
+            max_new_tokens=1024,
+        ),
+    )
+    return config
+
+
 def test():
     """Tests the Judge class."""
     # Create a Judge instance
@@ -254,13 +297,11 @@ def test():
         print(f"{message.role}: {message.content}")
 
     # Judge the prompts
-    judgement, exception = judge.judge([conversation])
-    print("\nRaw Judgement:")
-    print(judgement)
+    judgements = judge.judge_attribute([conversation])
 
-    if exception:
-        print("\nException:")
-        print(exception)
+    judgement = judgements[0].messages[-1].content
+    print("\nRaw Judgement:")
+    print(judgements[0])
 
     # Parsed judgment
     bool_result = judge.parse_judgement(judgement, "helpful")

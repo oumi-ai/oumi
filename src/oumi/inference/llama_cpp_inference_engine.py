@@ -1,4 +1,9 @@
-from typing import List
+from __future__ import annotations
+
+from pathlib import Path
+from typing import cast
+
+from tqdm.auto import tqdm
 
 from oumi.core.configs import GenerationConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
@@ -31,16 +36,59 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 "llama-cpp-python is not installed. "
                 "Please install it with 'pip install llama-cpp-python'."
             )
-        self._model_params = model_params
-        self._llm = Llama(
-            model_path=model_params.model_name,
-            n_ctx=model_params.model_max_length,
-            n_gpu_layers=-1,  # run everything on gpu if available
-        )
+
+        # `model_max_length` is required by llama-cpp, but optional in our config
+        # Use a default value if not set.
+        if model_params.model_max_length is None:
+            model_max_length = 4049
+            logger.warning(
+                "model_max_length is not set. "
+                f"Using default value of {model_max_length}."
+            )
+        else:
+            model_max_length = model_params.model_max_length
+
+        # Set some reasonable defaults. These will be overriden by the user if set in
+        # the config.
+        kwargs = {
+            # llama-cpp logs a lot of useful information,
+            # but it's too verbose by default for bulk inference.
+            "verbose": False,
+            # Put all layers on GPU / MPS if available. Otherwise, will use CPU.
+            "n_gpu_layers": -1,
+            # Increase the default number of threads.
+            # Too many can cause deadlocks
+            "n_threads": 4,
+            # Use Q8 quantization by default.
+            "filename": "*q8_0.gguf",
+            "flash_attn": True,
+        }
+
+        model_kwargs = model_params.model_kwargs.copy()
+        kwargs.update(model_kwargs)
+
+        # Load model
+        if Path(model_params.model_name).exists():
+            logger.info(f"Loading model from disk: {model_params.model_name}.")
+            kwargs.pop("filename", None)  # only needed if downloading from hub
+            self._llm = Llama(
+                model_path=model_params.model_name, n_ctx=model_max_length, **kwargs
+            )
+        else:
+            raise ValueError(
+                f"Model not found at {model_params.model_name}. "
+                "Please provide a valid model path."
+            )
+            # logger.info(
+            #     f"Loading model from Huggingface Hub: {model_params.model_name}."
+            # )
+            # self._llm = Llama.from_pretrained(
+            #     repo_id=model_params.model_name, n_ctx=model_max_length, **kwargs
+            # )
 
     def _convert_conversation_to_llama_input(
         self, conversation: Conversation
-    ) -> List[dict]:
+    ) -> list[dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages.
 
         Args:
@@ -58,8 +106,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], generation_config: GenerationConfig
+    ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
@@ -71,16 +119,20 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         output_conversations = []
-        for conversation in input:
+
+        disable_tgdm = len(input) < 2
+
+        for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
                 logger.warn("Conversation must have at least one message.")
                 continue
             llama_input = self._convert_conversation_to_llama_input(conversation)
 
             response = self._llm.create_chat_completion(
-                messages=llama_input,
+                messages=llama_input,  # type: ignore
                 max_tokens=generation_config.max_new_tokens,
             )
+            response = cast(dict, response)
 
             new_message = Message(
                 content=response["choices"][0]["message"]["content"],
@@ -101,8 +153,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], generation_config: GenerationConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], generation_config: GenerationConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -120,7 +172,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
