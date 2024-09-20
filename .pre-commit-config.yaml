@@ -37,7 +37,7 @@ repos:
       - id: ruff
         types_or: [python, pyi, jupyter]
         args: [--fix, --exit-non-zero-on-fix]
-        exclude: src/oumi/models/cambrian
+        # exclude: src/oumi/models/cambrian
       - id: ruff-format
         types_or: [python, pyi, jupyter]
         exclude: src/oumi/models/cambrian
