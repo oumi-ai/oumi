@@ -46,9 +46,9 @@ setup:
 		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
 	else \
 		conda create -n $(CONDA_ENV) python=3.11 -y; \
-		conda activate $(CONDA_ENV); \
 		source ~/.bashrc 2>dev/null \
-		source ~/.zshrc 2>dev/null \
+		source ~/.zshrc 2>dev/null \		
+		conda activate $(CONDA_ENV); \
 		pip install -e ".[all]"; \
 		pre-commit install; \
 	fi
