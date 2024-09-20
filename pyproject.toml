@@ -110,10 +110,10 @@ oumi-launch = "oumi.launch:main"
 oumi-train = "oumi.train:main"
 
 [tool.ruff]
-line-length = 88
 extend-include = [
     "*.ipynb", # Include ipython notebooks
 ]
+line-length = 88
 
 
 [tool.ruff.lint]
