@@ -18,16 +18,19 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from cambrian.constants import (
+    DEFAULT_IM_END_TOKEN,
+    DEFAULT_IM_START_TOKEN,
+    DEFAULT_IMAGE_PATCH_TOKEN,
+    IGNORE_INDEX,
+    IMAGE_TOKEN_INDEX,
+)
+from cambrian.utils import IS_XLA_AVAILABLE
 from ezcolorlog import root_logger as logger
 
 from .multimodal_encoder.builder import build_vision_tower_aux_list
 from .multimodal_projector.builder import build_vision_projector
 from .vision_sampler import VisionTokenSampler
-
-from cambrian.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
-
-from cambrian.utils import IS_XLA_AVAILABLE
 
 
 class CambrianMetaModel:
@@ -80,7 +83,7 @@ class CambrianMetaModel:
 
             else:
                 self.vision_tower_aux_list = build_vision_tower_aux_list(config, delay_load=True)
-                config.mm_hidden_size = sum([vision_tower_aux.hidden_size for vision_tower_aux in self.vision_tower_aux_list]) 
+                config.mm_hidden_size = sum([vision_tower_aux.hidden_size for vision_tower_aux in self.vision_tower_aux_list])
                 self.mm_projector = build_vision_projector(config)
                 self.image_newline = nn.Parameter(
                         torch.empty(config.hidden_size, dtype=self.dtype)
@@ -162,14 +165,14 @@ class CambrianMetaModel:
                 self.vision_query = nn.Parameter(
                     torch.randn((num_query_group, vision_hidden_size), dtype=self.dtype) * vision_embed_std
                 )
-                
+
                 embed_std = 1 / torch.sqrt(torch.tensor(self.config.hidden_size, dtype=self.dtype))
                 self.image_newline = nn.Parameter(
                     torch.randn(self.config.hidden_size, dtype=self.dtype) * embed_std
                 )
 
             else:
-                self.config.mm_hidden_size = sum([vision_tower_aux.hidden_size for vision_tower_aux in vision_tower_aux_list]) 
+                self.config.mm_hidden_size = sum([vision_tower_aux.hidden_size for vision_tower_aux in vision_tower_aux_list])
                 self.mm_projector = build_vision_projector(self.config)
                 embed_std = 1 / torch.sqrt(torch.tensor(self.config.hidden_size, dtype=self.dtype))
                 self.image_newline = nn.Parameter(
@@ -394,9 +397,9 @@ class CambrianMetaForCausalLM(ABC):
                 # interpolate to the final target size
                 if query_side_len != final_height:
                     query_features_i = query_features_i.permute(0, 2, 1).contiguous().view(bs, -1, query_side_len, query_side_len)
-                    query_features_i = F.interpolate(query_features_i.float(), 
-                                                    size=(final_height, final_width), 
-                                                    mode='bilinear', 
+                    query_features_i = F.interpolate(query_features_i.float(),
+                                                    size=(final_height, final_width),
+                                                    mode='bilinear',
                                                     align_corners=False).to(dtype=query_features_i.dtype)
                     query_features_i = query_features_i.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
                 final_image_features_list.append(query_features_i)

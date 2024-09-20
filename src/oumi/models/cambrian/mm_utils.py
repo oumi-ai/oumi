@@ -1,13 +1,13 @@
-from PIL import Image
-from io import BytesIO
-import base64
-import torch
-import math
 import ast
+import base64
+import math
+from io import BytesIO
 
-from transformers import StoppingCriteria
+import torch
 from cambrian.constants import IMAGE_TOKEN_INDEX
 from cambrian.utils import IS_XLA_AVAILABLE
+from PIL import Image
+from transformers import StoppingCriteria
 
 
 def select_best_resolution(original_size, possible_resolutions):

@@ -86,7 +86,7 @@ class SAMVisionTower(BaseVisionTower):
         """
 
         # extract image resolution from model name
-        if not "sam" in self.vision_tower_name.lower():
+        if "sam" not in self.vision_tower_name.lower():
             raise ValueError(f"Unknown vision tower: {self.vision_tower_name}")
 
         base_model_name, res, interp = extract_res_interp(self.vision_tower_name)

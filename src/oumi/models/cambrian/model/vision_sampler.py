@@ -1,8 +1,9 @@
+import math
+
+import numpy as np
 import torch
 import torch.utils.checkpoint
 from torch import nn
-import math
-import numpy as np
 
 
 # https://github.com/facebookresearch/mae/blob/efb2a8062c206524e35e47d04501ed4f544c0ae8/util/pos_embed.py#L20
@@ -80,7 +81,7 @@ class CrossAttention(nn.Module):
         self,
         vision_latents, queries, attention_mask
     ):
-        
+
         bsz, q_len, _ = queries.size()
         bsz, v_len, _ = vision_latents.size()
 
@@ -119,7 +120,7 @@ class CrossAttention(nn.Module):
         attn_output = self.o_proj(attn_output)
 
         return attn_output
-    
+
 
 class AggregationBlock(nn.Module):
     def __init__(self, attention, q_dim, kv_dim, hidden_dim, num_heads, attention_bias=False):
@@ -138,7 +139,7 @@ class AggregationBlock(nn.Module):
         if attention:
             self.attention_layer = CrossAttention(q_dim, kv_dim, hidden_dim, num_heads, attention_bias)
         else:
-            self.attention_layer = MLP(kv_dim, q_dim, q_dim)        
+            self.attention_layer = MLP(kv_dim, q_dim, q_dim)
 
     def forward(
         self,
@@ -178,10 +179,10 @@ class MultiKVCrossAttention(nn.Module):
         self,
         queries, *vision_latents_attention_mask_list,
     ):
-        
+
         vision_latents_list = vision_latents_attention_mask_list[:self.num_of_kvs]
         attention_mask_list = vision_latents_attention_mask_list[self.num_of_kvs:]
-        
+
         bsz, q_len, _ = queries.size()
 
         query_states = self.q_proj(queries)
@@ -236,7 +237,7 @@ class MultiKVCrossAttention(nn.Module):
 
 class MLP(nn.Module):
     def __init__(self, d_in, d_hidden, d_out):
-        super().__init__() 
+        super().__init__()
         self.linear_1 = nn.Linear(d_in, d_hidden, bias=False)
         self.act = nn.GELU()
         self.linear_2 = nn.Linear(d_hidden, d_out, bias=False)

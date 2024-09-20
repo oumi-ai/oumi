@@ -1,8 +1,9 @@
-import dataclasses
-from enum import auto, Enum
-from typing import List, Tuple
 import base64
+import dataclasses
+from enum import Enum, auto
 from io import BytesIO
+from typing import List, Tuple
+
 from PIL import Image
 
 
@@ -45,7 +46,7 @@ class Conversation:
                 messages.insert(1, (self.roles[1], "Received."))
             else:
                 messages[0] = (init_role, "<image>\n" + init_msg)
-        
+
         #print("message is", messages)
 
         if self.sep_style == SeparatorStyle.SINGLE:
