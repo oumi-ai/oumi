@@ -111,10 +111,10 @@ oumi-train = "oumi.train:main"
 
 [tool.ruff]
 line-length = 88
-force-exclude = true
+# force-exclude = true
 extend-include = [
     "*.ipynb", # Include ipython notebooks
-    # "src/oumi/models/cambrian/**", # Exclude Cambrian codebase.
+    "src/oumi/models/cambrian/**", # Exclude Cambrian codebase.
 ]
 
 
