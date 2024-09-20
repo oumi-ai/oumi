@@ -95,10 +95,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _convert_api_output_to_conversation(
         self, response: Dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
-        """Converts an OpenAI response to a conversation.
+        """Converts an API response to a conversation.
 
         Args:
-            response: The OpenAI response to convert.
+            response: The API response to convert.
             original_conversation: The original conversation.
 
         Returns:
@@ -165,7 +165,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         assert remote_params.api_url
         async with semaphore:
-            openai_input = self._convert_conversation_to_api_input(
+            api_input = self._convert_conversation_to_api_input(
                 conversation, generation_config
             )
             headers = self._get_request_headers(generation_config.remote_params)
@@ -174,7 +174,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             for _ in range(remote_params.max_retries + 1):
                 async with session.post(
                     remote_params.api_url,
-                    json=openai_input,
+                    json=api_input,
                     headers=headers,
                     timeout=remote_params.connection_timeout,
                 ) as response:
