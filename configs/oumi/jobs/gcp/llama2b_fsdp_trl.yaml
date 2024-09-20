@@ -1,15 +1,13 @@
-name: llama2b-fsdp
-
-num_nodes: 1  # Set it to N for multi-node training.
+name: llama2b-fsdp-trl-trainer
 
 resources:
-  accelerators: {"A100": 4}
-  any_of:
-    - use_spot: true
-    - use_spot: false
+  cloud: gcp
+  accelerators: "A100:4"
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
+  use_spot: true
 
 # Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:

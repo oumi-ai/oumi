@@ -23,7 +23,7 @@ def parse_cli():
 
 
 def main():
-    """Main entry point for running inference using OUMI.
+    """Main entry point for running inference using Oumi.
 
     Training arguments are fetched from the following sources, ordered by
     decreasing priority:

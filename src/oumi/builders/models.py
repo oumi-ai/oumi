@@ -25,7 +25,7 @@ def build_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds and returns a model based on the provided OUMI configuration.
+    """Builds and returns a model based on the provided Oumi configuration.
 
     Args:
         model_params: The configuration object containing the model parameters.
@@ -95,7 +95,7 @@ def build_oumi_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds a custom model from our OUMI registry."""
+    """Builds a custom model from our Oumi registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
     model = model_class(**model_params.model_kwargs)
 
@@ -244,7 +244,7 @@ def _get_transformers_model_class(config):
 def build_tokenizer(
     model_params: ModelParams, **kwargs
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
-    """Builds and returns a tokenizer based on the provided OUMI configuration.
+    """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
         model_params (ModelParams): The configuration object containing
@@ -284,7 +284,7 @@ def build_tokenizer(
         logger.warning(
             "No chat template found for tokenizer. "
             "Please specify a chat template using the `chat_template` field. "
-            "This will be required in future versions of OUMI."
+            "This will be required in future versions of Oumi."
         )
 
     return tokenizer

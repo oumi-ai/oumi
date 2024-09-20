@@ -7,6 +7,7 @@ from pprint import pformat
 from typing import Dict, Optional, Union
 
 import transformers
+import wandb
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.configs import TrainingParams
@@ -201,6 +202,16 @@ class TelemetryCallback(BaseTrainerCallback):
                 self._output_dir
                 / f"telemetry_callback_metrics_rank{device_rank_info.rank:04}.json",
             )
+            if wandb.run:
+                save_json(
+                    {
+                        "id": wandb.run.id,
+                        "name": wandb.run.name,
+                        "url": wandb.run.get_url(),
+                    },
+                    self._output_dir
+                    / f"telemetry_callback_wandb_rank{device_rank_info.rank:04}.json",
+                )
 
         if self._world_process_zero_only:
             if is_world_process_zero():

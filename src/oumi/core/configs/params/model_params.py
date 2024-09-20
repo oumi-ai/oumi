@@ -15,7 +15,7 @@ class ModelParams(BaseParams):
     model_name: str = MISSING
     """The name or path of the model to use.
 
-    This can be a model identifier from the OUMI registry, Hugging Face model hub,
+    This can be a model identifier from the Oumi registry, Hugging Face model hub,
     or a path to a local directory containing model files.
     """
 
@@ -164,7 +164,7 @@ class ModelParams(BaseParams):
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
     def to_lm_harness(self) -> Dict[str, Any]:
-        """Converts OUMI's ModelParams to LM Harness model arguments."""
+        """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,

@@ -77,7 +77,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
     @abstractmethod
     def transform_conversation(self, example: dict) -> Conversation:
-        """Transforms a raw example into an OUMI Conversation object.
+        """Transforms a raw example into an Oumi Conversation object.
 
         Args:
             example (dict): A dictionary representing a single conversation example.
@@ -107,7 +107,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         return features
 
     def transform(self, sample: dict) -> dict:
-        """Transforms an OUMI conversation into a dictionary of inputs for a model.
+        """Transforms an Oumi conversation into a dictionary of inputs for a model.
 
         Args:
             sample (dict): A dictionary representing a single conversation example.

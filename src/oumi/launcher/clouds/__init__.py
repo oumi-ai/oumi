@@ -1,7 +1,7 @@
-"""Clouds module for the OUMI (Open Unified Machine Intelligence) library.
+"""Clouds module for the Oumi (Open Unified Machine Intelligence) library.
 
 This module provides implementations for various cloud platforms that can be used
-with the OUMI launcher for running and managing jobs.
+with the Oumi launcher for running and managing jobs.
 
 Example:
     >>> from oumi.launcher.clouds import LocalCloud
