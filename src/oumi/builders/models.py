@@ -10,6 +10,12 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.models.cambrian.mm_utils import (
+    get_model_name_from_path as get_cambrian_model_name_from_path,
+)
+from oumi.models.cambrian.model.builder import (
+    load_pretrained_model as load_cambrian_pretrained_model,
+)
 from oumi.utils.io_utils import load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout
@@ -41,6 +47,14 @@ def build_model(
             peft_params=peft_params,
             *kwargs,
         )
+    elif model_params.model_name in (
+        "nyu-visionx/cambrian-34b",
+        "nyu-visionx/cambrian-phi3-3b",
+        "nyu-visionx/cambrian-8b",
+        "nyu-visionx/cambrian-13b",
+    ):
+        # model_
+        pass
     else:
         model = build_huggingface_model(
             model_params=model_params,
@@ -239,6 +253,56 @@ def _get_transformers_model_class(config):
         auto_model_class = transformers.AutoModelForCausalLM
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
     return auto_model_class
+
+
+def build_cambrian_model(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+) -> nn.Module:
+    """Downloads and builds the model from the HuggingFace Hub."""
+    device_map = model_params.device_map
+    device_rank_info = get_device_rank_info()
+
+    # If we're using FSDP via HF Accelerate, we should not specify the device map
+    # so that HF properly initializes the model for FSDP.
+    # If we set device_map to "auto", it seems HF will try to shard the model when
+    # loading it, which conflicts with FSDP's sharding.
+    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
+    # load the model only on rank 0, which will OOM for large models.
+    # See https://github.com/huggingface/transformers/pull/25107.
+    if is_using_accelerate_fsdp():
+        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
+        device_map = None
+    elif device_map == "auto" and device_rank_info.world_size > 1:
+        # "auto" is not compatible with DDP.
+        logger.info(
+            f"Building model for distributed training "
+            f"(world_size: {device_rank_info.world_size})..."
+        )
+        device_map = f"cuda:{device_rank_info.local_rank}"
+    logger.info(
+        f"Building model using device_map: {device_map} ({device_rank_info})..."
+    )
+
+    model_path = str(Path(model_params.model_name).expanduser())
+    model_name = get_cambrian_model_name_from_path(model_path)
+    tokenizer, model, processor, _ = load_cambrian_pretrained_model(
+        model_path, None, model_name, device_map=(device_map or "auto")
+    )
+
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+
+    # TODO Find a better way to handle it
+
+    # Load pretrained PEFT adapters
+    if model_params.adapter_model:
+        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+
+    return model
 
 
 def build_tokenizer(
