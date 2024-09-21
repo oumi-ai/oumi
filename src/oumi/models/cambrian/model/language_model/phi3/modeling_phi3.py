@@ -23,7 +23,6 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
-from cambrian.utils import IS_XLA_AVAILABLE
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers.activations import ACT2FN
@@ -45,6 +44,8 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
+
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
 
 from .configuration_phi3 import Phi3Config
 

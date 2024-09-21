@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from cambrian.model.multimodal_encoder.base_encoder import (
+from open_clip import create_model_from_pretrained
+from timm.models.convnext import ConvNeXt
+
+from oumi.models.cambrian.model.multimodal_encoder.base_encoder import (
     BaseVisionTower,
     ProcessorWrapper,
 )
-from open_clip import create_model_from_pretrained
-from timm.models.convnext import ConvNeXt
 
 
 def extract_res_interp(model_name):

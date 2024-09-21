@@ -18,16 +18,17 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from cambrian.constants import (
+
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.utils.logging import logger
+
+from ..constants import (
     DEFAULT_IM_END_TOKEN,
     DEFAULT_IM_START_TOKEN,
     DEFAULT_IMAGE_PATCH_TOKEN,
     IGNORE_INDEX,
     IMAGE_TOKEN_INDEX,
 )
-from cambrian.utils import IS_XLA_AVAILABLE
-from ezcolorlog import root_logger as logger
-
 from .multimodal_encoder.builder import build_vision_tower_aux_list
 from .multimodal_projector.builder import build_vision_projector
 from .vision_sampler import VisionTokenSampler

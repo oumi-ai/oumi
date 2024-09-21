@@ -1,8 +1,10 @@
 import os
 
 import torch
-from ezcolorlog import root_logger as logger
 from torchvision import transforms
+
+# from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower, ProcessorWrapper
 from .moco.vision_transformer import vit_base

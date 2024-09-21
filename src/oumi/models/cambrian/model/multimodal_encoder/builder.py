@@ -1,7 +1,7 @@
 import copy
 import os
 
-from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 from .clip_convnext_encoder import CLIPConvNextTower
 from .clip_encoder import ClipVisionTower

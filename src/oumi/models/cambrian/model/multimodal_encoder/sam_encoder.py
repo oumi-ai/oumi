@@ -3,12 +3,14 @@ import re
 import numpy as np
 import torch
 import torch.nn.functional as F
-from ezcolorlog import root_logger as logger
 from huggingface_hub import hf_hub_download
 from torch import nn
 from torchvision.transforms.functional import resize, to_pil_image  # type: ignore
 from transformers import SamModel, SamProcessor, SamVisionConfig
 from transformers.models.sam.modeling_sam import SamVisionEncoder
+
+# from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower
 from .sam.encoder import SAM_MODEL_CONFIG, create_sam_vit

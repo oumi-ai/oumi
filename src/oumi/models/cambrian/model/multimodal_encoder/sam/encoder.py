@@ -9,7 +9,9 @@ from typing import List, Optional, Tuple, Type, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ezcolorlog import root_logger as logger
+
+# from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 
 class MLPBlock(nn.Module):

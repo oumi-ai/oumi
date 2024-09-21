@@ -1,8 +1,10 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from ezcolorlog import root_logger as logger
 from torchvision.transforms.functional import to_pil_image
+
+# from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower
 from .load import load_vision_model

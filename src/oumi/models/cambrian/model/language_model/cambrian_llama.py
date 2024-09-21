@@ -18,7 +18,6 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from cambrian.utils import IS_XLA_AVAILABLE
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers import (
     AutoConfig,
@@ -40,6 +39,8 @@ from transformers.modeling_outputs import (
     CausalLMOutputWithPast,
 )
 from transformers.utils import logging
+
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
 
 from ..cambrian_arch import CambrianMetaForCausalLM, CambrianMetaModel
 

@@ -4,10 +4,11 @@ import math
 from io import BytesIO
 
 import torch
-from cambrian.constants import IMAGE_TOKEN_INDEX
-from cambrian.utils import IS_XLA_AVAILABLE
 from PIL import Image
 from transformers import StoppingCriteria
+
+from oumi.models.cambrian.constants import IMAGE_TOKEN_INDEX
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
 
 
 def select_best_resolution(original_size, possible_resolutions):

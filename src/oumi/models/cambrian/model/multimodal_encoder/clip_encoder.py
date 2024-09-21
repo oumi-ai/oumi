@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from cambrian.utils import IS_XLA_AVAILABLE
-from ezcolorlog import root_logger as logger
 from open_clip import create_model_from_pretrained, get_tokenizer
 from transformers import CLIPImageProcessor, CLIPVisionConfig, CLIPVisionModel
+
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+
+# from ezcolorlog import root_logger as logger
+from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower
 

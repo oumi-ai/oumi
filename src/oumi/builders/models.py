@@ -53,8 +53,11 @@ def build_model(
         "nyu-visionx/cambrian-8b",
         "nyu-visionx/cambrian-13b",
     ):
-        # model_
-        pass
+        model = build_cambrian_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            *kwargs,
+        )
     else:
         model = build_huggingface_model(
             model_params=model_params,

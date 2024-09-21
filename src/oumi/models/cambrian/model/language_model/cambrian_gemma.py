@@ -17,7 +17,6 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from cambrian.utils import IS_XLA_AVAILABLE
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -27,6 +26,8 @@ from transformers import (
 )
 from transformers.generation.utils import GenerateOutput
 from transformers.modeling_outputs import CausalLMOutputWithPast
+
+from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
 
 from ..cambrian_arch import CambrianMetaForCausalLM, CambrianMetaModel
 
