@@ -32,7 +32,15 @@
             "justMyCode": true
         },
         {
-            "name": "Oumi - Pretrain From Config Example",
+            "name": "Oumi - Judge",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi.judge",
+            "args": [],
+            "justMyCode": true
+        },
+        {
+            "name": "OUMI - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.train",

@@ -1,4 +1,7 @@
-from typing import Dict, List, Optional, Union
+import re
+from typing import Any, Dict, List, Optional, Union
+
+from typing_extensions import Self
 
 from oumi.core.configs import JudgeConfig
 from oumi.core.inference import BaseInferenceEngine
@@ -8,28 +11,58 @@ from oumi.inference import (
     LlamaCppInferenceEngine,
     RemoteInferenceEngine,
 )
-from oumi.judges.judge_zoo import _get_default_judge_config
-from oumi.utils.logging import logger
+from oumi.judges.judge_zoo import _get_default_local_judge_config
+from oumi.utils.str_utils import str_to_bool
 
 
 class JudgeInput(TemplatedMessage):
     role: Role = Role.USER
-    request: str
-    response: Optional[str] = None
-    context: Optional[str] = None
     template: str = """<request>{{ request }}</request>
 {% if context %}<context>{{ context }}</context>{% endif %}
 {% if response %}<response>{{ response }}</response>{% endif %}
 """
 
+    request: str
+    response: Optional[str] = None
+    context: Optional[str] = None
+
 
 class JudgeOutput(TemplatedMessage):
     role: Role = Role.ASSISTANT
-    judgement: str
-    explanation: Optional[str] = None
     template: str = (
         "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>"
     )
+
+    judgement: Optional[str]
+    explanation: Optional[str] = None
+
+    @classmethod
+    def from_model_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:
+        """Parses the judgement."""
+        if not raw_judgement:
+            return None
+
+        explanation_match = re.search(
+            r"<explanation>(.*?)</explanation>", raw_judgement, re.DOTALL
+        )
+        judgment_match = re.search(
+            r"<judgement>(.*?)</judgement>", raw_judgement, re.DOTALL
+        )
+
+        explanation = explanation_match.group(1).strip() if explanation_match else None
+        judgment = judgment_match.group(1).strip() if judgment_match else None
+
+        return cls(explanation=explanation, judgement=judgment)
+
+    @property
+    def label(self):
+        """Convert the judgement to a boolean label.
+
+        Returns:
+            bool or None: The boolean interpretation of the judgement if present,
+                otherwise None.
+        """
+        return str_to_bool(self.judgement) if self.judgement else None
 
 
 class Judge:
@@ -47,31 +80,45 @@ class Judge:
             self.inference_engine = inference_engine
 
     def judge(
-        self, conversations: Union[List[Conversation], Dict[str, List[Conversation]]]
-    ) -> Union[List[Conversation], Dict[str, List[Conversation]]]:
-        """Judge a prompt."""
-        if isinstance(conversations, list):
-            return self.judge_attribute(conversations)
-        else:
-            return {
-                attribute_name: self.judge_attribute(attribute_conversations)
-                for attribute_name, attribute_conversations in conversations.items()
-            }
+        self,
+        conversations: Union[
+            List[Conversation], List[Dict[str, Any]], List[TemplatedMessage]
+        ],
+    ) -> List[Conversation]:
+        """Judge the given conversations."""
+        judge_inputs = []
+        for conversation in conversations:
+            if isinstance(conversation, dict):
+                judge_inputs.append(JudgeInput(**conversation))
+            elif isinstance(conversation, TemplatedMessage):
+                judge_inputs.append(conversation)
+            elif isinstance(conversation, Conversation):
+                judge_inputs.append(self._verify_conversation(conversation))
+            else:
+                raise ValueError(f"Unsupported conversation type: {type(conversation)}")
 
-    def judge_attribute(self, conversations: List[Conversation]) -> List[Conversation]:
-        """Judge a single attribute."""
-        metadatas = [convo.metadata for convo in conversations]
+        all_prompts = {}
+        for attribute_name in self.config.attributes:
+            all_prompts[attribute_name] = []
 
-        responses = self.inference_engine.infer(
-            input=conversations, generation_config=self.config.generation
-        )
+        for judge_input in judge_inputs:
+            prompts = self.generate_prompts(judge_input)
+            for attribute_name, prompt in prompts.items():
+                all_prompts[attribute_name].append(prompt)
 
-        assert len(responses) == len(metadatas)
+        judged_conversations = self._infer_attributes(all_prompts)
 
-        for response, metadata in zip(responses, metadatas):
-            response.metadata.update(metadata)
+        results = []
+        for attribute_name, conversations in judged_conversations.items():
+            for conversation in conversations:
+                judgement = conversation.messages[-1].content
+                parsed_judgement = JudgeOutput.from_model_output(judgement)
+                conversation.metadata["parsed_judgement"] = (
+                    str(parsed_judgement.label) if parsed_judgement else None
+                )
+                results.append(conversation)
 
-        return responses
+        return results
 
     def generate_prompts(self, judge_input: JudgeInput) -> Dict[str, Conversation]:
         """Generate judge prompts for a dataset."""
@@ -95,7 +142,53 @@ class Judge:
         self, judgement: Optional[str], attribute_name: str
     ) -> Optional[bool]:
         """Parse the judgement."""
-        return self.config.attributes[attribute_name].parse_label(judgement)
+        output = JudgeOutput.from_model_output(judgement)
+        return output.label if output else None
+
+    def _verify_conversation(self, conversation: Conversation) -> JudgeInput:
+        judgement_conversation = [
+            conversation.first_message(Role.SYSTEM),
+            conversation.last_message(Role.USER),
+            conversation.last_message(Role.ASSISTANT),
+        ]
+
+        request = (
+            judgement_conversation[1].content or "" if judgement_conversation[1] else ""
+        )
+
+        return JudgeInput(
+            request=request,
+            response=judgement_conversation[2].content
+            if judgement_conversation[2]
+            else "",
+            context=judgement_conversation[0].content
+            if judgement_conversation[0]
+            else "",
+        )
+
+    def _infer(self, conversations: List[Conversation]) -> List[Conversation]:
+        """Judge a single attribute."""
+        metadatas = [convo.metadata for convo in conversations]
+
+        responses = self.inference_engine.infer(
+            input=conversations, generation_config=self.config.generation
+        )
+
+        assert len(responses) == len(metadatas)
+
+        for response, metadata in zip(responses, metadatas):
+            response.metadata.update(metadata)
+
+        return responses
+
+    def _infer_attributes(
+        self, conversations: Dict[str, List[Conversation]]
+    ) -> Dict[str, List[Conversation]]:
+        """Judge a prompt."""
+        return {
+            attribute_name: self._infer(attribute_conversations)
+            for attribute_name, attribute_conversations in conversations.items()
+        }
 
     def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
         """Create the inference engine."""
@@ -113,39 +206,26 @@ class Judge:
 def test():
     """Tests the Judge class."""
     # Create a Judge instance
-    judge = Judge(_get_default_judge_config())
+    judge = Judge(_get_default_local_judge_config())
 
-    # Create a sample JudgeInput
-    sample_input = JudgeInput(
-        request="What is the capital of France?",
-        response="The capital of France is Paris.",
-        context="This is a geography question.",
+    # Create a sample conversation
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
+            Message(role=Role.USER, content="What is the capital of France?"),
+            Message(role=Role.ASSISTANT, content="The capital of France is Paris."),
+        ]
     )
 
-    # Test the to_message() method
-    formatted_message = sample_input.content
-    logger.info("Formatted message:")
-    print(formatted_message)
+    # Judge the conversation
+    judgements = judge.judge([conversation])
 
-    # Generate prompts
-    prompts = judge.generate_prompts(sample_input)
-    conversation = prompts["helpful"]
-
-    print("Generated Prompts:")
-    for message in conversation.messages:
-        print(f"{message.role}: {message.content}")
-
-    # Judge the prompts
-    judgements = judge.judge_attribute([conversation])
-
-    judgement = judgements[0].messages[-1].content
-    print("\nRaw Judgement:")
-    print(judgements[0])
-
-    # Parsed judgment
-    bool_result = judge.parse_judgement(judgement, "helpful")
-    print("\nExtracted Boolean Result:")
-    print(bool_result)
+    print("\nJudgements:")
+    for judgement in judgements:
+        print(f"Attribute: {judgement.metadata['judge_attribute_name']}")
+        print(f"Raw Judgement: {judgement.messages[-1].content}")
+        print(f"Parsed Judgement: {judgement.metadata['parsed_judgement']}")
+        print()
 
 
 if __name__ == "__main__":

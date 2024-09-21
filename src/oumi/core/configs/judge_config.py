@@ -8,6 +8,8 @@ import pydantic
 from oumi.core.configs import (
     BaseConfig,
     GenerationConfig,
+)
+from oumi.core.configs.params.model_params import (
     ModelParams,
 )
 from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
@@ -62,23 +64,6 @@ class JudgeAttribute(pydantic.BaseModel):
         if not path.exists():
             raise FileNotFoundError(path)
         return cls.model_validate_json(path.read_text())
-
-    # def parse_label(self, raw_judgement: Optional[str]) -> Optional[bool]:
-    #     """Parses the judgement."""
-    #     if not raw_judgement:
-    #         return None
-
-    #     explanation_match = re.search(
-    #         r"<explanation>(.*?)</explanation>", raw_judgement, re.DOTALL
-    #     )
-    #     judgment_match = re.search(
-    #         r"<judgement>(.*?)</judgement>", raw_judgement, re.DOTALL
-    #     )
-
-    #     _explanation = explanation_match.group(1).strip() if explanation_match else None
-    #     judgment = judgment_match.group(1).strip() if judgment_match else None
-
-    #     return str_to_bool(judgment) if judgment else None
 
 
 @dataclass
