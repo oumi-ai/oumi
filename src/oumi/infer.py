@@ -53,10 +53,9 @@ def infer_interactive(config: InferenceConfig) -> None:
             input_text,
         ],
     )
-    print(model_response[0][0])
+    print(model_response[0])
 
 
-# TODO: Support writing predictions to files.
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
     model_params: ModelParams,

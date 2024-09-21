@@ -1,4 +1,4 @@
-"""Clouds module for the Oumi (Open Unified Machine Intelligence) library.
+"""Clouds module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides implementations for various cloud platforms that can be used
 with the Oumi launcher for running and managing jobs.

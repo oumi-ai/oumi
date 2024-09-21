@@ -1,4 +1,4 @@
-"""Oumi (Open Unified Machine Intelligence) library.
+"""Oumi (Open Universal Machine Intelligence) library.
 
 This library provides tools and utilities for training, evaluating, and
 inferring with machine learning models, particularly focused on language tasks.

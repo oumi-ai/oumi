@@ -1,4 +1,4 @@
-"""Inference module for the Oumi (Open Unified Machine Intelligence) library.
+"""Inference module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides various implementations for running model inference.
 """

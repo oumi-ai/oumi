@@ -8,7 +8,7 @@ repos:
     rev: v4.6.0
     hooks:
       - id: check-added-large-files
-        args: ['--maxkb=500']
+        args: ["--maxkb=500"]
       - id: check-ast
       - id: check-case-conflict
       - id: check-docstring-first
@@ -39,18 +39,18 @@ repos:
         types_or: [python, pyi, jupyter]
   - repo: local
     hooks:
-    - id: pyright
-      name: pyright
-      entry: pyright
-      language: node
-      types: [python]
-      pass_filenames: false
-      args: [--warnings]
-      additional_dependencies: ["pyright@1.1.368"]
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        types: [python]
+        pass_filenames: false
+        args: [--warnings]
+        additional_dependencies: ["pyright@1.1.368"]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.16.0
     hooks:
-    -   id: pyupgrade
+      - id: pyupgrade
         args: [--py38-plus]
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.16.1

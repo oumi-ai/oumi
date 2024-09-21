@@ -10,6 +10,8 @@ import pytest
 from oumi.core.launcher import JobStatus
 from oumi.launcher.clients.polaris_client import PolarisClient
 
+_CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
+
 
 #
 # Fixtures
@@ -89,8 +91,8 @@ def test_polaris_client_init_with_auth(
         capture_output=True,
         timeout=10,
     )
-    mock_pexpect.spawn.called_once_with(
-        'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
+    mock_pexpect.spawn.assert_called_once_with(
+        f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
     )
     mock_spawn.expect.assert_has_calls(
         [call("Password:"), call([pexpect.EOF, pexpect.TIMEOUT], timeout=10)]
@@ -116,8 +118,8 @@ def test_polaris_client_init_with_auth_timeout(
         capture_output=True,
         timeout=10,
     )
-    mock_pexpect.spawn.called_once_with(
-        'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
+    mock_pexpect.spawn.assert_called_once_with(
+        f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
     )
     mock_spawn.expect.assert_has_calls(
         [call("Password:"), call([pexpect.EOF, pexpect.TIMEOUT], timeout=10)]
@@ -145,8 +147,8 @@ def test_polaris_client_init_with_auth_fails(
         capture_output=True,
         timeout=10,
     )
-    mock_pexpect.spawn.called_once_with(
-        'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
+    mock_pexpect.spawn.assert_called_once_with(
+        f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" user@polaris.alcf.anl.gov'
     )
     mock_spawn.expect.assert_has_calls(
         [call("Password:"), call([pexpect.EOF, pexpect.TIMEOUT], timeout=10)]
