@@ -53,6 +53,8 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 dev = [
     "black",
     "isort",
+    "ipywidgets",
+    "jupyterlab",
     "mypy",
     "pre-commit",
     "pyright",
