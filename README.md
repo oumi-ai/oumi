@@ -1,4 +1,4 @@
-# Open Unified Machine Intelligence (Oumi)
+# Open Universal Machine Intelligence (Oumi)
 
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)

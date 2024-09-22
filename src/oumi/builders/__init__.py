@@ -1,4 +1,4 @@
-"""Builders module for the Oumi (Open Unified Machine Intelligence) library.
+"""Builders module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides builder functions to construct and configure
 different components of the Oumi framework, including datasets, models,

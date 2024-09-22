@@ -53,6 +53,8 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 dev = [
     "black",
     "isort",
+    "ipywidgets",
+    "jupyterlab",
     "mypy",
     "pre-commit",
     "pyright",
@@ -110,7 +112,9 @@ oumi-launch = "oumi.launch:main"
 oumi-train = "oumi.train:main"
 
 [tool.ruff]
-extend-include = ["*.ipynb"] # Include ipython notebooks
+extend-include = [
+    "*.ipynb", # Include ipython notebooks
+]
 line-length = 88
 
 [tool.ruff.lint]

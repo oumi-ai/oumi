@@ -1,4 +1,4 @@
-"""Experimental package for the Oumi (Open Unified Machine Intelligence) library.
+"""Experimental package for the Oumi (Open Universal Machine Intelligence) library.
 
 This package contains experimental features and components that are still
 under development or testing. Contents here may change frequently and are
