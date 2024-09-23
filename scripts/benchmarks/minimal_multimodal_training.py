@@ -18,12 +18,16 @@ Working configs:
 
 from enum import Enum
 
-import numpy as np
 import torch
 import typer
-from transformers import AutoProcessor, DataCollatorWithPadding
+from transformers import AutoProcessor
 
-from oumi.builders import build_chat_template, build_dataset, build_model
+from oumi.builders import (
+    build_chat_template,
+    build_data_collator,
+    build_dataset,
+    build_model,
+)
 from oumi.core.configs import (
     FSDPParams,
     ModelParams,
@@ -45,66 +49,6 @@ class ModelName(str, Enum):
 class DatasetName(str, Enum):
     COCO = "coco_captions"
     FLICKR = "nlphuji/flickr30k"
-
-
-class MultiModalCollator:
-    def __init__(self, processor):
-        """Custom collator for multi-modal training."""
-        self.processor = processor
-        self.default_collator = DataCollatorWithPadding(
-            tokenizer=self.processor.tokenizer,
-            padding=True,
-            max_length=1024,
-        )
-
-    def __call__(self, batch):
-        """Custom collator for multi-modal training.
-
-        Args:
-            batch: List of batch items.
-
-        Returns:
-            Dict[str, torch.Tensor]: Processed batch.
-        """
-        images = [item["pixel_values"] for item in batch]
-        text_inputs = [item["input_ids"] for item in batch]
-
-        # collate batch images
-        pixel_values = self.collate_images(images)
-
-        # collate batch prompts
-        text_inputs = self.default_collator({"input_ids": text_inputs})  # type: ignore
-
-        # Combine all inputs
-        combined_batch = {
-            "pixel_values": pixel_values,
-            "input_ids": text_inputs["input_ids"],
-            "attention_mask": text_inputs.get("attention_mask"),
-        }
-
-        # Add labels if present
-        if "labels" in batch[0]:
-            combined_batch["labels"] = text_inputs["input_ids"]
-
-        return combined_batch
-
-    def collate_images(self, images) -> torch.Tensor:
-        """Collate images for multi-modal training.
-
-        Args:
-            images: List of images to collate.
-
-        Returns:
-            torch.Tensor: Batch of processed images.
-        """
-        if isinstance(images[0], torch.Tensor):
-            return torch.stack(images)
-        elif isinstance(images[0], np.ndarray):
-            return torch.stack([torch.from_numpy(img) for img in images])
-        elif isinstance(images[0], list):
-            return torch.tensor(images)
-        else:
-            raise ValueError(f"Unsupported image type: {type(images[0])}")
 
 
 def test_multimodal_trainer(
@@ -142,7 +86,7 @@ def test_multimodal_trainer(
     processor.chat_template = chat_template
     processor.tokenizer.chat_template = chat_template
 
-    collator = MultiModalCollator(processor)
+    collator = build_data_collator(processor)
 
     dataset = build_dataset(
         dataset_name=dataset_name,
@@ -176,7 +120,7 @@ def test_multimodal_trainer(
     )
 
     # Initialize trainer with custom collator
-    collator = MultiModalCollator(processor)
+    collator = build_data_collator(collator_name="vision_language", processor=processor)
     trainer = Trainer(
         model=model,
         tokenizer=processor.tokenizer,
