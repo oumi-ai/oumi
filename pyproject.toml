@@ -103,7 +103,6 @@ docs = [
     "sphinx_copybutton",
 ]
 all = ["oumi[dev,train,cloud,docs]"]
-train_gpu = ["oumi[train,gpu]"]
 
 [project.scripts]
 oumi-evaluate = "oumi.evaluate:main"

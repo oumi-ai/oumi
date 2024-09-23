@@ -22,7 +22,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train_gpu]'
+  pip install '.[train,gpu]'
   pip install deepspeed
 
 run: |

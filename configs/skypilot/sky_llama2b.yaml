@@ -1,7 +1,7 @@
 name: llama2b-pt
 
 resources:
-  accelerators: {"A100"}
+  accelerators: {"A100":4}
   any_of:
     - use_spot: true
     - use_spot: false
@@ -19,7 +19,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train_gpu]'
+  pip install '.[train,gpu]'
 
 run: |
   set -e  # Exit if any command failed.
