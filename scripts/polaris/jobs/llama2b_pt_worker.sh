@@ -29,12 +29,11 @@ mkdir -p "$TMPDIR"
 
 ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp", "deepspeed")
 
-helpFunction()
-{
-   echo ""
-   echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
-   echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
-   exit 1 # Exit script after printing help
+helpFunction() {
+    echo ""
+    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
+    echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
+    exit 1 # Exit script after printing help
 }
 
 # Default values.
@@ -42,18 +41,17 @@ TRAINING_MODE="fsdp"
 
 ENABLE_PYTORCH_PROFILER="false"
 
-while getopts "m:p" opt
-do
-   case "$opt" in
-      m ) TRAINING_MODE="$OPTARG" ;;
-      p ) ENABLE_PYTORCH_PROFILER="true" ;;
-      ? ) helpFunction ;; # Print a help message for an unknown parameter.
-   esac
+while getopts "m:p" opt; do
+    case "$opt" in
+    m) TRAINING_MODE="$OPTARG" ;;
+    p) ENABLE_PYTORCH_PROFILER="true" ;;
+    ?) helpFunction ;; # Print a help message for an unknown parameter.
+    esac
 done
 
 if [ -z "$TRAINING_MODE" ]; then
-   echo "Training mode can't be empty.";
-   helpFunction
+    echo "Training mode can't be empty."
+    helpFunction
 fi
 
 if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
@@ -63,16 +61,16 @@ fi
 
 MAX_STEPS=20
 if "${ENABLE_PYTORCH_PROFILER}"; then
-   # Use a smaller number of steps with Profiler to keep traces usable.
-   MAX_STEPS=6
-   PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
-   training.profiler.schedule.enable_schedule=true
-   training.profiler.schedule.skip_first=1
-   training.profiler.schedule.warmup=1
-   training.profiler.schedule.active=4
-   training.profiler.enable_cpu_profiling=true
-   training.profiler.enable_cuda_profiling=true"
-   echo "PyTorch profiler enabled!"
+    # Use a smaller number of steps with Profiler to keep traces usable.
+    MAX_STEPS=6
+    PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
+    training.profiler.schedule.enable_schedule=true
+    training.profiler.schedule.skip_first=1
+    training.profiler.schedule.warmup=1
+    training.profiler.schedule.active=4
+    training.profiler.enable_cpu_profiling=true
+    training.profiler.enable_cuda_profiling=true"
+    echo "PyTorch profiler enabled!"
 fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
@@ -96,7 +94,7 @@ ${PROFILER_TRAINING_PARAMS}"
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 if [ "$TRAINING_MODE" == "ddp" ]; then
-    set -x  # Print "torchrun" command with expanded variables
+    set -x # Print "torchrun" command with expanded variables
     torchrun \
         --nnodes=${OUMI_NUM_NODES} \
         --node-rank=${POLARIS_NODE_RANK} \
@@ -112,7 +110,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
     export CUDA_VISIBLE_DEVICES=$((${POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_NUM_GPUS_PER_NODE}))
-    set -x  # Print "torchrun" command with expanded variables
+    set -x # Print "torchrun" command with expanded variables
     echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
     torchrun \
         --nnodes=${TOTAL_NUM_GPUS} \
@@ -128,40 +126,40 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
-    set -x  # Print "accelerate" command with expanded variables
-    pip install deepspeed  # Deepspeed is not installed by default
+    set -x                # Print "accelerate" command with expanded variables
+    pip install deepspeed # Deepspeed is not installed by default
     accelerate launch \
-      --num_machines ${OUMI_NUM_NODES} \
-      --machine_rank ${POLARIS_NODE_RANK} \
-      --num_processes ${TOTAL_NUM_GPUS} \
-      --main_process_ip ${OUMI_MASTER_ADDR} \
-      --main_process_port 8007 \
-      --use_deepspeed \
-      --config_file configs/accelerate/llama.deepspeed.yaml \
-      -m oumi.train \
-      -c configs/oumi/llama2b.pt.yaml \
-      "$TRAIN_DATASETS" \
-      $SHARED_TRAINING_PARAMS \
-      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-      "training.per_device_train_batch_size=4" \
-      "training.gradient_accumulation_steps=64" \
-      "model.torch_dtype_str=float32" \
-      "training.mixed_precision_dtype=BF16"
-else  # FSDP
-    set -x  # Print "accelerate" command with expanded variables
+        --num_machines ${OUMI_NUM_NODES} \
+        --machine_rank ${POLARIS_NODE_RANK} \
+        --num_processes ${TOTAL_NUM_GPUS} \
+        --main_process_ip ${OUMI_MASTER_ADDR} \
+        --main_process_port 8007 \
+        --use_deepspeed \
+        --config_file configs/accelerate/llama.deepspeed.yaml \
+        -m oumi.train \
+        -c configs/oumi/llama2b.pt.yaml \
+        "$TRAIN_DATASETS" \
+        $SHARED_TRAINING_PARAMS \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.per_device_train_batch_size=4" \
+        "training.gradient_accumulation_steps=64" \
+        "model.torch_dtype_str=float32" \
+        "training.mixed_precision_dtype=BF16"
+else       # FSDP
+    set -x # Print "accelerate" command with expanded variables
     accelerate launch \
-      --num_machines ${OUMI_NUM_NODES} \
-      --machine_rank ${POLARIS_NODE_RANK} \
-      --num_processes ${TOTAL_NUM_GPUS} \
-      --main_process_ip ${OUMI_MASTER_ADDR} \
-      --main_process_port 8007 \
-      --use_fsdp \
-      --config_file configs/accelerate/llama.fsdp.yaml \
-      -m oumi.train \
-      -c configs/oumi/llama2b.pt.fsdp.trl.yaml \
-      "$TRAIN_DATASETS" \
-      $SHARED_TRAINING_PARAMS \
-      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'"
+        --num_machines ${OUMI_NUM_NODES} \
+        --machine_rank ${POLARIS_NODE_RANK} \
+        --num_processes ${TOTAL_NUM_GPUS} \
+        --main_process_ip ${OUMI_MASTER_ADDR} \
+        --main_process_port 8007 \
+        --use_fsdp \
+        --config_file configs/accelerate/llama.fsdp.yaml \
+        -m oumi.train \
+        -c configs/oumi/llama2b.pt.fsdp.trl.yaml \
+        "$TRAIN_DATASETS" \
+        $SHARED_TRAINING_PARAMS \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'"
 fi
 
 echo "${LOG_PREFIX} All done!"
