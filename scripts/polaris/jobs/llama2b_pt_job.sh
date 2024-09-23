@@ -14,7 +14,7 @@ set -e
 # Various setup for running on Polaris.
 source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
-TRAINING_MODE="fsdp"  # NOTE: Modify this value to configure training mode.
+TRAINING_MODE="ddp1gpu"  # NOTE: Modify this value to configure training mode.
 
 echo "Starting ${TRAINING_MODE} training with ${OUMI_NUM_NODES} node(s)..."
 
