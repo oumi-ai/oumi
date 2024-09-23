@@ -7,6 +7,7 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
+from oumi import OUMI_ROOT_DIRECTORY
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from oumi.core.registry import REGISTRY, RegistryType
@@ -338,7 +339,7 @@ def build_chat_template(template_name: str) -> str:
     Returns:
         str: a jinja-based chat-template.
     """
-    oumi_top_dir = Path(__file__).parent.parent.resolve()
+    oumi_top_dir = Path(OUMI_ROOT_DIRECTORY)
     chat_template_directory = oumi_top_dir / "datasets" / "chat_templates"
 
     template_file = f"{template_name.lower()}.jinja"
