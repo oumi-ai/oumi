@@ -40,7 +40,7 @@
             "justMyCode": true
         },
         {
-            "name": "OUMI - Pretrain From Config Example",
+            "name": "Oumi - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.train",
