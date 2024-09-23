@@ -84,19 +84,9 @@ if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
     TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
 fi
 
-if test -d ./my_local_dataset/; then
-    echo "Local dataset directory already exists!"
-else
-    cp -R "/eagle/community_ai/datasets/fineweb-edu/sample-10BT" "./my_local_dataset/"
-fi
-ls -l ./my_local_dataset/
-
-# dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
-# dataset_name: \"./my_local_dataset\"
-
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 TRAIN_DATASETS="data.train.datasets=
-- dataset_name: \"./my_local_dataset\"
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
   subset: \"default\"
   split: \"train\"
 "

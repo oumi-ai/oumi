@@ -15,8 +15,5 @@
     "[markdown]": {
         "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
     },
-    "notebook.formatOnSave.enabled": true,
-    "[shellscript]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format"
-    }
+    "notebook.formatOnSave.enabled": true
 }
