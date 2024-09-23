@@ -29,8 +29,7 @@ mkdir -p "$TMPDIR"
 
 ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp", "deepspeed")
 
-helpFunction()
-{
+helpFunction() {
    echo ""
    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
    echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
@@ -43,24 +42,23 @@ TRAINING_MODE="fsdp"
 ENABLE_PYTORCH_PROFILER="false"
 ENABLE_OUMI_TELEMETRY="false"
 
-while getopts "m:pt" opt
-do
+while getopts "m:pt" opt; do
    case "$opt" in
-      m ) TRAINING_MODE="$OPTARG" ;;
-      p ) ENABLE_PYTORCH_PROFILER="true" ;;
-      t ) ENABLE_OUMI_TELEMETRY="true" ;;
-      ? ) helpFunction ;; # Print a help message for an unknown parameter.
+   m) TRAINING_MODE="$OPTARG" ;;
+   p) ENABLE_PYTORCH_PROFILER="true" ;;
+   t) ENABLE_OUMI_TELEMETRY="true" ;;
+   ?) helpFunction ;; # Print a help message for an unknown parameter.
    esac
 done
 
 if [ -z "$TRAINING_MODE" ]; then
-   echo "Training mode can't be empty.";
+   echo "Training mode can't be empty."
    helpFunction
 fi
 
 if ! (echo "${ALLOWED_TRAINING_MODES[@]}" | grep -q -w "${TRAINING_MODE}"); then
-    echo "Unknown training mode: ${TRAINING_MODE}. Valid values: ${ALLOWED_TRAINING_MODES[@]}"
-    helpFunction
+   echo "Unknown training mode: ${TRAINING_MODE}. Valid values: ${ALLOWED_TRAINING_MODES[@]}"
+   helpFunction
 fi
 
 MAX_STEPS=20
@@ -72,7 +70,7 @@ if "${ENABLE_PYTORCH_PROFILER}"; then
    training.profiler.schedule.warmup=1
    training.profiler.schedule.active=4
    training.profiler.enable_cpu_profiling=true
-   training.profiler.enable_cuda_profiling=true
+   training.profiler.enable_cuda_profiling=true"
    echo "PyTorch profiler enabled!"
 fi
 
@@ -86,8 +84,7 @@ if "${ENABLE_PYTORCH_PROFILER}" || "${OUMI_TELEMETRY}"; then
    TRAINING_OUTPUT_DIR_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
 fi
 
-
-if test -d ./my_local_dataset/ ; then
+if test -d ./my_local_dataset/; then
    echo "Local dataset directory already exists!"
 else
    cp -R "/eagle/community_ai/datasets/fineweb-edu/sample-10BT" "./my_local_dataset/"
@@ -120,41 +117,41 @@ ${OUMI_TELEMETRY_PARAMS}
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 if [ "$TRAINING_MODE" == "ddp" ]; then
-    set -x  # Print "torchrun" command with expanded variables
-    torchrun \
-        --nnodes=${OUMI_NUM_NODES} \
-        --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
-        --master-addr=${OUMI_MASTER_ADDR} \
-        --master-port=8007 \
-        -m oumi.train \
-        -c configs/oumi/llama2b.pt.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.per_device_train_batch_size=4" \
-        "training.gradient_accumulation_steps=64"
+   set -x # Print "torchrun" command with expanded variables
+   torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${POLARIS_NODE_RANK} \
+      --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
+      -m oumi.train \
+      -c configs/oumi/llama2b.pt.yaml \
+      "$TRAIN_DATASETS" \
+      $SHARED_TRAINING_PARAMS \
+      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+      "training.per_device_train_batch_size=4" \
+      "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
-    export CUDA_VISIBLE_DEVICES=$((${POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_NUM_GPUS_PER_NODE}))
-    set -x  # Print "torchrun" command with expanded variables
-    echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
-    torchrun \
-        --nnodes=${TOTAL_NUM_GPUS} \
-        --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=1 \
-        --master-addr=${OUMI_MASTER_ADDR} \
-        --master-port=8007 \
-        -m oumi.train \
-        -c configs/oumi/llama2b.pt.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
-        "training.per_device_train_batch_size=4" \
-        "training.gradient_accumulation_steps=64"
+   export CUDA_VISIBLE_DEVICES=$((${POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_NUM_GPUS_PER_NODE}))
+   set -x # Print "torchrun" command with expanded variables
+   echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
+   torchrun \
+      --nnodes=${TOTAL_NUM_GPUS} \
+      --node-rank=${POLARIS_NODE_RANK} \
+      --nproc-per-node=1 \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
+      -m oumi.train \
+      -c configs/oumi/llama2b.pt.yaml \
+      "$TRAIN_DATASETS" \
+      $SHARED_TRAINING_PARAMS \
+      "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+      "training.per_device_train_batch_size=4" \
+      "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
-    set -x  # Print "accelerate" command with expanded variables
-    pip install deepspeed  # Deepspeed is not installed by default
-    accelerate launch \
+   set -x                # Print "accelerate" command with expanded variables
+   pip install deepspeed # Deepspeed is not installed by default
+   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${POLARIS_NODE_RANK} \
       --num_processes ${TOTAL_NUM_GPUS} \
@@ -171,9 +168,9 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
       "training.gradient_accumulation_steps=64" \
       "model.torch_dtype_str=float32" \
       "training.mixed_precision_dtype=BF16"
-else  # FSDP
-    set -x  # Print "accelerate" command with expanded variables
-    accelerate launch \
+else      # FSDP
+   set -x # Print "accelerate" command with expanded variables
+   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${POLARIS_NODE_RANK} \
       --num_processes ${TOTAL_NUM_GPUS} \
