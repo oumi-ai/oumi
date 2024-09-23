@@ -22,7 +22,7 @@ from oumi.core.tokenizers import BaseTokenizer
 
 def build_dataset_mixture(
     config: TrainingConfig,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
 ) -> IterDataPipe:

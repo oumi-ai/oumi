@@ -25,7 +25,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: BaseTokenizer,
+        tokenizer: Optional[BaseTokenizer],
         dataset: datasets.Dataset,
         dataset_text_field: Optional[str] = None,
         formatting_func: Optional[Callable] = None,
@@ -77,7 +77,10 @@ class PretrainingAsyncTextDataset(IterableDataset):
         """
         self.tokenizer = tokenizer
 
-        if tokenizer.eos_token_id is None:
+        if not pretokenized and tokenizer is None:
+            raise ValueError("Tokenizer is required when dataset is not pretokenized.")
+
+        if tokenizer is None or tokenizer.eos_token_id is None:
             logger.warning(
                 "The passed tokenizer does not have an EOS token. We will use the"
                 " passed eos_token_id instead which corresponds"
@@ -86,7 +89,9 @@ class PretrainingAsyncTextDataset(IterableDataset):
             )
 
         self.concat_token_id = (
-            tokenizer.eos_token_id if tokenizer.eos_token_id else eos_token_id
+            tokenizer.eos_token_id
+            if tokenizer is not None and tokenizer.eos_token_id
+            else eos_token_id
         )
         self.dataset = dataset
         self.seq_length = seq_length
@@ -153,12 +158,15 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
             if not self.pretokenized:
                 formatted_input = self.formatting_func(next_sample)
-                tokenized_input = self.tokenizer(
-                    [formatted_input],
-                    add_special_tokens=self.add_special_tokens,
-                    truncation=False,
-                )
-                tokenized_input = tokenized_input["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
+                if self.tokenizer is not None:
+                    tokenized = self.tokenizer(
+                        [formatted_input],
+                        add_special_tokens=self.add_special_tokens,
+                        truncation=False,
+                    )
+                else:
+                    raise ValueError("Tokenizer is not initialized")
+                tokenized_input = tokenized["input_ids"][0]  # type: ignore - Returns Sequence[EncodingFast]
             else:
                 if "input_ids" not in next_sample:
                     raise ValueError(

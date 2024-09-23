@@ -75,7 +75,7 @@ def build_prompt_generation_fn(
 
 def build_dataset_mixture(
     config: TrainingConfig,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
@@ -159,7 +159,7 @@ def build_dataset_mixture(
 
 def build_dataset_from_params(
     dataset_params: DatasetParams,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
@@ -193,7 +193,7 @@ def build_dataset_from_params(
 
 def build_dataset(
     dataset_name: str,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
@@ -300,7 +300,7 @@ def _sample_dataset(
 def _preprocess_dataset(
     dataset: DatasetType,
     dataset_params: DatasetParams,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
     if (
@@ -312,6 +312,12 @@ def _preprocess_dataset(
     ):
         # Custom datasets handle pre-processing internally.
         return dataset
+
+    if tokenizer is None:
+        raise ValueError(
+            "Tokenizer is required for preprocessing but was not provided."
+        )
+
     preprocessing_fn = build_prompt_generation_fn(
         dataset_params.preprocessing_function_name, tokenizer
     )
