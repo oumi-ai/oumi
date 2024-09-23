@@ -90,7 +90,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
         self.concat_token_id = (
             tokenizer.eos_token_id
-            if tokenizer and tokenizer.eos_token_id
+            if tokenizer is not None and tokenizer.eos_token_id
             else eos_token_id
         )
         self.dataset = dataset
