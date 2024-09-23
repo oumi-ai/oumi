@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from oumi import OUMI_ROOT_DIRECTORY
 from oumi.core.configs import (
     GenerationConfig,
     JudgeConfig,
@@ -10,8 +11,7 @@ from oumi.core.configs.judge_config import JudgeAttribute
 
 
 def _get_default_judge_config() -> JudgeConfig:
-    oumi_top_dir = Path(__file__).parent.parent.resolve()
-    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
+    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
     attributes = {
@@ -37,8 +37,7 @@ def _get_default_judge_config() -> JudgeConfig:
 
 
 def _get_ollama_judge_config() -> JudgeConfig:
-    oumi_top_dir = Path(__file__).parent.parent.resolve()
-    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
+    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
     attributes = {
@@ -63,8 +62,7 @@ def _get_ollama_judge_config() -> JudgeConfig:
 
 
 def _get_default_local_judge_config() -> JudgeConfig:
-    oumi_top_dir = Path(__file__).parent.parent.resolve()
-    judges_directory = oumi_top_dir / "judges" / "oumi_v1"
+    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe", "valid"]
     attributes = {
