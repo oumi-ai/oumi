@@ -23,11 +23,14 @@ import torch
 import typer
 from transformers import AutoProcessor, DataCollatorWithPadding
 
-from oumi.builders.models import build_chat_template, build_model
-from oumi.core.configs import FSDPParams, ModelParams, TrainingParams
+from oumi.builders import build_chat_template, build_dataset, build_model
+from oumi.core.configs import (
+    FSDPParams,
+    ModelParams,
+    TrainingParams,
+)
 from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from oumi.core.trainers.oumi_trainer import Trainer
-from oumi.datasets import COCOCaptionsDataset, Flickr30kDataset
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -42,20 +45,6 @@ class ModelName(str, Enum):
 class DatasetName(str, Enum):
     COCO = "coco_captions"
     FLICKR = "nlphuji/flickr30k"
-
-
-def get_dataset(dataset_name: DatasetName, processor, limit: int = 100):
-    """Get a dataset for multi-modal training."""
-    if dataset_name == DatasetName.COCO:
-        return COCOCaptionsDataset(
-            split="train", processor=processor, limit=limit, trust_remote_code=True
-        )
-    elif dataset_name == DatasetName.FLICKR:
-        return Flickr30kDataset(
-            split="test", processor=processor, limit=limit, trust_remote_code=True
-        )
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
 
 
 class MultiModalCollator:
@@ -154,7 +143,15 @@ def test_multimodal_trainer(
     processor.tokenizer.chat_template = chat_template
 
     collator = MultiModalCollator(processor)
-    dataset = get_dataset(dataset_name, processor)
+
+    dataset = build_dataset(
+        dataset_name=dataset_name,
+        tokenizer=processor.tokenizer,
+        split="train",
+        dataset_kwargs=dict(processor=processor, limit=100),
+        trust_remote_code=True,
+        experimental_use_torch_datapipes=False,
+    )
 
     #
     # Set up training parameters
