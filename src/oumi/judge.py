@@ -41,33 +41,48 @@ def judge_conversations(
 
 def main(
     config_path: str = typer.Option(
-        ..., "--config", help="Path to the judge config file"
+        ..., "--config_path", help="Path to the judge config file"
+    ),
+    config_name: str = typer.Option(
+        ...,
+        "--config_name",
+        help="Name of the judge configuration",
     ),
     input_file: Optional[str] = typer.Option(
-        ..., "--input", help="Path to the input file (jsonl)"
+        None, ..., "--input", help="Path to the input file (jsonl)"
     ),
     output_file: Optional[str] = typer.Option(
         None, "--output", help="Path to the output file (jsonl)"
     ),
-    dataset_name: Optional[str] = typer.Option(
-        ..., "--dataset", help="Name of the dataset from the registry"
+    input_dataset: Optional[str] = typer.Option(
+        None, "--dataset", help="Name of the dataset from the registry"
     ),
 ):
     """Judge a Oumi dataset or list of Oumi conversations."""
     # Load config
-    judge_config_builder = REGISTRY.get_judge_config(config_path)
-    if judge_config_builder is not None:
-        judge_config = judge_config_builder()
-
-    elif Path(config_path).exists():
-        judge_config = JudgeConfig.from_yaml(config_path)
-
-    else:
+    if bool(config_name) == bool(config_path):
         raise ValueError(
-            f"Invalid judge config: '{config_path}'. "
-            "Please provide either a valid registry name or an existing file path."
+            "Exactly one of 'config_name' or 'config_path' must be provided."
         )
 
+    if bool(input_dataset) == bool(input_file):
+        raise ValueError(
+            "Exactly only one of 'input_dataset' or 'input_file' must be provided."
+        )
+
+    # Load judge config
+    if config_name:
+        judge_config_builder = REGISTRY.get_judge_config(config_name)
+        if judge_config_builder is None:
+            raise ValueError(f"Judge config '{config_name}' not found in registry.")
+        judge_config = judge_config_builder()
+
+    else:  # config_path is provided
+        if not Path(config_path).exists():
+            raise ValueError(f"Config file not found: '{config_path}'")
+        judge_config = JudgeConfig.from_yaml(config_path)
+
+    # Load judge inputs
     if input_file is not None:
         with open(input_file) as f:
             input_data = json.load(f)
@@ -75,22 +90,16 @@ def main(
         conversations = [Conversation(**conv) for conv in input_data]
         results = judge_conversations(judge_config, conversations=conversations)
 
-    elif dataset_name is not None:
-        dataset = build_dataset(dataset_name=dataset_name, tokenizer=None)
+    elif input_dataset is not None:
+        dataset = build_dataset(dataset_name=input_dataset, tokenizer=None)
         if not isinstance(dataset, BaseLMSftDataset):
             raise ValueError(
-                f"Dataset '{dataset_name}' is not an instance of BaseLMSftDataset. "
+                f"Dataset '{input_dataset}' is not an instance of BaseLMSftDataset. "
                 "Please provide a valid dataset for judging."
             )
         results = judge_dataset(judge_config, dataset=dataset)
 
-    else:
-        typer.echo(
-            "Error: Either --input or --dataset must be specified.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
+    # Output
     if output_file:
         with open(output_file, "w") as f:
             json.dump(results, f, indent=2)
