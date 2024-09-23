@@ -14,7 +14,7 @@ set -e
 # Various setup for running on Polaris.
 source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
-TRAINING_MODE="fsdp"  # NOTE: Modify this value to configure training mode.
+TRAINING_MODE="fsdp" # NOTE: Modify this value to configure training mode.
 
 echo "Starting ${TRAINING_MODE} training with ${OUMI_NUM_NODES} node(s)..."
 
@@ -25,11 +25,11 @@ if [ "${TRAINING_MODE}" == "ddp1gpu" ]; then
     CPU_BIND="numa"
 fi
 
-set -x  # Print "mpiexec" command with expanded variables
+set -x # Print "mpiexec" command with expanded variables
 mpiexec --verbose \
     --np $((${OUMI_NUM_NODES} * ${NRANKS})) \
     -ppn ${NRANKS} \
-    -d ${NDEPTH}  --cpu-bind "${CPU_BIND}" \
+    -d ${NDEPTH} --cpu-bind "${CPU_BIND}" \
     ./scripts/polaris/jobs/llama2b_pt_worker.sh -m "${TRAINING_MODE}"
 
 echo -e "Finished ${TRAINING_MODE} training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
