@@ -14,7 +14,7 @@ model:
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
   # Improves training speed by 20% with default config.

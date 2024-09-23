@@ -92,7 +92,6 @@ cloud = [
     "google-cloud-storage>=2.17.0",
 ]
 gpu = [
-    "flash-attn",
     "liger-kernel",
     "vllm",
 ] # dependencies that require a GPU to install
@@ -104,6 +103,7 @@ docs = [
     "sphinx_copybutton",
 ]
 all = ["oumi[dev,train,cloud,docs]"]
+train_gpu = ["oumi[train,gpu]"]
 
 [project.scripts]
 oumi-evaluate = "oumi.evaluate:main"
