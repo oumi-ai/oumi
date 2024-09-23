@@ -59,8 +59,6 @@ See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
 
-from posixpath import dirname
-
 from oumi import models
 from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
 from oumi.evaluate_async import evaluate_async
@@ -70,9 +68,6 @@ from oumi.train import train
 from oumi.utils import logging
 
 logging.configure_dependency_warnings()
-
-
-OUMI_ROOT_DIRECTORY = dirname(__file__)
 
 
 __all__ = [

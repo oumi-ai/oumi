@@ -1,6 +1,3 @@
-from pathlib import Path
-
-from oumi import OUMI_ROOT_DIRECTORY
 from oumi.core.configs import (
     GenerationConfig,
     JudgeConfig,
@@ -9,6 +6,7 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.judge_config import JudgeAttribute
 from oumi.core.registry import register_judge
+from oumi.utils.io_utils import get_oumi_root_directory
 
 
 @register_judge("oumi_v1_xml_claude-sonnet_judge")
@@ -25,7 +23,7 @@ def oumi_v1_xml_anthropic_judge() -> JudgeConfig:
         This judge uses the Anthropic API, so the ANTHROPIC_API_KEY environment
         variable must be set with a valid API key.
     """
-    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
+    judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
     attributes = {
@@ -51,7 +49,7 @@ def oumi_v1_xml_anthropic_judge() -> JudgeConfig:
 
 
 def _get_ollama_judge_config() -> JudgeConfig:
-    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
+    judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
     attributes = {
@@ -85,7 +83,7 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     Note:
         This judge uses a local GGUF model file for inference.
     """
-    judges_directory = Path(OUMI_ROOT_DIRECTORY) / "judges" / "oumi_v1"
+    judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe", "valid"]
     attributes = {
