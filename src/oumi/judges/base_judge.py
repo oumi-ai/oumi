@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
@@ -55,15 +56,34 @@ class JudgeOutput(TemplatedMessage):
 
         return cls(explanation=explanation, judgement=judgment)
 
+    @classmethod
+    def from_json_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:
+        """Parses the judgement from JSON."""
+        if not raw_judgement:
+            return None
+
+        try:
+            judgement_data = json.loads(raw_judgement)
+            explanation = judgement_data.get("explanation")
+            judgement = judgement_data.get("judgement")
+            return cls(explanation=explanation, judgement=judgement)
+        except json.JSONDecodeError:
+            return None
+
     @property
     def label(self):
-        """Convert the judgement to a boolean label.
+        """Convert the judgement to a boolean or Likert scale label.
 
         Returns:
-            bool or None: The boolean interpretation of the judgement if present,
-                otherwise None.
+            bool or int or None: The boolean or Likert scale interpretation of the
+                judgement if present, otherwise None.
         """
-        return str_to_bool(self.judgement) if self.judgement else None
+        if self.judgement:
+            if self.judgement.lower() in ["true", "false"]:
+                return str_to_bool(self.judgement)
+            elif self.judgement.isdigit():
+                return int(self.judgement)
+        return None
 
 
 class Judge:
@@ -111,7 +131,7 @@ class Judge:
         for attribute_name, conversations in judged_conversations.items():
             for conversation in conversations:
                 judgement = conversation.messages[-1].content
-                parsed_judgement = JudgeOutput.from_model_output(judgement)
+                parsed_judgement = JudgeOutput.from_json_output(judgement)
                 conversation.metadata["parsed_judgement"] = (
                     str(parsed_judgement.label) if parsed_judgement else None
                 )
@@ -141,7 +161,7 @@ class Judge:
         self, judgement: Optional[str], attribute_name: str
     ) -> Optional[bool]:
         """Parse the judgement."""
-        output = JudgeOutput.from_model_output(judgement)
+        output = JudgeOutput.from_json_output(judgement)
         return output.label if output else None
 
     def _verify_conversation(self, conversation: Conversation) -> JudgeInput:

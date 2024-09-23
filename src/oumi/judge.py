@@ -1,11 +1,8 @@
-import re
-from typing import Any, Dict, List, Optional, Union
-
-from typing_extensions import Self
+from typing import Any, Dict, List, Union
 
 from oumi.core.configs import JudgeConfig
-from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
-from oumi.judges.base_judge import Judge, JudgeInput, JudgeOutput
+from oumi.core.types.turn import Conversation, Message, Role
+from oumi.judges.base_judge import Judge
 from oumi.judges.judge_zoo import _get_default_local_judge_config
 
 
