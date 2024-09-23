@@ -66,17 +66,17 @@ if "${ENABLE_PYTORCH_PROFILER}"; then
     # Use a smaller number of steps with Profiler to keep traces usable.
     MAX_STEPS=6
     PROFILER_TRAINING_PARAMS="training.profiler.schedule.enable_schedule=true
-   training.profiler.schedule.skip_first=1
-   training.profiler.schedule.warmup=1
-   training.profiler.schedule.active=4
-   training.profiler.enable_cpu_profiling=true
-   training.profiler.enable_cuda_profiling=true"
+    training.profiler.schedule.skip_first=1
+    training.profiler.schedule.warmup=1
+    training.profiler.schedule.active=4
+    training.profiler.enable_cpu_profiling=true
+    training.profiler.enable_cuda_profiling=true"
     echo "PyTorch profiler enabled!"
 fi
 
 if "${ENABLE_OUMI_TELEMETRY}"; then
     OUMI_TELEMETRY_PARAMS="training.telemetry.collect_telemetry_for_all_ranks=true
-   training.telemetry.track_gpu_temperature=true"
+    training.telemetry.track_gpu_temperature=true"
     echo "Oumi telemetry enabled!"
 fi
 
