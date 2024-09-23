@@ -43,6 +43,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "typer",
+    "typing_extensions",
 ]
 
 [project.urls]
