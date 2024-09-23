@@ -102,8 +102,7 @@ training.dataloader_num_workers=8
 training.log_model_summary=false
 ${TRAINING_OUTPUT_DIR_PARAM}
 ${PROFILER_TRAINING_PARAMS}
-${OUMI_TELEMETRY_PARAMS}
-"
+${OUMI_TELEMETRY_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
