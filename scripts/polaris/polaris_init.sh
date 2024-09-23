@@ -7,14 +7,14 @@ echo "Changing directory to ${PBS_O_WORKDIR} ..."
 cd ${PBS_O_WORKDIR}
 
 echo "Polaris job ID: ${PBS_JOBID}"
-echo "Running on host: `hostname`"
+echo "Running on host: $(hostname)"
 echo "Polaris queue: ${PBS_QUEUE}"
 echo "Current dir: $(pwd)"
 echo "Work dir: ${PBS_O_WORKDIR}"
 echo "Polaris node file: ${PBS_NODEFILE}"
 echo ""
-export OUMI_NUM_NODES=`wc -l < $PBS_NODEFILE`
-export OUMI_MASTER_ADDR=`head -n1 $PBS_NODEFILE`
+export OUMI_NUM_NODES=$(wc -l <$PBS_NODEFILE)
+export OUMI_MASTER_ADDR=$(head -n1 $PBS_NODEFILE)
 echo "Master address: ${OUMI_MASTER_ADDR}"
 echo "Number of nodes: ${OUMI_NUM_NODES}"
 echo "All nodes: $(cat $PBS_NODEFILE)"
