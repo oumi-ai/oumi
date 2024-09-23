@@ -25,7 +25,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: BaseTokenizer,
+        tokenizer: Optional[BaseTokenizer],
         dataset: datasets.Dataset,
         dataset_text_field: Optional[str] = None,
         formatting_func: Optional[Callable] = None,

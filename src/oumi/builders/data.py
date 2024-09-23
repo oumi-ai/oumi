@@ -75,7 +75,7 @@ def build_prompt_generation_fn(
 
 def build_dataset_mixture(
     config: TrainingConfig,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
@@ -159,7 +159,7 @@ def build_dataset_mixture(
 
 def build_dataset_from_params(
     dataset_params: DatasetParams,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
@@ -193,7 +193,7 @@ def build_dataset_from_params(
 
 def build_dataset(
     dataset_name: str,
-    tokenizer: BaseTokenizer,
+    tokenizer: Optional[BaseTokenizer],
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,

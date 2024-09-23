@@ -1,5 +1,9 @@
-from typing import Any, Dict, List, Optional, Union
+import json
+from typing import Any, Dict, List, Optional
 
+import typer
+
+from oumi.builders.data import build_dataset
 from oumi.core.configs import JudgeConfig
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.judges.base_judge import Judge
@@ -16,21 +20,7 @@ def judge_dataset(
     return [conv.model_dump() for conv in judged_conversations]
 
 
-def judge(
-    config: JudgeConfig,
-    data: Union[Dict[str, Any], List[Dict[str, Any]]],
-    attributes: List[str],
-) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-    """Judge a single data point or a list of data points."""
-    if isinstance(data, dict):
-        return judge_dataset(config, [data], attributes)[0]
-    elif isinstance(data, list):
-        return judge_dataset(config, data, attributes)
-    else:
-        raise ValueError("Data must be a dictionary or a list of dictionaries.")
-
-
-def judge_conversation(
+def judge_conversations(
     config: JudgeConfig, conversations: List[Conversation]
 ) -> List[Optional[str]]:
     """Judge a single conversation."""
@@ -68,5 +58,48 @@ def test():
         print()
 
 
+def main(
+    config_path: str = typer.Option(
+        ..., "--config", help="Path to the judge config file"
+    ),
+    input_file: Optional[str] = typer.Option(
+        ..., "--input", help="Path to the input file (jsonl)"
+    ),
+    output_file: Optional[str] = typer.Option(
+        None, "--output", help="Path to the output file (jsonl)"
+    ),
+    dataset_name: Optional[str] = typer.Option(
+        ..., "--dataset", help="Name of the dataset from the registry"
+    ),
+):
+    """Judge a Oumi dataset or list of Oumi conversations."""
+    # Load config
+    judge_config = JudgeConfig.from_yaml(config_path)
+
+    if input_file is not None:
+        with open(input_file) as f:
+            input_data = json.load(f)
+
+        conversations = [Conversation(**conv) for conv in input_data]
+        results = judge_conversations(judge_config, conversations=conversations)
+
+    elif dataset_name is not None:
+        dataset = build_dataset(dataset_name=dataset_name, tokenizer=None)
+        results = judge_dataset(judge_config, dataset=dataset)
+
+    else:
+        typer.echo(
+            "Error: Either --input or --dataset must be specified.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if output_file:
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=2)
+    else:
+        print(json.dumps(results, indent=2))
+
+
 if __name__ == "__main__":
-    test()
+    typer.run(main)
