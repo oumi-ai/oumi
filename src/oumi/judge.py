@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from oumi.core.configs import JudgeConfig
 from oumi.core.types.turn import Conversation, Message, Role
@@ -31,10 +31,16 @@ def judge(
 
 
 def judge_conversation(
-    config: JudgeConfig, conversation: Dict[str, Any], attributes: List[str]
-) -> Dict[str, Any]:
+    config: JudgeConfig, conversations: List[Conversation]
+) -> List[Optional[str]]:
     """Judge a single conversation."""
-    return judge(config, conversation, attributes)
+    judge = Judge(config)
+    judged_conversations = judge.judge(conversations)
+    judge_messages = [
+        conversation.last_message(Role.ASSISTANT)
+        for conversation in judged_conversations
+    ]
+    return [message.content for message in judge_messages if message is not None]
 
 
 def test():

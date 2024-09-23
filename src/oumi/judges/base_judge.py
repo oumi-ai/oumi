@@ -162,7 +162,7 @@ class Judge:
     ) -> Optional[bool]:
         """Parse the judgement."""
         output = JudgeOutput.from_json_output(judgement)
-        return output.label if output else None
+        return bool(output.label) if output else None
 
     def _verify_conversation(self, conversation: Conversation) -> JudgeInput:
         judgement_conversation = [

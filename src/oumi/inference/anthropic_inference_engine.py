@@ -1,5 +1,7 @@
 from typing import Any, Dict
 
+from typing_extensions import override
+
 from oumi.core.configs import GenerationConfig, RemoteParams
 from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
@@ -25,6 +27,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     https://docs.anthropic.com/claude/reference/versioning
     """
 
+    @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_config: GenerationConfig
     ) -> Dict[str, Any]:
@@ -85,6 +88,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         return body
 
+    @override
     def _convert_api_output_to_conversation(
         self, response: Dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
@@ -100,6 +104,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             conversation_id=original_conversation.conversation_id,
         )
 
+    @override
     def _get_request_headers(self, remote_params: RemoteParams) -> Dict[str, str]:
         return {
             "Content-Type": "application/json",

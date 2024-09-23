@@ -81,14 +81,14 @@ def test_cyclic_reference():
 
 
 def test_nested_params_with_failing_child():
-    # Should not faild post init
+    # Should not fail post init
     failing_param = PositiveValueParams(-5)
 
-    # Should faild after validation
+    # Should fail after validation
     with pytest.raises(expected_exception=ValueError, match="Value must be positive"):
         failing_param.validate()
 
-    # Should faild after validation of parent
+    # Should fail after validation of parent
     nested = NestedParams(
         simple_param=PositiveValueParams(42),
         list_param=[

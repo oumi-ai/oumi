@@ -149,7 +149,7 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The first message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.all_messages(role)
+        messages = self.filter_messages(role)
         return messages[0] if len(messages) > 0 else None
 
     def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
@@ -163,10 +163,10 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The last message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.all_messages(role)
+        messages = self.filter_messages(role)
         return messages[-1] if len(messages) > 0 else None
 
-    def all_messages(self, role: Optional[Role] = None) -> List[Message]:
+    def filter_messages(self, role: Optional[Role] = None) -> List[Message]:
         """Get all messages in the conversation, optionally filtered by role.
 
         Args:
