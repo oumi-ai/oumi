@@ -63,8 +63,7 @@ from oumi import models
 from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
-
-# from oumi.judge import judge_dataset
+from oumi.judge import judge, judge_conversation, judge_dataset
 from oumi.train import train
 from oumi.utils import logging
 
@@ -79,5 +78,7 @@ __all__ = [
     "infer",
     "infer_interactive",
     "models",
-    # "judge_dataset",
+    "judge_dataset",
+    "judge",
+    "judge_conversation",
 ]
