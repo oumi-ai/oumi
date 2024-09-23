@@ -96,7 +96,7 @@ ls -l ./my_local_dataset/
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 TRAIN_DATASETS="data.train.datasets=
-- dataset_name: \"/my_local_dataset\"
+- dataset_name: \"./my_local_dataset\"
   subset: \"default\"
   split: \"train\"
 "
