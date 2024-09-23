@@ -4,7 +4,7 @@ set -e
 
 # Change to the directory where the job was submitted.
 echo "Changing directory to ${PBS_O_WORKDIR} ..."
-cd ${PBS_O_WORKDIR}
+cd "${PBS_O_WORKDIR}"
 
 echo "Polaris job ID: ${PBS_JOBID}"
 echo "Running on host: $(hostname)"
@@ -13,11 +13,11 @@ echo "Current dir: $(pwd)"
 echo "Work dir: ${PBS_O_WORKDIR}"
 echo "Polaris node file: ${PBS_NODEFILE}"
 echo ""
-export OUMI_NUM_NODES=$(wc -l <$PBS_NODEFILE)
-export OUMI_MASTER_ADDR=$(head -n1 $PBS_NODEFILE)
+export OUMI_NUM_NODES=$(wc -l <"${PBS_NODEFILE}")
+export OUMI_MASTER_ADDR=$(head -n1 "${PBS_NODEFILE}")
 echo "Master address: ${OUMI_MASTER_ADDR}"
 echo "Number of nodes: ${OUMI_NUM_NODES}"
-echo "All nodes: $(cat $PBS_NODEFILE)"
+echo "All nodes: $(cat "${PBS_NODEFILE}")"
 
 if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
@@ -44,6 +44,5 @@ module use /soft/modulefiles
 module load conda
 
 # Activate the Oumi Conda environment.
-conda activate /home/$USER/miniconda3/envs/oumi
-echo "Conda path:"
-echo $CONDA_PREFIX
+conda activate "/home/${USER}/miniconda3/envs/oumi"
+echo "Conda path: ${CONDA_PREFIX}"
