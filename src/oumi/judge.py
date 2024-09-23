@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -6,6 +7,7 @@ import typer
 from oumi.builders.data import build_dataset
 from oumi.core.configs import JudgeConfig
 from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.registry import REGISTRY
 from oumi.core.types.turn import Conversation, Role
 from oumi.judges.base_judge import Judge
 
@@ -53,7 +55,18 @@ def main(
 ):
     """Judge a Oumi dataset or list of Oumi conversations."""
     # Load config
-    judge_config = JudgeConfig.from_yaml(config_path)
+    judge_config_builder = REGISTRY.get_judge_config(config_path)
+    if judge_config_builder is not None:
+        judge_config = judge_config_builder()
+
+    elif Path(config_path).exists():
+        judge_config = JudgeConfig.from_yaml(config_path)
+
+    else:
+        raise ValueError(
+            f"Invalid judge config: '{config_path}'. "
+            "Please provide either a valid registry name or an existing file path."
+        )
 
     if input_file is not None:
         with open(input_file) as f:
