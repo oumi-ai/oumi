@@ -2,9 +2,14 @@ import numpy as np
 import torch
 from transformers import DataCollatorWithPadding
 
+_PIXEL_VALUES_KEY = "pixel_values"
+_INPUT_IDS_KEY = "input_ids"
+_ATTENTION_MASK_KEY = "attention_mask"
+_LABELS_KEY = "labels"
+
 
 def build_data_collator(collator_name: str, **kwargs):
-    """Build a data collator based on the given collator name.
+    """Builds a data collator based on the given collator name.
 
     Args:
         collator_name: The name of the collator to build. Supported values are:
@@ -29,7 +34,7 @@ class VisionLanguageCollator:
         """Custom collator for multi-modal vision-language training."""
         self.processor = processor
 
-        self.default_collator = DataCollatorWithPadding(
+        self._default_collator = DataCollatorWithPadding(
             tokenizer=self.processor.tokenizer,
             max_length=max_length,
             padding=True,
@@ -44,25 +49,25 @@ class VisionLanguageCollator:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        images = [item["pixel_values"] for item in batch]
-        text_inputs = [item["input_ids"] for item in batch]
+        images = [item[_PIXEL_VALUES_KEY] for item in batch]
+        text_inputs = [item[_INPUT_IDS_KEY] for item in batch]
 
         # collate batch images
         pixel_values = self.collate_images(images)
 
         # collate batch prompts
-        text_inputs = self.default_collator({"input_ids": text_inputs})  # type: ignore
+        text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
 
         # Combine all inputs
         combined_batch = {
-            "pixel_values": pixel_values,
-            "input_ids": text_inputs["input_ids"],
-            "attention_mask": text_inputs.get("attention_mask"),
+            _PIXEL_VALUES_KEY: pixel_values,
+            _INPUT_IDS_KEY: text_inputs[_INPUT_IDS_KEY],
+            _ATTENTION_MASK_KEY: text_inputs.get(_ATTENTION_MASK_KEY),
         }
 
         # Add labels if present
-        if "labels" in batch[0]:
-            combined_batch["labels"] = text_inputs["input_ids"]
+        if _LABELS_KEY in batch[0]:
+            combined_batch[_LABELS_KEY] = text_inputs[_INPUT_IDS_KEY]
 
         return combined_batch
 
@@ -75,6 +80,9 @@ class VisionLanguageCollator:
         Returns:
             torch.Tensor: Batch of processed images.
         """
+        if len(images) == 0:
+            raise ValueError("No images found in the batch")
+
         if isinstance(images[0], torch.Tensor):
             return torch.stack(images)
         elif isinstance(images[0], np.ndarray):
