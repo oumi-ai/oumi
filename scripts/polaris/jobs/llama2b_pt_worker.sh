@@ -81,7 +81,7 @@ if "${OUMI_TELEMETRY}"; then
 fi
 
 if "${ENABLE_PYTORCH_PROFILER}" || "${OUMI_TELEMETRY}"; then
-   TRAINING_OUTPUT_DIR_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
+   TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
 fi
 
 if test -d ./my_local_dataset/; then
@@ -110,6 +110,7 @@ training.save_final_model=false
 training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
 training.log_model_summary=false
+${TRAINING_OUTPUT_DIR_PARAM}
 ${PROFILER_TRAINING_PARAMS}
 ${OUMI_TELEMETRY_PARAMS}
 "
