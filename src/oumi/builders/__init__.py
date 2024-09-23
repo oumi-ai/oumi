@@ -9,6 +9,7 @@ allowing for easier setup and configuration of machine learning experiments.
 """
 
 from oumi.builders.callbacks import build_training_callbacks
+from oumi.builders.collators import build_data_collator
 from oumi.builders.data import (
     build_dataset,
     build_dataset_from_params,
@@ -29,6 +30,7 @@ __all__ = [
     "build_dataset_from_params",
     "build_dataset_mixture",
     "build_dataset",
+    "build_data_collator",
     "build_metrics_function",
     "build_model",
     "build_optimizer",
