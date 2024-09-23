@@ -74,13 +74,13 @@ if "${ENABLE_PYTORCH_PROFILER}"; then
    echo "PyTorch profiler enabled!"
 fi
 
-if "${OUMI_TELEMETRY}"; then
+if "${ENABLE_OUMI_TELEMETRY}"; then
    OUMI_TELEMETRY_PARAMS="training.telemetry.collect_telemetry_for_all_ranks=true
    training.telemetry.track_gpu_temperature=true"
    echo "Oumi telemetry enabled!"
 fi
 
-if "${ENABLE_PYTORCH_PROFILER}" || "${OUMI_TELEMETRY}"; then
+if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
    TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
 fi
 
