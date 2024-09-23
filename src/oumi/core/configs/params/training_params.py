@@ -297,7 +297,7 @@ class TrainingParams(BaseParams):
     - "no": Disable logging.
     """
 
-    logging_dir: str = "output/runs"
+    logging_dir: Optional[str] = None
     """The directory where training logs will be saved.
 
     This includes TensorBoard logs and other training-related output.
@@ -677,6 +677,10 @@ class TrainingParams(BaseParams):
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
+
+        if self.logging_dir is None and self.output_dir:
+            # Push the logging_dir inside the output_dir.
+            self.logging_dir = str(Path(self.output_dir) / "logs")
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
