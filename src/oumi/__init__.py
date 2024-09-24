@@ -49,11 +49,11 @@ Examples:
 
     Judging a dataset::
 
-        from oumi import judge
+        from oumi import judge_dataset
         from oumi.core.configs import JudgeConfig
 
         config = JudgeConfig(...)
-        judge_dataset(config, dataset, attributes)
+        judge_dataset(config, dataset)
 
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
