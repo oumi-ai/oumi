@@ -76,6 +76,5 @@ def build_optimizer(
             relative_step=False,
             scale_parameter=False,
         )
-
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
