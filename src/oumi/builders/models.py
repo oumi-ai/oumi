@@ -145,15 +145,10 @@ def build_huggingface_model(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
 
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+    hf_config = transformers.AutoConfig.from_pretrained(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
-        return_unused_kwargs=True,
-        attn_implementation=model_params.attn_implementation,
     )
-    logger.info("Potato")
-    logger.info(f"used: {hf_config}")
-    logger.info(f"unused: {unused_kwargs}")
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
