@@ -32,6 +32,9 @@ classifiers = [
 ]
 
 dependencies = [
+    "awscli", # To enable AWS in Skypilot
+    "azure-cli", # To enable Azure in Skypilot
+    "azure-keyvault-administration==4.0.0b3", # To enable Azure in Skypilot
     "google-api-python-client",    # To enable GCP in Skypilot
     "jsonlines",
     "numpy",
@@ -87,9 +90,6 @@ train = [
     "wandb<0.17.8",
 ]
 cloud = [
-    "awscli",
-    "azure-cli",
-    "azure-keyvault-administration",
     "google-api-core>=2.19.0",
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
