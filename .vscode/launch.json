@@ -36,7 +36,12 @@
             "type": "debugpy",
             "request": "launch",
             "module": "oumi.judge",
-            "args": [],
+            "args": [
+                "--config-name",
+                "oumi_v1_xml_local_judge",
+                "--input-dataset",
+                "yahma/alpaca-cleaned"
+            ],
             "justMyCode": true
         },
         {

@@ -40,22 +40,21 @@ def judge_conversations(
 
 
 def main(
-    config_path: str = typer.Option(
-        ..., "--config_path", help="Path to the judge config file"
+    config_path: Optional[str] = typer.Option(
+        default=None, help="Path to the judge config file"
     ),
-    config_name: str = typer.Option(
-        ...,
-        "--config_name",
+    config_name: Optional[str] = typer.Option(
+        default=None,
         help="Name of the judge configuration",
     ),
     input_file: Optional[str] = typer.Option(
-        None, ..., "--input", help="Path to the input file (jsonl)"
+        default=None, help="Path to the input file (jsonl)"
     ),
     output_file: Optional[str] = typer.Option(
-        None, "--output", help="Path to the output file (jsonl)"
+        default=None, help="Path to the output file (jsonl)"
     ),
     input_dataset: Optional[str] = typer.Option(
-        None, "--dataset", help="Name of the dataset from the registry"
+        default=None, help="Name of the dataset from the registry"
     ),
 ):
     """Judge a Oumi dataset or list of Oumi conversations."""
@@ -77,7 +76,7 @@ def main(
             raise ValueError(f"Judge config '{config_name}' not found in registry.")
         judge_config = judge_config_builder()
 
-    else:  # config_path is provided
+    elif config_path:
         if not Path(config_path).exists():
             raise ValueError(f"Config file not found: '{config_path}'")
         judge_config = JudgeConfig.from_yaml(config_path)

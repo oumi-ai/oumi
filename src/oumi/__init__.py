@@ -59,7 +59,7 @@ See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
 
-from oumi import models
+from oumi import judges, models
 from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
@@ -71,13 +71,14 @@ logging.configure_dependency_warnings()
 
 
 __all__ = [
-    "train",
     "evaluate_async",
-    "evaluate_oumi",
     "evaluate_lm_harness",
-    "infer",
+    "evaluate_oumi",
     "infer_interactive",
-    "models",
-    "judge_dataset",
+    "infer",
     "judge_conversations",
+    "judge_dataset",
+    "judges",
+    "models",
+    "train",
 ]
