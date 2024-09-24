@@ -14,7 +14,7 @@ Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test_fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test_fsdp
-"""  # noqa: E501
+"""
 
 from enum import Enum
 from typing import Optional
