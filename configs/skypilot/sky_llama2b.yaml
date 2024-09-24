@@ -1,7 +1,7 @@
 name: llama2b-pt
 
 resources:
-  accelerators: {"A100":4}
+  accelerators: {"A100"}
   any_of:
     - use_spot: true
     - use_spot: false
