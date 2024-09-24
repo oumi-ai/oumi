@@ -175,19 +175,6 @@ class ModelParams(BaseParams):
             model_args_dict["attn_implementation"] = self.attn_implementation
         return model_args_dict
 
-    def __post_init__(self):
-        """Verifies params immediately after initialization."""
-        # Check if flash-attention-2 is requested with half-precision
-        if (self.attn_implementation == "flash_attention_2") and (
-            self.torch_dtype() not in [torch.bfloat16, torch.float16]
-        ):
-            logger.warning(
-                "Cannot use flash_attention_2 with a full-precision "
-                f"({self.torch_dtype()}) model. Ignoring request for using "
-                "flash_attention_2 by setting attn_implementation to default value."
-            )
-            self.attn_implementation = None
-
     def __validate__(self):
         """Validates final config params."""
         # Check if flash-attention-2 is requested and supported
