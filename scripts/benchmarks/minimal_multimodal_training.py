@@ -11,12 +11,13 @@ For multi-GPU training, use torchrun:
 
 Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test_fsdp
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name flickr30k --test_fsdp
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
 from enum import Enum
+from typing import Optional
 
 import torch
 import typer
@@ -51,12 +52,20 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
 
 
+def _get_default_dataset_split(dataset_name: DatasetName) -> str:
+    if dataset_name == DatasetName.FLICKR:
+        # The dataset only has "test" split.
+        return "test"
+    return "train"
+
+
 def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
     max_steps: int = 10,
     logging_steps: int = 1,
+    split: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -67,6 +76,9 @@ def test_multimodal_trainer(
         init_distributed()
     else:
         print("Not initializing distributed process group")
+
+    if not split:
+        split = _get_default_dataset_split(dataset_name)
 
     #
     # Init model, processor, and dataset
@@ -91,7 +103,7 @@ def test_multimodal_trainer(
     dataset = build_dataset(
         dataset_name=dataset_name,
         tokenizer=processor.tokenizer,
-        split="train",
+        split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
         experimental_use_torch_datapipes=False,

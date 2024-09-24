@@ -40,11 +40,13 @@ helpFunction() {
 TRAINING_MODE="fsdp"
 
 ENABLE_PYTORCH_PROFILER="false"
+ENABLE_OUMI_TELEMETRY="false"
 
-while getopts "m:p" opt; do
+while getopts "m:pt" opt; do
     case "$opt" in
     m) TRAINING_MODE="$OPTARG" ;;
     p) ENABLE_PYTORCH_PROFILER="true" ;;
+    t) ENABLE_OUMI_TELEMETRY="true" ;;
     ?) helpFunction ;; # Print a help message for an unknown parameter.
     esac
 done
@@ -63,14 +65,23 @@ MAX_STEPS=20
 if "${ENABLE_PYTORCH_PROFILER}"; then
     # Use a smaller number of steps with Profiler to keep traces usable.
     MAX_STEPS=6
-    PROFILER_TRAINING_PARAMS="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}
-    training.profiler.schedule.enable_schedule=true
+    PROFILER_TRAINING_PARAMS="training.profiler.schedule.enable_schedule=true
     training.profiler.schedule.skip_first=1
     training.profiler.schedule.warmup=1
     training.profiler.schedule.active=4
     training.profiler.enable_cpu_profiling=true
     training.profiler.enable_cuda_profiling=true"
     echo "PyTorch profiler enabled!"
+fi
+
+if "${ENABLE_OUMI_TELEMETRY}"; then
+    OUMI_TELEMETRY_PARAMS="training.telemetry.collect_telemetry_for_all_ranks=true
+    training.telemetry.track_gpu_temperature=true"
+    echo "Oumi telemetry enabled!"
+fi
+
+if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
+    TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
 fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
@@ -89,7 +100,9 @@ training.save_final_model=false
 training.dataloader_main_process_only=false
 training.dataloader_num_workers=8
 training.log_model_summary=false
-${PROFILER_TRAINING_PARAMS}"
+${TRAINING_OUTPUT_DIR_PARAM}
+${PROFILER_TRAINING_PARAMS}
+${OUMI_TELEMETRY_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))

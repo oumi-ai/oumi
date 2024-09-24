@@ -74,16 +74,16 @@ ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${POLARIS_USER}@p
 # Copy files to Polaris over the same SSH tunnel, excluding unnecessary ones.
 echo "Copying files to Polaris... -----------------------------------------"
 rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
-    --exclude-from ${SOURCE_DIRECTORY}/.gitignore \
+    --exclude-from "${SOURCE_DIRECTORY}/.gitignore" \
     --exclude tests \
-    ${SOURCE_DIRECTORY} ${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}
+    "${SOURCE_DIRECTORY}" "${POLARIS_USER}@polaris.alcf.anl.gov:${COPY_DIRECTORY}"
 
 # Submit a job on Polaris over the same SSH tunnel.
 echo "Setting up environment and submitting job on Polaris..."
 # Save the variables to pass to the remote script.
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$POLARIS_NODES" "$POLARIS_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
-ssh -S ~/.ssh/control-%h-%p-%r ${POLARIS_USER}@polaris.alcf.anl.gov "bash -s $varsStr" <<'EOF'
+ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $varsStr" <<'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2; POLARIS_NODES=$3; POLARIS_QUEUE=$4
   cd ${COPY_DIRECTORY}
 
