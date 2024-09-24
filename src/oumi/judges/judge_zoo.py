@@ -26,6 +26,7 @@ def oumi_v1_xml_anthropic_judge() -> JudgeConfig:
     judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
+
     attributes = {
         attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
         for attribute in attribute_names
@@ -52,6 +53,7 @@ def _get_ollama_judge_config() -> JudgeConfig:
     judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
     attribute_names = ["helpful", "honest", "safe"]
+
     attributes = {
         attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
         for attribute in attribute_names
@@ -85,18 +87,15 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     """
     judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
 
-    attribute_names = ["helpful", "honest", "safe", "valid"]
+    attribute_names = ["helpful", "honest", "safe"]
+
     attributes = {
         attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
         for attribute in attribute_names
     }
     config = JudgeConfig(
         attributes=attributes,
-        model=ModelParams(
-            model_name=str(judges_directory / "Q4_K_M-00001-of-00001.gguf"),
-        ),
-        generation=GenerationConfig(
-            max_new_tokens=1024,
-        ),
+        model=ModelParams(model_name="Qwen/Qwen2-0.5B-Instruct-GGUF"),
+        generation=GenerationConfig(max_new_tokens=1024),
     )
     return config
