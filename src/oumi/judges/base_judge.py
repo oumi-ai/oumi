@@ -36,6 +36,8 @@ class BaseJudgeOutput(ABC, pydantic.BaseModel):
             return None
 
         attributes = {}
+        # Regex pattern to match XML-like tags and their content
+        # Captures the tag name in group 1 and the content between tags in group 2
         pattern = r"<(\w+)>(.*?)</\1>"
         matches = re.findall(pattern, raw_judgement, re.DOTALL)
 

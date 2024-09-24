@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import jsonlines
 import typer
 
 from oumi.core.configs import JudgeConfig
@@ -182,11 +183,13 @@ def main(
         results = judge_dataset(judge_config, dataset=dataset)
 
     # Output
+
     if output_file:
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2)
+        with jsonlines.open(output_file, mode="w") as writer:
+            writer.write_all(results)
     else:
-        print(json.dumps(results, indent=2))
+        for result in results:
+            print(json.dumps(result))
 
 
 if __name__ == "__main__":
