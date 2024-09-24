@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -10,7 +9,7 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.utils.io_utils import load_file
+from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout
 
@@ -338,8 +337,7 @@ def build_chat_template(template_name: str) -> str:
     Returns:
         str: a jinja-based chat-template.
     """
-    oumi_top_dir = Path(__file__).parent.parent.resolve()
-    chat_template_directory = oumi_top_dir / "datasets" / "chat_templates"
+    chat_template_directory = get_oumi_root_directory() / "datasets" / "chat_templates"
 
     template_file = f"{template_name.lower()}.jinja"
     chat_template_file = chat_template_directory / template_file
