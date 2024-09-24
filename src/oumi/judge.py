@@ -1,41 +1,33 @@
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 
 from oumi.core.configs import JudgeConfig
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import REGISTRY
-from oumi.core.types.turn import Conversation, Role
-from oumi.judges.base_judge import Judge
+from oumi.core.types.turn import Conversation
+from oumi.judges.oumi_judge import OumiXmlJudge as Judge
 
 
 def judge_dataset(
     config: JudgeConfig, dataset: BaseLMSftDataset
-) -> List[Optional[str]]:
+) -> List[Dict[str, Any]]:
     """Judge a dataset."""
     judge = Judge(config)
-    conversations = [dataset.conversation(idx) for idx in range(len(dataset))]
-    judged_conversations = judge.judge(conversations)
-    judge_messages = [
-        conversation.last_message(Role.ASSISTANT)
-        for conversation in judged_conversations
-    ]
-    return [message.content for message in judge_messages if message is not None]
+    judge_inputs = [dataset.conversation(idx) for idx in range(len(dataset))]
+    judge_outputs = judge.judge(judge_inputs)
+    return judge_outputs
 
 
 def judge_conversations(
-    config: JudgeConfig, conversations: List[Conversation]
-) -> List[Optional[str]]:
+    config: JudgeConfig, judge_inputs: List[Conversation]
+) -> List[Dict[str, Any]]:
     """Judge a list of conversations."""
     judge = Judge(config)
-    judged_conversations = judge.judge(conversations)
-    judge_messages = [
-        conversation.last_message(Role.ASSISTANT)
-        for conversation in judged_conversations
-    ]
-    return [message.content for message in judge_messages if message is not None]
+    judge_outputs = judge.judge(judge_inputs)
+    return judge_outputs
 
 
 def main(
@@ -93,7 +85,7 @@ def main(
             input_data = json.load(f)
 
         conversations = [Conversation(**conv) for conv in input_data]
-        results = judge_conversations(judge_config, conversations=conversations)
+        results = judge_conversations(judge_config, judge_inputs=conversations)
 
     elif dataset_name is not None:
         dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
