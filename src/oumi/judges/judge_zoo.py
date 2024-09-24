@@ -49,32 +49,6 @@ def oumi_v1_xml_anthropic_judge() -> JudgeConfig:
     return config
 
 
-def _get_ollama_judge_config() -> JudgeConfig:
-    judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
-
-    attribute_names = ["helpful", "honest", "safe"]
-
-    attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
-        for attribute in attribute_names
-    }
-
-    config = JudgeConfig(
-        attributes=attributes,
-        model=ModelParams(
-            model_name="claude-3-5-sonnet-20240620",
-        ),
-        generation=GenerationConfig(
-            max_new_tokens=1024,
-            remote_params=RemoteParams(
-                api_url="http://localhost:1234/v1/chat/completions",
-                max_retries=2,
-            ),
-        ),
-    )
-    return config
-
-
 @register_judge("oumi_v1_xml_local_judge")
 def oumi_v1_xml_local_judge() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML local judge.
