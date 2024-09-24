@@ -147,7 +147,6 @@ def build_huggingface_model(
     hf_config = transformers.AutoConfig.from_pretrained(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
-        flash_attention_2=model_params.should_use_flash_attention_2,
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
@@ -181,6 +180,7 @@ def build_huggingface_model(
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
+            attn_implementation=model_params.attn_implementation,
             **kwargs,
         )
     else:
@@ -188,6 +188,7 @@ def build_huggingface_model(
             config=hf_config,
             torch_dtype=model_params.torch_dtype(),
             trust_remote_code=model_params.trust_remote_code,
+            attn_implementation=model_params.attn_implementation,
             **kwargs,
         )
 
