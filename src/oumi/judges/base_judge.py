@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
 import pydantic
+from tqdm.auto import tqdm
 from typing_extensions import Self
 
 from oumi.core.configs import JudgeConfig
@@ -115,7 +116,7 @@ class BaseJudge(ABC):
             # That are included in the judge config.
             judgement_prompts = [
                 self.build_judgement_prompt(judge_input, attribute_name=attribute_name)
-                for judge_input in judge_inputs
+                for judge_input in tqdm(judge_inputs)
             ]
 
             # Run inference for the attribute's prompt
@@ -195,11 +196,13 @@ class BaseJudge(ABC):
         # For now, we default to the remote inference engine
         # Users can override this method to provide their own inference engine
         # to the constructor of the Judge class.
-        if config.model.model_name.endswith(".gguf"):
+        model_name = config.model.model_name.lower()
+        if "gguf" in model_name:
             return LlamaCppInferenceEngine(config.model)
-        elif config.model.model_name:
+        elif "claude" in model_name:
             return AnthropicInferenceEngine(config.model)
-        return RemoteInferenceEngine(config.model)
+        else:
+            return RemoteInferenceEngine(config.model)
 
     @abstractmethod
     def _transform_conversation_input(self, conversation: Conversation) -> Message:
