@@ -179,7 +179,7 @@ class TrainingParams(BaseParams):
     This technique allows for effectively larger batch sizes without increasing
     memory usage. The gradients from multiple forward passes are accumulated
     before performing a single optimization step. Setting this to >1 can increase
-    memory usage for training setups wihout existing gradient accumulation buffers
+    memory usage for training setups without existing gradient accumulation buffers
     (ex. 1-GPU training).
     """
 
