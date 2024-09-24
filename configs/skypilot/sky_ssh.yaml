@@ -18,8 +18,14 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
+  /output_dir_gcs:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+    mode: MOUNT
+
 envs:
   WANDB_PROJECT: oumi-debug
+  HF_HOME: /output_dir_gcs/hf_cache/
 
 setup: |
   set -e
@@ -28,6 +34,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
+
+  mkdir -p /output_dir_gcs/hf_cache/
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun --standalone \
