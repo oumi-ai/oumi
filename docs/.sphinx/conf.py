@@ -18,9 +18,9 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Open Unified Machine Intelligence"
-copyright = "2024, Open Unified Machine Intelligence"
-author = "Open Unified Machine Intelligence"
+project = "Open Universal Machine Intelligence"
+copyright = "2024, Open Universal Machine Intelligence"
+author = "Open Universal Machine Intelligence"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

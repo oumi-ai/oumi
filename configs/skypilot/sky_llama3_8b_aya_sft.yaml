@@ -23,8 +23,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train]'
-  pip install '.[gpu]'
+  pip install '.[train,gpu]'
 
 run: |
   set -e  # Exit if any command failed.

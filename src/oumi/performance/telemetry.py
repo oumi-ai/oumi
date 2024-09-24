@@ -10,7 +10,11 @@ import numpy as np
 import pydantic
 import torch
 
-from oumi.core.distributed import all_gather_object
+from oumi.core.distributed import (
+    DeviceRankInfo,
+    all_gather_object,
+    get_device_rank_info,
+)
 from oumi.utils.debugging_utils import get_nvidia_gpu_temperature
 from oumi.utils.logging import get_logger
 
@@ -231,7 +235,8 @@ class TelemetryTracker:
             LOGGER.debug("CUDA is not available. GPU temperature cannot be logged.")
             return 0.0
 
-        temperature = get_nvidia_gpu_temperature()
+        device_rank_info: DeviceRankInfo = get_device_rank_info()
+        temperature = get_nvidia_gpu_temperature(device_rank_info.local_rank)
         self.state.gpu_temperature.append(temperature)
         return temperature
 

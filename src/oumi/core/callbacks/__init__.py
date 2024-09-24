@@ -1,4 +1,4 @@
-"""Trainer callbacks module for the Oumi (Open Unified Machine Intelligence) library.
+"""Trainer callbacks module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides trainer callbacks, which can be used to customize
 the behavior of the training loop in the Oumi Trainer

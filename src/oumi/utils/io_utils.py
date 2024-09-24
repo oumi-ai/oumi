@@ -61,3 +61,12 @@ def load_file(filename: Union[str, Path], encoding: str = "utf-8") -> str:
 
     with file_path.open("r", encoding=encoding) as file:
         return file.read()
+
+
+def get_oumi_root_directory() -> Path:
+    """Get the root directory of the Oumi project.
+
+    Returns:
+        Path: The absolute path to the Oumi project's root directory.
+    """
+    return Path(__file__).parent.parent.resolve()

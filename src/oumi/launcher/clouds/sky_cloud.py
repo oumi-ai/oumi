@@ -24,7 +24,10 @@ class SkyCloud(BaseCloud):
         return [
             SkyCluster(cluster["name"], self._client)
             for cluster in self._client.status()
-            if isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
+            if (
+                isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
+                and cluster["status"] == sky.ClusterStatus.UP
+            )
         ]
 
     def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:

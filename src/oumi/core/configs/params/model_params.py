@@ -7,7 +7,6 @@ from transformers.utils import is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
-from oumi.utils.logging import logger
 
 
 @dataclass
@@ -95,12 +94,11 @@ class ModelParams(BaseParams):
     """The attention implementation to use.
 
     Valid options include:
-    - None: Use the default attention implementation
-    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation
-
-    Note:
-        Flash Attention 2 can significantly speed up attention computations,
-        especially for long sequences, but requires specific hardware support.
+    - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
+    - "sdpa": Use PyTorch's scaled dot-product attention
+    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
+      Requires "flash-attn" package to be installed
+    - "eager": Manual implementation of attention
     """
 
     device_map: Optional[str] = "auto"
@@ -176,19 +174,6 @@ class ModelParams(BaseParams):
             model_args_dict["attn_implementation"] = self.attn_implementation
         return model_args_dict
 
-    def __post_init__(self):
-        """Verifies params immediately after initialization."""
-        # Check if flash-attention-2 is requested with half-precision
-        if (self.attn_implementation == "flash_attention_2") and (
-            self.torch_dtype() not in [torch.bfloat16, torch.float16]
-        ):
-            logger.warning(
-                "Cannot use flash_attention_2 with a full-precision "
-                f"({self.torch_dtype()}) model. Ignoring request for using "
-                "flash_attention_2 by setting attn_implementation system's default."
-            )
-            self.attn_implementation = None
-
     def __validate__(self):
         """Validates final config params."""
         # Check if flash-attention-2 is requested and supported
@@ -200,15 +185,3 @@ class ModelParams(BaseParams):
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
             )
-
-    @property
-    def should_use_flash_attention_2(self) -> bool:
-        """Checks if flash-attention-2 was requested.
-
-        This requires the `flash-attn` package to be installed, and only works with
-        CUDA or ROCm-compatible GPUs.
-
-        Note:
-            Flash attention 2 paper https://arxiv.org/abs/2307.08691
-        """
-        return self.attn_implementation == "flash_attention_2"
