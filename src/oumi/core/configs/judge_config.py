@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type
 
 import pydantic
 
@@ -54,14 +54,12 @@ class JudgeAttribute(pydantic.BaseModel):
     """
 
     name: str
-    """The name of the attribute being judge."""
+    """The name of the attribute being judged."""
 
     system_prompt: str
     """The system prompt for the judge."""
 
-    examples: List[Union[TemplatedMessage, TemplatedMessage]] = field(
-        default_factory=list
-    )
+    examples: List[TemplatedMessage] = field(default_factory=list)
     """A list of few-shot example inputs and judgements."""
 
     value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
@@ -89,9 +87,7 @@ class JudgeAttribute(pydantic.BaseModel):
         This will include the judge system prompt, and any few-shot examples.
         """
         messages = [Message(content=self.system_prompt, role=Role.SYSTEM)]
-        for example in self.examples:
-            messages.append(example.message)
-        return messages
+        return messages + [e.message for e in self.examples]
 
     @classmethod
     def load(cls: Type, filename: str) -> "JudgeAttribute":
@@ -115,7 +111,17 @@ class JudgeConfig(BaseConfig):
         ...     "helpful": JudgeAttribute(
         ...         name="helpful",
         ...         system_prompt="Is this answer helpful?",
-        ...         examples=[]
+        ...         examples=[
+        ...             TemplatedMessage(
+        ...                 role=Role.USER,
+        ...                 request="What is the capital of France?",
+        ...                 response="The capital of France is Paris.",
+        ...             ),
+        ...             TemplatedMessage(
+        ...                 role=Role.ASSISTANT,
+        ...                 response="True",
+        ...             ),
+        ...         ],
         ...     ),
         ...     "honest": JudgeAttribute(
         ...         name="honest",

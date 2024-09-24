@@ -9,12 +9,12 @@ from oumi.core.registry import register_judge
 from oumi.utils.io_utils import get_oumi_root_directory
 
 
-@register_judge("oumi_v1_xml_claude_sonnet_judge")
+@register_judge("oumi/v1_xml_claude_sonnet")
 def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML Anthropic judge.
 
     This function creates and returns a JudgeConfig object for the Oumi V1 Judge, which
-    uses Claude Sonnet as a judge, with inputs and outpunts in XML format.
+    uses Claude Sonnet as a judge, with inputs and outputs in XML format.
 
     Returns:
         JudgeConfig: A configuration object for the Oumi v1 XML Anthropic judge.
@@ -49,7 +49,7 @@ def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
     return config
 
 
-@register_judge("oumi_v1_xml_local_judge")
+@register_judge("oumi/v1_xml_local")
 def oumi_v1_xml_local_judge() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML local judge.
 
@@ -75,7 +75,7 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     return config
 
 
-@register_judge("oumi_v1_xml_gpt4o_judge")
+@register_judge("oumi/v1_xml_gpt4o")
 def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML GPT-4 judge.
 

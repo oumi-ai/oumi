@@ -4,7 +4,7 @@ The judges are used to evaluate the quality of AI-generated responses based on
 different criteria such as helpfulness, honesty, and safety.
 """
 
-from oumi.judges.judge_zoo import (
+from oumi.judges.judge_court import (
     oumi_v1_xml_claude_sonnet_judge,
     oumi_v1_xml_gpt4o_judge,
     oumi_v1_xml_local_judge,
