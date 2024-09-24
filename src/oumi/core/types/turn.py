@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pydantic
 
@@ -119,7 +119,7 @@ class Conversation(pydantic.BaseModel):
     messages: List[Message]
     """List of Message objects that make up the conversation."""
 
-    metadata: Dict[str, str] = {}
+    metadata: Dict[str, Any] = {}
     """Optional metadata associated with the conversation.
 
     This attribute allows for storing additional information about the conversation
