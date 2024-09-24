@@ -39,7 +39,7 @@
             "args": [
                 "--config-name",
                 "oumi_v1_xml_local_judge",
-                "--input-dataset",
+                "--dataset-name",
                 "yahma/alpaca-cleaned"
             ],
             "justMyCode": true

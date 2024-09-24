@@ -4,7 +4,6 @@ from typing import List, Optional
 
 import typer
 
-from oumi.builders.data import build_dataset
 from oumi.core.configs import JudgeConfig
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import REGISTRY
@@ -53,8 +52,15 @@ def main(
     output_file: Optional[str] = typer.Option(
         default=None, help="Path to the output file (jsonl)"
     ),
-    input_dataset: Optional[str] = typer.Option(
+    dataset_name: Optional[str] = typer.Option(
         default=None, help="Name of the dataset from the registry"
+    ),
+    dataset_subset: Optional[str] = typer.Option(
+        default=None, help="Subset of the dataset to use, if applicable"
+    ),
+    dataset_split: Optional[str] = typer.Option(
+        default="train",
+        help="Split of the dataset to use.",
     ),
 ):
     """Judge a Oumi dataset or list of Oumi conversations."""
@@ -64,7 +70,7 @@ def main(
             "Exactly one of 'config_name' or 'config_path' must be provided."
         )
 
-    if bool(input_dataset) == bool(input_file):
+    if bool(dataset_name) == bool(input_file):
         raise ValueError(
             "Exactly only one of 'input_dataset' or 'input_file' must be provided."
         )
@@ -89,13 +95,16 @@ def main(
         conversations = [Conversation(**conv) for conv in input_data]
         results = judge_conversations(judge_config, conversations=conversations)
 
-    elif input_dataset is not None:
-        dataset = build_dataset(dataset_name=input_dataset, tokenizer=None)
-        if not isinstance(dataset, BaseLMSftDataset):
-            raise ValueError(
-                f"Dataset '{input_dataset}' is not an instance of BaseLMSftDataset. "
-                "Please provide a valid dataset for judging."
-            )
+    elif dataset_name is not None:
+        dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
+
+        if dataset_class is None:
+            raise ValueError(f"Dataset '{dataset_name}' not found in registry.")
+        dataset = dataset_class(
+            split=dataset_split,
+            subset=dataset_subset,
+        )
+
         results = judge_dataset(judge_config, dataset=dataset)
 
     # Output
