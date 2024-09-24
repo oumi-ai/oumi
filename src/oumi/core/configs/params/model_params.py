@@ -7,7 +7,6 @@ from transformers.utils import is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
-from oumi.utils.logging import logger
 
 
 @dataclass
