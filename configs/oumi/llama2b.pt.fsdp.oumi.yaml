@@ -15,7 +15,7 @@ model:
   model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
   load_pretrained_weights: False
   trust_remote_code: True
 

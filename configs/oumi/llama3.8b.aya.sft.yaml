@@ -3,7 +3,7 @@ model:
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
 
 data:
   train:
