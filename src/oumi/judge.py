@@ -14,7 +14,37 @@ from oumi.judges.oumi_judge import OumiXmlJudge as Judge
 def judge_dataset(
     config: JudgeConfig, dataset: BaseLMSftDataset
 ) -> List[Dict[str, Any]]:
-    """Judge a dataset."""
+    """Judge a dataset.
+
+    This function evaluates a given dataset using a specified Judge configuration.
+
+    The function performs the following steps:
+    1. Initializes the Judge with the provided configuration.
+    2. Iterates through the dataset to extract conversation inputs.
+    3. Uses the Judge to evaluate each conversation input.
+    4. Collects and returns the judged outputs.
+
+    Args:
+        config: The configuration for the judge.
+        dataset: The dataset to be judged. This dataset
+            should be compatible with the Supervised Finetuning Dataset class.
+
+    Returns:
+        List[Dict[str, Any]]: A list of judgement results for each conversation.
+
+        Example output:
+            [
+                {'helpful': True, 'safe': False},
+                {'helpful': True, 'safe': True},
+            ]
+
+    Example:
+        >>> config = JudgeConfig(...)
+        >>> dataset = SomeDataset(...)
+        >>> judged_outputs = judge_dataset(config, dataset)
+        >>> for output in judged_outputs:
+        ...     print(output)
+    """
     judge = Judge(config)
     judge_inputs = [dataset.conversation(idx) for idx in range(len(dataset))]
     judge_outputs = judge.judge(judge_inputs)
@@ -24,7 +54,35 @@ def judge_dataset(
 def judge_conversations(
     config: JudgeConfig, judge_inputs: List[Conversation]
 ) -> List[Dict[str, Any]]:
-    """Judge a list of conversations."""
+    """Judge a list of conversations.
+
+    This function evaluates a list of conversations using the specified Judge.
+
+    The function performs the following steps:
+    1. Initializes the Judge with the provided configuration.
+    2. Uses the Judge to evaluate each conversation input.
+    3. Collects and returns the judged outputs.
+
+    Args:
+        config: The configuration for the judge.
+        judge_inputs: A list of Conversation objects to be judged.
+
+    Returns:
+        List[Dict[str, Any]]: A list of judgement results for each conversation.
+
+        Example output:
+            [
+                {'helpful': True, 'safe': False},
+                {'helpful': True, 'safe': True},
+            ]
+
+    Example:
+        >>> config = JudgeConfig(...)
+        >>> judge_inputs = [Conversation(...), Conversation(...)]
+        >>> judged_outputs = judge_conversations(config, judge_inputs)
+        >>> for output in judged_outputs:
+        ...     print(output)
+    """
     judge = Judge(config)
     judge_outputs = judge.judge(judge_inputs)
     return judge_outputs
@@ -55,7 +113,31 @@ def main(
         help="Split of the dataset to use.",
     ),
 ):
-    """Judge a Oumi dataset or list of Oumi conversations."""
+    """Main entry point for the judge script.
+
+    Args:
+        config_path (Optional[str]): Path to the judge config file.
+        config_name (Optional[str]): Name of the judge configuration.
+        input_file (Optional[str]): Path to the input file (jsonl).
+        output_file (Optional[str]): Path to the output file (jsonl).
+        dataset_name (Optional[str]): Name of the dataset from the registry.
+        dataset_subset (Optional[str]): Subset of the dataset to use, if applicable.
+        dataset_split (Optional[str]): Split of the dataset to use.
+
+    Raises:
+        ValueError: If both or neither of 'config_name' and 'config_path' are provided.
+        ValueError: If both or neither of 'dataset_name' and 'input_file' are provided.
+        ValueError: If the specified judge config or dataset is not found in the
+            registry.
+        ValueError: If the specified config file does not exist.
+
+    Example:
+        >>> main(
+        ...     config_name="default_judge",
+        ...     input_file="input.jsonl",
+        ...     output_file="output.jsonl"
+        ... )
+    """
     # Load config
     if bool(config_name) == bool(config_path):
         raise ValueError(
