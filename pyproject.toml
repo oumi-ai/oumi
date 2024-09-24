@@ -89,6 +89,7 @@ train = [
 cloud = [
     "awscli",
     "azure-cli",
+    "azure-keyvault-administration",
     "google-api-core>=2.19.0",
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
