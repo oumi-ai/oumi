@@ -95,12 +95,11 @@ class ModelParams(BaseParams):
     """The attention implementation to use.
 
     Valid options include:
-    - None: Use the default attention implementation
-    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation
-
-    Note:
-        Flash Attention 2 can significantly speed up attention computations,
-        especially for long sequences, but requires specific hardware support.
+    - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
+    - "sdpa": Use PyTorch's scaled dot-product attention
+    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
+      Requires "flash-attn" package to be installed
+    - "eager": Manual implementation of attention
     """
 
     device_map: Optional[str] = "auto"
@@ -185,7 +184,7 @@ class ModelParams(BaseParams):
             logger.warning(
                 "Cannot use flash_attention_2 with a full-precision "
                 f"({self.torch_dtype()}) model. Ignoring request for using "
-                "flash_attention_2 by setting attn_implementation system's default."
+                "flash_attention_2 by setting attn_implementation to default value."
             )
             self.attn_implementation = None
 
@@ -200,15 +199,3 @@ class ModelParams(BaseParams):
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
             )
-
-    @property
-    def should_use_flash_attention_2(self) -> bool:
-        """Checks if flash-attention-2 was requested.
-
-        This requires the `flash-attn` package to be installed, and only works with
-        CUDA or ROCm-compatible GPUs.
-
-        Note:
-            Flash attention 2 paper https://arxiv.org/abs/2307.08691
-        """
-        return self.attn_implementation == "flash_attention_2"

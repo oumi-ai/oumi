@@ -14,7 +14,7 @@ model:
   adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
 
