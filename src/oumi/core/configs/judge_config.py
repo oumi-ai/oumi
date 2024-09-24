@@ -16,42 +16,78 @@ from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 
 
 class JudgeAttributeValueType(str, Enum):
-    """The type of the attribute."""
+    """Enumeration of possible value types for judge attributes."""
 
     BOOL = "bool"
-    """The attribute is a boolean."""
+    """Boolean value type."""
 
     CATEGORICAL = "categorical"
-    """The attribute is a categorical."""
+    """Categorical value type."""
 
     LIKERT_5 = "likert-5"
-    """The attribute is a Likert scale."""
+    """Likert scale with 5 points value type."""
 
 
 class JudgeAttribute(pydantic.BaseModel):
-    """Configuration parameters for the judge."""
+    """Configuration parameters for the judge.
+
+    Example:
+        >>> attribute = JudgeAttribute(
+        ...     name="helpful",
+        ...     system_prompt="You are an impartial judge.",
+        ...     examples=[
+        ...         TemplatedMessage(
+        ...             role=Role.USER,
+        ...             request="What is the capital of France?",
+        ...             response="The capital of France is Paris.",
+        ...         ),
+        ...         TemplatedMessage(
+        ...             role=Role.ASSISTANT,
+        ...             response="True",
+        ...         ),
+        ...     ],
+        ...     value_type=JudgeAttributeValueType.BOOL,
+        ...     limit_examples=5,
+        ... )
+        >>> print(attribute.name)
+        helpful
+    """
 
     name: str
-    """The name of the attribute."""
+    """The name of the attribute being judge."""
 
     system_prompt: str
+    """The system prompt for the judge."""
 
     examples: List[Union[TemplatedMessage, TemplatedMessage]] = field(
         default_factory=list
     )
+    """A list of few-shot example inputs and judgements."""
 
     value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
+    """The type of value for the attribute."""
 
     limit_examples: Optional[int] = 5
+    """The maximum number of examples to use.
+
+    This is an optional parameter that limits the number of examples to be used for
+    judging the attribute. If not specified, the default is 5.
+    """
 
     @property
     def conversation(self) -> Conversation:
-        """Returns the conversation in oumi format."""
+        """Returns the judgement conversation in oumi format.
+
+        This will include the judge system prompt, and any few-shot examples.
+        """
         return Conversation(messages=self.messages)
 
     @property
     def messages(self) -> List[Message]:
-        """Returns the messages in oumi format."""
+        """Returns the messages in oumi format.
+
+        This will include the judge system prompt, and any few-shot examples.
+        """
         messages = [Message(content=self.system_prompt, role=Role.SYSTEM)]
         for example in self.examples:
             messages.append(example.message)
@@ -59,7 +95,7 @@ class JudgeAttribute(pydantic.BaseModel):
 
     @classmethod
     def load(cls: Type, filename: str) -> "JudgeAttribute":
-        """Loads the judge attribute from a file."""
+        """Loads the judge attribute config from a file."""
         path = Path(filename)
         if not path.exists():
             raise FileNotFoundError(path)
@@ -68,6 +104,34 @@ class JudgeAttribute(pydantic.BaseModel):
 
 @dataclass
 class JudgeConfig(BaseConfig):
+    """Configuration for the Judge.
+
+    This class holds the configuration parameters for the Judge,
+      including the attributes to judge, the model parameters,
+      and the text generation parameters.
+
+    Examples:
+        >>> attributes = {
+        ...     "helpful": JudgeAttribute(
+        ...         name="helpful",
+        ...         system_prompt="Is this answer helpful?",
+        ...         examples=[]
+        ...     ),
+        ...     "honest": JudgeAttribute(
+        ...         name="honest",
+        ...         system_prompt="Is this answer honest?",
+        ...         examples=[]
+        ...     )
+        ... }
+        >>> model_params = ModelParams(model_name="example-model")
+        >>> generation_config = GenerationConfig(max_new_tokens=100)
+        >>> judge_config = JudgeConfig(
+        ...     attributes=attributes,
+        ...     model=model_params,
+        ...     generation=generation_config
+        ... )
+    """
+
     attributes: Dict[str, JudgeAttribute] = field(default_factory=dict)
     """The attributes to judge."""
 
