@@ -45,10 +45,12 @@ run: |
   set -x # Enable command tracing.
   mkdir -p "$OUTPUT_DATA/train"
   cp -r ${INPUT_DATA}/**.json ${OUTPUT_DATA}
-  python3 ./src/experimental/pretokenize/tokenize_dataset.py \
+  python3 ./src/experimental/pretokenize/process_dataset.py \
     --verbose \
     --target_col text \
     --input_dataset "${INPUT_DATA}/train/" \
+    --dataset_split "train" \
+    --skip_tokenize true \
     --output_dir "${OUTPUT_DATA}/train/" \
     --config ./configs/oumi/llama2b.pt.yaml \
 

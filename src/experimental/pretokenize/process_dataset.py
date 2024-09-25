@@ -75,13 +75,12 @@ def _tokenize_dataset_impl(
 
 
 def _process_file(
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]],
     target_col: str,
     input_file: pathlib.Path,
     input_format: str,
     output_parquet_file: pathlib.Path,
     num_proc: int,
-    skip_tokenize: bool,
 ) -> None:
     logger.info(f"Loading {input_file}.")
     if input_format == "jsonl":
@@ -92,7 +91,7 @@ def _process_file(
         assert input_format == "parquet"
         dataset = datasets.Dataset.from_parquet(str(input_file), keep_in_memory=True)
 
-    if not skip_tokenize:
+    if tokenizer is not None:
         dataset = _tokenize_dataset_impl(
             cast(datasets.Dataset, dataset),
             tokenizer,
@@ -107,7 +106,7 @@ def _process_file(
 
 
 def _process_dataset(
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]],
     target_col: str,
     input_dataset: str,
     dataset_subset: Optional[str],
@@ -115,7 +114,6 @@ def _process_dataset(
     trust_remote_code: bool,
     output_dataset_path: pathlib.Path,
     num_proc: int,
-    skip_tokenize: bool,
 ) -> None:
     if (
         input_dataset.startswith("/")
@@ -165,7 +163,7 @@ def _process_dataset(
         )
     )
 
-    if not skip_tokenize:
+    if tokenizer is not None:
         dataset = _tokenize_dataset_impl(
             cast(datasets.Dataset, dataset),
             tokenizer,
@@ -254,6 +252,21 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         type=str,
         help="Directory path to the input Huggingface dataset, or a dataset name.",
     )
+    parser.add_argument(
+        "--dataset_subset",
+        type=str,
+        help="Subset of an input dataset",
+    )
+    parser.add_argument(
+        "--dataset_split",
+        type=str,
+        help="Split of an input dataset e.g., 'train'",
+    )
+    parser.add_argument(
+        "--trust_remote_code",
+        action="store_true",
+        help="Whether to trust remote code.",
+    )
 
     # Parameters to work with individual files
     parser.add_argument(
@@ -276,6 +289,9 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
             config_path=args.config,
             verbose=args.verbose,
             input_dataset=args.input_dataset,
+            dataset_subset=args.dataset_subset,
+            dataset_split=args.dataset_split,
+            trust_remote_code=args.trust_remote_code,
             input_paths=args.input_path,
             input_format=args.input_format,
             target_col=args.target_col,
@@ -295,31 +311,33 @@ def main() -> None:
     logger.info(f"Parsed arguments: {parsed_args}")
     logger.info(f"Unknown arguments: {arg_list}")
 
-    config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
-        parsed_args.config_path, arg_list, logger=logger
-    )
+    config: TrainingConfig = None
+    target_col: str = ""
+    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None
+    if not parsed_args.skip_tokenize:
+        config = TrainingConfig.from_yaml_and_arg_list(
+            parsed_args.config_path, arg_list, logger=logger
+        )
 
-    # Find first non-empty value as target column name.
-    target_col = next(
-        s
-        for s in [
-            parsed_args.target_col,
-            config.data.train.target_col,
-            config.data.validation.target_col,
-            config.data.test.target_col,
-            "text",
-        ]
-        if s
-    )
+        # Find first non-empty value as target column name.
+        target_col = next(
+            s
+            for s in [
+                parsed_args.target_col,
+                config.data.train.target_col,
+                config.data.validation.target_col,
+                config.data.test.target_col,
+                "text",
+            ]
+            if s
+        )
+        logger.info("Initializing the tokenizer...")
+        tokenizer = build_tokenizer(config.model)
 
     output_dir: pathlib.Path = pathlib.Path(parsed_args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     start_time = time.time()
-
-    logger.info("Initializing the tokenizer...")
-
-    tokenizer = build_tokenizer(config.model)
 
     num_proc = (
         (os.cpu_count() or 1) if parsed_args.num_proc == -1 else parsed_args.num_proc
@@ -336,7 +354,6 @@ def main() -> None:
             parsed_args.trust_remote_code,
             output_dir,
             num_proc=num_proc,
-            skip_tokenize=parsed_args.skip_tokenize,
         )
     else:
         datasets.disable_caching()
@@ -361,7 +378,6 @@ def main() -> None:
                 parsed_args.input_format,
                 output_file,
                 num_proc=num_proc,
-                skip_tokenize=parsed_args.skip_tokenize,
             )
 
     end_time = time.time()
