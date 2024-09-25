@@ -145,6 +145,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         splits_or_dataset = datasets.load_dataset(
             path=path,
             name=self.dataset_subset,
+            split=self.split,
             trust_remote_code=self.trust_remote_code,
         )
 
