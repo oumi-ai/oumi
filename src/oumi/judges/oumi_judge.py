@@ -47,22 +47,13 @@ class OumiXmlJudge(BaseJudge):
     def _transform_conversation_input(
         self, conversation: Conversation
     ) -> OumiJudgeInput:
-        system_prompt = conversation.first_message(Role.SYSTEM)
         user_prompt = conversation.last_message(Role.USER)
         assistant_prompt = conversation.last_message(Role.ASSISTANT)
 
-        if (user_prompt and user_prompt.content) and (
-            system_prompt and system_prompt.content
-        ):
-            request = (
-                f"Instruction: {system_prompt.content}\n\nUser: {user_prompt.content}"
-            )
-        elif user_prompt and user_prompt.content:
+        if user_prompt and user_prompt.content:
             request = user_prompt.content
-        elif system_prompt and system_prompt.content:
-            request = system_prompt.content
         else:
-            raise ValueError("No user or system prompt found in conversation")
+            raise ValueError("No user prompt found in conversation")
 
         response = None
         if assistant_prompt:
