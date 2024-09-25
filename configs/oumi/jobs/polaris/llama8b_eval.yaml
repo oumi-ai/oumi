@@ -33,6 +33,11 @@ run: |
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR=""
 
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  if [ -n "$LORA_ADAPTER_DIR" ]; then
+    echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
+  fi
+
   if test ${OUMI_NUM_NODES} -ne 1; then
     echo "Evaluation can only run on 1 Polaris node. Actual: ${OUMI_NUM_NODES} nodes."
     exit 1
@@ -47,20 +52,22 @@ run: |
   TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * 4))
 
   if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
-      accelerate launch \
-        --num_processes=${TOTAL_NUM_GPUS} \
-        --num_machines=${OUMI_NUM_NODES} \
-        -m oumi.evaluate  \
-        -c configs/oumi/llama8b.eval.yaml \
-        "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+    accelerate launch \
+      --num_processes=${TOTAL_NUM_GPUS} \
+      --num_machines=${OUMI_NUM_NODES} \
+      -m oumi.evaluate  \
+      -c configs/oumi/llama8b.eval.yaml \
+      "model.model_name=${MODEL_CHECKPOINT_DIR}" \
+      "model.adapter_model=${LORA_ADAPTER_DIR}"
   elif [ "$EVALUATION_FRAMEWORK" == "oumi" ]; then
-      echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
-      python -m oumi.evaluate \
-        -c configs/oumi/llama8b.eval.legacy.yaml \
-        "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
+    echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
+    python -m oumi.evaluate \
+      -c configs/oumi/llama8b.eval.legacy.yaml \
+      "model.model_name=${MODEL_CHECKPOINT_DIR}" \
+      "model.adapter_model=${LORA_ADAPTER_DIR}"
   else
-      echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
-      exit 1
+    echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
+    exit 1
   fi
 
   echo -e "Finished eval on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
