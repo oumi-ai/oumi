@@ -1,8 +1,10 @@
-import re
 from typing import Any, Dict, Optional
+
+from typing_extensions import override
 
 from oumi.core.types.turn import Conversation, Role, TemplatedMessage
 from oumi.judges.base_judge import BaseJudge, BaseJudgeOutput
+from oumi.utils.str_utils import str_to_bool
 
 
 class OumiJudgeInput(TemplatedMessage):
@@ -23,55 +25,55 @@ class OumiJudgeOutput(BaseJudgeOutput):
         "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>"
     )
 
-    judgement: Optional[str]
+    judgement: Optional[str] = None
     explanation: Optional[str] = None
 
-    def custom_from_model_output(self, raw_judgement: Optional[str]):
-        """Parses the judgement."""
-        if not raw_judgement:
-            return None
+    @property
+    @override
+    def label(self):
+        """Convert the judgement to a boolean or Likert scale label."""
+        if self.judgement:
+            if self.judgement.isdigit():
+                return int(self.judgement)
 
-        explanation_match = re.search(
-            r"<explanation>(.*?)</explanation>", raw_judgement, re.DOTALL
-        )
-        judgment_match = re.search(
-            r"<judgement>(.*?)</judgement>", raw_judgement, re.DOTALL
-        )
-
-        explanation = explanation_match.group(1).strip() if explanation_match else None
-        judgment = judgment_match.group(1).strip() if judgment_match else None
-
-        return OumiJudgeOutput(
-            explanation=explanation, judgement=judgment, raw_judgement=raw_judgement
-        )
+            try:
+                return str_to_bool(self.judgement)
+            except ValueError:
+                return None
+        return None
 
 
 class OumiXmlJudge(BaseJudge):
     def _transform_conversation_input(
         self, conversation: Conversation
     ) -> OumiJudgeInput:
-        judgement_conversation = [
-            conversation.first_message(Role.SYSTEM),
-            conversation.last_message(Role.USER),
-            conversation.last_message(Role.ASSISTANT),
-        ]
+        system_prompt = conversation.first_message(Role.SYSTEM)
+        user_prompt = conversation.last_message(Role.USER)
+        assistant_prompt = conversation.last_message(Role.ASSISTANT)
 
-        request = (
-            judgement_conversation[1].content or "" if judgement_conversation[1] else ""
-        )
+        if (user_prompt and user_prompt.content) and (
+            system_prompt and system_prompt.content
+        ):
+            request = (
+                f"Instruction: {system_prompt.content}\n\nUser: {user_prompt.content}"
+            )
+        elif user_prompt and user_prompt.content:
+            request = user_prompt.content
+        elif system_prompt and system_prompt.content:
+            request = system_prompt.content
+        else:
+            raise ValueError("No user or system prompt found in conversation")
 
-        return OumiJudgeInput(
-            request=request,
-            response=judgement_conversation[2].content
-            if judgement_conversation[2]
-            else "",
-            context=judgement_conversation[0].content
-            if judgement_conversation[0]
-            else "",
-        )
+        response = None
+        if assistant_prompt:
+            response = assistant_prompt.content
+        else:
+            response = None
+
+        return OumiJudgeInput(request=request, response=response)
 
     def _transform_dict_input(self, raw_input: Dict[str, Any]) -> OumiJudgeInput:
         return OumiJudgeInput(**raw_input)
 
-    def _transfrorm_model_output(self, model_output) -> Optional[OumiJudgeOutput]:
-        return OumiJudgeOutput.from_model_output(model_output)
+    def _transform_model_output(self, model_output) -> Optional[OumiJudgeOutput]:
+        return OumiJudgeOutput.from_xml_output(model_output)

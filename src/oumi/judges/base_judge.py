@@ -14,14 +14,13 @@ from oumi.inference import (
     LlamaCppInferenceEngine,
     RemoteInferenceEngine,
 )
-from oumi.utils.str_utils import str_to_bool
 
 
 class BaseJudgeOutput(ABC, TemplatedMessage):
     raw_judgement: Optional[str] = None
 
     @classmethod
-    def from_model_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:
+    def from_xml_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:
         """Parses the judgement from XML-like tags in the raw output.
 
         Args:
@@ -43,7 +42,7 @@ class BaseJudgeOutput(ABC, TemplatedMessage):
         for attr_name, attr_value in matches:
             attributes[attr_name] = attr_value.strip()
 
-        return cls(**attributes) if attributes else None
+        return cls(**attributes, raw_judgement=raw_judgement)
 
     @classmethod
     def from_json_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:
@@ -53,19 +52,27 @@ class BaseJudgeOutput(ABC, TemplatedMessage):
 
         try:
             judgement_data = json.loads(raw_judgement)
-            return cls(**judgement_data)
+            return cls(**judgement_data, raw_judgement=raw_judgement)
         except json.JSONDecodeError:
             return None
 
     @property
     def label(self):
-        """Convert the judgement to a boolean or Likert scale label."""
-        if self.raw_judgement:
-            if self.raw_judgement.isdigit():
-                return int(self.raw_judgement)
+        """Convert the judgement to a boolean or Likert scale label.
 
-            return str_to_bool(self.raw_judgement)
-        return None
+        This method should be overridden by subclasses to provide the actual
+        conversion logic.
+        """
+        return self.raw_judgement
+
+    @property
+    def fields(self):
+        """Return the fields of the judgement."""
+        fields = self.model_dump()
+        fields.pop("raw_judgement", None)
+        fields.pop("template", None)
+        fields.pop("role", None)
+        return fields
 
 
 class BaseJudge(ABC):
@@ -129,7 +136,16 @@ class BaseJudge(ABC):
             judgements = []
             for conversation in raw_judgements:
                 judgement = conversation.messages[-1].content
-                judgements.append(judgement)
+
+                parsed_judgement = self._transform_model_output(judgement)
+
+                judgements.append(
+                    {
+                        "raw_judgement": judgement,
+                        "fields": parsed_judgement.fields,
+                        "label": parsed_judgement.label,
+                    }
+                )
 
             results[attribute_name] = judgements
 
@@ -214,5 +230,5 @@ class BaseJudge(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _transfrorm_model_output(self, model_output) -> BaseJudgeOutput:
+    def _transform_model_output(self, model_output) -> BaseJudgeOutput:
         raise NotImplementedError
