@@ -142,9 +142,12 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
+        logger.info(f"Using dataset split: {self.split}")
+
         splits_or_dataset = datasets.load_dataset(
             path=path,
             name=self.dataset_subset,
+            split=self.split,
             trust_remote_code=self.trust_remote_code,
         )
 
@@ -158,6 +161,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             dataset = splits_or_dataset
 
         elif self.split is not None:
+            logger.info(f"Using dataset split: {self.split}")
             dataset = splits_or_dataset[self.split]
 
         elif len(splits_or_dataset) == 1:
@@ -169,6 +173,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 f"Available splits: {list(splits_or_dataset.keys())}"
             )
 
+        logger.info(f"Dataset size: {len(dataset)}")
         return cast(pd.DataFrame, dataset.to_pandas())
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
