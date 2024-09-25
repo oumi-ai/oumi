@@ -142,12 +142,16 @@ def main(
     # Load config
     if bool(config_name) == bool(config_path):
         raise ValueError(
-            "Exactly one of 'config_name' or 'config_path' must be provided."
+            "Exactly one of 'config_name' or 'config_path' must be provided. "
+            f"Currently: {'both' if config_name and config_path else 'neither'} "
+            "specified."
         )
 
     if bool(dataset_name) == bool(input_file):
         raise ValueError(
-            "Exactly only one of 'input_dataset' or 'input_file' must be provided."
+            "Exactly one of 'dataset_name' or 'input_file' must be provided. "
+            f"Currently: {'both' if dataset_name and input_file else 'neither'} "
+            "specified."
         )
 
     # Load judge config
