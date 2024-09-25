@@ -142,6 +142,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
+        logger.info(f"Using dataset split: {self.split}")
+
         splits_or_dataset = datasets.load_dataset(
             path=path,
             name=self.dataset_subset,
@@ -171,6 +173,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 f"Available splits: {list(splits_or_dataset.keys())}"
             )
 
+        logger.info(f"Dataset size: {len(dataset)}")
         return cast(pd.DataFrame, dataset.to_pandas())
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
