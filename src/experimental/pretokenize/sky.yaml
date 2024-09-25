@@ -7,7 +7,7 @@ resources:
   cpus: "32+"
   memory: "64+"
   disk_size: 200  # Disk size in GB
-  region: europe-west4
+  region: us-central1
 
   any_of:
     - use_spot: false
@@ -20,7 +20,7 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
   /dataset_parent_dir:
-    source: gs://oumi-dev-europe-west4/
+    source: gs://oumi-dev-us-central1/
     store: gcs
     mode: MOUNT
 
@@ -39,8 +39,11 @@ run: |
   echo "INPUT_DATA: $INPUT_DATA. Content: $(ls -l $INPUT_DATA)"
   echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
   echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
-
+  export INPUT_DATASET="${INPUT_DATA}/train/"
   export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
+
+  export INPUT_DATASET="HuggingFaceM4/COCO"
+  export OUTPUT_DATA="/dataset_parent_dir/datasets/coco_captions/"
 
   set -x # Enable command tracing.
   mkdir -p "$OUTPUT_DATA/train"
@@ -48,7 +51,7 @@ run: |
   python3 ./src/experimental/pretokenize/process_dataset.py \
     --verbose \
     --target_col text \
-    --input_dataset "${INPUT_DATA}/train/" \
+    --input_dataset "${INPUT_DATASET}" \
     --dataset_split "train" \
     --skip_tokenize true \
     --output_dir "${OUTPUT_DATA}/train/" \
