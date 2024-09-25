@@ -3,7 +3,18 @@ import functools
 import os
 import pathlib
 import time
-from typing import Any, Dict, Iterator, List, NamedTuple, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import datasets
 from tqdm import tqdm
@@ -63,13 +74,14 @@ def _tokenize_dataset_impl(
     return dataset
 
 
-def _tokenize_file(
+def _process_file(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
     target_col: str,
     input_file: pathlib.Path,
     input_format: str,
     output_parquet_file: pathlib.Path,
     num_proc: int,
+    skip_tokenize: bool,
 ) -> None:
     logger.info(f"Loading {input_file}.")
     if input_format == "jsonl":
@@ -80,36 +92,87 @@ def _tokenize_file(
         assert input_format == "parquet"
         dataset = datasets.Dataset.from_parquet(str(input_file), keep_in_memory=True)
 
-    dataset = _tokenize_dataset_impl(
-        cast(datasets.Dataset, dataset),
-        tokenizer,
-        target_col,
-        num_proc=num_proc,
-        keep_in_memory=True,
-    )
+    if not skip_tokenize:
+        dataset = _tokenize_dataset_impl(
+            cast(datasets.Dataset, dataset),
+            tokenizer,
+            target_col,
+            num_proc=num_proc,
+            keep_in_memory=True,
+        )
 
     logger.info(f"Writing the tokenized data to {output_parquet_file}.")
     dataset.to_parquet(output_parquet_file)
     logger.info(f"Finished writing to {output_parquet_file}.")
 
 
-def _tokenize_dataset(
+def _process_dataset(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
     target_col: str,
-    input_dataset_path: pathlib.Path,
+    input_dataset: str,
+    dataset_subset: Optional[str],
+    dataset_split: Optional[str],
+    trust_remote_code: bool,
     output_dataset_path: pathlib.Path,
     num_proc: int,
+    skip_tokenize: bool,
 ) -> None:
-    logger.info(f"Loading {input_dataset_path}.")
-    dataset = datasets.Dataset.load_from_disk(str(input_dataset_path))
+    if (
+        input_dataset.startswith("/")
+        or input_dataset.startswith(".")
+        or input_dataset.startswith("~")
+    ):
+        input_dataset_path = pathlib.Path(input_dataset)
+        logger.info(f"Loading {input_dataset_path} from disk...")
+        dataset = datasets.Dataset.load_from_disk(str(input_dataset_path))
+    else:
+        logger.info(f"Loading {input_dataset} from HuggingFace...")
+        splits_or_dataset = datasets.load_dataset(
+            path=input_dataset,
+            name=(dataset_subset or None),
+            split=(dataset_split or None),
+            trust_remote_code=trust_remote_code,
+        )
 
-    dataset = _tokenize_dataset_impl(
-        cast(datasets.Dataset, dataset),
-        tokenizer,
-        target_col,
-        num_proc=num_proc,
-        keep_in_memory=False,
+        if isinstance(
+            splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
+        ):
+            raise ValueError("IterableDataset is not supported with this class.")
+
+        if isinstance(splits_or_dataset, datasets.Dataset):
+            dataset = splits_or_dataset
+        elif dataset_split:
+            dataset = splits_or_dataset[dataset_split]
+        elif len(splits_or_dataset) == 1:
+            dataset = splits_or_dataset.values().__iter__().__next__()
+        else:
+            raise ValueError(
+                "Multiple splits found in the dataset. Please specify a single split. "
+                f"Available splits: {list(splits_or_dataset.keys())}"
+            )
+
+    logger.info(
+        "\n".join(
+            [
+                "Dataset Loaded!",
+                f"Split: {dataset.split}",
+                f"Version: {dataset.version}",
+                f"Dataset size: {dataset.dataset_size}",
+                f"Download size: {dataset.download_size}",
+                f"Size: {dataset.size_in_bytes} bytes",
+                f"Column names: {dataset.column_names}",
+            ]
+        )
     )
+
+    if not skip_tokenize:
+        dataset = _tokenize_dataset_impl(
+            cast(datasets.Dataset, dataset),
+            tokenizer,
+            target_col,
+            num_proc=num_proc,
+            keep_in_memory=False,
+        )
 
     logger.info(f"Writing the tokenized dataset to {output_dataset_path}.")
     dataset.save_to_disk(str(output_dataset_path), max_shard_size="1GB")
@@ -120,12 +183,16 @@ class ParsedArgs(NamedTuple):
     config_path: str
     verbose: bool
     input_dataset: str
+    dataset_subset: str
+    dataset_split: str
+    trust_remote_code: bool
     input_paths: List[str]
     input_format: str
     target_col: str
     output_dir: str
     overwrite: bool
     num_proc: int
+    skip_tokenize: bool
 
 
 def parse_cli() -> Tuple[ParsedArgs, List[str]]:
@@ -162,6 +229,15 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         help=(
             "Number of processes for parallel execution. "
             "If -1, then use all available CPU cores."
+        ),
+    )
+    parser.add_argument(
+        "--skip_tokenize",
+        action="store_true",
+        help=(
+            "Whether to skip tokenization. "
+            "Can be useful if you ust want to copy a dataset, "
+            "or convert it from one format to another."
         ),
     )
 
@@ -206,6 +282,7 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
             output_dir=args.output_dir,
             overwrite=args.overwrite,
             num_proc=args.num_proc,
+            skip_tokenize=args.skip_tokenize,
         ),
         unknown,
     )
@@ -249,14 +326,17 @@ def main() -> None:
     )
 
     if parsed_args.input_dataset:
-        input_dataset_path: pathlib.Path = pathlib.Path(parsed_args.input_dataset)
-        logger.info(f"Processing the dataset {input_dataset_path}...")
-        _tokenize_dataset(
+        logger.info(f"Processing the dataset {parsed_args.input_dataset}...")
+        _process_dataset(
             tokenizer,
             target_col,
-            input_dataset_path,
+            parsed_args.input_dataset,
+            parsed_args.dataset_subset,
+            parsed_args.dataset_split,
+            parsed_args.trust_remote_code,
             output_dir,
             num_proc=num_proc,
+            skip_tokenize=parsed_args.skip_tokenize,
         )
     else:
         datasets.disable_caching()
@@ -274,13 +354,14 @@ def main() -> None:
             if output_file.exists() and not parsed_args.overwrite:
                 logger.error(f"{output_file} already exists. Specify --overwrite.")
                 continue
-            _tokenize_file(
+            _process_file(
                 tokenizer,
                 target_col,
                 input_file,
                 parsed_args.input_format,
                 output_file,
                 num_proc=num_proc,
+                skip_tokenize=parsed_args.skip_tokenize,
             )
 
     end_time = time.time()
