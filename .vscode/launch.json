@@ -38,7 +38,7 @@
             "module": "oumi.judge",
             "args": [
                 "--config-name",
-                "oumi_v1_xml_local_judge",
+                "oumi/v1_xml_local",
                 "--dataset-name",
                 "yahma/alpaca-cleaned"
             ],

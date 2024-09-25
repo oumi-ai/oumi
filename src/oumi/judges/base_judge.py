@@ -3,7 +3,6 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
-import pydantic
 from tqdm.auto import tqdm
 from typing_extensions import Self
 
@@ -18,8 +17,8 @@ from oumi.inference import (
 from oumi.utils.str_utils import str_to_bool
 
 
-class BaseJudgeOutput(ABC, pydantic.BaseModel):
-    raw_judgement: str
+class BaseJudgeOutput(ABC, TemplatedMessage):
+    raw_judgement: Optional[str] = None
 
     @classmethod
     def from_model_output(cls, raw_judgement: Optional[str]) -> Optional[Self]:

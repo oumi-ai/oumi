@@ -1,3 +1,5 @@
+from typing import Union
+
 from oumi.core.configs import (
     GenerationConfig,
     JudgeConfig,
@@ -6,6 +8,7 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.judge_config import JudgeAttribute
 from oumi.core.registry import register_judge
+from oumi.judges.oumi_judge import OumiJudgeInput, OumiJudgeOutput
 from oumi.utils.io_utils import get_oumi_root_directory
 
 
@@ -28,7 +31,9 @@ def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
     attribute_names = ["helpful", "honest", "safe"]
 
     attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+            str(judges_directory / f"{attribute}.json")
+        )
         for attribute in attribute_names
     }
 
@@ -64,7 +69,9 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     attribute_names = ["helpful", "honest", "safe"]
 
     attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+            str(judges_directory / f"{attribute}.json")
+        )
         for attribute in attribute_names
     }
     config = JudgeConfig(
@@ -94,7 +101,9 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
     attribute_names = ["helpful", "honest", "safe"]
 
     attributes = {
-        attribute: JudgeAttribute.load(str(judges_directory / f"{attribute}.json"))
+        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+            str(judges_directory / f"{attribute}.json")
+        )
         for attribute in attribute_names
     }
 

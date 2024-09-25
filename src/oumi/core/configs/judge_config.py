@@ -1,17 +1,12 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Type
+from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import pydantic
 
-from oumi.core.configs import (
-    BaseConfig,
-    GenerationConfig,
-)
-from oumi.core.configs.params.model_params import (
-    ModelParams,
-)
+from oumi.core.configs import BaseConfig, GenerationConfig
+from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 
 
@@ -28,7 +23,10 @@ class JudgeAttributeValueType(str, Enum):
     """Likert scale with 5 points value type."""
 
 
-class JudgeAttribute(pydantic.BaseModel):
+T = TypeVar("T", bound=TemplatedMessage)
+
+
+class JudgeAttribute(pydantic.BaseModel, Generic[T]):
     """Configuration parameters for the judge.
 
     Example:
@@ -59,7 +57,7 @@ class JudgeAttribute(pydantic.BaseModel):
     system_prompt: str
     """The system prompt for the judge."""
 
-    examples: List[TemplatedMessage] = field(default_factory=list)
+    examples: List[T] = field(default_factory=list)
     """A list of few-shot example inputs and judgements."""
 
     value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
@@ -90,7 +88,7 @@ class JudgeAttribute(pydantic.BaseModel):
         return messages + [e.message for e in self.examples]
 
     @classmethod
-    def load(cls: Type, filename: str) -> "JudgeAttribute":
+    def load(cls: Type, filename: str) -> "JudgeAttribute[T]":
         """Loads the judge attribute config from a file."""
         path = Path(filename)
         if not path.exists():
