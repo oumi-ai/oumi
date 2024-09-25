@@ -36,6 +36,7 @@ class BaseJudgeOutput(ABC, TemplatedMessage):
         attributes = {}
         # Regex pattern to match XML-like tags and their content
         # Captures the tag name in group 1 and the content between tags in group 2
+        # For example, "<label>True</label>" would match as ("label", "True")
         pattern = r"<(\w+)>(.*?)</\1>"
         matches = re.findall(pattern, raw_judgement, re.DOTALL)
 
