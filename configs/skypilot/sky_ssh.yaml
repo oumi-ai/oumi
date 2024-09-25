@@ -25,7 +25,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-debug
-  HF_HOME: /output_dir_gcs/hf_cache/
+  HF_HOME: /output_dir_gcs/hf_cache02/
 
 setup: |
   set -e
@@ -35,7 +35,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  mkdir -p /output_dir_gcs/hf_cache/
+  mkdir -p /output_dir_gcs/hf_cache02/
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun --standalone \
@@ -49,3 +49,7 @@ run: |
       --dataset-name coco_captions
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+
+
+#  sky launch -i 10 --cloud GCP --use-spot --region us-central1 --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_ssh.yaml
