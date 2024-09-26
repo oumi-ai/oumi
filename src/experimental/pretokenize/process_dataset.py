@@ -406,7 +406,7 @@ def main() -> None:
 
     end_time = time.time()
     logger.info(
-        f"Finished tokenizing the dataset. Elapsed time: {end_time - start_time} sec!"
+        f"Finished processing the dataset. Elapsed time: {end_time - start_time} sec!"
     )
 
 
