@@ -14,7 +14,7 @@ def test_get_oumi_root_directory(filename):
     assert file_path.exists(), f"{file_path} does not exist in the root directory."
 
 
-def test_dataset_save_to_disk():
+def test_is_saved_to_disk_hf_dataset():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         ds = datasets.Dataset.from_dict(
             {"pokemon": ["bulbasaur", "squirtle"], "type": ["grass", "water"]}
