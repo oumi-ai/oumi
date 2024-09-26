@@ -102,7 +102,6 @@ class BaseInferenceEngine(ABC):
             conversation: A single conversation to save.
             output_filepath: The filepath to where the conversation should be saved.
         """
-        print("save")
         self._write_queue.put((conversation, output_filepath))
 
     def _finish_writing(self):
