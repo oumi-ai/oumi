@@ -38,7 +38,7 @@ from transformers.modeling_outputs import (
 )
 from transformers.utils import logging
 
-from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
 
 from ..cambrian_arch import CambrianMetaForCausalLM, CambrianMetaModel
 

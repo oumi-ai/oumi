@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from open_clip import create_model_from_pretrained
 from timm.models.convnext import ConvNeXt
 
-from oumi.models.cambrian.model.multimodal_encoder.base_encoder import (
+from oumi.models.experimental.cambrian.model.multimodal_encoder.base_encoder import (
     BaseVisionTower,
     ProcessorWrapper,
 )

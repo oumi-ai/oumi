@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 from transformers import StoppingCriteria
 
-from oumi.models.cambrian.constants import IMAGE_TOKEN_INDEX
+from oumi.models.experimental.cambrian.constants import IMAGE_TOKEN_INDEX
 
 
 def select_best_resolution(original_size, possible_resolutions):

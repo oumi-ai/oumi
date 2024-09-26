@@ -21,7 +21,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.generation.utils import GenerateOutput
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
-from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
 
 from ..cambrian_arch import CambrianMetaForCausalLM, CambrianMetaModel
 from .phi3 import Phi3Config, Phi3ForCausalLM, Phi3Model

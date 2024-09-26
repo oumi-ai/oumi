@@ -24,15 +24,15 @@ from transformers import (
     BitsAndBytesConfig,
 )
 
-from oumi.models.cambrian.constants import (
+from oumi.models.experimental.cambrian.constants import (
     DEFAULT_IM_END_TOKEN,
     DEFAULT_IM_START_TOKEN,
     DEFAULT_IMAGE_PATCH_TOKEN,
 )
-from oumi.models.cambrian.model.language_model.cambrian_llama import (
+from oumi.models.experimental.cambrian.model.language_model.cambrian_llama import (
     CambrianLlamaForCausalLM,
 )
-from oumi.models.cambrian.model.language_model.cambrian_mistral import (
+from oumi.models.experimental.cambrian.model.language_model.cambrian_mistral import (
     CambrianMistralForCausalLM,
 )
 from oumi.utils.logging import logger
@@ -77,7 +77,7 @@ def load_pretrained_model(
                 "There is `lora` in model name but no `model_base` is provided. If you are loading a LoRA model, please provide the `model_base` argument. Detailed instruction: https://github.com/haotian-liu/LLaVA#launch-a-model-worker-lora-weights-unmerged."
             )
         if "lora" in model_name.lower() and model_base is not None:
-            from oumi.models.cambrian.model.language_model.cambrian_llama import (
+            from oumi.models.experimental.cambrian.model.language_model.cambrian_llama import (
                 CambrianConfig,
             )
 
@@ -163,7 +163,7 @@ def load_pretrained_model(
                     **kwargs,
                 )
             elif "phi3" in model_name.lower():
-                from oumi.models.cambrian.model.language_model.cambrian_phi3 import (
+                from oumi.models.experimental.cambrian.model.language_model.cambrian_phi3 import (
                     CambrianPhi3ForCausalLM,
                 )
 

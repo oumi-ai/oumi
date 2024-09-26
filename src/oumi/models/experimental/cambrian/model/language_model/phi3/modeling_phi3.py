@@ -43,7 +43,7 @@ from transformers.utils import (
     replace_return_docstrings,
 )
 
-from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
 
 from .configuration_phi3 import Phi3Config
 

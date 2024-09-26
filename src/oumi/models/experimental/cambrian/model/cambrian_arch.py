@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
 
 from ..constants import (
     DEFAULT_IM_END_TOKEN,

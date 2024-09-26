@@ -2,9 +2,7 @@ import torch
 import torch.nn.functional as F
 from transformers import CLIPImageProcessor, CLIPVisionConfig, CLIPVisionModel
 
-from oumi.models.cambrian.utils import IS_XLA_AVAILABLE
-
-# from ezcolorlog import root_logger as logger
+from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
 from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower
