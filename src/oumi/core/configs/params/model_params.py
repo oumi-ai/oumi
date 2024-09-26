@@ -6,8 +6,8 @@ from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.distributed import is_using_accelerate
 from oumi.core.types.exceptions import HardwareException
+from oumi.utils.distributed_utils import is_using_accelerate
 
 
 @dataclass
