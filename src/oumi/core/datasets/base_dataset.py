@@ -1,3 +1,4 @@
+import gc
 import os
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
@@ -135,6 +136,9 @@ class BaseMapDataset(MapDataPipe, ABC):
                 )
         else:
             result = self._load_hf_hub_dataset(self.dataset_name_or_path)
+
+        # Reclaim memory after data loading.
+        gc.collect()
 
         logger.info(
             f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
