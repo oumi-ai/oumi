@@ -23,7 +23,7 @@ from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from oumi.builders import (
     build_tokenizer,
 )
-from oumi.core.types import TrainingConfig
+from oumi.core.configs import TrainingConfig
 from oumi.utils.logging import logger
 
 _TOKEN_IDS_COLUMN_NAME = "input_ids"  # The common convention.
@@ -106,6 +106,7 @@ def _process_file(
 
 
 def _process_dataset(
+    *,
     tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]],
     target_col: str,
     input_dataset: str,
@@ -113,6 +114,8 @@ def _process_dataset(
     dataset_split: Optional[str],
     trust_remote_code: bool,
     output_dataset_path: pathlib.Path,
+    num_shards: int,
+    max_shard_size: str,
     num_proc: int,
 ) -> None:
     if (
@@ -172,9 +175,14 @@ def _process_dataset(
             keep_in_memory=False,
         )
 
-    logger.info(f"Writing the tokenized dataset to {output_dataset_path}.")
-    dataset.save_to_disk(str(output_dataset_path), max_shard_size="1GB")
-    logger.info(f"Finished writing to {output_dataset_path}.")
+    logger.info(f"Writing the output dataset to {output_dataset_path} ...")
+    dataset.save_to_disk(
+        str(output_dataset_path),
+        num_shards=num_shards,
+        max_shard_size=max_shard_size,
+        num_proc=num_proc,
+    )
+    logger.info(f"Finished writing to {output_dataset_path} !")
 
 
 class ParsedArgs(NamedTuple):
@@ -188,6 +196,8 @@ class ParsedArgs(NamedTuple):
     input_format: str
     target_col: str
     output_dir: str
+    num_shards: int
+    max_shard_size: str
     overwrite: bool
     num_proc: int
     skip_tokenize: bool
@@ -245,6 +255,21 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         required=True,
         help="Path to the output directory.",
     )
+    parser.add_argument(
+        "--max_shard_size",
+        type=str,
+        required=True,
+        default="256MB",
+        help="Max shard size.",
+    )
+    parser.add_argument(
+        "--num_shards",
+        type=int,
+        required=True,
+        default=512,
+        min=1,
+        help="Number of shards.",
+    )
 
     # Parameters to work with HF datasets
     parser.add_argument(
@@ -296,6 +321,8 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
             input_format=args.input_format,
             target_col=args.target_col,
             output_dir=args.output_dir,
+            num_shards=args.num_shards,
+            max_shard_size=args.max_shard_size,
             overwrite=args.overwrite,
             num_proc=args.num_proc,
             skip_tokenize=args.skip_tokenize,
@@ -346,13 +373,15 @@ def main() -> None:
     if parsed_args.input_dataset:
         logger.info(f"Processing the dataset {parsed_args.input_dataset}...")
         _process_dataset(
-            tokenizer,
-            target_col,
-            parsed_args.input_dataset,
-            parsed_args.dataset_subset,
-            parsed_args.dataset_split,
-            parsed_args.trust_remote_code,
-            output_dir,
+            tokenizer=tokenizer,
+            target_col=target_col,
+            input_dataset=parsed_args.input_dataset,
+            dataset_subset=parsed_args.dataset_subset,
+            dataset_split=parsed_args.dataset_split,
+            trust_remote_code=parsed_args.trust_remote_code,
+            output_dataset_path=output_dir,
+            num_shards=parsed_args.num_shards,
+            max_shard_size=parsed_args.max_shard_size,
             num_proc=num_proc,
         )
     else:
