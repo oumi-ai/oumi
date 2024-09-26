@@ -103,7 +103,7 @@ def test_multimodal_trainer(
     collator = build_data_collator(processor)
 
     dataset = build_dataset(
-        dataset_name=dataset_name,
+        dataset_name=str(dataset_name.value),
         tokenizer=processor.tokenizer,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
