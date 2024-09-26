@@ -242,7 +242,7 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         action="store_true",
         help=(
             "Whether to skip tokenization. "
-            "Can be useful if you ust want to copy a dataset, "
+            "Can be useful if you just want to copy a dataset, "
             "or convert it from one format to another."
         ),
     )
