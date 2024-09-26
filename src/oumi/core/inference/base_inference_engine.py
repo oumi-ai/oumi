@@ -1,3 +1,5 @@
+import queue
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
@@ -11,6 +13,29 @@ from oumi.utils.logging import logger
 
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
+
+    def __init__(self):
+        """Initializes the BaseInferenceEngine.
+
+        Sets up a queue and a background thread for writing conversations to files.
+        """
+        self._write_queue = queue.Queue()
+
+        def _write_conversation_thread():
+            while True:
+                conversation, output_filepath = self._write_queue.get()
+                # Make the directory if it doesn't exist.
+                Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
+                with jsonlines.open(output_filepath, mode="a") as writer:
+                    json_obj = conversation.model_dump()
+                    writer.write(json_obj)
+                self._write_queue.task_done()
+
+        threading.Thread(target=_write_conversation_thread, daemon=True).start()
+
+    def __del__(self):
+        """Closes the write queue before being deleted."""
+        self._write_queue.join()
 
     def infer(
         self,
@@ -68,22 +93,16 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _save_conversations(
-        self, conversations: List[Conversation], output_filepath: str
+    def _save_conversation(
+        self, conversation: Conversation, output_filepath: str
     ) -> None:
-        """Saves conversations to a file in Oumi chat format.
+        """Saves single conversation to a file in Oumi chat format.
 
         Args:
-            conversations: A list of conversations to save.
-            output_filepath: The path to the file where the conversations should be
-                saved.
+            conversation: A single conversation to save
+            output_filepath: The filepath to where the conversation should be saved.
         """
-        # Make the directory if it doesn't exist.
-        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
-        with jsonlines.open(output_filepath, mode="w") as writer:
-            for conversation in conversations:
-                json_obj = conversation.model_dump()
-                writer.write(json_obj)
+        self._write_queue.put((conversation, output_filepath))
 
     @abstractmethod
     def infer_online(

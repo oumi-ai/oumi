@@ -67,6 +67,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
+        super().__init__()
         if not Llama:
             raise RuntimeError(
                 "llama-cpp-python is not installed. "
@@ -153,7 +154,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
         for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 # add the conversation to keep input and output the same length.
                 output_conversations.append(conversation)
                 continue
@@ -175,13 +176,16 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 new_message,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            if generation_config.output_filepath:
+                self._save_conversation(
+                    new_conversation, generation_config.output_filepath
+                )
+            output_conversations.append(new_conversation)
         return output_conversations
 
     def infer_online(
@@ -198,8 +202,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
 
     def infer_from_file(
@@ -221,6 +223,4 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations

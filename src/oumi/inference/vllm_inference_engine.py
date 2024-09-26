@@ -36,6 +36,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             quantization: The quantization method to use for inference.
             enable_prefix_caching: Whether to enable prefix caching.
         """
+        super().__init__()
         if not vllm:
             raise RuntimeError(
                 "vLLM is not installed. "
@@ -95,7 +96,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         )
         for conversation in input:
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 continue
             vllm_input = self._convert_conversation_to_vllm_input(conversation)
             chat_response = self._llm.chat(vllm_input, sampling_params=sampling_params)
@@ -108,13 +109,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 *new_messages,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            if generation_config.output_filepath:
+                self._save_conversation(
+                    new_conversation, generation_config.output_filepath
+                )
+            output_conversations.append(new_conversation)
         return output_conversations
 
     def infer_online(
@@ -131,8 +135,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
 
     def infer_from_file(
@@ -154,6 +156,4 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations

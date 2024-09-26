@@ -28,6 +28,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             model_params: The model parameters to use for inference.
         """
+        super().__init__()
         self._model = model_params.model_name
 
     def _get_content_for_message(self, message: Message) -> Dict[str, Any]:
@@ -184,6 +185,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             response_json, conversation
                         )
                         await asyncio.sleep(remote_params.politeness_policy)
+                        if generation_config.output_filepath:
+                            self._save_conversation(
+                                result,
+                                generation_config.output_filepath,
+                            )
                         return result
                     else:
                         retries += 1
@@ -247,8 +253,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         conversations = asyncio.run(
             self._infer(input, generation_config, generation_config.remote_params)
         )
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
 
     def infer_from_file(
@@ -274,6 +278,4 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         conversations = asyncio.run(
             self._infer(input, generation_config, generation_config.remote_params)
         )
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
         return conversations
