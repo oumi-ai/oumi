@@ -1,3 +1,5 @@
+# Used in the following published models:
+# nyu-visionx/cambrian-phi3-3b
 import torch
 import torch.nn.functional as F
 from transformers import CLIPImageProcessor, CLIPVisionConfig, CLIPVisionModel

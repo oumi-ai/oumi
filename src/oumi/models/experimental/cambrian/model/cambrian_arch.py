@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from oumi.models.experimental.cambrian.utils import IS_XLA_AVAILABLE
+from oumi.utils.logging import logger
 
 from ..constants import (
     DEFAULT_IM_END_TOKEN,
@@ -36,6 +37,8 @@ from .vision_sampler import VisionTokenSampler
 class CambrianMetaModel:
     def __init__(self, config):
         super().__init__(config)
+
+        logger.info(f"Initializing Cambrian Meta model: {type(self)}...")
 
         if hasattr(config, "mm_vision_tower_aux_list"):
             projector_type = getattr(config, "mm_projector_type", "linear")

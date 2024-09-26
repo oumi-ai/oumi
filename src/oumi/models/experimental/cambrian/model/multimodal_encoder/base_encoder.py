@@ -3,7 +3,6 @@ from abc import abstractmethod
 import torch
 import torch.nn as nn
 
-# from ezcolorlog import root_logger as logger
 from oumi.utils.logging import logger
 
 
@@ -37,6 +36,8 @@ class ProcessorWrapper:
 class BaseVisionTower(nn.Module):
     def __init__(self, vision_tower_name, args, delay_load=False):
         super().__init__()
+
+        logger.info(f"Initializing Cambrian MM Vision Tower: {type(self)}...")
 
         self.is_loaded = False
         self.args = args

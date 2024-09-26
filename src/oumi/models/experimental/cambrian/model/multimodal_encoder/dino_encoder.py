@@ -1,8 +1,10 @@
+# Used in the following published models:
+# nyu-visionx/cambrian-phi3-3b
+
 import torch
 import torch.nn.functional as F
 from transformers import AutoImageProcessor, Dinov2Config, Dinov2Model
 
-# from ezcolorlog import root_logger as logger
 from oumi.utils.logging import logger
 
 from .base_encoder import BaseVisionTower

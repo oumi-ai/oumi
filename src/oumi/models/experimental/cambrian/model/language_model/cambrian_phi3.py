@@ -233,3 +233,6 @@ class CambrianPhi3ForCausalLM(Phi3ForCausalLM, CambrianMetaForCausalLM):
 
 AutoConfig.register("cambrian_phi3", CambrianConfig)
 AutoModelForCausalLM.register(CambrianConfig, CambrianPhi3ForCausalLM)
+
+# Used in the following published models:
+# nyu-visionx/cambrian-phi3-3b
