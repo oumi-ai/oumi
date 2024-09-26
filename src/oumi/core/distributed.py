@@ -402,6 +402,7 @@ def estimate_dataloader_num_workers(
 # Accelerate
 #
 
+
 def is_using_accelerate() -> bool:
     """Checks if the training is using Accelerate.
 
@@ -413,6 +414,7 @@ def is_using_accelerate() -> bool:
     """
     env_var = os.environ.get("ACCELERATE_DYNAMO_MODE", "false")
     return str_to_bool(env_var)
+
 
 def is_using_accelerate_fsdp() -> bool:
     """Checks if the training is using Accelerate's FSDP implementation.

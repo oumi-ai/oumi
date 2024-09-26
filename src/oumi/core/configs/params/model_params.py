@@ -194,4 +194,5 @@ class ModelParams(BaseParams):
         if self.shard_for_eval and is_using_accelerate():
             raise ValueError(
                 "Sharded-model evaluations with LM Harness should be invoked with "
-                "`python`, not `accelerate launch`.")
+                "`python`, not `accelerate launch`."
+            )
