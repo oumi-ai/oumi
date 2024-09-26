@@ -144,7 +144,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"] # Ignore docstring checks in tests
-"src/oumi/models/cambrian/**" = [
+"src/oumi/models/experimental/cambrian/**" = [
     "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
     "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated
     "F841",   # Ignore pyflakes: Local variable is assigned but never used
@@ -167,7 +167,7 @@ known-first-party = ["oumi"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
-exclude = ["src/oumi/experimental/**", "src/oumi/models/cambrian/**"]
+exclude = ["src/oumi/experimental/**", "src/oumi/models/experimental/cambrian/**"]
 typeCheckingMode = "basic"
 pythonVersion = "3.8"
 pythonPlatform = "All"                                                # Include linux, mac, windows

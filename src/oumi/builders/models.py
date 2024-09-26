@@ -10,10 +10,10 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.models.cambrian.mm_utils import (
+from oumi.models.experimental.cambrian.mm_utils import (
     get_model_name_from_path as get_cambrian_model_name_from_path,
 )
-from oumi.models.cambrian.model.builder import (
+from oumi.models.experimental.cambrian.model.builder import (
     load_pretrained_model as load_cambrian_pretrained_model,
 )
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
