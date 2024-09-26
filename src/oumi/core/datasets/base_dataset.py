@@ -126,15 +126,21 @@ class BaseMapDataset(MapDataPipe, ABC):
         """
         if os.path.exists(self.dataset_name_or_path):
             if self.dataset_name_or_path.endswith(".jsonl"):
-                return self._load_jsonl_dataset(self.dataset_name_or_path)
+                result = self._load_jsonl_dataset(self.dataset_name_or_path)
             elif self.dataset_name_or_path.endswith(".parquet"):
-                return self._load_parquet_dataset(self.dataset_name_or_path)
+                result = self._load_parquet_dataset(self.dataset_name_or_path)
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
                 )
+        else:
+            result = self._load_hf_hub_dataset(self.dataset_name_or_path)
 
-        return self._load_hf_hub_dataset(self.dataset_name_or_path)
+        logger.info(
+            f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
+            f"{result.dtypes}"
+        )
+        return result
 
     def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
         """Loads the dataset from the specified Hugging Face Hub source.
