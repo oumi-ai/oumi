@@ -7,8 +7,9 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from transformers import BitsAndBytesConfig
 
 from oumi.core.configs import ModelParams, PeftParams
-from oumi.core.distributed import get_device_rank_info, is_using_accelerate_fsdp
+from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout

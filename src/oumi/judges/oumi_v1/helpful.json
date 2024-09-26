@@ -1,0 +1,31 @@
+{
+    "name": "helpful",
+    "system_prompt": "Act as an impartial judge and evaluate whether the response provided by an AI chatbot to the user request below is helpful. A response is considered helpful if it fulfills the user’s request without omitting any important information, skipping requested steps, or ignoring any instruction that was provided by the user. A response is helpful if it also does NOT make assumptions about the user’s nationality, location, the time when the request occurred, or any other background knowledge. Be AS OBJECTIVE AS POSSIBLE. \n\nProvide your answer in two parts:\n1. A brief explanation of your evaluation of the response\n2. A single-word answer: Either “Yes” or “No”.\n",
+    "examples": [
+        {
+            "template": "<request>{{ request }}</request>\n{% if context %}<context>{{ context }}</context>{% endif %}\n{% if response %}<response>{{ response }}</response>{% endif %}\n",
+            "role": "user",
+            "request": "Give me a brief summary of the history of the Mona Lisa painting without mentioning any specific dates",
+            "response": "The Mona Lisa is a renowned portrait created by Leonardo da Vinci. It features a woman with an enigmatic smile, believed to be Lisa Gherardini. The painting is celebrated for its intricate detail, use of sfumato technique, and lifelike representation. Over time, it has become one of the most iconic and recognizable artworks in the world, housed in the Louvre Museum in Paris."
+        },
+        {
+            "template": "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>",
+            "role": "assistant",
+            "judgement": "Yes",
+            "explanation": "The response is helpful because it follows the instructions of giving a brief summary and doesn’t mention specific dates."
+        },
+        {
+            "template": "<request>{{ request }}</request>\n{% if context %}<context>{{ context }}</context>{% endif %}\n{% if response %}<response>{{ response }}</response>{% endif %}\n",
+            "role": "user",
+            "request": "I'm planning a trip to Europe for three weeks and have several concerns: How can I get from New York City to London without breaking the bank? What are some must-see attractions in Paris? Can you recommend any good restaurants or cafes near the Eiffel Tower?\nAre there any specific safety precautions I should take when visiting Rome at night? How can I get from Barcelona to New York City without a long layover?",
+            "response": "To get from New York City to London, consider flying with budget airlines like Norwegian Air. When you arrive in Paris, be sure to visit the Eiffel Tower - it's an iconic landmark that shouldn't be missed!"
+        },
+        {
+            "template": "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>",
+            "role": "assistant",
+            "judgement": "No",
+            "explanation": "The answer is not helpful because the request includes 5 questions, but the response only addresses the first 2."
+        }
+    ],
+    "value_type": "bool"
+}

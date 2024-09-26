@@ -65,6 +65,16 @@ def test_sky_client_lambda_name():
     assert client.SupportedClouds.LAMBDA.value == "lambda"
 
 
+def test_sky_client_aws_name():
+    client = SkyClient()
+    assert client.SupportedClouds.AWS.value == "aws"
+
+
+def test_sky_client_azure_name():
+    client = SkyClient()
+    assert client.SupportedClouds.AZURE.value == "azure"
+
+
 def test_sky_client_launch(mock_sky_data_storage):
     with patch("sky.launch") as mock_launch:
         job = _get_default_job("gcp")

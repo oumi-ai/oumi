@@ -9,6 +9,7 @@ class RegistryType(Enum):
     METRICS_FUNCTION = auto()
     MODEL_CONFIG = auto()
     MODEL = auto()
+    JUDGE_CONFIG = auto()
 
 
 RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
@@ -72,6 +73,10 @@ class Registry:
     def get_metrics_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
+
+    def get_judge_config(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered judge config."""
+        return self.get(name, RegistryType.JUDGE_CONFIG)
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -177,6 +182,34 @@ def register_cloud_builder(registry_name: str) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target builder."""
         REGISTRY.register(name=registry_name, type=RegistryType.CLOUD, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_judge(registry_name: str) -> Callable:
+    """Returns a function to register a judge configuration in the Oumi global registry.
+
+    This decorator is used to register judge configuration in the global registry.
+    A judge configuration function typically returns a JudgeConfig object that defines
+    the parameters and attributes for a specific judge.
+
+    Args:
+        registry_name (str): The name under which the judge configuration should be
+            registered.
+
+    Returns:
+        Callable: A decorator function that registers the target judge configuration.
+
+    Example:
+        @register_judge("my_custom_judge")
+        def my_judge_config() -> JudgeConfig:
+            return JudgeConfig(...)
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target builder."""
+        REGISTRY.register(name=registry_name, type=RegistryType.JUDGE_CONFIG, value=obj)
         return obj
 
     return decorator_register
