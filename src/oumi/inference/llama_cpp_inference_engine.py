@@ -76,7 +76,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         # `model_max_length` is required by llama-cpp, but optional in our config
         # Use a default value if not set.
         if model_params.model_max_length is None:
-            model_max_length = 4049
+            model_max_length = 4096
             logger.warning(
                 "model_max_length is not set. "
                 f"Using default value of {model_max_length}."

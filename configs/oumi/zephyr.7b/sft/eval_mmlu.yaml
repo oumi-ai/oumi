@@ -7,7 +7,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 2048
   chat_template: "zephyr"
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
 
 data:
   datasets:

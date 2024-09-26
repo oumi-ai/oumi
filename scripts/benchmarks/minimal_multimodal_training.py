@@ -11,23 +11,31 @@ For multi-GPU training, use torchrun:
 
 Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test_fsdp
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name flickr30k --test_fsdp
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
 from enum import Enum
+from typing import Optional
 
-import numpy as np
 import torch
 import typer
-from transformers import AutoProcessor, DataCollatorWithPadding
+from transformers import AutoProcessor
 
-from oumi.builders.models import build_chat_template, build_model
-from oumi.core.configs import FSDPParams, ModelParams, TrainingParams
+from oumi.builders import (
+    build_chat_template,
+    build_data_collator,
+    build_dataset,
+    build_model,
+)
+from oumi.core.configs import (
+    FSDPParams,
+    ModelParams,
+    TrainingParams,
+)
 from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
 from oumi.core.trainers.oumi_trainer import Trainer
-from oumi.datasets import COCOCaptionsDataset, Flickr30kDataset
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -44,78 +52,11 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
 
 
-def get_dataset(dataset_name: DatasetName, processor, limit: int = 100):
-    """Get a dataset for multi-modal training."""
-    if dataset_name == DatasetName.COCO:
-        return COCOCaptionsDataset(
-            split="train", processor=processor, limit=limit, trust_remote_code=True
-        )
-    elif dataset_name == DatasetName.FLICKR:
-        return Flickr30kDataset(
-            split="test", processor=processor, limit=limit, trust_remote_code=True
-        )
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-
-class MultiModalCollator:
-    def __init__(self, processor):
-        """Custom collator for multi-modal training."""
-        self.processor = processor
-        self.default_collator = DataCollatorWithPadding(
-            tokenizer=self.processor.tokenizer,
-            padding=True,
-            max_length=1024,
-        )
-
-    def __call__(self, batch):
-        """Custom collator for multi-modal training.
-
-        Args:
-            batch: List of batch items.
-
-        Returns:
-            Dict[str, torch.Tensor]: Processed batch.
-        """
-        images = [item["pixel_values"] for item in batch]
-        text_inputs = [item["input_ids"] for item in batch]
-
-        # collate batch images
-        pixel_values = self.collate_images(images)
-
-        # collate batch prompts
-        text_inputs = self.default_collator({"input_ids": text_inputs})  # type: ignore
-
-        # Combine all inputs
-        combined_batch = {
-            "pixel_values": pixel_values,
-            "input_ids": text_inputs["input_ids"],
-            "attention_mask": text_inputs.get("attention_mask"),
-        }
-
-        # Add labels if present
-        if "labels" in batch[0]:
-            combined_batch["labels"] = text_inputs["input_ids"]
-
-        return combined_batch
-
-    def collate_images(self, images) -> torch.Tensor:
-        """Collate images for multi-modal training.
-
-        Args:
-            images: List of images to collate.
-
-        Returns:
-            torch.Tensor: Batch of processed images.
-        """
-        if isinstance(images[0], torch.Tensor):
-            return torch.stack(images)
-        elif isinstance(images[0], np.ndarray):
-            return torch.stack([torch.from_numpy(img) for img in images])
-        elif isinstance(images[0], list):
-            return torch.tensor(images)
-        else:
-            raise ValueError(f"Unsupported image type: {type(images[0])}")
+def _get_default_dataset_split(dataset_name: DatasetName) -> str:
+    if dataset_name == DatasetName.FLICKR:
+        # The dataset only has "test" split.
+        return "test"
+    return "train"
 
 
 def test_multimodal_trainer(
@@ -124,6 +65,7 @@ def test_multimodal_trainer(
     batch_size: int = 2,
     max_steps: int = 10,
     logging_steps: int = 1,
+    split: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -134,6 +76,9 @@ def test_multimodal_trainer(
         init_distributed()
     else:
         print("Not initializing distributed process group")
+
+    if not split:
+        split = _get_default_dataset_split(dataset_name)
 
     #
     # Init model, processor, and dataset
@@ -153,8 +98,16 @@ def test_multimodal_trainer(
     processor.chat_template = chat_template
     processor.tokenizer.chat_template = chat_template
 
-    collator = MultiModalCollator(processor)
-    dataset = get_dataset(dataset_name, processor)
+    collator = build_data_collator(processor)
+
+    dataset = build_dataset(
+        dataset_name=dataset_name,
+        tokenizer=processor.tokenizer,
+        split=split,
+        dataset_kwargs=dict(processor=processor, limit=100),
+        trust_remote_code=True,
+        experimental_use_torch_datapipes=False,
+    )
 
     #
     # Set up training parameters
@@ -179,7 +132,7 @@ def test_multimodal_trainer(
     )
 
     # Initialize trainer with custom collator
-    collator = MultiModalCollator(processor)
+    collator = build_data_collator(collator_name="vision_language", processor=processor)
     trainer = Trainer(
         model=model,
         tokenizer=processor.tokenizer,

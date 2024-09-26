@@ -7,7 +7,7 @@ evaluation:
     # model_max_length: 128
     model_max_length: 1024
     torch_dtype_str: "bfloat16"
-    attn_implementation: "flash_attention_2"
+    attn_implementation: "sdpa"
     compile: True
     trust_remote_code: True
 

@@ -37,7 +37,7 @@ dependencies = [
     "numpy",
     "openai",
     "pexpect",
-    "skypilot[gcp,lambda,runpod]",
+    "skypilot[aws,azure,gcp,lambda,runpod]",
     "torch",
     "torchvision",
     "tqdm",
@@ -98,7 +98,6 @@ cloud = [
     "google-cloud-storage>=2.17.0",
 ]
 gpu = [
-    "flash-attn",
     "liger-kernel",
     "vllm",
 ] # dependencies that require a GPU to install

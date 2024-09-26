@@ -24,7 +24,10 @@ class SkyCloud(BaseCloud):
         return [
             SkyCluster(cluster["name"], self._client)
             for cluster in self._client.status()
-            if isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
+            if (
+                isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
+                and cluster["status"] == sky.ClusterStatus.UP
+            )
         ]
 
     def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
@@ -51,6 +54,10 @@ class SkyCloud(BaseCloud):
             return self._get_clusters_by_class(sky.clouds.RunPod)
         elif self._cloud_name == SkyClient.SupportedClouds.LAMBDA.value:
             return self._get_clusters_by_class(sky.clouds.Lambda)
+        elif self._cloud_name == SkyClient.SupportedClouds.AWS.value:
+            return self._get_clusters_by_class(sky.clouds.AWS)
+        elif self._cloud_name == SkyClient.SupportedClouds.AZURE.value:
+            return self._get_clusters_by_class(sky.clouds.Azure)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
 
 
@@ -70,3 +77,15 @@ def gcp_cloud_builder() -> SkyCloud:
 def lambda_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Lambda."""
     return SkyCloud(SkyClient.SupportedClouds.LAMBDA.value, SkyClient())
+
+
+@register_cloud_builder("aws")
+def aws_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for AWS."""
+    return SkyCloud(SkyClient.SupportedClouds.AWS.value, SkyClient())
+
+
+@register_cloud_builder("azure")
+def azure_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for Azure."""
+    return SkyCloud(SkyClient.SupportedClouds.AZURE.value, SkyClient())

@@ -35,9 +35,9 @@ fi
 # Command setup for head or worker node
 RAY_START_CMD=(ray start -v --block)
 if [ "${POLARIS_NODE_RANK}" == "0" ]; then
-    RAY_START_CMD+=( --head --node-ip-address=${OUMI_MASTER_ADDR} --port=6379 --include-dashboard=false)
+    RAY_START_CMD+=(--head --node-ip-address=${OUMI_MASTER_ADDR} --port=6379 --include-dashboard=false)
 else
-    RAY_START_CMD+=( --node-ip-address=${HOSTNAME} --address=${OUMI_MASTER_ADDR}:6379)
+    RAY_START_CMD+=(--node-ip-address=${HOSTNAME} --address=${OUMI_MASTER_ADDR}:6379)
 fi
 
 ORIGINAL_TMPDIR="${TMPDIR}"
@@ -53,7 +53,6 @@ export NCCL_DEBUG_FILE="$TMPDIR/nccl_debug.%h.%p"
 # Create a dir to copy temp files into.
 REMOTE_TMPDIR="${SHARED_DIR}/vllm${TMPDIR}"
 mkdir -p $REMOTE_TMPDIR
-
 
 # Ray is multi-threaded and OpenBLAS threads conflict with this, so recommended
 # guidance is to set to 1 thread for these 3 variables.
@@ -84,7 +83,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
 
-    TENSOR_PARALLEL=$(( POLARIS_NUM_GPUS_PER_NODE * OUMI_NUM_NODES ))
+    TENSOR_PARALLEL=$((POLARIS_NUM_GPUS_PER_NODE * OUMI_NUM_NODES))
     LORA_MODULES=
     VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
     # For inference on a full fine-tuned model, uncomment the following line.
@@ -105,14 +104,12 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
 
     echo "${LOG_PREFIX} Waiting for vLLM API server to start..."
     start=$EPOCHSECONDS
-    while ! `cat "${SERVER_LOG_PATH}" | grep -q 'Uvicorn running on'`
-    do
+    while ! $(cat "${SERVER_LOG_PATH}" | grep -q 'Uvicorn running on'); do
         sleep 30s
         # Exit after 30 minutes or on error.
-        if (( EPOCHSECONDS-start > 1800 )); then exit 1; fi
+        if ((EPOCHSECONDS - start > 1800)); then exit 1; fi
         # TODO: OPE-356 - Have a more specific error check condition.
-        while `cat "${SERVER_LOG_PATH}" | grep -q 'error'`
-        do
+        while $(cat "${SERVER_LOG_PATH}" | grep -q 'error'); do
             cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
             exit 1
         done
@@ -123,12 +120,10 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     python3 "./scripts/polaris/jobs/python/vllm_parallel_inference.py" \
         2>&1 | tee "${INFERENCE_LOG_PATH}" &
 
-    while ! `cat "${INFERENCE_LOG_PATH}" | grep -q 'OUMI INFERENCE JOB DONE'`
-    do
+    while ! $(cat "${INFERENCE_LOG_PATH}" | grep -q 'OUMI INFERENCE JOB DONE'); do
         sleep 30s
         # TODO: OPE-356 - Have a more specific error check condition.
-        while `cat "${INFERENCE_LOG_PATH}" | grep -q 'error'`
-        do
+        while $(cat "${INFERENCE_LOG_PATH}" | grep -q 'error'); do
             cp -a "$TMPDIR/." "$REMOTE_TMPDIR/"
             exit 1
         done

@@ -32,6 +32,19 @@
             "justMyCode": true
         },
         {
+            "name": "Oumi - Judge",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi.judge",
+            "args": [
+                "--config-name",
+                "oumi/v1_xml_local",
+                "--dataset-name",
+                "yahma/alpaca-cleaned"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Oumi - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
