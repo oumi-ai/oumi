@@ -8,6 +8,7 @@ from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
+from oumi.utils.io_utils import is_saved_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 
@@ -129,6 +130,8 @@ class BaseMapDataset(MapDataPipe, ABC):
                 result = self._load_jsonl_dataset(self.dataset_name_or_path)
             elif self.dataset_name_or_path.endswith(".parquet"):
                 result = self._load_parquet_dataset(self.dataset_name_or_path)
+            elif is_saved_to_disk_hf_dataset(self.dataset_name_or_path):
+                result = self._load_dataset_from_disk(self.dataset_name_or_path)
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
@@ -198,6 +201,10 @@ class BaseMapDataset(MapDataPipe, ABC):
 
     def _load_parquet_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_dataset_from_disk(self, path: str) -> pd.DataFrame:
+        dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
+        return cast(pd.DataFrame, dataset.to_pandas())
 
 
 class BaseLMSftDataset(BaseMapDataset, ABC):
