@@ -210,7 +210,6 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         "-c",
         "--config",
         default=None,
-        required=True,
         help="Path to the configuration file",
     )
     parser.add_argument(
@@ -221,7 +220,6 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
     parser.add_argument(
         "--target_col",
         type=str,
-        required=True,
         default="",
         help="Target text column to tokenize.",
     )
@@ -258,14 +256,12 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
     parser.add_argument(
         "--max_shard_size",
         type=str,
-        required=True,
         default="256MB",
         help="Max shard size.",
     )
     parser.add_argument(
         "--num_shards",
         type=int,
-        required=True,
         default=512,
         help="Number of shards.",
     )
