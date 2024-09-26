@@ -184,12 +184,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         result = self._convert_api_output_to_conversation(
                             response_json, conversation
                         )
-                        await asyncio.sleep(remote_params.politeness_policy)
                         if generation_config.output_filepath:
                             self._save_conversation(
                                 result,
                                 generation_config.output_filepath,
                             )
+                        await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
                         retries += 1
@@ -220,7 +220,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            return await asyncio.gather(
+            conversations = await asyncio.gather(
                 *[
                     self._query_api(
                         conversation,
@@ -232,6 +232,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     for conversation in input
                 ]
             )
+            self._finish_writing()
+            return conversations
 
     def infer_online(
         self,

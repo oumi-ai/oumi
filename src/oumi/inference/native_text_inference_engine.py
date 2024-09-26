@@ -125,6 +125,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     )
                 output_conversations.append(new_conversation)
 
+        self._finish_writing()
         return output_conversations
 
     def infer_online(

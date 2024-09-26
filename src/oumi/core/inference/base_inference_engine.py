@@ -99,10 +99,15 @@ class BaseInferenceEngine(ABC):
         """Saves single conversation to a file in Oumi chat format.
 
         Args:
-            conversation: A single conversation to save
+            conversation: A single conversation to save.
             output_filepath: The filepath to where the conversation should be saved.
         """
+        print("save")
         self._write_queue.put((conversation, output_filepath))
+
+    def _finish_writing(self):
+        """Blocks until all conversations are written to file."""
+        self._write_queue.join()
 
     @abstractmethod
     def infer_online(

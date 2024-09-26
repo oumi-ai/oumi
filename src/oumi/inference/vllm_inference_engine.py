@@ -119,6 +119,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     new_conversation, generation_config.output_filepath
                 )
             output_conversations.append(new_conversation)
+        self._finish_writing()
         return output_conversations
 
     def infer_online(
