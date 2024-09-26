@@ -36,6 +36,8 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
     - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
+- Judge:
+    - :class:`~oumi.core.configs.judge_config.JudgeConfig`
 
 For more information on using these configurations, see the :ref:`configuration_guide`.
 
@@ -64,6 +66,7 @@ from oumi.core.configs.evaluation_config import (
 from oumi.core.configs.generation_config import GenerationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
+from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -99,6 +102,7 @@ __all__ = [
     "InferenceConfig",
     "JobConfig",
     "JobResources",
+    "JudgeConfig",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",
