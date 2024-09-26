@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import pydantic
+from jinja2 import Template
 
 
 class Role(str, Enum):
@@ -180,3 +181,33 @@ class Conversation(pydantic.BaseModel):
         else:
             messages = self.messages
         return messages
+
+
+class TemplatedMessage(pydantic.BaseModel):
+    """Represents a templated message.
+
+    This class is used to create messages with dynamic content using a template.
+    The template can be rendered with variables to produce the final message content.
+    """
+
+    template: str
+    """The template string used to generate the message content."""
+
+    role: Role
+    """The role of the message sender (e.g., USER, ASSISTANT, SYSTEM)."""
+
+    @property
+    def content(self) -> str:
+        """Renders the content of the message."""
+        template = Template(self.template)
+
+        fields = self.model_dump()
+        fields.pop("template")  # remove the template from the fields
+
+        return template.render(**fields).strip()
+
+    @property
+    def message(self) -> Message:
+        """Returns the message in oumi format."""
+        content = str(self.content)
+        return Message(content=content, role=self.role)
