@@ -100,7 +100,7 @@ def _process_file(
             keep_in_memory=True,
         )
 
-    logger.info(f"Writing the tokenized data to {output_parquet_file}.")
+    logger.info(f"Writing the processsed data to {output_parquet_file}.")
     dataset.to_parquet(output_parquet_file)
     logger.info(f"Finished writing to {output_parquet_file}.")
 
