@@ -37,6 +37,12 @@ run: |
 
   mkdir -p /output_dir_gcs/hf_cache02/
 
+  TRAIN_DATASETS="data.train.datasets=
+  - dataset_name: \"/output_dir_gcs/datasets/coco_captions/train\"
+    subset: \"default\"
+    split: \"train\"
+  "
+
   set -x  # Print "torchrun" command with expanded variables
   torchrun --standalone \
       --nnodes=${OUMI_NUM_NODES} \
@@ -46,7 +52,7 @@ run: |
       --master-port=8007 \
       scripts/benchmarks/minimal_multimodal_training.py \
       --model-name llava-hf/llava-1.5-7b-hf \
-      --dataset-name coco_captions
+      --dataset-name /output_dir_gcs/datasets/coco_captions/train
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
 
