@@ -178,8 +178,8 @@ def _process_dataset(
     logger.info(f"Writing the output dataset to {output_dataset_path} ...")
     dataset.save_to_disk(
         str(output_dataset_path),
-        num_shards=num_shards,
-        max_shard_size=max_shard_size,
+        num_shards=(num_shards if not max_shard_size and num_shards > 0 else None),
+        max_shard_size=(max_shard_size or None),
         num_proc=num_proc,
     )
     logger.info(f"Finished writing to {output_dataset_path} !")
@@ -256,8 +256,8 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
     parser.add_argument(
         "--max_shard_size",
         type=str,
-        default="256MB",
-        help="Max shard size.",
+        default="",
+        help="Max shard size e.g., 256MB",
     )
     parser.add_argument(
         "--num_shards",
