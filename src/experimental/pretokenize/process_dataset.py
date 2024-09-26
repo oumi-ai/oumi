@@ -267,7 +267,6 @@ def parse_cli() -> Tuple[ParsedArgs, List[str]]:
         type=int,
         required=True,
         default=512,
-        min=1,
         help="Number of shards.",
     )
 

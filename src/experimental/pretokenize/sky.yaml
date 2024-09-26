@@ -29,7 +29,7 @@ envs:
 
 setup: |
   set -e
-  pip install -e . 'oumi[train]'
+  pip install '.[train]'
 
 run: |
   set -e  # Exit if any command failed.
