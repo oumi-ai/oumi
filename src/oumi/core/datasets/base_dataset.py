@@ -126,15 +126,21 @@ class BaseMapDataset(MapDataPipe, ABC):
         """
         if os.path.exists(self.dataset_name_or_path):
             if self.dataset_name_or_path.endswith(".jsonl"):
-                return self._load_jsonl_dataset(self.dataset_name_or_path)
+                result = self._load_jsonl_dataset(self.dataset_name_or_path)
             elif self.dataset_name_or_path.endswith(".parquet"):
-                return self._load_parquet_dataset(self.dataset_name_or_path)
+                result = self._load_parquet_dataset(self.dataset_name_or_path)
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
                 )
+        else:
+            result = self._load_hf_hub_dataset(self.dataset_name_or_path)
 
-        return self._load_hf_hub_dataset(self.dataset_name_or_path)
+        logger.info(
+            f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
+            f"{result.dtypes}"
+        )
+        return result
 
     def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
         """Loads the dataset from the specified Hugging Face Hub source.
@@ -157,18 +163,30 @@ class BaseMapDataset(MapDataPipe, ABC):
         # Grab a single dataset split
         if isinstance(splits_or_dataset, datasets.Dataset):
             dataset = splits_or_dataset
-
         elif self.split is not None:
             dataset = splits_or_dataset[self.split]
-
         elif len(splits_or_dataset) == 1:
             dataset = splits_or_dataset.values().__iter__().__next__()
-
         else:
             raise ValueError(
                 "Multiple splits found in the dataset. Please specify a single split. "
                 f"Available splits: {list(splits_or_dataset.keys())}"
             )
+
+        logger.info(
+            "\n".join(
+                [
+                    "Dataset Info:",
+                    f"\tSplit: {dataset.split}",
+                    f"\tVersion: {dataset.version}",
+                    f"\tDataset size: {dataset.dataset_size}",
+                    f"\tDownload size: {dataset.download_size}",
+                    f"\tSize: {dataset.size_in_bytes} bytes",
+                    f"\tRows: {len(dataset)}",
+                    f"\tColumns: {dataset.column_names}",
+                ]
+            )
+        )
 
         return cast(pd.DataFrame, dataset.to_pandas())
 
