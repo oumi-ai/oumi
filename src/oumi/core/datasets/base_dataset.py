@@ -157,18 +157,30 @@ class BaseMapDataset(MapDataPipe, ABC):
         # Grab a single dataset split
         if isinstance(splits_or_dataset, datasets.Dataset):
             dataset = splits_or_dataset
-
         elif self.split is not None:
             dataset = splits_or_dataset[self.split]
-
         elif len(splits_or_dataset) == 1:
             dataset = splits_or_dataset.values().__iter__().__next__()
-
         else:
             raise ValueError(
                 "Multiple splits found in the dataset. Please specify a single split. "
                 f"Available splits: {list(splits_or_dataset.keys())}"
             )
+
+        logger.info(
+            "\n".join(
+                [
+                    "Dataset Info:",
+                    f"\tSplit: {dataset.split}",
+                    f"\tVersion: {dataset.version}",
+                    f"\tDataset size: {dataset.dataset_size}",
+                    f"\tDownload size: {dataset.download_size}",
+                    f"\tSize: {dataset.size_in_bytes} bytes",
+                    f"\tRows: {len(dataset)}",
+                    f"\tColumns: {dataset.column_names}",
+                ]
+            )
+        )
 
         return cast(pd.DataFrame, dataset.to_pandas())
 
