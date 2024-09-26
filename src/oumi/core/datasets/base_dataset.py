@@ -192,7 +192,9 @@ class BaseMapDataset(MapDataPipe, ABC):
             )
         )
 
-        return cast(pd.DataFrame, dataset.to_pandas())
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_json(path, lines=True)
