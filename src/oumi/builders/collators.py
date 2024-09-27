@@ -49,8 +49,17 @@ class VisionLanguageCollator:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        images = [item[_PIXEL_VALUES_KEY] for item in batch]
-        text_inputs = [item[_INPUT_IDS_KEY] for item in batch]
+        images = []
+        text_inputs = []
+        for item in batch:
+            for required_key in (_PIXEL_VALUES_KEY, _INPUT_IDS_KEY):
+                if required_key not in item:
+                    raise ValueError(
+                        f"Item doesn't contain '{required_key}' key. "
+                        f"Available keys: {item.keys()}"
+                    )
+            images.append(item[_PIXEL_VALUES_KEY])
+            text_inputs.append(item[_INPUT_IDS_KEY])
 
         # collate batch images
         pixel_values = self.collate_images(images)
