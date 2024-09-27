@@ -16,13 +16,13 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
             if required_key not in example:
                 raise ValueError(
                     f"Example doesn't contain '{required_key}' key. "
-                    f"Available keys: {example.keys()}"
+                    f"Available keys: {example.keys()}."
                 )
 
         if "raw" not in example["sentences"]:
             raise ValueError(
-                f"Example doesn't contain 'sentences.raw' key. "
-                f"Available keys under 'sentences.': {example['sentences'].keys()}"
+                f"Training example doesn't contain 'sentences.raw' key. "
+                f"Available keys under 'sentences.': {example['sentences'].keys()}."
             )
         output_text = example["sentences"]["raw"]
 
@@ -46,8 +46,9 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
             )
         else:
             raise ValueError(
-                f"Example contains none of required keys: 'image.bytes', 'image.path'. "
-                f"Available keys under 'image.': {example['image'].keys()}"
+                "Training example contains none of required keys: "
+                "'image.bytes', 'image.path'. "
+                f"Available keys under 'image.': {example['image'].keys()}."
             )
 
         messages.append(Message(role=Role.ASSISTANT, content=output_text))
