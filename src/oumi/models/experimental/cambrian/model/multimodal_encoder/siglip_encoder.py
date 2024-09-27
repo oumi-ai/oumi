@@ -1,5 +1,8 @@
 # Used in the following published models:
 # nyu-visionx/cambrian-phi3-3b
+# nyu-visionx/cambrian-8b
+# nyu-visionx/cambrian-13b
+
 import torch
 import torch.nn.functional as F
 from open_clip import create_model_from_pretrained

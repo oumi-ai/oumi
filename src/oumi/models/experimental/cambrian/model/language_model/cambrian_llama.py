@@ -618,3 +618,7 @@ class CambrianLlamaForCausalLM(LlamaForCausalLM, CambrianMetaForCausalLM):
 
 AutoConfig.register("cambrian_llama", CambrianConfig)
 AutoModelForCausalLM.register(CambrianConfig, CambrianLlamaForCausalLM)
+
+# Used in the following published models:
+# nyu-visionx/cambrian-8b
+# nyu-visionx/cambrian-13b

@@ -48,10 +48,10 @@ def build_model(
             *kwargs,
         )
     elif model_params.model_name in (
-        "nyu-visionx/cambrian-34b",
         "nyu-visionx/cambrian-phi3-3b",
         "nyu-visionx/cambrian-8b",
         "nyu-visionx/cambrian-13b",
+        "nyu-visionx/cambrian-34b",
     ):
         model = build_cambrian_model(
             model_params=model_params,

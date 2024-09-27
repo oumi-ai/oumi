@@ -32,9 +32,6 @@ from oumi.models.experimental.cambrian.constants import (
 from oumi.models.experimental.cambrian.model.language_model.cambrian_llama import (
     CambrianLlamaForCausalLM,
 )
-from oumi.models.experimental.cambrian.model.language_model.cambrian_mistral import (
-    CambrianMistralForCausalLM,
-)
 from oumi.utils.logging import logger
 
 
@@ -154,15 +151,7 @@ def load_pretrained_model(
             }
             model.load_state_dict(mm_projector_weights, strict=False)
         else:
-            if "mistral" in model_name.lower():
-                tokenizer = AutoTokenizer.from_pretrained(model_path)
-                model = CambrianMistralForCausalLM.from_pretrained(
-                    model_path,
-                    low_cpu_mem_usage=True,
-                    use_flash_attention_2=False,
-                    **kwargs,
-                )
-            elif "phi3" in model_name.lower():
+            if "phi3" in model_name.lower():
                 from oumi.models.experimental.cambrian.model.language_model.cambrian_phi3 import (
                     CambrianPhi3ForCausalLM,
                 )
