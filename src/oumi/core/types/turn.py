@@ -107,8 +107,8 @@ class Message(pydantic.BaseModel):
         return self.type == Type.TEXT
 
     def __repr__(self):
-        """Return a string representation of the message."""
-        content = self.content if self.is_text() else "BINARY"
+        """Returns a string representation of the message."""
+        content = self.content if self.is_text() else "<non-text-content>"
         return f"{self.role.upper()}: {content}"
 
 
@@ -133,7 +133,7 @@ class Conversation(pydantic.BaseModel):
     """
 
     def __getitem__(self, idx: int) -> Message:
-        """Get the message at the specified index.
+        """Gets the message at the specified index.
 
         Args:
             idx (int): The index of the message to retrieve.
@@ -144,7 +144,7 @@ class Conversation(pydantic.BaseModel):
         return self.messages[idx]
 
     def first_message(self, role: Optional[Role] = None) -> Optional[Message]:
-        """Get the first message in the conversation, optionally filtered by role.
+        """Gets the first message in the conversation, optionally filtered by role.
 
         Args:
             role: The role to filter messages by.
@@ -158,7 +158,7 @@ class Conversation(pydantic.BaseModel):
         return messages[0] if len(messages) > 0 else None
 
     def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
-        """Get the last message in the conversation, optionally filtered by role.
+        """Gets the last message in the conversation, optionally filtered by role.
 
         Args:
             role: The role to filter messages by.
@@ -172,7 +172,7 @@ class Conversation(pydantic.BaseModel):
         return messages[-1] if len(messages) > 0 else None
 
     def filter_messages(self, role: Optional[Role] = None) -> List[Message]:
-        """Get all messages in the conversation, optionally filtered by role.
+        """Gets all messages in the conversation, optionally filtered by role.
 
         Args:
             role: The role to filter messages by.
@@ -188,7 +188,7 @@ class Conversation(pydantic.BaseModel):
         return messages
 
     def __repr__(self):
-        """Return a string representation of the conversation."""
+        """Returns a string representation of the conversation."""
         return "\n".join([repr(m) for m in self.messages])
 
 
