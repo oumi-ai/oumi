@@ -1,6 +1,6 @@
 import gc
-import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Literal, Optional, Union, cast
 
 import datasets
@@ -9,6 +9,7 @@ from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
+from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 
@@ -125,11 +126,17 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        if os.path.exists(self.dataset_name_or_path):
-            if self.dataset_name_or_path.endswith(".jsonl"):
+        dataset_path = Path(self.dataset_name_or_path)
+        if dataset_path.exists():
+            if self.dataset_name_or_path.endswith(".jsonl") and dataset_path.is_file():
                 result = self._load_jsonl_dataset(self.dataset_name_or_path)
-            elif self.dataset_name_or_path.endswith(".parquet"):
+            elif (
+                self.dataset_name_or_path.endswith(".parquet")
+                and dataset_path.is_file()
+            ):
                 result = self._load_parquet_dataset(self.dataset_name_or_path)
+            elif is_cached_to_disk_hf_dataset(self.dataset_name_or_path):
+                result = self._load_dataset_from_disk(self.dataset_name_or_path)
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
@@ -201,6 +208,12 @@ class BaseMapDataset(MapDataPipe, ABC):
 
     def _load_parquet_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_dataset_from_disk(self, path: str) -> pd.DataFrame:
+        dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
 
 class BaseLMSftDataset(BaseMapDataset, ABC):
