@@ -59,9 +59,10 @@
    make setup
    ```
 
-   If you'd like to only run the pre-commits before a push, instead of every commit, you can run:a
+   If you'd like to only run the pre-commits before a push, instead of every commit, you can run:
 
    ```shell
+   pre-commit uninstall
    pre-commit install --install-hooks --hook-type pre-push
    ```
 
