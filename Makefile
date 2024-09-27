@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 # General makefile
 # Conda environment name
 CONDA_ENV := oumi
@@ -47,10 +49,10 @@ setup:
 	else \
 		conda create -n $(CONDA_ENV) python=3.11 -y; \
 		if [ -f ~/.zshrc ]; then \
-    			source ~/.zshrc \
+			source ~/.zshrc; \
 		elif [ -f ~/.bashrc ]; then \
-			source ~/.bashrc \
-		fi \
+			source ~/.bashrc; \
+		fi; \
 		conda activate $(CONDA_ENV); \
 		pip install -e ".[all]"; \
 		pre-commit install; \

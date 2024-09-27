@@ -1,12 +1,13 @@
-# Config to eval Llama 3.1 8B Instruct on GCP.
+# Config to eval Llama 3.1 70B Instruct on GCP.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
-name: llama8b-eval
+# oumi-launch -p configs/oumi/jobs/gcp/llama70b_eval.yaml -c llama70b-eval
+name: llama70b-eval
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: true
+  disk_size: 400 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .
@@ -20,7 +21,7 @@ file_mounts:
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
-  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
+  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-70B-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
 
@@ -30,7 +31,7 @@ setup: |
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   pip install hf_transfer
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -47,9 +48,8 @@ run: |
   fi
 
   set -x # Enable command tracing.
-  accelerate launch \
-    -m oumi.evaluate \
-    -c configs/oumi/llama8b.eval.yaml \
+  python -m oumi.evaluate \
+    -c configs/oumi/llama70b.eval.yaml \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 
