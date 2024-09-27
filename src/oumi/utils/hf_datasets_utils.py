@@ -4,7 +4,7 @@ from typing import Union
 from oumi.utils.logging import logger
 
 
-def is_disk_cached_hf_dataset(dataset_name_or_path: Union[str, Path]) -> bool:
+def is_cached_to_disk_hf_dataset(dataset_name_or_path: Union[str, Path]) -> bool:
     """Detects whether a dataset was saved using `dataset.save_to_disk()`.
 
     Such datasets should be loaded using `datasets.Daataset.load_from_disk()`

@@ -9,7 +9,7 @@ from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
-from oumi.utils.hf_datasets_utils import is_disk_cached_hf_dataset
+from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 
@@ -135,7 +135,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 and dataset_path.is_file()
             ):
                 result = self._load_parquet_dataset(self.dataset_name_or_path)
-            elif is_disk_cached_hf_dataset(self.dataset_name_or_path):
+            elif is_cached_to_disk_hf_dataset(self.dataset_name_or_path):
                 result = self._load_dataset_from_disk(self.dataset_name_or_path)
             else:
                 raise ValueError(
