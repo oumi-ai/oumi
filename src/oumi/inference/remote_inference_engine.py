@@ -185,7 +185,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             response_json, conversation
                         )
                         if generation_config.output_filepath:
-                            self._save_conversation(
+                            await self._save_conversation_async(
                                 result,
                                 generation_config.output_filepath,
                             )
@@ -217,6 +217,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         # Limit number of HTTP connections to the number of workers.
         connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        self._save_tasks = []
         # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
@@ -232,8 +233,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     for conversation in input
                 ]
             )
-            self._finish_writing()
-            return conversations
+
+        return conversations
 
     def infer_online(
         self,
