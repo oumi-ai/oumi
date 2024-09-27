@@ -37,7 +37,7 @@ def mock_processor():
 
 
 @functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
-def _create_test_image(image_size: Optional[Tuple[int, int]] = None) -> bytes:
+def _get_test_png_image_bytes(image_size: Optional[Tuple[int, int]] = None) -> bytes:
     if image_size is None:
         image_size = (80, 40)
     image = Image.new(mode="RGBA", size=image_size)
@@ -67,7 +67,9 @@ def sample_conversation_using_image_binary():
         messages=[
             Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
             Message(
-                role=Role.USER, binary=_create_test_image(), type=Type.IMAGE_BINARY
+                role=Role.USER,
+                binary=_get_test_png_image_bytes(),
+                type=Type.IMAGE_BINARY,
             ),
             Message(
                 role=Role.ASSISTANT,
@@ -126,7 +128,7 @@ def test_transform_image_using_image_binary(test_dataset_using_image_binary):
         mock_image = Mock(spec=Image.Image)
         mock_open.return_value.convert.return_value = mock_image
 
-        test_image_bytes = _create_test_image()
+        test_image_bytes = _get_test_png_image_bytes()
         test_dataset_using_image_binary.transform_image(
             Message(type=Type.IMAGE_BINARY, binary=test_image_bytes, role=Role.USER)
         )
