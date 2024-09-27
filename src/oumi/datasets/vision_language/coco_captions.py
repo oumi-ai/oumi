@@ -15,13 +15,13 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
         for required_key in ("sentences", "image"):
             if required_key not in example:
                 raise ValueError(
-                    f"Example doesn't contain '{required_key}' key. "
+                    "Training example doesn't contain '{required_key}' key. "
                     f"Available keys: {example.keys()}."
                 )
 
         if "raw" not in example["sentences"]:
             raise ValueError(
-                f"Training example doesn't contain 'sentences.raw' key. "
+                "Training example doesn't contain 'sentences.raw' key. "
                 f"Available keys under 'sentences.': {example['sentences'].keys()}."
             )
         output_text = example["sentences"]["raw"]
