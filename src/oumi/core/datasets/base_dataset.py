@@ -211,7 +211,9 @@ class BaseMapDataset(MapDataPipe, ABC):
 
     def _load_dataset_from_disk(self, path: str) -> pd.DataFrame:
         dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
-        return cast(pd.DataFrame, dataset.to_pandas())
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
 
 class BaseLMSftDataset(BaseMapDataset, ABC):
