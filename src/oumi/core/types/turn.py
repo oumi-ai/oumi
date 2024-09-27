@@ -106,6 +106,11 @@ class Message(pydantic.BaseModel):
         """Checks if the message contains text."""
         return self.type == Type.TEXT
 
+    def __repr__(self):
+        """Return a string representation of the message."""
+        content = self.content if self.is_text() else "BINARY"
+        return f"{self.role.upper()}: {content}"
+
 
 class Conversation(pydantic.BaseModel):
     """Represents a conversation, which is a sequence of messages."""
@@ -181,6 +186,10 @@ class Conversation(pydantic.BaseModel):
         else:
             messages = self.messages
         return messages
+
+    def __repr__(self):
+        """Return a string representation of the conversation."""
+        return "\n".join([repr(m) for m in self.messages])
 
 
 class TemplatedMessage(pydantic.BaseModel):
