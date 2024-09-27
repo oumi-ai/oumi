@@ -622,3 +622,4 @@ AutoModelForCausalLM.register(CambrianConfig, CambrianLlamaForCausalLM)
 # Used in the following published models:
 # nyu-visionx/cambrian-8b
 # nyu-visionx/cambrian-13b
+# nyu-visionx/cambrian-34b

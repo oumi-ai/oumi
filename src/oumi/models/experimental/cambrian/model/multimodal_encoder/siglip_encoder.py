@@ -2,6 +2,7 @@
 # nyu-visionx/cambrian-phi3-3b
 # nyu-visionx/cambrian-8b
 # nyu-visionx/cambrian-13b
+# nyu-visionx/cambrian-34b
 
 import torch
 import torch.nn.functional as F
