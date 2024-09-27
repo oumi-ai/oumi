@@ -144,8 +144,7 @@
                 "--dataset-name",
                 "coco_captions"
             ],
-            "justMyCode": true,
-            "console": "integratedTerminal"
+            "justMyCode": true
         },
         {
             "name": "Python Debugger: Current File",
