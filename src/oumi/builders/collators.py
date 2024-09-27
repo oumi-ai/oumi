@@ -28,6 +28,8 @@ def build_data_collator(collator_name: str, **kwargs):
     elif collator_name == "vision_language":
         return VisionLanguageCollator(**kwargs)
 
+    return None
+
 
 class VisionLanguageCollator:
     def __init__(self, processor, max_length: int = 1024):

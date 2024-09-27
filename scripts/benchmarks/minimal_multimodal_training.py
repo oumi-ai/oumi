@@ -49,8 +49,6 @@ class ModelName(str, Enum):
 
 class DatasetName(str, Enum):
     COCO = "coco_captions"
-    # COCO_TRAIN_GCS = "/output_dir_gcs/datasets/coco_captions/train"
-    # COCO_TRAIN_LOCAL = "/home/user/data/coco_captions/train"
     FLICKR = "nlphuji/flickr30k"
 
 
