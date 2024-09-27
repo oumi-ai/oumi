@@ -3,8 +3,7 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
 
 
-# @register_dataset("coco_captions")
-@register_dataset("/home/user/data/coco_captions/train")
+@register_dataset("coco_captions")
 class COCOCaptionsDataset(VisionLanguageSftDataset):
     # default_dataset = "HuggingFaceM4/COCO"
     default_dataset = "/home/user/data/coco_captions/test"

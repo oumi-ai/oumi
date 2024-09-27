@@ -134,13 +134,6 @@
             "justMyCode": true
         },
         {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
-        },
-        {
             "name": "Python Debugger: Minimal Multimodal Training",
             "type": "debugpy",
             "request": "launch",
@@ -149,9 +142,16 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "/home/user/data/coco_captions/train"
+                "coco_captions"
             ],
             "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
             "console": "integratedTerminal"
         }
     ]
