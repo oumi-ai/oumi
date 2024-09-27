@@ -1,3 +1,4 @@
+import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Literal, Optional, Union, cast
@@ -8,7 +9,7 @@ from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
-from oumi.utils.io_utils import is_saved_to_disk_hf_dataset
+from oumi.utils.hf_datasets_utils import is_disk_cached_hf_dataset
 from oumi.utils.logging import logger
 
 
@@ -134,7 +135,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 and dataset_path.is_file()
             ):
                 result = self._load_parquet_dataset(self.dataset_name_or_path)
-            elif is_saved_to_disk_hf_dataset(self.dataset_name_or_path):
+            elif is_disk_cached_hf_dataset(self.dataset_name_or_path):
                 result = self._load_dataset_from_disk(self.dataset_name_or_path)
             else:
                 raise ValueError(
@@ -142,6 +143,9 @@ class BaseMapDataset(MapDataPipe, ABC):
                 )
         else:
             result = self._load_hf_hub_dataset(self.dataset_name_or_path)
+
+        # Reclaim memory after data loading.
+        gc.collect()
 
         logger.info(
             f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
@@ -195,7 +199,9 @@ class BaseMapDataset(MapDataPipe, ABC):
             )
         )
 
-        return cast(pd.DataFrame, dataset.to_pandas())
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_json(path, lines=True)

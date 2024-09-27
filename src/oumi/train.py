@@ -1,4 +1,5 @@
 import argparse
+import gc
 import random
 import time
 from pathlib import Path
@@ -262,6 +263,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     metrics_function = build_metrics_function(config.training)
+
+    # Reclaim memory before training starts.
+    gc.collect()
 
     with torch_profile(
         config.training.profiler,

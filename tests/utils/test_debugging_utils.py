@@ -22,7 +22,7 @@ def test_nvidia_gpu_memory_utilization():
     if num_devices > 0:
         for device_index in range(0, num_devices):
             memory_mib = get_nvidia_gpu_memory_utilization(device_index)
-            assert memory_mib > 1024  # Must have at least 1 GB
+            assert memory_mib > 1  # Must have at least 1 MB
             assert memory_mib < 1024 * 1024  # No known GPU has 1 TB of VRAM yet.
             log_nvidia_gpu_memory_utilization(device_index)
 

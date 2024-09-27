@@ -24,7 +24,7 @@ from oumi.datasets.prompt_response_sft_preprocessor_factory import (
 )
 from oumi.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from oumi.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
-from oumi.utils.io_utils import is_saved_to_disk_hf_dataset
+from oumi.utils.hf_datasets_utils import is_disk_cached_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
@@ -371,7 +371,7 @@ def _load_dataset(
             return dataset.to_hf()
 
     dataset_name_or_path: Path = Path(dataset_params.dataset_name)
-    if is_saved_to_disk_hf_dataset(dataset_name_or_path):
+    if is_disk_cached_hf_dataset(dataset_name_or_path):
         return datasets.Dataset.load_from_disk(dataset_name_or_path)
     else:
         return datasets.load_dataset(
