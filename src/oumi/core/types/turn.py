@@ -106,10 +106,13 @@ class Message(pydantic.BaseModel):
         """Checks if the message contains text."""
         return self.type == Type.TEXT
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Returns a string representation of the message."""
-        content = self.content if self.is_text() else "<non-text-content>"
-        return f"{self.role.upper()}: {content}"
+        id_str = ""
+        if self.id:
+            id_str = f"{self.id} - "
+        content = (self.content or "") if self.is_text() else f"<{self.type.upper() }>"
+        return f"{id_str}{self.role.upper()}: {content}"
 
 
 class Conversation(pydantic.BaseModel):
@@ -187,7 +190,7 @@ class Conversation(pydantic.BaseModel):
             messages = self.messages
         return messages
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Returns a string representation of the conversation."""
         return "\n".join([repr(m) for m in self.messages])
 

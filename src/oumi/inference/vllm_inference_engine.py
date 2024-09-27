@@ -41,10 +41,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "vLLM is not installed. "
                 "Please install the GPU dependencies for this package."
             )
-        self.lora_request = None
+        self._lora_request = None
         if model_params.adapter_model:
-            self.lora_request = vllm.lora.request.LoRARequest(
-                lora_name="my_lora_adapter",
+            # ID should be unique for this adapter, but isn't enforced by vLLM.
+            self._lora_request = vllm.lora.request.LoRARequest(
+                lora_name="oumi_lora_adapter",
                 lora_int_id=1,
                 lora_path=model_params.adapter_model,
             )
@@ -61,7 +62,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             quantization=quantization,
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
-            enable_lora=self.lora_request is not None,
+            enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
         )
         # Ensure the tokenizer is set properly
@@ -111,7 +112,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             chat_response = self._llm.chat(
                 vllm_input,
                 sampling_params=sampling_params,
-                lora_request=self.lora_request,
+                lora_request=self._lora_request,
             )
             new_messages = [
                 Message(content=message.outputs[0].text, role=Role.ASSISTANT)
