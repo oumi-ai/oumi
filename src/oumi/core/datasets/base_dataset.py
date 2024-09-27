@@ -1,3 +1,4 @@
+import gc
 import os
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
@@ -136,6 +137,9 @@ class BaseMapDataset(MapDataPipe, ABC):
         else:
             result = self._load_hf_hub_dataset(self.dataset_name_or_path)
 
+        # Reclaim memory after data loading.
+        gc.collect()
+
         logger.info(
             f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
             f"{result.dtypes}"
@@ -188,7 +192,9 @@ class BaseMapDataset(MapDataPipe, ABC):
             )
         )
 
-        return cast(pd.DataFrame, dataset.to_pandas())
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_json(path, lines=True)
