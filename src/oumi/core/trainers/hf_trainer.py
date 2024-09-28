@@ -53,6 +53,7 @@ class HuggingFaceTrainer(BaseTrainer):
         if is_world_process_zero():
             output_dir = config.training.output_dir
             self._hf_trainer.save_model(output_dir)
+            self._hf_trainer.model.config.to_json_file(f"{output_dir}/config.json")
             logger.info(f"Model has been saved at {output_dir}.")
 
     def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
@@ -74,4 +75,5 @@ class HuggingFaceTrainer(BaseTrainer):
 
         output_dir = config.training.output_dir
         self._hf_trainer.save_model(output_dir)
+        self._hf_trainer.model.config.to_json_file(f"{output_dir}/config.json")
         logger.info(f"Model has been saved at {output_dir}.")
