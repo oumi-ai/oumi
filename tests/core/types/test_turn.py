@@ -8,7 +8,7 @@ def test_conversation():
     role_user = Role.USER
     role_assistant = Role.ASSISTANT
 
-    message1 = Message(role=role_user, content="Hello")
+    message1 = Message(role=role_user, content="Hello", id="1")
     message2 = Message(role=role_assistant, content="Hi, how can I help you?")
     message3 = Message(role=role_user, content="I need assistance with my account.")
 
@@ -62,3 +62,15 @@ def test_filter_messages_with_nonexistent_role(test_conversation):
     conversation, _, _, _, _, _ = test_conversation
     role_nonexistent = Role.TOOL
     assert conversation.filter_messages(role_nonexistent) == []
+
+
+def test_repr(test_conversation):
+    conversation, _, _, message1, message2, message3 = test_conversation
+    assert repr(message1) == "1 - USER: Hello"
+    assert repr(message2) == "ASSISTANT: Hi, how can I help you?"
+    assert repr(message3) == "USER: I need assistance with my account."
+    assert repr(conversation) == (
+        "1 - USER: Hello\n"
+        "ASSISTANT: Hi, how can I help you?\n"
+        "USER: I need assistance with my account."
+    )
