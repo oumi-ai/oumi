@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
+from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationConfig, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -244,7 +245,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         if not generation_config.remote_params:
             raise ValueError("Remote params must be provided in generation_config.")
-        conversations = asyncio.run(
+        conversations = safe_asyncio_run(
             self._infer(input, generation_config, generation_config.remote_params)
         )
         if generation_config.output_filepath:
@@ -271,7 +272,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not generation_config.remote_params:
             raise ValueError("Remote params must be provided in generation_config.")
         input = self._read_conversations(input_filepath)
-        conversations = asyncio.run(
+        conversations = safe_asyncio_run(
             self._infer(input, generation_config, generation_config.remote_params)
         )
         if generation_config.output_filepath:
