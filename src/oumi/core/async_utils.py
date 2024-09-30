@@ -1,9 +1,11 @@
 import asyncio
 from multiprocessing.pool import ThreadPool
-from typing import Any, Awaitable
+from typing import Awaitable, TypeVar
+
+T = TypeVar("T")
 
 
-def safe_asyncio_run(main: Awaitable[Any]) -> Any:
+def safe_asyncio_run(main: Awaitable[T]) -> T:
     """Run a series of Awaitables in a new thread. Blocks until the thread is finished.
 
     This circumvents the issue of running async functions in the main thread when
@@ -19,4 +21,4 @@ def safe_asyncio_run(main: Awaitable[Any]) -> Any:
         The result of the awaitable.
     """
     pool = ThreadPool(processes=1)
-    return pool.apply(asyncio.run, (main,))
+    return pool.apply(asyncio.run, (main,))  # type: ignore
