@@ -2,6 +2,12 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
 
+_COCO_COLUMN_SENTENCES = "sentences"
+_COCO_COLUMN_RAW = "raw"
+_COCO_COLUMN_IMAGE = "image"
+_COCO_COLUMN_PATH = "path"
+_COCO_COLUMN_BYTES = "bytes"
+
 
 @register_dataset("coco_captions")
 class COCOCaptionsDataset(VisionLanguageSftDataset):
@@ -12,35 +18,35 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
         """Transform a single conversation example into a Conversation object."""
         input_text = self.default_prompt
 
-        for required_key in ("sentences", "image"):
+        for required_key in (_COCO_COLUMN_SENTENCES, _COCO_COLUMN_IMAGE):
             if required_key not in example:
                 raise ValueError(
                     "Training example doesn't contain '{required_key}' key. "
                     f"Available keys: {example.keys()}."
                 )
 
-        if "raw" not in example["sentences"]:
+        if _COCO_COLUMN_RAW not in example[_COCO_COLUMN_SENTENCES]:
             raise ValueError(
-                "Training example doesn't contain 'sentences.raw' key. "
-                f"Available keys under 'sentences.': {example['sentences'].keys()}."
+                "Training example doesn't contain 'sentences.raw' key. Available keys "
+                f"under 'sentences.': {example[_COCO_COLUMN_SENTENCES].keys()}."
             )
-        output_text = example["sentences"]["raw"]
+        output_text = example[_COCO_COLUMN_SENTENCES][_COCO_COLUMN_RAW]
 
         messages = [Message(role=Role.USER, content=input_text)]
 
-        if "bytes" in example["image"]:
+        if _COCO_COLUMN_BYTES in example[_COCO_COLUMN_IMAGE]:
             messages.append(
                 Message(
                     role=Role.USER,
-                    binary=example["image"]["bytes"],
+                    binary=example[_COCO_COLUMN_IMAGE][_COCO_COLUMN_BYTES],
                     type=Type.IMAGE_BINARY,
                 )
             )
-        elif "path" in example["image"]:
+        elif _COCO_COLUMN_PATH in example[_COCO_COLUMN_IMAGE]:
             messages.append(
                 Message(
                     role=Role.USER,
-                    content=example["image"]["path"],
+                    content=example[_COCO_COLUMN_IMAGE][_COCO_COLUMN_PATH],
                     type=Type.IMAGE_PATH,
                 )
             )
@@ -48,7 +54,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
             raise ValueError(
                 "Training example contains none of required keys: "
                 "'image.bytes', 'image.path'. "
-                f"Available keys under 'image.': {example['image'].keys()}."
+                f"Available keys under 'image.': {example[_COCO_COLUMN_IMAGE].keys()}."
             )
 
         messages.append(Message(role=Role.ASSISTANT, content=output_text))
