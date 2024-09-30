@@ -622,6 +622,84 @@ def test_sky_cloud_get_cluster_lambda_success(mock_sky_client):
     assert cluster == SkyCluster("lambda_cluster", mock_sky_client)
 
 
+def test_sky_cloud_get_cluster_aws_success(mock_sky_client):
+    cloud = SkyCloud("aws", mock_sky_client)
+    mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
+    mock_gcp_handler = Mock()
+    mock_gcp_handler.launched_resources = Mock()
+    mock_gcp_handler.launched_resources.cloud = mock_gcp_cluster
+
+    mock_runpod_cluster = Mock(spec=sky.clouds.RunPod)
+    mock_runpod_handler = Mock()
+    mock_runpod_handler.launched_resources = Mock()
+    mock_runpod_handler.launched_resources.cloud = mock_runpod_cluster
+
+    mock_aws_cluster = Mock(spec=sky.clouds.AWS)
+    mock_aws_handler = Mock()
+    mock_aws_handler.launched_resources = Mock()
+    mock_aws_handler.launched_resources.cloud = mock_aws_cluster
+
+    mock_sky_client.status.return_value = [
+        {
+            "name": "gcp_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_gcp_handler,
+        },
+        {
+            "name": "runpod_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_runpod_handler,
+        },
+        {
+            "name": "aws_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_aws_handler,
+        },
+    ]
+    cluster = cloud.get_cluster("aws_cluster")
+    mock_sky_client.status.assert_called_once()
+    assert cluster == SkyCluster("aws_cluster", mock_sky_client)
+
+
+def test_sky_cloud_get_cluster_azure_success(mock_sky_client):
+    cloud = SkyCloud("azure", mock_sky_client)
+    mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
+    mock_gcp_handler = Mock()
+    mock_gcp_handler.launched_resources = Mock()
+    mock_gcp_handler.launched_resources.cloud = mock_gcp_cluster
+
+    mock_runpod_cluster = Mock(spec=sky.clouds.RunPod)
+    mock_runpod_handler = Mock()
+    mock_runpod_handler.launched_resources = Mock()
+    mock_runpod_handler.launched_resources.cloud = mock_runpod_cluster
+
+    mock_azure_cluster = Mock(spec=sky.clouds.Azure)
+    mock_azure_handler = Mock()
+    mock_azure_handler.launched_resources = Mock()
+    mock_azure_handler.launched_resources.cloud = mock_azure_cluster
+
+    mock_sky_client.status.return_value = [
+        {
+            "name": "gcp_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_gcp_handler,
+        },
+        {
+            "name": "runpod_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_runpod_handler,
+        },
+        {
+            "name": "azure_cluster",
+            "status": sky.ClusterStatus.UP,
+            "handle": mock_azure_handler,
+        },
+    ]
+    cluster = cloud.get_cluster("azure_cluster")
+    mock_sky_client.status.assert_called_once()
+    assert cluster == SkyCluster("azure_cluster", mock_sky_client)
+
+
 def test_sky_cloud_get_cluster_failure_wrong_cloud(mock_sky_client):
     cloud = SkyCloud("gcp", mock_sky_client)
 
@@ -670,3 +748,11 @@ def test_gcp_cloud_builder_registered():
 
 def test_lambda_cloud_builder_registered():
     assert REGISTRY.contains("lambda", RegistryType.CLOUD)
+
+
+def test_aws_cloud_builder_registered():
+    assert REGISTRY.contains("aws", RegistryType.CLOUD)
+
+
+def test_azure_cloud_builder_registered():
+    assert REGISTRY.contains("azure", RegistryType.CLOUD)

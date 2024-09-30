@@ -37,7 +37,7 @@ dependencies = [
     "numpy",
     "openai",
     "pexpect",
-    "skypilot[gcp,lambda,runpod]",
+    "skypilot[aws,azure,gcp,lambda,runpod]",
     "torch",
     "torchvision",
     "tqdm",

@@ -1,4 +1,4 @@
-# Config to eval Llama 3.1 8B Instruct.
+# Config to eval Llama 3.1 8B Instruct on Polaris.
 # Example command:
 # oumi-launch -p configs/oumi/jobs/polaris/llama8b_eval.yaml -c debug.$ALCF_USER user=$ALCF_USER
 name: llama8b-eval
@@ -10,6 +10,12 @@ resources:
 
 # Upload working directory to /home/$USER/oumi_launcher/llama8b_eval.
 working_dir: .
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
+  # NOTE: For LoRA, update this to point to your LoRA adapter.
+  LORA_ADAPTER_DIR: ""
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
 # directives in the `setup` section. Additional commands can also be run here after the
@@ -23,45 +29,24 @@ setup: |
   #PBS -e /eagle/community_ai/jobs/logs/
 
 run: |
-  set -e
-
-  # Various setup for running on Polaris.
+  set -e  # Exit if any command failed.
   source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
-  # NOTE: For SFT, update this to point to your model checkpoint.
-  MODEL_CHECKPOINT_DIR="meta-llama/Meta-Llama-3.1-8B-Instruct"
-  # NOTE: For LoRA, update this to point to your LoRA adapter.
-  LORA_ADAPTER_DIR=""
-
   if test ${OUMI_NUM_NODES} -ne 1; then
-    echo "Evaluation can only run on 1 Polaris node. Actual: ${OUMI_NUM_NODES} nodes."
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
     exit 1
   fi
 
-  EVALUATION_FRAMEWORK="lm_harness" # Valid values: "lm_harness", "oumi"
-
-  echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
-
-  set -x # Enable command tracing.
-
-  TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * 4))
-
-  if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
-      accelerate launch \
-        --num_processes=${TOTAL_NUM_GPUS} \
-        --num_machines=${OUMI_NUM_NODES} \
-        -m oumi.evaluate  \
-        -c configs/oumi/llama8b.eval.yaml \
-        "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
-  elif [ "$EVALUATION_FRAMEWORK" == "oumi" ]; then
-      echo "The custom eval framework is deprecated. Use LM_HARNESS instead."
-      python -m oumi.evaluate \
-        -c configs/oumi/llama8b.eval.legacy.yaml \
-        "model.adapter_model=${EVAL_CHECKPOINT_DIR}"
-  else
-      echo "Unknown evaluation framework: ${EVALUATION_FRAMEWORK}"
-      exit 1
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  if test -n "$LORA_ADAPTER_DIR"; then
+    echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
   fi
 
-  echo -e "Finished eval on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
-  echo "Polaris job is all done!"
+  set -x # Enable command tracing.
+  accelerate launch \
+    -m oumi.evaluate \
+    -c configs/oumi/llama8b.eval.yaml \
+    "model.model_name=${MODEL_CHECKPOINT_DIR}" \
+    "model.adapter_model=${LORA_ADAPTER_DIR}"
+
+  echo -e "Finished eval on node:\n$(cat $PBS_NODEFILE)"

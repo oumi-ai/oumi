@@ -19,7 +19,6 @@ from torch.distributed.fsdp.wrap import (
 from torch.nn.parallel import DistributedDataParallel
 
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
-from oumi.utils.str_utils import str_to_bool
 from oumi.utils.torch_naming_heuristics import get_module_class_from_name
 
 
@@ -396,17 +395,3 @@ def estimate_dataloader_num_workers(
     # Make sure it's a positive number (>=1).
     result = max(result, 1)
     return result
-
-
-#
-# Accelerate
-#
-def is_using_accelerate_fsdp() -> bool:
-    """Checks if the training is using Accelerate's FSDP implementation.
-
-    Returns:
-        bool: True if Accelerate's FSDP is being used, False otherwise.
-    """
-    env_var = os.environ.get("ACCELERATE_USE_FSDP", "false")
-
-    return str_to_bool(env_var)
