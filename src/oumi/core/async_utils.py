@@ -6,7 +6,7 @@ T = TypeVar("T")
 
 
 def safe_asyncio_run(main: Awaitable[T]) -> T:
-    """Run a series of Awaitables in a new thread. Blocks until the thread is finished.
+    """Run an Awaitable in a new thread. Blocks until the thread is finished.
 
     This circumvents the issue of running async functions in the main thread when
     an event loop is already running (Jupyter notebooks, for example).
