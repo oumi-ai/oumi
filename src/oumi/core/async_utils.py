@@ -20,5 +20,5 @@ def safe_asyncio_run(main: Awaitable[T]) -> T:
     Returns:
         The result of the awaitable.
     """
-    pool = ThreadPool(processes=1)
-    return pool.apply(asyncio.run, (main,))  # type: ignore
+    with ThreadPool(processes=1) as pool:
+        return pool.apply(asyncio.run, (main,))  # type: ignore
