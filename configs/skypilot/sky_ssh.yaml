@@ -1,6 +1,6 @@
 name: oumi-ssh
 
-num_nodes: 1  # Set it to N for multi-node training.
+num_nodes: 1
 
 resources:
   accelerators: { "A40", "A10", "A10g", "A100-80GB-SXM", "A100", "L4" } # Some single-gpu options
@@ -18,14 +18,8 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
-  /output_dir_gcs:
-    source: gs://oumi-dev-us-central1
-    store: gcs
-    mode: MOUNT
-
 envs:
   WANDB_PROJECT: oumi-debug
-  HF_HOME: /output_dir_gcs/hf_cache/
 
 setup: |
   set -e
@@ -34,18 +28,3 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
-
-  mkdir -p /output_dir_gcs/hf_cache/
-
-  set -x  # Print "torchrun" command with expanded variables
-  torchrun --standalone \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      scripts/benchmarks/minimal_multimodal_training.py \
-      --model-name llava-hf/llava-1.5-7b-hf \
-      --dataset-name coco_captions
-
-  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

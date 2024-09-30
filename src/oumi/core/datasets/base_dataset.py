@@ -159,8 +159,6 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        logger.info(f"Using dataset split: {self.split}")
-
         splits_or_dataset = datasets.load_dataset(
             path=path,
             name=self.dataset_subset,
@@ -177,7 +175,6 @@ class BaseMapDataset(MapDataPipe, ABC):
         if isinstance(splits_or_dataset, datasets.Dataset):
             dataset = splits_or_dataset
         elif self.split is not None:
-            logger.info(f"Using dataset split: {self.split}")
             dataset = splits_or_dataset[self.split]
         elif len(splits_or_dataset) == 1:
             dataset = splits_or_dataset.values().__iter__().__next__()
