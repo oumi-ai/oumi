@@ -18,10 +18,9 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
 
-evaluation_framework: OUMI
-data:
-  datasets:
-    - dataset_name: "cais/mmlu"
+lm_harness_params:
+  tasks:
+    - "cais/mmlu"
 
 generation:
   batch_size: 4

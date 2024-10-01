@@ -1,5 +1,4 @@
 evaluation:
-  evaluation_framework: "LM_HARNESS"
   output_dir: "" # "/output_dir_gcs/matthew/gpt2.pt.4xA10080GB.5000steps/hellaswag/"
   model:
     model_name: "gpt2"  # 124M params
@@ -11,10 +10,9 @@ evaluation:
     compile: True
     trust_remote_code: True
 
-  data:
-    datasets:
-      - dataset_name: "hellaswag"
-      #  - dataset_name: "mmlu"
+  lm_harness_params:
+    tasks:
+      - "hellaswag"
 
   generation:
     batch_size: 32
