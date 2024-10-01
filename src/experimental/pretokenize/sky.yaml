@@ -7,7 +7,7 @@ resources:
   cpus: "32+"
   memory: "64+"
   disk_size: 200  # Disk size in GB
-  region: europe-west4
+  region: us-central1
 
   any_of:
     - use_spot: false
@@ -20,7 +20,7 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
   /dataset_parent_dir:
-    source: gs://oumi-dev-europe-west4/
+    source: gs://oumi-dev-us-central1/
     store: gcs
     mode: MOUNT
 
@@ -29,27 +29,37 @@ envs:
 
 setup: |
   set -e
-  pip install 'oumi[train]'
+  pip install '.[train]'
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT"
-  echo "INPUT_DATA: $INPUT_DATA. Content: $(ls -l $INPUT_DATA)"
-  echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
-  echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
+  # Example of using files-based dataset:
+  # export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT"
+  # echo "INPUT_DATA: $INPUT_DATA. Content: $(ls -l $INPUT_DATA)"
+  # echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
+  # echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
+  # export INPUT_DATASET="${INPUT_DATA}/train/"
+  # export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
+  # Use these extra params:
+  #   --config ./configs/oumi/llama2b.pt.yaml \
+  #   --target_col text \
 
-  export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
+  # Example of using a remote HuggingFace dataset:
+  # Just download, re-shard, and save it to GCS.
+  export INPUT_DATASET="HuggingFaceM4/COCO"
+  export DATASET_SPLIT="train"
+  export OUTPUT_DATA="/dataset_parent_dir/datasets/coco_captions/"
 
   set -x # Enable command tracing.
-  mkdir -p "$OUTPUT_DATA/train"
-  cp -r ${INPUT_DATA}/**.json ${OUTPUT_DATA}
-  python3 ./src/experimental/pretokenize/tokenize_dataset.py \
+  mkdir -p "${OUTPUT_DATA}/${DATASET_SPLIT}"
+  python3 ./src/experimental/pretokenize/process_dataset.py \
     --verbose \
-    --target_col text \
-    --input_dataset "${INPUT_DATA}/train/" \
-    --output_dir "${OUTPUT_DATA}/train/" \
-    --config ./configs/oumi/llama2b.pt.yaml \
+    --input_dataset "${INPUT_DATASET}" \
+    --dataset_split "${DATASET_SPLIT}" \
+    --skip_tokenize \
+    --trust_remote_code \
+    --output_dir "${OUTPUT_DATA}/${DATASET_SPLIT}/" \
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

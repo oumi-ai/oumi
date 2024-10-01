@@ -98,10 +98,8 @@ def test_multimodal_trainer(
     processor.chat_template = chat_template
     processor.tokenizer.chat_template = chat_template
 
-    collator = build_data_collator(processor)
-
     dataset = build_dataset(
-        dataset_name=dataset_name,
+        dataset_name=str(dataset_name.value),
         tokenizer=processor.tokenizer,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),

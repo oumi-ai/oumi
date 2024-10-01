@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 from typing import List
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import jsonlines
 import pytest
@@ -12,6 +12,7 @@ from oumi.inference import VLLMInferenceEngine
 
 try:
     vllm_import_failed = False
+    from vllm.lora.request import LoRARequest  # type: ignore
     from vllm.outputs import (  # pyright: ignore[reportMissingImports]
         CompletionOutput,
         RequestOutput,
@@ -50,9 +51,10 @@ def mock_vllm():
         yield mvllm
 
 
-def _get_default_model_params() -> ModelParams:
+def _get_default_model_params(use_lora: bool = False) -> ModelParams:
     return ModelParams(
         model_name="openai-community/gpt2",
+        adapter_model="/path/to/adapter" if use_lora else None,
         trust_remote_code=True,
     )
 
@@ -111,6 +113,63 @@ def test_infer_online(mock_vllm):
     result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_lora(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    lora_request = LoRARequest(
+        lora_name="oumi_lora_adapter",
+        lora_int_id=1,
+        lora_path="/path/to/adapter",
+    )
+    mock_vllm.lora.request.LoRARequest.return_value = lora_request
+    engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+            Message(
+                content="Hello again!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+    expected_result = [
+        Conversation(
+            messages=[
+                *conversation.messages,
+                Message(
+                    content="The first time I saw",
+                    role=Role.ASSISTANT,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+    ]
+    result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
+    assert expected_result == result
+
+    mock_vllm.lora.request.LoRARequest.assert_called_once_with(
+        lora_name="oumi_lora_adapter",
+        lora_int_id=1,
+        lora_path="/path/to/adapter",
+    )
+    mock_vllm_instance.chat.assert_called_once_with(
+        ANY,
+        sampling_params=ANY,
+        lora_request=lora_request,
+    )
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")

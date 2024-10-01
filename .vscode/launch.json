@@ -32,6 +32,19 @@
             "justMyCode": true
         },
         {
+            "name": "Oumi - Judge",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi.judge",
+            "args": [
+                "--config-name",
+                "oumi/v1_xml_local",
+                "--dataset-name",
+                "yahma/alpaca-cleaned"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Oumi - Pretrain From Config Example",
             "type": "debugpy",
             "request": "launch",
@@ -117,6 +130,19 @@
             "args": [
                 "-c",
                 "configs/oumi/phi3.eval.lm_harness.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Python Debugger: Minimal Multimodal Training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/benchmarks/minimal_multimodal_training.py",
+            "args": [
+                "--model-name",
+                "llava-hf/llava-1.5-7b-hf",
+                "--dataset-name",
+                "coco_captions"
             ],
             "justMyCode": true
         },

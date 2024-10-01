@@ -1,5 +1,6 @@
-import os
+import gc
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Literal, Optional, Union, cast
 
 import datasets
@@ -8,6 +9,7 @@ from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
+from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 
@@ -124,17 +126,32 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        if os.path.exists(self.dataset_name_or_path):
-            if self.dataset_name_or_path.endswith(".jsonl"):
-                return self._load_jsonl_dataset(self.dataset_name_or_path)
-            elif self.dataset_name_or_path.endswith(".parquet"):
-                return self._load_parquet_dataset(self.dataset_name_or_path)
+        dataset_path = Path(self.dataset_name_or_path)
+        if dataset_path.exists():
+            if self.dataset_name_or_path.endswith(".jsonl") and dataset_path.is_file():
+                result = self._load_jsonl_dataset(self.dataset_name_or_path)
+            elif (
+                self.dataset_name_or_path.endswith(".parquet")
+                and dataset_path.is_file()
+            ):
+                result = self._load_parquet_dataset(self.dataset_name_or_path)
+            elif is_cached_to_disk_hf_dataset(self.dataset_name_or_path):
+                result = self._load_dataset_from_disk(self.dataset_name_or_path)
             else:
                 raise ValueError(
                     f"File format not supported for {self.dataset_name_or_path}"
                 )
+        else:
+            result = self._load_hf_hub_dataset(self.dataset_name_or_path)
 
-        return self._load_hf_hub_dataset(self.dataset_name_or_path)
+        # Reclaim memory after data loading.
+        gc.collect()
+
+        logger.info(
+            f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
+            f"{result.dtypes}"
+        )
+        return result
 
     def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
         """Loads the dataset from the specified Hugging Face Hub source.
@@ -145,6 +162,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         splits_or_dataset = datasets.load_dataset(
             path=path,
             name=self.dataset_subset,
+            split=self.split,
             trust_remote_code=self.trust_remote_code,
         )
 
@@ -156,26 +174,46 @@ class BaseMapDataset(MapDataPipe, ABC):
         # Grab a single dataset split
         if isinstance(splits_or_dataset, datasets.Dataset):
             dataset = splits_or_dataset
-
         elif self.split is not None:
             dataset = splits_or_dataset[self.split]
-
         elif len(splits_or_dataset) == 1:
             dataset = splits_or_dataset.values().__iter__().__next__()
-
         else:
             raise ValueError(
                 "Multiple splits found in the dataset. Please specify a single split. "
                 f"Available splits: {list(splits_or_dataset.keys())}"
             )
 
-        return cast(pd.DataFrame, dataset.to_pandas())
+        logger.info(
+            "\n".join(
+                [
+                    "Dataset Info:",
+                    f"\tSplit: {dataset.split}",
+                    f"\tVersion: {dataset.version}",
+                    f"\tDataset size: {dataset.dataset_size}",
+                    f"\tDownload size: {dataset.download_size}",
+                    f"\tSize: {dataset.size_in_bytes} bytes",
+                    f"\tRows: {len(dataset)}",
+                    f"\tColumns: {dataset.column_names}",
+                ]
+            )
+        )
+
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
     def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_json(path, lines=True)
 
     def _load_parquet_dataset(self, path: str) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_dataset_from_disk(self, path: str) -> pd.DataFrame:
+        dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
+        result = dataset.to_pandas()
+        del dataset
+        return cast(pd.DataFrame, result)
 
 
 class BaseLMSftDataset(BaseMapDataset, ABC):

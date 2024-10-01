@@ -17,6 +17,10 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
         return sky.clouds.RunPod()
     elif job.resources.cloud == SkyClient.SupportedClouds.LAMBDA.value:
         return sky.clouds.Lambda()
+    elif job.resources.cloud == SkyClient.SupportedClouds.AWS.value:
+        return sky.clouds.AWS()
+    elif job.resources.cloud == SkyClient.SupportedClouds.AZURE.value:
+        return sky.clouds.Azure()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -66,6 +70,8 @@ class SkyClient:
     class SupportedClouds(Enum):
         """Enum representing the supported clouds."""
 
+        AWS = "aws"
+        AZURE = "azure"
         GCP = "gcp"
         RUNPOD = "runpod"
         LAMBDA = "lambda"
