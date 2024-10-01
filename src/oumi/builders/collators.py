@@ -54,6 +54,9 @@ class VisionLanguageCollator:
         images = []
         text_inputs = []
         for item in batch:
+            # TODO Consider relaxing this constraint: a vision/language model
+            # can handle text-only inputs e.g., a follow-up to an answer,
+            # or image-only inputs e.g., captioning.
             for required_key in (_PIXEL_VALUES_KEY, _INPUT_IDS_KEY):
                 if required_key not in item:
                     raise ValueError(
