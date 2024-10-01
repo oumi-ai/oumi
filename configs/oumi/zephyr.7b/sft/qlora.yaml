@@ -7,6 +7,7 @@
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
   trust_remote_code: True
+  torch_dtype_str: "bfloat16"
   model_max_length: 2048
   chat_template: "zephyr"
   attn_implementation: "sdpa"
@@ -43,12 +44,10 @@ training:
   max_steps: -1
   num_train_epochs: 1
   save_steps: 100
-  mixed_precision_dtype: "BF16"
-  # resume_from_checkpoint: "your-checkpoint-directory" # Optional
+  # mixed_precision_dtype: "BF16"  # TODO: Investigate if it has any effect.
   trainer_kwargs:
-    dataset_text_field: ${data.train.target_col}
-    max_seq_length: ${model.model_max_length}
     packing: True # Enable for faster training
+  # resume_from_checkpoint: "your-checkpoint-directory" # Optional
 
 peft:
   q_lora: True

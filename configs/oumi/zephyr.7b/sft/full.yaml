@@ -7,6 +7,7 @@
 model:
   model_name: "mistralai/Mistral-7B-v0.1"
   trust_remote_code: True
+  torch_dtype_str: "bfloat16"
   model_max_length: 2048
   chat_template: "zephyr"
   attn_implementation: "sdpa"
@@ -30,7 +31,7 @@ training:
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 16
-  gradient_accumulation_steps: 1  # Effective batch-size is 128=16x(1)x8
+  gradient_accumulation_steps: 1  # Effective batch-size is 128=16x(1)x8.
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
   output_dir: "output/zephyr-7b-sft-full"
@@ -39,13 +40,11 @@ training:
   logging_steps: 25
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
-    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
+    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings.
   max_steps: -1
   num_train_epochs: 1
   save_steps: 100
-  mixed_precision_dtype: "BF16"
-  # resume_from_checkpoint: "your-checkpoint-directory" # Optional
+  # mixed_precision_dtype: "BF16"  # TODO: Investigate if it has any effect.
   trainer_kwargs:
-    dataset_text_field: ${data.train.target_col}
-    max_seq_length: ${model.model_max_length}
-    packing: True # Enabled for faster training
+    packing: True # Enabled for faster training.
+  # resume_from_checkpoint: "your-checkpoint-directory" # Optional.
