@@ -134,6 +134,19 @@
             "justMyCode": true
         },
         {
+            "name": "Python Debugger: Minimal Multimodal Training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/benchmarks/minimal_multimodal_training.py",
+            "args": [
+                "--model-name",
+                "llava-hf/llava-1.5-7b-hf",
+                "--dataset-name",
+                "coco_captions"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
