@@ -1,11 +1,11 @@
 import asyncio
-from multiprocessing.pool import ThreadPool
-from typing import Awaitable, TypeVar
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Coroutine, TypeVar
 
 T = TypeVar("T")
 
 
-def safe_asyncio_run(main: Awaitable[T]) -> T:
+def safe_asyncio_run(main: Coroutine[Any, Any, T]) -> T:
     """Run an Awaitable in a new thread. Blocks until the thread is finished.
 
     This circumvents the issue of running async functions in the main thread when
@@ -15,10 +15,11 @@ def safe_asyncio_run(main: Awaitable[T]) -> T:
     ignore our dependency on asyncio.
 
     Args:
-        main: The awaitable to resolve.
+        main: The Coroutine to resolve.
 
     Returns:
-        The result of the awaitable.
+        The result of the Coroutine.
     """
-    with ThreadPool(processes=1) as pool:
-        return pool.apply(asyncio.run, (main,))  # type: ignore
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        task = executor.submit(asyncio.run, main)
+        return task.result()
