@@ -1,5 +1,6 @@
 import copy
 import warnings
+from pathlib import Path
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import datasets
@@ -23,6 +24,7 @@ from oumi.datasets.prompt_response_sft_preprocessor_factory import (
 )
 from oumi.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from oumi.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
+from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
@@ -368,11 +370,15 @@ def _load_dataset(
             )
             return dataset.to_hf()
 
-    return datasets.load_dataset(
-        dataset_params.dataset_name,
-        name=dataset_params.subset,
-        split=dataset_params.split,
-        streaming=stream,
-        trust_remote_code=dataset_params.trust_remote_code,
-        **dataset_params.dataset_kwargs,
-    )
+    dataset_name_or_path: Path = Path(dataset_params.dataset_name)
+    if is_cached_to_disk_hf_dataset(dataset_name_or_path):
+        return datasets.Dataset.load_from_disk(dataset_name_or_path)
+    else:
+        return datasets.load_dataset(
+            dataset_params.dataset_name,
+            name=dataset_params.subset,
+            split=dataset_params.split,
+            streaming=stream,
+            trust_remote_code=dataset_params.trust_remote_code,
+            **dataset_params.dataset_kwargs,
+        )

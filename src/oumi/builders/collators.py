@@ -28,6 +28,8 @@ def build_data_collator(collator_name: str, **kwargs):
     elif collator_name == "vision_language":
         return VisionLanguageCollator(**kwargs)
 
+    return None
+
 
 class VisionLanguageCollator:
     def __init__(self, processor, max_length: int = 1024):
@@ -49,8 +51,20 @@ class VisionLanguageCollator:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        images = [item[_PIXEL_VALUES_KEY] for item in batch]
-        text_inputs = [item[_INPUT_IDS_KEY] for item in batch]
+        images = []
+        text_inputs = []
+        for item in batch:
+            # TODO Consider relaxing this constraint: a vision/language model
+            # can handle text-only inputs e.g., a follow-up to an answer,
+            # or image-only inputs e.g., captioning.
+            for required_key in (_PIXEL_VALUES_KEY, _INPUT_IDS_KEY):
+                if required_key not in item:
+                    raise ValueError(
+                        f"Item doesn't contain '{required_key}' key. "
+                        f"Available keys: {item.keys()}"
+                    )
+            images.append(item[_PIXEL_VALUES_KEY])
+            text_inputs.append(item[_INPUT_IDS_KEY])
 
         # collate batch images
         pixel_values = self.collate_images(images)
