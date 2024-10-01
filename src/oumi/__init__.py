@@ -15,7 +15,6 @@ Modules:
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
-    - :func:`~oumi.evaluate.evaluate_oumi`: Evaluate a model using Oumi benchmarks.
     - :func:`~oumi.evaluate.evaluate_lm_harness`: Evaluate a model using Language
         Model Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
@@ -33,11 +32,11 @@ Examples:
 
     Evaluating a model::
 
-        from oumi import evaluate_oumi
+        from oumi import evaluate
         from oumi.core.configs import EvaluationConfig
 
         config = EvaluationConfig(...)
-        results = evaluate_oumi(config)
+        results = evaluate(config)
 
     Performing inference::
 
@@ -60,7 +59,7 @@ See Also:
 """
 
 from oumi import judges, models
-from oumi.evaluate import evaluate_lm_harness, evaluate_oumi
+from oumi.evaluate import evaluate, evaluate_lm_harness
 from oumi.evaluate_async import evaluate_async
 from oumi.infer import infer, infer_interactive
 from oumi.judge import judge_conversations, judge_dataset
@@ -73,7 +72,7 @@ logging.configure_dependency_warnings()
 __all__ = [
     "evaluate_async",
     "evaluate_lm_harness",
-    "evaluate_oumi",
+    "evaluate",
     "infer_interactive",
     "infer",
     "judge_conversations",
