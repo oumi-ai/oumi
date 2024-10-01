@@ -74,7 +74,7 @@ train = [
     "llama-cpp-python",             # for local cpu inference
     "lm-eval==0.4.3",               # OPE-390
     "nvidia-ml-py",
-    "omegaconf",
+    "omegaconf>=2.1",               # for OmegaConf.to_object()
     "peft",
     "pydantic>=2",
     "safetensors",

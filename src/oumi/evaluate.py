@@ -8,6 +8,7 @@ from typing import Any, Dict
 
 import lm_eval
 import torch
+from lm_eval.loggers import WandbLogger
 
 from oumi.core.configs import EvaluationConfig
 from oumi.core.configs.evaluation_config import EvaluationFramework
@@ -199,6 +200,14 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
             logger.info(
                 f"{benchmark_name}'s metric dictionary is {pformat(metric_dict)}"
             )
+        if config.enable_wandb:
+            project_name = os.environ.get("WANDB_PROJECT", "oumi")
+            logger.info(f"Logging to Weights and Biases project: '{project_name}'")
+            wandb_logger = WandbLogger(
+                project=project_name, name=config.run_name, job_type="eval"
+            )
+            wandb_logger.post_init(results)
+            wandb_logger.log_eval_result()
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:

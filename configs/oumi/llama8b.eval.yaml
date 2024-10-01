@@ -24,3 +24,5 @@ generation:
 data:
   datasets:
     - dataset_name: "m_mmlu_en"
+
+enable_wandb: True

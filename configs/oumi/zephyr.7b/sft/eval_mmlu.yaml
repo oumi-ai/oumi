@@ -19,3 +19,5 @@ generation:
 
 evaluation_framework: LM_HARNESS
 num_shots: 5
+
+enable_wandb: True

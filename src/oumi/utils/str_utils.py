@@ -1,9 +1,10 @@
 import hashlib
 import logging
 import re
+from typing import Optional
 
 
-def sanitize_run_name(run_name: str) -> str:
+def sanitize_run_name(run_name: Optional[str]) -> Optional[str]:
     """Computes a sanitized version of wandb run name.
 
     A valid run name may only contain alphanumeric characters, dashes, underscores,

@@ -19,10 +19,12 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
+  WANDB_PROJECT: oumi-eval
   # NOTE: For SFT, update this to point to your model checkpoint.
   MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
+  OUMI_RUN_NAME: llama8b.eval
 
 setup: |
   set -e
@@ -50,6 +52,7 @@ run: |
   accelerate launch \
     -m oumi.evaluate \
     -c configs/oumi/llama8b.eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 
