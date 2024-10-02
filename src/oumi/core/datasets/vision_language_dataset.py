@@ -146,7 +146,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
         for key in inputs.keys():
-            logger.info(f"Key: {key}, {inputs[key]}")
+            logger.info(f"INITIAL SHAPES: {key}, {inputs[key].shape}")
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
         if "attention_mask" in inputs:
@@ -156,6 +156,9 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             logger.warning("attention_mask not present!")
 
         inputs["labels"] = inputs["input_ids"]
+
+        for key in inputs.keys():
+            logger.info(f"UPDATED SHAPES: {key}, {inputs[key].shape}")
         return inputs
 
     def _prepare_simple_model(

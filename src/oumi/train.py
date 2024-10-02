@@ -256,9 +256,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if True:
         ds_iter = iter(dataset)
         sample = next(ds_iter)
-        logger.info(f"Sample: {sample}")
-        sample = next(ds_iter)
-        logger.info(f"Sample: {sample}")
+        for key in sample.keys():
+            logger.info(f"SHAPE: {key}, {sample[key].shape}")
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
