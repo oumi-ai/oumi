@@ -130,7 +130,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
             output_conversations.append(new_conversation)
             if generation_config.output_filepath:
-                # Write what we have so far to our scratch directory.
                 self._save_conversation(
                     new_conversation,
                     generation_config.output_filepath,
