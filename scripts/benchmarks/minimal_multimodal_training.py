@@ -151,7 +151,7 @@ def test_multimodal_trainer(
         max_steps=max_steps,
         save_steps=0,
         gradient_accumulation_steps=1,
-        log_model_summary=True,
+        log_model_summary=False,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )
