@@ -17,7 +17,7 @@ Working configs:
 """
 
 from enum import Enum
-from typing import Optional
+from typing import Dict, List, Optional
 
 import torch
 import typer
@@ -34,17 +34,44 @@ from oumi.core.configs import (
     ModelParams,
     TrainingParams,
 )
-from oumi.core.distributed import cleanup_distributed, init_distributed, is_distributed
+from oumi.core.distributed import (
+    cleanup_distributed,
+    init_distributed,
+    is_distributed,
+    is_local_process_zero,
+)
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.str_utils import sanitize_run_name
+from oumi.utils.torch_utils import (
+    log_model_summary,
+)
 
 
 class ModelName(str, Enum):
     BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
+    QWEN = "Qwen/Qwen2-VL-2B-Instruct"  # not supported by transformers==4.43.4
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
+
+
+_FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
+    ModelName.BLIP2: ["vision_model"],
+    ModelName.LLAVA: ["vision_tower"],
+    ModelName.QWEN: ["visual"],
+    ModelName.CHAMELEON: ["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
+    ModelName.PALIGEMMA: ["vision_tower"],
+}
+
+
+def _get_freeze_layers(model_name: ModelName) -> List[str]:
+    result = []
+    if model_name in _FREEZE_LAYERS_MAP:
+        result = _FREEZE_LAYERS_MAP[model_name]
+        print(f"Frozen layers: {result}")
+    else:
+        print(f"No frozen layers defined for {model_name}!")
+    return result
 
 
 class DatasetName(str, Enum):
@@ -87,7 +114,7 @@ def test_multimodal_trainer(
         model_name=model_name.value,
         torch_dtype_str="float16",
         trust_remote_code=True,
-        # freeze_layers=["vision_model"],  # TODO: fix freeze + fsdp
+        freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp
     )
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value)
@@ -129,8 +156,12 @@ def test_multimodal_trainer(
         include_performance_metrics=True,
     )
 
+    if training_params.log_model_summary and is_local_process_zero():
+        log_model_summary(model)
+
     # Initialize trainer with custom collator
     collator = build_data_collator(collator_name="vision_language", processor=processor)
+
     trainer = Trainer(
         model=model,
         tokenizer=processor.tokenizer,
