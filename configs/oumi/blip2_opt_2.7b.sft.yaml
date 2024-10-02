@@ -13,18 +13,17 @@ data:
     datasets:
       - dataset_name: "nlphuji/flickr30k"
         split: "test"
-        trust_remote_code: False
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 100
           return_tensors: True
-      #- dataset_name: "coco_captions"
-      #  split: "train"
-      #  trust_remote_code: True
-      #  dataset_kwargs:
-      #    processor_name: "Salesforce/blip2-opt-2.7b"
-      #    limit: 100
-      #    return_tensors: True
+      # - dataset_name: "coco_captions"
+      #   split: "train"
+      #   trust_remote_code: True
+      #   dataset_kwargs:
+      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     limit: 100
+      #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_kwargs:
       #     data_column: "messages"
