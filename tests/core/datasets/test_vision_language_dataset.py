@@ -30,7 +30,7 @@ def mock_processor():
     processor.chat_template = None
     processor.side_effect = lambda images, text, return_tensors, padding: {
         "input_ids": [[1]],
-        "attention_mask": Mock(),
+        "attention_mask": [[1]],
         "pixel_values": [[1]],
     }
     return processor
