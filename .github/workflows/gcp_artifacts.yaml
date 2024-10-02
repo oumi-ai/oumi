@@ -6,7 +6,7 @@ on:
       - 'v*'  # Trigger on version tags
 
 env:
-  PROJECT_ID: lema-dev
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_NAME }}
   REGION: us-west1
   REPOSITORY: oumi-pypi
 
@@ -35,12 +35,12 @@ jobs:
       name: 'Authenticate to Google Cloud'
       uses: 'google-github-actions/auth@v1'
       with:
-        workload_identity_provider: 'projects/356780097663/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-        service_account: 'umi-pypi-writer@lema-dev.iam.gserviceaccount.com'
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
     - name: Deploy to Artifact Registry
       env:
         TWINE_USERNAME: oauth2accesstoken
         TWINE_PASSWORD: ${{ steps.gcp_auth.outputs.access_token }}
       run: |
-        twine upload --repository-url https://${{ env.REGION }}-python.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/ dist/*
+        twine upload --repository-url https://${{ env.REGION }}-python.pkg.dev/${{ secrets.GCP_PROJECT_NAME }}/${{ env.REPOSITORY }}/ dist/*
