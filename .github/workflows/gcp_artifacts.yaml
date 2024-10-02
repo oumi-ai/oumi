@@ -1,9 +1,10 @@
 name: Build and Deploy to Artifact Registry
 
 on:
-  push:
-    tags:
-      - 'v*'  # Trigger on version tags
+  [pull_request]
+  # push:
+  #   tags:
+  #     - 'v*'  # Trigger on version tags
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_NAME }}
@@ -13,6 +14,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
     - name: Checkout
