@@ -150,7 +150,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
         if "attention_mask" in inputs:
+            logger.info("Reshaped: attention_mask")
             inputs["attention_mask"] = inputs["attention_mask"][0]
+        else:
+            logger.warning("attention_mask not present!")
 
         inputs["labels"] = inputs["input_ids"]
         return inputs
