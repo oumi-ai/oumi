@@ -12,7 +12,7 @@ model:
 lm_harness_params:
   tasks:
     - "mmlu"
-  num_shots: 5
+  num_fewshot: 5
 
 generation:
   batch_size: 32

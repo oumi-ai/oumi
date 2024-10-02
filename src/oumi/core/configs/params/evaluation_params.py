@@ -16,7 +16,7 @@ class LMHarnessParams(BaseParams):
     https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks
     """
 
-    num_shots: Optional[int] = None
+    num_fewshot: Optional[int] = None
     """Number of few-shot examples (with responses) to add in the prompt, in order to
     teach the model how to respond to the specific dataset's prompts.
 

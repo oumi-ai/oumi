@@ -47,10 +47,10 @@ class EvaluationConfig(BaseConfig):
         """Verifies params."""
         if self.lm_harness_params is not None:
             if (
-                self.lm_harness_params.num_shots
-                and self.lm_harness_params.num_shots < 0
+                self.lm_harness_params.num_fewshot
+                and self.lm_harness_params.num_fewshot < 0
             ):
-                raise ValueError("`num_shots` must be non-negative.")
+                raise ValueError("`num_fewshot` must be non-negative.")
             if (
                 self.lm_harness_params.num_samples is not None
                 and self.lm_harness_params.num_samples <= 0

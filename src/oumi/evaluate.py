@@ -111,7 +111,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         model="hf",
         model_args=config.model.to_lm_harness(),
         tasks=config.lm_harness_params.tasks,  # type: ignore
-        num_fewshot=config.lm_harness_params.num_shots,
+        num_fewshot=config.lm_harness_params.num_fewshot,
         batch_size=batch_size,
         device=device,
         limit=config.lm_harness_params.num_samples,
@@ -153,7 +153,7 @@ def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
         mutable_config = deepcopy(config)
         mutable_config.lm_harness_params = LMHarnessParams(
             tasks=[benchmark_config.name],
-            num_shots=benchmark_config.num_shots,
+            num_fewshot=benchmark_config.num_fewshot,
             num_samples=benchmark_config.num_samples,
         )
         evaluate_lm_harness(mutable_config)
