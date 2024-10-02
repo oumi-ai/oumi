@@ -51,3 +51,4 @@ training:
   save_steps: 0
   dataloader_num_workers: 0 # TODO: fix bug with forking process. Likely related to the processor reference?
   include_performance_metrics: true
+  enable_wandb: True
