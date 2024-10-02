@@ -186,7 +186,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         )
                         if generation_config.output_filepath:
                             # Write what we have so far to our scratch directory.
-                            await self._save_conversation_async(
+                            self._save_conversation(
                                 result,
                                 self._get_scratch_filepath(
                                     generation_config.output_filepath

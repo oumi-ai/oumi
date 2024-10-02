@@ -27,7 +27,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
 
-    def _make_batches(self, input: List[str], batch_size: int) -> List[List[str]]:
+    def _make_batches(
+        self, input: List[Conversation], batch_size: int
+    ) -> List[List[Conversation]]:
         """Splits the input into batches of the specified size.
 
         Args:
@@ -60,69 +62,68 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 "Inference does not work yet for pretrained PEFT models."
             )
         model_device = next(self._model.parameters()).device
-        formatted_input: List[str] = [
-            self._tokenizer.apply_chat_template(
-                conversation,  # type: ignore
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-            for conversation in input
+        batched_input = self._make_batches(input, generation_config.batch_size)
+        batched_formatted_input: List[List[str]] = [
+            [
+                self._tokenizer.apply_chat_template(
+                    conversation,  # type: ignore
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                for conversation in batch
+            ]
+            for batch in batched_input
         ]
-        # Tokenization of input (in place, batch mode).
-        batched_input = self._make_batches(
-            formatted_input, generation_config.batch_size
+        input_batches: List[BatchEncoding] = [BatchEncoding()] * len(
+            batched_formatted_input
         )
-        input_batches: List[BatchEncoding] = [BatchEncoding()] * len(batched_input)
-        for batch_index, batch in enumerate(batched_input):
+        for batch_index, batch in enumerate(batched_formatted_input):
             batch_tokenized = self._tokenizer(batch, return_tensors="pt", padding=True)
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
 
         # Generate model outputs (batch mode).
-        output = []
+        output_conversations = []
         for batch_index in tqdm(
             range(len(input_batches)), desc="Generating Model Responses"
         ):
             batch = input_batches[batch_index]
-            output.append(
-                self._model.generate(
-                    **batch, max_new_tokens=generation_config.max_new_tokens
-                )
+            output_batch = self._model.generate(
+                **batch, max_new_tokens=generation_config.max_new_tokens
             )
 
-        # Decode the outputs (batch mode).
-        output_decoded = []
-        for batch_index, batch in enumerate(output):
             # For each batch, remove the prepended prompts from all model reponses.
             if generation_config.exclude_prompt_from_response:
                 new_batch_data = []
-                for reponse_index, response in enumerate(batch.data):
-                    prompt = input_batches[batch_index]["input_ids"][reponse_index]  # type: ignore
+                for response_index, response in enumerate(output_batch.data):
+                    prompt = input_batches[batch_index]["input_ids"][response_index]  # type: ignore
                     assert prompt.tolist() == response[: len(prompt)].tolist()
                     new_batch_data.append(response[len(prompt) :])
-                batch.data = torch.stack(new_batch_data, dim=0)
+                output_batch.data = torch.stack(new_batch_data, dim=0)
 
-            output_decoded.append(
-                self._tokenizer.batch_decode(
-                    batch.data,
-                    skip_special_tokens=True,
-                    clean_up_tokenization_spaces=True,
-                )
+            output_batch_decoded = self._tokenizer.batch_decode(
+                output_batch.data,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
             )
-        flat_output = [item for sublist in output_decoded for item in sublist]
-        output_conversations = []
-        for conversation, response in zip(input, flat_output):
-            messages = [
-                *conversation.messages,
-                Message(role=Role.ASSISTANT, content=response),
-            ]
-            output_conversations.append(
-                Conversation(
+            for conversation, response in zip(
+                batched_input[batch_index], output_batch_decoded
+            ):
+                messages = [
+                    *conversation.messages,
+                    Message(role=Role.ASSISTANT, content=response),
+                ]
+                new_conversation = Conversation(
                     messages=messages,
                     metadata=conversation.metadata,
                     conversation_id=conversation.conversation_id,
                 )
-            )
+                if generation_config.output_filepath:
+                    self._save_conversation(
+                        new_conversation, generation_config.output_filepath
+                    )
+                output_conversations.append(new_conversation)
+
         return output_conversations
 
     def infer_online(
@@ -137,10 +138,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
@@ -158,7 +156,4 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)

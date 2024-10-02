@@ -1,9 +1,7 @@
-import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
 
-import aiofiles
 import jsonlines
 
 from oumi.core.configs import GenerationConfig
@@ -84,22 +82,6 @@ class BaseInferenceEngine(ABC):
         """
         original_filepath = Path(output_filepath)
         return str(original_filepath.parent / "scratch" / original_filepath.name)
-
-    async def _save_conversation_async(
-        self, conversation: Conversation, output_filepath: str
-    ) -> None:
-        """Appends a conversation to a file in Oumi chat format.
-
-        Args:
-            conversation: The conversation to save.
-            output_filepath: The path to the file where the conversation should be
-                saved.
-        """
-        # Make the directory if it doesn't exist.
-        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(output_filepath, mode="a") as writer:
-            json_obj = conversation.model_dump()
-            await writer.write(json.dumps(json_obj) + "\n")
 
     def _save_conversation(
         self, conversation: Conversation, output_filepath: str

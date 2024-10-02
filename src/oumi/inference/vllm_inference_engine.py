@@ -133,7 +133,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 # Write what we have so far to our scratch directory.
                 self._save_conversation(
                     new_conversation,
-                    self._get_scratch_filepath(generation_config.output_filepath),
+                    generation_config.output_filepath,
                 )
         return output_conversations
 
@@ -150,10 +150,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
@@ -173,7 +170,4 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)
