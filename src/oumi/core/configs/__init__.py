@@ -74,6 +74,10 @@ from oumi.core.configs.params.data_params import (
     DatasetSplitParams,
     MixtureStrategy,
 )
+from oumi.core.configs.params.evaluation_params import (
+    CustomEvaluationParams,
+    LMHarnessParams,
+)
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
@@ -91,6 +95,7 @@ from oumi.core.configs.training_config import TrainingConfig
 __all__ = [
     "AsyncEvaluationConfig",
     "BaseConfig",
+    "CustomEvaluationParams",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
@@ -103,6 +108,7 @@ __all__ = [
     "JobConfig",
     "JobResources",
     "JudgeConfig",
+    "LMHarnessParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",

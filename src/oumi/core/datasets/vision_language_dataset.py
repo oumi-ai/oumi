@@ -145,15 +145,9 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for key in inputs.keys():
-            logger.info(f"INITIAL SHAPES: {key}, {inputs[key].shape}")
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
-        if "attention_mask" in inputs:
-            logger.info("Reshaped: attention_mask")
-            inputs["attention_mask"] = inputs["attention_mask"][0]
-        else:
-            logger.warning("attention_mask not present!")
+        inputs["attention_mask"] = inputs["attention_mask"][0]
 
         inputs["labels"] = inputs["input_ids"]
 

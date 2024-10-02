@@ -79,13 +79,10 @@ Create an `eval_config.yaml` file with evaluation-specific settings:
 model:
   model_name: "output/checkpoint-1000"  # Path to your trained model
 
-data:
-  datasets:
-    - dataset_name: "cais/mmlu"
-      split: "test"
-
-evaluation_framework: "lm_harness"
-num_shots: 5
+lm_harness_params:
+  tasks:
+    - "mmlu"
+  num_fewshot: 5
 output_dir: "eval_results"
 ```
 

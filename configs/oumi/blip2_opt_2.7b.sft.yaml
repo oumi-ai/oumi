@@ -1,10 +1,9 @@
 model:
-  # model_name: "Qwen/Qwen2-VL-2B-Instruct"
-  # model_name: "llava-hf/llava-1.5-7b-hf"
   model_name: "Salesforce/blip2-opt-2.7b"
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
+  attn_implementation: "sdpa"
   freeze_layers:
     - "vision_model"
 

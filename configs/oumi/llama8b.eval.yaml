@@ -17,10 +17,9 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
 
-evaluation_framework: LM_HARNESS
-num_shots: 5
 generation:
   batch_size: 4
-data:
-  datasets:
-    - dataset_name: "m_mmlu_en"
+lm_harness_params:
+  tasks:
+    - "m_mmlu_en"
+  num_fewshot: 5

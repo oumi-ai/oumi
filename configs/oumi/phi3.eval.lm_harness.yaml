@@ -2,11 +2,9 @@ model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
   trust_remote_code: True
 
-data:
-  datasets:
-    - dataset_name: "huggingface_leaderboard_v1"
+lm_harness_params:
+  tasks:
+    - "huggingface_leaderboard_v1"
 
 generation:
   batch_size: 0  # This will let LM HARNESS decide.
-
-evaluation_framework: LM_HARNESS
