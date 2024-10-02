@@ -1,4 +1,4 @@
-name: Build and Deploy to Artifact Registry
+name: Build and Publish to Artifact Registry
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   REPOSITORY: oumi-pypi
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-24.04
     permissions:
       contents: 'read'
