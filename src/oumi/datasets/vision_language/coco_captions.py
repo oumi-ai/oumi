@@ -11,7 +11,8 @@ _COCO_COLUMN_BYTES = "bytes"
 
 @register_dataset("coco_captions")
 class COCOCaptionsDataset(VisionLanguageSftDataset):
-    default_dataset = "HuggingFaceM4/COCO"
+    # default_dataset = "HuggingFaceM4/COCO"
+    default_dataset = "/home/user/data/coco_captions/test"
     default_prompt = "Describe this image:"
 
     def transform_conversation(self, example: dict) -> Conversation:
