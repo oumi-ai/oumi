@@ -122,7 +122,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
-            # TODO: OPE-354 blip2 and llava need special handling
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(

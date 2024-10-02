@@ -19,7 +19,7 @@ data:
       #   dataset_kwargs:
       #     data_column: "messages"
       #     dataset_path: "training.jsonl"  # See notebook for example how to generate this file
-      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     processor_name: "llava-hf/llava-1.5-7b-hf"
     target_col: "text" # TODO: useless col, but required by the trainer
 
 training:
