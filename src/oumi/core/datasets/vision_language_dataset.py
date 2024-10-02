@@ -149,6 +149,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             logger.info(f"Key: {key}, {inputs[key]}")
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
+        if "attention_mask" in inputs:
+            inputs["attention_mask"] = inputs["attention_mask"][0]
 
         inputs["labels"] = inputs["input_ids"]
         return inputs
