@@ -151,8 +151,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         inputs["labels"] = inputs["input_ids"]
 
-        for key in inputs.keys():
-            logger.info(f"UPDATED SHAPES: {key}, {inputs[key].shape}")
         return inputs
 
     def _prepare_simple_model(
