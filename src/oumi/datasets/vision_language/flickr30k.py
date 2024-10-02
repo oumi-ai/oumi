@@ -1,3 +1,5 @@
+from typing_extensions import override
+
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -7,6 +9,7 @@ from oumi.core.types.turn import Conversation, Message, Role, Type
 class Flickr30kDataset(VisionLanguageSftDataset):
     default_dataset = "nlphuji/flickr30k"
 
+    @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         input_text = "Describe this image:"

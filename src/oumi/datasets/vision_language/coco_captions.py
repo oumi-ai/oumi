@@ -1,3 +1,5 @@
+from typing_extensions import override
+
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -14,6 +16,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
     default_dataset = "HuggingFaceM4/COCO"
     default_prompt = "Describe this image:"
 
+    @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         input_text = self.default_prompt
