@@ -13,6 +13,7 @@ data:
     datasets:
       - dataset_name: "coco_captions"
         split: "train"
+        trust_remote_code: True
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 100
