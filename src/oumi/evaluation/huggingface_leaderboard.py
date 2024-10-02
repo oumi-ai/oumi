@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-BenchmarkConfig = namedtuple("BenchmarkConfig", ["name", "num_shots", "num_samples"])
+BenchmarkConfig = namedtuple("BenchmarkConfig", ["name", "num_fewshot", "num_samples"])
 
 HUGGINGFACE_LEADERBOARD_V1 = "huggingface_leaderboard_v1"
 
