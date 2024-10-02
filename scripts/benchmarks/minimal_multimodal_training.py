@@ -59,7 +59,7 @@ _FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
     ModelName.BLIP2: ["vision_model"],
     ModelName.LLAVA: ["vision_tower"],
     ModelName.QWEN: ["visual"],
-    ModelName.CHAMELEON: [],
+    ModelName.CHAMELEON: ["model.vqmodel"],  # FIXME Nested layers can't be freezed.
     ModelName.PALIGEMMA: ["vision_tower"],
 }
 
