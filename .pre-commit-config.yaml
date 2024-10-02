@@ -37,16 +37,16 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-#  - repo: local
-#    hooks:
-#      - id: pyright
-#        name: pyright
-#        entry: pyright
-#        language: node
-#        types: [python]
-#        pass_filenames: false
-#        args: [--warnings]
-#        additional_dependencies: ["pyright@1.1.368"]
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        types: [python]
+        pass_filenames: false
+        args: [--warnings]
+        additional_dependencies: ["pyright@1.1.368"]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.16.0
     hooks:
