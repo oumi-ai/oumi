@@ -1,12 +1,10 @@
 model:
-  # model_name: "Qwen/Qwen2-VL-2B-Instruct"
-  # model_name: "llava-hf/llava-1.5-7b-hf"
-  model_name: "Salesforce/blip2-opt-2.7b"
+  model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
   freeze_layers:
-    - "vision_model"
+    - "vision_tower"
 
 data:
   train:
@@ -14,7 +12,7 @@ data:
       - dataset_name: "coco_captions"
         split: "train"
         dataset_kwargs:
-          processor_name: "Salesforce/blip2-opt-2.7b"
+          processor_name: "llava-hf/llava-1.5-7b-hf"
           limit: 100
           return_tensors: True
       # - dataset_name: vision_language_jsonl

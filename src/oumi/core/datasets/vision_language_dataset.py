@@ -50,15 +50,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(**kwargs)
 
-        if processor_name is not None and processor is not None:
-            logger.warning(
-                "Both processor and processor_name are provided. "
-                "Ignoring processor_name: %s",
-                processor_name,
-            )
-
-        if processor_name is not None and processor is None:
-            processor = AutoProcessor.from_pretrained(processor_name)
+        if processor is None:
+            if processor_name:
+                processor = AutoProcessor.from_pretrained(processor_name)
+        else:
+            if processor_name:
+                logger.warning(
+                    "Both processor and processor_name are provided. "
+                    "Ignoring processor_name: %s",
+                    processor_name,
+                )
 
         self._processor = processor
 
