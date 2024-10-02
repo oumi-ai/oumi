@@ -256,8 +256,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if True:
         ds_iter = iter(dataset)
         sample = next(ds_iter)
+        logger.info(f"Keys: {list(sample.keys())}")
         for key in sample.keys():
-            logger.info(f"SHAPE: {key}, {sample[key].shape}")
+            if isinstance(sample[key], list):
+                np_shape = np.array(sample[key]).shape
+                logger.info(f"SHAPE {type(sample[key])}: {key}, {np_shape}")
+            elif isinstance(sample[key], torch.Tensor):
+                logger.info(f"SHAPE {type(sample[key])}: {key}, {sample[key].shape}")
+            else:
+                logger.info(f"SHAPE {type(sample[key])}: {key}, {sample[key]}")
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
