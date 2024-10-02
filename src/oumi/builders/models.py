@@ -282,7 +282,14 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     if model_params.chat_template:
+        logger.info(
+            f"Using the chat template '{model_params.chat_template}' "
+            "specified in model config!"
+        )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
+    elif not tokenizer.chat_template and tokenizer.default_chat_template:
+        logger.info(f"Using the '{tokenizer_name}' tokenizer's default chat template!")
+        tokenizer.chat_template = tokenizer.default_chat_template
 
     if tokenizer.chat_template is None:
         logger.warning(
