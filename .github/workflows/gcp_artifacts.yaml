@@ -35,7 +35,7 @@ jobs:
     - name: Build package
       run: python -m build
 
-    - id: 'gcp_auth'
+    - id: 'auth'
       name: 'Authenticate to Google Cloud'
       uses: 'google-github-actions/auth@v2'
       with:
@@ -45,6 +45,6 @@ jobs:
     - name: Deploy to Artifact Registry
       env:
         TWINE_USERNAME: oauth2accesstoken
-        TWINE_PASSWORD: ${{ steps.gcp_auth.outputs.access_token }}
+        TWINE_PASSWORD: ${{ steps.auth.outputs.access_token }}
       run: |
         twine upload --verbose --repository-url "https://${{ env.REGION }}-python.pkg.dev/${{ secrets.GCP_PROJECT_NAME }}/${{ env.REPOSITORY }}/" dist/*
