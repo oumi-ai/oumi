@@ -120,7 +120,6 @@ class BaseMapDataset(MapDataPipe, ABC):
     #
     # Data Loading
     #
-    @abstractmethod
     def _load_data(self) -> pd.DataFrame:
         """Loads the dataset from the specified source.
 
