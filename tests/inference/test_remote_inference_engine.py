@@ -637,6 +637,13 @@ def test_infer_from_file_to_file():
                 ),
             )
             assert expected_result == result
+            # Ensure that intermediary results are saved to the scratch directory.
+            with open(output_path.parent / "scratch" / output_path.name) as f:
+                parsed_conversations = []
+                for line in f:
+                    parsed_conversations.append(Conversation.model_validate_json(line))
+                assert len(expected_result) == len(parsed_conversations)
+            # Ensure the final output is in order.
             with open(output_path) as f:
                 parsed_conversations = []
                 for line in f:

@@ -175,13 +175,18 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 new_message,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            output_conversations.append(new_conversation)
+            if generation_config.output_filepath:
+                # Write what we have so far to our scratch directory.
+                self._save_conversation(
+                    new_conversation,
+                    self._get_scratch_filepath(generation_config.output_filepath),
+                )
         return output_conversations
 
     def infer_online(

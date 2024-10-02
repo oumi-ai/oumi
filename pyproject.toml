@@ -66,6 +66,7 @@ dev = [
 ]
 train = [
     "accelerate",
+    "aiofiles",
     "aiohttp",
     "aioresponses",
     "asyncio",
