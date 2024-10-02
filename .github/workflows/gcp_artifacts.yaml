@@ -1,10 +1,9 @@
 name: Build and Deploy to Artifact Registry
 
 on:
-  [pull_request]
-  # push:
-  #   tags:
-  #     - 'v*'  # Trigger on version tags
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_NAME }}
