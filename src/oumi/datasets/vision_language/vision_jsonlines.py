@@ -42,7 +42,7 @@ class JsonlinesDataset(VisionLanguageSftDataset):
                 )
 
             data_frame = pd.read_json(self._dataset_path, lines=True)
-            if self._data_column not in self._data.columns:
+            if self._data_column not in data_frame.columns:
                 raise ValueError(
                     f"Data column {self._data_column} not found in dataset"
                 )
