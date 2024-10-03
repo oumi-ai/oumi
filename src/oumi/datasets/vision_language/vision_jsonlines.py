@@ -34,17 +34,19 @@ class JsonlinesDataset(VisionLanguageSftDataset):
         if data is not None:
             data_frame = pd.DataFrame({self._data_column: data})
         elif self._dataset_path is not None:
-            if not self._dataset_path.is_file():
-                raise ValueError(f"Dataset path does not exist: {self._dataset_path}")
-            elif not (self._dataset_path.suffix == ".jsonl"):
+            if not (self._dataset_path.suffix == ".jsonl"):
                 raise ValueError(
-                    f"Dataset path '{self._dataset_path}' must end with .jsonl"
+                    f"Dataset path must end with .jsonl: {self._dataset_path}"
                 )
+            elif not self._dataset_path.exists():
+                raise ValueError(f"Dataset path does not exist: {self._dataset_path}")
+            elif not self._dataset_path.is_file():
+                raise ValueError(f"Dataset path is not a file: {self._dataset_path}")
 
             data_frame = pd.read_json(self._dataset_path, lines=True)
             if self._data_column not in data_frame.columns:
                 raise ValueError(
-                    f"Data column {self._data_column} not found in dataset"
+                    f"Data column not found in dataset: {self._data_column}"
                 )
         else:
             raise ValueError("Dataset path or data must be provided")
