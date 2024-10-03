@@ -16,12 +16,12 @@ def train(
     config: Annotated[
         str,
         typer.Option(
-            utils.CONFIG_FLAGS, help="Path to the configuration file for training."
+            *utils.CONFIG_FLAGS, help="Path to the configuration file for training."
         ),
     ],
     verbose: Annotated[bool, typer.Option(help="Run with verbose logging.")] = False,
 ):
-    """The CLI entrypoint for training a model.
+    """Train a model.
 
     Args:
         ctx: The Typer context object.
