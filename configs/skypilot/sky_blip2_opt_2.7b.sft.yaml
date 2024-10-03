@@ -7,7 +7,8 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 200 # Disk size in GBs
+  disk_size: 500 # Disk size in GBs
+  region: "us-central1"
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -56,4 +57,4 @@ run: |
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
 
-# sky launch -i 10 --env LEMA_RUN_NAME=blip2-opt-2.7b-sft.coco.1xA10040GB.100steps.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_blip2_opt_2.7b.sft.yaml
+# sky launch -i 10 --env LEMA_RUN_NAME=blip2-opt-2.7b-sft.coco.1xA10040GB.100steps.v101 --cloud GCP --region us-central1 --use-spot --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_blip2_opt_2.7b.sft.yaml
