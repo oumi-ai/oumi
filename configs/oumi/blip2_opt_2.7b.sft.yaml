@@ -21,7 +21,7 @@ data:
         trust_remote_code: True
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
-          limit: 100
+          limit: 1024
           return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_kwargs:
@@ -33,8 +33,8 @@ data:
 training:
   optimizer: "sgd"
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT" # "TRL_SFT" "OUMI"
-  per_device_train_batch_size: 4
+  trainer_type: "OUMI" # "TRL_SFT" "OUMI"
+  per_device_train_batch_size: 64
   gradient_accumulation_steps: 1
   max_steps: 20
 
