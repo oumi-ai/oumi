@@ -7,6 +7,7 @@ import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
+from oumi.core.distributed import is_local_process_zero
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
@@ -26,6 +27,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self,
         *,
         dataset_name_or_path: Optional[str],
+        dataset_path: Optional[Union[str, Path]],
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
@@ -38,18 +40,37 @@ class BaseMapDataset(MapDataPipe, ABC):
                 "Please check the class constructor for supported arguments."
             )
 
-        dataset_name_or_path = dataset_name_or_path or self.default_dataset
+        effective_dataset_name_or_path: Optional[str] = (
+            dataset_name_or_path or self.default_dataset
+        )
+        if dataset_path:
+            if is_local_process_zero():
+                logger.info(
+                    f"Loading the '{effective_dataset_name_or_path}' dataset "
+                    f"from '{dataset_path}'..."
+                )
+            effective_dataset_name_or_path = str(dataset_path)
 
-        if dataset_name_or_path is None:
+        if not effective_dataset_name_or_path:
             raise ValueError(
-                "Please specify a dataset_name_or_path or "
-                "set the default_dataset class attribute."
+                "Please specify a `dataset_path`, `dataset_name_or_path`, or "
+                "set the `default_dataset` class attribute."
             )
 
-        self.dataset_name_or_path = dataset_name_or_path
+        self.dataset_name_or_path = effective_dataset_name_or_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
+
+    @property
+    def dataset_path_override(self) -> Optional[str]:
+        """Returns dataset path override.
+
+        Subclasses can override this property to define a custom path
+        where to load the dataset from. If configured, it has higher
+        precedence than `dataset_name_or_path` or `default_dataset`.
+        """
+        return None
 
     #
     # Main API
