@@ -14,7 +14,10 @@ from oumi.utils.torch_utils import (
 def train(
     ctx: typer.Context,
     config: Annotated[
-        str, typer.Option(help="Path to the configuration file for training.")
+        str,
+        typer.Option(
+            utils.CONFIG_FLAGS, help="Path to the configuration file for training."
+        ),
     ],
     verbose: Annotated[bool, typer.Option(help="Run with verbose logging.")] = False,
 ):

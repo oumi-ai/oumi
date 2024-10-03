@@ -3,6 +3,7 @@ from typing import List
 import typer
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
+CONFIG_FLAGS = ["--config", "-c"]
 
 
 def parse_extra_cli_args(ctx: typer.Context) -> List[str]:
