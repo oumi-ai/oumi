@@ -32,12 +32,11 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-api-python-client",    # To enable GCP in Skypilot
     "jsonlines",
     "numpy",
     "openai",
     "pexpect",
-    "skypilot[aws,azure,gcp,lambda,runpod]",
+    "skypilot",
     "torch",
     "torchvision",
     "tqdm",
@@ -86,11 +85,25 @@ train = [
     "trl>=0.9.0",
     "wandb<0.17.8",
 ]
-cloud = [
+aws = [
+    "skypilot[aws]",
+]
+azure = [
+    "skypilot[azure]",
+]
+gcp = [
     "google-api-core>=2.19.0",
+    "google-api-python-client",
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
+    "skypilot[gcp]",
+]
+lambda = [
+    "skypilot[lambda]",
+]
+runpod = [
+    "skypilot[runpod]",
 ]
 gpu = [
     "liger-kernel",
@@ -103,7 +116,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx_copybutton",
 ]
-all = ["oumi[dev,train,cloud,docs]"]
+all = ["oumi[dev,train,aws,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
 oumi-evaluate = "oumi.evaluate:main"
