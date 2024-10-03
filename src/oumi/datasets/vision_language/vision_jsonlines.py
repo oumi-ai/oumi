@@ -1,5 +1,5 @@
-import os
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -15,36 +15,46 @@ class JsonlinesDataset(VisionLanguageSftDataset):
 
     def __init__(
         self,
-        dataset_path: Optional[str] = None,
+        dataset_path: Optional[Union[str, Path]] = None,
         data: Optional[list] = None,
         data_column: str = "messages",
         **kwargs,
     ):
         """Initializes a new instance of the JsonlinesDataset class."""
-        self.data_column = data_column
-        self.dataset_path = dataset_path
-
         if dataset_path is not None and data is not None:
             raise ValueError(
                 "Either dataset_path or data must be provided, but not both"
             )
 
+        self._data_column: str = data_column
+        self._dataset_path: Optional[Path] = (
+            Path(dataset_path) if dataset_path else None
+        )
+
         if data is not None:
-            self._data = pd.DataFrame({self.data_column: data})
+            data_frame = pd.DataFrame({self._data_column: data})
+        elif self._dataset_path is not None:
+            if not (self._dataset_path.suffix == ".jsonl"):
+                raise ValueError(
+                    f"Dataset path must end with .jsonl: {self._dataset_path}"
+                )
+            elif not self._dataset_path.is_file():
+                raise ValueError(
+                    f"Dataset path is not a file: {self._dataset_path}"
+                    if self._dataset_path.exists()
+                    else f"Dataset path does not exist: {self._dataset_path}"
+                )
 
-        elif dataset_path is not None:
-            if not os.path.isfile(dataset_path):
-                raise ValueError(f"Dataset path does not exist: {dataset_path}")
-
-            if not dataset_path.endswith(".jsonl"):
-                raise ValueError("Dataset path must end with .jsonl")
-
-            self._data = pd.read_json(dataset_path, lines=True)
-
-            if self.data_column not in self._data.columns:
-                raise ValueError(f"Data column {self.data_column} not found in dataset")
+            data_frame = pd.read_json(self._dataset_path, lines=True)
+            if self._data_column not in data_frame.columns:
+                raise ValueError(
+                    f"Data column not found in dataset: {self._data_column}"
+                )
         else:
             raise ValueError("Dataset path or data must be provided")
+
+        assert data_frame is not None
+        self._data: pd.DataFrame = data_frame
 
         super().__init__(**kwargs)
 
