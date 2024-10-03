@@ -257,6 +257,21 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
+    if True:
+        ds_iter = iter(dataset)
+        sample = next(ds_iter)
+        logger.info(f"Sample: {sample.keys()}")
+        for key, val in sample.items():
+            if isinstance(val, list):
+                arr = np.ndarray(val)
+                logger.info(f"\t{key} {type(val)} SHAPE: {arr.shape}")
+            elif isinstance(val, np.ndarray):
+                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
+            elif isinstance(val, torch.Tensor):
+                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
+            else:
+                logger.info(f"\t{key} {type(val)} UNKNOWN SHAPE")
+
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
         config.training.trainer_type

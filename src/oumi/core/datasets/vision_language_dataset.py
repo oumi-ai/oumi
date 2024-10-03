@@ -2,6 +2,7 @@ import io
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Union
 
+import numpy as np
 import requests
 import torch
 from PIL import Image
@@ -145,6 +146,17 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
+        for key, val in inputs.items():
+            if isinstance(val, list):
+                arr = np.ndarray(val)
+                logger.info(f"\t{key} {type(val)} SHAPE: {arr.shape}")
+            elif isinstance(val, np.ndarray):
+                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
+            elif isinstance(val, torch.Tensor):
+                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
+            else:
+                logger.info(f"\t{key} {type(val)} UNKNOWN SHAPE")
+
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
         inputs["attention_mask"] = inputs["attention_mask"][0]
