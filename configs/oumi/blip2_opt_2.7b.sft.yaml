@@ -3,7 +3,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
-  attn_implementation: "sdpa"
   freeze_layers:
     - "vision_model"
 
