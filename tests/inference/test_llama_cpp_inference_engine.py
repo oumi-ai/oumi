@@ -82,9 +82,7 @@ def test_infer_online(inference_engine):
 def test_infer_from_file(inference_engine):
     with patch.object(
         inference_engine, "_read_conversations"
-    ) as mock_read, patch.object(
-        inference_engine, "_infer"
-    ) as mock_infer, patch.object(inference_engine, "_save_conversations") as mock_save:
+    ) as mock_read, patch.object(inference_engine, "_infer") as mock_infer:
         mock_read.return_value = [
             Conversation(messages=[Message(content="Hello", role=Role.USER)])
         ]
@@ -104,5 +102,4 @@ def test_infer_from_file(inference_engine):
 
         mock_read.assert_called_once_with("input.json")
         mock_infer.assert_called_once()
-        mock_save.assert_called_once_with(mock_infer.return_value, "output.json")
         assert result == mock_infer.return_value

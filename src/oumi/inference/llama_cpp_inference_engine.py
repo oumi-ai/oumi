@@ -175,13 +175,17 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 new_message,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            output_conversations.append(new_conversation)
+            if generation_config.output_filepath:
+                self._save_conversation(
+                    new_conversation,
+                    generation_config.output_filepath,
+                )
         return output_conversations
 
     def infer_online(
@@ -197,10 +201,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)
 
     def infer_from_file(
         self, input_filepath: str, generation_config: GenerationConfig
@@ -220,7 +221,4 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_config)

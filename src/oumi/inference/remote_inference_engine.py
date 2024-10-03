@@ -184,6 +184,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         result = self._convert_api_output_to_conversation(
                             response_json, conversation
                         )
+                        if generation_config.output_filepath:
+                            # Write what we have so far to our scratch directory.
+                            self._save_conversation(
+                                result,
+                                self._get_scratch_filepath(
+                                    generation_config.output_filepath
+                                ),
+                            )
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:

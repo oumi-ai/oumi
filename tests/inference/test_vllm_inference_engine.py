@@ -398,6 +398,7 @@ def test_infer_from_file_to_file(mock_vllm):
             ),
         )
         assert result == expected_result
+        # Ensure the final output is in order.
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
