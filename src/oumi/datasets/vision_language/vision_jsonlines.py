@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
@@ -47,10 +48,12 @@ class JsonlinesDataset(VisionLanguageSftDataset):
 
         super().__init__(**kwargs)
 
+    @override
     def _load_data(self) -> pd.DataFrame:
         # no-op, data is already loaded in __init__
         return self._data
 
+    @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         return Conversation(messages=example["messages"])

@@ -1,22 +1,28 @@
 model:
-  # model_name: "Qwen/Qwen2-VL-2B-Instruct"
-  # model_name: "llava-hf/llava-1.5-7b-hf"
   model_name: "Salesforce/blip2-opt-2.7b"
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
+  attn_implementation: "sdpa"
   freeze_layers:
     - "vision_model"
 
 data:
   train:
     datasets:
-      - dataset_name: "coco_captions"
-        split: "train"
+      - dataset_name: "nlphuji/flickr30k"
+        split: "test"
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 100
           return_tensors: True
+      # - dataset_name: "coco_captions"
+      #   split: "train"
+      #   trust_remote_code: True
+      #   dataset_kwargs:
+      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     limit: 100
+      #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_kwargs:
       #     data_column: "messages"
@@ -39,3 +45,4 @@ training:
   save_steps: 0
   dataloader_num_workers: 0 # TODO: fix bug with forking process. Likely related to the processor reference?
   include_performance_metrics: true
+  enable_wandb: True

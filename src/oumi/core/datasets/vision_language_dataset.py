@@ -50,15 +50,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(**kwargs)
 
-        if processor_name is not None and processor is not None:
-            logger.warning(
-                "Both processor and processor_name are provided. "
-                "Ignoring processor_name: %s",
-                processor_name,
-            )
-
-        if processor_name is not None and processor is None:
-            processor = AutoProcessor.from_pretrained(processor_name)
+        if processor is None:
+            if processor_name:
+                processor = AutoProcessor.from_pretrained(processor_name)
+        else:
+            if processor_name:
+                logger.warning(
+                    "Both processor and processor_name are provided. "
+                    "Ignoring processor_name: %s",
+                    processor_name,
+                )
 
         self._processor = processor
 
@@ -121,7 +122,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
-            # TODO: OPE-354 blip2 and llava need special handling
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
@@ -147,8 +147,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # TODO: OPE-355 add support for multiple images
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
+        inputs["attention_mask"] = inputs["attention_mask"][0]
 
         inputs["labels"] = inputs["input_ids"]
+
         return inputs
 
     def _prepare_simple_model(

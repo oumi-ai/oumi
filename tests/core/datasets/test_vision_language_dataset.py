@@ -3,6 +3,7 @@ import io
 from typing import Optional, Tuple
 from unittest.mock import Mock, patch
 
+import numpy as np
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
@@ -29,9 +30,16 @@ def mock_processor():
     processor.image_processor = Mock()
     processor.chat_template = None
     processor.side_effect = lambda images, text, return_tensors, padding: {
-        "input_ids": [[1]],
-        "attention_mask": Mock(),
-        "pixel_values": [[1]],
+        "input_ids": [[101, 102, 103, 104]],
+        "attention_mask": [[1, 1, 1, 1]],
+        "pixel_values": [
+            [
+                np.ones(shape=(3, 2, 8)),
+                np.zeros(shape=(3, 2, 8)),
+                np.ones(shape=(3, 2, 8)) * 0.5,
+                np.ones(shape=(3, 2, 8)) * 0.7,
+            ]
+        ],
     }
     return processor
 
@@ -146,9 +154,14 @@ def test_transform_simple_model_using_image_path(test_dataset_using_image_path):
 
     assert isinstance(result, dict)
     assert "input_ids" in result
+    assert np.array(result["input_ids"]).shape == (4,)
     assert "attention_mask" in result
+    assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
+    assert np.array(result["labels"]).shape == (4,)
+    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
+    assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
 
 
 def test_transform_simple_model_using_image_binary(test_dataset_using_image_binary):
@@ -162,9 +175,14 @@ def test_transform_simple_model_using_image_binary(test_dataset_using_image_bina
 
     assert isinstance(result, dict)
     assert "input_ids" in result
+    assert np.array(result["input_ids"]).shape == (4,)
     assert "attention_mask" in result
+    assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
+    assert np.array(result["labels"]).shape == (4,)
+    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
+    assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
 
 
 def test_transform_instruct_model_using_image_path(
@@ -181,9 +199,14 @@ def test_transform_instruct_model_using_image_path(
 
     assert isinstance(result, dict)
     assert "input_ids" in result
+    assert np.array(result["input_ids"]).shape == (4,)
     assert "attention_mask" in result
+    assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
+    assert np.array(result["labels"]).shape == (4,)
+    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
+    assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()
 
 
@@ -203,7 +226,12 @@ def test_transform_instruct_model_using_image_binary(
 
     assert isinstance(result, dict)
     assert "input_ids" in result
+    assert np.array(result["input_ids"]).shape == (4,)
     assert "attention_mask" in result
+    assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
+    assert np.array(result["labels"]).shape == (4,)
+    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
+    assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()
