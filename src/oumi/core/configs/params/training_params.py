@@ -7,6 +7,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.data_collation_params import DataCollationParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
@@ -258,6 +259,9 @@ class TrainingParams(BaseParams):
     return a dictionary of metrics, with string keys mapping to metric values. A
     single metrics_function may compute multiple metrics.
     """
+
+    data_collation: Optional[DataCollationParams] = None
+    """Controls how to form a mini-batch from individual dataset elements."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.

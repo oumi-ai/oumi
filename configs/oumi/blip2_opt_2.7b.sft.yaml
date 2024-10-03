@@ -37,6 +37,9 @@ training:
   gradient_accumulation_steps: 1
   max_steps: 20
 
+  data_collation:
+    collator_name: "vision_language"
+
   learning_rate: 2e-5
   compile: False
   warmup_ratio: 0.1

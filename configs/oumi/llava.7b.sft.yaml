@@ -40,6 +40,9 @@ training:
   gradient_accumulation_steps: 1
   max_steps: 20
 
+  data_collation:
+    collator_name: "vision_language"
+
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
