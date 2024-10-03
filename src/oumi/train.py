@@ -5,11 +5,14 @@ import time
 from pathlib import Path
 from typing import Callable, Optional, Union
 
+import datasets
 import numpy as np
 import torch
+from transformers import AutoProcessor
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
+    build_data_collator,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -210,6 +213,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
+    logger.info(f"is_caching_enabled: {datasets.is_caching_enabled()}")
+    datasets.disable_caching()
+    logger.info(f"is_caching_enabled: {datasets.is_caching_enabled()}")
+
     _create_training_dirs(config)
     _log_training_info(config)
 
@@ -282,6 +289,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Reclaim memory before training starts.
     gc.collect()
 
+    # Initialize trainer with custom collator
+    processor = AutoProcessor.from_pretrained(config.model.model_name)
+    collator = build_data_collator(collator_name="vision_language", processor=processor)
+
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -302,6 +313,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
                 callbacks=callbacks,
+                data_collator=collator,
                 **kwargs,
             )
 
