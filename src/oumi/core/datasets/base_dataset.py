@@ -32,6 +32,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
+        logger.info(f"Instantiating {type(self).__name__}...")
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
