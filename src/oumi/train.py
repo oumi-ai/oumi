@@ -263,7 +263,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info(f"Sample: {sample.keys()}")
         for key, val in sample.items():
             if isinstance(val, list):
-                arr = np.ndarray(val)
+                arr = np.array(val)
                 logger.info(f"\t{key} {type(val)} SHAPE: {arr.shape}")
             elif isinstance(val, np.ndarray):
                 logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")

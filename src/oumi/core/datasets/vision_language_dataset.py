@@ -148,7 +148,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # TODO: OPE-355 add support for multiple images
         for key, val in inputs.items():
             if isinstance(val, list):
-                arr = np.ndarray(val)
+                arr = np.array(val)
                 logger.info(f"\t{key} {type(val)} SHAPE: {arr.shape}")
             elif isinstance(val, np.ndarray):
                 logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
