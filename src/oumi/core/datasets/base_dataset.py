@@ -62,16 +62,6 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.split = split
         self.trust_remote_code = trust_remote_code
 
-    @property
-    def dataset_path_override(self) -> Optional[str]:
-        """Returns dataset path override.
-
-        Subclasses can override this property to define a custom path
-        where to load the dataset from. If configured, it has higher
-        precedence than `dataset_name_or_path` or `default_dataset`.
-        """
-        return None
-
     #
     # Main API
     #

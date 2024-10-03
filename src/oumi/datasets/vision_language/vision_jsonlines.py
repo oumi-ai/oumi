@@ -67,8 +67,3 @@ class JsonlinesDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         return Conversation(messages=example["messages"])
-
-    @property
-    @override
-    def dataset_path_override(self) -> Optional[str]:
-        return str(self._dataset_path) if self._dataset_path else None
