@@ -13,6 +13,10 @@ def dolly_dataset():
     return ArgillaDollyDataset(split="train", tokenizer=tokenizer)
 
 
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 def test_dolly_dataset_model_inputs(dolly_dataset):
     # Check that the dataset is not empty
     assert len(dolly_dataset) > 0
@@ -26,6 +30,10 @@ def test_dolly_dataset_model_inputs(dolly_dataset):
         assert isinstance(item["input_ids"], Sequence)
 
 
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 def test_dolly_dataset_conversation(dolly_dataset):
     # Check that the dataset is not empty
     assert len(dolly_dataset) > 0
@@ -50,6 +58,10 @@ def test_dolly_dataset_conversation(dolly_dataset):
         assert conversation.messages[-1].role == "assistant"
 
 
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 def test_dolly_dataset_prompt_generation(dolly_dataset):
     for idx in range(len(dolly_dataset)):
         prompt = dolly_dataset.prompt(idx)
