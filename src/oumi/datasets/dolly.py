@@ -1,5 +1,6 @@
 from typing import Dict, Union, cast
 
+import numpy as np
 import pandas as pd
 
 from oumi.core.datasets import BaseLMSftDataset
@@ -10,6 +11,8 @@ from oumi.core.types.turn import Conversation, Message, Role
 @register_dataset("argilla/databricks-dolly-15k-curated-en")
 class ArgillaDollyDataset(BaseLMSftDataset):
     """Dataset class for the Databricks Dolly 15k curated dataset."""
+
+    default_dataset = "argilla/databricks-dolly-15k-curated-en"
 
     def __init__(self, *, use_new_fields: bool = True, **kwargs) -> None:
         """Initialize the DollyDataset.
@@ -61,11 +64,15 @@ class ArgillaDollyDataset(BaseLMSftDataset):
         Returns:
             str: The value of the field.
         """
-        value = example
-        if isinstance(value, dict) and "value" in value:
-            return (
+        value = example[field]
+
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, pd.Series)) and "value" in value:
+            return cast(
+                str,
                 value["value"][0]
-                if isinstance(value["value"], list)
-                else value["value"]
+                if isinstance(value["value"], (list, np.ndarray))
+                else value["value"],
             )
-        return cast(str, value)
+        raise RuntimeError(f"Unable to parse field: {field}")
