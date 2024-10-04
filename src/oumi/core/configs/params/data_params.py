@@ -152,6 +152,9 @@ class DatasetSplitParams(BaseParams):
     This will later be split into train, test, and validation.
     """
 
+    data_collation: Optional[DataCollationParams] = None
+    """Controls how to form a mini-batch from individual dataset elements."""
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 
@@ -284,9 +287,6 @@ class DataParams(BaseParams):
 
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     """The input datasets used for validation."""
-
-    data_collation: Optional[DataCollationParams] = None
-    """Controls how to form a mini-batch from individual dataset elements."""
 
     def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
         """A public getting for individual dataset splits."""

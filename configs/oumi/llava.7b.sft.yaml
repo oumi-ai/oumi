@@ -8,9 +8,9 @@ model:
     - "vision_tower"
 
 data:
-  data_collation:
-    collator_name: "vision_language"
   train:
+    data_collation:
+      collator_name: "vision_language"
     datasets:
       - dataset_name: "nlphuji/flickr30k"
         split: "test"
