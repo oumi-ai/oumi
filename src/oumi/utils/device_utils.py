@@ -202,6 +202,12 @@ def get_nvidia_gpu_fan_speeds(device_index: int = 0) -> Sequence[int]:
     )
 
 
+def log_nvidia_gpu_fan_speeds(device_index: int = 0, log_prefix: str = "") -> None:
+    """Prints the current NVIDIA GPU fan speeds."""
+    fan_speeds = get_nvidia_gpu_fan_speeds(device_index)
+    logger.info(f"{log_prefix.rstrip()} GPU fan speeds: {fan_speeds}.")
+
+
 def get_nvidia_gpu_power_usage(device_index: int = 0) -> float:
     """Returns the current power usage for NVIDIA GPU device."""
     info: Optional[NVidiaGpuRuntimeInfo] = get_nvidia_gpu_runtime_info(
@@ -212,3 +218,9 @@ def get_nvidia_gpu_power_usage(device_index: int = 0) -> float:
         if (info is not None and info.power_usage_watts is not None)
         else 0.0
     )
+
+
+def log_nvidia_gpu_power_usage(device_index: int = 0, log_prefix: str = "") -> None:
+    """Prints the current NVIDIA GPU power usage."""
+    power_usage = get_nvidia_gpu_power_usage(device_index)
+    logger.info(f"{log_prefix.rstrip()} GPU power usage: {power_usage:1}W.")
