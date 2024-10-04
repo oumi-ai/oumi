@@ -87,8 +87,7 @@ def test_train_runs(
         train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
         config.to_yaml(train_yaml_path)
-        x = runner.invoke(app, ["--config", train_yaml_path])
-        print(x.output)
+        _ = runner.invoke(app, ["--config", train_yaml_path])
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_train.train.assert_has_calls([call(config)])
@@ -102,7 +101,7 @@ def test_train_with_overrides(
         train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
         config.to_yaml(train_yaml_path)
-        x = runner.invoke(
+        _ = runner.invoke(
             app,
             [
                 "--config",
@@ -113,7 +112,6 @@ def test_train_with_overrides(
                 "5",
             ],
         )
-        print(x.output)
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
         expected_config = _create_training_config()

@@ -28,7 +28,6 @@ def train(
         config: Path to the configuration file for training.
         verbose: Run with verbose logging.
     """
-    print("Running training!")
     extra_args = utils.parse_extra_cli_args(ctx)
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger

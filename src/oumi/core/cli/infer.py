@@ -15,26 +15,24 @@ def infer(
             *utils.CONFIG_FLAGS, help="Path to the configuration file for inference."
         ),
     ],
-    interactive: Annotated[
-        bool, typer.Option("-i", "--interactive", help="Run in an interactive sesion.")
-    ] = True,
+    detach: Annotated[
+        bool,
+        typer.Option("-d", "--detach", help="Do not run in an interactive session."),
+    ] = False,
 ):
     """Run inference on a model.
 
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        interactive: Run in an interactive sesion.
+        detach: Do not run in an interactive session.
     """
     extra_args = utils.parse_extra_cli_args(ctx)
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
     parsed_config.validate()
-
-    if interactive:
-        oumi.infer.infer_interactive(parsed_config)
-    else:
+    if detach:
         if parsed_config.generation.input_filepath is None:
             raise ValueError(
                 "`input_filepath` must be provided for non-interactive mode."
@@ -44,3 +42,5 @@ def infer(
             generation_config=parsed_config.generation,
             input=[],
         )
+    else:
+        oumi.infer.infer_interactive(parsed_config)
