@@ -7,6 +7,8 @@ model:
     - "vision_model"
 
 data:
+  data_collation:
+    collator_name: "vision_language"
   train:
     datasets:
       - dataset_name: "nlphuji/flickr30k"
@@ -36,9 +38,6 @@ training:
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 1
   max_steps: 20
-
-  data_collation:
-    collator_name: "vision_language"
 
   learning_rate: 2e-5
   compile: False

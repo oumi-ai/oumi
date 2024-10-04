@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.data_collation_params import DataCollationParams
 
 
 # Training Params
@@ -283,6 +284,9 @@ class DataParams(BaseParams):
 
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     """The input datasets used for validation."""
+
+    data_collation: Optional[DataCollationParams] = None
+    """Controls how to form a mini-batch from individual dataset elements."""
 
     def get_split(self, split: DatasetSplit) -> DatasetSplitParams:
         """A public getting for individual dataset splits."""
