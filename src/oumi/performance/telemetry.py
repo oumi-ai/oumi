@@ -15,8 +15,8 @@ from oumi.core.distributed import (
     all_gather_object,
     get_device_rank_info,
 )
-from oumi.utils.debugging_utils import get_nvidia_gpu_temperature
 from oumi.utils.logging import get_logger
+from oumi.utils.nvidia_utils import get_nvidia_gpu_temperature
 
 LOGGER = get_logger("oumi.telemetry")
 

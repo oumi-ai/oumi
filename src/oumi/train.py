@@ -32,12 +32,12 @@ from oumi.core.distributed import (
 )
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
-from oumi.utils.debugging_utils import (
+from oumi.utils.io_utils import save_json
+from oumi.utils.logging import configure_logger, logger
+from oumi.utils.nvidia_utils import (
     log_nvidia_gpu_memory_utilization,
     log_nvidia_gpu_temperature,
 )
-from oumi.utils.io_utils import save_json
-from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
     device_cleanup,
     limit_per_process_memory,
