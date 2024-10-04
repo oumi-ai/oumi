@@ -68,7 +68,7 @@ class NVidiaGpuRuntimeInfo(NamedTuple):
     """GPU power usage in Watts."""
 
 
-def get_nvidia_gpu_runtime_info(
+def _get_nvidia_gpu_runtime_info_impl(
     device_index: int = 0,
     *,
     memory: bool = False,
@@ -76,7 +76,6 @@ def get_nvidia_gpu_runtime_info(
     fan_speed: bool = False,
     power_usage: bool = False,
 ) -> Optional[NVidiaGpuRuntimeInfo]:
-    """Returns misc runtie stats for Nvidia GPU."""
     global pynvml
     if pynvml is None:
         return None
@@ -154,9 +153,27 @@ def get_nvidia_gpu_runtime_info(
     )
 
 
+def get_nvidia_gpu_runtime_info(
+    device_index: int = 0,
+    *,
+    memory: bool = False,
+    temperature: bool = False,
+    fan_speed: bool = False,
+    power_usage: bool = False,
+) -> Optional[NVidiaGpuRuntimeInfo]:
+    """Returns runtime stats for Nvidia GPU."""
+    return _get_nvidia_gpu_runtime_info_impl(
+        device_index=device_index,
+        memory=True,
+        temperature=True,
+        fan_speed=True,
+        power_usage=True,
+    )
+
+
 def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
     """Returns amount of memory being used on an Nvidia GPU in MiB."""
-    info: Optional[NVidiaGpuRuntimeInfo] = get_nvidia_gpu_runtime_info(
+    info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
         device_index=device_index, memory=True
     )
     return (
@@ -176,7 +193,7 @@ def log_nvidia_gpu_memory_utilization(
 
 def get_nvidia_gpu_temperature(device_index: int = 0) -> int:
     """Returns the current temperature readings for the device, in degrees C."""
-    info: Optional[NVidiaGpuRuntimeInfo] = get_nvidia_gpu_runtime_info(
+    info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
         device_index=device_index, memory=True
     )
     return (
@@ -192,7 +209,7 @@ def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> N
 
 def get_nvidia_gpu_fan_speeds(device_index: int = 0) -> Sequence[int]:
     """Returns the current fan speeds for NVIDIA GPU device."""
-    info: Optional[NVidiaGpuRuntimeInfo] = get_nvidia_gpu_runtime_info(
+    info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
         device_index=device_index, memory=True
     )
     return (
@@ -210,7 +227,7 @@ def log_nvidia_gpu_fan_speeds(device_index: int = 0, log_prefix: str = "") -> No
 
 def get_nvidia_gpu_power_usage(device_index: int = 0) -> float:
     """Returns the current power usage for NVIDIA GPU device."""
-    info: Optional[NVidiaGpuRuntimeInfo] = get_nvidia_gpu_runtime_info(
+    info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
         device_index=device_index, memory=True
     )
     return (
