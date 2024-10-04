@@ -2,6 +2,7 @@ from typing import Dict, Union, cast
 
 import numpy as np
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
@@ -26,6 +27,7 @@ class ArgillaDollyDataset(BaseLMSftDataset):
         self.use_new_fields = use_new_fields
         super().__init__(**kwargs)
 
+    @override
     def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object.
 
