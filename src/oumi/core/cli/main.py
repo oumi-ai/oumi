@@ -1,13 +1,20 @@
 import typer
 
-import oumi.core.cli.evaluate
-import oumi.core.cli.train
+from oumi.core.cli.evaluate import evaluate
+from oumi.core.cli.infer import infer
+from oumi.core.cli.train import train
 
-app = typer.Typer()
-app.command()(oumi.core.cli.train.train)
-app.command()(oumi.core.cli.evaluate.evaluate)
+
+def get_app() -> typer.Typer:
+    """Create the Typer CLI app."""
+    app = typer.Typer()
+    app.command()(evaluate)
+    app.command()(infer)
+    app.command()(train)
+    return app
 
 
 def run():
     """The entrypoint for the CLI."""
+    app = get_app()
     return app()
