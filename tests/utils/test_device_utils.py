@@ -1,10 +1,15 @@
+import numpy as np
 import pytest
 import torch
 
 from oumi.utils.device_utils import (
+    get_nvidia_gpu_fan_speeds,
     get_nvidia_gpu_memory_utilization,
+    get_nvidia_gpu_power_usage,
     get_nvidia_gpu_temperature,
+    log_nvidia_gpu_fan_speeds,
     log_nvidia_gpu_memory_utilization,
+    log_nvidia_gpu_power_usage,
     log_nvidia_gpu_temperature,
 )
 
@@ -75,3 +80,72 @@ def test_nvidia_gpu_temperature():
 def test_nvidia_gpu_temperature_no_cuda():
     assert get_nvidia_gpu_temperature() == 0.0
     log_nvidia_gpu_temperature()
+
+
+@pytest.mark.skipif(
+    not is_cuda_available_and_initialized(),
+    reason="CUDA is not available",
+)
+def test_nvidia_gpu_fan_speeds():
+    num_devices = torch.cuda.device_count()
+    if num_devices > 0:
+        for device_index in range(0, num_devices):
+            fan_speeds = get_nvidia_gpu_fan_speeds(device_index)
+            assert len(fan_speeds) > 0
+            fan_speeds = np.array(fan_speeds)
+            assert np.all(fan_speeds >= 0)
+            assert np.all(fan_speeds <= 100)
+            log_nvidia_gpu_fan_speeds(device_index)
+
+        # Test default argument value
+        fan_speeds = get_nvidia_gpu_fan_speeds()
+        assert len(fan_speeds) > 0
+        fan_speeds = np.array(fan_speeds)
+        assert np.all(fan_speeds >= 0)
+        assert np.all(fan_speeds <= 100)
+        log_nvidia_gpu_fan_speeds(device_index)
+    else:
+        # Test default argument value
+        assert get_nvidia_gpu_fan_speeds() == tuple()
+
+    log_nvidia_gpu_fan_speeds()
+
+
+@pytest.mark.skipif(
+    is_cuda_available_and_initialized(),
+    reason="CUDA is available",
+)
+def test_nvidia_gpu_fan_speeds_no_cuda():
+    assert get_nvidia_gpu_fan_speeds() == tuple()
+    log_nvidia_gpu_fan_speeds()
+
+
+@pytest.mark.skipif(
+    not is_cuda_available_and_initialized(),
+    reason="CUDA is not available",
+)
+def test_nvidia_gpu_power_usage():
+    num_devices = torch.cuda.device_count()
+    if num_devices > 0:
+        for device_index in range(0, num_devices):
+            watts = get_nvidia_gpu_power_usage(device_index)
+            assert watts > 0 and watts < 2000
+            log_nvidia_gpu_power_usage(device_index)
+
+        # Test default argument value
+        watts = get_nvidia_gpu_power_usage()
+        assert watts > 0 and watts < 2000
+    else:
+        # Test default argument value
+        assert get_nvidia_gpu_power_usage() == 0.0
+
+    log_nvidia_gpu_power_usage()
+
+
+@pytest.mark.skipif(
+    is_cuda_available_and_initialized(),
+    reason="CUDA is available",
+)
+def test_nvidia_gpu_power_usage_no_cuda():
+    assert get_nvidia_gpu_power_usage() == 0.0
+    log_nvidia_gpu_power_usage()

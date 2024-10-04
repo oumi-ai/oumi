@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence
 
 from oumi.utils.logging import logger
@@ -43,7 +42,6 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
     return int(pynvml.nvmlDeviceGetCount())
 
 
-@dataclass
 class NVidiaGpuRuntimeInfo(NamedTuple):
     device_index: int
     """Zero-based device index."""
@@ -194,7 +192,8 @@ def log_nvidia_gpu_memory_utilization(
 def get_nvidia_gpu_temperature(device_index: int = 0) -> int:
     """Returns the current temperature readings for the device, in degrees C."""
     info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
-        device_index=device_index, memory=True
+        device_index=device_index,
+        temperature=True,
     )
     return (
         info.temperature if (info is not None and info.temperature is not None) else 0
@@ -203,14 +202,14 @@ def get_nvidia_gpu_temperature(device_index: int = 0) -> int:
 
 def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> None:
     """Prints the current temperature readings for the device, in degrees C."""
-    temperature = get_nvidia_gpu_memory_utilization(device_index)
+    temperature = get_nvidia_gpu_temperature(device_index)
     logger.info(f"{log_prefix.rstrip()} GPU temperature: {temperature} C.")
 
 
 def get_nvidia_gpu_fan_speeds(device_index: int = 0) -> Sequence[int]:
     """Returns the current fan speeds for NVIDIA GPU device."""
     info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
-        device_index=device_index, memory=True
+        device_index=device_index, fan_speed=True
     )
     return (
         info.fan_speeds
@@ -228,7 +227,7 @@ def log_nvidia_gpu_fan_speeds(device_index: int = 0, log_prefix: str = "") -> No
 def get_nvidia_gpu_power_usage(device_index: int = 0) -> float:
     """Returns the current power usage for NVIDIA GPU device."""
     info: Optional[NVidiaGpuRuntimeInfo] = _get_nvidia_gpu_runtime_info_impl(
-        device_index=device_index, memory=True
+        device_index=device_index, power_usage=True
     )
     return (
         info.power_usage_watts
