@@ -8,7 +8,7 @@ from oumi.core.configs.params.base_params import BaseParams
 class ProfilerScheduleParams(BaseParams):
     """Parameters that define what subset of training steps to profile.
 
-    Keeping profiling enabled for all trainign steps may be impractical
+    Keeping profiling enabled for all training steps may be impractical
     as it may result in out-of-memory errors, extremely large trace files,
     and may interfere with regular training performance. This config can be used
     to enable PyTorch profiler only for a small number of training steps,
