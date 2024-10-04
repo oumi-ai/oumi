@@ -1,3 +1,4 @@
+from pprint import pformat
 from typing import NamedTuple, Optional, Sequence
 
 from oumi.utils.logging import logger
@@ -167,7 +168,7 @@ def get_nvidia_gpu_runtime_info(
 def log_nvidia_gpu_runtime_info(device_index: int = 0, log_prefix: str = "") -> None:
     """Prints the current NVIDIA GPU runtime info."""
     info = get_nvidia_gpu_runtime_info(device_index)
-    logger.info(f"{log_prefix.rstrip()} GPU runtime info: {info}.")
+    logger.info(f"{log_prefix.rstrip()} GPU runtime info: {pformat(info)}.")
 
 
 def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
