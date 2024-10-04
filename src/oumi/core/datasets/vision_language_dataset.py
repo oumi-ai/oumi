@@ -6,6 +6,7 @@ import requests
 import torch
 from PIL import Image
 from transformers import AutoProcessor
+from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -107,6 +108,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         )
         return features
 
+    @override
     def transform(self, sample: dict) -> dict:
         """Transforms an Oumi conversation into a dictionary of inputs for a model.
 
