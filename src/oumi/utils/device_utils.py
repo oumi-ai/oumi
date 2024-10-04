@@ -241,4 +241,4 @@ def get_nvidia_gpu_power_usage(device_index: int = 0) -> float:
 def log_nvidia_gpu_power_usage(device_index: int = 0, log_prefix: str = "") -> None:
     """Prints the current NVIDIA GPU power usage."""
     power_usage = get_nvidia_gpu_power_usage(device_index)
-    logger.info(f"{log_prefix.rstrip()} GPU power usage: {power_usage:1}W.")
+    logger.info(f"{log_prefix.rstrip()} GPU power usage: {power_usage:.2f}W.")
