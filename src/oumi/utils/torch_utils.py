@@ -7,8 +7,8 @@ import numpy as np
 import torch
 
 from oumi.core.configs import TrainingConfig
+from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
-from oumi.utils.nvidia_utils import get_nvidia_gpu_memory_utilization
 
 
 def device_cleanup() -> None:
