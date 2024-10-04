@@ -6,10 +6,12 @@ from oumi.utils.device_utils import (
     get_nvidia_gpu_fan_speeds,
     get_nvidia_gpu_memory_utilization,
     get_nvidia_gpu_power_usage,
+    get_nvidia_gpu_runtime_info,
     get_nvidia_gpu_temperature,
     log_nvidia_gpu_fan_speeds,
     log_nvidia_gpu_memory_utilization,
     log_nvidia_gpu_power_usage,
+    log_nvidia_gpu_runtime_info,
     log_nvidia_gpu_temperature,
 )
 
@@ -149,3 +151,47 @@ def test_nvidia_gpu_power_usage():
 def test_nvidia_gpu_power_usage_no_cuda():
     assert get_nvidia_gpu_power_usage() == 0.0
     log_nvidia_gpu_power_usage()
+
+
+@pytest.mark.skipif(
+    not is_cuda_available_and_initialized(),
+    reason="CUDA is not available",
+)
+def test_nvidia_gpu_runtime_info():
+    num_devices = torch.cuda.device_count()
+    if num_devices > 0:
+        for device_index in range(0, num_devices):
+            info = get_nvidia_gpu_runtime_info(device_index)
+            assert info is not None
+            assert info.device_index == device_index
+            assert info.device_count == num_devices
+            assert info.used_memory_mb
+            assert info.temperature
+            assert info.fan_speeds
+            assert info.power_usage_watts
+
+            log_nvidia_gpu_runtime_info(device_index)
+
+        # Test default argument value
+        info = get_nvidia_gpu_runtime_info()
+        assert info is not None
+        assert info.device_index == device_index
+        assert info.device_count == num_devices
+        assert info.used_memory_mb
+        assert info.temperature
+        assert info.fan_speeds
+        assert info.power_usage_watts
+    else:
+        # Test default argument value
+        assert get_nvidia_gpu_runtime_info() is None
+
+    log_nvidia_gpu_runtime_info()
+
+
+@pytest.mark.skipif(
+    is_cuda_available_and_initialized(),
+    reason="CUDA is available",
+)
+def test_nvidia_gpu_runtime_info_no_cuda():
+    assert get_nvidia_gpu_runtime_info() is None
+    log_nvidia_gpu_runtime_info()

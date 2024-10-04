@@ -153,11 +153,6 @@ def _get_nvidia_gpu_runtime_info_impl(
 
 def get_nvidia_gpu_runtime_info(
     device_index: int = 0,
-    *,
-    memory: bool = False,
-    temperature: bool = False,
-    fan_speed: bool = False,
-    power_usage: bool = False,
 ) -> Optional[NVidiaGpuRuntimeInfo]:
     """Returns runtime stats for Nvidia GPU."""
     return _get_nvidia_gpu_runtime_info_impl(
@@ -167,6 +162,12 @@ def get_nvidia_gpu_runtime_info(
         fan_speed=True,
         power_usage=True,
     )
+
+
+def log_nvidia_gpu_runtime_info(device_index: int = 0, log_prefix: str = "") -> None:
+    """Prints the current NVIDIA GPU runtime info."""
+    info = get_nvidia_gpu_runtime_info(device_index)
+    logger.info(f"{log_prefix.rstrip()} GPU runtime info: {info}.")
 
 
 def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:
