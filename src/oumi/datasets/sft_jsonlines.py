@@ -4,13 +4,13 @@ from typing import Optional, Union
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import VisionLanguageSftDataset
+from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation
+from oumi.core.types.turn import Conversation, Message
 
 
-@register_dataset("vision_language_jsonl")
-class JsonlinesDataset(VisionLanguageSftDataset):
+@register_dataset("text_sft_jsonl")
+class TextSftJsonLinesDataset(BaseLMSftDataset):
     default_dataset = "custom"
 
     def __init__(
@@ -20,7 +20,18 @@ class JsonlinesDataset(VisionLanguageSftDataset):
         data_column: str = "messages",
         **kwargs,
     ):
-        """Initializes a new instance of the JsonlinesDataset class."""
+        """Initializes a new instance of the SftJsonLinesDataset class.
+
+        Args:
+            dataset_path: Path to the JSON lines dataset file.
+            data: List of data samples if not loading from a file.
+            data_column: Name of the column containing the messages data.
+            **kwargs: Additional arguments to pass to the parent class.
+
+        Raises:
+            ValueError: If neither dataset_path nor data is provided,
+                or if both are provided.
+        """
         if dataset_path is not None and data is not None:
             raise ValueError(
                 "Either dataset_path or data must be provided, but not both"
@@ -60,10 +71,18 @@ class JsonlinesDataset(VisionLanguageSftDataset):
 
     @override
     def _load_data(self) -> pd.DataFrame:
-        # no-op, data is already loaded in __init__
+        # Data is already loaded in __init__
         return self._data
 
     @override
-    def transform_conversation(self, example: dict) -> Conversation:
-        """Transform a single conversation example into a Conversation object."""
-        return Conversation(messages=example[self._data_column])
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+        """Transform a single conversation example into a Conversation object.
+
+        Args:
+            example: The input example containing the messages.
+
+        Returns:
+            Conversation: A Conversation object containing the messages.
+        """
+        messages = example[self._data_column]
+        return Conversation(messages=[Message(**msg) for msg in messages])
