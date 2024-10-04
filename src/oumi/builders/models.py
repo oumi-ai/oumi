@@ -53,12 +53,12 @@ def build_model(
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
-            logger.info(f"Freezing layer {layer_name}.")
+            logger.info(f"Freezing layer '{layer_name}'...")
 
             for param in getattr(model, layer_name).parameters():
                 param.requires_grad_(False)
         else:
-            logger.warning(f"Layer {layer_name} not found in model.")
+            logger.warning(f"Layer '{layer_name}' not found in model.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
