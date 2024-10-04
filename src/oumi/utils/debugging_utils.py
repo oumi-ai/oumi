@@ -187,7 +187,7 @@ def get_nvidia_gpu_temperature(device_index: int = 0) -> int:
 def log_nvidia_gpu_temperature(device_index: int = 0, log_prefix: str = "") -> None:
     """Prints the current temperature readings for the device, in degrees C."""
     temperature = get_nvidia_gpu_memory_utilization(device_index)
-    logger.info(f"{log_prefix.rstrip()} GPU memory occupied: {temperature} C.")
+    logger.info(f"{log_prefix.rstrip()} GPU temperature: {temperature} C.")
 
 
 def get_nvidia_gpu_fan_speeds(device_index: int = 0) -> Sequence[int]:
