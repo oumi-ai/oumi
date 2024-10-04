@@ -116,7 +116,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx_copybutton",
 ]
-all = ["oumi[dev,train,aws,azure,gcp,lambda,runpod,docs]"]
+all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
 oumi-evaluate = "oumi.evaluate:main"
