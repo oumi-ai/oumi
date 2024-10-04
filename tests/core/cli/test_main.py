@@ -44,15 +44,21 @@ def mock_infer():
 
 
 def test_main_train_registered(mock_train):
-    _ = runner.invoke(get_app(), ["train", "--config", "a"])
+    _ = runner.invoke(
+        get_app(), ["train", "--config", "some/path", "--allow_extra" "args"]
+    )
     mock_train.assert_called_once()
 
 
 def test_main_infer_registered(mock_infer):
-    _ = runner.invoke(get_app(), ["infer", "--config", "a"])
+    _ = runner.invoke(
+        get_app(), ["infer", "--config", "some/path", "--allow_extra" "args"]
+    )
     mock_infer.assert_called_once()
 
 
 def test_main_evaluate_registered(mock_eval):
-    _ = runner.invoke(get_app(), ["evaluate", "--config", "a"])
+    _ = runner.invoke(
+        get_app(), ["evaluate", "--config", "some/path", "--allow_extra" "args"]
+    )
     mock_eval.assert_called_once()
