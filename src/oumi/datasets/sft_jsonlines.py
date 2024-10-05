@@ -6,7 +6,7 @@ from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation, Message
+from oumi.core.types.turn import Conversation
 
 
 @register_dataset("text_sft_jsonl")
@@ -85,4 +85,4 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
             Conversation: A Conversation object containing the messages.
         """
         messages = example[self._data_column]
-        return Conversation(messages=[Message(**msg) for msg in messages])
+        return Conversation.model_validate(messages)
