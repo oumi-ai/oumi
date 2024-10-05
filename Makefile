@@ -44,18 +44,28 @@ help:
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
 
 setup:
-	@if conda env list | grep -q $(CONDA_ENV); then \
-		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
-	else \
-		conda create -n $(CONDA_ENV) python=3.11 -y; \
-		if [ -f ~/.zshrc ]; then \
-			source ~/.zshrc; \
-		elif [ -f ~/.bashrc ]; then \
-			source ~/.bashrc; \
+	@if command -v conda >/dev/null 2>&1; then \
+		if conda env list | grep -q $(CONDA_ENV); then \
+			echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
+		else \
+			# Ensure conda is initialized for the shell
+			CONDA_BASE=$$(conda info --base); \
+			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
+
+			# Create and activate the conda environment
+			conda create -n $(CONDA_ENV) python=3.11 -y; \
+			conda activate $(CONDA_ENV); \
+
+			# Install dependencies
+			pip install -e ".[train,dev]"; \
+
+			# Install pre-commit hooks
+			pre-commit install; \
 		fi; \
-		conda activate $(CONDA_ENV); \
-		pip install -e ".[all]"; \
-		pre-commit install; \
+	else \
+		echo "Conda is not installed. Please install Conda and try again."; \
+		echo "You can download Conda from https://docs.conda.io/en/latest/miniconda.html"; \
+		exit 1; \
 	fi
 
 upgrade:
