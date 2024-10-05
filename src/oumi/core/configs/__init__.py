@@ -26,8 +26,6 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.model_params.ModelParams`
     - :class:`~oumi.core.configs.params.peft_params.PeftParams`
     - :class:`~oumi.core.configs.params.fsdp_params.FSDPParams`
-- Data Collation:
-    - :class:`~oumi.core.configs.params.data_collation_params.DataCollationParams`
 - Training:
     - :class:`~oumi.core.configs.training_config.TrainingConfig`
     - :class:`~oumi.core.configs.params.training_params.TrainingParams`
@@ -69,7 +67,6 @@ from oumi.core.configs.generation_config import GenerationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeConfig
-from oumi.core.configs.params.data_collation_params import DataCollationParams
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -99,7 +96,6 @@ __all__ = [
     "AsyncEvaluationConfig",
     "BaseConfig",
     "CustomEvaluationParams",
-    "DataCollationParams",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",

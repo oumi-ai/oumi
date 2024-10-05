@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Literal, Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.data_collation_params import DataCollationParams
 
 
 # Training Params
@@ -152,8 +151,17 @@ class DatasetSplitParams(BaseParams):
     This will later be split into train, test, and validation.
     """
 
-    data_collation: Optional[DataCollationParams] = None
-    """Controls how to form a mini-batch from individual dataset elements."""
+    collator_name: Optional[str] = None
+    """Name of Oumi data collator.
+
+    Data collator controls how to form a mini-batch from individual dataset elements.
+
+    Valid options are:
+    - "text_with_padding": Uses DataCollatorWithPadding for text data.
+    - "vision_language": Uses VisionLanguageCollator for image+text multi-modal data.
+
+    If None, then a default collator will be assigned.
+    """
 
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
