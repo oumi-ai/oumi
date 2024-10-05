@@ -16,11 +16,6 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
-  /output_dir_gcs:
-    source: gs://oumi-dev-us-central1
-    store: gcs
-    mode: MOUNT
-
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: blip2_opt_2.7b.sft

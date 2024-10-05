@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-import datasets
 import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
@@ -229,10 +228,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
-    logger.info(f"is_caching_enabled: {datasets.is_caching_enabled()}")
-    datasets.disable_caching()
-    logger.info(f"is_caching_enabled: {datasets.is_caching_enabled()}")
-
     _create_training_dirs(config)
     _log_training_info(config)
 
@@ -279,21 +274,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
-
-    if True:
-        ds_iter = iter(dataset)
-        sample = next(ds_iter)
-        logger.info(f"Sample: {sample.keys()}")
-        for key, val in sample.items():
-            if isinstance(val, list):
-                arr = np.array(val)
-                logger.info(f"\t{key} {type(val)} SHAPE: {arr.shape}")
-            elif isinstance(val, np.ndarray):
-                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
-            elif isinstance(val, torch.Tensor):
-                logger.info(f"\t{key} {type(val)} SHAPE: {val.shape}")
-            else:
-                logger.info(f"\t{key} {type(val)} UNKNOWN SHAPE")
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
