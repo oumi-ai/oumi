@@ -10,19 +10,19 @@ data:
   train:
     collator_name: "vision_language"
     datasets:
-      # - dataset_name: "nlphuji/flickr30k"
-      #   split: "test"
-      #   dataset_kwargs:
-      #     processor_name: "Salesforce/blip2-opt-2.7b"
-      #     limit: 100
-      #     return_tensors: True
-      - dataset_name: "coco_captions"
-        split: "train"
-        trust_remote_code: True
+      - dataset_name: "nlphuji/flickr30k"
+        split: "test"
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
-          limit: 1024
+          limit: 100
           return_tensors: True
+      # - dataset_name: "coco_captions"
+      #   split: "train"
+      #   trust_remote_code: True
+      #   dataset_kwargs:
+      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     limit: 1024
+      #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_kwargs:
       #     data_column: "messages"
@@ -33,7 +33,7 @@ data:
 training:
   optimizer: "sgd"
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT" # "TRL_SFT" "OUMI"
+  trainer_type: "TRL_SFT"
   per_device_train_batch_size: 32
   gradient_accumulation_steps: 1
   max_steps: 20
