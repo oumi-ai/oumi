@@ -155,20 +155,20 @@ def _get_nvidia_gpu_runtime_info_impl(
             fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
         except Exception:
             logger.exception(f"Failed to get GPU fan speed for device: {device_index}")
-            return None
 
-        fan_speeds_value = tuple([fan_speed_value])
-        if hasattr(pynvml, "nvmlDeviceGetNumFans"):
-            try:
-                fan_count = pynvml.nvmlDeviceGetNumFans(gpu_handle)
-                value = [0] * fan_count
-                for i in range(fan_count):
-                    speed = pynvml.nvmlDeviceGetFanSpeed_v2(gpu_handle, i)
-                    value[i] = speed
-                # Make it immutable.
-                fan_speeds_value = tuple(value)
-            except Exception:
-                fan_speeds_value = tuple([fan_speed_value])
+        if fan_speed_value is not None:
+            fan_speeds_value = tuple([fan_speed_value])
+            if hasattr(pynvml, "nvmlDeviceGetNumFans"):
+                try:
+                    fan_count = pynvml.nvmlDeviceGetNumFans(gpu_handle)
+                    value = [0] * fan_count
+                    for i in range(fan_count):
+                        speed = pynvml.nvmlDeviceGetFanSpeed_v2(gpu_handle, i)
+                        value[i] = speed
+                    # Make it immutable.
+                    fan_speeds_value = tuple(value)
+                except Exception:
+                    fan_speeds_value = tuple([fan_speed_value])
 
     power_usage_watts_value: Optional[float] = None
     power_limit_watts_value: Optional[float] = None
