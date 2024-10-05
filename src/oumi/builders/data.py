@@ -1,5 +1,4 @@
 import copy
-import warnings
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
@@ -16,8 +15,6 @@ from oumi.core.configs import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.datasets.alpaca import alpaca_preprocessing_fn
-from oumi.datasets.chatqa import chatqa_preprocessor_fn
 from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
 from oumi.datasets.prompt_response_sft_preprocessor_factory import (
     PromptResponseSftPreprocessorFactory,
@@ -48,14 +45,7 @@ def build_prompt_generation_fn(
     # TODO: this should be pulled from registry
     prompt_response_factory = PromptResponseSftPreprocessorFactory(tokenizer)
 
-    if function_name == "alpaca":
-        warnings.warn(
-            "The 'alpaca' prompt generation function is deprecated and will be removed "
-            "in a future release. Please use 'AlpacaDataset' instead.",
-            DeprecationWarning,
-        )
-        return alpaca_preprocessing_fn(tokenizer)
-    elif function_name == "trl_sft_ultrachat_200k":
+    if function_name == "trl_sft_ultrachat_200k":
         return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
     elif function_name == "aya":
         return prompt_response_factory.get_preprocessing_fn(
@@ -64,13 +54,6 @@ def build_prompt_generation_fn(
         )
     elif function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
-    elif function_name == "chatqa":
-        warnings.warn(
-            "The 'chatqa' prompt generation function is deprecated and will be removed "
-            "in a future release. Please use 'ChatQADataset' instead.",
-            DeprecationWarning,
-        )
-        return chatqa_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
 
