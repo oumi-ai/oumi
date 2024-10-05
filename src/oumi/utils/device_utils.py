@@ -56,6 +56,9 @@ class NVidiaGpuRuntimeInfo(NamedTuple):
     temperature: Optional[int] = None
     """GPU temperature in Celcius."""
 
+    fan_speed: Optional[int] = None
+    """GPU fan speed in [0,100] range."""
+
     fan_speeds: Optional[Sequence[int]] = None
     """An array of GPU fan speeds.
 
@@ -66,6 +69,31 @@ class NVidiaGpuRuntimeInfo(NamedTuple):
     power_usage_watts: Optional[float] = None
     """GPU power usage in Watts."""
 
+    power_limit_watts: Optional[float] = None
+    """GPU power limit in Watts."""
+
+    gpu_utilization: Optional[float] = None
+    """GPU compute utilization. Range: [0,100]."""
+
+    memory_utilization: Optional[float] = None
+    """GPU memory utilization. Range: [0,100]."""
+
+    performance_state: Optional[int] = None
+    """See `nvmlPstates_t`. Valid values are in [0,15] range, or 32 if unknown.
+
+    0 corresponds to Maximum Performance.
+    15 corresponds to Minimum Performance.
+    """
+
+    clock_speed_graphics: Optional[int] = None
+    """Graphics clock speed (`NVML_CLOCK_GRAPHICS`) in MHz."""
+
+    clock_speed_sm: Optional[int] = None
+    """SM clock speed (`NVML_CLOCK_SM`) in MHz."""
+
+    clock_speed_memory: Optional[int] = None
+    """Memory clock speed (`NVML_CLOCK_MEM`) in MHz."""
+
 
 def _get_nvidia_gpu_runtime_info_impl(
     device_index: int = 0,
@@ -74,6 +102,9 @@ def _get_nvidia_gpu_runtime_info_impl(
     temperature: bool = False,
     fan_speed: bool = False,
     power_usage: bool = False,
+    utilization: bool = False,
+    performance_state: bool = False,
+    clock_speed: bool = False,
 ) -> Optional[NVidiaGpuRuntimeInfo]:
     global pynvml
     if pynvml is None:
@@ -117,6 +148,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             )
             return None
 
+    fan_speed_value: Optional[int] = None
     fan_speeds_value: Optional[Sequence[int]] = None
     if fan_speed:
         try:
@@ -127,18 +159,68 @@ def _get_nvidia_gpu_runtime_info_impl(
                 fan_speeds_value[i] = speed
             # Make it immutable.
             fan_speeds_value = tuple(fan_speeds_value)
+            fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
         except Exception:
             logger.exception(f"Failed to get GPU fan speeds for device: {device_index}")
             return None
 
     power_usage_watts_value: Optional[float] = None
+    power_limit_watts_value: Optional[float] = None
     if power_usage:
         try:
             milliwatts = pynvml.nvmlDeviceGetPowerUsage(gpu_handle)
             power_usage_watts_value = float(milliwatts) * 1e-3
+
+            milliwatts = pynvml.nvmlDeviceGetPowerManagementLimit(gpu_handle)
+            power_limit_watts_value = float(milliwatts) * 1e-3
         except Exception:
             logger.exception(
                 f"Failed to get GPU power usage for device: {device_index}"
+            )
+            return None
+
+    gpu_utilization_value: Optional[float] = None
+    memory_utilization_value: Optional[float] = None
+    if utilization:
+        try:
+            result = pynvml.nvmlDeviceGetUtilizationRates(gpu_handle)
+            gpu_utilization_value = float(result.gpu)
+            memory_utilization_value = float(result.memory)
+        except Exception:
+            logger.exception(
+                f"Failed to get GPU utilization for device: {device_index}"
+            )
+            return None
+
+    performance_state_value: Optional[int] = None
+    if performance_state:
+        try:
+            performance_state_value = int(
+                pynvml.nvmlDeviceGetPerformanceState(gpu_handle)
+            )
+        except Exception:
+            logger.exception(
+                f"Failed to get GPU performance state for device: {device_index}"
+            )
+            return None
+
+    clock_speed_graphics_value: Optional[int] = None
+    clock_speed_sm_value: Optional[int] = None
+    clock_speed_memory_value: Optional[int] = None
+    if clock_speed:
+        try:
+            clock_speed_graphics_value = int(
+                pynvml.nvmlDeviceGetClockInfo(gpu_handle, pynvml.NVML_CLOCK_GRAPHICS)
+            )
+            clock_speed_sm_value = int(
+                pynvml.nvmlDeviceGetClockInfo(gpu_handle, pynvml.NVML_CLOCK_SM)
+            )
+            clock_speed_memory_value = int(
+                pynvml.nvmlDeviceGetClockInfo(gpu_handle, pynvml.NVML_CLOCK_MEM)
+            )
+        except Exception:
+            logger.exception(
+                f"Failed to get GPU clock speed for device: {device_index}"
             )
             return None
 
@@ -147,8 +229,16 @@ def _get_nvidia_gpu_runtime_info_impl(
         device_count=device_count,
         used_memory_mb=used_memory_mb_value,
         temperature=temperature_value,
+        fan_speed=fan_speed_value,
         fan_speeds=fan_speeds_value,
         power_usage_watts=power_usage_watts_value,
+        power_limit_watts=power_limit_watts_value,
+        gpu_utilization=gpu_utilization_value,
+        memory_utilization=memory_utilization_value,
+        performance_state=performance_state_value,
+        clock_speed_graphics=clock_speed_graphics_value,
+        clock_speed_sm=clock_speed_sm_value,
+        clock_speed_memory=clock_speed_memory_value,
     )
 
 
@@ -162,6 +252,9 @@ def get_nvidia_gpu_runtime_info(
         temperature=True,
         fan_speed=True,
         power_usage=True,
+        utilization=True,
+        performance_state=True,
+        clock_speed=True,
     )
 
 

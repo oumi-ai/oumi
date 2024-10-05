@@ -165,10 +165,37 @@ def test_nvidia_gpu_runtime_info():
             assert info is not None
             assert info.device_index == device_index
             assert info.device_count == num_devices
-            assert info.used_memory_mb
-            assert info.temperature
+            assert info.used_memory_mb is not None and info.used_memory_mb > 0
+            assert (
+                info.temperature is not None
+                and info.temperature >= 0
+                and info.temperature <= 100
+            )
+            assert (
+                info.fan_speed is not None
+                and info.fan_speed >= 0
+                and info.fan_speed <= 100
+            )
             assert info.fan_speeds
-            assert info.power_usage_watts
+            assert info.power_usage_watts is not None and info.power_usage_watts >= 0
+            assert info.power_limit_watts is not None and info.power_limit_watts > 0
+            assert (
+                info.gpu_utilization is not None
+                and info.gpu_utilization >= 0
+                and info.gpu_utilization <= 100
+            )
+            assert (
+                info.memory_utilization is not None
+                and info.memory_utilization >= 0
+                and info.memory_utilization <= 100
+            )
+            assert info.performance_state is not None
+            assert info.performance_state >= 0 and info.performance_state <= 32
+            assert (
+                info.clock_speed_graphics is not None and info.clock_speed_graphics > 0
+            )
+            assert info.clock_speed_sm is not None and info.clock_speed_sm > 0
+            assert info.clock_speed_memory is not None and info.clock_speed_memory > 0
 
             log_nvidia_gpu_runtime_info(device_index)
 
@@ -177,10 +204,33 @@ def test_nvidia_gpu_runtime_info():
         assert info is not None
         assert info.device_index == device_index
         assert info.device_count == num_devices
-        assert info.used_memory_mb
-        assert info.temperature
+        assert info.used_memory_mb is not None and info.used_memory_mb > 0
+        assert (
+            info.temperature is not None
+            and info.temperature >= 0
+            and info.temperature <= 100
+        )
+        assert (
+            info.fan_speed is not None and info.fan_speed >= 0 and info.fan_speed <= 100
+        )
         assert info.fan_speeds
-        assert info.power_usage_watts
+        assert info.power_usage_watts is not None and info.power_usage_watts >= 0
+        assert info.power_limit_watts is not None and info.power_limit_watts > 0
+        assert (
+            info.gpu_utilization is not None
+            and info.gpu_utilization >= 0
+            and info.gpu_utilization <= 100
+        )
+        assert (
+            info.memory_utilization is not None
+            and info.memory_utilization >= 0
+            and info.memory_utilization <= 100
+        )
+        assert info.performance_state is not None
+        assert info.performance_state >= 0 and info.performance_state <= 32
+        assert info.clock_speed_graphics is not None and info.clock_speed_graphics > 0
+        assert info.clock_speed_sm is not None and info.clock_speed_sm > 0
+        assert info.clock_speed_memory is not None and info.clock_speed_memory > 0
     else:
         # Test default argument value
         assert get_nvidia_gpu_runtime_info() is None
