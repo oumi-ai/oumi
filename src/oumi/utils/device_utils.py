@@ -72,10 +72,10 @@ class NVidiaGpuRuntimeInfo(NamedTuple):
     power_limit_watts: Optional[float] = None
     """GPU power limit in Watts."""
 
-    gpu_utilization: Optional[float] = None
+    gpu_utilization: Optional[int] = None
     """GPU compute utilization. Range: [0,100]."""
 
-    memory_utilization: Optional[float] = None
+    memory_utilization: Optional[int] = None
     """GPU memory utilization. Range: [0,100]."""
 
     performance_state: Optional[int] = None
@@ -152,17 +152,23 @@ def _get_nvidia_gpu_runtime_info_impl(
     fan_speeds_value: Optional[Sequence[int]] = None
     if fan_speed:
         try:
-            fan_count = pynvml.nvmlDeviceGetNumFans(gpu_handle)
-            fan_speeds_value = [0] * fan_count
-            for i in range(fan_count):
-                speed = pynvml.nvmlDeviceGetFanSpeed_v2(gpu_handle, i)
-                fan_speeds_value[i] = speed
-            # Make it immutable.
-            fan_speeds_value = tuple(fan_speeds_value)
             fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
         except Exception:
-            logger.exception(f"Failed to get GPU fan speeds for device: {device_index}")
+            logger.exception(f"Failed to get GPU fan speed for device: {device_index}")
             return None
+
+        fan_speeds_value = tuple([fan_speed_value])
+        if hasattr(pynvml, "nvmlDeviceGetNumFans"):
+            try:
+                fan_count = pynvml.nvmlDeviceGetNumFans(gpu_handle)
+                value = [0] * fan_count
+                for i in range(fan_count):
+                    speed = pynvml.nvmlDeviceGetFanSpeed_v2(gpu_handle, i)
+                    value[i] = speed
+                # Make it immutable.
+                fan_speeds_value = tuple(value)
+            except Exception:
+                fan_speeds_value = tuple([fan_speed_value])
 
     power_usage_watts_value: Optional[float] = None
     power_limit_watts_value: Optional[float] = None
@@ -184,8 +190,8 @@ def _get_nvidia_gpu_runtime_info_impl(
     if utilization:
         try:
             result = pynvml.nvmlDeviceGetUtilizationRates(gpu_handle)
-            gpu_utilization_value = float(result.gpu)
-            memory_utilization_value = float(result.memory)
+            gpu_utilization_value = int(result.gpu)
+            memory_utilization_value = int(result.memory)
         except Exception:
             logger.exception(
                 f"Failed to get GPU utilization for device: {device_index}"
