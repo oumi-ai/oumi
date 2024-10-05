@@ -11,6 +11,32 @@ from oumi.core.types.turn import Conversation
 
 @register_dataset("text_sft_jsonl")
 class TextSftJsonLinesDataset(BaseLMSftDataset):
+    """TextSftJsonLinesDataset for loading SFT data in Oumi format.
+
+    This dataset class is designed to work with JSON Lines (.jsonl) files containing
+    text-based supervised fine-tuning (SFT) data. It supports loading data either
+    from a file or from a provided list of data samples.
+
+    Usage example:
+        Examples:
+            Loading from a file:
+                >>> dataset = TextSftJsonLinesDataset(
+                ...     dataset_path="/path/to/your/dataset.jsonl",
+                ...     data_column="messages"
+                ... )
+
+            Loading from a list of data samples:
+                >>> data_samples = [
+                ...     {"messages": [{"role": "user", "content": "Hello"},
+                ...                   {"role": "assistant", "content": "Hi there!"}]},
+                ...     {"messages": [{"role": "user", "content": "How are you?"},
+                ...                   {"role": "assistant", "content": "great!"}]}
+                ... ]
+                >>> dataset = TextSftJsonLinesDataset(
+                ...     data=data_samples,
+                ... )
+    """
+
     default_dataset = "custom"
 
     def __init__(
@@ -23,8 +49,8 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         """Initializes a new instance of the SftJsonLinesDataset class.
 
         Args:
-            dataset_path: Path to the JSON lines dataset file.
-            data: List of data samples if not loading from a file.
+            dataset_path (Optional): Path to the JSON lines dataset file.
+            data (Optional): List of data samples if not loading from a file.
             data_column: Name of the column containing the messages data.
             **kwargs: Additional arguments to pass to the parent class.
 
