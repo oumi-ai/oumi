@@ -48,5 +48,3 @@ run: |
       "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-# sky launch -i 10 --env LEMA_RUN_NAME=blip2-opt-2.7b-sft.coco.1xA10040GB.100steps.v101 --cloud GCP --region us-central1 --use-spot --num-nodes 1 --gpus "A100:1" --cluster xrdaukar-1node1gpu-01-lema-cluster ./configs/skypilot/sky_blip2_opt_2.7b.sft.yaml
