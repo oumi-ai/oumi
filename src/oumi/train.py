@@ -192,7 +192,7 @@ def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
 
 
 def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
-    # processor = AutoProcessor.from_pretrained(config.model.model_name)
+    """Creates data collator if specified in config."""
     train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
     if not train_split.collator_name:
         return None
@@ -305,14 +305,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Reclaim memory before training starts.
     gc.collect()
 
-    # Initialize trainer with custom collator
-    # processor = AutoProcessor.from_pretrained(config.model.model_name)
-
-    collator = build_data_collator(
-        collator_name="vision_language",
-        tokenizer=tokenizer,
-        max_length=config.model.model_max_length,
-    )
+    collator = _build_collator_if_needed(config, tokenizer)
 
     with torch_profile(
         config.training.profiler,
