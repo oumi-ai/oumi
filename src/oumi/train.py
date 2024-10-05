@@ -32,9 +32,8 @@ from oumi.core.distributed import (
 )
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
-from oumi.utils.debugging_utils import (
-    log_nvidia_gpu_memory_utilization,
-    log_nvidia_gpu_temperature,
+from oumi.utils.device_utils import (
+    log_nvidia_gpu_runtime_info,
 )
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
@@ -291,10 +290,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             )
 
         with torch.profiler.record_function("log_and_verify"):
-            log_nvidia_gpu_memory_utilization(
-                log_prefix="Max Memory Usage Before Training:"
-            )
-            log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
+            log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
             verify_torch_distributed_initialized_if_needed()
 
         with torch.profiler.record_function("find_checkpoint_to_resume_from"):
@@ -315,8 +311,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     logger.info("Training is Complete.")
 
-    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
-    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
+    log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:
