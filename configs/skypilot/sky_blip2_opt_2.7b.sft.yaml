@@ -7,8 +7,7 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 500 # Disk size in GBs
-  region: "us-central1"
+  disk_size: 200 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -34,8 +33,6 @@ setup: |
   # downloading the model during training.
   pip install hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Salesforce/blip2-opt-2.7b
-
-  # pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
