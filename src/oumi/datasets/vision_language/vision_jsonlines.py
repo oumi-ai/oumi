@@ -66,4 +66,5 @@ class JsonlinesDataset(VisionLanguageSftDataset):
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
-        return Conversation(messages=example["messages"])
+        messages = example[self._data_column]
+        return Conversation.model_validate(messages)

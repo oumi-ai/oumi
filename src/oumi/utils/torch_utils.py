@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from oumi.core.configs import TrainingConfig
-from oumi.utils.debugging_utils import get_nvidia_gpu_memory_utilization
+from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
 
 

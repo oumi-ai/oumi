@@ -64,7 +64,7 @@ dev = [
     "torchfix",
 ]
 train = [
-    "accelerate",
+    "accelerate==0.33.0",           # OPE-496. Don't use 0.34.*.
     "aiohttp",
     "aioresponses",
     "asyncio",
@@ -116,7 +116,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx_copybutton",
 ]
-all = ["oumi[dev,train,aws,azure,gcp,lambda,runpod,docs]"]
+all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
 oumi-evaluate = "oumi.evaluate:main"

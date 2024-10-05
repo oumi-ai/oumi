@@ -51,7 +51,7 @@ def test_jsonlines_init_with_dataset_path(sample_jsonlines_data):
 
 def test_jsonlines_transform_conversation(sample_jsonlines_data):
     dataset = JsonlinesDataset(data=sample_jsonlines_data)
-    conversation = dataset.transform_conversation(sample_jsonlines_data[0])
+    conversation = dataset.conversation(0)
 
     assert isinstance(conversation, Conversation)
     assert len(conversation.messages) == 3

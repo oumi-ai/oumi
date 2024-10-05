@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
+from typing_extensions import override
 
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -95,9 +96,11 @@ def test_dataset_using_image_path(
     class TestDatasetImagePath(VisionLanguageSftDataset):
         default_dataset = "custom"
 
+        @override
         def transform_conversation(self, example):
             return sample_conversation_using_image_path
 
+        @override
         def _load_data(self):
             pass
 
@@ -111,9 +114,11 @@ def test_dataset_using_image_binary(
     class TestDatasetImageBinary(VisionLanguageSftDataset):
         default_dataset = "custom"
 
+        @override
         def transform_conversation(self, example):
             return sample_conversation_using_image_binary
 
+        @override
         def _load_data(self):
             pass
 

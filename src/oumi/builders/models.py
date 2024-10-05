@@ -53,7 +53,8 @@ def build_model(
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
-            logger.info(f"Freezing layer: '{layer_name}'...")
+            logger.info(f"Freezing layer '{layer_name}'...")
+
             for param in getattr(model, layer_name).parameters():
                 param.requires_grad_(False)
             logger.info(f"Layer: '{layer_name}' is frozen!")

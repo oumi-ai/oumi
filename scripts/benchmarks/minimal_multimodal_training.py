@@ -17,6 +17,7 @@ Working configs:
 """
 
 from enum import Enum
+from pprint import pformat
 from typing import Dict, List, Optional
 
 import torch
@@ -90,8 +91,8 @@ def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
-    max_steps: int = 10,
-    logging_steps: int = 1,
+    max_steps: int = 20,
+    logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
@@ -116,6 +117,9 @@ def test_multimodal_trainer(
         trust_remote_code=True,
         freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp
     )
+    if is_local_process_zero():
+        print(f"ModelParams:\n{pformat(model_params)}")
+
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value)
 
@@ -150,14 +154,18 @@ def test_multimodal_trainer(
         per_device_train_batch_size=batch_size,
         max_steps=max_steps,
         save_steps=0,
+        optimizer="sgd",
+        learning_rate=2e-5,
         gradient_accumulation_steps=1,
         log_model_summary=False,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )
 
-    if training_params.log_model_summary and is_local_process_zero():
-        log_model_summary(model)
+    if is_local_process_zero():
+        print(f"TrainingParams:\n{pformat(training_params)}")
+        if training_params.log_model_summary:
+            log_model_summary(model)
 
     # Initialize trainer with custom collator
     collator = build_data_collator(collator_name="vision_language", processor=processor)
