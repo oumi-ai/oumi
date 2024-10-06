@@ -25,7 +25,7 @@ class EvaluationConfig(BaseConfig):
     """
 
     generation: GenerationParams = field(default_factory=GenerationParams)
-    """Configuration for text generation during evaluation.
+    """Parameters for text generation during evaluation.
 
     This includes settings such as temperature, top-k, top-p,
     maximum length, and any other parameters that control the

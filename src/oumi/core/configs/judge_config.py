@@ -28,7 +28,7 @@ T = TypeVar("T", bound=TemplatedMessage)
 
 
 class JudgeAttribute(pydantic.BaseModel, Generic[T]):
-    """Configuration parameters for the judge.
+    """Attributes for the judge.
 
     Example:
         >>> attribute = JudgeAttribute(
@@ -101,7 +101,7 @@ class JudgeAttribute(pydantic.BaseModel, Generic[T]):
 class JudgeConfig(BaseConfig):
     """Configuration for the Judge.
 
-    This class holds the configuration parameters for the Judge,
+    This class holds the configuration for the Judge,
       including the attributes to judge, the model parameters,
       and the text generation parameters.
 
@@ -141,7 +141,7 @@ class JudgeConfig(BaseConfig):
     """The attributes to judge."""
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Configuration parameters for the model used in inference."""
+    """Parameters for the model used in inference."""
 
     generation: GenerationParams = field(default_factory=GenerationParams)
-    """Configuration parameters for text generation during inference."""
+    """Parameters for text generation during inference."""

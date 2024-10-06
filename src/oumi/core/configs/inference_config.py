@@ -8,7 +8,7 @@ from oumi.core.configs.params.model_params import ModelParams
 @dataclass
 class InferenceConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
-    """Configuration parameters for the model used in inference."""
+    """Parameters for the model used in inference."""
 
     generation: GenerationParams = field(default_factory=GenerationParams)
-    """Configuration parameters for text generation during inference."""
+    """Parameters for text generation during inference."""

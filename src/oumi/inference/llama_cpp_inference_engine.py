@@ -49,9 +49,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         It loads the specified model and configures the inference parameters.
 
         Args:
-            model_params (ModelParams): Configuration parameters for the model,
-                including the model name, maximum length, and any additional
-                keyword arguments for model initialization.
+            model_params (ModelParams): Parameters for the model, including the model
+                name, maximum length, and any additional keyword arguments for model
+                initialization.
 
         Raises:
             RuntimeError: If the llama-cpp-python package is not installed.
