@@ -41,7 +41,7 @@ helpFunction() {
 # Default value.
 TRAINING_MODE="lora"
 MODEL_SIZE="8b"
-ENABLE_OUMI_TELEMETRY="true"
+ENABLE_OUMI_TELEMETRY="false"
 
 # Get values from command line and verify.
 while getopts ":m:s:t" opt; do
@@ -79,13 +79,11 @@ TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
-# "2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov" -> "2083804"
-JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
 
 # Training params shared between the different training modes, and likely
 # don't need to be modified during experimentation.
-SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${PBS_JOBID}'
-training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${JOBNUM}
+SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}'
+training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
 # Our config is set to train for one epoch. Each section lists the number of steps
