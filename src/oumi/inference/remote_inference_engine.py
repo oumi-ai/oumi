@@ -73,8 +73,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             conversation: The conversation to convert.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
@@ -155,8 +154,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             conversation: The conversations to run inference on.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
             remote_params: Parameters for running inference against a remote API.
             semaphore: Semaphore to limit concurrent requests.
             session: The aiohttp session to use for the request.
@@ -211,8 +209,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
             remote_params: Parameters for running inference against a remote API.
 
         Returns:
@@ -245,8 +242,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
@@ -271,8 +267,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.

@@ -28,8 +28,8 @@ def build_model(
     """Builds and returns a model based on the provided Oumi configuration.
 
     Args:
-        model_params: The configuration object containing the model parameters.
-        peft_params: The configuration object containing the peft parameters.
+        model_params: The model parameters.
+        peft_params: The PEFT parameters.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -251,8 +251,7 @@ def build_tokenizer(
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
-        model_params (ModelParams): The configuration object containing
-            the model parameters.
+        model_params (ModelParams): The model parameters.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:

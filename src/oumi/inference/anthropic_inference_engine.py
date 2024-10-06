@@ -41,7 +41,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         Args:
             conversation: The Oumi Conversation object to convert.
-            generation_params: Params for text generation.
+            generation_params: Parameters for text generation.
 
         Returns:
             Dict[str, Any]: A dictionary containing the formatted input for the

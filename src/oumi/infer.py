@@ -65,8 +65,8 @@ def infer(
     """Runs batch inference for a model using the provided configuration.
 
     Args:
-        model_params: The configuration object containing the model parameters.
-        generation_params: The configuration object for model generation.
+        model_params: The model parameters.
+        generation_params: The model generation parameters.
         input: A list of text prompts of shape (num_batches, batch_size).
         exclude_prompt_from_response: Whether to trim the model's response and remove
           the prepended prompt.

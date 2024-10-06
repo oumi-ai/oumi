@@ -94,8 +94,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
@@ -143,8 +142,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
@@ -162,8 +160,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_params: Parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
