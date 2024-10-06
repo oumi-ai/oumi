@@ -5,7 +5,7 @@ from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import pydantic
 
-from oumi.core.configs import BaseConfig, GenerationConfig
+from oumi.core.configs import BaseConfig, GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 
@@ -128,11 +128,11 @@ class JudgeConfig(BaseConfig):
         ...     )
         ... }
         >>> model_params = ModelParams(model_name="example-model")
-        >>> generation_config = GenerationConfig(max_new_tokens=100)
+        >>> generation_params = GenerationParams(max_new_tokens=100)
         >>> judge_config = JudgeConfig(
         ...     attributes=attributes,
         ...     model=model_params,
-        ...     generation=generation_config
+        ...     generation=generation_params
         ... )
     """
 
@@ -142,5 +142,5 @@ class JudgeConfig(BaseConfig):
     model: ModelParams = field(default_factory=ModelParams)
     """Configuration parameters for the model used in inference."""
 
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
+    generation: GenerationParams = field(default_factory=GenerationParams)
     """Configuration parameters for text generation during inference."""
