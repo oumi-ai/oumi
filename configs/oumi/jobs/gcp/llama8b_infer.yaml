@@ -1,7 +1,7 @@
-# Config to eval Llama 3.1 8B Instruct on GCP.
+# Config to infer Llama 3.1 8B Instruct on GCP.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
-name: llama8b-eval
+# oumi-launch -p configs/oumi/jobs/gcp/llama8b_infer.yaml -c llama8b-infer
+name: llama8b-infer
 
 resources:
   cloud: gcp
@@ -49,8 +49,8 @@ run: |
 
   set -x # Enable command tracing.
   accelerate launch \
-    -m oumi.evaluate \
-    -c configs/oumi/llama8b.eval.yaml \
+    -m oumi.infer \
+    -c configs/oumi/llama8b.infer.yaml \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 
