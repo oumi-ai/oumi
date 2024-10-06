@@ -1,7 +1,6 @@
 # Config for Llama 3.1 8B Instruct SFT on 1 Polaris node.
 # Example command:
 # oumi-launch -p configs/oumi/jobs/polaris/llama8b_sft.yaml -c preemptable.$ALCF_USER user=$ALCF_USER
-# oumi-launch -p configs/oumi/jobs/polaris/llama8b_sft.yaml -c debug.$ALCF_USER user=$ALCF_USER num_nodes=1
 name: llama8b-sft
 # NOTE: Replace with your username.
 user: your_username
@@ -18,7 +17,7 @@ working_dir: .
 # PBS directives.
 setup: |
   #PBS -l place=scatter
-  #PBS -l walltime=01:00:00
+  #PBS -l walltime=02:00:00
   #PBS -l filesystems=home:eagle
   #PBS -A community_ai
   #PBS -o /eagle/community_ai/jobs/logs/
@@ -34,7 +33,7 @@ run: |
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
       --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-      ./scripts/polaris/jobs/llama_tune.sh -m sft -s 8b -t
+      ./scripts/polaris/jobs/llama_tune.sh -m sft -s 8b
 
   echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"

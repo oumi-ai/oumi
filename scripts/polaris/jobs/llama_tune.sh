@@ -84,9 +84,6 @@ export TOKENIZERS_PARALLELISM=false
 # don't need to be modified during experimentation.
 SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}'
 training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
-training.max_steps=200
-training.save_steps=0
-training.save_final_model=false
 ${OUMI_TELEMETRY_PARAMS}"
 
 # Our config is set to train for one epoch. Each section lists the number of steps
