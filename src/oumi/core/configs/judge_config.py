@@ -5,7 +5,8 @@ from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import pydantic
 
-from oumi.core.configs import BaseConfig, GenerationParams
+from oumi.core.configs import BaseConfig
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 
