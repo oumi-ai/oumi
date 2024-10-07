@@ -3,12 +3,12 @@ from typing import Optional
 
 import numpy as np
 
-from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.remote_params import RemoteParams
 
 
 @dataclass
-class GenerationConfig(BaseConfig):
+class GenerationParams(BaseParams):
     # TODO: OPE-328 - Add more parameters to control text generation.
     max_new_tokens: int = 256
     """The maximum number of new tokens to generate.

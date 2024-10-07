@@ -27,12 +27,12 @@ def run_inference(
     engine: VLLMInferenceEngine,
 ):
     """Runs inference on a file."""
-    generation_config = config.generation
-    generation_config.output_filepath = str(Path(output_dir) / file)
-    generation_config.input_filepath = str(Path(input_dir) / file)
-    print(f"Preparing to read input file: {generation_config.input_filepath}")
-    print(f"Preparing to write output file: {generation_config.output_filepath}")
-    engine.infer_from_file(generation_config.input_filepath, generation_config)
+    generation_params = config.generation
+    generation_params.output_filepath = str(Path(output_dir) / file)
+    generation_params.input_filepath = str(Path(input_dir) / file)
+    print(f"Preparing to read input file: {generation_params.input_filepath}")
+    print(f"Preparing to write output file: {generation_params.output_filepath}")
+    engine.infer_from_file(generation_params.input_filepath, generation_params)
 
 
 def main():
