@@ -79,6 +79,8 @@ def infer(
         Conversation(messages=[Message(content=content, role=Role.USER)])
         for content in input
     ]
+    # Pass None if no conversations are provided.
+    conversations = None if not conversations else conversations
     generations = inference_engine.infer(
         input=conversations,
         generation_config=generation_config,
