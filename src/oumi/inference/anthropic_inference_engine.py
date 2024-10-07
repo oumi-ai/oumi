@@ -88,12 +88,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if system_message:
             body["system"] = system_message
 
-        if generation_params.stop:
-            body["stop_sequences"] = (
-                generation_params.stop
-                if isinstance(generation_params.stop, list)
-                else [generation_params.stop]
-            )
+        if generation_params.stop is not None:
+            body["stop_sequences"] = generation_params.stop
 
         # Log warnings for unsupported parameters
         if generation_params.frequency_penalty != 0:

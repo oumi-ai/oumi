@@ -61,7 +61,7 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop: Optional[Union[str, List[str]]] = None
+    stop: Optional[List[str]] = None
     """list of sequences where the API will stop generating further tokens."""
 
     remote_params: Optional[RemoteParams] = None
