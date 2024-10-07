@@ -71,6 +71,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> Dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
+        Documentation: https://platform.openai.com/docs/api-reference/chat/create
+
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
@@ -87,7 +89,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 }
                 for message in conversation.messages
             ],
-            "max_tokens": generation_params.max_new_tokens,
+            "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,

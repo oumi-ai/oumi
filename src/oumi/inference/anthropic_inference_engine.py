@@ -95,6 +95,18 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 else [generation_params.stop]
             )
 
+        # Log warnings for unsupported parameters
+        if generation_params.frequency_penalty != 0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support frequency_penalty."
+                " This parameter will be ignored."
+            )
+        if generation_params.presence_penalty != 0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support presence_penalty."
+                " This parameter will be ignored."
+            )
+
         return body
 
     @override
