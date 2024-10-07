@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -67,7 +67,7 @@ class GenerationParams(BaseParams):
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
 
-    logit_bias: Dict[Union[int, str], float] = field(default_factory=dict)
+    logit_bias: Dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
     Keys are tokens (specified by their token ID in the tokenizer),
