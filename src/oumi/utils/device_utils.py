@@ -155,7 +155,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
         except Exception:
             # The `GetFanSpeed` function fails on many systems
-            # Only do DEBUG logging to reduce noise.
+            # Only do DEBUG-level logging to reduce noise.
             logger.debug(
                 f"Failed to get GPU fan speed for device: {device_index}", exc_info=True
             )
