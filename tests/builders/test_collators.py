@@ -42,8 +42,12 @@ def test_build_data_collator_text_with_padding(mock_tokenizer):
     assert collator is not None
     assert callable(collator)
 
+    # TODO add tests to exercise the collator
+
 
 def test_build_data_collator_vision_language(mock_tokenizer):
     collator = build_data_collator("vision_language", mock_tokenizer, max_length=64)
     assert collator is not None
     assert callable(collator)
+
+    # TODO add tests to exercise the collator
