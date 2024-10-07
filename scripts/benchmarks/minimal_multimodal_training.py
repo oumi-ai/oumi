@@ -41,6 +41,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
 )
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.str_utils import sanitize_run_name
 from oumi.utils.torch_utils import (
@@ -122,12 +123,13 @@ def test_multimodal_trainer(
 
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value)
+    tokenizer: BaseTokenizer = processor.tokenizer
 
     # TODO: assign the right chat template for each model
     # For now, we use the LLaVA chat template for all models
     chat_template = build_chat_template("llava")
     processor.chat_template = chat_template
-    processor.tokenizer.chat_template = chat_template
+    tokenizer.chat_template = chat_template
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
@@ -168,11 +170,15 @@ def test_multimodal_trainer(
             log_model_summary(model)
 
     # Initialize trainer with custom collator
-    collator = build_data_collator(collator_name="vision_language", processor=processor)
+    collator = build_data_collator(
+        collator_name="vision_language",
+        tokenizer=tokenizer,
+        max_length=model_params.model_max_length,
+    )
 
     trainer = Trainer(
         model=model,
-        tokenizer=processor.tokenizer,
+        tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,
