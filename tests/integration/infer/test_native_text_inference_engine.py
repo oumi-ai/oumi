@@ -4,7 +4,7 @@ from typing import List
 
 import jsonlines
 
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import NativeTextInferenceEngine
 
@@ -60,13 +60,13 @@ def test_infer_online():
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
     assert expected_result == result
 
 
 def test_infer_online_empty():
     engine = NativeTextInferenceEngine(_get_default_model_params())
-    result = engine.infer_online([], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([], GenerationParams(max_new_tokens=5))
     assert [] == result
 
 
@@ -125,7 +125,7 @@ def test_infer_online_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),
@@ -171,11 +171,11 @@ def test_infer_from_file():
             )
         ]
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert expected_result == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -188,11 +188,11 @@ def test_infer_from_file_empty():
         _setup_input_conversations(str(input_path), [])
         engine = NativeTextInferenceEngine(_get_default_model_params())
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert [] == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -256,7 +256,7 @@ def test_infer_from_file_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),

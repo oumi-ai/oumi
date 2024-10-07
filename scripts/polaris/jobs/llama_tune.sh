@@ -41,12 +41,14 @@ helpFunction() {
 # Default value.
 TRAINING_MODE="lora"
 MODEL_SIZE="8b"
+ENABLE_OUMI_TELEMETRY="false"
 
 # Get values from command line and verify.
-while getopts ":m:s:" opt; do
+while getopts ":m:s:t" opt; do
     case "$opt" in
     m) TRAINING_MODE="$OPTARG" ;;
     s) MODEL_SIZE="$OPTARG" ;;
+    t) ENABLE_OUMI_TELEMETRY="true" ;;
     ?) helpFunction ;; # Print a help message for an unknown parameter.
     esac
 done
@@ -67,16 +69,27 @@ if ! (echo "${ALLOWED_MODEL_SIZES[@]}" | grep -q -w "${MODEL_SIZE}"); then
     helpFunction
 fi
 
+if "${ENABLE_OUMI_TELEMETRY}"; then
+    OUMI_TELEMETRY_PARAMS="training.telemetry.collect_telemetry_for_all_ranks=true
+    training.telemetry.track_gpu_temperature=true"
+    echo "Oumi telemetry enabled!"
+fi
+
 TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
+
+
+# Training params shared between the different training modes, and likely
+# don't need to be modified during experimentation.
+SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}'
+training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
+${OUMI_TELEMETRY_PARAMS}"
 
 # Our config is set to train for one epoch. Each section lists the number of steps
 # that it should be equivalent to.
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
-# "2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov" -> "2083804"
-JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
 if [ "$MODEL_SIZE" == "8b" ]; then
     # Copy the model to our Polaris machine to avoiding downloading from HF.
     rsync -av \
@@ -98,8 +111,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --master-port=8007 \
             -m oumi.train \
             -c configs/oumi/llama8b.lora.yaml \
-            "training.run_name='polaris.llama8b.lora.${PBS_JOBID}'" \
-            "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.lora.${JOBNUM}"
+            $SHARED_TRAINING_PARAMS
     else # SFT
         # Num nodes: 1
         # Batch size per GPU: 2
@@ -117,8 +129,7 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             --config_file configs/accelerate/llama8b.fsdp.yaml \
             -m oumi.train \
             -c configs/oumi/llama8b.sft.yaml \
-            "training.run_name='polaris.llama8b.sft.${PBS_JOBID}'" \
-            "training.output_dir=/eagle/community_ai/${USER}/runs/llama8b.sft.${JOBNUM}"
+            $SHARED_TRAINING_PARAMS
     fi
 else # 70B
     # Copy the model to our Polaris machine to avoid downloading from HF.
@@ -142,8 +153,7 @@ else # 70B
             --config_file configs/accelerate/llama70b.lora.yaml \
             -m oumi.train \
             -c configs/oumi/llama70b.lora.yaml \
-            "training.run_name='polaris.llama70b.lora.${PBS_JOBID}'" \
-            "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.lora.${JOBNUM}"
+            $SHARED_TRAINING_PARAMS
     else # SFT
         # Num nodes: 4
         # Batch size per GPU: 2
@@ -161,8 +171,7 @@ else # 70B
             --config_file configs/accelerate/llama70b.fsdp.yaml \
             -m oumi.train \
             -c configs/oumi/llama70b.sft.yaml \
-            "training.run_name='polaris.llama70b.sft.${PBS_JOBID}'" \
-            "training.output_dir=/eagle/community_ai/${USER}/runs/llama70b.sft.${JOBNUM}"
+            $SHARED_TRAINING_PARAMS
     fi
 fi
 

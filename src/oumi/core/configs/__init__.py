@@ -10,7 +10,7 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
     - :class:`~oumi.core.configs.evaluation_config.EvaluationFramework`
 - Generation and Inference:
-    - :class:`~oumi.core.configs.generation_config.GenerationConfig`
+    - :class:`~oumi.core.configs.params.generation_params.GenerationParams`
     - :class:`~oumi.core.configs.inference_config.InferenceConfig`
 - Job Management:
     - :class:`~oumi.core.configs.job_config.JobConfig`
@@ -63,7 +63,6 @@ from oumi.core.configs.evaluation_config import (
     EvaluationConfig,
     EvaluationFramework,
 )
-from oumi.core.configs.generation_config import GenerationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeConfig
@@ -79,6 +78,7 @@ from oumi.core.configs.params.evaluation_params import (
     LMHarnessParams,
 )
 from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
@@ -103,7 +103,7 @@ __all__ = [
     "EvaluationConfig",
     "EvaluationFramework",
     "FSDPParams",
-    "GenerationConfig",
+    "GenerationParams",
     "InferenceConfig",
     "JobConfig",
     "JobResources",

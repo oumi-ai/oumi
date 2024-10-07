@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import datasets
 import torch
 from torch.utils.data import IterDataPipe
+from typing_extensions import override
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
@@ -156,6 +157,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
             if not self._skip_last or len(buffer) == self.seq_length:
                 yield self._create_training_sample(buffer)
 
+    @override
     def transform(self, sample: Any) -> List[int]:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(sample)
