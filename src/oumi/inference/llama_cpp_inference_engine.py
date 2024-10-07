@@ -48,6 +48,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         This method sets up the engine for running inference using llama.cpp.
         It loads the specified model and configures the inference parameters.
 
+        Documentation: https://llama-cpp-python.readthedocs.io/en/latest/api-reference/#llama_cpp.Llama.create_completion
+
         Args:
             model_params (ModelParams): Parameters for the model, including the model
                 name, maximum length, and any additional keyword arguments for model
@@ -167,6 +169,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
                 stop=generation_params.stop,
+                logit_bias=cast(Dict[str, float], generation_params.logit_bias),
             )
             response = cast(dict, response)
 

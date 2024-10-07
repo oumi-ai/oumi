@@ -96,6 +96,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
+            "logit_bias": generation_params.logit_bias,
         }
 
         if generation_params.stop:

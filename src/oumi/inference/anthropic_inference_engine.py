@@ -106,6 +106,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 "AnthropicInferenceEngine does not support presence_penalty."
                 " This parameter will be ignored."
             )
+        if generation_params.logit_bias:
+            logger.warning(
+                "AnthropicInferenceEngine does not support logit_bias."
+                " This parameter will be ignored."
+            )
 
         return body
 
