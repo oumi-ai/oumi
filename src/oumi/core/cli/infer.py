@@ -1,7 +1,7 @@
 import typer
 from typing_extensions import Annotated
 
-import oumi.core.cli.utils as utils
+import oumi.core.cli.cli_utils as cli_utils
 import oumi.infer
 from oumi.core.configs import InferenceConfig
 from oumi.utils.logging import logger
@@ -12,7 +12,8 @@ def infer(
     config: Annotated[
         str,
         typer.Option(
-            *utils.CONFIG_FLAGS, help="Path to the configuration file for inference."
+            *cli_utils.CONFIG_FLAGS,
+            help="Path to the configuration file for inference.",
         ),
     ],
     detach: Annotated[
@@ -27,7 +28,7 @@ def infer(
         config: Path to the configuration file for inference.
         detach: Do not run in an interactive session.
     """
-    extra_args = utils.parse_extra_cli_args(ctx)
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )

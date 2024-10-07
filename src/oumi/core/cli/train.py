@@ -1,7 +1,7 @@
 import typer
 from typing_extensions import Annotated
 
-import oumi.core.cli.utils as utils
+import oumi.core.cli.cli_utils as cli_utils
 import oumi.train
 from oumi.core.configs import TrainingConfig
 from oumi.utils.logging import logger
@@ -16,7 +16,7 @@ def train(
     config: Annotated[
         str,
         typer.Option(
-            *utils.CONFIG_FLAGS, help="Path to the configuration file for training."
+            *cli_utils.CONFIG_FLAGS, help="Path to the configuration file for training."
         ),
     ],
     verbose: Annotated[bool, typer.Option(help="Run with verbose logging.")] = False,
@@ -28,7 +28,7 @@ def train(
         config: Path to the configuration file for training.
         verbose: Run with verbose logging.
     """
-    extra_args = utils.parse_extra_cli_args(ctx)
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )

@@ -6,8 +6,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.train import train
-from oumi.core.cli.utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.configs import (
     DataParams,
     DatasetParams,

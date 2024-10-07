@@ -6,8 +6,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.evaluate import evaluate
-from oumi.core.cli.utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.configs import (
     EvaluationConfig,
     LMHarnessParams,
