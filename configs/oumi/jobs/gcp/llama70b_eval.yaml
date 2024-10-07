@@ -7,7 +7,7 @@ resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: true
-  disk_size: 2000 # Disk size in GBs
+  disk_size: 400 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .
@@ -37,7 +37,20 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  if test -n "$LORA_ADAPTER_DIR"; then
+    echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
+  fi
+
   set -x # Enable command tracing.
-  python tests/integration/llama_e2e.py
+  python -m oumi.evaluate \
+    -c configs/oumi/llama70b.eval.yaml \
+    "model.model_name=${MODEL_CHECKPOINT_DIR}" \
+    "model.adapter_model=${LORA_ADAPTER_DIR}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -2,9 +2,7 @@ from oumi.core.configs import EvaluationConfig, InferenceConfig, TrainingConfig
 from oumi.evaluate import evaluate
 from oumi.infer import infer
 from oumi.train import train
-from oumi.utils.torch_utils import (
-    device_cleanup,
-)
+from oumi.utils.torch_utils import device_cleanup
 
 
 def main() -> None:
@@ -14,7 +12,8 @@ def main() -> None:
     train_config: TrainingConfig = TrainingConfig.from_yaml(
         "configs/oumi/llama1b.sft.yaml"
     )
-    train_config.training.max_steps = 10
+    train_config.training.enable_wandb = False
+    train_config.training.max_steps = 100
     train_config.training.output_dir = model_output_dir
     train_config.validate()
     train(train_config)
