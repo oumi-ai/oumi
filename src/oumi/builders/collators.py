@@ -52,8 +52,6 @@ def build_data_collator(
 class VisionLanguageCollator:
     def __init__(self, tokenizer: BaseTokenizer, max_length: Optional[int]):
         """Custom collator for multi-modal vision-language training."""
-        self._tokenizer = tokenizer
-
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
