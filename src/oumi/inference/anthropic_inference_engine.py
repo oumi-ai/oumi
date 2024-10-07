@@ -81,10 +81,19 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 for message in messages
             ],
             "max_tokens": generation_params.max_new_tokens,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
         }
 
         if system_message:
             body["system"] = system_message
+
+        if generation_params.stop:
+            body["stop_sequences"] = (
+                generation_params.stop
+                if isinstance(generation_params.stop, list)
+                else [generation_params.stop]
+            )
 
         return body
 

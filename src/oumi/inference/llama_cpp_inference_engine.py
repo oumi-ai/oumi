@@ -162,6 +162,11 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             response = self._llm.create_chat_completion(
                 messages=llama_input,  # type: ignore
                 max_tokens=generation_params.max_new_tokens,
+                temperature=generation_params.temperature,
+                top_p=generation_params.top_p,
+                frequency_penalty=generation_params.frequency_penalty,
+                presence_penalty=generation_params.presence_penalty,
+                stop=generation_params.stop,
             )
             response = cast(dict, response)
 

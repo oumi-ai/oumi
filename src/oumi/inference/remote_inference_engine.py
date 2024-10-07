@@ -78,7 +78,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
-        return {
+        api_input = {
             "model": self._model,
             "messages": [
                 {
@@ -87,10 +87,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 }
                 for message in conversation.messages
             ],
-            "max_completion_tokens": generation_params.max_new_tokens,
+            "max_tokens": generation_params.max_new_tokens,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
+            "frequency_penalty": generation_params.frequency_penalty,
+            "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
         }
+
+        if generation_params.stop:
+            api_input["stop"] = generation_params.stop
+
+        return api_input
 
     def _convert_api_output_to_conversation(
         self, response: Dict[str, Any], original_conversation: Conversation
@@ -196,7 +205,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         retries += 1
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
-                "Failed to query API after " f"{remote_params.max_retries} retries."
+                f"Failed to query API after {remote_params.max_retries} retries."
             )
 
     async def _infer(

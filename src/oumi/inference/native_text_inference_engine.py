@@ -3,7 +3,7 @@ from typing import List
 import peft
 import torch
 from tqdm import tqdm
-from transformers import BatchEncoding
+from transformers import BatchEncoding, GenerationConfig
 
 from oumi.builders import (
     build_model,
@@ -82,6 +82,21 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
 
+        # Create a GenerationConfig object with the new parameters
+        generation_config = GenerationConfig(
+            max_new_tokens=generation_params.max_new_tokens,
+            temperature=generation_params.temperature,
+            top_p=generation_params.top_p,
+            frequency_penalty=generation_params.frequency_penalty,
+            presence_penalty=generation_params.presence_penalty,
+            do_sample=generation_params.temperature > 0,
+        )
+
+        if generation_params.stop:
+            generation_config.eos_token_id = self._tokenizer.convert_tokens_to_ids(
+                generation_params.stop
+            )
+
         # Generate model outputs (batch mode).
         output_conversations = []
         for batch_index in tqdm(
@@ -89,7 +104,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         ):
             batch = input_batches[batch_index]
             output_batch = self._model.generate(
-                **batch, max_new_tokens=generation_params.max_new_tokens
+                **batch, generation_config=generation_config
             )
 
             # For each batch, remove the prepended prompts from all model reponses.
