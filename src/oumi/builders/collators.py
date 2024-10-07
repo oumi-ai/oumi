@@ -46,7 +46,7 @@ def build_data_collator(
             tokenizer=tokenizer, max_length=max_length, **kwargs
         )
 
-    raise ValueError("Unknown data collator name: '{collator_name}'")
+    raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
 class VisionLanguageCollator:
