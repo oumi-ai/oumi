@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.infer import infer
 from oumi.core.configs import (
-    GenerationConfig,
+    GenerationParams,
     InferenceConfig,
     ModelParams,
 )
@@ -23,7 +23,7 @@ def _create_inference_config() -> InferenceConfig:
             model_name="openai-community/gpt2",
             trust_remote_code=True,
         ),
-        generation=GenerationConfig(
+        generation=GenerationParams(
             max_new_tokens=5,
         ),
     )
@@ -87,7 +87,7 @@ def test_infer_not_interactive_runs(app, mock_infer):
             [
                 call(
                     model_params=config.model,
-                    generation_config=config.generation,
+                    generation_params=config.generation,
                     input=[],
                 )
             ]
@@ -120,7 +120,7 @@ def test_infer_not_interactive_with_overrides(app, mock_infer):
             [
                 call(
                     model_params=expected_config.model,
-                    generation_config=expected_config.generation,
+                    generation_params=expected_config.generation,
                     input=[],
                 )
             ]
