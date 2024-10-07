@@ -7,7 +7,6 @@ resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: true
-  disk_size: 2000 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .
@@ -21,7 +20,7 @@ file_mounts:
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
-  MODEL_CHECKPOINT_DIR: output/llama8b.sft/checkpoint-1600
+  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
 

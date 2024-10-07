@@ -9,7 +9,7 @@ resources:
   accelerators: "A100:4"
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
-  disk_size: 2000 # Disk size in GBs
+  disk_size: 200 # Disk size in GBs
 
 # Upload a working directory to remote ~/sky_workdir.
 working_dir: .
@@ -52,6 +52,9 @@ run: |
       --config_file configs/accelerate/llama8b.fsdp.yaml \
       -m oumi.train \
       -c configs/oumi/llama8b.sft.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.max_steps=10" \
+      "training.save_steps=10" \
+      "training.save_final_model=true"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
