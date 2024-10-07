@@ -1,7 +1,7 @@
 """Minimal multi-modal training script with CLI arguments and custom collator.
 
 Run the script using:
-   python3 scripts/benchmarks/minimal_multimodal_training.py \
+   python scripts/benchmarks/minimal_multimodal_training.py \
     --model-name<model_name> --dataset-name <dataset_name>
 
 For multi-GPU training, use torchrun:
