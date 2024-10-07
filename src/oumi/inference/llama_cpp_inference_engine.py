@@ -154,7 +154,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
         for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 # add the conversation to keep input and output the same length.
                 output_conversations.append(conversation)
                 continue
@@ -169,7 +169,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
                 stop=generation_params.stop,
-                logit_bias=cast(Dict[str, float], generation_params.logit_bias),
+                logit_bias=generation_params.logit_bias,
                 min_p=generation_params.min_p,
             )
             response = cast(dict, response)

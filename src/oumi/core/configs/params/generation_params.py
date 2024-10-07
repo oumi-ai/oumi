@@ -62,7 +62,7 @@ class GenerationParams(BaseParams):
     """
 
     stop: Optional[List[str]] = None
-    """list of sequences where the API will stop generating further tokens."""
+    """List of sequences where the API will stop generating further tokens."""
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
