@@ -64,7 +64,7 @@ dev = [
     "torchfix",
 ]
 train = [
-    "accelerate==1.0.0",
+    "accelerate>=1.0.0",
     "aiohttp",
     "aioresponses",
     "asyncio",
