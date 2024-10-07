@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Callable, Optional
 
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ def build_data_collator(
     tokenizer: BaseTokenizer,
     max_length: Optional[int],
     **kwargs,
-) -> Any:
+) -> Callable:
     """Builds a data collator based on the given collator name.
 
     Args:
@@ -46,7 +46,7 @@ def build_data_collator(
             tokenizer=tokenizer, max_length=max_length, **kwargs
         )
 
-    return ValueError("Unknown data collator name: '{collator_name}'")
+    raise ValueError("Unknown data collator name: '{collator_name}'")
 
 
 class VisionLanguageCollator:
