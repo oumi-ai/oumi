@@ -42,7 +42,12 @@ class MagpieProDataset(BaseLMSftDataset):
 
         messages = []
         for message in conversation:
-            role = Role.USER if message["from"] == "human" else Role.ASSISTANT
+            if message["from"] == "human":
+                role = Role.USER
+            elif message["from"] == "gpt":
+                role = Role.ASSISTANT
+            else:
+                raise ValueError(f"Unknown role: {message['from']}")
             content = message.get("value", "")
             messages.append(Message(role=role, content=content))
         return Conversation(messages=messages)

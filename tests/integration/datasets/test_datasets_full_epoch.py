@@ -26,6 +26,7 @@ def is_content_empty_expected(dataset_name, conversation_idx, message_idx):
         "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1",
         "Magpie-Align/Magpie-Pro-300K-Filtered",
         "argilla/magpie-ultra-v0.1",
+        "argilla/databricks-dolly-15k-curated-en",
     ]
 )
 def dataset_fixture(request):
@@ -34,25 +35,14 @@ def dataset_fixture(request):
     if dataset_class is None:
         pytest.fail(f"Dataset {dataset_name} not found in registry")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
-    return dataset_name, dataset_class(split="train", tokenizer=tokenizer)
+    return dataset_name, dataset_class(
+        dataset_name_or_path=dataset_name, split="train", tokenizer=tokenizer
+    )
 
 
-def test_dataset_model_inputs(dataset_fixture):
-    dataset_name, dataset = dataset_fixture
-    assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
-
-    # Iterate through all items in the dataset
-    for idx in range(len(dataset)):
-        item = dataset[idx]
-
-        # Check that each item has the expected keys
-        assert "input_ids" in item, f"'input_ids' not found in item at index {idx}"
-        assert isinstance(item["input_ids"], Sequence), (
-            f"'input_ids' is not a Sequence at index {idx}. "
-            f"Type: {type(item['input_ids'])}"
-        )
-
-
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
 def test_dataset_conversation(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
@@ -104,9 +94,9 @@ def test_dataset_conversation(dataset_fixture):
         )
 
 
-# @pytest.mark.skip(
-#     reason="This test is very time consuming, and should be run manually."
-# )
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
 def test_dataset_prompt_generation(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
@@ -117,3 +107,22 @@ def test_dataset_prompt_generation(dataset_fixture):
             f"Prompt at index {idx} is not a string. " f"Type: {type(prompt)}"
         )
         assert len(prompt) > 0, f"Prompt at index {idx} is empty"
+
+
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
+def test_dataset_model_inputs(dataset_fixture):
+    dataset_name, dataset = dataset_fixture
+    assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
+
+    # Iterate through all items in the dataset
+    for idx in range(len(dataset)):
+        item = dataset[idx]
+
+        # Check that each item has the expected keys
+        assert "input_ids" in item, f"'input_ids' not found in item at index {idx}"
+        assert isinstance(item["input_ids"], Sequence), (
+            f"'input_ids' is not a Sequence at index {idx}. "
+            f"Type: {type(item['input_ids'])}"
+        )
