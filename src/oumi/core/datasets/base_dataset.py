@@ -32,10 +32,13 @@ class BaseMapDataset(MapDataPipe, ABC):
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
+        dataset_type_name = self.__class__.__name__
+        logger.info(f"Creating map dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
-                "Please check the class constructor for supported arguments."
+                "Please check the class constructor for supported arguments "
+                f"(type: {dataset_type_name})."
             )
 
         dataset_name_or_path = dataset_name_or_path or self.default_dataset
@@ -43,7 +46,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         if dataset_name_or_path is None:
             raise ValueError(
                 "Please specify a dataset_name_or_path or "
-                "set the default_dataset class attribute."
+                "set the default_dataset class attribute "
+                f"(type: {dataset_type_name})."
             )
 
         self.dataset_name_or_path = dataset_name_or_path

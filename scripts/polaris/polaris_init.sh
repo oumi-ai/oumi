@@ -27,7 +27,7 @@ fi
 # "2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov" -> "2083804"
 OUMI_JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
 if [[ -z "${OUMI_JOBNUM}" ]]; then
-    echo "Job number if empty for PBS_JOBID: ${PBS_JOBID}!"
+    echo "Job number is empty for PBS_JOBID: ${PBS_JOBID}!"
     exit 1
 fi
 
