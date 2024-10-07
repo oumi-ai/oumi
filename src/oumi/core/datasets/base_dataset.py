@@ -32,7 +32,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
-        dataset_type_name = type(self).__name__
+        dataset_type_name = self.__class__.__name__
         logger.info(f"Creating map dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
             logger.debug(
