@@ -2,8 +2,9 @@ from typing import List
 
 import peft
 import torch
+import transformers
 from tqdm import tqdm
-from transformers import BatchEncoding, GenerationConfig
+from transformers import BatchEncoding
 
 from oumi.builders import (
     build_model,
@@ -12,7 +13,6 @@ from oumi.builders import (
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
-from oumi.utils.logging import logger
 
 
 class NativeTextInferenceEngine(BaseInferenceEngine):
@@ -84,26 +84,20 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             input_batches[batch_index] = batch_tokenized
 
         # Create a GenerationConfig object with the new parameters
-        generation_config = GenerationConfig(
+        # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
+        generation_config = transformers.GenerationConfig(
             max_new_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             do_sample=generation_params.temperature > 0,
+            min_p=generation_params.min_p,
+            stop=generation_params.stop,
+            include_stop_str_in_output=False,
+            detokenize=True,
+            seed=generation_params.seed,
         )
-
-        # Log warning for unsupported parameter
-        if generation_params.min_p != 0.0:
-            logger.warning(
-                "NativeTextInferenceEngine does not support min_p."
-                " This parameter will be ignored."
-            )
-
-        if generation_params.stop:
-            generation_config.eos_token_id = self._tokenizer.convert_tokens_to_ids(
-                generation_params.stop
-            )
 
         # Generate model outputs (batch mode).
         output_conversations = []
