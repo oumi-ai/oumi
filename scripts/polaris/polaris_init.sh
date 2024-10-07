@@ -24,6 +24,13 @@ if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
     exit 1
 fi
 
+# "2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov" -> "2083804"
+OUMI_JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
+if [[ -z "${OUMI_JOBNUM}" ]]; then
+    echo "Job number if empty for PBS_JOBID: ${PBS_JOBID}!"
+    exit 1
+fi
+
 # NCCL settings:
 # https://docs.alcf.anl.gov/polaris/data-science-workflows/frameworks/pytorch/#multi-gpu-multi-node-scale-up
 export NCCL_COLLNET_ENABLE=1

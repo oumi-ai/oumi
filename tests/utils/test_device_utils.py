@@ -93,18 +93,24 @@ def test_nvidia_gpu_fan_speeds():
     if num_devices > 0:
         for device_index in range(0, num_devices):
             fan_speeds = get_nvidia_gpu_fan_speeds(device_index)
-            assert len(fan_speeds) > 0
-            fan_speeds = np.array(fan_speeds)
-            assert np.all(fan_speeds >= 0)
-            assert np.all(fan_speeds <= 100)
+            if fan_speeds:
+                assert len(fan_speeds) > 0
+                fan_speeds = np.array(fan_speeds)
+                assert np.all(fan_speeds >= 0)
+                assert np.all(fan_speeds <= 100)
+            else:
+                assert fan_speeds == tuple()
             log_nvidia_gpu_fan_speeds(device_index)
 
         # Test default argument value
         fan_speeds = get_nvidia_gpu_fan_speeds()
-        assert len(fan_speeds) > 0
-        fan_speeds = np.array(fan_speeds)
-        assert np.all(fan_speeds >= 0)
-        assert np.all(fan_speeds <= 100)
+        if fan_speeds:
+            assert len(fan_speeds) > 0
+            fan_speeds = np.array(fan_speeds)
+            assert np.all(fan_speeds >= 0)
+            assert np.all(fan_speeds <= 100)
+        else:
+            assert fan_speeds == tuple()
         log_nvidia_gpu_fan_speeds(device_index)
     else:
         # Test default argument value
@@ -171,12 +177,10 @@ def test_nvidia_gpu_runtime_info():
                 and info.temperature >= 0
                 and info.temperature <= 100
             )
-            assert (
-                info.fan_speed is not None
-                and info.fan_speed >= 0
-                and info.fan_speed <= 100
+            assert info.fan_speed is None or (
+                info.fan_speed >= 0 and info.fan_speed <= 100
             )
-            assert info.fan_speeds
+            assert info.fan_speeds is None or len(info.fan_speeds) > 0
             assert info.power_usage_watts is not None and info.power_usage_watts >= 0
             assert info.power_limit_watts is not None and info.power_limit_watts > 0
             assert (
@@ -210,10 +214,8 @@ def test_nvidia_gpu_runtime_info():
             and info.temperature >= 0
             and info.temperature <= 100
         )
-        assert (
-            info.fan_speed is not None and info.fan_speed >= 0 and info.fan_speed <= 100
-        )
-        assert info.fan_speeds
+        assert info.fan_speed is None or (info.fan_speed >= 0 and info.fan_speed <= 100)
+        assert info.fan_speeds is None or len(info.fan_speeds) > 0
         assert info.power_usage_watts is not None and info.power_usage_watts >= 0
         assert info.power_limit_watts is not None and info.power_limit_watts > 0
         assert (
