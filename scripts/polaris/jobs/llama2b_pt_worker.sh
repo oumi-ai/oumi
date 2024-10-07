@@ -81,7 +81,7 @@ if "${ENABLE_OUMI_TELEMETRY}"; then
 fi
 
 if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
-    TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${PBS_JOBID}"
+    TRAINING_OUTPUT_DIR_PARAM="training.output_dir=/eagle/community_ai/${USER}/${OUMI_JOBNUM}"
 fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
@@ -118,7 +118,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -c configs/oumi/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
@@ -135,7 +135,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         -c configs/oumi/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
@@ -153,7 +153,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
         -c configs/oumi/llama2b.pt.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'" \
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64" \
         "model.torch_dtype_str=float32" \
@@ -172,7 +172,7 @@ else       # FSDP
         -c configs/oumi/llama2b.pt.fsdp.trl.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${PBS_JOBID}'"
+        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'"
 fi
 
 echo "${LOG_PREFIX} All done!"
