@@ -16,11 +16,7 @@ from oumi.core.configs import (
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
-from oumi.datasets.prompt_response_sft_preprocessor_factory import (
-    PromptResponseSftPreprocessorFactory,
-)
 from oumi.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
-from oumi.datasets.ultrachat_200k import trl_sft_ultrachat_200k_preprocessor_fn
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
@@ -42,17 +38,7 @@ def build_prompt_generation_fn(
     Raises:
         ValueError: If the function_name is unknown.
     """
-    # TODO: this should be pulled from registry
-    prompt_response_factory = PromptResponseSftPreprocessorFactory(tokenizer)
-
-    if function_name == "trl_sft_ultrachat_200k":
-        return trl_sft_ultrachat_200k_preprocessor_fn(tokenizer)
-    elif function_name == "aya":
-        return prompt_response_factory.get_preprocessing_fn(
-            prompt_key="inputs",
-            response_key="targets",
-        )
-    elif function_name == "trl_dpo":
+    if function_name == "trl_dpo":
         return trl_dpo_chat_preprocessor_fn(tokenizer)
 
     raise ValueError(f"Unknown prompt generation function: {function_name}")
