@@ -79,6 +79,7 @@ def _get_freeze_layers(model_name: ModelName) -> List[str]:
 class DatasetName(str, Enum):
     COCO = "coco_captions"
     FLICKR = "nlphuji/flickr30k"
+    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
