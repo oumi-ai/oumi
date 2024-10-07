@@ -5,7 +5,8 @@ from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import pydantic
 
-from oumi.core.configs import BaseConfig, GenerationConfig
+from oumi.core.configs import BaseConfig
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
 
@@ -27,7 +28,7 @@ T = TypeVar("T", bound=TemplatedMessage)
 
 
 class JudgeAttribute(pydantic.BaseModel, Generic[T]):
-    """Configuration parameters for the judge.
+    """Attributes for the judge.
 
     Example:
         >>> attribute = JudgeAttribute(
@@ -100,7 +101,7 @@ class JudgeAttribute(pydantic.BaseModel, Generic[T]):
 class JudgeConfig(BaseConfig):
     """Configuration for the Judge.
 
-    This class holds the configuration parameters for the Judge,
+    This class holds the configuration for the Judge,
       including the attributes to judge, the model parameters,
       and the text generation parameters.
 
@@ -128,11 +129,11 @@ class JudgeConfig(BaseConfig):
         ...     )
         ... }
         >>> model_params = ModelParams(model_name="example-model")
-        >>> generation_config = GenerationConfig(max_new_tokens=100)
+        >>> generation_params = GenerationParams(max_new_tokens=100)
         >>> judge_config = JudgeConfig(
         ...     attributes=attributes,
         ...     model=model_params,
-        ...     generation=generation_config
+        ...     generation=generation_params
         ... )
     """
 
@@ -140,7 +141,7 @@ class JudgeConfig(BaseConfig):
     """The attributes to judge."""
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Configuration parameters for the model used in inference."""
+    """Parameters for the model used in inference."""
 
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
-    """Configuration parameters for text generation during inference."""
+    generation: GenerationParams = field(default_factory=GenerationParams)
+    """Parameters for text generation during inference."""

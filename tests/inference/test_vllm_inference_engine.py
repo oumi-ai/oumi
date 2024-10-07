@@ -6,7 +6,7 @@ from unittest.mock import ANY, Mock, patch
 import jsonlines
 import pytest
 
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import VLLMInferenceEngine
 
@@ -110,7 +110,7 @@ def test_infer_online(mock_vllm):
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
 
@@ -157,7 +157,7 @@ def test_infer_online_lora(mock_vllm):
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
     assert expected_result == result
 
     mock_vllm.lora.request.LoRARequest.assert_called_once_with(
@@ -177,7 +177,7 @@ def test_infer_online_empty(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     engine = VLLMInferenceEngine(_get_default_model_params())
-    result = engine.infer_online([], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([], GenerationParams(max_new_tokens=5))
     assert [] == result
     mock_vllm_instance.chat.assert_not_called()
 
@@ -244,7 +244,7 @@ def test_infer_online_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),
@@ -296,11 +296,11 @@ def test_infer_from_file(mock_vllm):
             )
         ]
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert expected_result == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -316,11 +316,11 @@ def test_infer_from_file_empty(mock_vllm):
         _setup_input_conversations(str(input_path), [])
         engine = VLLMInferenceEngine(_get_default_model_params())
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert [] == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -392,7 +392,7 @@ def test_infer_from_file_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),

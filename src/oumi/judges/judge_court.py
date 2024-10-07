@@ -1,7 +1,7 @@
 from typing import Union
 
 from oumi.core.configs import (
-    GenerationConfig,
+    GenerationParams,
     JudgeConfig,
     ModelParams,
     RemoteParams,
@@ -42,7 +42,7 @@ def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
         model=ModelParams(
             model_name="claude-3-5-sonnet-20240620",
         ),
-        generation=GenerationConfig(
+        generation=GenerationParams(
             max_new_tokens=1024,
             remote_params=RemoteParams(
                 api_url="https://api.anthropic.com/v1/messages",
@@ -77,7 +77,7 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     config = JudgeConfig(
         attributes=attributes,
         model=ModelParams(model_name="Qwen/Qwen2-0.5B-Instruct-GGUF"),
-        generation=GenerationConfig(max_new_tokens=1024),
+        generation=GenerationParams(max_new_tokens=1024),
     )
     return config
 
@@ -112,7 +112,7 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
         model=ModelParams(
             model_name="gpt-4o-2024-08-06",
         ),
-        generation=GenerationConfig(
+        generation=GenerationParams(
             max_new_tokens=1024,
             remote_params=RemoteParams(
                 api_url="https://api.openai.com/v1/chat/completions",

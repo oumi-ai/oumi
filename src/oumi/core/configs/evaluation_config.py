@@ -3,8 +3,8 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.generation_config import GenerationConfig
 from oumi.core.configs.params.evaluation_params import LMHarnessParams
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 
 
@@ -24,8 +24,8 @@ class EvaluationConfig(BaseConfig):
     and any specific configurations required for the evaluation task.
     """
 
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
-    """Configuration for text generation during evaluation.
+    generation: GenerationParams = field(default_factory=GenerationParams)
+    """Parameters for text generation during evaluation.
 
     This includes settings such as temperature, top-k, top-p,
     maximum length, and any other parameters that control the
