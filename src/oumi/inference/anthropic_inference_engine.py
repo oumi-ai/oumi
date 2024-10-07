@@ -111,6 +111,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 "AnthropicInferenceEngine does not support logit_bias."
                 " This parameter will be ignored."
             )
+        if generation_params.min_p != 0.0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support min_p."
+                " This parameter will be ignored."
+            )
 
         return body
 

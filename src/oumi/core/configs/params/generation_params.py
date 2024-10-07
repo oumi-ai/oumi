@@ -78,6 +78,14 @@ class GenerationParams(BaseParams):
     exclusive selection of the relevant token.
     """
 
+    min_p: float = 0.0
+    """Sets a minimum probability threshold for token selection.
+
+    Tokens with probabilities below this threshold are filtered out before top-p
+    or top-k sampling. This can help prevent the selection of highly improbable tokens.
+    Default is 0.0 (no minimum threshold).
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.temperature < 0:
@@ -91,3 +99,6 @@ class GenerationParams(BaseParams):
                 raise ValueError(
                     f"Logit bias for token {token_id} must be between -100 and 100."
                 )
+
+        if not 0 <= self.min_p <= 1:
+            raise ValueError("min_p must be between 0 and 1.")

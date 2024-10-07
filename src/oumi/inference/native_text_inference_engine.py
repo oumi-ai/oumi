@@ -12,6 +12,7 @@ from oumi.builders import (
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
+from oumi.utils.logging import logger
 
 
 class NativeTextInferenceEngine(BaseInferenceEngine):
@@ -91,6 +92,13 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             presence_penalty=generation_params.presence_penalty,
             do_sample=generation_params.temperature > 0,
         )
+
+        # Log warning for unsupported parameter
+        if generation_params.min_p != 0.0:
+            logger.warning(
+                "NativeTextInferenceEngine does not support min_p."
+                " This parameter will be ignored."
+            )
 
         if generation_params.stop:
             generation_config.eos_token_id = self._tokenizer.convert_tokens_to_ids(

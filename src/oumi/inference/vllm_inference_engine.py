@@ -110,6 +110,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             stop=generation_params.stop,
+            min_p=generation_params.min_p,
         )
 
         if generation_params.logit_bias:

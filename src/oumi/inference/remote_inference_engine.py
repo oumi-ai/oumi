@@ -9,6 +9,7 @@ from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -97,7 +98,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
+            "min_p": generation_params.min_p,
         }
+
+        # Log warning for unsupported parameter
+        if generation_params.min_p > 0.0:
+            logger.warning(
+                "RemoteInferenceEngine does not support min_p. "
+                "This parameter will be ignored."
+            )
 
         if generation_params.stop:
             api_input["stop"] = generation_params.stop

@@ -170,6 +170,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 presence_penalty=generation_params.presence_penalty,
                 stop=generation_params.stop,
                 logit_bias=cast(Dict[str, float], generation_params.logit_bias),
+                min_p=generation_params.min_p,
             )
             response = cast(dict, response)
 
