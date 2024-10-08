@@ -8,7 +8,7 @@ import typer
 from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
-import oumi.launcher as launcher
+from oumi import launcher
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.utils.logging import logger
 
