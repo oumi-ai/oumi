@@ -20,6 +20,7 @@ from enum import Enum
 from pprint import pformat
 from typing import Dict, List, Optional
 
+import datasets
 import torch
 import typer
 from transformers import AutoProcessor
@@ -101,6 +102,7 @@ def test_multimodal_trainer(
     test_fsdp: bool = False,
 ):
     """Minimal multi-modal training loop."""
+    datasets.disable_caching()
     if is_distributed():
         print("Initializing distributed process group")
         init_distributed()
