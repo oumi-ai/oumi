@@ -90,13 +90,13 @@ def load_jsonlines(filename: Union[str, Path]) -> List[Dict[str, Any]]:
     """
     file_path = Path(filename)
 
-    if not file_path.exists():
-        raise FileNotFoundError(f"Provided path does not exist: '{filename}'.")
-
     if file_path.is_dir():
         raise ValueError(
             f"Provided path is a directory, expected a file: '{filename}'."
         )
+
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Provided path does not exist: '{filename}'.")
 
     with jsonlines.open(file_path) as reader:
         return list(reader)
@@ -118,4 +118,4 @@ def save_jsonlines(filename: Union[str, Path], data: List[Dict[str, Any]]) -> No
         with jsonlines.open(file_path, mode="w") as writer:
             writer.write_all(data)
     except OSError as e:
-        raise OSError(f"Error writing to file {filename}: {str(e)}")
+        raise OSError(f"Error writing to file {filename}") from e
