@@ -188,16 +188,14 @@ def which() -> None:
 
 
 def stop(
-    cloud: Annotated[
-        Optional[str], typer.Option(help="Filter results by this cloud.")
-    ] = None,
+    cloud: Annotated[str, typer.Option(help="Filter results by this cloud.")],
     cluster: Annotated[
-        Optional[str],
+        str,
         typer.Option(help="Filter results by clusters matching this name."),
-    ] = None,
+    ],
     id: Annotated[
-        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
-    ] = None,
+        str, typer.Option(help="Filter results by jobs matching this job ID.")
+    ],
 ) -> None:
     """Stops a job.
 
@@ -206,12 +204,6 @@ def stop(
         cluster: Filter results by clusters matching this name.
         id: Filter results by jobs matching this job ID.
     """
-    if not cluster:
-        raise ValueError("No cluster specified for `stop` action.")
-    if not id:
-        raise ValueError("No job ID specified for `stop` action.")
-    if not cloud:
-        raise ValueError("No cloud specified for `stop` action.")
 
     def stop_worker():
         """Stops a job."""
