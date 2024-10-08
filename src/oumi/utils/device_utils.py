@@ -44,6 +44,14 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
 
 
 class NVidiaGpuRuntimeInfo(NamedTuple):
+    """Contains misc NVIDIA GPU measurements and stats retrieved by `pynvml`.
+
+    The majority of fields are optional. You can control whether they are
+    populated by setting boolean query parameters of
+    `_get_nvidia_gpu_runtime_info_impl(, ...)` such as `memory`, `temperature`,
+    `fan_speed`, etc.
+    """
+
     device_index: int
     """Zero-based device index."""
 
@@ -154,7 +162,11 @@ def _get_nvidia_gpu_runtime_info_impl(
         try:
             fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
         except Exception:
-            logger.exception(f"Failed to get GPU fan speed for device: {device_index}")
+            # The `GetFanSpeed` function fails on many systems
+            # Only do DEBUG-level logging to reduce noise.
+            logger.debug(
+                f"Failed to get GPU fan speed for device: {device_index}", exc_info=True
+            )
 
         if fan_speed_value is not None:
             fan_speeds_value = tuple([fan_speed_value])

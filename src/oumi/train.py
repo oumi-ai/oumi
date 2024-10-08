@@ -3,13 +3,14 @@ import gc
 import random
 import time
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
+    build_data_collator,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -18,7 +19,12 @@ from oumi.builders import (
     build_trainer,
     build_training_callbacks,
 )
-from oumi.core.configs import DatasetSplit, TrainerType, TrainingConfig
+from oumi.core.configs import (
+    DatasetSplit,
+    DatasetSplitParams,
+    TrainerType,
+    TrainingConfig,
+)
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -184,6 +190,19 @@ def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
         torch.backends.cudnn.deterministic = True
 
 
+def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
+    """Creates data collator if specified in config."""
+    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
+    if not train_split.collator_name:
+        return None
+
+    return build_data_collator(
+        collator_name=train_split.collator_name,
+        tokenizer=tokenizer,
+        max_length=config.model.model_max_length,
+    )
+
+
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     """Updates TrainingConfig using dynamic/runtime info."""
     if config.training.dataloader_num_workers == "auto":
@@ -266,6 +285,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Reclaim memory before training starts.
     gc.collect()
 
+    collator = _build_collator_if_needed(config, tokenizer)
+
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -286,6 +307,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
                 callbacks=callbacks,
+                data_collator=collator,
                 **kwargs,
             )
 

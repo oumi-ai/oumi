@@ -27,10 +27,13 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseIterableDataset class."""
+        dataset_type_name = self.__class__.__name__
+        logger.info(f"Creating iterable dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
-                "Please check the class constructor for supported arguments."
+                "Please check the class constructor for supported arguments "
+                f"(type: {dataset_type_name})."
             )
 
         dataset_name_or_path = dataset_name_or_path or self.default_dataset
@@ -38,7 +41,8 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         if dataset_name_or_path is None:
             raise ValueError(
                 "Please specify a dataset_name_or_path or "
-                "set the default_dataset class attribute."
+                "set the default_dataset class attribute "
+                f"(type: {dataset_type_name})."
             )
 
         self.dataset_name_or_path = dataset_name_or_path
