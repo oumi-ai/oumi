@@ -27,6 +27,8 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
             logger.warning(f"Example contains multiple images: {len(images)}")
 
         def _process_text_value(s: str) -> str:
+            # The data contains occasional `\n` at the beginning or end
+            # of text values. Let's strip them.
             return s.strip() if s else ""
 
         messages = []
