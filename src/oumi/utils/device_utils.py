@@ -44,6 +44,14 @@ def _initialize_pynvml_and_get_pynvml_device_count() -> Optional[int]:
 
 
 class NVidiaGpuRuntimeInfo(NamedTuple):
+    """Contains misc NVIDIA GPU measurements and stats retrieved by `pynvml`.
+
+    The majority of fields are optional. You can control whether they are
+    populated by setting boolean query parameters of
+    `_get_nvidia_gpu_runtime_info_impl(, ...)` such as `memory`, `temperature`,
+    `fan_speed`, etc.
+    """
+
     device_index: int
     """Zero-based device index."""
 
