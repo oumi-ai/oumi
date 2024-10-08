@@ -16,20 +16,20 @@ from oumi.utils.logging import logger
 def _print_and_wait(message: str, task: Callable, **kwargs) -> None:
     """Prints a message with a loading spinner until the provided task is done."""
     spinner = itertools.cycle(["⠁", "⠈", "⠐", "⠠", "⢀", "⡀", "⠄", "⠂"])
-    worker_pool = Pool(processes=1)
-    worker_result = worker_pool.apply_async(task, kwds=kwargs)
-    while not worker_result.ready():
-        _ = sys.stdout.write(f" {next(spinner)} {message}\r")
-        _ = sys.stdout.flush()
-        time.sleep(0.1)
-        # Clear the line before printing the next spinner. This makes the spinner
-        # appear animated instead of printing each iteration on a new line.
-        # \r (written above) moves the cursor to the beginning of the line.
-        # \033[K deletes everything from the cursor to the end of the line.
-        _ = sys.stdout.write("\033[K")
-    worker_result.wait()
-    # Call get() to reraise any exceptions that occurred in the worker.
-    worker_result.get()
+    with Pool(processes=1) as worker_pool:
+        worker_result = worker_pool.apply_async(task, kwds=kwargs)
+        while not worker_result.ready():
+            _ = sys.stdout.write(f" {next(spinner)} {message}\r")
+            _ = sys.stdout.flush()
+            time.sleep(0.1)
+            # Clear the line before printing the next spinner. This makes the spinner
+            # appear animated instead of printing each iteration on a new line.
+            # \r (written above) moves the cursor to the beginning of the line.
+            # \033[K deletes everything from the cursor to the end of the line.
+            _ = sys.stdout.write("\033[K")
+        worker_result.wait()
+        # Call get() to reraise any exceptions that occurred in the worker.
+        worker_result.get()
 
 
 def _create_job_poller(job_status: JobStatus, cluster: BaseCluster) -> Callable:
@@ -45,38 +45,44 @@ def _create_job_poller(job_status: JobStatus, cluster: BaseCluster) -> Callable:
     return poll
 
 
-def _create_down_worker(cluster: str, cloud: Optional[str]) -> Callable:
-    """Creates a function that turns down a cluster."""
+def _stop_worker(id: str, cloud: str, cluster: str) -> None:
+    """Stops a job."""
+    if not cluster:
+        return
+    if not id:
+        return
+    if not cloud:
+        return
+    launcher.stop(id, cloud, cluster)
 
-    def down_worker():
-        """Turns down a cluster."""
-        if cloud:
-            target_cloud = launcher.get_cloud(cloud)
-            target_cluster = target_cloud.get_cluster(cluster)
-            if target_cluster:
-                target_cluster.down()
-            else:
-                print(f"Cluster {cluster} not found.")
-            return
-        # Make a best effort to find a single cluster to turn down without a cloud.
-        clusters = []
-        for name in launcher.which_clouds():
-            target_cloud = launcher.get_cloud(name)
-            target_cluster = target_cloud.get_cluster(cluster)
-            if target_cluster:
-                clusters.append(target_cluster)
-        if len(clusters) == 0:
-            print(f"Cluster {cluster} not found.")
-            return
-        if len(clusters) == 1:
-            clusters[0].down()
+
+def _down_worker(cluster: str, cloud: Optional[str]):
+    """Turns down a cluster."""
+    if cloud:
+        target_cloud = launcher.get_cloud(cloud)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            target_cluster.down()
         else:
-            print(
-                f"Multiple clusters found with name {cluster}. "
-                "Specify a cloud to turn down with `--cloud`."
-            )
-
-    return down_worker
+            print(f"Cluster {cluster} not found.")
+        return
+    # Make a best effort to find a single cluster to turn down without a cloud.
+    clusters = []
+    for name in launcher.which_clouds():
+        target_cloud = launcher.get_cloud(name)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            clusters.append(target_cluster)
+    if len(clusters) == 0:
+        print(f"Cluster {cluster} not found.")
+        return
+    if len(clusters) == 1:
+        clusters[0].down()
+    else:
+        print(
+            f"Multiple clusters found with name {cluster}. "
+            "Specify a cloud to turn down with `--cloud`."
+        )
 
 
 def _poll_job(
@@ -204,18 +210,9 @@ def stop(
         cluster: Filter results by clusters matching this name.
         id: Filter results by jobs matching this job ID.
     """
-
-    def stop_worker():
-        """Stops a job."""
-        if not cluster:
-            return
-        if not id:
-            return
-        if not cloud:
-            return
-        launcher.stop(id, cloud, cluster)
-
-    _print_and_wait(f"Stopping job {id}", stop_worker)
+    _print_and_wait(
+        f"Stopping job {id}", _stop_worker, id=id, cloud=cloud, cluster=cluster
+    )
 
 
 def down(
@@ -235,7 +232,9 @@ def down(
     """
     _print_and_wait(
         f"Turning down cluster `{cluster}`",
-        _create_down_worker(cluster=cluster, cloud=cloud),
+        _down_worker,
+        cluster=cluster,
+        cloud=cloud,
     )
 
 

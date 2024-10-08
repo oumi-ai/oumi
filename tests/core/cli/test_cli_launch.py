@@ -28,8 +28,14 @@ class MockPool:
     def __init__(self):
         self.mock_result = Mock()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     def apply_async(self, fn, kwds):
-        fn()
+        fn(**kwds)
         return self.mock_result
 
 
