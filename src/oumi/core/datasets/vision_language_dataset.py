@@ -151,7 +151,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         inputs["pixel_values"] = inputs["pixel_values"][0]
         inputs["attention_mask"] = inputs["attention_mask"][0]
 
-        inputs["labels"] = inputs["input_ids"]
+        inputs["labels"] = inputs["input_ids"].clone()
 
         return inputs
 
