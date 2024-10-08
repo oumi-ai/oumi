@@ -144,7 +144,7 @@ def test_multimodal_trainer(
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
-        experimental_use_torch_datapipes=False,
+        experimental_use_torch_datapipes=True,
     )
 
     #

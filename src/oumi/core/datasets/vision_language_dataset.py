@@ -195,7 +195,15 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         texts = []
         for turn in conversation.messages:
             if turn.is_text():
-                texts.append(turn)
+                if True:
+                    texts.append(turn)
+                else:
+                    texts.append(
+                        {
+                            "content": [{"type": "text", "text": turn.content}],
+                            "role": str(turn.role),
+                        }
+                    )
 
             elif turn.is_image():
                 image_placeholder = {
