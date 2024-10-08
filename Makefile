@@ -48,19 +48,13 @@ setup:
 		if conda env list | grep -q $(CONDA_ENV); then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
 		else \
-			# Ensure conda is initialized for the shell
 			CONDA_BASE=$$(conda info --base); \
 			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
 
 			# Create and activate the conda environment
 			conda create -n $(CONDA_ENV) python=3.11 -y; \
-			conda activate $(CONDA_ENV); \
-
-			# Install dependencies
-			pip install -e ".[train,dev]"; \
-
-			# Install pre-commit hooks
-			pre-commit install; \
+			$(CONDA_RUN) pip install -e ".[train,dev]" \
+			$(CONDA_RUN) pre-commit install; \
 		fi; \
 	else \
 		echo "Conda is not installed. Please install Conda and try again."; \
