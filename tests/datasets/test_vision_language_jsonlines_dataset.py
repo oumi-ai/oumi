@@ -31,13 +31,15 @@ def sample_jsonlines_data():
 def test_jsonlines_init_with_data(sample_jsonlines_data):
     dataset = VLJsonlinesDataset(data=sample_jsonlines_data)
     assert len(dataset._data) == 1
-    assert ["messages"] == dataset._data.columns
+    assert ["_messages_column"] == dataset._data.columns
 
-
-def test_jsonlines_init_with_data_custom_data_column(sample_jsonlines_data):
-    dataset = VLJsonlinesDataset(data=sample_jsonlines_data, data_column="foo")
-    assert len(dataset._data) == 1
-    assert ["foo"] == dataset._data.columns
+    conversation = dataset.conversation(0)
+    assert isinstance(conversation, Conversation)
+    assert len(conversation.messages) == 3
+    assert conversation.messages[0].content == "Describe this image:"
+    assert conversation.messages[1].content == "path/to/image.jpg"
+    assert conversation.messages[1].type == Type.IMAGE_PATH
+    assert conversation.messages[2].content == "A scenic view of the puget sound."
 
 
 def test_jsonlines_init_with_dataset_path(sample_jsonlines_data):
@@ -48,19 +50,16 @@ def test_jsonlines_init_with_dataset_path(sample_jsonlines_data):
 
         dataset = VLJsonlinesDataset(dataset_path=vaild_jsonlines_filename)
         assert len(dataset._data) == 1
-        assert ["messages"] == dataset._data.columns
+        assert ["_messages_column"] == dataset._data.columns
 
+        conversation = dataset.conversation(0)
 
-def test_jsonlines_transform_conversation(sample_jsonlines_data):
-    dataset = VLJsonlinesDataset(data=sample_jsonlines_data)
-    conversation = dataset.conversation(0)
-
-    assert isinstance(conversation, Conversation)
-    assert len(conversation.messages) == 3
-    assert conversation.messages[0].content == "Describe this image:"
-    assert conversation.messages[1].content == "path/to/image.jpg"
-    assert conversation.messages[1].type == Type.IMAGE_PATH
-    assert conversation.messages[2].content == "A scenic view of the puget sound."
+        assert isinstance(conversation, Conversation)
+        assert len(conversation.messages) == 3
+        assert conversation.messages[0].content == "Describe this image:"
+        assert conversation.messages[1].content == "path/to/image.jpg"
+        assert conversation.messages[1].type == Type.IMAGE_PATH
+        assert conversation.messages[2].content == "A scenic view of the puget sound."
 
 
 def test_jsonlines_init_with_invalid_input(sample_jsonlines_data):
@@ -72,11 +71,9 @@ def test_jsonlines_init_with_invalid_input(sample_jsonlines_data):
         with pytest.raises(ValueError, match="Dataset path or data must be provided"):
             VLJsonlinesDataset()
 
-        with pytest.raises(ValueError, match="Dataset path or data must be provided"):
-            VLJsonlinesDataset(data_column="some_column_name")
-
         with pytest.raises(
-            ValueError, match="Dataset path does not exist: invalid_path.jsonl"
+            FileNotFoundError,
+            match="Provided path does not exist: 'invalid_path.jsonl'.",
         ):
             VLJsonlinesDataset(dataset_path="invalid_path.jsonl")
 
@@ -86,20 +83,11 @@ def test_jsonlines_init_with_invalid_input(sample_jsonlines_data):
         ):
             VLJsonlinesDataset(dataset_path=vaild_jsonlines_filename, data=[])
 
-        with pytest.raises(
-            ValueError,
-            match="Dataset path must end with .jsonl",
-        ):
-            VLJsonlinesDataset(dataset_path="invalid_extension.json")
-
         # Directory ending with .jsonl
         temp_dir_name = Path(folder) / "subdir.jsonl"
         temp_dir_name.mkdir()
         with pytest.raises(
             ValueError,
-            match="Dataset path is not a file",
+            match="Provided path is a directory, expected a file",
         ):
             VLJsonlinesDataset(dataset_path=temp_dir_name)
-
-        with pytest.raises(ValueError, match="Data column not found in dataset"):
-            VLJsonlinesDataset(dataset_path=vaild_jsonlines_filename, data_column="foo")

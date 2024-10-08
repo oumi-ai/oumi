@@ -91,10 +91,12 @@ def load_jsonlines(filename: Union[str, Path]) -> List[Dict[str, Any]]:
     file_path = Path(filename)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"Provided path {filename} does not exist.")
+        raise FileNotFoundError(f"Provided path does not exist: '{filename}'.")
 
     if file_path.is_dir():
-        raise ValueError(f"Provided path {filename} is a directory, expected a file.")
+        raise ValueError(
+            f"Provided path is a directory, expected a file: '{filename}'."
+        )
 
     with jsonlines.open(file_path) as reader:
         return list(reader)
