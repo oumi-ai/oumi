@@ -16,9 +16,9 @@ def test_get_oumi_root_directory(filename):
 @pytest.fixture
 def sample_data():
     return [
-        {"name": "Alice", "age": 30},
-        {"name": "Bob", "age": 25},
-        {"name": "Charlie", "age": 35},
+        {"name": "Space Needle", "height": 184},
+        {"name": "Pike Place Market", "founded": 1907},
+        {"name": "Seattle Aquarium", "opened": 1977},
     ]
 
 
