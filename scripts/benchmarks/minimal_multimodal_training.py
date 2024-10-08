@@ -20,7 +20,6 @@ from enum import Enum
 from pprint import pformat
 from typing import Dict, List, Optional
 
-import datasets
 import torch
 import typer
 from transformers import AutoProcessor
@@ -102,7 +101,6 @@ def test_multimodal_trainer(
     test_fsdp: bool = False,
 ):
     """Minimal multi-modal training loop."""
-    datasets.disable_caching()
     if is_distributed():
         print("Initializing distributed process group")
         init_distributed()
@@ -130,13 +128,12 @@ def test_multimodal_trainer(
 
     # TODO: assign the right chat template for each model
     # For now, we use the LLaVA chat template for all models
+    # NOTE: We can't use the original model's template because
+    # oumi will feed it an array of `oumi.core.types.turn.Message`
+    # objects (vs model-specific Python dict).
     chat_template = build_chat_template("llava")
-    print(f"ORIGINAL Processor chat template:\n{processor.chat_template}")
     processor.chat_template = chat_template
-    print(f"ORIGINAL Tokenizer chat template:\n{tokenizer.chat_template}")
     tokenizer.chat_template = chat_template
-
-    print(f"FINAL Processor chat template:\n{processor.chat_template}")
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),

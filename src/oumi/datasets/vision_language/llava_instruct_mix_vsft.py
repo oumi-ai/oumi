@@ -52,7 +52,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                     message_type = user_message["type"]
                     if message_type == "text":
                         text_messages.append(
-                            Message(role=role, content=user_message["text"])
+                            Message(role=role, content=user_message["text"].strip())
                         )
                     elif message_type == "image":
                         image_index = int(user_message["index"])

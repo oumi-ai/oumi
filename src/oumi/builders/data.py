@@ -349,6 +349,5 @@ def _load_dataset(
             split=dataset_params.split,
             streaming=stream,
             trust_remote_code=dataset_params.trust_remote_code,
-            download_mode=datasets.DownloadMode.REUSE_CACHE_IF_EXISTS,
             **dataset_params.dataset_kwargs,
         )

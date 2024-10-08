@@ -199,10 +199,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
-        logger.info(f"apply_chat_template INPUT: {texts}")
         text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
 
-        logger.info(f"apply_chat_template OUTPUT: {text}")
         # Loads the images from the conversation
         images = [turn for turn in conversation.messages if turn.is_image()]
         images = [self._load_image(image) for image in images]
