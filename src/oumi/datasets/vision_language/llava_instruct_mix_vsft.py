@@ -2,7 +2,7 @@ from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
 
@@ -15,58 +15,109 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a dataset example into a Conversation object."""
-        print(example)
         example_messages = example.get("messages")
 
-        if not example_messages:
+        if example_messages is None or len(example_messages) == 0:
             raise ValueError("No messages in input example.")
 
         images = example.get("images")
-        if not images:
+        if images is None or len(images) == 0:
             raise ValueError("No images in input example.")
-        elif not isinstance(images, list):
-            raise ValueError("The 'images' field is not a list.")
         elif len(images) != 1:
             logger.warning(f"Example contains multiple images: {len(images)}")
 
         messages = []
         for message in example_messages:
             print(message)
-            if message["from"] == "user":
+            if message["role"] == "user":
                 role = Role.USER
-            elif message["from"] == "assistant":
+            elif message["role"] == "assistant":
                 role = Role.ASSISTANT
             else:
                 raise ValueError(f"Unknown role: {message['from']}")
-            content_list = message.get("content")
-            if not content_list:
+            message_list = message.get("content")
+            if message_list is None or len(message_list) == 0:
                 raise ValueError("Missing or empty `content` field in message.")
-            elif not isinstance(content_list, list):
-                raise ValueError("The `content` field is not a list.")
 
             if role == Role.USER:
-                if len(content_list) != 2:
+                if len(message_list) not in (1, 2):
                     raise ValueError(
-                        f"The `content` field for {role} must "
-                        f"contain exactly 2 elements (question and image). "
-                        f"Actual: {len(content_list)}"
+                        f"The `content` field for '{role}' must "
+                        f"contain 1 or 2 elements (question, and, optionally, image). "
+                        f"Actual: {len(message_list)}"
+                    )
+
+                num_texts: int = 0
+                num_images: int = 0
+                for user_message in message_list:
+                    message_type = user_message["type"]
+                    if message_type == "text":
+                        messages.append(
+                            Message(role=role, content=user_message["text"])
+                        )
+                        num_texts += 1
+                    elif message_type == "image":
+                        image_index = int(user_message["index"])
+                        if not (image_index >= 0 and image_index < len(images)):
+                            raise ValueError(
+                                f"Image index is out-of-bounds. "
+                                f"Index: {image_index} "
+                                f"Image count: {len(images)}"
+                            )
+                        image_dict = images[image_index]
+                        if "bytes" in image_dict and image_dict["bytes"]:
+                            messages.append(
+                                Message(
+                                    role=role,
+                                    type=Type.IMAGE_BINARY,
+                                    binary=image_dict["bytes"],
+                                )
+                            )
+                        elif "path" in image_dict and image_dict["path"]:
+                            messages.append(
+                                Message(
+                                    role=role,
+                                    type=Type.IMAGE_PATH,
+                                    content=image_dict["path"],
+                                )
+                            )
+                        else:
+                            raise ValueError(
+                                f"Image element must include 'bytes' or 'path'. "
+                                f"Actual keys: {image_dict.keys()}"
+                            )
+
+                        num_images += 1
+                    else:
+                        raise ValueError(
+                            f"{role}'s question has unknown type: '{message_type}'"
+                        )
+
+                if num_texts != 1:
+                    raise ValueError(
+                        f"{role}'s turn must include 1 text question. "
+                        f"Actual: {num_texts}"
+                    )
+                if num_images > 1:
+                    raise ValueError(
+                        f"{role}'s turn must include max 1 image. "
+                        f"Actual: {num_images}"
                     )
             else:
                 assert role == Role.ASSISTANT
-                if len(content_list) != 1:
+                if len(message_list) != 1:
                     raise ValueError(
                         f"The `content` field for {role} must "
                         f"contain exactly 1 element (response). "
-                        f"Actual: {len(content_list)}"
+                        f"Actual: {len(message_list)}"
                     )
-                response_type = content_list[0]["type"]
+                response_type = message_list[0]["type"]
                 if response_type != "text":
                     raise ValueError(
-                        f"{role} response is expected to be text. "
+                        f"{role}'s response is expected to be text. "
                         f"Actual: {response_type}"
                     )
 
-                messages.append(Message(role=role, content=content_list[0]["text"]))
+                messages.append(Message(role=role, content=message_list[0]["text"]))
 
-        raise ValueError("stop")
-        # return Conversation(messages=messages)
+        return Conversation(messages=messages)
