@@ -1,10 +1,12 @@
 import functools
 import logging
 import os
+import random
 from contextlib import contextmanager
 from datetime import timedelta
 from typing import List, NamedTuple, Optional, TypeVar, cast
 
+import numpy as np
 import torch
 import torch.distributed
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -19,6 +21,7 @@ from torch.distributed.fsdp.wrap import (
 from torch.nn.parallel import DistributedDataParallel
 
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
+from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import get_module_class_from_name
 
 
@@ -395,3 +398,28 @@ def estimate_dataloader_num_workers(
     # Make sure it's a positive number (>=1).
     result = max(result, 1)
     return result
+
+
+def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
+    """Set random seeds for reproducibility.
+
+    Each worker will have a different seed to ensure that each worker
+    starts with a different random state.
+
+    Args:
+        seed: The seed value to set for random number generators.
+        set_deterministic: Whether to set deterministic mode for CUDA operations.
+    """
+    device_info = get_device_rank_info()
+
+    local_seed = seed + device_info.rank
+
+    logger.info(f"Setting random seed to {local_seed} on rank {device_info.rank}.")
+    random.seed(local_seed)
+    np.random.seed(local_seed)
+    torch.manual_seed(local_seed)
+    torch.cuda.manual_seed(local_seed)
+
+    if set_deterministic:
+        logger.info("Setting deterministic mode for CUDA operations.")
+        torch.backends.cudnn.deterministic = True
