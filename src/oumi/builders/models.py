@@ -293,6 +293,7 @@ def build_tokenizer(
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
         )
+        tokenizer.chat_template = build_chat_template(template_name="default")
 
     return tokenizer
 
