@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, cast
+from typing import Dict, List, Set, cast
 
 from tqdm.auto import tqdm
 
@@ -195,6 +195,19 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                     generation_params.output_filepath,
                 )
         return output_conversations
+
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+            "logit_bias",
+            "min_p",
+        }
 
     def infer_online(
         self, input: List[Conversation], generation_params: GenerationParams

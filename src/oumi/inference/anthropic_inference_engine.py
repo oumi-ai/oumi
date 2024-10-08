@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from typing_extensions import override
 
@@ -137,4 +137,14 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,
             "X-API-Key": self._get_api_key(remote_params) or "",
+        }
+
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "stop",
+            "remote_params",
         }

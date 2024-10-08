@@ -183,3 +183,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         return self._infer(input, generation_params)
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+            "min_p",
+        }

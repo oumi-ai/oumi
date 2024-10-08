@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
 import jsonlines
 
@@ -39,6 +39,9 @@ class BaseInferenceEngine(ABC):
         if generation_params is None:
             logger.warning("No generation params provided. Using the default params.")
             generation_params = GenerationParams()
+
+        self._check_unsupported_params(generation_params)
+
         if input is not None:
             return self.infer_online(input, generation_params)
         elif generation_params.input_filepath is not None:
@@ -115,6 +118,32 @@ class BaseInferenceEngine(ABC):
             for conversation in conversations:
                 json_obj = conversation.model_dump()
                 writer.write(json_obj)
+
+    def _check_unsupported_params(self, generation_params: GenerationParams):
+        """Checks for unsupported parameters and logs warnings."""
+        supported_params = self.get_supported_params()
+        all_params = set(generation_params.__dict__.keys())
+        unsupported_params = all_params - supported_params
+
+        for param in unsupported_params:
+            value = getattr(generation_params, param)
+            if value is not None and value != 0 and value != {} and value != []:
+                logger.warning(
+                    f"{self.__class__.__name__} does not support {param}. "
+                    f"Received value: {param}={value}. This parameter will be ignored."
+                )
+
+    @abstractmethod
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine.
+
+        Override this method in derived classes to specify which parameters
+        are supported.
+
+        Returns:
+            Set[str]: A set of supported parameter names.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def infer_online(

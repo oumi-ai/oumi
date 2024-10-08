@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 
@@ -303,3 +303,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if generation_params.output_filepath:
             self._save_conversations(conversations, generation_params.output_filepath)
         return conversations
+
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+            "logit_bias",
+            "seed",
+            "remote_params",
+        }
