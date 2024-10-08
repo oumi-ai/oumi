@@ -64,7 +64,7 @@ class BaseConfig:
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
         if not isinstance(config, cls):
             raise TypeError(f"config is not {cls}")
-        return cast(cls, config)
+        return cast(T, config)
 
     @classmethod
     def from_yaml_and_arg_list(
@@ -118,7 +118,7 @@ class BaseConfig:
         if not isinstance(config, cls):
             raise TypeError(f"config {type(config)} is not {type(cls)}")
 
-        return cast(cls, config)
+        return cast(T, config)
 
     def validate(self) -> None:
         """Validates the top level params objects."""
