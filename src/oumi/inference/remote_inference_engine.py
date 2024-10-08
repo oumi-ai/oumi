@@ -105,6 +105,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if generation_params.min_p > 0.0:
             logger.warning(
                 "RemoteInferenceEngine does not support min_p. "
+                f"Received value: min_p={generation_params.min_p}. "
                 "This parameter will be ignored."
             )
 
