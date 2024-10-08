@@ -292,8 +292,9 @@ def build_tokenizer(
             "No chat template found for tokenizer. "
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
+            "Setting tokenizer to use the 'default' chat template."
         )
-        tokenizer.chat_template = build_chat_template(template_name="gpt2")
+        tokenizer.chat_template = build_chat_template(template_name="default")
 
     return tokenizer
 
