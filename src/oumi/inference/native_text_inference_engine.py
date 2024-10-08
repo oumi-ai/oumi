@@ -2,6 +2,7 @@ from typing import List
 
 import peft
 import torch
+import transformers
 from tqdm import tqdm
 from transformers import BatchEncoding
 
@@ -82,6 +83,22 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
 
+        # Create a GenerationConfig object with the new parameters
+        # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
+        generation_config = transformers.GenerationConfig(
+            max_new_tokens=generation_params.max_new_tokens,
+            temperature=generation_params.temperature,
+            top_p=generation_params.top_p,
+            frequency_penalty=generation_params.frequency_penalty,
+            presence_penalty=generation_params.presence_penalty,
+            do_sample=generation_params.temperature > 0,
+            min_p=generation_params.min_p,
+            stop=generation_params.stop,
+            include_stop_str_in_output=False,
+            detokenize=True,
+            seed=generation_params.seed,
+        )
+
         # Generate model outputs (batch mode).
         output_conversations = []
         for batch_index in tqdm(
@@ -89,7 +106,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         ):
             batch = input_batches[batch_index]
             output_batch = self._model.generate(
-                **batch, max_new_tokens=generation_params.max_new_tokens
+                **batch, generation_config=generation_config
             )
 
             # For each batch, remove the prepended prompts from all model reponses.

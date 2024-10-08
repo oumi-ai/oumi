@@ -60,13 +60,17 @@ def test_infer_online():
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
+    result = engine.infer_online(
+        [conversation], GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
+    )
     assert expected_result == result
 
 
 def test_infer_online_empty():
     engine = NativeTextInferenceEngine(_get_default_model_params())
-    result = engine.infer_online([], GenerationParams(max_new_tokens=5))
+    result = engine.infer_online(
+        [], GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
+    )
     assert [] == result
 
 
@@ -127,6 +131,8 @@ def test_infer_online_to_file():
             [conversation_1, conversation_2],
             GenerationParams(
                 max_new_tokens=5,
+                temperature=0.0,
+                seed=42,
                 output_filepath=str(output_path),
             ),
         )
@@ -171,12 +177,16 @@ def test_infer_from_file():
             )
         ]
         result = engine.infer_from_file(
-            str(input_path), GenerationParams(max_new_tokens=5)
+            str(input_path),
+            GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
         )
         assert expected_result == result
         infer_result = engine.infer(
             generation_params=GenerationParams(
-                max_new_tokens=5, input_filepath=str(input_path)
+                max_new_tokens=5,
+                temperature=0.0,
+                seed=42,
+                input_filepath=str(input_path),
             )
         )
         assert expected_result == infer_result
@@ -259,6 +269,8 @@ def test_infer_from_file_to_file():
             GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
+                temperature=0.0,
+                seed=42,
             ),
         )
         assert result == expected_result

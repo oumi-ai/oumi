@@ -13,9 +13,7 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
             model_name="openai-community/gpt2",
             trust_remote_code=True,
         ),
-        generation=GenerationParams(
-            max_new_tokens=5,
-        ),
+        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
     )
 
     # Simulate the user entering "Hello world!" in the terminal:
@@ -28,7 +26,9 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
     model_params = ModelParams(
         model_name="openai-community/gpt2", trust_remote_code=True
     )
-    generation_params = GenerationParams(max_new_tokens=5, batch_size=batch_size)
+    generation_params = GenerationParams(
+        max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size
+    )
 
     input = []
     for _ in range(num_batches):

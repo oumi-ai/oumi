@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
+
 from oumi.core.configs.params.base_params import BaseParams
 
 
@@ -32,3 +34,20 @@ class RemoteParams(BaseParams):
     If greater than zero, this is the amount of time in seconds a worker will sleep
     before making a subsequent request.
     """
+
+    def __post_init__(self):
+        """Validate the remote parameters."""
+        if not self.api_url:
+            raise ValueError("The API URL must be provided in remote_params.")
+        if self.num_workers < 1:
+            raise ValueError(
+                "Number of num_workers must be greater than or equal to 1."
+            )
+        if self.politeness_policy < 0:
+            raise ValueError("Politeness policy must be greater than or equal to 0.")
+        if self.connection_timeout < 0:
+            raise ValueError("Connection timeout must be greater than or equal to 0.")
+        if not np.isfinite(self.politeness_policy):
+            raise ValueError("Politeness policy must be finite.")
+        if self.max_retries < 0:
+            raise ValueError("Max retries must be greater than or equal to 0.")

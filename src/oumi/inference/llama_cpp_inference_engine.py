@@ -48,6 +48,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         This method sets up the engine for running inference using llama.cpp.
         It loads the specified model and configures the inference parameters.
 
+        Documentation: https://llama-cpp-python.readthedocs.io/en/latest/api-reference/#llama_cpp.Llama.create_completion
+
         Args:
             model_params (ModelParams): Parameters for the model, including the model
                 name, maximum length, and any additional keyword arguments for model
@@ -152,7 +154,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
         for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 # add the conversation to keep input and output the same length.
                 output_conversations.append(conversation)
                 continue
@@ -162,6 +164,13 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             response = self._llm.create_chat_completion(
                 messages=llama_input,  # type: ignore
                 max_tokens=generation_params.max_new_tokens,
+                temperature=generation_params.temperature,
+                top_p=generation_params.top_p,
+                frequency_penalty=generation_params.frequency_penalty,
+                presence_penalty=generation_params.presence_penalty,
+                stop=generation_params.stop,
+                logit_bias=generation_params.logit_bias,
+                min_p=generation_params.min_p,
             )
             response = cast(dict, response)
 
