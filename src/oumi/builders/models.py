@@ -292,7 +292,11 @@ def build_tokenizer(
             "No chat template found for tokenizer. "
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
+        )
+        logger.warning(
             "Setting tokenizer to use the 'default' chat template."
+            "The 'default' template does not use any special tokens, "
+            "and is unlikely to yield good results. "
         )
         tokenizer.chat_template = build_chat_template(template_name="default")
 

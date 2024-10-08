@@ -1,11 +1,9 @@
-{% set role_suffix = ' ' %}
-{% set turn_suffix = '\n\n' %}
+{% set role_suffix = ': ' %}
+{% set turn_suffix = '\n' %}
 
-{{ bos_token }}
 {% for message in messages %}
-    {{ message['role'] + role_suffix + message['content'] | trim + turn_suffix }}
+    {{ message['role'].upper() + role_suffix + message['content'] | trim + turn_suffix }}
 {% endfor %}
-
 {% if add_generation_prompt %}
-    {{ 'assistant' + role_suffix }}
+    {{ "ASSISTANT" + role_suffix }}
 {% endif %}
