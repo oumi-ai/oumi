@@ -327,7 +327,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             barrier()
 
         with torch.profiler.record_function("train"):
-            logger.info(f"Training init time: {time.time() - _START_TIME}s")
+            logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
             logger.info("Starting training...")
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
