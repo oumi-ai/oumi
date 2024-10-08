@@ -44,22 +44,33 @@ help:
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
 
 setup:
-	@if conda env list | grep -q $(CONDA_ENV); then \
-		echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
-	else \
-		conda create -n $(CONDA_ENV) python=3.11 -y; \
-		if [ -f ~/.zshrc ]; then \
-			source ~/.zshrc; \
-		elif [ -f ~/.bashrc ]; then \
-			source ~/.bashrc; \
+	@if command -v conda >/dev/null 2>&1; then \
+		if conda env list | grep -q "^$(CONDA_ENV) "; then \
+			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
+			$(CONDA_RUN) pip install -U -e ".[train,dev]"; \
+		else \
+			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
+			CONDA_BASE=$$(conda info --base); \
+			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
+			conda create -n $(CONDA_ENV) python=3.11 -y; \
+			$(CONDA_RUN) pip install -e ".[train,dev]"; \
+			$(CONDA_RUN) pre-commit install; \
 		fi; \
-		conda activate $(CONDA_ENV); \
-		pip install -e ".[all]"; \
-		pre-commit install; \
+	else \
+		echo "Error: Conda is not installed or not in PATH."; \
+		echo "Please install Miniconda and initialize it for your shell:"; \
+		echo "1. Download Miniconda from https://docs.conda.io/en/latest/miniconda.html"; \
+		echo "2. Install Miniconda by running the downloaded script"; \
+		echo "3. Initialize Conda for your shell:"; \
+		echo "   - For bash: Run 'conda init bash' and restart your terminal"; \
+		echo "   - For zsh: Run 'conda init zsh' and restart your terminal"; \
+		echo "4. After initialization, run 'make setup' again"; \
+		exit 1; \
 	fi
+	@echo "Setup completed successfully."
 
 upgrade:
-	$(CONDA_RUN) pip install --upgrade -e ".[all]"
+	$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
