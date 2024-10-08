@@ -9,6 +9,7 @@ from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -71,6 +72,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> Dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
+        Documentation: https://platform.openai.com/docs/api-reference/chat/create
+
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
@@ -78,7 +81,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
-        return {
+        api_input = {
             "model": self._model,
             "messages": [
                 {
@@ -88,9 +91,28 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 for message in conversation.messages
             ],
             "max_completion_tokens": generation_params.max_new_tokens,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
+            "frequency_penalty": generation_params.frequency_penalty,
+            "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
+            "logit_bias": generation_params.logit_bias,
+            "min_p": generation_params.min_p,
         }
+
+        # Log warning for unsupported parameter
+        if generation_params.min_p > 0.0:
+            logger.warning(
+                "RemoteInferenceEngine does not support min_p. "
+                f"Received value: min_p={generation_params.min_p}. "
+                "This parameter will be ignored."
+            )
+
+        if generation_params.stop:
+            api_input["stop"] = generation_params.stop
+
+        return api_input
 
     def _convert_api_output_to_conversation(
         self, response: Dict[str, Any], original_conversation: Conversation
@@ -196,7 +218,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         retries += 1
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
-                "Failed to query API after " f"{remote_params.max_retries} retries."
+                f"Failed to query API after {remote_params.max_retries} retries."
             )
 
     async def _infer(

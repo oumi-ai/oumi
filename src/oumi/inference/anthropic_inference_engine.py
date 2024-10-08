@@ -81,10 +81,37 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 for message in messages
             ],
             "max_tokens": generation_params.max_new_tokens,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
         }
 
         if system_message:
             body["system"] = system_message
+
+        if generation_params.stop is not None:
+            body["stop_sequences"] = generation_params.stop
+
+        # Log warnings for unsupported parameters
+        if generation_params.frequency_penalty != 0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support frequency_penalty."
+                " This parameter will be ignored."
+            )
+        if generation_params.presence_penalty != 0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support presence_penalty."
+                " This parameter will be ignored."
+            )
+        if generation_params.logit_bias:
+            logger.warning(
+                "AnthropicInferenceEngine does not support logit_bias."
+                " This parameter will be ignored."
+            )
+        if generation_params.min_p != 0.0:
+            logger.warning(
+                "AnthropicInferenceEngine does not support min_p."
+                " This parameter will be ignored."
+            )
 
         return body
 

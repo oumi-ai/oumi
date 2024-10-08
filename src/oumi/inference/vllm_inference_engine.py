@@ -92,6 +92,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
+        Documentation: https://docs.vllm.ai/en/stable/dev/sampling_params.html
+
         Args:
             input: A list of conversations to run inference on.
             generation_params: Parameters for generation during inference.
@@ -101,8 +103,22 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         output_conversations = []
         sampling_params = SamplingParams(
-            n=1, max_tokens=generation_params.max_new_tokens
+            n=1,
+            max_tokens=generation_params.max_new_tokens,
+            temperature=generation_params.temperature,
+            top_p=generation_params.top_p,
+            frequency_penalty=generation_params.frequency_penalty,
+            presence_penalty=generation_params.presence_penalty,
+            stop=generation_params.stop,
+            min_p=generation_params.min_p,
         )
+
+        if generation_params.logit_bias:
+            logger.warning(
+                "VLLMInferenceEngine does not support logit_bias."
+                " This parameter will be ignored."
+            )
+
         for conversation in input:
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
