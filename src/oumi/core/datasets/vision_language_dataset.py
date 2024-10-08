@@ -194,20 +194,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # including image placeholders for each image in the conversation
         texts = []
         for turn in conversation.messages:
-            if turn.is_text():
-                texts.append(
-                    {
-                        "content": [{"type": "text", "text": turn.content}],
-                        "role": str(turn.role),
-                    }
-                )
-
-            elif turn.is_image():
-                image_placeholder = {
-                    "content": [{"type": "image"}],
-                    "role": str(turn.role),
-                }
-                texts.append(image_placeholder)
+            if turn.is_text() or turn.is_image():
+                texts.append(turn)
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
