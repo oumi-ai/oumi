@@ -172,6 +172,7 @@ class ModelParams(BaseParams):
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
+            "dtype": self.torch_dtype_str,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
