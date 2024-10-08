@@ -136,10 +136,7 @@ def test_multimodal_trainer(
         dataset_name=str(dataset_name.value),
         tokenizer=processor.tokenizer,
         split=split,
-        dataset_kwargs=dict(
-            # processor=processor,
-            # limit=100
-        ),
+        dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
         experimental_use_torch_datapipes=False,
     )

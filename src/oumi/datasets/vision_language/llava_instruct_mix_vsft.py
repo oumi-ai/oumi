@@ -6,7 +6,7 @@ from oumi.core.types.turn import Conversation, Message, Role
 
 
 @register_dataset("HuggingFaceH4/llava-instruct-mix-vsft")
-class COCOCaptionsDataset(VisionLanguageSftDataset):
+class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
     """Dataset class for the HuggingFaceH4/llava-instruct-mix-vsft dataset."""
 
     default_dataset = "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -14,23 +14,27 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a dataset example into a Conversation object."""
+        print(example)
         example_messages = example.get("messages")
 
-        if example_messages is None:
-            raise ValueError("Conversation is None")
+        if not example_messages:
+            raise ValueError("No messages in input example")
 
-        print(example)
+        images = example.get("images")
+        if not images:
+            raise ValueError("No images in input example")
 
         messages = []
         for message in example_messages:
             print(message)
-            if message["from"] == "human":
+            if message["from"] == "user":
                 role = Role.USER
-            elif message["from"] == "gpt":
+            elif message["from"] == "assistant":
                 role = Role.ASSISTANT
             else:
                 raise ValueError(f"Unknown role: {message['from']}")
-            content = message.get("value", "")
+            content = message.get("content")
+
             messages.append(Message(role=role, content=content))
 
         raise ValueError("stop")
