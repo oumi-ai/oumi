@@ -60,10 +60,12 @@ def test_convert_api_output_to_conversation(anthropic_engine):
 
 
 def test_get_request_headers(anthropic_engine):
-    remote_params = RemoteParams(api_key="test_api_key")
+    remote_params = RemoteParams(api_key="test_api_key", api_url="<placeholder>")
 
     with patch.object(
-        AnthropicInferenceEngine, "_get_api_key", return_value="test_api_key"
+        AnthropicInferenceEngine,
+        "_get_api_key",
+        return_value="test_api_key",
     ):
         result = anthropic_engine._get_request_headers(remote_params)
 
