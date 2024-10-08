@@ -26,6 +26,9 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
         elif len(images) != 1:
             logger.warning(f"Example contains multiple images: {len(images)}")
 
+        def _process_text_value(s: str) -> str:
+            return s.strip() if s else ""
+
         messages = []
         for message in example_messages:
             if message["role"] == "user":
@@ -52,7 +55,10 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                     message_type = user_message["type"]
                     if message_type == "text":
                         text_messages.append(
-                            Message(role=role, content=user_message["text"].strip())
+                            Message(
+                                role=role,
+                                content=_process_text_value(user_message["text"]),
+                            )
                         )
                     elif message_type == "image":
                         image_index = int(user_message["index"])
@@ -117,6 +123,10 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                         f"Actual: {response_type}"
                     )
 
-                messages.append(Message(role=role, content=message_list[0]["text"]))
+                messages.append(
+                    Message(
+                        role=role, content=_process_text_value(message_list[0]["text"])
+                    )
+                )
 
         return Conversation(messages=messages)
