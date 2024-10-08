@@ -62,7 +62,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
                 "Either dataset_path or data must be provided, but not both"
             )
 
-        self._data_column: str = "messages_column"
+        self._data_column: str = "_messages_column"
         self._dataset_path: Optional[Path] = (
             Path(dataset_path) if dataset_path else None
         )
