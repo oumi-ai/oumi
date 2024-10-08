@@ -41,20 +41,26 @@ def app():
 
 @pytest.fixture
 def mock_infer():
-    with patch("oumi.core.cli.infer.oumi.infer") as m_infer:
+    with patch("oumi.core.cli.infer.oumi_infer") as m_infer:
         yield m_infer
 
 
-def test_infer_runs(app, mock_infer):
+@pytest.fixture
+def mock_infer_interactive():
+    with patch("oumi.core.cli.infer.oumi_infer_interactive") as m_infer:
+        yield m_infer
+
+
+def test_infer_runs(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
-        mock_infer.infer_interactive.assert_has_calls([call(config)])
+        mock_infer_interactive.assert_has_calls([call(config)])
 
 
-def test_infer_with_overrides(app, mock_infer):
+def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
@@ -73,17 +79,17 @@ def test_infer_with_overrides(app, mock_infer):
         expected_config = _create_inference_config()
         expected_config.model.model_name = "new_name"
         expected_config.generation.max_new_tokens = 5
-        mock_infer.infer_interactive.assert_has_calls([call(expected_config)])
+        mock_infer_interactive.assert_has_calls([call(expected_config)])
 
 
-def test_infer_not_interactive_runs(app, mock_infer):
+def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
         config.generation.input_filepath = "some/path"
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path, "--detach"])
-        mock_infer.infer.assert_has_calls(
+        mock_infer.assert_has_calls(
             [
                 call(
                     model_params=config.model,
@@ -94,7 +100,7 @@ def test_infer_not_interactive_runs(app, mock_infer):
         )
 
 
-def test_infer_not_interactive_with_overrides(app, mock_infer):
+def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
@@ -116,7 +122,7 @@ def test_infer_not_interactive_with_overrides(app, mock_infer):
         expected_config.model.model_name = "new_name"
         expected_config.generation.max_new_tokens = 5
         expected_config.generation.input_filepath = "some/path"
-        mock_infer.infer.assert_has_calls(
+        mock_infer.assert_has_calls(
             [
                 call(
                     model_params=expected_config.model,

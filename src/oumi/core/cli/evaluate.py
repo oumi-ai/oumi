@@ -2,7 +2,7 @@ import typer
 from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
-import oumi.evaluate
+from oumi import evaluate as oumi_evaluate
 from oumi.core.configs import EvaluationConfig
 from oumi.utils.logging import logger
 
@@ -30,4 +30,4 @@ def evaluate(
     parsed_config.validate()
 
     # Run evaluation
-    oumi.evaluate.evaluate(parsed_config)
+    oumi_evaluate(parsed_config)
