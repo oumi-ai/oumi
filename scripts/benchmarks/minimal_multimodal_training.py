@@ -129,8 +129,12 @@ def test_multimodal_trainer(
     # TODO: assign the right chat template for each model
     # For now, we use the LLaVA chat template for all models
     chat_template = build_chat_template("llava")
+    print(f"ORIGINAL Processor chat template:\n{processor.chat_template}")
     processor.chat_template = chat_template
+    print(f"ORIGINAL Tokenizer chat template:\n{tokenizer.chat_template}")
     tokenizer.chat_template = chat_template
+
+    print(f"FINAL Processor chat template:\n{processor.chat_template}")
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),

@@ -28,7 +28,6 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
 
         messages = []
         for message in example_messages:
-            print(message)
             if message["role"] == "user":
                 role = Role.USER
             elif message["role"] == "assistant":
