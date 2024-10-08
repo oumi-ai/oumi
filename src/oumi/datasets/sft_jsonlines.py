@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -7,6 +7,7 @@ from typing_extensions import override
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation
+from oumi.utils.io_utils import load_jsonlines
 
 
 @register_dataset("text_sft_jsonl")
@@ -42,16 +43,14 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
     def __init__(
         self,
         dataset_path: Optional[Union[str, Path]] = None,
-        data: Optional[list] = None,
-        data_column: str = "messages",
+        data: Optional[List[Dict[str, Any]]] = None,
         **kwargs,
     ):
         """Initializes a new instance of the SftJsonLinesDataset class.
 
         Args:
             dataset_path (Optional): Path to the JSON lines dataset file.
-            data (Optional): List of data samples if not loading from a file.
-            data_column: Name of the column containing the messages data.
+            data (Optional): List of conversation dicts if not loading from a file.
             **kwargs: Additional arguments to pass to the parent class.
 
         Raises:
@@ -63,7 +62,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
                 "Either dataset_path or data must be provided, but not both"
             )
 
-        self._data_column: str = data_column
+        self._data_column: str = "_messages_column"
         self._dataset_path: Optional[Path] = (
             Path(dataset_path) if dataset_path else None
         )
@@ -71,22 +70,8 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         if data is not None:
             data_frame = pd.DataFrame({self._data_column: data})
         elif self._dataset_path is not None:
-            if not (self._dataset_path.suffix == ".jsonl"):
-                raise ValueError(
-                    f"Dataset path must end with .jsonl: {self._dataset_path}"
-                )
-            elif not self._dataset_path.is_file():
-                raise ValueError(
-                    f"Dataset path is not a file: {self._dataset_path}"
-                    if self._dataset_path.exists()
-                    else f"Dataset path does not exist: {self._dataset_path}"
-                )
-
-            data_frame = pd.read_json(self._dataset_path, lines=True)
-            if self._data_column not in data_frame.columns:
-                raise ValueError(
-                    f"Data column not found in dataset: {self._data_column}"
-                )
+            data = load_jsonlines(self._dataset_path)
+            data_frame = pd.DataFrame({self._data_column: data})
         else:
             raise ValueError("Dataset path or data must be provided")
 
@@ -110,5 +95,5 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         Returns:
             Conversation: A Conversation object containing the messages.
         """
-        messages = example[self._data_column]
-        return Conversation.model_validate(messages)
+        conversation_dict = example[self._data_column]
+        return Conversation.model_validate(conversation_dict)

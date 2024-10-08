@@ -64,7 +64,7 @@ dev = [
     "torchfix",
 ]
 train = [
-    "accelerate==0.33.0",           # OPE-496. Don't use 0.34.*.
+    "accelerate>=1.0.0",
     "aiohttp",
     "aioresponses",
     "asyncio",

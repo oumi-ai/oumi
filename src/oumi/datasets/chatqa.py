@@ -1,13 +1,12 @@
-from typing import Callable, Dict, Optional, Union, cast
+from typing import Optional, Union, cast
 
 import datasets
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.turn import Conversation, Message, Role
-from oumi.datasets.common import apply_chat_template
 
 
 @register_dataset("nvidia/ChatQA-Training-Data")
@@ -52,6 +51,7 @@ class ChatqaDataset(BaseLMSftDataset):
 
         raise ValueError(f"Unknown dataset subset: {self.dataset_subset}")
 
+    @override
     def transform_conversation(
         self, raw_conversation: Union[dict, pd.Series]
     ) -> Conversation:
@@ -130,6 +130,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
 
     default_subset = "tatqa-arithmetic"
 
+    @override
     def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
         if self.dataset_subset == "tatqa-arithmetic":
             filename = "tatqa/train_arithmetic.json"
@@ -144,30 +145,3 @@ class ChatqaTatqaDataset(ChatqaDataset):
         )
         dataset = cast(datasets.DatasetDict, dataset)
         return cast(pd.DataFrame, dataset["train"].to_pandas())
-
-
-#
-# Deprecated
-#
-def _convert_to_oumi_format(example: dict) -> dict:
-    """Converts the input example to the Oumi format."""
-    messages = example["messages"].copy()
-    metadata = {}
-
-    for response in example["answers"]:
-        messages.append({"role": "assistant", "content": response})
-
-    return {"messages": messages, "metadata": metadata}
-
-
-def chatqa_preprocessor_fn(
-    tokenizer: BaseTokenizer,
-) -> Callable[..., Dict]:
-    """Builds a preprocessing function for a TRL SFT (chat) trainer."""
-
-    def prompt_generation_fn(sample) -> dict:
-        sample = _convert_to_oumi_format(sample)
-        results = apply_chat_template(sample, tokenizer=tokenizer, task="sft")
-        return results
-
-    return prompt_generation_fn

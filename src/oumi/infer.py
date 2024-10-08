@@ -1,7 +1,7 @@
 import argparse
 from typing import List
 
-from oumi.core.configs import GenerationConfig, InferenceConfig, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.logging import logger
@@ -48,7 +48,7 @@ def infer_interactive(config: InferenceConfig) -> None:
     input_text = input("Enter your input prompt: ")
     model_response = infer(
         model_params=config.model,
-        generation_config=config.generation,
+        generation_params=config.generation,
         input=[
             input_text,
         ],
@@ -59,14 +59,14 @@ def infer_interactive(config: InferenceConfig) -> None:
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
     model_params: ModelParams,
-    generation_config: GenerationConfig,
+    generation_params: GenerationParams,
     input: List[str],
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
-        model_params: The configuration object containing the model parameters.
-        generation_config: The configuration object for model generation.
+        model_params: The model parameters.
+        generation_params: The model generation parameters.
         input: A list of text prompts of shape (num_batches, batch_size).
         exclude_prompt_from_response: Whether to trim the model's response and remove
           the prepended prompt.
@@ -83,7 +83,7 @@ def infer(
     conversations = None if not conversations else conversations
     generations = inference_engine.infer(
         input=conversations,
-        generation_config=generation_config,
+        generation_params=generation_params,
     )
     if not generations:
         raise RuntimeError("No generations were returned.")

@@ -40,7 +40,7 @@ def infer(
             )
         oumi.infer.infer(
             model_params=parsed_config.model,
-            generation_config=parsed_config.generation,
+            generation_params=parsed_config.generation,
             input=[],
         )
     else:

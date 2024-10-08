@@ -7,7 +7,7 @@ import jsonlines
 import pytest
 from aioresponses import aioresponses
 
-from oumi.core.configs import GenerationConfig, ModelParams, RemoteParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
 
@@ -103,7 +103,7 @@ def test_infer_online():
         ]
         result = engine.infer_online(
             [conversation],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
             ),
         )
@@ -113,13 +113,13 @@ def test_infer_online():
 def test_infer_no_remote_params():
     engine = RemoteInferenceEngine(_get_default_model_params())
     with pytest.raises(
-        ValueError, match="Remote params must be provided in generation_config."
+        ValueError, match="Remote params must be provided in generation_params."
     ):
-        engine.infer_online([], GenerationConfig())
+        engine.infer_online([], GenerationParams())
     with pytest.raises(
-        ValueError, match="Remote params must be provided in generation_config."
+        ValueError, match="Remote params must be provided in generation_params."
     ):
-        engine.infer_from_file("path", GenerationConfig())
+        engine.infer_from_file("path", GenerationParams())
 
 
 def test_infer_online_empty():
@@ -127,7 +127,7 @@ def test_infer_online_empty():
     expected_result = []
     result = engine.infer_online(
         [],
-        GenerationConfig(
+        GenerationParams(
             max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
         ),
     )
@@ -159,7 +159,7 @@ def test_infer_online_fails():
         with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
             _ = engine.infer_online(
                 [conversation],
-                GenerationConfig(
+                GenerationParams(
                     max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
                 ),
             )
@@ -213,7 +213,7 @@ def test_infer_online_recovers_from_retries():
         ]
         result = engine.infer_online(
             [conversation],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
             ),
         )
@@ -306,7 +306,7 @@ def test_infer_online_multiple_requests():
         ]
         result = engine.infer_online(
             [conversation1, conversation2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
             ),
         )
@@ -400,7 +400,7 @@ def test_infer_online_multiple_requests_politeness():
         start = time.time()
         result = engine.infer_online(
             [conversation1, conversation2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER, politeness_policy=0.5
@@ -499,7 +499,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         start = time.time()
         result = engine.infer_online(
             [conversation1, conversation2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER,
@@ -521,7 +521,7 @@ def test_infer_from_file_empty():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 input_filepath=str(input_path),
                 remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
@@ -530,7 +530,7 @@ def test_infer_from_file_empty():
         )
         assert [] == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5,
                 input_filepath=str(input_path),
                 remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
@@ -630,7 +630,7 @@ def test_infer_from_file_to_file():
             output_path = Path(output_temp_dir) / "b" / "output.jsonl"
             result = engine.infer_online(
                 [conversation1, conversation2],
-                GenerationConfig(
+                GenerationParams(
                     max_new_tokens=5,
                     remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
                     output_filepath=str(output_path),

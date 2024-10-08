@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.core.configs import GenerationConfig, ModelParams, RemoteParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 
@@ -20,10 +20,10 @@ def test_convert_conversation_to_api_input(anthropic_engine):
             Message(content="Assistant message", role=Role.ASSISTANT),
         ]
     )
-    generation_config = GenerationConfig(max_new_tokens=100)
+    generation_params = GenerationParams(max_new_tokens=100)
 
     result = anthropic_engine._convert_conversation_to_api_input(
-        conversation, generation_config
+        conversation, generation_params
     )
 
     assert result["model"] == "claude-3"
@@ -60,10 +60,12 @@ def test_convert_api_output_to_conversation(anthropic_engine):
 
 
 def test_get_request_headers(anthropic_engine):
-    remote_params = RemoteParams(api_key="test_api_key")
+    remote_params = RemoteParams(api_key="test_api_key", api_url="<placeholder>")
 
     with patch.object(
-        AnthropicInferenceEngine, "_get_api_key", return_value="test_api_key"
+        AnthropicInferenceEngine,
+        "_get_api_key",
+        return_value="test_api_key",
     ):
         result = anthropic_engine._get_request_headers(remote_params)
 

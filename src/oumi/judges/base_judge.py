@@ -198,7 +198,7 @@ class BaseJudge(ABC):
         metadatas = [convo.metadata for convo in conversations]
 
         responses = self.inference_engine.infer(
-            input=conversations, generation_config=self._config.generation
+            input=conversations, generation_params=self._config.generation
         )
 
         assert len(responses) == len(metadatas)
