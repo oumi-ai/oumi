@@ -46,7 +46,8 @@ help:
 setup:
 	@if command -v conda >/dev/null 2>&1; then \
 		if conda env list | grep -q $(CONDA_ENV); then \
-			echo "Conda environment '$(CONDA_ENV)' already exists. Skipping creation."; \
+			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
+			$(CONDA_RUN) pip install -U -e ".[train,dev]"; \
 		else \
 			CONDA_BASE=$$(conda info --base); \
 			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
@@ -57,13 +58,12 @@ setup:
 			$(CONDA_RUN) pre-commit install; \
 		fi; \
 	else \
-		echo "Conda is not installed. Please install Conda and try again."; \
-		echo "You can download Conda from https://docs.conda.io/en/latest/miniconda.html"; \
+		echo "Error: Conda is not installed or not in PATH."; \
+		echo "Please install Conda from https://docs.conda.io/en/latest/miniconda.html"; \
 		exit 1; \
-	fi
 
 upgrade:
-	$(CONDA_RUN) pip install --upgrade -e ".[all]"
+	$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
