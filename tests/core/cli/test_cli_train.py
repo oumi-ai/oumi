@@ -64,7 +64,7 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch("oumi.core.cli.train.oumi.train") as m_train:
+    with patch("oumi.core.cli.train.oumi_train") as m_train:
         yield m_train
 
 
@@ -100,7 +100,7 @@ def test_train_runs(
         _ = runner.invoke(app, ["--config", train_yaml_path])
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
-        mock_train.train.assert_has_calls([call(config)])
+        mock_train.assert_has_calls([call(config)])
         mock_set_random_seeds.assert_called_once()
 
 
@@ -131,5 +131,5 @@ def test_train_with_overrides(
         expected_config = _create_training_config()
         expected_config.model.model_name = "new_name"
         expected_config.training.max_steps = 5
-        mock_train.train.assert_has_calls([call(expected_config)])
+        mock_train.assert_has_calls([call(expected_config)])
         mock_set_random_seeds.assert_called_once()

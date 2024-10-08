@@ -2,7 +2,7 @@ import typer
 from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
-import oumi.train
+from oumi import train as oumi_train
 from oumi.core.configs import TrainingConfig
 from oumi.core.distributed import set_random_seeds
 from oumi.utils.logging import logger
@@ -40,6 +40,6 @@ def train(
     set_random_seeds(parsed_config.training.seed)
 
     # Run training
-    oumi.train.train(parsed_config)
+    oumi_train(parsed_config)
 
     device_cleanup()
