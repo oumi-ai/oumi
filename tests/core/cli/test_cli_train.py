@@ -80,8 +80,18 @@ def mock_device_cleanup():
         yield m_cleanup
 
 
+@pytest.fixture
+def mock_set_random_seeds():
+    with patch("oumi.core.cli.train.set_random_seeds") as m_seeds:
+        yield m_seeds
+
+
 def test_train_runs(
-    app, mock_train, mock_limit_per_process_memory, mock_device_cleanup
+    app,
+    mock_train,
+    mock_limit_per_process_memory,
+    mock_device_cleanup,
+    mock_set_random_seeds,
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
@@ -91,11 +101,15 @@ def test_train_runs(
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_train.train.assert_has_calls([call(config)])
-        mock_train.set_random_seeds.assert_called_once()
+        mock_set_random_seeds.assert_called_once()
 
 
 def test_train_with_overrides(
-    app, mock_train, mock_limit_per_process_memory, mock_device_cleanup
+    app,
+    mock_train,
+    mock_limit_per_process_memory,
+    mock_device_cleanup,
+    mock_set_random_seeds,
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
@@ -118,4 +132,4 @@ def test_train_with_overrides(
         expected_config.model.model_name = "new_name"
         expected_config.training.max_steps = 5
         mock_train.train.assert_has_calls([call(expected_config)])
-        mock_train.set_random_seeds.assert_called_once()
+        mock_set_random_seeds.assert_called_once()

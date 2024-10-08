@@ -4,6 +4,7 @@ from typing_extensions import Annotated
 import oumi.core.cli.cli_utils as cli_utils
 import oumi.train
 from oumi.core.configs import TrainingConfig
+from oumi.core.distributed import set_random_seeds
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import (
     device_cleanup,
@@ -36,7 +37,7 @@ def train(
 
     limit_per_process_memory()
     device_cleanup()
-    oumi.train.set_random_seeds(parsed_config.training.seed)
+    set_random_seeds(parsed_config.training.seed)
 
     # Run training
     oumi.train.train(parsed_config)
