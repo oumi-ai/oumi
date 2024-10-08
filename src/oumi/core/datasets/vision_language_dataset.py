@@ -245,7 +245,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Failed to download image: '{image.content}'")
                 raise e
-            image_bin = Image.open(response.raw).convert("RGB")
+            image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:
             if image.binary is None:
