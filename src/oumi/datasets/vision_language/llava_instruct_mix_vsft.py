@@ -46,15 +46,14 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                         f"Actual: {len(message_list)}"
                     )
 
-                num_texts: int = 0
-                num_images: int = 0
+                text_messages = []
+                image_messages = []
                 for user_message in message_list:
                     message_type = user_message["type"]
                     if message_type == "text":
-                        messages.append(
+                        text_messages.append(
                             Message(role=role, content=user_message["text"])
                         )
-                        num_texts += 1
                     elif message_type == "image":
                         image_index = int(user_message["index"])
                         if not (image_index >= 0 and image_index < len(images)):
@@ -65,7 +64,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                             )
                         image_dict = images[image_index]
                         if "bytes" in image_dict and image_dict["bytes"]:
-                            messages.append(
+                            image_messages.append(
                                 Message(
                                     role=role,
                                     type=Type.IMAGE_BINARY,
@@ -73,7 +72,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                                 )
                             )
                         elif "path" in image_dict and image_dict["path"]:
-                            messages.append(
+                            image_messages.append(
                                 Message(
                                     role=role,
                                     type=Type.IMAGE_PATH,
@@ -85,23 +84,24 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                                 f"Image element must include 'bytes' or 'path'. "
                                 f"Actual keys: {image_dict.keys()}"
                             )
-
-                        num_images += 1
                     else:
                         raise ValueError(
                             f"{role}'s question has unknown type: '{message_type}'"
                         )
 
-                if num_texts != 1:
+                if len(text_messages) != 1:
                     raise ValueError(
                         f"{role}'s turn must include 1 text question. "
-                        f"Actual: {num_texts}"
+                        f"Actual: {len(text_messages)}"
                     )
-                if num_images > 1:
+                if len(image_messages) > 1:
                     raise ValueError(
                         f"{role}'s turn must include max 1 image. "
-                        f"Actual: {num_images}"
+                        f"Actual: {len(image_messages)}"
                     )
+                # Add image messages before text messages!
+                messages.extend(image_messages)
+                messages.extend(text_messages)
             else:
                 assert role == Role.ASSISTANT
                 if len(message_list) != 1:

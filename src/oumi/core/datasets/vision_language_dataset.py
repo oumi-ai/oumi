@@ -206,11 +206,14 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                     )
 
             elif turn.is_image():
-                image_placeholder = {
-                    "content": [{"type": "image"}],
-                    "role": str(turn.role),
-                }
-                texts.append(image_placeholder)
+                if False:
+                    image_placeholder = {
+                        "content": [{"type": "image"}],
+                        "role": str(turn.role),
+                    }
+                    texts.append(image_placeholder)
+                else:
+                    texts.append(turn)
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 

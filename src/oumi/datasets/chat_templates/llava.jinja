@@ -1,6 +1,7 @@
 A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.
+{{ ' ' }}
 {% for message in messages %}
     {% if message['role'] == 'user' %}USER: {% else %}ASSISTANT: {% endif %}
-    {% if message['type'] == 'text' %}{{ message['text'] }}{% elif message['type'] == 'image' %}<image>{% endif %}
+    {% if message['type'] == 'text' %}{{ message['content'] + ' ' }}{% elif message['type'] in ('image_path','image_url','image_binary') %}<image>{% endif %}
     {% if message['role'] == 'user' %} {% else %}{{eos_token}}{% endif %}
 {% endfor %}
