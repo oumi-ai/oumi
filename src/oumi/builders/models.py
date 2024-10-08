@@ -286,9 +286,6 @@ def build_tokenizer(
             "specified in model config!"
         )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
-    elif not tokenizer.chat_template and tokenizer.default_chat_template:
-        logger.info(f"Using the '{tokenizer_name}' tokenizer's default chat template!")
-        tokenizer.chat_template = tokenizer.default_chat_template
 
     if tokenizer.chat_template is None:
         logger.warning(
