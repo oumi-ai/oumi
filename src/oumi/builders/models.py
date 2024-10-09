@@ -20,19 +20,6 @@ try:
 except ImportError:
     liger_kernel = None
 
-_IS_CAMBRIAN_AVAILABLE = False
-try:
-    from oumi.models.experimental.cambrian.mm_utils import (
-        get_model_name_from_path as get_cambrian_model_name_from_path,
-    )
-    from oumi.models.experimental.cambrian.model.builder import (
-        load_pretrained_model as load_cambrian_pretrained_model,
-    )
-
-    _IS_CAMBRIAN_AVAILABLE = True
-except ImportError:
-    pass
-
 
 def build_model(
     model_params: ModelParams,
@@ -55,7 +42,7 @@ def build_model(
             peft_params=peft_params,
             *kwargs,
         )
-    elif _IS_CAMBRIAN_AVAILABLE and model_params.model_name in (
+    elif model_params.model_name in (
         "nyu-visionx/cambrian-phi3-3b",
         "nyu-visionx/cambrian-8b",
         "nyu-visionx/cambrian-13b",
@@ -276,6 +263,30 @@ def build_cambrian_model(
     **kwargs,
 ) -> nn.Module:
     """Downloads and builds the model from the HuggingFace Hub."""
+    from importlib.util import find_spec
+
+    for dependency_name in ("diffusers", "einops", "open_clip", "timm"):
+        if not find_spec(dependency_name):
+            raise RuntimeError(
+                f"Failed to find the required dependency package:'{dependency_name}' "
+                f"for the Cambrian model: '{model_params.model_name}'. "
+                "Run `pip install oumi[cambrian]`, and try again."
+            )
+
+    try:
+        from oumi.models.experimental.cambrian.mm_utils import (
+            get_model_name_from_path as get_cambrian_model_name_from_path,
+        )
+        from oumi.models.experimental.cambrian.model.builder import (
+            load_pretrained_model as load_cambrian_pretrained_model,
+        )
+    except ImportError as e:
+        raise RuntimeError(
+            "Failed to load a required dependency "
+            f"for the Cambrian model: '{model_params.model_name}'. "
+            "Run `pip install oumi[cambrian]`, and try again."
+        ) from e
+
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
 
