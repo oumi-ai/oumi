@@ -7,7 +7,7 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 200 # Disk size in GBs
+  disk_size: 500 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -48,3 +48,7 @@ run: |
       "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+
+#
+# sky launch -i 10 --env OUMI_RUN_NAME=llava.7b.sft.llava-mix.4xA10080GB.100steps.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100-80GB:4" --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster ./configs/skypilot/sky_llava.7b.sft.yaml
