@@ -72,7 +72,6 @@ dev = [
 # TODO: train target will be removed in a future release
 train = [
     "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
-    "torchvision",  # TODO: remove this dependency, does not seem to be used
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
     # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
     "lm-eval==0.4.3", # OPE-390
