@@ -99,7 +99,31 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
 
 
 class BasePretrainingIterableDataset(BaseIterableDataset):
-    """Abstract base class for pretraining iterable datasets."""
+    """Abstract base class for pretraining iterable datasets.
+
+    This class extends BaseIterableDataset to provide functionality specific to
+    pretraining tasks.
+
+    Attributes:
+        tokenizer (BaseTokenizer): The tokenizer used for text encoding.
+        seq_length (int): The desired sequence length for model inputs.
+        concat_token_id (int): The ID of the token used to concatenate documents.
+
+    Example:
+        >>> from transformers import AutoTokenizer
+        >>> from oumi.core.datasets import PretrainingDataset
+        >>>
+        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        >>> dataset = PretrainingDataset(
+        ...     dataset_name_or_path="wikimedia/wikipedia",
+        ...     subset="20231101.en",
+        ...     tokenizer=tokenizer,
+        ...     seq_length=512
+        ... )
+        >>>
+        >>> for batch in dataset:
+        ...     print(batch)  # Process the batch
+    """
 
     def __init__(
         self,
