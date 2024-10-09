@@ -1,3 +1,4 @@
+import contextlib
 from importlib.util import find_spec
 from typing import List
 from unittest.mock import patch
@@ -54,9 +55,17 @@ def test_generation_params(engine_class, sample_conversations):
     if _should_skip_engine(engine_class):
         pytest.skip(f"{engine_class.__name__} is not available")
 
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
+
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
@@ -103,9 +112,17 @@ def test_generation_params_defaults(engine_class, sample_conversations):
     if _should_skip_engine(engine_class):
         pytest.skip(f"{engine_class.__name__} is not available")
 
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
+
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
