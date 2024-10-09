@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import datasets
 import torch
 from torch.utils.data import IterDataPipe
+from typing_extensions import override
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
@@ -26,10 +27,13 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseIterableDataset class."""
+        dataset_type_name = self.__class__.__name__
+        logger.info(f"Creating iterable dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
-                "Please check the class constructor for supported arguments."
+                "Please check the class constructor for supported arguments "
+                f"(type: {dataset_type_name})."
             )
 
         dataset_name_or_path = dataset_name_or_path or self.default_dataset
@@ -37,7 +41,8 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         if dataset_name_or_path is None:
             raise ValueError(
                 "Please specify a dataset_name_or_path or "
-                "set the default_dataset class attribute."
+                "set the default_dataset class attribute "
+                f"(type: {dataset_type_name})."
             )
 
         self.dataset_name_or_path = dataset_name_or_path
@@ -156,6 +161,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
             if not self._skip_last or len(buffer) == self.seq_length:
                 yield self._create_training_sample(buffer)
 
+    @override
     def transform(self, sample: Any) -> List[int]:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(sample)

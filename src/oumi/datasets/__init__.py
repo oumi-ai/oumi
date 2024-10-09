@@ -25,9 +25,15 @@ from oumi.datasets.alpaca import AlpacaDataset
 from oumi.datasets.chatqa import ChatqaDataset
 from oumi.datasets.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.debug import DebugClassificationDataset, DebugPretrainingDataset
+from oumi.datasets.dolly import ArgillaDollyDataset
+from oumi.datasets.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
+from oumi.datasets.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
-from oumi.datasets.vision_language.vision_jsonlines import JsonlinesDataset
+from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
+    LlavaInstructMixVsftDataset,
+)
+from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 __all__ = [
     "AlpacaDataset",
@@ -37,5 +43,10 @@ __all__ = [
     "DebugPretrainingDataset",
     "COCOCaptionsDataset",
     "Flickr30kDataset",
-    "JsonlinesDataset",
+    "LlavaInstructMixVsftDataset",
+    "VLJsonlinesDataset",
+    "ArgillaDollyDataset",
+    "ArgillaMagpieUltraDataset",
+    "MagpieProDataset",
+    "TextSftJsonLinesDataset",
 ]

@@ -47,7 +47,7 @@ def infer_prob(
     """Calculates the inference probabilities for the next tokens to be generated.
 
     Args:
-        model_params: The configuration object containing the model parameters.
+        model_params: The model parameters.
         input: A list of text prompts of shape (num_batches, batch_size).
         acceptable_tokens: The tokens that are considered acceptable to be generated.
           The function will return the generation probabilities for each of these. If

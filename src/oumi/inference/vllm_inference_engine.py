@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from oumi.builders import build_tokenizer
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -41,6 +41,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "vLLM is not installed. "
                 "Please install the GPU dependencies for this package."
             )
+        self._lora_request = None
+        if model_params.adapter_model:
+            # ID should be unique for this adapter, but isn't enforced by vLLM.
+            self._lora_request = vllm.lora.request.LoRARequest(
+                lora_name="oumi_lora_adapter",
+                lora_int_id=1,
+                lora_path=model_params.adapter_model,
+            )
+            logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
@@ -53,6 +62,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             quantization=quantization,
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
+            enable_lora=self._lora_request is not None,
+            max_model_len=model_params.model_max_length,
         )
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
@@ -77,28 +88,47 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: list[Conversation], generation_config: GenerationConfig
+        self, input: list[Conversation], generation_params: GenerationParams
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
+        Documentation: https://docs.vllm.ai/en/stable/dev/sampling_params.html
+
         Args:
             input: A list of conversations to run inference on.
-            generation_config: Configuration parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         output_conversations = []
         sampling_params = SamplingParams(
-            n=1, max_tokens=generation_config.max_new_tokens
+            n=1,
+            max_tokens=generation_params.max_new_tokens,
+            temperature=generation_params.temperature,
+            top_p=generation_params.top_p,
+            frequency_penalty=generation_params.frequency_penalty,
+            presence_penalty=generation_params.presence_penalty,
+            stop=generation_params.stop,
+            min_p=generation_params.min_p,
         )
+
+        if generation_params.logit_bias:
+            logger.warning(
+                "VLLMInferenceEngine does not support logit_bias."
+                " This parameter will be ignored."
+            )
+
         for conversation in input:
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 continue
             vllm_input = self._convert_conversation_to_vllm_input(conversation)
-            chat_response = self._llm.chat(vllm_input, sampling_params=sampling_params)
+            chat_response = self._llm.chat(
+                vllm_input,
+                sampling_params=sampling_params,
+                lora_request=self._lora_request,
+            )
             new_messages = [
                 Message(content=message.outputs[0].text, role=Role.ASSISTANT)
                 for message in chat_response
@@ -108,52 +138,48 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 *new_messages,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            output_conversations.append(new_conversation)
+            if generation_params.output_filepath:
+                self._save_conversation(
+                    new_conversation,
+                    generation_params.output_filepath,
+                )
         return output_conversations
 
     def infer_online(
-        self, input: list[Conversation], generation_config: GenerationConfig
+        self, input: list[Conversation], generation_params: GenerationParams
     ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_config: Configuration parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_params)
 
     def infer_from_file(
-        self, input_filepath: str, generation_config: GenerationConfig
+        self, input_filepath: str, generation_params: GenerationParams
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
-        existence of input_filepath in the generation_config.
+        existence of input_filepath in the generation_params.
 
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_config: Configuration parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_params)

@@ -3,7 +3,7 @@ from typing import Dict, List, cast
 
 from tqdm.auto import tqdm
 
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -48,10 +48,12 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         This method sets up the engine for running inference using llama.cpp.
         It loads the specified model and configures the inference parameters.
 
+        Documentation: https://llama-cpp-python.readthedocs.io/en/latest/api-reference/#llama_cpp.Llama.create_completion
+
         Args:
-            model_params (ModelParams): Configuration parameters for the model,
-                including the model name, maximum length, and any additional
-                keyword arguments for model initialization.
+            model_params (ModelParams): Parameters for the model, including the model
+                name, maximum length, and any additional keyword arguments for model
+                initialization.
 
         Raises:
             RuntimeError: If the llama-cpp-python package is not installed.
@@ -131,15 +133,14 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: List[Conversation], generation_config: GenerationConfig
+        self, input: List[Conversation], generation_params: GenerationParams
     ) -> List[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
         Args:
             input: A list of conversations to run inference on.
                 Each conversation should contain at least one message.
-            generation_config: Configuration parameters for text
-                generation during inference.
+            generation_params: Parameters for text generation during inference.
 
         Returns:
             List[Conversation]: A list of conversations with the model's responses
@@ -153,7 +154,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
         for conversation in tqdm(input, disable=disable_tgdm):
             if not conversation.messages:
-                logger.warn("Conversation must have at least one message.")
+                logger.warning("Conversation must have at least one message.")
                 # add the conversation to keep input and output the same length.
                 output_conversations.append(conversation)
                 continue
@@ -162,7 +163,14 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
             response = self._llm.create_chat_completion(
                 messages=llama_input,  # type: ignore
-                max_tokens=generation_config.max_new_tokens,
+                max_tokens=generation_params.max_new_tokens,
+                temperature=generation_params.temperature,
+                top_p=generation_params.top_p,
+                frequency_penalty=generation_params.frequency_penalty,
+                presence_penalty=generation_params.presence_penalty,
+                stop=generation_params.stop,
+                logit_bias=generation_params.logit_bias,
+                min_p=generation_params.min_p,
             )
             response = cast(dict, response)
 
@@ -175,52 +183,48 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 new_message,
             ]
-            output_conversations.append(
-                Conversation(
-                    messages=messages,
-                    metadata=conversation.metadata,
-                    conversation_id=conversation.conversation_id,
-                )
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
             )
+            output_conversations.append(new_conversation)
+            if generation_params.output_filepath:
+                self._save_conversation(
+                    new_conversation,
+                    generation_params.output_filepath,
+                )
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], generation_config: GenerationConfig
+        self, input: List[Conversation], generation_params: GenerationParams
     ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_config: Configuration parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_params)
 
     def infer_from_file(
-        self, input_filepath: str, generation_config: GenerationConfig
+        self, input_filepath: str, generation_params: GenerationParams
     ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
-        existence of input_filepath in the generation_config.
+        existence of input_filepath in the generation_params.
 
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_config: Configuration parameters for generation during
-                inference.
+            generation_params: Parameters for generation during inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        conversations = self._infer(input, generation_config)
-        if generation_config.output_filepath:
-            self._save_conversations(conversations, generation_config.output_filepath)
-        return conversations
+        return self._infer(input, generation_params)

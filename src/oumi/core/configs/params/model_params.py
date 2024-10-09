@@ -196,3 +196,6 @@ class ModelParams(BaseParams):
                 "Sharded-model evaluations with LM Harness should be invoked with "
                 "`python`, not `accelerate launch`."
             )
+
+        if self.model_max_length is not None and self.model_max_length <= 0:
+            raise ValueError("model_max_length must be a positive integer or None.")

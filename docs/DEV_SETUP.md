@@ -6,6 +6,29 @@
 
 ## 2. Set up GitHub
 
+### 2.1.0 Installation instructions for Windows
+
+   We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
+
+   Follow [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install) to install WSL.
+
+   Next, install conda in your WSL environment:
+
+   ```shell
+   mkdir -p ~/miniconda3
+   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+   bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+   rm -rf ~/miniconda3/miniconda.sh
+   ```
+
+   And reinitialize Conda:
+
+   ```shell
+   ~/miniconda3/bin/conda init bash
+   ~/miniconda3/bin/conda init zsh
+   ```
+
+
 ### 2.1.1 Installation instructions for Mac
 
    Install Homebrew (the command below was copied from <www.brew.sh>)

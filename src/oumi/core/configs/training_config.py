@@ -18,7 +18,7 @@ from oumi.utils.logging import logger
 @dataclass
 class TrainingConfig(BaseConfig):
     data: DataParams = field(default_factory=DataParams)
-    """Configuration parameters for the dataset.
+    """Parameters for the dataset.
 
     This field contains all the necessary settings for data processing and loading.
     It includes options for train and evaluation datasets and preprocessing steps.
@@ -28,7 +28,7 @@ class TrainingConfig(BaseConfig):
     """
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Configuration parameters for the model.
+    """Parameters for the model.
 
     This field defines the model architecture, size, and other model-specific settings.
     It includes options for model type, pretrained weights, and tokenizer configuration.
@@ -38,7 +38,7 @@ class TrainingConfig(BaseConfig):
     """
 
     training: TrainingParams = field(default_factory=TrainingParams)
-    """Configuration parameters for the training process.
+    """Parameters for the training process.
 
     This field contains all settings related to the training loop,
     including learning rate, batch size, number of epochs, and optimization parameters.
@@ -48,7 +48,7 @@ class TrainingConfig(BaseConfig):
     """
 
     peft: PeftParams = field(default_factory=PeftParams)
-    """Configuration parameters for Parameter-Efficient Fine-Tuning (PEFT).
+    """Parameters for Parameter-Efficient Fine-Tuning (PEFT).
 
     This field defines settings for various PEFT methods such as LoRA, or Prefix Tuning.
     It includes options for rank, alpha values, and other PEFT-specific parameters.
@@ -57,7 +57,7 @@ class TrainingConfig(BaseConfig):
     """
 
     fsdp: FSDPParams = field(default_factory=FSDPParams)
-    """Configuration options for FSDP."""
+    """Parameters for FSDP."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -111,7 +111,7 @@ class TrainingConfig(BaseConfig):
                 # "max_target_length". How to handle them?
             else:
                 logger.warning(
-                    f"Ignored model.model_max_length={max_seq_length_value} config "
+                    f"Ignored model.model_max_length={max_seq_length_value} "
                     f"parameter for trainer {self.training.trainer_type}."
                 )
 

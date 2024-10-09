@@ -6,6 +6,7 @@ import requests
 import torch
 from PIL import Image
 from transformers import AutoProcessor
+from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.types.turn import Conversation, Message, Role, Type
@@ -50,15 +51,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(**kwargs)
 
-        if processor_name is not None and processor is not None:
-            logger.warning(
-                "Both processor and processor_name are provided. "
-                "Ignoring processor_name: %s",
-                processor_name,
-            )
-
-        if processor_name is not None and processor is None:
-            processor = AutoProcessor.from_pretrained(processor_name)
+        if processor is None:
+            if processor_name:
+                processor = AutoProcessor.from_pretrained(processor_name)
+        else:
+            if processor_name:
+                logger.warning(
+                    "Both processor and processor_name are provided. "
+                    "Ignoring processor_name: %s",
+                    processor_name,
+                )
 
         self._processor = processor
 
@@ -106,6 +108,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         )
         return features
 
+    @override
     def transform(self, sample: dict) -> dict:
         """Transforms an Oumi conversation into a dictionary of inputs for a model.
 
@@ -121,7 +124,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         conversation = self.transform_conversation(sample)
 
         if self._processor.chat_template is None:
-            # TODO: OPE-354 blip2 and llava need special handling
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
@@ -147,8 +149,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # TODO: OPE-355 add support for multiple images
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
+        inputs["attention_mask"] = inputs["attention_mask"][0]
 
         inputs["labels"] = inputs["input_ids"]
+
         return inputs
 
     def _prepare_simple_model(
@@ -190,15 +194,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # including image placeholders for each image in the conversation
         texts = []
         for turn in conversation.messages:
-            if turn.is_text():
+            if turn.is_text() or turn.is_image():
                 texts.append(turn)
-
-            elif turn.is_image():
-                image_placeholder = {
-                    "content": [{"type": "image"}],
-                    "role": str(turn.role),
-                }
-                texts.append(image_placeholder)
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
@@ -241,7 +238,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Failed to download image: '{image.content}'")
                 raise e
-            image_bin = Image.open(response.raw).convert("RGB")
+            image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:
             if image.binary is None:

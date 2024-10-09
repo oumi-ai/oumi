@@ -1,6 +1,7 @@
 from typing import Optional, Union
 
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
@@ -102,6 +103,7 @@ class ChatRAGBenchDataset(BaseLMSftDataset):
         else:
             return f"source: {doc['text']}"
 
+    @override
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transforms a given example into a Conversation object.
 

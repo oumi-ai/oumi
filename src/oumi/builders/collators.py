@@ -1,6 +1,10 @@
+from typing import Callable, Optional
+
 import numpy as np
 import torch
-from transformers import DataCollatorWithPadding
+import transformers
+
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 _PIXEL_VALUES_KEY = "pixel_values"
 _INPUT_IDS_KEY = "input_ids"
@@ -8,13 +12,20 @@ _ATTENTION_MASK_KEY = "attention_mask"
 _LABELS_KEY = "labels"
 
 
-def build_data_collator(collator_name: str, **kwargs):
+def build_data_collator(
+    collator_name: str,
+    tokenizer: BaseTokenizer,
+    max_length: Optional[int],
+    **kwargs,
+) -> Callable:
     """Builds a data collator based on the given collator name.
 
     Args:
         collator_name: The name of the collator to build. Supported values are:
             - "text_with_padding": Uses DataCollatorWithPadding for text data.
             - "vision_language": Uses VisionLanguageCollator for multi-modal data.
+        tokenizer: A tokenizer.
+        max_length: An optional maximum sequence length.
         **kwargs: Additional keyword arguments to pass to the collator constructor.
 
     Returns:
@@ -23,19 +34,26 @@ def build_data_collator(collator_name: str, **kwargs):
     Raises:
         ValueError: If an unsupported collator name is provided.
     """
+    if not collator_name:
+        raise ValueError("Empty data collator name.")
+
     if collator_name == "text_with_padding":
-        return DataCollatorWithPadding(**kwargs)
+        return transformers.DataCollatorWithPadding(
+            tokenizer=tokenizer, max_length=max_length, **kwargs
+        )
     elif collator_name == "vision_language":
-        return VisionLanguageCollator(**kwargs)
+        return VisionLanguageCollator(
+            tokenizer=tokenizer, max_length=max_length, **kwargs
+        )
+
+    raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
 class VisionLanguageCollator:
-    def __init__(self, processor, max_length: int = 1024):
+    def __init__(self, tokenizer: BaseTokenizer, max_length: Optional[int]):
         """Custom collator for multi-modal vision-language training."""
-        self.processor = processor
-
-        self._default_collator = DataCollatorWithPadding(
-            tokenizer=self.processor.tokenizer,
+        self._default_collator = transformers.DataCollatorWithPadding(
+            tokenizer=tokenizer,
             max_length=max_length,
             padding=True,
         )
@@ -49,8 +67,20 @@ class VisionLanguageCollator:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        images = [item[_PIXEL_VALUES_KEY] for item in batch]
-        text_inputs = [item[_INPUT_IDS_KEY] for item in batch]
+        images = []
+        text_inputs = []
+        for item in batch:
+            # TODO Consider relaxing this constraint: a vision/language model
+            # can handle text-only inputs e.g., a follow-up to an answer,
+            # or image-only inputs e.g., captioning.
+            for required_key in (_PIXEL_VALUES_KEY, _INPUT_IDS_KEY):
+                if required_key not in item:
+                    raise ValueError(
+                        f"Item doesn't contain '{required_key}' key. "
+                        f"Available keys: {item.keys()}"
+                    )
+            images.append(item[_PIXEL_VALUES_KEY])
+            text_inputs.append(item[_INPUT_IDS_KEY])
 
         # collate batch images
         pixel_values = self.collate_images(images)

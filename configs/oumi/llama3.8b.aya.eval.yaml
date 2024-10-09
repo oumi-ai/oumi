@@ -1,4 +1,3 @@
-evaluation_framework: LM_HARNESS
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   model_max_length: 4096
@@ -6,25 +5,23 @@ model:
   trust_remote_code: True
   attn_implementation: "sdpa"
 
-data:
-  datasets:
-    - dataset_name: "m_mmlu_ar"
-    - dataset_name: "m_mmlu_zh"
-    - dataset_name: "m_mmlu_en"
-    - dataset_name: "m_mmlu_fr"
-    - dataset_name: "m_mmlu_de"
-    - dataset_name: "m_mmlu_hi"
-    - dataset_name: "m_mmlu_id"
-    - dataset_name: "m_mmlu_it"
-    - dataset_name: "m_mmlu_pt"
-    - dataset_name: "m_mmlu_ro"
-    - dataset_name: "m_mmlu_ru"
-    - dataset_name: "m_mmlu_es"
-    - dataset_name: "m_mmlu_uk"
-    - dataset_name: "m_mmlu_vi"
+lm_harness_params:
+  tasks:
+    - "m_mmlu_ar"
+    - "m_mmlu_zh"
+    - "m_mmlu_en"
+    - "m_mmlu_fr"
+    - "m_mmlu_de"
+    - "m_mmlu_hi"
+    - "m_mmlu_id"
+    - "m_mmlu_it"
+    - "m_mmlu_pt"
+    - "m_mmlu_ro"
+    - "m_mmlu_ru"
+    - "m_mmlu_es"
+    - "m_mmlu_uk"
+    - "m_mmlu_vi"
+  num_fewshot: 5
 
 generation:
   batch_size: 8
-
-num_samples:
-num_shots: 5
