@@ -7,7 +7,7 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 200 # Disk size in GBs
+  disk_size: 500 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
