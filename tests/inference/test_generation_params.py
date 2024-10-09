@@ -1,3 +1,4 @@
+import contextlib
 from importlib.util import find_spec
 from typing import List
 from unittest.mock import patch
@@ -15,6 +16,7 @@ from oumi.inference import (
 )
 
 vllm_import_failed = find_spec("vllm") is None
+llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 # Mock model params for testing
@@ -33,6 +35,12 @@ def sample_conversations() -> List[Conversation]:
     return [SAMPLE_CONVERSATION]
 
 
+def _should_skip_engine(engine_class) -> bool:
+    return (engine_class == VLLMInferenceEngine and vllm_import_failed) or (
+        engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed
+    )
+
+
 @pytest.mark.parametrize(
     "engine_class",
     [
@@ -44,12 +52,20 @@ def sample_conversations() -> List[Conversation]:
     ],
 )
 def test_generation_params(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
@@ -93,12 +109,20 @@ def test_generation_params(engine_class, sample_conversations):
     ],
 )
 def test_generation_params_defaults(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(

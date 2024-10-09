@@ -10,11 +10,11 @@ from oumi.core.cli.train import train
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
-    app = typer.Typer()
+    app = typer.Typer(pretty_exceptions_enable=False)
     app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(evaluate)
     app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(infer)
     app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(train)
-    launch_app = typer.Typer()
+    launch_app = typer.Typer(pretty_exceptions_enable=False)
     launch_app.command()(down)
     launch_app.command(name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         launcher_run
