@@ -11,11 +11,11 @@ data:
   train:
     collator_name: "vision_language"
     datasets:
-      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      - dataset_name: "nlphuji/flickr30k"
         split: "test"
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          # limit: 100
+          limit: 100
           return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
