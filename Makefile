@@ -51,8 +51,6 @@ setup:
 			$(CONDA_RUN) uv pip install -U -e ".[train,dev]"; \
 		else \
 			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
-			CONDA_BASE=$$(conda info --base); \
-			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
 			conda create -n $(CONDA_ENV) python=3.11 -y; \
 			$(CONDA_RUN) pip install uv; \
 			$(CONDA_RUN) uv pip install -e ".[train,dev]"; \
