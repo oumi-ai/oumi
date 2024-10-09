@@ -1,17 +1,18 @@
 import tempfile
 from pathlib import Path
 from typing import List
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import jsonlines
 import pytest
 
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import VLLMInferenceEngine
 
 try:
     vllm_import_failed = False
+    from vllm.lora.request import LoRARequest  # type: ignore
     from vllm.outputs import (  # pyright: ignore[reportMissingImports]
         CompletionOutput,
         RequestOutput,
@@ -50,9 +51,10 @@ def mock_vllm():
         yield mvllm
 
 
-def _get_default_model_params() -> ModelParams:
+def _get_default_model_params(use_lora: bool = False) -> ModelParams:
     return ModelParams(
         model_name="openai-community/gpt2",
+        adapter_model="/path/to/adapter" if use_lora else None,
         trust_remote_code=True,
     )
 
@@ -108,9 +110,66 @@ def test_infer_online(mock_vllm):
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_lora(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    lora_request = LoRARequest(
+        lora_name="oumi_lora_adapter",
+        lora_int_id=1,
+        lora_path="/path/to/adapter",
+    )
+    mock_vllm.lora.request.LoRARequest.return_value = lora_request
+    engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+            Message(
+                content="Hello again!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+    expected_result = [
+        Conversation(
+            messages=[
+                *conversation.messages,
+                Message(
+                    content="The first time I saw",
+                    role=Role.ASSISTANT,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+    ]
+    result = engine.infer_online([conversation], GenerationParams(max_new_tokens=5))
+    assert expected_result == result
+
+    mock_vllm.lora.request.LoRARequest.assert_called_once_with(
+        lora_name="oumi_lora_adapter",
+        lora_int_id=1,
+        lora_path="/path/to/adapter",
+    )
+    mock_vllm_instance.chat.assert_called_once_with(
+        ANY,
+        sampling_params=ANY,
+        lora_request=lora_request,
+    )
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -118,7 +177,7 @@ def test_infer_online_empty(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     engine = VLLMInferenceEngine(_get_default_model_params())
-    result = engine.infer_online([], GenerationConfig(max_new_tokens=5))
+    result = engine.infer_online([], GenerationParams(max_new_tokens=5))
     assert [] == result
     mock_vllm_instance.chat.assert_not_called()
 
@@ -185,7 +244,7 @@ def test_infer_online_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),
@@ -237,11 +296,11 @@ def test_infer_from_file(mock_vllm):
             )
         ]
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert expected_result == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -257,11 +316,11 @@ def test_infer_from_file_empty(mock_vllm):
         _setup_input_conversations(str(input_path), [])
         engine = VLLMInferenceEngine(_get_default_model_params())
         result = engine.infer_from_file(
-            str(input_path), GenerationConfig(max_new_tokens=5)
+            str(input_path), GenerationParams(max_new_tokens=5)
         )
         assert [] == result
         infer_result = engine.infer(
-            generation_config=GenerationConfig(
+            generation_params=GenerationParams(
                 max_new_tokens=5, input_filepath=str(input_path)
             )
         )
@@ -333,12 +392,13 @@ def test_infer_from_file_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationConfig(
+            GenerationParams(
                 max_new_tokens=5,
                 output_filepath=str(output_path),
             ),
         )
         assert result == expected_result
+        # Ensure the final output is in order.
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:

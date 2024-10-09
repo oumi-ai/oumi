@@ -87,6 +87,7 @@ def test_data_single_dataset_in_mixture(stream: bool):
                 dataset_name="tasksource/mmlu",
                 subset="abstract_algebra",
                 split="test",
+                trust_remote_code=True,
             )
         ],
         stream,

@@ -28,8 +28,8 @@ def build_model(
     """Builds and returns a model based on the provided Oumi configuration.
 
     Args:
-        model_params: The configuration object containing the model parameters.
-        peft_params: The configuration object containing the peft parameters.
+        model_params: The model parameters.
+        peft_params: The PEFT parameters.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -53,12 +53,12 @@ def build_model(
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
-            logger.info(f"Freezing layer {layer_name}.")
+            logger.info(f"Freezing layer '{layer_name}'...")
 
             for param in getattr(model, layer_name).parameters():
                 param.requires_grad_(False)
         else:
-            logger.warning(f"Layer {layer_name} not found in model.")
+            logger.warning(f"Layer '{layer_name}' not found in model.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
@@ -251,8 +251,7 @@ def build_tokenizer(
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
-        model_params (ModelParams): The configuration object containing
-            the model parameters.
+        model_params (ModelParams): The model parameters.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
@@ -282,6 +281,10 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     if model_params.chat_template:
+        logger.info(
+            f"Using the chat template '{model_params.chat_template}' "
+            "specified in model config!"
+        )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
     if tokenizer.chat_template is None:
@@ -290,6 +293,12 @@ def build_tokenizer(
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
         )
+        logger.warning(
+            "Setting tokenizer to use the 'default' chat template."
+            "The 'default' template does not use any special tokens, "
+            "and is unlikely to yield good results. "
+        )
+        tokenizer.chat_template = build_chat_template(template_name="default")
 
     return tokenizer
 

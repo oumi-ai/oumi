@@ -1,15 +1,14 @@
 import argparse
 import gc
-import random
 import time
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
-import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
+    build_data_collator,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -18,7 +17,12 @@ from oumi.builders import (
     build_trainer,
     build_training_callbacks,
 )
-from oumi.core.configs import DatasetSplit, TrainerType, TrainingConfig
+from oumi.core.configs import (
+    DatasetSplit,
+    DatasetSplitParams,
+    TrainerType,
+    TrainingConfig,
+)
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -28,13 +32,13 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
-from oumi.utils.debugging_utils import (
-    log_nvidia_gpu_memory_utilization,
-    log_nvidia_gpu_temperature,
+from oumi.utils.device_utils import (
+    log_nvidia_gpu_runtime_info,
 )
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
@@ -160,29 +164,17 @@ def _log_training_info(config: TrainingConfig) -> None:
         )
 
 
-def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
-    """Set random seeds for reproducibility.
+def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
+    """Creates data collator if specified in config."""
+    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
+    if not train_split.collator_name:
+        return None
 
-    Each worker will have a different seed to ensure that each worker
-    starts with a different random state.
-
-    Args:
-        seed: The seed value to set for random number generators.
-        set_deterministic: Whether to set deterministic mode for CUDA operations.
-    """
-    device_info = get_device_rank_info()
-
-    local_seed = seed + device_info.rank
-
-    logger.info(f"Setting random seed to {local_seed} on rank {device_info.rank}.")
-    random.seed(local_seed)
-    np.random.seed(local_seed)
-    torch.manual_seed(local_seed)
-    torch.cuda.manual_seed(local_seed)
-
-    if set_deterministic:
-        logger.info("Setting deterministic mode for CUDA operations.")
-        torch.backends.cudnn.deterministic = True
+    return build_data_collator(
+        collator_name=train_split.collator_name,
+        tokenizer=tokenizer,
+        max_length=config.model.model_max_length,
+    )
 
 
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
@@ -267,6 +259,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Reclaim memory before training starts.
     gc.collect()
 
+    collator = _build_collator_if_needed(config, tokenizer)
+
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -287,14 +281,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
                 callbacks=callbacks,
+                data_collator=collator,
                 **kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):
-            log_nvidia_gpu_memory_utilization(
-                log_prefix="Max Memory Usage Before Training:"
-            )
-            log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
+            log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
             verify_torch_distributed_initialized_if_needed()
 
         with torch.profiler.record_function("find_checkpoint_to_resume_from"):
@@ -309,14 +301,13 @@ def train(config: TrainingConfig, **kwargs) -> None:
             barrier()
 
         with torch.profiler.record_function("train"):
-            logger.info(f"Training init time: {time.time() - _START_TIME}s")
+            logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
             logger.info("Starting training...")
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
 
-    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
-    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
+    log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:

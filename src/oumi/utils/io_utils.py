@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
+
+import jsonlines
 
 
 def load_json(filename: Union[str, Path]) -> Dict[str, Any]:
@@ -70,3 +72,50 @@ def get_oumi_root_directory() -> Path:
         Path: The absolute path to the Oumi project's root directory.
     """
     return Path(__file__).parent.parent.resolve()
+
+
+def load_jsonlines(filename: Union[str, Path]) -> List[Dict[str, Any]]:
+    """Load a jsonlines file.
+
+    Args:
+        filename: Path to the jsonlines file.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each representing a
+            JSON object from the file.
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist.
+        jsonlines.InvalidLineError: If the file contains invalid JSON.
+    """
+    file_path = Path(filename)
+
+    if file_path.is_dir():
+        raise ValueError(
+            f"Provided path is a directory, expected a file: '{filename}'."
+        )
+
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Provided path does not exist: '{filename}'.")
+
+    with jsonlines.open(file_path) as reader:
+        return list(reader)
+
+
+def save_jsonlines(filename: Union[str, Path], data: List[Dict[str, Any]]) -> None:
+    """Save a list of dictionaries to a jsonlines file.
+
+    Args:
+        filename: Path to the jsonlines file to be created or overwritten.
+        data: A list of dictionaries to be saved as JSON objects.
+
+    Raises:
+        IOError: If there's an error writing to the file.
+    """
+    file_path = Path(filename)
+
+    try:
+        with jsonlines.open(file_path, mode="w") as writer:
+            writer.write_all(data)
+    except OSError as e:
+        raise OSError(f"Error writing to file {filename}") from e

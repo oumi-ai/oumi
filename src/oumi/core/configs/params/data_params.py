@@ -151,6 +151,18 @@ class DatasetSplitParams(BaseParams):
     This will later be split into train, test, and validation.
     """
 
+    collator_name: Optional[str] = None
+    """Name of Oumi data collator.
+
+    Data collator controls how to form a mini-batch from individual dataset elements.
+
+    Valid options are:
+    - "text_with_padding": Uses DataCollatorWithPadding for text data.
+    - "vision_language": Uses VisionLanguageCollator for image+text multi-modal data.
+
+    If None, then a default collator will be assigned.
+    """
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 

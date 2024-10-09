@@ -6,85 +6,50 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class ProfilerScheduleParams(BaseParams):
-    #: Whether profiling schedule is enabled.
-    #: If `False`, then profiling is enabled for the entire process
-    #: duration, and all schedule parameters below will be ignored.
-    enable_schedule: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether profiling schedule is enabled. "
-                "If `False`, then profiling is enabled for the entire process "
-                "duration, and all schedule parameters below will be ignored. "
-            )
-        },
-    )
+    """Parameters that define what subset of training steps to profile.
 
-    #: The number of training steps to skip at the beginning of
-    #: each profiling cycle (`ProfilerAction.NONE`).
-    #: Each cycle includes `wait + warmup + active` steps.
-    wait: int = field(
-        default=0,
-        metadata={
-            "help": (
-                "The number of training steps to skip at the beginning of "
-                "each profiling cycle (`ProfilerAction.NONE`). "
-                "Each cycle includes `wait + warmup + active` steps."
-            )
-        },
-    )
+    Keeping profiling enabled for all training steps may be impractical
+    as it may result in out-of-memory errors, extremely large trace files,
+    and may interfere with regular training performance. This config can be used
+    to enable PyTorch profiler only for a small number of training steps,
+    which is not affected by such issues, and may still provide a useful signal
+    for performance analysis.
+    """
 
-    #: The number of training steps to do profiling warmup
-    #: (`ProfilerAction.WARMUP`) in each profiling cycle.
-    warmup: int = field(
-        default=1,
-        metadata={
-            "help": (
-                "The number of training steps to do profiling warmup "
-                "(`ProfilerAction.WARMUP`) in each profiling cycle. "
-            )
-        },
-    )
+    enable_schedule: bool = False
+    """Whether profiling schedule is enabled.
 
-    #: The number of training steps to do active recording
-    #: (`ProfilerAction.RECORD`) in each profiling cycle.
-    active: int = field(
-        default=3,
-        metadata={
-            "help": (
-                "The number of training steps to do active recording "
-                "(`ProfilerAction.RECORD`) in each profiling cycle. "
-            )
-        },
-    )
+    If `False`, then profiling is enabled for the entire process
+    duration, and all schedule parameters below will be ignored.
+    """
 
-    #: The optional number of profiling cycles.
-    #: Each cycle includes `wait + warmup + active` steps.
-    #: The zero value means that the cycles will continue
-    #: until the profiling is finished.
-    repeat: int = field(
-        default=1,
-        metadata={
-            "help": (
-                "The optional number of profiling cycles. "
-                "Each cycle includes `wait + warmup + active` steps."
-                "The zero value means that the cycles will continue "
-                "until the profiling is finished."
-            )
-        },
-    )
+    wait: int = 0
+    """The number of training steps to skip at the beginning of
+    each profiling cycle (`ProfilerAction.NONE`).
+    Each cycle includes `wait + warmup + active` steps.
+    """
 
-    #: The number of initial training steps to skip at the beginning of
-    #: profiling session (`ProfilerAction.NONE`).
-    skip_first: int = field(
-        default=1,
-        metadata={
-            "help": (
-                "The number of initial training steps to skip at the beginning of "
-                "profiling session (`ProfilerAction.NONE`)."
-            )
-        },
-    )
+    warmup: int = 1
+    """The number of training steps to do profiling warmup (`ProfilerAction.WARMUP`)
+    in each profiling cycle.
+    """
+
+    active: int = 3
+    """The number of training steps to do active recording (`ProfilerAction.RECORD`)
+    in each profiling cycle.
+    """
+
+    repeat: int = 1
+    """The optional number of profiling cycles.
+
+    Each cycle includes `wait + warmup + active` steps. The zero value means that
+    the cycles will continue until the profiling is finished.
+    """
+
+    skip_first: int = 1
+    """The number of initial training steps to skip at the beginning of profiling
+    session (`ProfilerAction.NONE`).
+    """
 
     def __post_init__(self):
         """Verifies params."""
@@ -109,95 +74,49 @@ class ProfilerScheduleParams(BaseParams):
 
 @dataclass
 class ProfilerParams(BaseParams):
-    #: Directory where the profiling data will be saved to.
-    #: If not specified and profiling is enabled, then
-    #: the `profiler` sub-dir will be used under `output_dir`.
-    save_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Directory where the profiling data will be saved to. "
-                "If not specified and profiling is enabled, then "
-                "the `profiler` sub-dir will be used under `output_dir`."
-            )
-        },
-    )
+    save_dir: Optional[str] = None
+    """Directory where the profiling data will be saved to.
 
-    #: Whether to profile CPU activity.
-    #: Corresponds to `torch.profiler.ProfilerActivity.CPU`.
-    enable_cpu_profiling: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether to profile CPU activity. "
-                "Corresponds to `torch.profiler.ProfilerActivity.CPU`."
-            )
-        },
-    )
+    If not specified and profiling is enabled, then the `profiler` sub-dir will be
+    used under `output_dir`.
+    """
 
-    #: Whether to profile CUDA.
-    #: Corresponds to `torch.profiler.ProfilerActivity.CUDA`.
-    enable_cuda_profiling: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether to profile CUDA. "
-                "Corresponds to `torch.profiler.ProfilerActivity.CUDA`."
-            )
-        },
-    )
-    # TODO: Add schedule params
-    record_shapes: bool = field(
-        default=False,
-        metadata={"help": "Save information about operator’s input shapes."},
-    )
-    profile_memory: bool = field(
-        default=False,
-        metadata={"help": "Track tensor memory allocation/deallocation."},
-    )
+    enable_cpu_profiling: bool = False
+    """Whether to profile CPU activity.
 
-    #: Record source information (file and line number) for the ops.
-    with_stack: bool = field(
-        default=False,
-        metadata={
-            "help": "Record source information (file and line number) for the ops."
-        },
-    )
+    Corresponds to `torch.profiler.ProfilerActivity.CPU`.
+    """
 
-    #: Record module hierarchy (including function names) corresponding to
-    #: the callstack of the op.
-    with_flops: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Record module hierarchy (including function names) corresponding to "
-                "the callstack of the op."
-            )
-        },
-    )
+    enable_cuda_profiling: bool = False
+    """Whether to profile CUDA.
 
-    #: Use formula to estimate the FLOPs (floating point operations) of
-    #: specific operators (matrix multiplication and 2D convolution).
-    with_modules: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Use formula to estimate the FLOPs (floating point operations) of "
-                "specific operators (matrix multiplication and 2D convolution)."
-            )
-        },
-    )
+    Corresponds to `torch.profiler.ProfilerActivity.CUDA`.
+    """
 
-    #: Max number of rows to include into profiling report tables.
-    #: Set to -1 to make it unlimited.
-    row_limit: int = field(
-        default=50,
-        metadata={
-            "help": (
-                "Max number of rows to include into profiling report tables."
-                "Set to -1 to make it unlimited."
-            )
-        },
-    )
+    record_shapes: bool = False
+    """Save information about operator’s input shapes."""
+
+    profile_memory: bool = False
+    """Track tensor memory allocation/deallocation."""
+
+    with_stack: bool = False
+    """Record source information (file and line number) for the ops."""
+
+    with_flops: bool = False
+    """Record module hierarchy (including function names) corresponding to
+    the callstack of the op.
+    """
+
+    with_modules: bool = False
+    """Use formula to estimate the FLOPs (floating point operations) of
+    specific operators (matrix multiplication and 2D convolution).
+    """
+
+    row_limit: int = 50
+    """Max number of rows to include into profiling report tables.
+
+    Set to -1 to make it unlimited.
+    """
 
     schedule: ProfilerScheduleParams = field(default_factory=ProfilerScheduleParams)
+    """Parameters that define what subset of training steps to profile."""
