@@ -6,11 +6,11 @@ from oumi.utils.logging import logger
 try:
     # The library is only useful for NVIDIA GPUs, and
     # may not be installed for other vendors e.g., AMD
-    import pynvml
+    import pynvml  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
     pynvml = None
 
-# TODO: Add support for `amdsmi.amdsmi_init()`` for AMD GPUs
+# TODO: OPE-562 - Add support for `amdsmi.amdsmi_init()`` for AMD GPUs
 
 
 def _initialize_pynvml() -> bool:

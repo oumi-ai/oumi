@@ -32,17 +32,26 @@ classifiers = [
 ]
 
 dependencies = [
+    "accelerate>=1.0.0",
+    "aiohttp",                      # Used by infererence engine
+    "aioresponses",                 # User by inference engine tests
+    "datasets",
     "jsonlines",
     "numpy",
-    "openai",
-    "pexpect",
-    "skypilot",
+    "omegaconf",
+    "pandas",
+    "peft",
+    "pexpect",                      # Used by Polaris client
+    "pillow",                       # Used by image datasets
+    "pydantic>=2",
+    "skypilot",                     # Used by launcher
     "torch",
-    "torchvision",
+    "torchdata>=0.8.0",             # Used by data pipes loader
     "tqdm",
-    "transformers",
-    "typer",
-    "typing_extensions",
+    "transformers>=4.43.1,<4.44.0",
+    "trl>=0.9.0",
+    "typer",                        # Used by CLI
+    "typing_extensions",            # Backports of typing updates to python 3.8
 ]
 
 [project.urls]
@@ -51,46 +60,37 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
 dev = [
-    "black",
-    "isort",
-    "ipywidgets",
+    "ipywidgets", # Interactive widgets for Jupyter notebooks
     "jupyterlab",
-    "mypy",
     "pre-commit",
     "pyright",
+    "pytest-cov", # Test coverage plugin for pytest
     "pytest",
-    "pytest-cov",
     "ruff",
-    "torchfix",
+    "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
+# TODO: train target will be removed in a future release
 train = [
-    "accelerate>=1.0.0",
-    "aiohttp",
-    "aioresponses",
-    "asyncio",
-    "bitsandbytes",                 # for quantization
-    "datasets",
-    "llama-cpp-python",             # for local cpu inference
-    "lm-eval==0.4.3",               # OPE-390
-    "nvidia-ml-py",
-    "omegaconf",
-    "peft",
-    "pydantic>=2",
-    "safetensors",
-    "sentencepiece",                # for phi-3
+    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
+    "lm-eval==0.4.3", # OPE-390
     "tensorboard",
-    "torch==2.4.0",                 # OPE-390
-    "torchdata>=0.8.0",
-    "transformers>=4.43.1,<4.44.0",
-    "trl>=0.9.0",
     "wandb<0.17.8",
 ]
-aws = [
-    "skypilot[aws]",
+# Dependencies that require a GPU to install
+gpu = ["liger-kernel", "nvidia-ml-py", "vllm"]
+docs = [
+    "myst_parser",       # Allows us to write docs in markdown
+    "nbsphinx",          # Allows us to include ipython notebooks in the docs
+    "sphinx",            # Used to build the docs
+    "sphinx-rtd-theme",  # Readthedocs theme for Sphinx
+    "sphinx_copybutton", # Add copy button to code blocks in Sphinx
 ]
-azure = [
-    "skypilot[azure]",
-]
+
+# Targets for supportedcloud providers
+aws = ["skypilot[aws]"]
+azure = ["skypilot[azure]"]
 gcp = [
     "google-api-core>=2.19.0",
     "google-api-python-client",
@@ -99,23 +99,10 @@ gcp = [
     "google-cloud-storage>=2.17.0",
     "skypilot[gcp]",
 ]
-lambda = [
-    "skypilot[lambda]",
-]
-runpod = [
-    "skypilot[runpod]",
-]
-gpu = [
-    "liger-kernel",
-    "vllm",
-] # dependencies that require a GPU to install
-docs = [
-    "myst_parser",
-    "nbsphinx",
-    "sphinx",
-    "sphinx-rtd-theme",
-    "sphinx_copybutton",
-]
+lambda = ["skypilot[lambda]"]
+runpod = ["skypilot[runpod]"]
+
+# TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
