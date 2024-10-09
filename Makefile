@@ -72,7 +72,13 @@ setup:
 	@echo "Setup completed successfully."
 
 upgrade:
-	$(CONDA_RUN) uv pip install --upgrade -e ".[train,dev]"
+	@if $(CONDA_RUN) command -v uvu >/dev/null 2>&1; then \
+		$(CONDA_RUN) uv pip install --upgrade -e ".[train,dev]"; \
+	else \
+		echo "uv is not installed, using pip instead."; \
+		echo "To install uv, run: 'pip install uv'"; \
+		$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"; \
+	fi
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
