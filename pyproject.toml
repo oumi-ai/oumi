@@ -63,6 +63,7 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
 dev = [
+    "ipykernel",
     "ipywidgets", # Interactive widgets for Jupyter notebooks
     "jupyterlab",
     "pre-commit",
