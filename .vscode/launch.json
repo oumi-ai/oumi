@@ -105,7 +105,7 @@
             "module": "oumi.infer",
             "args": [
                 "--interactive",
-                "model.model_name=nyu-visionx/cambrian-phi3-3b",
+                "model.model_name=openai-community/gpt",
                 "model.trust_remote_code=true",
                 "generation.max_new_tokens=16"
             ],
