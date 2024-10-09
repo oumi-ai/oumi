@@ -121,6 +121,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
             --master-port=8007 \
             -m oumi.train \
             -c configs/oumi/llama3b.sft.yaml \
+            "model.model_max_length=512" \
             $SHARED_TRAINING_PARAMS
     fi
 elif [ "$MODEL_SIZE" == "8b" ]; then
