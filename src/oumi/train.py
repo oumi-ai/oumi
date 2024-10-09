@@ -1,11 +1,9 @@
 import argparse
 import gc
-import random
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -34,6 +32,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.trainers import BaseTrainer
@@ -163,31 +162,6 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-
-
-def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
-    """Set random seeds for reproducibility.
-
-    Each worker will have a different seed to ensure that each worker
-    starts with a different random state.
-
-    Args:
-        seed: The seed value to set for random number generators.
-        set_deterministic: Whether to set deterministic mode for CUDA operations.
-    """
-    device_info = get_device_rank_info()
-
-    local_seed = seed + device_info.rank
-
-    logger.info(f"Setting random seed to {local_seed} on rank {device_info.rank}.")
-    random.seed(local_seed)
-    np.random.seed(local_seed)
-    torch.manual_seed(local_seed)
-    torch.cuda.manual_seed(local_seed)
-
-    if set_deterministic:
-        logger.info("Setting deterministic mode for CUDA operations.")
-        torch.backends.cudnn.deterministic = True
 
 
 def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:

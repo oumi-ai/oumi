@@ -5,7 +5,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=500"]
@@ -41,12 +41,11 @@ repos:
     hooks:
       - id: pyright
         name: pyright
-        entry: pyright
+        entry: env PYRIGHT_PYTHON_PYLANCE_VERSION=latest-release pyright
         language: node
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.368"]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.16.0
     hooks:
