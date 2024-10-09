@@ -1,5 +1,6 @@
 import re
 import uuid
+from datetime import datetime
 from functools import reduce
 from pathlib import Path
 from typing import Any, List, Optional
@@ -210,7 +211,8 @@ class PolarisCluster(BaseCluster):
         _validate_job_config(job)
         job_name = job.name or uuid.uuid1().hex
         user = str(job.user)
-        remote_working_dir = Path(f"/home/{user}/oumi_launcher/{job_name}")
+        submission_time = datetime.now().strftime("%d%m%Y_%H%M%S%f")
+        remote_working_dir = Path(f"/home/{user}/oumi_launcher/{submission_time}")
         # Copy the working directory to Polaris /home/ system.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if Oumi is installed in a conda env. If not, install it.
