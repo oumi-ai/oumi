@@ -180,7 +180,7 @@ known-first-party = ["oumi"]
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
 exclude = [
-    "src/oumi/experimental/**",
+    # "src/oumi/experimental/**",
     "src/oumi/models/experimental/cambrian/**",
 ]
 typeCheckingMode = "basic"
