@@ -42,6 +42,7 @@ help:
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
+	@echo "  jupyter     - Run Jupyter Lab with the project environment"
 
 setup:
 	@if command -v conda >/dev/null 2>&1; then \
@@ -127,4 +128,7 @@ docs-rebuild:
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild
+jupyter:
+	$(CONDA_RUN) jupyter lab
+
+.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild jupyter
