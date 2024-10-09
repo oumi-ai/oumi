@@ -16,6 +16,9 @@ LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
 @pytest.fixture(
     params=[
         ("wikimedia/wikipedia", "20231101.en"),
+        ("allenai/c4", "en"),
+        ("allenai/dolma", "v1_7"),
+        ("tiiuae/falcon-refinedweb", None),
     ]
 )
 def dataset_fixture(request):
