@@ -25,7 +25,7 @@ if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
 fi
 
 # "2083804.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov" -> "2083804"
-OUMI_JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
+export OUMI_JOBNUM=$(echo $PBS_JOBID | cut -d'.' -f1)
 if [[ -z "${OUMI_JOBNUM}" ]]; then
     echo "Job number is empty for PBS_JOBID: ${PBS_JOBID}!"
     exit 1

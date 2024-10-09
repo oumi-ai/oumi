@@ -3,6 +3,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
+  chat_template: "llava"
   freeze_layers:
     - "vision_model"
 
@@ -10,8 +11,8 @@ data:
   train:
     collator_name: "vision_language"
     datasets:
-      - dataset_name: "nlphuji/flickr30k"
-        split: "test"
+      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+        split: "train"
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 100
