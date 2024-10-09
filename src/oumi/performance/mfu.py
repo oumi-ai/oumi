@@ -60,6 +60,14 @@ _DEVICE_SPECS = {
             torch.bfloat16: 121.0,
         },
     },
+    # https://www.nvidia.com/en-us/data-center/tesla-t4/
+    "Tesla T4": {
+        _TFLOPS: {
+            torch.float32: 8.1,
+            torch.float16: 65.0,
+            torch.bfloat16: 65.0,
+        },
+    },
 }
 
 

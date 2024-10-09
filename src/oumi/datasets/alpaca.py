@@ -1,3 +1,10 @@
+"""Porting the Alpaca dataset with Oumi.
+
+For more info see:
+    (1) https://github.com/tatsu-lab/stanford_alpaca
+    (2) https://github.com/gururise/AlpacaDataCleaned
+"""
+
 from typing import Union, cast
 
 import pandas as pd
@@ -10,9 +17,14 @@ from oumi.core.types.turn import Conversation, Message, Role
 @register_dataset("yahma/alpaca-cleaned")
 @register_dataset("tatsu-lab/alpaca")
 class AlpacaDataset(BaseLMSftDataset):
-    system_prompt = (
+    system_prompt_with_context = (
         "Below is an instruction that describes a task, "
         "paired with an input that provides further context. "
+        "Write a response that appropriately completes the request."
+    )
+
+    system_prompt_without_context = (
+        "Below is an instruction that describes a task. "
         "Write a response that appropriately completes the request."
     )
 
@@ -41,20 +53,22 @@ class AlpacaDataset(BaseLMSftDataset):
         """
         messages = []
 
-        # Use default aplaca user prompt template
+        # Use default Alpaca user prompt template
         if example.get("input") is not None and len(example["input"]) > 0:
             # This example has both an instruction and a user input.
             user_prompt = """{instruction}\n\n### Input:\n{input}""".format(
                 instruction=example["instruction"], input=example["input"]
             )
+            system_prompt = self.system_prompt_with_context
         else:
             user_prompt = cast(str, example["instruction"])
+            system_prompt = self.system_prompt_without_context
 
         model_output = cast(str, example["output"])
 
         # Create message list
         if self.include_system_prompt:
-            messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
+            messages.append(Message(role=Role.SYSTEM, content=system_prompt))
         messages.append(Message(role=Role.USER, content=user_prompt))
         messages.append(Message(role=Role.ASSISTANT, content=model_output))
 
