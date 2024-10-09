@@ -69,7 +69,6 @@ dev = [
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
-# TODO: train target will be removed in a future release
 train = [
     "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
@@ -77,7 +76,7 @@ train = [
     "lm-eval==0.4.3", # OPE-390
     "tensorboard",
     "wandb",
-]
+] # TODO: train target will be removed in a future release
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel", "nvidia-ml-py", "vllm"]
 docs = [
