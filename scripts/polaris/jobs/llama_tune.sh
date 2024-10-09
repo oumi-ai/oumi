@@ -27,12 +27,12 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("sft", "lora")
-ALLOWED_MODEL_SIZES=("8b", "70b")
+ALLOWED_TRAINING_MODES=("sft", "lora", "qlora")
+ALLOWED_MODEL_SIZES=("3b", "8b", "70b")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (sft/lora) -s (8b/70b)"
+    echo "Usage: $0 -m (sft/lora/qlora) -s (3b/8b/70b)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to lora."
     echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8b."
     exit 1 # Exit script after printing help
@@ -86,21 +86,50 @@ SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING
 training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
-# Our config is set to train for one epoch. Each section lists the number of steps
-# that it should be equivalent to.
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
-if [ "$MODEL_SIZE" == "8b" ]; then
+if [ "$MODEL_SIZE" == "3b" ]; then
+    if [ "$TRAINING_MODE" == "lora" ]; then
+        set -x # Print "torchrun" command with expanded variables
+        torchrun \
+            --nnodes=${OUMI_NUM_NODES} \
+            --node-rank=${POLARIS_NODE_RANK} \
+            --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+            --master-addr=${OUMI_MASTER_ADDR} \
+            --master-port=8007 \
+            -m oumi.train \
+            -c configs/oumi/llama3b.lora.yaml \
+            $SHARED_TRAINING_PARAMS
+    elif [ "$TRAINING_MODE" == "qlora" ]; then
+        set -x # Print "torchrun" command with expanded variables
+        torchrun \
+            --nnodes=${OUMI_NUM_NODES} \
+            --node-rank=${POLARIS_NODE_RANK} \
+            --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+            --master-addr=${OUMI_MASTER_ADDR} \
+            --master-port=8007 \
+            -m oumi.train \
+            -c configs/oumi/llama3b.qlora.yaml \
+            $SHARED_TRAINING_PARAMS
+    else # SFT
+        set -x # Print "torchrun" command with expanded variables
+        torchrun \
+            --nnodes=${OUMI_NUM_NODES} \
+            --node-rank=${POLARIS_NODE_RANK} \
+            --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+            --master-addr=${OUMI_MASTER_ADDR} \
+            --master-port=8007 \
+            -m oumi.train \
+            -c configs/oumi/llama3b.sft.yaml \
+            "model.model_max_length=512" \
+            $SHARED_TRAINING_PARAMS
+    fi
+elif [ "$MODEL_SIZE" == "8b" ]; then
     # Copy the model to our Polaris machine to avoiding downloading from HF.
     rsync -av \
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
     if [ "$TRAINING_MODE" == "lora" ]; then
-        # Num nodes: 1
-        # Batch size per GPU: 2
-        # Gradient accumulation steps (GAS): 32
-        # Examples per step: 1 node * 4 GPUs/node * 2 bs * 32 GAS  = 256
-        # Num steps for 1 epoch: 51,760 / 256 = 203
         set -x # Print "torchrun" command with expanded variables
         # DDP training with torchrun
         torchrun \
@@ -112,12 +141,9 @@ if [ "$MODEL_SIZE" == "8b" ]; then
             -m oumi.train \
             -c configs/oumi/llama8b.lora.yaml \
             $SHARED_TRAINING_PARAMS
+    elif [ "$TRAINING_MODE" == "qlora" ]; then
+        echo "Llama 8B QLora is currently not supported!"
     else # SFT
-        # Num nodes: 1
-        # Batch size per GPU: 2
-        # Gradient accumulation steps (GAS): 1
-        # Examples per step: 1 node * 4 GPUs/node * 2 bs * 1 GAS  = 8
-        # Num steps for 1 epoch: 51,760 / 8 = 6,470
         set -x # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${OUMI_NUM_NODES} \
@@ -137,11 +163,6 @@ else # 70B
         /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
         ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
     if [ "$TRAINING_MODE" == "lora" ]; then
-        # Num nodes: 2
-        # Batch size per GPU: 2
-        # Gradient accumulation steps (GAS): 1
-        # Examples per step: 2 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 16
-        # Num steps for 1 epoch: 51,760 / 16 = 3,235
         set -x # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${OUMI_NUM_NODES} \
@@ -154,12 +175,9 @@ else # 70B
             -m oumi.train \
             -c configs/oumi/llama70b.lora.yaml \
             $SHARED_TRAINING_PARAMS
+    elif [ "$TRAINING_MODE" == "qlora" ]; then
+        echo "Llama 70B QLora is currently not supported!"
     else # SFT
-        # Num nodes: 4
-        # Batch size per GPU: 2
-        # Gradient accumulation steps (GAS): 1
-        # Examples per step: 4 nodes * 4 GPUs/node * 2 bs * 1 GAS  = 32
-        # Num steps for 1 epoch: 51,760 / 32 = 1,618
         set -x # Print "accelerate" command with expanded variables
         accelerate launch \
             --num_machines ${OUMI_NUM_NODES} \
