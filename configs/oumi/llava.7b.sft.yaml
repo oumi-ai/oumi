@@ -12,11 +12,11 @@ data:
   train:
     collator_name: "vision_language"
     datasets:
-      - dataset_name: "nlphuji/flickr30k"
-        split: "test"
+      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+        split: "train"
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          limit: 100
+          # limit: 100
           return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
@@ -53,3 +53,6 @@ training:
   dataloader_num_workers: 0 # TODO: fix bug with forking process. Likely related to the processor reference?
   include_performance_metrics: true
   enable_wandb: True
+
+
+# sky launch -i 10 --env OUMI_RUN_NAME=llava.7b.sft.llava-mix.4xA10080GB.100steps.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100-80GB:4" --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster ./configs/skypilot/sky_llava.7b.sft.yaml
