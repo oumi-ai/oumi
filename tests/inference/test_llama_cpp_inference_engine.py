@@ -1,3 +1,4 @@
+from importlib.util import find_spec
 from unittest.mock import patch
 
 import pytest
@@ -5,6 +6,8 @@ import pytest
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
+
+llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 @pytest.fixture
@@ -23,6 +26,7 @@ def inference_engine(mock_llama):
     return LlamaCppInferenceEngine(model_params)
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_initialization(mock_llama):
     model_params = ModelParams(
         model_name="test_model.gguf",
@@ -43,6 +47,7 @@ def test_initialization(mock_llama):
     )
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_convert_conversation_to_llama_input(inference_engine):
     conversation = Conversation(
         messages=[
@@ -62,6 +67,7 @@ def test_convert_conversation_to_llama_input(inference_engine):
     assert result == expected
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_infer_online(inference_engine):
     with patch.object(inference_engine, "_infer") as mock_infer:
         mock_infer.return_value = [
@@ -79,6 +85,7 @@ def test_infer_online(inference_engine):
         assert result == mock_infer.return_value
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_infer_from_file(inference_engine):
     with patch.object(
         inference_engine, "_read_conversations"

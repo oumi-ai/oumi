@@ -15,6 +15,7 @@ from oumi.inference import (
 )
 
 vllm_import_failed = find_spec("vllm") is None
+llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 # Mock model params for testing
@@ -33,6 +34,12 @@ def sample_conversations() -> List[Conversation]:
     return [SAMPLE_CONVERSATION]
 
 
+def _should_skip_engine(engine_class) -> bool:
+    return (engine_class == VLLMInferenceEngine and vllm_import_failed) or (
+        engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed
+    )
+
+
 @pytest.mark.parametrize(
     "engine_class",
     [
@@ -44,8 +51,8 @@ def sample_conversations() -> List[Conversation]:
     ],
 )
 def test_generation_params(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
@@ -93,8 +100,8 @@ def test_generation_params(engine_class, sample_conversations):
     ],
 )
 def test_generation_params_defaults(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
