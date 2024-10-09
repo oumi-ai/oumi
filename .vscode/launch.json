@@ -105,7 +105,7 @@
             "module": "oumi.infer",
             "args": [
                 "--interactive",
-                "model.model_name=openai-community/gpt",
+                "model.model_name=openai-community/gpt2",
                 "model.trust_remote_code=true",
                 "generation.max_new_tokens=16"
             ],
