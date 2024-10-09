@@ -10,12 +10,6 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.models.experimental.cambrian.mm_utils import (
-    get_model_name_from_path as get_cambrian_model_name_from_path,
-)
-from oumi.models.experimental.cambrian.model.builder import (
-    load_pretrained_model as load_cambrian_pretrained_model,
-)
 from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
@@ -25,6 +19,19 @@ try:
     import liger_kernel.transformers  # type: ignore
 except ImportError:
     liger_kernel = None
+
+_IS_CAMBRIAN_AVAILABLE = False
+try:
+    from oumi.models.experimental.cambrian.mm_utils import (
+        get_model_name_from_path as get_cambrian_model_name_from_path,
+    )
+    from oumi.models.experimental.cambrian.model.builder import (
+        load_pretrained_model as load_cambrian_pretrained_model,
+    )
+
+    _IS_CAMBRIAN_AVAILABLE = True
+except ImportError:
+    pass
 
 
 def build_model(
@@ -48,7 +55,7 @@ def build_model(
             peft_params=peft_params,
             *kwargs,
         )
-    elif model_params.model_name in (
+    elif _IS_CAMBRIAN_AVAILABLE and model_params.model_name in (
         "nyu-visionx/cambrian-phi3-3b",
         "nyu-visionx/cambrian-8b",
         "nyu-visionx/cambrian-13b",
