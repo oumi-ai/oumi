@@ -178,6 +178,16 @@ class ModelParams(BaseParams):
             model_args_dict["peft"] = self.adapter_model
         if self.attn_implementation:
             model_args_dict["attn_implementation"] = self.attn_implementation
+
+        # Handle extra model_kwargs (construction arguments).
+        # Towards OPE-564.
+        if self.model_kwargs:
+            relevant_for_lm = ["load_in_4bit", "load_in_8bit"]
+            for key in relevant_for_lm:
+                if key in self.model_kwargs:
+                    model_args_dict[key] = self.model_kwargs[key]
+            # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
+            # future versions of HF. Integrate via PeftConfig.
         return model_args_dict
 
     def __validate__(self):
