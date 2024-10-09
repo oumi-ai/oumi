@@ -85,12 +85,8 @@ train = [
     "trl>=0.9.0",
     "wandb<0.17.8",
 ]
-aws = [
-    "skypilot[aws]",
-]
-azure = [
-    "skypilot[azure]",
-]
+aws = ["skypilot[aws]"]
+azure = ["skypilot[azure]"]
 gcp = [
     "google-api-core>=2.19.0",
     "google-api-python-client",
@@ -99,12 +95,8 @@ gcp = [
     "google-cloud-storage>=2.17.0",
     "skypilot[gcp]",
 ]
-lambda = [
-    "skypilot[lambda]",
-]
-runpod = [
-    "skypilot[runpod]",
-]
+lambda = ["skypilot[lambda]"]
+runpod = ["skypilot[runpod]"]
 gpu = ["liger-kernel", "vllm"] # dependencies that require a GPU to install
 docs = [
     "myst_parser",
@@ -179,13 +171,10 @@ known-first-party = ["oumi"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
-exclude = [
-    # "src/oumi/experimental/**",
-    "src/oumi/models/experimental/cambrian/**",
-]
+exclude = ["src/oumi/models/experimental/cambrian/**"]
 typeCheckingMode = "basic"
 pythonVersion = "3.8"
-pythonPlatform = "All" # Include linux, mac, windows
+pythonPlatform = "All"                                 # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
 
