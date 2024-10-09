@@ -1,0 +1,9 @@
+{% set role_suffix = ': ' %}
+{% set turn_suffix = '\n' %}
+
+{% for message in messages %}
+    {{ message['role'].upper() + role_suffix + message['content'] | trim }}{% if not loop.last %}{{ turn_suffix }}{% endif %}
+{% endfor %}
+{% if add_generation_prompt %}
+    {{ turn_suffix + "ASSISTANT" + role_suffix }}
+{% endif %}
