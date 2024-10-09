@@ -5,6 +5,7 @@ SHELL := /bin/bash
 CONDA_ENV := oumi
 CONDA_ACTIVE := $(shell conda info --envs | grep -q "*" && echo "true" || echo "false")
 CONDA_RUN := conda run -n $(CONDA_ENV)
+CONDA_INSTALL_PATH := $(HOME)/miniconda3
 
 # Source directory
 SRC_DIR := .
@@ -26,6 +27,7 @@ USERNAME := $(shell whoami)
 help:
 	@echo "Available targets:"
 	@echo "  setup       - Set up the project (create conda env if not exists, install dependencies)"
+	@echo "  install-miniconda - Install Miniconda"
 	@echo "  upgrade     - Upgrade project dependencies"
 	@echo "  clean       - Remove generated files and directories"
 	@echo "  check       - Run pre-commit hooks"
@@ -33,9 +35,6 @@ help:
 	@echo "  format      - Run code formatter"
 	@echo "  test        - Run tests"
 	@echo "  coverage    - Run tests with coverage"
-	@echo "  train       - Run training"
-	@echo "  evaluate    - Run evaluation"
-	@echo "  infer       - Run inference"
 	@echo "  skyssh      - Launch a cloud VM with SSH config"
 	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
 	@echo "  docs        - Build Sphinx documentation"
@@ -58,16 +57,38 @@ setup:
 		fi; \
 	else \
 		echo "Error: Conda is not installed or not in PATH."; \
-		echo "Please install Miniconda and initialize it for your shell:"; \
-		echo "1. Download Miniconda from https://docs.conda.io/en/latest/miniconda.html"; \
-		echo "2. Install Miniconda by running the downloaded script"; \
-		echo "3. Initialize Conda for your shell:"; \
-		echo "   - For bash: Run 'conda init bash' and restart your terminal"; \
-		echo "   - For zsh: Run 'conda init zsh' and restart your terminal"; \
-		echo "4. After initialization, run 'make setup' again"; \
+		echo "Please run 'make install-miniconda' to install Miniconda, then run 'make setup' again."; \
 		exit 1; \
 	fi
 	@echo "Setup completed successfully."
+
+install-miniconda:
+	@bash -c '\
+		echo "1. Configuring miniconda installer..."; \
+		if [ "$$(uname)" = "Darwin" ] && [ "$$(uname -m)" = "arm64" ]; then \
+			MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh"; \
+		elif [ "$$(uname)" = "Darwin" ]; then \
+			MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh"; \
+		elif [ "$$(uname)" = "Linux" ]; then \
+			MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"; \
+		else \
+			echo "Unsupported operating system. Please install Miniconda manually."; \
+			echo "1. Download Miniconda from https://docs.conda.io/en/latest/miniconda.html"; \
+			echo "2. Run the installer and follow the instructions."; \
+			exit 1; \
+		fi; \
+		CONDA_INSTALL_PATH="$(CONDA_INSTALL_PATH)"; \
+		echo "- Installer URL: $$MINICONDA_URL"; \
+		echo "- Conda will be installed to: $$CONDA_INSTALL_PATH"; \
+		echo "2. Downloading Miniconda installer..."; \
+		curl -o miniconda.sh $$MINICONDA_URL; \
+		echo "3. Installing Miniconda..."; \
+		bash miniconda.sh -u -b -p $$CONDA_INSTALL_PATH; \
+		rm miniconda.sh; \
+		echo "4. Initializing Conda..."; \
+		$$CONDA_INSTALL_PATH/bin/conda init $$(basename $$SHELL); \
+		echo "Conda has been initialized for $$(basename $$SHELL) shell."; \
+		echo "Please restart your terminal for this to take effect."'
 
 upgrade:
 	@if $(CONDA_RUN) command -v uv >/dev/null 2>&1; then \
@@ -99,14 +120,6 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-train:
-	$(CONDA_RUN) python -m oumi.train $(ARGS)
-
-evaluate:
-	$(CONDA_RUN) python -m oumi.evaluate $(ARGS)
-
-infer:
-	$(CONDA_RUN) python -m oumi.infer $(ARGS)
 
 skyssh:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
@@ -132,7 +145,4 @@ docs-rebuild:
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-jupyter:
-	$(CONDA_RUN) jupyter lab
-
-.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild jupyter
+.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild
