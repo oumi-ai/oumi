@@ -59,16 +59,6 @@ Homepage = "https://github.com/oumi-ai/oumi"
 Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
-# TODO: train target will be removed in a future release
-train = [
-    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
-    "torchvision",  # TODO: remove this dependency, does not seem to be used
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
-    "lm-eval==0.4.3", # OPE-390
-    "tensorboard",
-    "wandb<0.17.8",
-]
 dev = [
     "ipywidgets", # Interactive widgets for Jupyter notebooks
     "jupyterlab",
@@ -78,6 +68,16 @@ dev = [
     "pytest",
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
+]
+# TODO: train target will be removed in a future release
+train = [
+    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
+    "torchvision",  # TODO: remove this dependency, does not seem to be used
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
+    "lm-eval==0.4.3", # OPE-390
+    "tensorboard",
+    "wandb<0.17.8",
 ]
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel", "nvidia-ml-py", "vllm"]
