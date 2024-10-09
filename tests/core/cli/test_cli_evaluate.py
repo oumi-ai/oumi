@@ -43,7 +43,7 @@ def app():
 
 @pytest.fixture
 def mock_evaluate():
-    with patch("oumi.core.cli.evaluate.oumi.evaluate") as m_evaluate:
+    with patch("oumi.core.cli.evaluate.oumi_evaluate") as m_evaluate:
         yield m_evaluate
 
 
@@ -53,7 +53,7 @@ def test_evaluate_runs(app, mock_evaluate):
         config: EvaluationConfig = _create_eval_config()
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
-        mock_evaluate.evaluate.assert_has_calls([call(config)])
+        mock_evaluate.assert_has_calls([call(config)])
 
 
 def test_evaluate_with_overrides(app, mock_evaluate):
@@ -76,4 +76,4 @@ def test_evaluate_with_overrides(app, mock_evaluate):
         expected_config.model.model_name = "new_name"
         if expected_config.lm_harness_params:
             expected_config.lm_harness_params.num_samples = 5
-        mock_evaluate.evaluate.assert_has_calls([call(expected_config)])
+        mock_evaluate.assert_has_calls([call(expected_config)])
