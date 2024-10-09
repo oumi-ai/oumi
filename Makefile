@@ -72,7 +72,7 @@ setup:
 	@echo "Setup completed successfully."
 
 upgrade:
-	@if $(CONDA_RUN) command -v uvu >/dev/null 2>&1; then \
+	@if $(CONDA_RUN) command -v uv >/dev/null 2>&1; then \
 		$(CONDA_RUN) uv pip install --upgrade -e ".[train,dev]"; \
 	else \
 		echo "uv is not installed, using pip instead."; \
