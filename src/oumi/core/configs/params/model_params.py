@@ -166,17 +166,13 @@ class ModelParams(BaseParams):
         else:
             raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
 
-    def _torch_dtype_str_canonical(self) -> str:
-        """Converts string dtype to canonical naming convention followed by torch."""
-        return str(self.torch_dtype()).replace("torch.", "")
-
     def to_lm_harness(self) -> Dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
-            "dtype": self._torch_dtype_str_canonical(),
+            "dtype": self.torch_dtype(),
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
