@@ -61,7 +61,16 @@ setup:
 		echo "Please run 'make install-miniconda' to install Miniconda, then run 'make setup' again."; \
 		exit 1; \
 	fi
-	@echo "Setup completed successfully."
+	@echo "Installation complete. Testing if oumi package can be imported..."
+	@if $(CONDA_RUN) python -c "import oumi" >/dev/null 2>&1; then \
+		echo "oumi package imported successfully!"; \
+		echo "To start using your new environment, run: \"conda activate $(CONDA_ENV)\"."; \
+		echo "Happy fine-tuning!"; \
+	else \
+		echo "Error: Failed to import oumi package. Please check your installation."; \
+		echo "Please open an issue at https://github.com/oumi-ai/oumi/issues if the problem persists."; \
+		exit 1; \
+	fi
 
 install-miniconda:
 	@bash -c '\
