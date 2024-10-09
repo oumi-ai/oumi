@@ -42,18 +42,18 @@ help:
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
+	@echo "  jupyter     - Run Jupyter Lab with the project environment"
 
 setup:
 	@if command -v conda >/dev/null 2>&1; then \
 		if conda env list | grep -q "^$(CONDA_ENV) "; then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
-			$(CONDA_RUN) pip install -U -e ".[train,dev]"; \
+			$(CONDA_RUN) uv pip install -U -e ".[train,dev]"; \
 		else \
 			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
-			CONDA_BASE=$$(conda info --base); \
-			source "$${CONDA_BASE}/etc/profile.d/conda.sh"; \
 			conda create -n $(CONDA_ENV) python=3.11 -y; \
-			$(CONDA_RUN) pip install -e ".[train,dev]"; \
+			$(CONDA_RUN) pip install uv; \
+			$(CONDA_RUN) uv pip install -e ".[train,dev]"; \
 			$(CONDA_RUN) pre-commit install; \
 		fi; \
 	else \
@@ -70,7 +70,13 @@ setup:
 	@echo "Setup completed successfully."
 
 upgrade:
-	$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"
+	@if $(CONDA_RUN) command -v uv >/dev/null 2>&1; then \
+		$(CONDA_RUN) uv pip install --upgrade -e ".[train,dev]"; \
+	else \
+		echo "uv is not installed, using pip instead."; \
+		echo "To install uv, run: 'pip install uv'"; \
+		$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"; \
+	fi
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
@@ -126,4 +132,7 @@ docs-rebuild:
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild
+jupyter:
+	$(CONDA_RUN) jupyter lab
+
+.PHONY: help setup upgrade clean check format test coverage train evaluate infer skyssh skycode docs docs-help docs-serve docs-rebuild jupyter
