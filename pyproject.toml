@@ -37,6 +37,7 @@ dependencies = [
     "aioresponses",               # User by inference engine tests
     "datasets",
     "jsonlines",
+    "lm-eval>=0.4.5,<0.5.0",
     "numpy",
     "omegaconf",
     "pandas",
@@ -45,6 +46,7 @@ dependencies = [
     "pillow",                     # Used by image datasets
     "pydantic>=2",
     "skypilot",                   # Used by launcher
+    "tensorboard",                # Optional, for monitoring training
     "torch>=2.4.0,<2.5.0",
     "torchdata>=0.8.0",           # Used by data pipes loader
     "tqdm",
@@ -52,6 +54,7 @@ dependencies = [
     "trl>=0.9.0",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.8
+    "wandb",                      # Optional, for logging to Weights and Biases
 ]
 
 [project.urls]
@@ -74,19 +77,17 @@ train = [
     "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
     # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
-    "lm-eval>=0.4.5,<0.5.0",
-    "tensorboard",
-    "wandb",
 ]
-# Dependencies that require a GPU to install
-gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
 docs = [
     "myst_parser",       # Allows us to write docs in markdown
     "nbsphinx",          # Allows us to include ipython notebooks in the docs
     "sphinx",            # Used to build the docs
     "sphinx-rtd-theme",  # Readthedocs theme for Sphinx
     "sphinx_copybutton", # Add copy button to code blocks in Sphinx
+
 ]
+# Dependencies that require a GPU to install
+gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]
