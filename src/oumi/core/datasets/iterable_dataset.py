@@ -24,6 +24,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         dataset_name_or_path: Optional[str],
         subset: Optional[str] = None,
         split: Optional[str] = None,
+        stream: bool = True,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseIterableDataset class."""
@@ -48,6 +49,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_name_or_path = dataset_name_or_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
+        self.stream = stream
         self._data = self._load_data()
 
     #
@@ -92,7 +94,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
             path=self.dataset_name_or_path,
             name=self.dataset_subset,
             split=self.split,
-            streaming=True,
+            streaming=self.stream,
         )
 
 
@@ -132,7 +134,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
 
         The underlying dataset is a stream of documents. Each document is expected to
         containt a text field `self._dataset_text_field` that will be tokenized.
-        Training sampels are then yielded in sequences of length `self.seq_length`.
+        Training samples are then yielded in sequences of length `self.seq_length`.
 
         Given this iterator might return samples from different documents, we optionally
         use `self.concat_token_id` to separate the sequences from different documents.

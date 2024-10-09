@@ -34,6 +34,7 @@ from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
+from oumi.datasets.wikipedia import WikipediaDataset
 
 __all__ = [
     "AlpacaDataset",
@@ -49,4 +50,5 @@ __all__ = [
     "ArgillaMagpieUltraDataset",
     "MagpieProDataset",
     "TextSftJsonLinesDataset",
+    "WikipediaDataset",
 ]
