@@ -194,15 +194,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # including image placeholders for each image in the conversation
         texts = []
         for turn in conversation.messages:
-            if turn.is_text():
+            if turn.is_text() or turn.is_image():
                 texts.append(turn)
-
-            elif turn.is_image():
-                image_placeholder = {
-                    "content": [{"type": "image"}],
-                    "role": str(turn.role),
-                }
-                texts.append(image_placeholder)
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
@@ -245,7 +238,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Failed to download image: '{image.content}'")
                 raise e
-            image_bin = Image.open(response.raw).convert("RGB")
+            image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
 
         elif image.type == Type.IMAGE_BINARY:
             if image.binary is None:

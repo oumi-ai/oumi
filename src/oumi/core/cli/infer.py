@@ -2,7 +2,8 @@ import typer
 from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
-import oumi.infer
+from oumi import infer as oumi_infer
+from oumi import infer_interactive as oumi_infer_interactive
 from oumi.core.configs import InferenceConfig
 from oumi.utils.logging import logger
 
@@ -38,10 +39,10 @@ def infer(
             raise ValueError(
                 "`input_filepath` must be provided for non-interactive mode."
             )
-        oumi.infer.infer(
+        oumi_infer(
             model_params=parsed_config.model,
             generation_params=parsed_config.generation,
             input=[],
         )
     else:
-        oumi.infer.infer_interactive(parsed_config)
+        oumi_infer_interactive(parsed_config)
