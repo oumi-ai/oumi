@@ -4,6 +4,7 @@ model:
   model_max_length: 256
   trust_remote_code: True
   attn_implementation: "sdpa"
+  chat_template: "llava"
   freeze_layers:
     - "vision_tower"
 
