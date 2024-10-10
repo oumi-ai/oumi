@@ -80,7 +80,7 @@ def infer_interactive(config: InferenceConfig) -> None:
     input_text = input("Enter your input prompt: ")
     model_response = infer(
         config=config,
-        prompts=[
+        inputs=[
             input_text,
         ],
     )
@@ -90,13 +90,13 @@ def infer_interactive(config: InferenceConfig) -> None:
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
     config: InferenceConfig,
-    prompts: Optional[List[str]] = None,
+    inputs: Optional[List[str]] = None,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
         config: The configuration to use for inference.
-        prompts: A list of text prompts.
+        inputs: A list of inputs for inference.
 
     Returns:
         object: A list of model responses.
@@ -104,10 +104,10 @@ def infer(
     inference_engine = _get_engine(config)
     # Pass None if no conversations are provided.
     conversations = None
-    if prompts is not None and len(prompts) > 0:
+    if inputs is not None and len(inputs) > 0:
         conversations = [
             Conversation(messages=[Message(content=content, role=Role.USER)])
-            for content in prompts
+            for content in inputs
         ]
     generations = inference_engine.infer(
         input=conversations,

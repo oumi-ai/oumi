@@ -39,7 +39,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
             input.append(FIXED_PROMPT)
     output = infer(
         config=InferenceConfig(model=model_params, generation=generation_params),
-        prompts=input,
+        inputs=input,
     )
 
     expected_output = []

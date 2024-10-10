@@ -34,7 +34,7 @@ def main() -> None:
     infer_config.validate()
     model_responses = infer(
         config=infer_config,
-        prompts=[
+        inputs=[
             "Foo",
             "Bar",
         ],
