@@ -47,6 +47,7 @@ setup:
 	@if command -v conda >/dev/null 2>&1; then \
 		if conda env list | grep -q "^$(CONDA_ENV) "; then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
+			$(CONDA_RUN) pip install -U uv; \
 			$(CONDA_RUN) uv pip install -U -e ".[train,dev]"; \
 		else \
 			echo "Creating new conda environment '$(CONDA_ENV)'..."; \

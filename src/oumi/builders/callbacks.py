@@ -36,7 +36,8 @@ def build_training_callbacks(
         during training.
 
     Note:
-        - MFU logging is only supported on GPU and is skipped for PEFT models.
+        - MFU logging is only supported on GPU and is skipped for PEFT models or
+          training with non-packed datasets.
     """
     result: List[BaseTrainerCallback] = []
     if not config.training.include_performance_metrics:
@@ -48,6 +49,9 @@ def build_training_callbacks(
         add_mfu_callbacks = False
     elif config.training.use_peft:
         logger.warning("MFU logging is not supported for PEFT. Skipping MFU callbacks.")
+        add_mfu_callbacks = False
+    elif not config.data.train.pack:
+        logger.warning("MFU logging requires packed datasets. Skipping MFU callbacks.")
         add_mfu_callbacks = False
 
     if add_mfu_callbacks:

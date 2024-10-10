@@ -1,5 +1,5 @@
 # FSDP pretraining (PT) config for Llama 2B.
-# Accelerate config: configs/accelerate/llama.fsdp.yaml
+# Accelerate config: configs/accelerate/llama.fsdp.mixedprec.yaml
 
 model:
   # Vocab size: 50272
