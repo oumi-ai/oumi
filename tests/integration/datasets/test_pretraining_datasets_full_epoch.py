@@ -19,6 +19,7 @@ LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
         ("allenai/c4", "en"),
         ("allenai/dolma", "v1_7"),
         ("tiiuae/falcon-refinedweb", None),
+        ("HuggingFaceFW/fineweb-edu", "sample-10BT"),
     ]
 )
 def dataset_fixture(request):
