@@ -9,6 +9,7 @@ from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
+    RemoteInferenceEngine,
     VLLMInferenceEngine,
 )
 from oumi.utils.logging import logger
@@ -20,6 +21,7 @@ class _EngineTypes(str, Enum):
     NATIVE = "native"
     VLLM = "vllm"
     LLAMACPP = "llamacpp"
+    REMOTE = "remote"
     ANTHROPIC = "anthropic"
 
 
@@ -33,6 +35,8 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         return LlamaCppInferenceEngine(config.model)
     elif config.engine == _EngineTypes.ANTHROPIC:
         return AnthropicInferenceEngine(config.model)
+    elif config.engine == _EngineTypes.REMOTE:
+        return RemoteInferenceEngine(config.model)
     elif config.engine is None:
         logger.warning(
             "No inference engine specified. " "Using the default 'native' engine."

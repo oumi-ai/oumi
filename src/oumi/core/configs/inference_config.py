@@ -21,6 +21,7 @@ class InferenceConfig(BaseConfig):
     - "vllm"
     - "llamacpp"
     - "anthropic"
+    - "remote"
     - "native"
 
     If not specified, the "native" engine will be used.
