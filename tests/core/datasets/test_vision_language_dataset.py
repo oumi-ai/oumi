@@ -1,7 +1,7 @@
 import functools
 import io
 from typing import Optional, Tuple
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -9,7 +9,9 @@ from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
 from typing_extensions import override
 
+from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.turn import Conversation, Message, Role, Type
 
 
@@ -22,6 +24,14 @@ class EqBytesIO:
             isinstance(other, io.BytesIO)
             and other.getvalue() == self._byte_io.getvalue()
         )
+
+
+@pytest.fixture
+def mock_tokenizer() -> MagicMock:
+    mock = MagicMock(spec=BaseTokenizer)
+    mock.pad_token_id = 0
+    mock.chat_template = build_chat_template("llava")
+    return mock
 
 
 @pytest.fixture
@@ -91,7 +101,9 @@ def sample_conversation_using_image_binary():
 
 @pytest.fixture
 def test_dataset_using_image_path(
-    mock_processor: Mock, sample_conversation_using_image_path: Conversation
+    mock_processor: Mock,
+    sample_conversation_using_image_path: Conversation,
+    mock_tokenizer: MagicMock,
 ):
     class TestDatasetImagePath(VisionLanguageSftDataset):
         default_dataset = "custom"
@@ -104,7 +116,7 @@ def test_dataset_using_image_path(
         def _load_data(self):
             pass
 
-    return TestDatasetImagePath(processor=mock_processor)
+    return TestDatasetImagePath(processor=mock_processor, tokeinizer=mock_tokenizer)
 
 
 @pytest.fixture
