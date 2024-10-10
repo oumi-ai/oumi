@@ -116,12 +116,14 @@ def test_dataset_using_image_path(
         def _load_data(self):
             pass
 
-    return TestDatasetImagePath(processor=mock_processor, tokeinizer=mock_tokenizer)
+    return TestDatasetImagePath(processor=mock_processor, tokenizer=mock_tokenizer)
 
 
 @pytest.fixture
 def test_dataset_using_image_binary(
-    mock_processor: Mock, sample_conversation_using_image_binary: Conversation
+    mock_processor: Mock,
+    sample_conversation_using_image_binary: Conversation,
+    mock_tokenizer: MagicMock,
 ):
     class TestDatasetImageBinary(VisionLanguageSftDataset):
         default_dataset = "custom"
@@ -134,7 +136,7 @@ def test_dataset_using_image_binary(
         def _load_data(self):
             pass
 
-    return TestDatasetImageBinary(processor=mock_processor)
+    return TestDatasetImageBinary(processor=mock_processor, tokenizer=mock_tokenizer)
 
 
 def test_transform_image_using_image_path(test_dataset_using_image_path):
@@ -252,3 +254,25 @@ def test_transform_instruct_model_using_image_binary(
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()
+
+
+def test_dataset_no_tokenizer(
+    mock_processor: Mock,
+    sample_conversation_using_image_binary: Conversation,
+):
+    class FooDataset(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            return sample_conversation_using_image_binary
+
+        @override
+        def _load_data(self):
+            pass
+
+    with pytest.raises(ValueError, match="Tokenizer must be provided"):
+        FooDataset(processor=mock_processor)
+
+    with pytest.raises(ValueError, match="Tokenizer must be provided"):
+        FooDataset(processor=mock_processor, tokenizer=None)
