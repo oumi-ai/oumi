@@ -74,7 +74,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         if self._processor is not None:
             # We must use oumi's "chat template", not the default one.
-            self._processor.chat_template = self._tokenizer.chat_template
+            self._processor.chat_template = self._tokenizer.chat_template or None
             # Reset tokenizer to oumi's tokenizer for consistency.
             self._processor.tokenizer = self._tokenizer
             self._image_processor = self._processor.image_processor
