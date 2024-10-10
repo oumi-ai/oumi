@@ -75,9 +75,7 @@ dev = [
 ]
 # TODO: train target will be removed in a future release
 train = [
-    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
+    "openai", # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
@@ -109,7 +107,10 @@ cambrian = [ # Consider merging into "train"
     "diffusers[torch]",
     "einops==0.6.1",
 ]
-
+optional = [
+    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
+    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
+]
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
