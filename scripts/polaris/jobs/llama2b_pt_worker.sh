@@ -167,7 +167,7 @@ else       # FSDP
         --main_process_ip ${OUMI_MASTER_ADDR} \
         --main_process_port 8007 \
         --use_fsdp \
-        --config_file configs/accelerate/llama.fsdp.yaml \
+        --config_file configs/accelerate/llama.fsdp.mixedprec.yaml \
         -m oumi.train \
         -c configs/oumi/llama2b.pt.fsdp.trl.yaml \
         "$TRAIN_DATASETS" \
