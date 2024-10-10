@@ -100,7 +100,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
         response_type = message_list[0]["type"]
         if response_type != "text":
             raise ValueError(
-                f"{role}'s response is expected to be text. " f"Actual: {response_type}"
+                f"{role}'s response is expected to be text. Actual: {response_type}"
             )
 
         return Message(
