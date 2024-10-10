@@ -16,9 +16,11 @@ data:
     datasets:
       - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
         split: "train"
+        shuffle: True
+        seed: 42
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          limit: 100
+          limit: 1024
           return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
@@ -37,15 +39,16 @@ training:
   optimizer: "sgd"
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
-  enable_gradient_checkpointing: true
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 1
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 8
   max_steps: 20
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 5
   learning_rate: 2e-5
   compile: False
   warmup_ratio: 0.1
