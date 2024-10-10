@@ -3,7 +3,6 @@
 This module provides base classes for different types of models used in the
 Oumi framework.
 
-
 See Also:
     - :mod:`oumi.models`: Module containing specific model implementations.
     - :class:`oumi.models.mlp.MLPEncoder`: An example of a concrete model

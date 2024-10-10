@@ -1,14 +1,25 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import jsonlines
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 
+from oumi.builders import build_chat_template
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.turn import Conversation, Type
 from oumi.datasets.vision_language.vision_jsonlines import (
     VLJsonlinesDataset,
 )
+
+
+@pytest.fixture
+def mock_tokenizer():
+    mock = MagicMock(spec=BaseTokenizer)
+    mock.pad_token_id = 0
+    mock.chat_template = build_chat_template("llava")
+    return mock
 
 
 @pytest.fixture
@@ -28,8 +39,8 @@ def sample_jsonlines_data():
     ]
 
 
-def test_jsonlines_init_with_data(sample_jsonlines_data):
-    dataset = VLJsonlinesDataset(data=sample_jsonlines_data)
+def test_jsonlines_init_with_data(sample_jsonlines_data, mock_tokenizer):
+    dataset = VLJsonlinesDataset(data=sample_jsonlines_data, tokenizer=mock_tokenizer)
     assert len(dataset._data) == 1
     assert ["_messages_column"] == dataset._data.columns
 
@@ -42,13 +53,15 @@ def test_jsonlines_init_with_data(sample_jsonlines_data):
     assert conversation.messages[2].content == "A scenic view of the puget sound."
 
 
-def test_jsonlines_init_with_dataset_path(sample_jsonlines_data):
+def test_jsonlines_init_with_dataset_path(sample_jsonlines_data, mock_tokenizer):
     with tempfile.TemporaryDirectory() as folder:
         vaild_jsonlines_filename = Path(folder) / "valid_path.jsonl"
         with jsonlines.open(vaild_jsonlines_filename, mode="w") as writer:
             writer.write_all(sample_jsonlines_data)
 
-        dataset = VLJsonlinesDataset(dataset_path=vaild_jsonlines_filename)
+        dataset = VLJsonlinesDataset(
+            dataset_path=vaild_jsonlines_filename, tokenizer=mock_tokenizer
+        )
         assert len(dataset._data) == 1
         assert ["_messages_column"] == dataset._data.columns
 
@@ -62,26 +75,30 @@ def test_jsonlines_init_with_dataset_path(sample_jsonlines_data):
         assert conversation.messages[2].content == "A scenic view of the puget sound."
 
 
-def test_jsonlines_init_with_invalid_input(sample_jsonlines_data):
+def test_jsonlines_init_with_invalid_input(sample_jsonlines_data, mock_tokenizer):
     with tempfile.TemporaryDirectory() as folder:
-        vaild_jsonlines_filename = Path(folder) / "valid_path.jsonl"
-        with jsonlines.open(vaild_jsonlines_filename, mode="w") as writer:
+        valid_jsonlines_filename = Path(folder) / "valid_path.jsonl"
+        with jsonlines.open(valid_jsonlines_filename, mode="w") as writer:
             writer.write_all(sample_jsonlines_data)
 
         with pytest.raises(ValueError, match="Dataset path or data must be provided"):
-            VLJsonlinesDataset()
+            VLJsonlinesDataset(tokenizer=mock_tokenizer)
 
         with pytest.raises(
             FileNotFoundError,
             match="Provided path does not exist: 'invalid_path.jsonl'.",
         ):
-            VLJsonlinesDataset(dataset_path="invalid_path.jsonl")
+            VLJsonlinesDataset(
+                dataset_path="invalid_path.jsonl", tokenizer=mock_tokenizer
+            )
 
         with pytest.raises(
             ValueError,
             match="Either dataset_path or data must be provided, but not both",
         ):
-            VLJsonlinesDataset(dataset_path=vaild_jsonlines_filename, data=[])
+            VLJsonlinesDataset(
+                dataset_path=valid_jsonlines_filename, data=[], tokenizer=mock_tokenizer
+            )
 
         # Directory ending with .jsonl
         temp_dir_name = Path(folder) / "subdir.jsonl"
@@ -90,4 +107,9 @@ def test_jsonlines_init_with_invalid_input(sample_jsonlines_data):
             ValueError,
             match="Provided path is a directory, expected a file",
         ):
-            VLJsonlinesDataset(dataset_path=temp_dir_name)
+            VLJsonlinesDataset(dataset_path=temp_dir_name, tokenizer=mock_tokenizer)
+
+        with pytest.raises(ValueError, match="Tokenizer must be provided"):
+            VLJsonlinesDataset(
+                dataset_path=valid_jsonlines_filename,
+            )

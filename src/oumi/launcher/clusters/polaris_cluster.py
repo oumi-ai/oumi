@@ -1,5 +1,6 @@
 import re
 import uuid
+from datetime import datetime
 from functools import reduce
 from pathlib import Path
 from typing import Any, List, Optional
@@ -8,6 +9,18 @@ from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.polaris_client import PolarisClient
 from oumi.utils.logging import logger
+
+
+def _format_date(date: datetime) -> str:
+    """Formats the provided date as a string.
+
+    Args:
+        date: The date to format.
+
+    Returns:
+        The formatted date.
+    """
+    return date.strftime("%d%m%Y_%H%M%S%f")
 
 
 def _last_pbs_line(script: List[str]) -> int:
@@ -210,7 +223,8 @@ class PolarisCluster(BaseCluster):
         _validate_job_config(job)
         job_name = job.name or uuid.uuid1().hex
         user = str(job.user)
-        remote_working_dir = Path(f"/home/{user}/oumi_launcher/{job_name}")
+        submission_time = _format_date(datetime.now())
+        remote_working_dir = Path(f"/home/{user}/oumi_launcher/{submission_time}")
         # Copy the working directory to Polaris /home/ system.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if Oumi is installed in a conda env. If not, install it.

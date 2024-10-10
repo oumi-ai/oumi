@@ -57,7 +57,6 @@ class MfuTrainerCallback(BaseTrainerCallback):
         self._num_layers = num_layers
         self._num_attention_heads = num_attention_heads
         self._attention_head_size = attention_head_size
-        self._sequence_length = sequence_length
         self._add_rematerialization = add_rematerialization
         self._first_step_finished = False
         self._steps_since_last_log = 0
