@@ -26,7 +26,8 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-    if test ${OUMI_TOTAL_NUM_GPUS} -lt 2; then
+  OUMI_TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
+  if test ${OUMI_TOTAL_NUM_GPUS} -lt 2; then
     echo "Using FSDP with only 1 GPU may lead to errors. Multiple GPUs are expected."
   fi
 

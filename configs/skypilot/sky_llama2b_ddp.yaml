@@ -26,7 +26,8 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-    ACCELERATE_MULTI_GPU_OPTION=
+  OUMI_TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE}))
+  ACCELERATE_MULTI_GPU_OPTION=
   if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
     ACCELERATE_MULTI_GPU_OPTION="--multi_gpu"
   fi
