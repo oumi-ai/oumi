@@ -107,6 +107,7 @@
                 "--interactive",
                 "model.model_name=openai-community/gpt2",
                 "model.chat_template=default",
+                "model.use_cache=false",
                 "model.trust_remote_code=true",
                 "generation.max_new_tokens=32"
             ],

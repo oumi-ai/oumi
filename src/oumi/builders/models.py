@@ -21,13 +21,14 @@ except ImportError:
     liger_kernel = None
 
 
-def _should_use_model_cache(model_params: ModelParams, training: bool) -> bool:
-    if model_params.use_cache is None:
-        return not training
+def _should_use_model_cache(original_use_cache: bool, training: bool) -> bool:
+    return True
+    if not training:
+        return original_use_cache
     # Using cache can be problematic for training. However if the parameter
     # is explicitly configured, we will honor it.
     # Context for FSDP: https://github.com/huggingface/transformers/issues/28499
-    return model_params.use_cache
+    return False
 
 
 def build_model(
@@ -135,10 +136,6 @@ def build_oumi_model(
     if model_params.adapter_model is not None:
         raise NotImplementedError
 
-    use_cache = _should_use_model_cache(model_params, training)
-    if use_cache and not training:
-        logger.warning("KV cache isn't supported for custom oumi models yet")
-
     dtype = model_params.torch_dtype()
     model = model.to(dtype=dtype)
     # Needed for MFUTrainerCallback
@@ -228,7 +225,7 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    model.config.use_cache = _should_use_model_cache(model_params, training)
+    model.config.use_cache = _should_use_model_cache(model.config.use_cache, training)
 
     # TODO Find a better way to handle it
 
@@ -336,7 +333,7 @@ def build_cambrian_model(
         model_path, None, model_name, device_map=(device_map or "auto")
     )
 
-    model.config.use_cache = _should_use_model_cache(model_params, training)
+    model.config.use_cache = _should_use_model_cache(model.config.use_cache, training)
 
     # TODO Find a better way to handle it
 
