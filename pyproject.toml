@@ -80,11 +80,11 @@ train = [
     # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
 ]
 docs = [
-    "myst_parser",       # Allows us to write docs in markdown
-    "nbsphinx",          # Allows us to include ipython notebooks in the docs
-    "sphinx",            # Used to build the docs
-    "sphinx-rtd-theme",  # Readthedocs theme for Sphinx
-    "sphinx_copybutton", # Add copy button to code blocks in Sphinx
+    "myst_parser",             # Allows us to write docs in markdown
+    "nbsphinx",                # Allows us to include ipython notebooks in the docs
+    "sphinx",                  # Used to build the docs
+    "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
+    "sphinx_copybutton",       # Add copy button to code blocks in Sphinx
 ]
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
