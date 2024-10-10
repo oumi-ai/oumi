@@ -9,6 +9,7 @@ from transformers import AutoProcessor
 from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
@@ -43,13 +44,20 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
     def __init__(
         self,
         *,
+        tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
         limit: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
-        super().__init__(**kwargs)
+        super().__init__(tokenizer=tokenizer, **kwargs)
+
+        if tokenizer is None:
+            raise ValueError(
+                f"Tokenizer must be provided for {self.__class__.__name__}"
+            )
+        self._tokenizer = tokenizer
 
         if processor is None:
             if processor_name:
@@ -65,7 +73,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         self._processor = processor
 
         if self._processor is not None:
-            self._tokenizer = self._processor.tokenizer
+            # We must use oumi's "chat template", not the default one.
+            self._processor.chat_template = self._tokenizer.chat_template
+            # Reset tokenizer to oumi's tokenizer for consistency.
+            self._processor.tokenizer = self._tokenizer
             self._image_processor = self._processor.image_processor
         else:
             self._tokenizer = None
@@ -199,7 +210,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             else:
                 raise ValueError(f"Unsupported message type: {turn.type}")
 
+        logger.info(f"apply_chat_template TEMPLATE:\n{self._processor.chat_template}")
+        logger.info(f"apply_chat_template INPUT:\n{texts}")
         text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
+        logger.info(f"apply_chat_template OUTPUT:\n{text}")
 
         # Loads the images from the conversation
         images = [turn for turn in conversation.messages if turn.is_image()]
