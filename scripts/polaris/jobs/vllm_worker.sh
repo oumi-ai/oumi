@@ -1,7 +1,6 @@
 #!/bin/bash
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
-POLARIS_NUM_GPUS_PER_NODE=4
 LOG_PREFIX="Node: ${POLARIS_NODE_RANK}:"
 
 echo "${LOG_PREFIX} ***ENV BEGIN***"
@@ -83,7 +82,7 @@ if [ "${POLARIS_NODE_RANK}" == "0" ]; then
     ray status
     SERVER_LOG_PATH="${TMPDIR}/vllm_api_server.log"
 
-    TENSOR_PARALLEL=$((POLARIS_NUM_GPUS_PER_NODE * OUMI_NUM_NODES))
+    TENSOR_PARALLEL=$((OUMI_POLARIS_NUM_GPUS_PER_NODE * OUMI_NUM_NODES))
     LORA_MODULES=
     VLLM_MODEL="${HF_HOME}/hub/models--${SNAPSHOT_DIR}/snapshots/$SNAPSHOT"
     # For inference on a full fine-tuned model, uncomment the following line.

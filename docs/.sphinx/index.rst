@@ -1,5 +1,5 @@
 Open Universal Machine Intelligence (Oumi) Documentation
-======================================
+========================================================
 Welcome to the documentation for Open Universal Machine Intelligence (Oumi) !
 
 Oumi is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
