@@ -16,6 +16,7 @@ Subpackages
    oumi.datasets
    oumi.evaluation
    oumi.inference
+   oumi.judges
    oumi.launcher
    oumi.models
    oumi.performance
