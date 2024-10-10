@@ -95,6 +95,7 @@ class ModelParams(BaseParams):
     """The attention implementation to use.
 
     Valid options include:
+
     - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
     - "sdpa": Use PyTorch's scaled dot-product attention
     - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
