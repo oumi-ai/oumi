@@ -1,7 +1,6 @@
 #!/bin/bash
 
 POLARIS_NODE_RANK=${PMI_RANK:=0}
-POLARIS_NUM_GPUS_PER_NODE=4
 # Reversing GPUs order to match Polaris CPU affinities:
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 export CUDA_VISIBLE_DEVICES=3,2,1,0
@@ -105,13 +104,12 @@ ${PROFILER_TRAINING_PARAMS}
 ${OUMI_TELEMETRY_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
-TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${POLARIS_NUM_GPUS_PER_NODE}))
 if [ "$TRAINING_MODE" == "ddp" ]; then
     set -x # Print "torchrun" command with expanded variables
     torchrun \
         --nnodes=${OUMI_NUM_NODES} \
         --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+        --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
         --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
@@ -122,11 +120,11 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
-    export CUDA_VISIBLE_DEVICES=$((${POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_NUM_GPUS_PER_NODE}))
+    export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
     set -x # Print "torchrun" command with expanded variables
     echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
     torchrun \
-        --nnodes=${TOTAL_NUM_GPUS} \
+        --nnodes=${OUMI_TOTAL_NUM_GPUS} \
         --node-rank=${POLARIS_NODE_RANK} \
         --nproc-per-node=1 \
         --master-addr=${OUMI_MASTER_ADDR} \
@@ -144,7 +142,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     accelerate launch \
         --num_machines ${OUMI_NUM_NODES} \
         --machine_rank ${POLARIS_NODE_RANK} \
-        --num_processes ${TOTAL_NUM_GPUS} \
+        --num_processes ${OUMI_TOTAL_NUM_GPUS} \
         --main_process_ip ${OUMI_MASTER_ADDR} \
         --main_process_port 8007 \
         --use_deepspeed \
@@ -163,7 +161,7 @@ else       # FSDP
     accelerate launch \
         --num_machines ${OUMI_NUM_NODES} \
         --machine_rank ${POLARIS_NODE_RANK} \
-        --num_processes ${TOTAL_NUM_GPUS} \
+        --num_processes ${OUMI_TOTAL_NUM_GPUS} \
         --main_process_ip ${OUMI_MASTER_ADDR} \
         --main_process_port 8007 \
         --use_fsdp \
