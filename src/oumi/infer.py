@@ -39,13 +39,13 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         return RemoteInferenceEngine(config.model)
     elif config.engine is None:
         logger.warning(
-            "No inference engine specified. " "Using the default 'native' engine."
+            "No inference engine specified. Using the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)
     else:
         logger.warning(
             f"Unsupported inference engine: {config.engine}. "
-            "Using the default 'native' engine."
+            "Falling back to the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)
 
