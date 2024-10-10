@@ -27,6 +27,21 @@ from oumi.datasets.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.debug import DebugClassificationDataset, DebugPretrainingDataset
 from oumi.datasets.dolly import ArgillaDollyDataset
 from oumi.datasets.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
+from oumi.datasets.pretraining.c4 import C4Dataset
+from oumi.datasets.pretraining.dolma import DolmaDataset
+from oumi.datasets.pretraining.falcon_refinedweb import FalconRefinedWebDataset
+from oumi.datasets.pretraining.fineweb_edu import FineWebEduDataset
+from oumi.datasets.pretraining.pile import PileV1Dataset
+from oumi.datasets.pretraining.red_pajama_v1 import RedPajamaDataV1Dataset
+from oumi.datasets.pretraining.red_pajama_v2 import RedPajamaDataV2Dataset
+from oumi.datasets.pretraining.slim_pajama import SlimPajamaDataset
+from oumi.datasets.pretraining.starcoder import StarCoderDataset
+from oumi.datasets.pretraining.the_stack import TheStackDataset
+from oumi.datasets.pretraining.tiny_stories import TinyStoriesDataset
+from oumi.datasets.pretraining.tiny_textbooks import TinyTextbooksDataset
+from oumi.datasets.pretraining.wikipedia import WikipediaDataset
+from oumi.datasets.pretraining.wikitext import WikiTextDataset
+from oumi.datasets.pretraining.youtube_commons import YouTubeCommonsDataset
 from oumi.datasets.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
@@ -37,16 +52,31 @@ from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 __all__ = [
     "AlpacaDataset",
-    "ChatqaDataset",
-    "ChatRAGBenchDataset",
-    "DebugClassificationDataset",
-    "DebugPretrainingDataset",
-    "COCOCaptionsDataset",
-    "Flickr30kDataset",
-    "LlavaInstructMixVsftDataset",
-    "VLJsonlinesDataset",
     "ArgillaDollyDataset",
     "ArgillaMagpieUltraDataset",
+    "C4Dataset",
+    "ChatqaDataset",
+    "ChatRAGBenchDataset",
+    "COCOCaptionsDataset",
+    "DebugClassificationDataset",
+    "DebugPretrainingDataset",
+    "DolmaDataset",
+    "FalconRefinedWebDataset",
+    "FineWebEduDataset",
+    "Flickr30kDataset",
+    "LlavaInstructMixVsftDataset",
     "MagpieProDataset",
+    "PileV1Dataset",
+    "RedPajamaDataV1Dataset",
+    "RedPajamaDataV2Dataset",
+    "SlimPajamaDataset",
+    "StarCoderDataset",
     "TextSftJsonLinesDataset",
+    "TheStackDataset",
+    "TinyStoriesDataset",
+    "TinyTextbooksDataset",
+    "VLJsonlinesDataset",
+    "WikipediaDataset",
+    "WikiTextDataset",
+    "YouTubeCommonsDataset",
 ]
