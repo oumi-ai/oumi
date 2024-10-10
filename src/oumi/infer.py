@@ -25,22 +25,22 @@ class _EngineTypes(str, Enum):
 
 def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config."""
-    if config.generation.engine == _EngineTypes.NATIVE:
+    if config.engine == _EngineTypes.NATIVE:
         return NativeTextInferenceEngine(config.model)
-    elif config.generation.engine == _EngineTypes.VLLM:
+    elif config.engine == _EngineTypes.VLLM:
         return VLLMInferenceEngine(config.model)
-    elif config.generation.engine == _EngineTypes.LLAMACPP:
+    elif config.engine == _EngineTypes.LLAMACPP:
         return LlamaCppInferenceEngine(config.model)
-    elif config.generation.engine == _EngineTypes.ANTHROPIC:
+    elif config.engine == _EngineTypes.ANTHROPIC:
         return AnthropicInferenceEngine(config.model)
-    elif config.generation.engine is None:
+    elif config.engine is None:
         logger.warning(
             "No inference engine specified. " "Using the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)
     else:
         logger.warning(
-            f"Unsupported inference engine: {config.generation.engine}. "
+            f"Unsupported inference engine: {config.engine}. "
             "Using the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)

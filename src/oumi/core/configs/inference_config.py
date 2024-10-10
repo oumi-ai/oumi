@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.generation_params import GenerationParams
@@ -12,3 +13,15 @@ class InferenceConfig(BaseConfig):
 
     generation: GenerationParams = field(default_factory=GenerationParams)
     """Parameters for text generation during inference."""
+
+    engine: Optional[str] = None
+    """The inference engine to use for generation.
+
+    Supported values:
+    - "vllm"
+    - "llamacpp"
+    - "anthropic"
+    - "native"
+
+    If not specified, the "native" engine will be used.
+    """

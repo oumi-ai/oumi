@@ -7,18 +7,6 @@ from oumi.core.configs.params.remote_params import RemoteParams
 
 @dataclass
 class GenerationParams(BaseParams):
-    engine: Optional[str] = None
-    """The inference engine to use for generation.
-
-    Supported values:
-    - "vllm"
-    - "llamacpp"
-    - "anthropic"
-    - "native"
-
-    If not specified, the "native" engine will be used.
-    """
-
     # TODO: OPE-328 - Add more parameters to control text generation.
     max_new_tokens: int = 256
     """The maximum number of new tokens to generate.
