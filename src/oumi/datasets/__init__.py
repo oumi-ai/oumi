@@ -30,6 +30,7 @@ from oumi.datasets.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
 from oumi.datasets.pretraining.fineweb_edu import FineWebEduDataset
+from oumi.datasets.pretraining.pile import PileV1Dataset
 from oumi.datasets.pretraining.wikipedia import WikipediaDataset
 from oumi.datasets.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
@@ -57,4 +58,5 @@ __all__ = [
     "DolmaDataset",
     "TextSftJsonLinesDataset",
     "WikipediaDataset",
+    "PileV1Dataset",
 ]
