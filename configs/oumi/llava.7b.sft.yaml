@@ -54,6 +54,7 @@ training:
   warmup_ratio: 0.1
   logging_steps: 5
   save_steps: 0
-  dataloader_num_workers: 0 # TODO: fix bug with forking process. Likely related to the processor reference?
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
   include_performance_metrics: true
   enable_wandb: True

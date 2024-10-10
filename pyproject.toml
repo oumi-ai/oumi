@@ -114,10 +114,6 @@ optional = [
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
-oumi-evaluate = "oumi.evaluate:main"
-oumi-infer = "oumi.infer:main"
-oumi-launch = "oumi.launch:main"
-oumi-train = "oumi.train:main"
 oumi = "oumi.core.cli.main:run"
 
 [tool.ruff]
