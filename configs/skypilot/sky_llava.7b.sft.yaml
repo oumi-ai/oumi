@@ -43,8 +43,15 @@ run: |
       -m oumi.train \
       -c configs/oumi/llava.7b.sft.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
+      "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+
+# 1 GPU
+# sky launch -i 10 --env OUMI_RUN_NAME=llava.7b.sft.llava-mix.1xA10080GB.100steps.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100-80GB:1" --cluster xrdaukar-1node1gpu-80gb-01-lema-cluster ./configs/skypilot/sky_llava.7b.sft.yaml
+
+# 4 GPUs
+# sky launch -i 10 --env OUMI_RUN_NAME=llava.7b.sft.llava-mix.4xA10080GB.100steps.v101 --cloud GCP --use-spot --num-nodes 1 --gpus "A100-80GB:4" --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster ./configs/skypilot/sky_llava.7b.sft.yaml
