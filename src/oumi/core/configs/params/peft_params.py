@@ -132,7 +132,7 @@ class PeftParams(BaseParams):
 
     bnb_4bit_quant_storage: str = field(
         default="uint8",
-        metadata={"help": "Storage type to pack the quanitzed 4-bit prarams."},
+        metadata={"help": "Storage type to pack the quantized 4-bit params."},
     )
     """The storage type for packing quantized 4-bit parameters.
 
