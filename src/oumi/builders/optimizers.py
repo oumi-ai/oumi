@@ -1,4 +1,3 @@
-import bitsandbytes
 import torch
 from transformers.optimization import Adafactor
 
@@ -44,24 +43,39 @@ def build_optimizer(
             eps=config.adam_epsilon,
             fused=fused_available,
         )
-    elif optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
-        return bitsandbytes.optim.AdamW(
-            trainable_param_groups,
-            lr=config.learning_rate,
-            betas=(config.adam_beta1, config.adam_beta2),
-            eps=config.adam_epsilon,
-            weight_decay=config.weight_decay,
-            optim_bits=8,
-            is_paged=optimizer_name == "paged_adamw_8bit",
-        )
-    elif optimizer_name in ("paged_adamw", "paged_adamw_32bit"):
-        return bitsandbytes.optim.PagedAdamW(
-            trainable_param_groups,
-            lr=config.learning_rate,
-            betas=(config.adam_beta1, config.adam_beta2),
-            eps=config.adam_epsilon,
-            weight_decay=config.weight_decay,
-        )
+    elif optimizer_name in (
+        "adamw_8bit",
+        "paged_adamw_8bit",
+        "paged_adamw",
+        "paged_adamw_32bit",
+    ):
+        try:
+            import bitsandbytes  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            raise ImportError(
+                "bitsandbytes is not installed. "
+                "Please install it with `pip install bitsandbytes` "
+                "to use 8-bit or paged optimizers."
+            )
+
+        if optimizer_name in ("adamw_8bit", "paged_adamw_8bit"):
+            return bitsandbytes.optim.AdamW(
+                trainable_param_groups,
+                lr=config.learning_rate,
+                betas=(config.adam_beta1, config.adam_beta2),
+                eps=config.adam_epsilon,
+                weight_decay=config.weight_decay,
+                optim_bits=8,
+                is_paged=optimizer_name == "paged_adamw_8bit",
+            )
+        else:  # paged_adamw or paged_adamw_32bit
+            return bitsandbytes.optim.PagedAdamW(
+                trainable_param_groups,
+                lr=config.learning_rate,
+                betas=(config.adam_beta1, config.adam_beta2),
+                eps=config.adam_epsilon,
+                weight_decay=config.weight_decay,
+            )
     elif optimizer_name == "sgd":
         return torch.optim.SGD(
             trainable_param_groups,

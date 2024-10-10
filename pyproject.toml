@@ -74,9 +74,7 @@ dev = [
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
 # TODO: train target will be removed in a future release
-train = [
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-]
+train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
     "nbsphinx",                # Allows us to include ipython notebooks in the docs
@@ -107,7 +105,10 @@ cambrian = [ # Consider merging into "train"
     "diffusers[torch]",
     "einops==0.6.1",
 ]
-
+optional = [
+    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
+    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
+]
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
