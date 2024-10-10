@@ -74,9 +74,8 @@ dev = [
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
 # TODO: train target will be removed in a future release
-train = [
-    "openai", # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
-]
+# Leaving it empty for now, to avoid breaking changes
+train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
     "nbsphinx",                # Allows us to include ipython notebooks in the docs
