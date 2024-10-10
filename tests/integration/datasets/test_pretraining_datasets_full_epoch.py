@@ -1,19 +1,15 @@
-from collections import namedtuple
-
 import pytest
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from oumi.core.registry import REGISTRY
 
-TestDatasetConfig = namedtuple("TestDatasetConfig", ["dataset_name", "dataset_subset"])
-
-
 USE_STREAMING: bool = True
 LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
 
 
 @pytest.fixture(
+    # (dataset_name, dataset_subset)
     params=[
         ("allenai/c4", "en"),
         ("allenai/dolma", "v1_7"),
@@ -51,7 +47,10 @@ def dataset_fixture(request):
     )
 
 
-def test_dataset_conversation(dataset_fixture):
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
+def test_dataset_iteration(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert dataset is not None
 
