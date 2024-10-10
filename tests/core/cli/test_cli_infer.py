@@ -92,9 +92,7 @@ def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
         mock_infer.assert_has_calls(
             [
                 call(
-                    model_params=config.model,
-                    generation_params=config.generation,
-                    input=[],
+                    config=config,
                 )
             ]
         )
@@ -125,9 +123,7 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
         mock_infer.assert_has_calls(
             [
                 call(
-                    model_params=expected_config.model,
-                    generation_params=expected_config.generation,
-                    input=[],
+                    config=expected_config,
                 )
             ]
         )

@@ -1,10 +1,49 @@
 import argparse
-from typing import List
+from enum import Enum
+from typing import List, Optional
 
-from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs import InferenceConfig
+from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
-from oumi.inference import NativeTextInferenceEngine
+from oumi.inference import (
+    AnthropicInferenceEngine,
+    LlamaCppInferenceEngine,
+    NativeTextInferenceEngine,
+    VLLMInferenceEngine,
+)
 from oumi.utils.logging import logger
+
+
+class _EngineTypes(str, Enum):
+    """The supported inference engines."""
+
+    NATIVE = "native"
+    VLLM = "vllm"
+    LLAMACPP = "llamacpp"
+    ANTHROPIC = "anthropic"
+
+
+def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
+    """Returns the inference engine based on the provided config."""
+    if config.generation.engine == _EngineTypes.NATIVE:
+        return NativeTextInferenceEngine(config.model)
+    elif config.generation.engine == _EngineTypes.VLLM:
+        return VLLMInferenceEngine(config.model)
+    elif config.generation.engine == _EngineTypes.LLAMACPP:
+        return LlamaCppInferenceEngine(config.model)
+    elif config.generation.engine == _EngineTypes.ANTHROPIC:
+        return AnthropicInferenceEngine(config.model)
+    elif config.generation.engine is None:
+        logger.warning(
+            "No inference engine specified. " "Using the default 'native' engine."
+        )
+        return NativeTextInferenceEngine(config.model)
+    else:
+        logger.warning(
+            f"Unsupported inference engine: {config.generation.engine}. "
+            "Using the default 'native' engine."
+        )
+        return NativeTextInferenceEngine(config.model)
 
 
 def parse_cli():
@@ -47,9 +86,8 @@ def infer_interactive(config: InferenceConfig) -> None:
     """Interactively provide the model response for a user-provided input."""
     input_text = input("Enter your input prompt: ")
     model_response = infer(
-        model_params=config.model,
-        generation_params=config.generation,
-        input=[
+        config=config,
+        prompts=[
             input_text,
         ],
     )
@@ -58,32 +96,29 @@ def infer_interactive(config: InferenceConfig) -> None:
 
 # TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
-    model_params: ModelParams,
-    generation_params: GenerationParams,
-    input: List[str],
+    config: InferenceConfig,
+    prompts: Optional[List[str]] = None,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
-        model_params: The model parameters.
-        generation_params: The model generation parameters.
-        input: A list of text prompts of shape (num_batches, batch_size).
-        exclude_prompt_from_response: Whether to trim the model's response and remove
-          the prepended prompt.
+        config: The configuration to use for inference.
+        prompts: A list of text prompts.
 
     Returns:
-        object: A list of model responses of shape (num_batches, batch_size).
+        object: A list of model responses.
     """
-    inference_engine = NativeTextInferenceEngine(model_params)
-    conversations = [
-        Conversation(messages=[Message(content=content, role=Role.USER)])
-        for content in input
-    ]
+    inference_engine = _get_engine(config)
     # Pass None if no conversations are provided.
-    conversations = None if not conversations else conversations
+    conversations = None
+    if prompts and len(prompts) > 0:
+        conversations = [
+            Conversation(messages=[Message(content=content, role=Role.USER)])
+            for content in prompts
+        ]
     generations = inference_engine.infer(
         input=conversations,
-        generation_params=generation_params,
+        generation_params=config.generation,
     )
     if not generations:
         raise RuntimeError("No generations were returned.")
