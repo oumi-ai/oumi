@@ -30,14 +30,16 @@ pygments_style = "default"  # see https://pygments.org/demo/
 add_module_names = True
 
 extensions = [
+    "myst_parser",
+    "nbsphinx",
+    "sphinx_copybutton",
+    "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.duration",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
-    "sphinx_copybutton",
-    "myst_parser",
-    "nbsphinx",
 ]
 
 source_suffix = {
@@ -61,6 +63,8 @@ coverage_show_missing_items = True
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+# Importing these modules causes errors in the docs build
+autodoc_mock_imports = ["oumi.models.experimental"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -68,11 +72,11 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "sphinx_rtd_theme"
 html_show_sourcelink = False
 html_show_sphinx = False
-html_static_path = ["_static"]
 html_theme_options = {
     "navigation_with_keys": True,
-    "repository_url": "https://github.com/oumi-ai/oumi",
-    "use_repository_button": True,
-    "repository_branch": "main",
-    "show_toc_level": 3,
+    # TODO: not supported by sphinx_rtd_theme theme but would be nice to show
+    # "repository_url": "https://github.com/oumi-ai/oumi",
+    # "use_repository_button": True,
+    # "repository_branch": "main",
+    # "show_toc_level": 3,
 }

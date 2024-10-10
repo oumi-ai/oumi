@@ -5,6 +5,7 @@ the Oumi framework for tasks such as training, evaluation, inference,
 and job management.
 
 The configurations are organized into different categories:
+
 - Evaluation:
     - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
     - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
