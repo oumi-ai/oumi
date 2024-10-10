@@ -20,6 +20,7 @@ cd ${PBS_O_WORKDIR}
 pip install -U "ray" -q
 pip install vllm -q
 pip install locust -q
+pip install openai -q
 
 export HOSTNAME=$(hostname -f)
 echo "${LOG_PREFIX} HOSTNAME: ${HOSTNAME}"

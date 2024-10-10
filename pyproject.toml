@@ -75,9 +75,7 @@ dev = [
 ]
 # TODO: train target will be removed in a future release
 train = [
-    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
