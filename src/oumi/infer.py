@@ -1,8 +1,7 @@
 import argparse
-from enum import Enum
 from typing import List, Optional
 
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference import (
@@ -15,33 +14,23 @@ from oumi.inference import (
 from oumi.utils.logging import logger
 
 
-class _EngineTypes(str, Enum):
-    """The supported inference engines."""
-
-    NATIVE = "native"
-    VLLM = "vllm"
-    LLAMACPP = "llamacpp"
-    REMOTE = "remote"
-    ANTHROPIC = "anthropic"
-
-
 def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config."""
-    if config.engine == _EngineTypes.NATIVE:
-        return NativeTextInferenceEngine(config.model)
-    elif config.engine == _EngineTypes.VLLM:
-        return VLLMInferenceEngine(config.model)
-    elif config.engine == _EngineTypes.LLAMACPP:
-        return LlamaCppInferenceEngine(config.model)
-    elif config.engine == _EngineTypes.ANTHROPIC:
-        return AnthropicInferenceEngine(config.model)
-    elif config.engine == _EngineTypes.REMOTE:
-        return RemoteInferenceEngine(config.model)
-    elif config.engine is None:
+    if config.engine is None:
         logger.warning(
             "No inference engine specified. Using the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.NATIVE:
+        return NativeTextInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.VLLM:
+        return VLLMInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.LLAMACPP:
+        return LlamaCppInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.ANTHROPIC:
+        return AnthropicInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.REMOTE:
+        return RemoteInferenceEngine(config.model)
     else:
         logger.warning(
             f"Unsupported inference engine: {config.engine}. "
@@ -115,7 +104,7 @@ def infer(
     inference_engine = _get_engine(config)
     # Pass None if no conversations are provided.
     conversations = None
-    if prompts and len(prompts) > 0:
+    if prompts is not None and len(prompts) > 0:
         conversations = [
             Conversation(messages=[Message(content=content, role=Role.USER)])
             for content in prompts
