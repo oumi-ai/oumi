@@ -9,15 +9,13 @@ model:
 
 training:
   trainer_type: TRL_SFT
+  learning_rate: 2.0e-05
+  output_dir: "output/llama8b.longctx.sft"
 
   compile: True # Enabling compilation helps reduce required vram
   per_device_train_batch_size: 1 # Keeping low to maximize context length
   gradient_accumulation_steps: 1 # Update as needed for your desired effective batch size
-
   optimizer: "adamw_torch_fused" # Use this for up to 32K context
-  learning_rate: 2.0e-05
-
-  output_dir: "output/llama8b.longctx.sft"
 
   logging_steps: 5 # For debugging, change to something more reasonable
   max_steps: 100 # For debugging, change to something more reasonable
