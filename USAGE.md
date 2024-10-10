@@ -159,7 +159,7 @@ This will launch the training script on 4 GPUs.
 
 To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use `oumi launch`, which makes it straightforward to run jobs on remote machines.
 
-You can find a detailled example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
+You can find a detailed example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
 
 ## 9. Monitoring and Logging
 
