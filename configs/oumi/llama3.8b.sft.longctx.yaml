@@ -8,7 +8,7 @@
 #     --dynamo_backend inductor \
 #     --mixed_precision no \
 #     -m oumi.train \
-#     -c "configs/oumi/llama3.8b.sft.longctx"
+#     -c "configs/oumi/llama3.8b.sft.longctx.yaml"
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
