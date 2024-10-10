@@ -8,7 +8,11 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 class ShardingStrategy(str, Enum):
-    """Enum representing the sharding strategies for FSDP."""
+    """Enum representing the sharding strategies for FSDP.
+
+    See :external:class:`torch.distributed.fsdp.ShardingStrategy`
+    for more details.
+    """
 
     FULL_SHARD = "FULL_SHARD"
     """Shards model parameters, gradients, and optimizer states.
@@ -126,6 +130,9 @@ class FSDPParams(BaseParams):
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
     """Determines how to shard model parameters across GPUs.
+
+    See :external:class:`torch.distributed.fsdp.api.ShardingStrategy` for more details.
+
 
     Options:
         FULL_SHARD: Shards model parameters, gradients, and optimizer states.
