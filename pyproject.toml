@@ -74,6 +74,7 @@ dev = [
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
 # TODO: train target will be removed in a future release
+# Leaving it empty for now, to avoid breaking changes
 train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
