@@ -41,6 +41,7 @@ from oumi.datasets.pretraining.tiny_stories import TinyStoriesDataset
 from oumi.datasets.pretraining.tiny_textbooks import TinyTextbooksDataset
 from oumi.datasets.pretraining.wikipedia import WikipediaDataset
 from oumi.datasets.pretraining.wikitext import WikiTextDataset
+from oumi.datasets.pretraining.youtube_commons import YouTubeCommonsDataset
 from oumi.datasets.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
@@ -77,4 +78,5 @@ __all__ = [
     "VLJsonlinesDataset",
     "WikipediaDataset",
     "WikiTextDataset",
+    "YouTubeCommonsDataset",
 ]

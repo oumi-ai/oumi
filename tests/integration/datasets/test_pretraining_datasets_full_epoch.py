@@ -15,16 +15,21 @@ LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
 
 @pytest.fixture(
     params=[
-        ("wikimedia/wikipedia", "20231101.en"),
         ("allenai/c4", "en"),
         ("allenai/dolma", "v1_7"),
-        ("tiiuae/falcon-refinedweb", None),
+        ("bigcode/starcoderdata", "python"),
+        ("bigcode/the-stack", "python"),
+        ("cerebras/SlimPajama-627B", None),
+        ("EleutherAI/pile", "default"),
         ("HuggingFaceFW/fineweb-edu", "sample-10BT"),
-        ("EleutherAI/pile", None),
+        ("nampdn-ai/tiny-textbooks", None),
+        ("PleIAs/YouTube-Commons", None),
+        ("roneneldan/TinyStories", None),
+        ("Salesforce/wikitext", "wikitext-2-raw-v1"),
+        ("tiiuae/falcon-refinedweb", None),
         ("togethercomputer/RedPajama-Data-1T", "common_crawl"),
         ("togethercomputer/RedPajama-Data-V2", "default"),
-        ("cerebras/SlimPajama-627B", None),
-        ("bigcode/starcoderdata", None),
+        ("wikimedia/wikipedia", "20231101.en"),
     ]
 )
 def dataset_fixture(request):
