@@ -22,6 +22,9 @@ LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
         ("HuggingFaceFW/fineweb-edu", "sample-10BT"),
         ("EleutherAI/pile", None),
         ("togethercomputer/RedPajama-Data-1T", "common_crawl"),
+        ("togethercomputer/RedPajama-Data-V2", "default"),
+        ("cerebras/SlimPajama-627B", None),
+        ("bigcode/starcoderdata", None),
     ]
 )
 def dataset_fixture(request):

@@ -17,21 +17,6 @@ class WikipediaDataset(BasePretrainingIterableDataset):
         split (str): The split to load. Only "train" is available.
         **kwargs: Additional arguments to pass to the underlying dataset loading method.
 
-    Example:
-        >>> from transformers import AutoTokenizer
-        >>> from oumi.core.datasets import WikipediaDataset
-        >>>
-        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        >>> dataset = WikipediaDataset(
-        ...     subset="20231101.en",
-        ...     split="train",
-        ...     tokenizer=tokenizer,
-        ...     seq_length=512
-        ... )
-        >>>
-        >>> for batch in dataset:
-        ...     print(batch)  # Process the batch
-
     Data Fields:
         - id (str): ID of the article.
         - url (str): URL of the article.
