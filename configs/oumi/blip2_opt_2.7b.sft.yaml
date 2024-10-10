@@ -10,6 +10,8 @@ model:
 data:
   train:
     collator_name: "vision_language"
+    experimental_use_torch_datapipes: False
+    target_col: "text" # TODO: useless col, but required by the trainer
     datasets:
       - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
         split: "train"
@@ -29,7 +31,6 @@ data:
       #     data_column: "messages"
       #     dataset_path: "training.jsonl"  # See notebook for example how to generate this file
       #     processor_name: "Salesforce/blip2-opt-2.7b"
-    target_col: "text" # TODO: useless col, but required by the trainer
 
 training:
   optimizer: "sgd"
