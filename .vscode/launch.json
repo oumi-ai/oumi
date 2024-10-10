@@ -86,7 +86,7 @@
                 "8",
                 "--use_fsdp",
                 "--config_file",
-                "configs/accelerate/llama8b.fsdp.yaml",
+                "configs/accelerate/llama.fsdp.yaml",
                 "-m",
                 "oumi.train",
                 "-c",
@@ -142,7 +142,7 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "coco_captions"
+                "HuggingFaceH4/llava-instruct-mix-vsft"
             ],
             "justMyCode": true
         },

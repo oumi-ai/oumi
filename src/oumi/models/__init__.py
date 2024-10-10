@@ -6,7 +6,7 @@ with the datasets and training pipelines provided by Oumi.
 
 Available models:
     - :py:class:`~oumi.models.mlp.MLPEncoder`: A Multi-Layer Perceptron (MLP)
-    encoder model.
+        encoder model.
 
 Each model is implemented as a separate class, inheriting from appropriate base classes
 in the Oumi framework.

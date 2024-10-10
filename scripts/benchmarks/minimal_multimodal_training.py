@@ -79,6 +79,7 @@ def _get_freeze_layers(model_name: ModelName) -> List[str]:
 class DatasetName(str, Enum):
     COCO = "coco_captions"
     FLICKR = "nlphuji/flickr30k"
+    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -127,17 +128,20 @@ def test_multimodal_trainer(
 
     # TODO: assign the right chat template for each model
     # For now, we use the LLaVA chat template for all models
+    # NOTE: We can't use the original model's template because
+    # oumi will feed it an array of `oumi.core.types.turn.Message`
+    # objects (vs model-specific Python dict).
     chat_template = build_chat_template("llava")
     processor.chat_template = chat_template
     tokenizer.chat_template = chat_template
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
-        tokenizer=processor.tokenizer,
+        tokenizer=tokenizer,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
-        experimental_use_torch_datapipes=False,
+        experimental_use_torch_datapipes=True,
     )
 
     #

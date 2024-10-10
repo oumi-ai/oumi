@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -37,6 +38,17 @@ def build_model(
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
         model = build_oumi_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            *kwargs,
+        )
+    elif model_params.model_name in (
+        "nyu-visionx/cambrian-phi3-3b",
+        "nyu-visionx/cambrian-8b",
+        "nyu-visionx/cambrian-13b",
+        "nyu-visionx/cambrian-34b",
+    ):
+        model = build_cambrian_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
@@ -245,6 +257,80 @@ def _get_transformers_model_class(config):
     return auto_model_class
 
 
+def build_cambrian_model(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+) -> nn.Module:
+    """Downloads and builds the model from the HuggingFace Hub."""
+    from importlib.util import find_spec
+
+    for dependency_name in ("diffusers", "einops", "open_clip", "timm"):
+        if not find_spec(dependency_name):
+            raise RuntimeError(
+                f"Failed to find the required dependency package:'{dependency_name}' "
+                f"for the Cambrian model: '{model_params.model_name}'. "
+                "Run `pip install oumi[cambrian]`, and try again."
+            )
+
+    try:
+        from oumi.models.experimental.cambrian.mm_utils import (
+            get_model_name_from_path as get_cambrian_model_name_from_path,
+        )
+        from oumi.models.experimental.cambrian.model.builder import (
+            load_pretrained_model as load_cambrian_pretrained_model,
+        )
+    except ImportError as e:
+        raise RuntimeError(
+            "Failed to load a required dependency "
+            f"for the Cambrian model: '{model_params.model_name}'. "
+            "Run `pip install oumi[cambrian]`, and try again."
+        ) from e
+
+    device_map = model_params.device_map
+    device_rank_info = get_device_rank_info()
+
+    # If we're using FSDP via HF Accelerate, we should not specify the device map
+    # so that HF properly initializes the model for FSDP.
+    # If we set device_map to "auto", it seems HF will try to shard the model when
+    # loading it, which conflicts with FSDP's sharding.
+    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
+    # load the model only on rank 0, which will OOM for large models.
+    # See https://github.com/huggingface/transformers/pull/25107.
+    if is_using_accelerate_fsdp():
+        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
+        device_map = None
+    elif device_map == "auto" and device_rank_info.world_size > 1:
+        # "auto" is not compatible with DDP.
+        logger.info(
+            f"Building model for distributed training "
+            f"(world_size: {device_rank_info.world_size})..."
+        )
+        device_map = f"cuda:{device_rank_info.local_rank}"
+    logger.info(
+        f"Building model using device_map: {device_map} ({device_rank_info})..."
+    )
+
+    model_path = str(Path(model_params.model_name).expanduser())
+    model_name = get_cambrian_model_name_from_path(model_path)
+    tokenizer, model, processor, _ = load_cambrian_pretrained_model(
+        model_path, None, model_name, device_map=(device_map or "auto")
+    )
+
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+
+    # TODO Find a better way to handle it
+
+    # Load pretrained PEFT adapters
+    if model_params.adapter_model:
+        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+
+    return model
+
+
 def build_tokenizer(
     model_params: ModelParams, **kwargs
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
@@ -286,9 +372,6 @@ def build_tokenizer(
             "specified in model config!"
         )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
-    elif not tokenizer.chat_template and tokenizer.default_chat_template:
-        logger.info(f"Using the '{tokenizer_name}' tokenizer's default chat template!")
-        tokenizer.chat_template = tokenizer.default_chat_template
 
     if tokenizer.chat_template is None:
         logger.warning(
@@ -296,6 +379,12 @@ def build_tokenizer(
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
         )
+        logger.warning(
+            "Setting tokenizer to use the 'default' chat template."
+            "The 'default' template does not use any special tokens, "
+            "and is unlikely to yield good results. "
+        )
+        tokenizer.chat_template = build_chat_template(template_name="default")
 
     return tokenizer
 

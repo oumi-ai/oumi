@@ -32,17 +32,29 @@ classifiers = [
 ]
 
 dependencies = [
+    "accelerate>=1.0.0",
+    "aiohttp",                    # Used by infererence engine
+    "aioresponses",               # User by inference engine tests
+    "datasets",
     "jsonlines",
+    "lm-eval>=0.4.5,<0.5.0",
     "numpy",
-    "openai",
-    "pexpect",
-    "skypilot",
-    "torch",
-    "torchvision",
+    "omegaconf",
+    "pandas",
+    "peft",
+    "pexpect",                    # Used by Polaris client
+    "pillow",                     # Used by image datasets
+    "pydantic>=2",
+    "skypilot",                   # Used by launcher
+    "tensorboard",                # Optional, for monitoring training
+    "torch>=2.4.0,<2.5.0",
+    "torchdata>=0.8.0",           # Used by data pipes loader
     "tqdm",
-    "transformers",
-    "typer",
-    "typing_extensions",
+    "transformers>=4.45.2,<4.46",
+    "trl>=0.9.0",
+    "typer",                      # Used by CLI
+    "typing_extensions",          # Backports of typing updates to python 3.8
+    "wandb",                      # Optional, for logging to Weights and Biases
 ]
 
 [project.urls]
@@ -51,46 +63,32 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
 dev = [
-    "black",
-    "isort",
-    "ipywidgets",
+    "ipykernel",
+    "ipywidgets", # Interactive widgets for Jupyter notebooks
     "jupyterlab",
-    "mypy",
     "pre-commit",
     "pyright",
+    "pytest-cov", # Test coverage plugin for pytest
     "pytest",
-    "pytest-cov",
     "ruff",
-    "torchfix",
+    "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
-train = [
-    "accelerate>=1.0.0",
-    "aiohttp",
-    "aioresponses",
-    "asyncio",
-    "bitsandbytes",                 # for quantization
-    "datasets",
-    "llama-cpp-python",             # for local cpu inference
-    "lm-eval==0.4.3",               # OPE-390
-    "nvidia-ml-py",
-    "omegaconf",
-    "peft",
-    "pydantic>=2",
-    "safetensors",
-    "sentencepiece",                # for phi-3
-    "tensorboard",
-    "torch==2.4.0",                 # OPE-390
-    "torchdata>=0.8.0",
-    "transformers>=4.43.1,<4.44.0",
-    "trl>=0.9.0",
-    "wandb<0.17.8",
+# TODO: train target will be removed in a future release
+# Leaving it empty for now, to avoid breaking changes
+train = []
+docs = [
+    "myst_parser",             # Allows us to write docs in markdown
+    "nbsphinx",                # Allows us to include ipython notebooks in the docs
+    "sphinx",                  # Used to build the docs
+    "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
+    "sphinx_copybutton",       # Add copy button to code blocks in Sphinx
 ]
-aws = [
-    "skypilot[aws]",
-]
-azure = [
-    "skypilot[azure]",
-]
+# Dependencies that require a GPU to install
+gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
+
+# Targets for supportedcloud providers
+aws = ["skypilot[aws]"]
+azure = ["skypilot[azure]"]
 gcp = [
     "google-api-core>=2.19.0",
     "google-api-python-client",
@@ -99,23 +97,20 @@ gcp = [
     "google-cloud-storage>=2.17.0",
     "skypilot[gcp]",
 ]
-lambda = [
-    "skypilot[lambda]",
+lambda = ["skypilot[lambda]"]
+runpod = ["skypilot[runpod]"]
+
+cambrian = [ # Consider merging into "train"
+    "timm==0.9.16",
+    "open_clip_torch",
+    "diffusers[torch]",
+    "einops==0.6.1",
 ]
-runpod = [
-    "skypilot[runpod]",
+optional = [
+    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
+    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
 ]
-gpu = [
-    "liger-kernel",
-    "vllm",
-] # dependencies that require a GPU to install
-docs = [
-    "myst_parser",
-    "nbsphinx",
-    "sphinx",
-    "sphinx-rtd-theme",
-    "sphinx_copybutton",
-]
+# TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
@@ -130,6 +125,7 @@ extend-include = [
     "*.ipynb", # Include ipython notebooks
 ]
 line-length = 88
+
 
 [tool.ruff.lint]
 select = [
@@ -152,6 +148,20 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"] # Ignore docstring checks in tests
+"src/oumi/models/experimental/cambrian/**" = [
+    "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
+    "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated
+    "F841",   # Ignore pyflakes: Local variable is assigned but never used
+    "E501",   # Ignore pycodestyle: Line too long
+    "E701",   # Ignore pycodestyle: Multiple statements on one line
+    "E721",   # Ignore pycodestyle: Do not compare types, use `isinstance()`
+    "E722",   # Ignore pycodestyle: Do not use bare `except`
+    "E731",   # Ignore pycodestyle: Do not assign a `lambda` expression, use a `def`
+    "E741",   # Ignore pycodestyle: Ambiguous variable name
+    "D",      # Ignore docstring checks in Cambrian
+    "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
+    "W291",   # Ignore pycodestyle: warnings: Trailing whitespace
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -161,10 +171,10 @@ known-first-party = ["oumi"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
-exclude = ["src/oumi/experimental/**"]
+exclude = ["src/oumi/models/experimental/cambrian/**"]
 typeCheckingMode = "basic"
 pythonVersion = "3.8"
-pythonPlatform = "All"                 # Include linux, mac, windows
+pythonPlatform = "All"                                 # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
 
