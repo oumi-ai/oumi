@@ -39,10 +39,6 @@ def infer(
             raise ValueError(
                 "`input_filepath` must be provided for non-interactive mode."
             )
-        oumi_infer(
-            model_params=parsed_config.model,
-            generation_params=parsed_config.generation,
-            input=[],
-        )
+        oumi_infer(config=parsed_config)
     else:
         oumi_infer_interactive(parsed_config)
