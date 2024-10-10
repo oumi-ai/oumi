@@ -10,7 +10,7 @@ model:
 data:
   train:
     collator_name: "vision_language"
-    experimental_use_torch_datapipes: False
+    experimental_use_torch_datapipes: True
     target_col: "text" # TODO: useless col, but required by the trainer
     datasets:
       - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"

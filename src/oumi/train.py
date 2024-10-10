@@ -4,7 +4,6 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-import datasets
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -205,8 +204,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     _create_training_dirs(config)
     _log_training_info(config)
-
-    datasets.disable_caching()
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
