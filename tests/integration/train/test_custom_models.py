@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 
+import pytest
 from transformers import Trainer
 
 from oumi import train
@@ -57,7 +58,11 @@ def _get_default_config(output_temp_dir):
     )
 
 
-def test_train_native_pt_model_from_api():
+@pytest.mark.parametrize(
+    "training",
+    [False, True],
+)
+def test_train_native_pt_model_from_api(training: bool):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config = _get_default_config(output_temp_dir)
 
@@ -65,7 +70,7 @@ def test_train_native_pt_model_from_api():
 
         dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 
-        model = build_model(model_params=config.model)
+        model = build_model(model_params=config.model, training=training)
 
         training_args = config.training.to_hf()
 

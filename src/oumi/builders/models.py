@@ -21,8 +21,18 @@ except ImportError:
     liger_kernel = None
 
 
+def _should_use_model_cache(model_params: ModelParams, training: bool) -> bool:
+    if model_params.use_cache is None:
+        return not training
+    # Using cache can be problematic for training. However if the parameter
+    # is explicitly configured, we will honor it.
+    # Context for FSDP: https://github.com/huggingface/transformers/issues/28499
+    return model_params.use_cache
+
+
 def build_model(
     model_params: ModelParams,
+    training: bool,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
@@ -30,6 +40,7 @@ def build_model(
 
     Args:
         model_params: The model parameters.
+        training: Whether the model is instantiated for training or inference.
         peft_params: The PEFT parameters.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
@@ -39,6 +50,7 @@ def build_model(
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
         model = build_oumi_model(
             model_params=model_params,
+            training=training,
             peft_params=peft_params,
             *kwargs,
         )
@@ -50,12 +62,14 @@ def build_model(
     ):
         model = build_cambrian_model(
             model_params=model_params,
+            training=training,
             peft_params=peft_params,
             *kwargs,
         )
     else:
         model = build_huggingface_model(
             model_params=model_params,
+            training=training,
             peft_params=peft_params,
             *kwargs,
         )
@@ -104,6 +118,7 @@ def _patch_model_for_liger_kernel(model_name: str) -> None:
 
 def build_oumi_model(
     model_params: ModelParams,
+    training: bool,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
@@ -120,6 +135,10 @@ def build_oumi_model(
     if model_params.adapter_model is not None:
         raise NotImplementedError
 
+    use_cache = _should_use_model_cache(model_params, training)
+    if use_cache and not training:
+        logger.warning("KV cache isn't supported for custom oumi models yet")
+
     dtype = model_params.torch_dtype()
     model = model.to(dtype=dtype)
     # Needed for MFUTrainerCallback
@@ -129,6 +148,7 @@ def build_oumi_model(
 
 def build_huggingface_model(
     model_params: ModelParams,
+    training: bool,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
@@ -208,9 +228,7 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    model.config.use_cache = _should_use_model_cache(model_params, training)
 
     # TODO Find a better way to handle it
 
@@ -259,6 +277,7 @@ def _get_transformers_model_class(config):
 
 def build_cambrian_model(
     model_params: ModelParams,
+    training: bool,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
@@ -317,9 +336,7 @@ def build_cambrian_model(
         model_path, None, model_name, device_map=(device_map or "auto")
     )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    model.config.use_cache = _should_use_model_cache(model_params, training)
 
     # TODO Find a better way to handle it
 

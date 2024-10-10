@@ -227,6 +227,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Build model.
     model = build_model(
         model_params=config.model,
+        training=True,
         peft_params=config.peft if use_peft else None,
         *kwargs,
     )

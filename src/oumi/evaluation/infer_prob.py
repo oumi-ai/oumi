@@ -83,7 +83,7 @@ def infer_prob(
         )
         model_params.device_map = "cuda"
 
-    model = build_model(model_params)
+    model = build_model(model_params, training=False)
 
     if enable_dp:
         # In DP, inputs should be on the default device

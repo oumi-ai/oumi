@@ -154,6 +154,15 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    use_cache: Optional[bool] = None
+    """Whether KV cache is enabled during decoding.
+
+    If KV cache is enabled, past key values are used to speed up decoding
+    if applicable to model.
+
+    If unspecified (`None`), defaults to `True` for inference, and `False` for training.
+    """
+
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
         if self.torch_dtype_str in ["f64", "float64", "double"]:
