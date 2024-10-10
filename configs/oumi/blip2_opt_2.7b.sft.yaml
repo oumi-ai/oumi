@@ -21,7 +21,6 @@ data:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 1024
           return_tensors: True
-          drop_last_batch: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
