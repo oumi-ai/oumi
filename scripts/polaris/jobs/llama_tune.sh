@@ -107,7 +107,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
@@ -118,7 +118,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
@@ -129,7 +129,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
@@ -152,7 +152,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \

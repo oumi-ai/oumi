@@ -109,7 +109,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
     torchrun \
         --nnodes=${OUMI_NUM_NODES} \
         --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=${POLARIS_NUM_GPUS_PER_NODE} \
+        --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
         --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
@@ -120,7 +120,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
-    export CUDA_VISIBLE_DEVICES=$((${POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${POLARIS_NUM_GPUS_PER_NODE}))
+    export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
     set -x # Print "torchrun" command with expanded variables
     echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
     torchrun \
