@@ -118,7 +118,7 @@ def _create_job_config(training_config_path: str) -> JobConfig:
             disk_size=512,
             disk_tier="low",
         ),
-        run=f"oumi launch --config {training_config_path}",
+        run=f"oumi launch up --config {training_config_path}",
     )
 
 
