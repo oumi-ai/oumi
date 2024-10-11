@@ -44,7 +44,7 @@ For more advanced use cases, and examples of other configuration options, see th
 To train a model using Oumi, use the `train` script:
 
 ```bash
-oumi-train -c config.yaml
+oumi train -c config.yaml
 
 # Or, if the script is not in your PATH:
 python -m oumi.train -c config.yaml
@@ -67,7 +67,7 @@ You can monitor the training progress in the console output. Checkpoints and log
 After training, you can evaluate your model using the `evaluate` script:
 
 ```bash
-oumi-evaluate -c eval_config.yaml
+oumi evaluate -c eval_config.yaml
 
 # Alternatively:
 python -m oumi.evaluate -c eval_config.yaml
@@ -93,7 +93,7 @@ This will evaluate your model on the specified dataset(s) and save the results i
 To run inference on your trained model, use the `infer` script:
 
 ```bash
-oumi-infer -c infer_config.yaml
+oumi infer -c infer_config.yaml --detach
 
 # Alternatively:
 python -m oumi.infer -c infer_config.yaml
@@ -110,10 +110,10 @@ generation:
   batch_size: 1
 ```
 
-You can also use the `-i` flag for interactive mode:
+By omitting the `--detach` flag you can run in interactive mode:
 
 ```bash
-oumi-infer -c infer_config.yaml -i
+oumi infer -c infer_config.yaml
 ```
 
 This will allow you to input prompts and get responses from your model interactively.
@@ -157,9 +157,9 @@ This will launch the training script on 4 GPUs.
 
 ## 8.  Distributed Training
 
-To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use the `oumi-launcher`, which makes it straightforward to run jobs on remote machines.
+To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use `oumi launch`, which makes it straightforward to run jobs on remote machines.
 
-You can find a detailled example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
+You can find a detailed example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
 
 ## 9. Monitoring and Logging
 
