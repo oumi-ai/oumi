@@ -46,6 +46,7 @@ run: |
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m oumi.train \
       -c configs/oumi/llama8b.qlora.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "peft.bnb_4bit_quant_storage=bfloat16"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
