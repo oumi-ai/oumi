@@ -38,6 +38,8 @@ run: |
   source ./configs/skypilot/sky_init.sh
 
   set -x
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
