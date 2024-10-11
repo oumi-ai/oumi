@@ -23,7 +23,7 @@ def get_app() -> typer.Typer:
     launch_app.command()(stop)
     launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
     launch_app.command()(which)
-    app.add_typer(launch_app, name="launch")
+    app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
     return app
 
 
