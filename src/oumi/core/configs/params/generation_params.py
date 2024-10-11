@@ -32,7 +32,7 @@ class GenerationParams(BaseParams):
     """Path where the generated text will be saved."""
 
     input_image_filepath_for_infer_interactive: Optional[str] = None
-    """Path to the input image to excercise LLMs with image and text inputs.
+    """Path to the input image to exercise LLMs with image and text inputs.
 
     Only used in interactive mode (`infer_interactive`).
     """
