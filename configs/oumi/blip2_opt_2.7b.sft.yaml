@@ -39,20 +39,21 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 32
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 8
   max_steps: 20
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
   ddp_find_unused_parameters: False
-  empty_device_cache_steps: 10
+  empty_device_cache_steps: 5
   learning_rate: 2e-5
   compile: False
   warmup_ratio: 0.1
   logging_steps: 5
   save_steps: 0
-  dataloader_num_workers: 0 # TODO: fix bug with forking process. Likely related to the processor reference?
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
   include_performance_metrics: true
   enable_wandb: True

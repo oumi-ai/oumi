@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.1 70B Instruct on 2 GCP nodes.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama70b_lora.yaml -c llama70b-lora
+# oumi launch up -c configs/oumi/jobs/gcp/llama70b_lora.yaml --cluster llama70b-lora
 name: llama70b-lora
 
 num_nodes: 2
