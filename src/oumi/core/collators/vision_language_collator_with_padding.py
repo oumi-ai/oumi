@@ -52,6 +52,8 @@ class VisionLanguageCollatorWithPadding:
         """
         images = []
         text_inputs = []
+        labels = []
+        labels_present = _LABELS_KEY in batch[0]
         for item in batch:
             # TODO Consider relaxing this constraint: a vision/language model
             # can handle text-only inputs e.g., a follow-up to an answer,
@@ -64,23 +66,35 @@ class VisionLanguageCollatorWithPadding:
                     )
             images.append(item[_PIXEL_VALUES_KEY])
             text_inputs.append(item[_INPUT_IDS_KEY])
+            if labels_present:
+                labels.append(item[_LABELS_KEY])
 
         # collate batch images
         pixel_values = self.collate_images(images)
 
         # collate batch prompts
-        text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
+        collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
+
+        # print(f"INPUTS bs={len(batch)}: {collated_text_inputs}")
 
         # Combine all inputs
         combined_batch = {
             _PIXEL_VALUES_KEY: pixel_values,
-            _INPUT_IDS_KEY: text_inputs[_INPUT_IDS_KEY],
-            _ATTENTION_MASK_KEY: text_inputs.get(_ATTENTION_MASK_KEY),
+            _INPUT_IDS_KEY: collated_text_inputs[_INPUT_IDS_KEY],
+            _ATTENTION_MASK_KEY: collated_text_inputs.get(_ATTENTION_MASK_KEY),
         }
 
         # Add labels if present
-        if _LABELS_KEY in batch[0]:
-            combined_batch[_LABELS_KEY] = text_inputs[_INPUT_IDS_KEY]
+        if labels_present:
+            collated_labels = self._default_collator({_INPUT_IDS_KEY: labels})  # type: ignore
+            labels = collated_labels[_INPUT_IDS_KEY]
+            # Ignore `pad_token_id`-s in the loss computation.
+            if self._special_tokens.ignore_label_id is not None:
+                labels[labels == self._special_tokens.pad_token_id] = int(
+                    self._special_tokens.ignore_label_id
+                )
+            combined_batch[_LABELS_KEY] = labels
+            # print(f"LABELS bs={len(batch)}: {labels}")
 
         return combined_batch
 

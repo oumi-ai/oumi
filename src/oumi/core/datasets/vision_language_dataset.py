@@ -79,7 +79,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                     processor_name,
                 )
 
-        if True:
+        if False:
             import inspect
 
             members = inspect.getmembers(
@@ -219,7 +219,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         inputs["attention_mask"] = inputs["attention_mask"][0]
         inputs["labels"] = inputs["labels"][0]
 
-        # Ignore `image_token_id`-s in loss computation.
+        # Ignore `image_token_id`-s in the loss computation.
         if (
             self._special_tokens.ignore_label_id is not None
             and self._special_tokens.image_token_id is not None
