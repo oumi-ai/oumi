@@ -47,8 +47,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/llama8b.lora.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
-      "training.save_final_model=false"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

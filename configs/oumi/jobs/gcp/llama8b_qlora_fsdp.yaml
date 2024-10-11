@@ -1,25 +1,27 @@
-# Config to full fine-tune Llama 3.2 3B Instruct on 1 GCP node with FSDP.
+# Config to FSDP QLoRA tune Llama 3.1 8B Instruct on GCP.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama3b_sft_fsdp.yaml --cluster llama3b-sft
-name: llama3b-sft-fsdp
+# oumi launch up -c configs/oumi/jobs/gcp/llama8b_qlora.yaml --cluster llama8b-qlora-fsdp
+name: llama8b-lora
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
-  disk_size: 1000 # Disk size in GBs
 
+# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
+# Mount local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc  # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3b.sft.fsdp
+  OUMI_RUN_NAME: llama8b.qlora.fsdp
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
@@ -27,13 +29,16 @@ envs:
 setup: |
   set -e
   pip install '.[train,gpu]'
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  pip install hf_transfer
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
   set -x  # Print "accelerate launch" command with expanded variables
-  # Accelerate config enables gradient checkpointing, so disabling in Oumi config.
   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
@@ -43,10 +48,7 @@ run: |
       --use_fsdp \
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m oumi.train \
-      -c configs/oumi/llama3b.sft.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.per_device_train_batch_size=16" \
-      "training.gradient_accumulation_steps=1" \
-      "training.enable_gradient_checkpointing=False"
+      -c configs/oumi/llama8b.qlora.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
