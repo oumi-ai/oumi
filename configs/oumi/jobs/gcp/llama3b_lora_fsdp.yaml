@@ -31,7 +31,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  set -x  # Print "torchrun" command with expanded variables
+  set -x
   # Accelerate config enables gradient checkpointing, so disabling in Oumi config.
   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \

@@ -31,7 +31,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  set -x  # Print "accelerate" command with expanded variables
+  set -x
   # Accelerate config enables gradient checkpointing, so disabling in Oumi config.
   # Must use a float type for quantized data storage. See:
   # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
