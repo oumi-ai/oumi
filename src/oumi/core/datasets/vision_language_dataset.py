@@ -1,6 +1,6 @@
 import io
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, NamedTuple, Optional, Tuple, Union
 
 import requests
 import torch
@@ -12,6 +12,15 @@ from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
+
+
+class _SpecialTokens(NamedTuple):
+    """Special tokens used by VisionLanguageSftDataset."""
+
+    image_token: Optional[str]
+    image_token_id: Optional[int]
+    pad_token_id: int
+    ignore_token_id: int
 
 
 class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
@@ -57,7 +66,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
-        self._tokenizer = tokenizer
+
+        if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
+            raise RuntimeError("Tokenizer doesn't define `pad_token_id`")
+        pad_token_id: int = int(tokenizer.pad_token_id)
 
         if processor is None:
             if processor_name:
@@ -72,16 +84,46 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         self._processor = processor
 
+        image_token: Optional[str] = None
+        image_token_id: Optional[int] = None
+        ignore_token_id: Optional[int] = None
         if self._processor is not None:
             # We must use oumi's "chat template", not the one from HF,
             # as its input data is different (`oumi.core.types.turn.Message`).
-            self._processor.chat_template = self._tokenizer.chat_template or None
-            # Reset tokenizer to oumi's tokenizer for consistency.
-            self._processor.tokenizer = self._tokenizer
+            self._processor.chat_template = tokenizer.chat_template or None
+            # Reset processor's tokenizer to oumi's tokenizer for consistency.
+            self._processor.tokenizer = tokenizer
             self._image_processor = self._processor.image_processor
+
+            if hasattr(self._processor, "image_token") and self._processor.image_token:
+                try:
+                    image_token = str(self._processor.image_token)
+                    image_token_id = tokenizer.convert_tokens_to_ids(image_token)  # type: ignore
+                    if isinstance(image_token_id, int):
+                        raise ValueError(
+                            "Image token id must be an integer. "
+                            "The token is likely not in tokenizer's vocabulary. "
+                            f"Image token: '{image_token}' "
+                            f"Actual type: {type(image_token_id)}"
+                        )
+                except Exception as e:
+                    raise RuntimeError(
+                        "Failed to process "
+                        f"image token: '{self._processor.image_token}'"
+                    ) from e
+
         else:
-            self._tokenizer = None
+            self._tokenizer = None  # Reset base class's member variable.
             self._image_processor = None
+
+        self._special_tokens: _SpecialTokens = _SpecialTokens(
+            image_token=image_token,
+            image_token_id=image_token_id,
+            pad_token_id=pad_token_id,
+            ignore_token_id=(
+                int(ignore_token_id) if ignore_token_id is not None else pad_token_id
+            ),
+        )
 
         if limit is not None:
             # TODO: this should be removed when we switch to datapipes.
