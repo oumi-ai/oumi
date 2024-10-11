@@ -6,13 +6,10 @@ name: llama8b-lora-fsdp
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.

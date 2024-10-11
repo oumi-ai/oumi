@@ -1,6 +1,6 @@
-# Config to full fine-tune Llama 3.2 3B Instruct on 1 GCP node with FSDP.
+# Config to FSDP full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama3b_sft_fsdp.yaml --cluster llama3b-sft
+# oumi launch up -c configs/oumi/jobs/gcp/llama3b_sft_fsdp.yaml --cluster llama3b-sft-fsdp
 name: llama3b-sft-fsdp
 
 resources:

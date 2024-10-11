@@ -1,18 +1,15 @@
 # Config to FSDP QLoRA tune Llama 3.1 8B Instruct on GCP.
 # Example command:
 # oumi launch up -c configs/oumi/jobs/gcp/llama8b_qlora.yaml --cluster llama8b-qlora-fsdp
-name: llama8b-lora
+name: llama8b-qlora
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.
@@ -28,7 +25,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install '.[train,gpu]' bitsandbytes
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
