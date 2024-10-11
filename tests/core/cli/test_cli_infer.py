@@ -11,6 +11,7 @@ from oumi.core.cli.infer import infer
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
+    InferenceEngineType,
     ModelParams,
 )
 
@@ -74,11 +75,14 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
                 "new_name",
                 "--generation.max_new_tokens",
                 "5",
+                "--engine",
+                "VLLM",
             ],
         )
         expected_config = _create_inference_config()
         expected_config.model.model_name = "new_name"
         expected_config.generation.max_new_tokens = 5
+        expected_config.engine = InferenceEngineType.VLLM
         mock_infer_interactive.assert_has_calls([call(expected_config)])
 
 
@@ -92,9 +96,7 @@ def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
         mock_infer.assert_has_calls(
             [
                 call(
-                    model_params=config.model,
-                    generation_params=config.generation,
-                    input=[],
+                    config=config,
                 )
             ]
         )
@@ -125,9 +127,7 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
         mock_infer.assert_has_calls(
             [
                 call(
-                    model_params=expected_config.model,
-                    generation_params=expected_config.generation,
-                    input=[],
+                    config=expected_config,
                 )
             ]
         )

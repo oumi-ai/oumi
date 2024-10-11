@@ -509,11 +509,11 @@ class TrainingParams(BaseParams):
     Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
 
-    max_grad_norm: float = 1.0
+    max_grad_norm: Optional[float] = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
 
-    Defaults to 1.0.
+    Defaults to 1.0. When set to 0.0 or None gradient clipping will not be applied.
     """
 
     trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -630,7 +630,7 @@ class TrainingParams(BaseParams):
             ),
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
-            max_grad_norm=self.max_grad_norm,
+            max_grad_norm=self.max_grad_norm,  # type: ignore
             dispatch_batches=dispatch_batches,
             # TODO Switch to `accelerator_config` for `dispatch_batches`
             # accelerator_config={  # accelerator config for multi-device training
@@ -677,6 +677,9 @@ class TrainingParams(BaseParams):
 
         if self.gradient_accumulation_steps < 1:
             raise ValueError("gradient_accumulation_steps must be >= 1.")
+
+        if self.max_grad_norm is not None and self.max_grad_norm < 0:
+            raise ValueError("max_grad_norm must be >= 0.")
 
         if self.logging_dir is None and self.output_dir:
             # Push the logging_dir inside the output_dir.

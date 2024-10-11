@@ -1,6 +1,6 @@
 # Config to full fine-tune Llama 3.1 70B Instruct on 4 GCP nodes.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama70b_sft.yaml -c llama70b-sft
+# oumi launch up -c configs/oumi/jobs/gcp/llama70b_sft.yaml --cluster llama70b-sft
 name: llama70b-sft
 
 num_nodes: 4

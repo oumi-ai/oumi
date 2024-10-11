@@ -74,11 +74,8 @@ dev = [
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
 # TODO: train target will be removed in a future release
-train = [
-    "openai",       # TODO: remove this dependency, only used in scripts/polaris/jobs/python/vllm_inference.py
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-    # "llama-cpp-python",             # for local cpu inference. TODO: resolve install issues
-]
+# Leaving it empty for now, to avoid breaking changes
+train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
     "nbsphinx",                # Allows us to include ipython notebooks in the docs
@@ -109,15 +106,14 @@ cambrian = [ # Consider merging into "train"
     "diffusers[torch]",
     "einops==0.6.1",
 ]
-
+optional = [
+    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
+    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
+]
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 [project.scripts]
-oumi-evaluate = "oumi.evaluate:main"
-oumi-infer = "oumi.infer:main"
-oumi-launch = "oumi.launch:main"
-oumi-train = "oumi.train:main"
 oumi = "oumi.core.cli.main:run"
 
 [tool.ruff]
