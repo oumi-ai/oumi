@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import numpy as np
 import torch
@@ -12,13 +12,33 @@ _ATTENTION_MASK_KEY = "attention_mask"
 _LABELS_KEY = "labels"
 
 
+class _SpecialTokens(NamedTuple):
+    """Special tokens used by VisionLanguageCollatorWithPadding."""
+
+    pad_token_id: int
+    ignore_label_id: Optional[int]
+
+
 class VisionLanguageCollatorWithPadding:
-    def __init__(self, tokenizer: BaseTokenizer, max_length: Optional[int]):
+    def __init__(
+        self,
+        tokenizer: BaseTokenizer,
+        max_length: Optional[int],
+        ignore_label_id: Optional[int] = -100,
+    ):
         """Custom collator for multi-modal vision-language training."""
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             padding=True,
+        )
+
+        if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
+            raise RuntimeError("Tokenizer doesn't define `pad_token_id`")
+
+        self._special_tokens: _SpecialTokens = _SpecialTokens(
+            pad_token_id=int(tokenizer.pad_token_id),
+            ignore_label_id=ignore_label_id,
         )
 
     def __call__(self, batch):

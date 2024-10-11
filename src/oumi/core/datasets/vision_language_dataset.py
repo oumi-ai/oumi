@@ -20,8 +20,7 @@ class _SpecialTokens(NamedTuple):
 
     image_token: Optional[str]
     image_token_id: Optional[int]
-    pad_token_id: int
-    ignore_token_id: Optional[int]
+    ignore_label_id: Optional[int]
 
 
 class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
@@ -57,7 +56,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
-        ignore_token_id: Optional[int] = -100,
+        ignore_label_id: Optional[int] = -100,
         limit: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -68,10 +67,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
-
-        if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
-            raise RuntimeError("Tokenizer doesn't define `pad_token_id`")
-        pad_token_id: int = int(tokenizer.pad_token_id)
 
         if processor is None:
             if processor_name:
@@ -134,8 +129,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         self._special_tokens: _SpecialTokens = _SpecialTokens(
             image_token=image_token,
             image_token_id=image_token_id,
-            pad_token_id=pad_token_id,
-            ignore_token_id=ignore_token_id,
+            ignore_label_id=ignore_label_id,
         )
 
         if limit is not None:
@@ -224,29 +218,16 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         inputs["attention_mask"] = inputs["attention_mask"][0]
         inputs["labels"] = inputs["labels"][0]
 
-        if self._special_tokens.ignore_token_id is not None:
-            self._mask_special_labels(
-                inputs["labels"],
-                pad_token_id=self._special_tokens.pad_token_id,
-                image_token_id=self._special_tokens.image_token_id,
-                ignore_tokend_id=int(self._special_tokens.ignore_token_id),
-            )
+        # Ignore `image_token_id`-s in loss computation.
+        if (
+            self._special_tokens.ignore_label_id is not None
+            and self._special_tokens.image_token_id is not None
+        ):
+            labels = inputs["labels"]
+            image_token_id = int(self._special_tokens.image_token_id)
+            labels[labels == image_token_id] = int(self._special_tokens.ignore_label_id)
 
         return inputs
-
-    @staticmethod
-    def _mask_special_labels(
-        labels,
-        pad_token_id: int,
-        image_token_id: Optional[int],
-        ignore_tokend_id: int,
-    ):
-        labels[labels == pad_token_id] = ignore_tokend_id
-        # Ignore the image token index in the loss computation (model specific)
-        if image_token_id is not None:
-            labels[labels == int(image_token_id)] = ignore_tokend_id
-
-        logger.info(f"Labels ({type(labels)}): {labels}")
 
     def _prepare_simple_model(
         self, conversation: Conversation
