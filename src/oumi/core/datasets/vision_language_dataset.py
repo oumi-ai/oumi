@@ -203,6 +203,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 padding=True,
             )
 
+        # Clone `input_ids` as `labels`.
         if self._return_tensors:
             inputs["labels"] = inputs["input_ids"].clone()
         else:
