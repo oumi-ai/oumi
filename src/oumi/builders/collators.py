@@ -2,7 +2,7 @@ from typing import Callable, Optional
 
 import transformers
 
-from oumi.collators.vision_language_collator_with_padding import (
+from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
