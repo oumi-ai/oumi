@@ -1,4 +1,4 @@
-# Supervised Fine-Tuning
+# Vision-Language Supervised Fine-Tuning
 
 ```{attention}
 Section under construction. Contributions welcome!

@@ -93,8 +93,6 @@ Overview
    :caption: Models
 
    models/recipes
-   models/custom_models
-   models/mlp_encoder
    models/cambrian
 
 .. toctree::
@@ -105,6 +103,7 @@ Overview
    datasets/pretraining
    datasets/sft
    datasets/preference_tuning
+   datasets/vl_sft
 
 .. toctree::
    :maxdepth: 2
@@ -113,10 +112,8 @@ Overview
    advanced/custom_models
    advanced/custom_datasets
    advanced/quantization
-   advanced/model_parallelism
-   advanced/telemetry
    advanced/performance_optimization
-   advanced/new_multimodal_dataset
+   advanced/custom_vl_datasets
 
 .. toctree::
    :maxdepth: 1

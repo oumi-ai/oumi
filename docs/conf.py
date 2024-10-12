@@ -42,7 +42,7 @@ extensions = [
 
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
+    # ".md": "markdown",
 }
 
 nbsphinx_execute = "never"

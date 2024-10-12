@@ -1,4 +1,8 @@
-# Model Definition
+# Custom Models
+
+```{attention}
+Section under construction. Contributions welcome!
+```
 
 At a high level, this is the pseudo code for a Pytorch training loop:
 

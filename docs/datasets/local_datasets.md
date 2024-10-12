@@ -1,37 +1,13 @@
-# Working with Local Datasets in Oumi
+# Local Datasets
 
-## Introduction
+```{attention}
+Section under construction. Contributions welcome!
+```
 
-- Overview of local dataset usage in Oumi
+## TODO
 
-## Preparing Local Datasets
-
+- Overview of local dataset classes
 - Formatting and structuring local data
-
-## Loading Local Datasets
-
-- Step-by-step guide to importing local datasets
-
-## Data Processing for Local Datasets
-
-- Techniques for cleaning and preprocessing local data
-
-## Using Local Datasets in Training
-
-- Integrating local datasets into Oumi workflows
-
-## Best Practices
-
-- Tips for efficient local dataset management
-
-## Troubleshooting
-
-- Common issues with local datasets and solutions
-
-## Advanced Topics
-
-- Handling large-scale local datasets
-
-## Examples
-
-- Sample local dataset implementations
+- Guide to using local datasets with config and python api
+- Sample input formats and config examples
+- Scripts to sanity check datasets
