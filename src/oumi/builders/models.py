@@ -120,7 +120,7 @@ def build_oumi_model(
     if model_params.adapter_model is not None:
         raise NotImplementedError
 
-    dtype = model_params.torch_dtype()
+    dtype = model_params.torch_dtype
     model = model.to(dtype=dtype)
     # Needed for MFUTrainerCallback
     model.dtype = dtype
@@ -175,7 +175,7 @@ def build_huggingface_model(
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=peft_params.q_lora_bits == 4,
             load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype(),
+            bnb_4bit_compute_dtype=model_params.torch_dtype,
             bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
             bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
             bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
@@ -191,7 +191,7 @@ def build_huggingface_model(
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
-            torch_dtype=model_params.torch_dtype(),
+            torch_dtype=model_params.torch_dtype,
             device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
@@ -202,7 +202,7 @@ def build_huggingface_model(
     else:
         model = transformers_model_class.from_config(
             config=hf_config,
-            torch_dtype=model_params.torch_dtype(),
+            torch_dtype=model_params.torch_dtype,
             trust_remote_code=model_params.trust_remote_code,
             attn_implementation=model_params.attn_implementation,
             **kwargs,

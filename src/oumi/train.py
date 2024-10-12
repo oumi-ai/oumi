@@ -2,6 +2,7 @@ import argparse
 import gc
 import time
 from pathlib import Path
+from pprint import pformat
 from typing import Any, Callable, Optional, Union
 
 import torch
@@ -40,14 +41,16 @@ from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
+from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
+    coerce_model_to_dtype,
     device_cleanup,
+    get_torch_dtype,
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
-    log_training_config,
     log_versioning_info,
 )
 
@@ -214,7 +217,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     config = _finalize_training_config(config)
 
     if is_local_process_zero():
-        log_training_config(config)
+        logger.info(f"TrainingConfig: {pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
@@ -295,6 +298,23 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 config.training.try_resume_from_last_checkpoint,
                 config.training.output_dir,
             )
+
+        # TODO: OPE-577 - Remove when the issue is resolved.
+        # QLoRA FSDP training currently has an issue where some submodules of the model
+        # are float32 instead of the requested dtype. As a workaround, we coerce all
+        # modules to the desired dtype. See:
+        # https://github.com/huggingface/accelerate/issues/1620#issuecomment-2407102051
+        if is_using_accelerate_fsdp() and config.peft.q_lora:
+            # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage
+            quant_storage_dtype = get_torch_dtype(config.peft.bnb_4bit_quant_storage)
+            if quant_storage_dtype != config.model.torch_dtype:
+                raise ValueError(
+                    f"BnB 4-bit quantization storage dtype must match model dtype. "
+                    f"Instead got {config.peft.bnb_4bit_quant_storage} and "
+                    f"{config.model.torch_dtype}."
+                )
+            coerce_model_to_dtype(model, config.model.torch_dtype)
+            logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
 
         with torch.profiler.record_function("wait_for_all_ranks"):
             # Make sure all workers start training at the same time.
