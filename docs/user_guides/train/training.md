@@ -1,5 +1,16 @@
 # Training
 
+```{toctree}
+:maxdepth: 2
+:caption: Training
+:hidden:
+
+finetuning
+training_config
+trainers
+distributed_training
+```
+
 ```{attention}
 Section under construction. Contributions welcome!
 ```

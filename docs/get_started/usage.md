@@ -1,4 +1,4 @@
-# Oumi Configs
+# Configuration
 
 ```{attention}
 Section under construction. Contributions welcome!

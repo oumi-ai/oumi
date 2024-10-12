@@ -1,5 +1,12 @@
 # Inference
 
+```{toctree}
+:maxdepth: 2
+:caption: Inference
+
+inference_engines
+```
+
 ```{attention}
 Section under construction. Contributions welcome!
 ```

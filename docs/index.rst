@@ -63,30 +63,17 @@ Overview
    get_started/installation
    get_started/quickstart
    get_started/usage
+   get_started/tutorials
 
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
 
-   user_guides/training
-   user_guides/finetuning
-   user_guides/training_config
-   user_guides/trainers
-   user_guides/inference
-   user_guides/inference_engines
-   user_guides/evaluation
-   user_guides/lm_harness
-   user_guides/judge
-   user_guides/oumi_judge
-   user_guides/custom_judge
-   user_guides/launch
-   user_guides/distributed_training
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Examples
-
-   examples/tutorials
+   user_guides/train/training
+   user_guides/infer/inference
+   user_guides/evaluate/evaluation
+   user_guides/judge/judge
+   user_guides/launch/launch
 
 .. toctree::
    :maxdepth: 2
@@ -125,15 +112,11 @@ Overview
 
 .. toctree::
    :maxdepth: 2
-   :caption: Python API
+   :caption: API Reference
 
-   api/oumi
+   Python API <api/oumi>
+   CLI Reference <cli/commands>
 
-.. toctree::
-   :maxdepth: 2
-   :caption: CLI
-
-   cli/commands
 
 .. toctree::
    :maxdepth: 1

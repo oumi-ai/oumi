@@ -1,5 +1,13 @@
 # Judge
 
+```{toctree}
+:maxdepth: 2
+:caption: Judge
+:hidden:
+oumi_judge
+custom_judge
+```
+
 ```{attention}
 Section under construction. Contributions welcome!
 ```

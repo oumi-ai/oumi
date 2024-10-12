@@ -1,5 +1,13 @@
 # Evaluation
 
+```{toctree}
+:maxdepth: 2
+:caption: Evaluation
+:hidden:
+
+lm_harness
+```
+
 ```{attention}
 Section under construction. Contributions welcome!
 ```
