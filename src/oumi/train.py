@@ -307,14 +307,14 @@ def train(config: TrainingConfig, **kwargs) -> None:
         if is_using_accelerate_fsdp() and config.peft.q_lora:
             # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage
             quant_storage_dtype = get_torch_dtype(config.peft.bnb_4bit_quant_storage)
-            if quant_storage_dtype != config.model.torch_dtype():
+            if quant_storage_dtype != config.model.torch_dtype:
                 raise ValueError(
                     f"BnB 4-bit quantization storage dtype must match model dtype. "
                     f"Instead got {config.peft.bnb_4bit_quant_storage} and "
-                    f"{config.model.torch_dtype()}."
+                    f"{config.model.torch_dtype}."
                 )
-            coerce_model_to_dtype(model, config.model.torch_dtype())
-            logger.info(f"Coerced model to dtype {config.model.torch_dtype()}!")
+            coerce_model_to_dtype(model, config.model.torch_dtype)
+            logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
 
         with torch.profiler.record_function("wait_for_all_ranks"):
             # Make sure all workers start training at the same time.

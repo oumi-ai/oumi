@@ -154,9 +154,9 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def torch_dtype(self):
-        """Converts string dtype to torch.dtype."""
-        return get_torch_dtype(self.torch_dtype_str)
+    # def torch_dtype(self):
+    #     """Converts string dtype to torch.dtype."""
+    #     return get_torch_dtype(self.torch_dtype_str)
 
     def to_lm_harness(self) -> Dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
@@ -164,7 +164,7 @@ class ModelParams(BaseParams):
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
-            "dtype": self.torch_dtype(),
+            "dtype": self.torch_dtype,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
@@ -184,6 +184,7 @@ class ModelParams(BaseParams):
 
     def __validate__(self):
         """Validates final config params."""
+        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()
