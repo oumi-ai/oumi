@@ -182,9 +182,12 @@ class ModelParams(BaseParams):
             # future versions of HF. Integrate via PeftConfig.
         return model_args_dict
 
+    def __post_init__(self):
+        """Populate additional params."""
+        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+
     def __validate__(self):
         """Validates final config params."""
-        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()
