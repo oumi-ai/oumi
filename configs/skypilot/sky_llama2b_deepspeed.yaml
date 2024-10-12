@@ -22,7 +22,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv&&uv pip install '.[gpu]'
+  pip install uv && uv pip install '.[gpu]'
   pip install deepspeed
 
 run: |
