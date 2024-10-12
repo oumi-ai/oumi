@@ -62,7 +62,7 @@ Overview
 
    get_started/installation
    get_started/quickstart
-   get_started/configuration
+   get_started/usage
 
 .. toctree::
    :maxdepth: 2
