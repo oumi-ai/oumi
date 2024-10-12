@@ -18,24 +18,25 @@ Oumi is an open, collaborative modeling platform that allows you to build founda
    :maxdepth: 2
    :caption: User Guide
 
-   user_guide/training
-   user_guide/training_config
-   user_guide/trainers
-   user_guide/inference
-   user_guide/inference_engines
-   user_guide/evaluation
-   user_guide/lm_harness
-   user_guide/judge
-   user_guide/oumi_judge
-   user_guide/custom_judge
-   user_guide/launch
-   user_guide/distributed_training
+   user_guides/training
+   user_guides/training_config
+   user_guides/trainers
+   user_guides/inference
+   user_guides/inference_engines
+   user_guides/evaluation
+   user_guides/lm_harness
+   user_guides/judge
+   user_guides/oumi_judge
+   user_guides/custom_judge
+   user_guides/launch
+   user_guides/distributed_training
 
 .. toctree::
    :maxdepth: 2
    :caption: Examples
 
    examples/notebooks
+   examples/tutorials
 
 .. toctree::
    :maxdepth: 2
@@ -65,13 +66,15 @@ Oumi is an open, collaborative modeling platform that allows you to build founda
    advanced/model_parallelism
    advanced/telemetry
    advanced/performance_optimization
-   advance/new_multimodal_dataset
+   advanced/new_multimodal_dataset
 
 .. toctree::
    :maxdepth: 1
    :caption: FAQ
 
    faq/troubleshooting
+   faq/oom
+   faq/gpu_sizing
 
 .. toctree::
    :maxdepth: 2
@@ -91,13 +94,15 @@ Oumi is an open, collaborative modeling platform that allows you to build founda
 
    development/contributing
    development/code_of_conduct
+   development/style_guide
+   development/git_workflow
 
 .. toctree::
    :maxdepth: 1
    :caption: About
 
    about/changelog
-   about/acknowledgement
+   about/acknowledgements
    about/license
 
 Indices and tables
@@ -113,14 +118,14 @@ Getting Started
 
 If you're new to Oumi, we recommend starting with the following sections:
 
-1. :doc:`Introduction <links/usage>` - Learn about the core concepts and philosophy behind Oumi.
-2. :doc:`Installation <links/dev_setup>` - Get Oumi up and running on your system.
+1. :doc:`Introduction <get_started/quickstart>` - Learn about the core concepts and philosophy behind Oumi.
+2. :doc:`Installation <get_started/installation>` - Get Oumi up and running on your system.
 3. `A tour of our library <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of Oumi's features.
 
 Tutorials
 ---------
 
-Explore our :doc:`tutorials` for in-depth guides on using Oumi for various tasks:
+Explore our :doc:`tutorials <examples/tutorials>` for in-depth guides on using Oumi for various tasks:
 
 - `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb>`_
 - `Using the Oumi job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb>`_
@@ -131,14 +136,14 @@ Explore our :doc:`tutorials` for in-depth guides on using Oumi for various tasks
 API Reference
 -------------
 
-For detailed information about the Oumi library, check out the :doc:`API Reference <apidoc/oumi>` section.
+For detailed information about the Oumi library, check out the :doc:`API Reference <api/oumi>` section.
 
 This includes comprehensive documentation for all modules, classes, and functions in the Oumi library.
 
 Contributing
 ------------
 
-We welcome contributions! See our :doc:`links/contributing` guide for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
+We welcome contributions! See our :doc:`development/contributing` guide for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
 
 Changelog
 ---------

@@ -1,4 +1,4 @@
-# Dev Environment Setup
+# Installation
 
 ## 1. Install Miniconda
 
