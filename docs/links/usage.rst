@@ -1,4 +1,4 @@
 Usage
 =====
-.. include:: ../../../USAGE.md
+.. include:: ../../USAGE.md
    :parser: myst_parser.sphinx_
