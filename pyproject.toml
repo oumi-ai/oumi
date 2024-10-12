@@ -81,6 +81,7 @@ docs = [
     "nbsphinx",                # Allows us to include ipython notebooks in the docs
     "sphinx",                  # Used to build the docs
     "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
+    "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
     "sphinx_copybutton",       # Add copy button to code blocks in Sphinx
 ]
 # Dependencies that require a GPU to install
