@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-import torch
 from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.distributed_utils import is_using_accelerate
+from oumi.utils.torch_utils import get_torch_dtype
 
 
 @dataclass
@@ -154,26 +154,13 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def torch_dtype(self):
-        """Converts string dtype to torch.dtype."""
-        if self.torch_dtype_str in ["f64", "float64", "double"]:
-            return torch.float64
-        elif self.torch_dtype_str in ["f32", "float32", "float"]:
-            return torch.float32
-        elif self.torch_dtype_str in ["bf16", "bfloat16"]:
-            return torch.bfloat16
-        elif self.torch_dtype_str in ["f16", "float16", "half"]:
-            return torch.float16
-        else:
-            raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
-
     def to_lm_harness(self) -> Dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
-            "dtype": self.torch_dtype(),
+            "dtype": self.torch_dtype,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
@@ -190,6 +177,10 @@ class ModelParams(BaseParams):
             # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
             # future versions of HF. Integrate via PeftConfig.
         return model_args_dict
+
+    def __post_init__(self):
+        """Populate additional params."""
+        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
 
     def __validate__(self):
         """Validates final config params."""

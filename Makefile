@@ -10,13 +10,13 @@ CONDA_INSTALL_PATH := $(HOME)/miniconda3
 # Source directory
 SRC_DIR := .
 TEST_DIR := tests
-DOCS_DIR := docs/.sphinx
+DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = $(DOCS_DIR)
+DOCS_SOURCEDIR     = $(DOCS_DIR)
 DOCS_BUILDDIR      = $(DOCS_DIR)/_build
 
 # Default target
@@ -48,12 +48,12 @@ setup:
 		if conda env list | grep -q "^$(CONDA_ENV) "; then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
 			$(CONDA_RUN) pip install -U uv; \
-			$(CONDA_RUN) uv pip install -U -e ".[train,dev]"; \
+			$(CONDA_RUN) uv pip install -U -e ".[dev]"; \
 		else \
 			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
 			conda create -n $(CONDA_ENV) python=3.11 -y; \
 			$(CONDA_RUN) pip install uv; \
-			$(CONDA_RUN) uv pip install -e ".[train,dev]"; \
+			$(CONDA_RUN) uv pip install -e ".[dev]"; \
 			$(CONDA_RUN) pre-commit install; \
 			$(CONDA_RUN) python -m ipykernel install --user --name $(CONDA_ENV); \
 		fi; \
@@ -103,18 +103,18 @@ install-miniconda:
 
 upgrade:
 	@if $(CONDA_RUN) command -v uv >/dev/null 2>&1; then \
-		$(CONDA_RUN) uv pip install --upgrade -e ".[train,dev]"; \
+		$(CONDA_RUN) uv pip install --upgrade -e ".[dev]"; \
 	else \
 		echo "uv is not installed, using pip instead."; \
 		echo "To install uv, run: 'pip install uv'"; \
-		$(CONDA_RUN) pip install --upgrade -e ".[train,dev]"; \
+		$(CONDA_RUN) pip install --upgrade -e ".[dev]"; \
 	fi
 
-clean:
+clean: docs-clean
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
-	rm -rf $(DOCS_BUILDDIR)
+
 
 check:
 	$(CONDA_RUN) pre-commit run --all-files
@@ -131,7 +131,6 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-
 skyssh:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	ssh "${USERNAME}-dev"
@@ -140,20 +139,26 @@ skycode:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
-docs:
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+docs: copy-doc-files
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-help:
-	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-serve: docs
 	@echo "Serving documentation at http://localhost:8000"
 	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
-docs-rebuild:
-	rm -rf $(DOCS_BUILDDIR) "$(SOURCEDIR)/apidoc"
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+docs-rebuild: docs-clean docs-copy-files
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/api"
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild
+docs-copy-files:
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py copy "$(DOCS_SOURCEDIR)/_doclinks.config"
+
+docs-clean:
+	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
+
+.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs
