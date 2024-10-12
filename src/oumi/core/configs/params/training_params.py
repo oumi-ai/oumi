@@ -421,6 +421,19 @@ class TrainingParams(BaseParams):
     Default is 0.9.
     """
 
+    label_ignore_index: Optional[int] = -100
+    """If set, then label values of tokens that shouldn't contribute to
+    the loss computation will be replaced by this special value .
+    For example, this is can done for `PAD` tokens added during data
+    collation with padding.
+
+    PyTorch convention is to use -100 as `ignore_index` label. Refer to
+    the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
+    for more details.
+
+    Set to `None` to keep original label values (in YAML, use `null`).
+    """
+
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
     """The data type to use for mixed precision training.
 
