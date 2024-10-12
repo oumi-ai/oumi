@@ -110,11 +110,11 @@ upgrade:
 		$(CONDA_RUN) pip install --upgrade -e ".[dev]"; \
 	fi
 
-clean:
+clean: docs-clean
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
-	rm -rf $(DOCS_BUILDDIR)
+
 
 check:
 	$(CONDA_RUN) pre-commit run --all-files
@@ -150,15 +150,15 @@ docs-serve: docs
 	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
-docs-rebuild: clean-docs copy-doc-files
+docs-rebuild: docs-clean docs-copy-files
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/api"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-copy-doc-files:
-	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/copy_docfiles.py "$(DOCS_SOURCEDIR)"
+docs-copy-files:
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py copy "$(DOCS_SOURCEDIR)/_doclinks.config"
 
-clean-docs:
+docs-clean:
 	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
-	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/copy_doc_files.py "$(DOCS_SOURCEDIR)" --clean
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
 
 .PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs
