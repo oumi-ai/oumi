@@ -42,7 +42,7 @@ extensions = [
 
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
+    # ".md": "markdown",
 }
 
 nbsphinx_execute = "never"
@@ -80,7 +80,7 @@ html_theme_options = {
     # Sphinx options
     "navigation_with_keys": True,
     # Sphinx-book-theme options
-    "home_page_in_toc": True,
+    "home_page_in_toc": False,  # Hide "Home" in the sidebar
     "launch_buttons": {"colab_url": "https://colab.research.google.com"},
     "path_to_docs": "docs",
     "repository_branch": "main",

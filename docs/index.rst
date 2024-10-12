@@ -62,39 +62,34 @@ Overview
 
    get_started/installation
    get_started/quickstart
-   get_started/configuration
+   get_started/usage
+   get_started/tutorials
 
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
 
-   user_guides/training
-   user_guides/finetuning
-   user_guides/training_config
-   user_guides/trainers
-   user_guides/inference
-   user_guides/inference_engines
-   user_guides/evaluation
-   user_guides/lm_harness
-   user_guides/judge
-   user_guides/oumi_judge
-   user_guides/custom_judge
-   user_guides/launch
-   user_guides/distributed_training
+   user_guides/train/training
+   user_guides/infer/inference
+   user_guides/evaluate/evaluation
+   user_guides/judge/judge
+   user_guides/launch/launch
 
 .. toctree::
    :maxdepth: 2
-   :caption: Examples
+   :caption: Advanced Topics
 
-   examples/tutorials
+   advanced/custom_models
+   advanced/custom_datasets
+   advanced/quantization
+   advanced/performance_optimization
+   advanced/custom_vl_datasets
 
 .. toctree::
    :maxdepth: 2
    :caption: Models
 
    models/recipes
-   models/custom_models
-   models/mlp_encoder
    models/cambrian
 
 .. toctree::
@@ -105,18 +100,7 @@ Overview
    datasets/pretraining
    datasets/sft
    datasets/preference_tuning
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Advanced Topics
-
-   advanced/custom_models
-   advanced/custom_datasets
-   advanced/quantization
-   advanced/model_parallelism
-   advanced/telemetry
-   advanced/performance_optimization
-   advanced/new_multimodal_dataset
+   datasets/vl_sft
 
 .. toctree::
    :maxdepth: 1
@@ -128,15 +112,10 @@ Overview
 
 .. toctree::
    :maxdepth: 2
-   :caption: Python API
+   :caption: API Reference
 
-   api/oumi
-
-.. toctree::
-   :maxdepth: 2
-   :caption: CLI
-
-   cli/commands
+   Python API <api/oumi>
+   CLI Reference <cli/commands>
 
 .. toctree::
    :maxdepth: 1
