@@ -26,8 +26,6 @@ author = "Open Universal Machine Intelligence"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 main_doc = "index"
-pygments_style = "default"  # see https://pygments.org/demo/
-add_module_names = True
 
 extensions = [
     "myst_parser",
@@ -68,17 +66,36 @@ autodoc_mock_imports = ["oumi.models.experimental"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
-html_show_sourcelink = False
+# See https://sphinx-themes.org/#themes for theme options
+# See https://sphinx-book-theme.readthedocs.io/en/stable/ for more information
+# on the sphinx-book-theme
+html_theme = "sphinx_book_theme"
+html_show_sourcelink = True
 html_show_sphinx = False
+html_title = "Oumi"
+
+add_module_names = True
+
 html_theme_options = {
+    # Sphinx options
     "navigation_with_keys": True,
-    # TODO: not supported by sphinx_rtd_theme theme but would be nice to show
-    # "repository_url": "https://github.com/oumi-ai/oumi",
-    # "use_repository_button": True,
-    # "repository_branch": "main",
-    # "show_toc_level": 3,
+    # Sphinx-book-theme options
+    "home_page_in_toc": True,
+    "launch_buttons": {"colab_url": "https://colab.research.google.com"},
+    "path_to_docs": "docs",
+    "repository_branch": "main",
+    "repository_url": "https://github.com/oumi-ai/oumi",
+    "show_toc_level": 3,
+    "use_download_button": True,
+    "use_edit_page_button": True,
+    "use_fullscreen_button": False,
+    "use_issues_button": True,
+    "use_repository_button": True,
+    "use_source_button": True,
 }
+
+# see https://pygments.org/demo/ for options
+pygments_style = "github-dark"
 
 # Mapping for intersphinx
 # modeule name -> (url, inventory file)
@@ -88,6 +105,7 @@ intersphinx_mapping = {
     "trl": ("https://huggingface.co/docs/trl/main/en", None),
     "datasets": ("https://huggingface.co/docs/datasets/main/en", None),
 }
+
 # Disable all reftypes for intersphinx
 # Reftypes need to be pre-fixed with :external: to be linked
 intersphinx_disabled_reftypes = ["*"]
