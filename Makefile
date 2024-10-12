@@ -10,13 +10,13 @@ CONDA_INSTALL_PATH := $(HOME)/miniconda3
 # Source directory
 SRC_DIR := .
 TEST_DIR := tests
-DOCS_DIR := docs/.sphinx
+DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = $(DOCS_DIR)
+DOCS_SOURCEDIR     = $(DOCS_DIR)
 DOCS_BUILDDIR      = $(DOCS_DIR)/_build
 
 # Default target
@@ -141,10 +141,10 @@ skycode:
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
 docs:
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-help:
-	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-serve: docs
 	@echo "Serving documentation at http://localhost:8000"
@@ -152,8 +152,8 @@ docs-serve: docs
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
 docs-rebuild:
-	rm -rf $(DOCS_BUILDDIR) "$(SOURCEDIR)/apidoc"
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(SOURCEDIR)/apidoc" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(SOURCEDIR)/_templates/apidoc"
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/api"
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 .PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild
