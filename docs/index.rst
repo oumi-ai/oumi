@@ -69,6 +69,7 @@ Overview
    :caption: User Guide
 
    user_guides/training
+   user_guides/finetuning
    user_guides/training_config
    user_guides/trainers
    user_guides/inference
