@@ -154,10 +154,6 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    # def torch_dtype(self):
-    #     """Converts string dtype to torch.dtype."""
-    #     return get_torch_dtype(self.torch_dtype_str)
-
     def to_lm_harness(self) -> Dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
