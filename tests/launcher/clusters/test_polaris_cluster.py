@@ -360,11 +360,13 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
@@ -460,11 +462,13 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
@@ -559,11 +563,13 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
@@ -646,11 +652,13 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
@@ -735,11 +743,13 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
@@ -816,11 +826,13 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
                     '---------------------------"',
                     "conda create -y python=3.11 --prefix "
                     "/home/$USER/miniconda3/envs/oumi",
-                    "pip install uv",
                     "fi",
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
                     "uv pip install -e '.[gpu]'",
                 ]
             ),
