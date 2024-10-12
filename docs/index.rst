@@ -134,6 +134,7 @@ Overview
    about/changelog
    about/acknowledgements
    about/license
+   about/citations
 
 Indices and tables
 ==================
