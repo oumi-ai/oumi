@@ -38,11 +38,11 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.bibtex",
 ]
 
 source_suffix = {
     ".rst": "restructuredtext",
-    # ".md": "markdown",
 }
 
 nbsphinx_execute = "never"
@@ -109,3 +109,6 @@ intersphinx_mapping = {
 # Disable all reftypes for intersphinx
 # Reftypes need to be pre-fixed with :external: to be linked
 intersphinx_disabled_reftypes = ["*"]
+
+bibtex_bibfiles = ["citations.bib"]
+bibtex_encoding = "utf-8"
