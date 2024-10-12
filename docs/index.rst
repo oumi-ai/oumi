@@ -10,9 +10,9 @@ Oumi is an open, collaborative modeling platform that allows you to build founda
    :maxdepth: 2
    :caption: Get started
 
-   installation
-   quickstart
-   configuration
+   get_started/installation
+   get_started/quickstart
+   get_started/configuration
 
 .. toctree::
    :maxdepth: 2
