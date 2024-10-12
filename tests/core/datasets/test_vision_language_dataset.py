@@ -26,11 +26,21 @@ class EqBytesIO:
         )
 
 
+_IMAGE_TOKEN = "<image_token>"
+_IMAGE_TOKEN_ID = 32001
+
+
 @pytest.fixture
 def mock_tokenizer() -> MagicMock:
+    def _convert_tokens_to_ids(token: str) -> int:
+        if token == _IMAGE_TOKEN:
+            return _IMAGE_TOKEN_ID
+        return 101
+
     mock = MagicMock(spec=BaseTokenizer)
     mock.pad_token_id = 0
     mock.chat_template = build_chat_template("llava")
+    mock.convert_tokens_to_ids = MagicMock(side_effect=_convert_tokens_to_ids)
     return mock
 
 
@@ -40,8 +50,9 @@ def mock_processor():
     processor.tokenizer = Mock()
     processor.image_processor = Mock()
     processor.chat_template = None
+    processor.image_token = _IMAGE_TOKEN
     processor.side_effect = lambda images, text, return_tensors, padding: {
-        "input_ids": [[101, 102, 103, 104]],
+        "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
         "attention_mask": [[1, 1, 1, 1]],
         "pixel_values": [
             [
@@ -100,7 +111,7 @@ def sample_conversation_using_image_binary():
 
 
 @pytest.fixture
-def test_dataset_using_image_path(
+def test_dataset_image_path(
     mock_processor: Mock,
     sample_conversation_using_image_path: Conversation,
     mock_tokenizer: MagicMock,
@@ -120,7 +131,7 @@ def test_dataset_using_image_path(
 
 
 @pytest.fixture
-def test_dataset_using_image_binary(
+def test_dataset_image_binary_label_ignore_index(
     mock_processor: Mock,
     sample_conversation_using_image_binary: Conversation,
     mock_tokenizer: MagicMock,
@@ -136,40 +147,44 @@ def test_dataset_using_image_binary(
         def _load_data(self):
             pass
 
-    return TestDatasetImageBinary(processor=mock_processor, tokenizer=mock_tokenizer)
+    return TestDatasetImageBinary(
+        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=-100
+    )
 
 
-def test_transform_image_using_image_path(test_dataset_using_image_path):
+def test_transform_image_using_image_path(test_dataset_image_path):
     with patch("PIL.Image.open") as mock_open:
         mock_image = Mock(spec=Image.Image)
         mock_open.return_value.convert.return_value = mock_image
 
-        test_dataset_using_image_path.transform_image("path/to/image.jpg")
+        test_dataset_image_path.transform_image("path/to/image.jpg")
 
         mock_open.assert_called_once_with("path/to/image.jpg")
-        test_dataset_using_image_path._image_processor.assert_called_once()
+        test_dataset_image_path._image_processor.assert_called_once()
 
 
-def test_transform_image_using_image_binary(test_dataset_using_image_binary):
+def test_transform_image_using_image_binary(
+    test_dataset_image_binary_label_ignore_index,
+):
     with patch("PIL.Image.open") as mock_open:
         mock_image = Mock(spec=Image.Image)
         mock_open.return_value.convert.return_value = mock_image
 
         test_image_bytes = _get_test_png_image_bytes()
-        test_dataset_using_image_binary.transform_image(
+        test_dataset_image_binary_label_ignore_index.transform_image(
             Message(type=Type.IMAGE_BINARY, binary=test_image_bytes, role=Role.USER)
         )
 
         mock_open.assert_called_once_with(EqBytesIO(io.BytesIO(test_image_bytes)))
-        test_dataset_using_image_binary._image_processor.assert_called_once()
+        test_dataset_image_binary_label_ignore_index._image_processor.assert_called_once()
 
 
-def test_transform_simple_model_using_image_path(test_dataset_using_image_path):
-    with patch.object(test_dataset_using_image_path, "_load_image") as mock_load_image:
+def test_transform_simple_model_using_image_path(test_dataset_image_path):
+    with patch.object(test_dataset_image_path, "_load_image") as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_using_image_path.transform({"example": "data"})
+        result = test_dataset_image_path.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -183,38 +198,45 @@ def test_transform_simple_model_using_image_path(test_dataset_using_image_path):
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
 
 
-def test_transform_simple_model_using_image_binary(test_dataset_using_image_binary):
+def test_transform_simple_model_using_image_binary(
+    test_dataset_image_binary_label_ignore_index,
+):
     with patch.object(
-        test_dataset_using_image_binary, "_load_image"
+        test_dataset_image_binary_label_ignore_index, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_using_image_binary.transform({"example": "data"})
+        result = test_dataset_image_binary_label_ignore_index.transform(
+            {"example": "data"}
+        )
 
     assert isinstance(result, dict)
     assert "input_ids" in result
     assert np.array(result["input_ids"]).shape == (4,)
+    assert np.all(
+        np.array(result["input_ids"]) == np.array([101, 102, _IMAGE_TOKEN_ID, 104])
+    )
     assert "attention_mask" in result
     assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
     assert np.array(result["labels"]).shape == (4,)
-    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
+    assert np.all(np.array(result["labels"]) == np.array([101, 102, -100, 104]))
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
 
 
 def test_transform_instruct_model_using_image_path(
-    test_dataset_using_image_path, mock_processor: Mock
+    test_dataset_image_path, mock_processor: Mock
 ):
     mock_processor.chat_template = "Template"
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
-    with patch.object(test_dataset_using_image_path, "_load_image") as mock_load_image:
+    with patch.object(test_dataset_image_path, "_load_image") as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_using_image_path.transform({"example": "data"})
+        result = test_dataset_image_path.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -230,27 +252,32 @@ def test_transform_instruct_model_using_image_path(
 
 
 def test_transform_instruct_model_using_image_binary(
-    test_dataset_using_image_binary, mock_processor: Mock
+    test_dataset_image_binary_label_ignore_index, mock_processor: Mock
 ):
     mock_processor.chat_template = "Template"
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
     with patch.object(
-        test_dataset_using_image_binary, "_load_image"
+        test_dataset_image_binary_label_ignore_index, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_using_image_binary.transform({"example": "data"})
+        result = test_dataset_image_binary_label_ignore_index.transform(
+            {"example": "data"}
+        )
 
     assert isinstance(result, dict)
     assert "input_ids" in result
     assert np.array(result["input_ids"]).shape == (4,)
+    assert np.all(
+        np.array(result["input_ids"]) == np.array([101, 102, _IMAGE_TOKEN_ID, 104])
+    )
     assert "attention_mask" in result
     assert np.array(result["attention_mask"]).shape == (4,)
     assert "labels" in result
     assert np.array(result["labels"]).shape == (4,)
-    assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
+    assert np.all(np.array(result["labels"]) == np.array([101, 102, -100, 104]))
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()

@@ -3,6 +3,7 @@ import io
 from abc import ABC, abstractmethod
 from typing import Any, List, NamedTuple, Optional, Tuple, Union
 
+import numpy as np
 import requests
 import torch
 from PIL import Image
@@ -20,7 +21,7 @@ class _SpecialTokens(NamedTuple):
 
     image_token: Optional[str]
     image_token_id: Optional[int]
-    ignore_label_id: Optional[int]
+    label_ignore_index: Optional[int]
 
 
 class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
@@ -56,7 +57,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
-        ignore_label_id: Optional[int] = -100,
+        label_ignore_index: Optional[int] = None,
         limit: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -78,20 +79,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                     "Ignoring processor_name: %s",
                     processor_name,
                 )
-
-        if False:
-            import inspect
-
-            members = inspect.getmembers(
-                tokenizer, lambda a: not (inspect.isroutine(a))
-            )
-            logger.info(f"\n\n\nTokenizer:\n{members}")
-
-            if processor:
-                members = inspect.getmembers(
-                    processor, lambda a: not (inspect.isroutine(a))
-                )
-                logger.info(f"\n\n\nProcessor:\n{members}")
 
         self._processor = processor
 
@@ -129,7 +116,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         self._special_tokens: _SpecialTokens = _SpecialTokens(
             image_token=image_token,
             image_token_id=image_token_id,
-            ignore_label_id=ignore_label_id,
+            label_ignore_index=label_ignore_index,
         )
 
         if limit is not None:
@@ -221,12 +208,20 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
-            self._special_tokens.ignore_label_id is not None
+            self._special_tokens.label_ignore_index is not None
             and self._special_tokens.image_token_id is not None
         ):
             labels = inputs["labels"]
             image_token_id = int(self._special_tokens.image_token_id)
-            labels[labels == image_token_id] = int(self._special_tokens.ignore_label_id)
+            label_ignore_index = int(self._special_tokens.label_ignore_index)
+            if isinstance(labels, (torch.Tensor, np.ndarray)):
+                # Modify in-place
+                labels[labels == image_token_id] = label_ignore_index
+            else:
+                # Create numpy array, modify, and copy back.
+                labels = np.array(labels)
+                labels[labels == image_token_id] = label_ignore_index
+                inputs["labels"] = labels.tolist()
 
         return inputs
 
