@@ -1,177 +1,186 @@
-# Quickstart Guide
+# Quickstart
 
-# Oumi Usage Overview
+## 1. Configuration
 
-Oumi is a framework for training and evaluating large language models. This tutorial will guide you through the process of setting up, training, and evaluating a model using Oumi.
-
-## 1. Installation
-
-First, you'll need to install Oumi and its dependencies:
-
-```bash
-git clone https://github.com/oumi-ai/oumi.git
-cd oumi
-pip install -e ".[all]"
-```
-
-## 2. Configuration
-
-Oumi uses configuration files to specify model and training parameters. Create a YAML file (e.g., `config.yaml`) with your desired settings. Here's a basic example:
+Oumi uses YAML configuration files to specify model and training parameters. Create a file named `config.yaml` with your desired settings. Here's a basic example:
 
 ```yaml
 model:
-  model_name: "gpt2"
+  model_name: "gpt2"  # Specifies the model architecture to use
 
 data:
   train:
     datasets:
-      - dataset_name: "tatsu-lab/alpaca"
+      - dataset_name: "tatsu-lab/alpaca"  # Training dataset
         split: "train"
   validation:
     datasets:
-      - dataset_name: "tatsu-lab/alpaca"
+      - dataset_name: "tatsu-lab/alpaca"  # Validation dataset
         split: "validation"
 
 training:
-  output_dir: "output"
-  per_device_train_batch_size: 8
-  num_train_epochs: 3
-  learning_rate: 5e-5
+  output_dir: "output/quickstart"  # Directory to save outputs
+  per_device_train_batch_size: 8  # Batch size per GPU
+  num_train_epochs: 3  # Number of training epochs
+  learning_rate: 5e-5  # Learning rate for optimization
 ```
 
-For more advanced use cases, and examples of other configuration options, see the [Configuration](https://github.com/oumi-ai/oumi/tree/main/configs/oumi) directory.
+Each section in the configuration file controls different aspects of the training process:
 
-## 3. Training
+- `model`: Specifies the model architecture and related parameters
+- `data`: Defines the datasets for training and validation
+- `training`: Sets training hyperparameters and output locations
+
+For more advanced use cases and examples of other configuration options, see the [Configuration](https://github.com/oumi-ai/oumi/tree/main/configs/oumi) directory.
+
+## 2. Model Selection
+
+Oumi supports various model architectures. To use a different model, simply change the `model_name` in your configuration:
+
+```yaml
+model:
+  model_name: "bert-base-uncased"  # Uses BERT instead of GPT-2
+```
+
+Popular choices include:
+
+- `gpt2`: For general language generation tasks
+- `bert-base-uncased`: For classification or token-level tasks
+- `t5-small`: For sequence-to-sequence tasks
+
+The choice of model depends on your specific task and computational resources.
+
+## 3. Data Preprocessing
+
+Oumi handles most data preprocessing automatically. However, for custom datasets or specific requirements, you can implement your own preprocessing logic. Here's an example of how to preprocess data for a text classification task:
+
+```python
+from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.registry import register_dataset
+from oumi.core.types.turn import Conversation, Message, Role
+
+@register_dataset("my_text_classification_dataset")
+class MyTextClassificationDataset(BaseLMSftDataset):
+    def transform_conversation(self, raw_example):
+        text = raw_example['text']
+        label = raw_example['label']
+
+        # Create a conversation with user input and expected output
+        conversation = Conversation(
+            messages=[
+                Message(role=Role.USER, content=f"Classify the following text: {text}"),
+                Message(role=Role.ASSISTANT, content=f"The classification is: {label}")
+            ]
+        )
+        return conversation
+```
+
+Then, use your custom dataset in the configuration:
+
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: "my_text_classification_dataset"
+        split: "train"
+```
+
+## 4. Training
 
 To train a model using Oumi, use the `train` script:
 
 ```bash
 oumi train -c config.yaml
-
-# Or, if the script is not in your PATH:
-python -m oumi.train -c config.yaml
-
-# On the other hand, this does not work!
-python src/oumi/train.py -c config.yaml
 ```
 
-This will start the training process using the configuration specified in `config.yaml`. The script will:
+This will:
 
-1. Download the specified model and tokenizer (if not already cached)
-2. Download the datasets (if not already cached)
+1. Download the specified model and tokenizer
+2. Load and preprocess the datasets
 3. Initialize the trainer
 4. Start the training process
 
-You can monitor the training progress in the console output. Checkpoints and logs will be saved in the specified `output_dir`.
+Monitor the training progress in the console output. Checkpoints and logs will be saved in the specified `output_dir`.
 
-## 4. Evaluation
+To resume training from a checkpoint, add the following to your configuration:
 
-After training, you can evaluate your model using the `evaluate` script:
+```yaml
+training:
+  resume_from_checkpoint: "output/quickstart/checkpoint-1000"
+```
+
+## 5. Evaluation
+
+After training, evaluate your model using the `evaluate` script:
 
 ```bash
 oumi evaluate -c eval_config.yaml
-
-# Alternatively:
-python -m oumi.evaluate -c eval_config.yaml
 ```
 
 Create an `eval_config.yaml` file with evaluation-specific settings:
 
 ```yaml
 model:
-  model_name: "output/checkpoint-1000"  # Path to your trained model
+  model_name: "output/quickstart/checkpoint-1000"  # Path to your trained model
 
 lm_harness_params:
   tasks:
-    - "mmlu"
-  num_fewshot: 5
-output_dir: "eval_results"
+    - "mmlu"  # Multiple-choice grade-school tasks
+output_dir: "output/quickstart/eval_results"
 ```
 
-This will evaluate your model on the specified dataset(s) and save the results in the `eval_results` directory.
+This evaluates your model on the specified tasks and saves the results in `output/quickstart/eval_results`. Common metrics include accuracy, perplexity, and F1 score, depending on the task.
 
-## 5. Inference
+## 6. Inference
 
-To run inference on your trained model, use the `infer` script:
+To run inference on your trained model:
 
 ```bash
-oumi infer -c infer_config.yaml --detach
-
-# Alternatively:
-python -m oumi.infer -c infer_config.yaml
+oumi infer -c infer_config.yaml
 ```
 
 Create an `infer_config.yaml` file with inference settings:
 
 ```yaml
 model:
-  model_name: "output/checkpoint-1000"  # Path to your trained model
+  model_name: "output/quickstart/checkpoint-1000"  # Path to your trained model
 
 generation:
-  max_new_tokens: 100
-  batch_size: 1
+  max_new_tokens: 100  # Maximum number of tokens to generate
+  batch_size: 1  # Batch size for inference
 ```
 
-By omitting the `--detach` flag you can run in interactive mode:
+This allows you to input prompts and get responses from your model interactively.
 
-```bash
-oumi infer -c infer_config.yaml
-```
+## 7. Multi-GPU and Distributed Training
 
-This will allow you to input prompts and get responses from your model interactively.
-
-## 6. Custom Datasets
-
-Oumi supports custom datasets. To use your own SFT dataset, create a new class that inherits from `BaseLMSftDataset` and implement the required methods. Then, register your dataset using the `@register_dataset` decorator:
-
-```python
-from oumi.core.datasets import BaseLMSftDataset
-from oumi.core.registry import register_dataset
-
-@register_dataset("my_custom_dataset")
-class MyCustomDataset(BaseLMSftDataset):
-    def transform_conversation(self, raw_example):
-        # Implement your data transformation logic here
-        pass
-```
-
-You can then use your custom dataset in the configuration file:
-
-```yaml
-data:
-  train:
-    datasets:
-      - dataset_name: "my_custom_dataset"
-        split: "train"
-```
-
-For more details, see this notebook [Custom Datasets](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb). You can also find the list of datasets already implemented in Oumi [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
-
-## 7. Multi-GPU Training
-
-Oumi supports distributed training. To use multiple GPUs, you can use the `torch.distributed.launch` module:
+For multi-GPU training on a single machine:
 
 ```bash
 torchrun --standalone --nproc_per_node=4 -m oumi.train -c config.yaml
 ```
 
-This will launch the training script on 4 GPUs.
+For distributed training across multiple nodes, use `oumi launch`:
 
-## 8.  Distributed Training
+```bash
+oumi launch -c launch_config.yaml
+```
 
-To scale up to multiple nodes, or to use GPUs on a remote cluster, you can use `oumi launch`, which makes it straightforward to run jobs on remote machines.
+See the [Running Jobs Remotely](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb) notebook for detailed examples.
 
-You can find a detailed example here: [notebook](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
-
-## 9. Monitoring and Logging
+## 8. Monitoring and Logging
 
 Oumi supports Weights & Biases (wandb) and TensorBoard for logging.
 
-To enable wandb logging, set `enable_wandb: true` in your config file.  logging is enabled by default.
-To enable tensorboard logging, set `enable_tensorboard: true` in your config file. TensorBoard logging is enabled by default.
+To enable wandb logging:
 
-You can view TensorBoard logs by running:
+```yaml
+training:
+  enable_wandb: true
+```
+
+TensorBoard logging is enabled by default. View logs with:
 
 ```bash
-tensorboard --logdir output/runs
+tensorboard --logdir output/quickstart/tensorboard
 ```
