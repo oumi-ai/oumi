@@ -130,7 +130,7 @@ Overview
    :maxdepth: 2
    :caption: Python API
 
-   api/modules
+   api/oumi
 
 .. toctree::
    :maxdepth: 2
