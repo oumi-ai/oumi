@@ -144,6 +144,7 @@ Overview
    :caption: Development
 
    development/contributing
+   development/dev_setup
    development/code_of_conduct
    development/style_guide
    development/git_workflow
