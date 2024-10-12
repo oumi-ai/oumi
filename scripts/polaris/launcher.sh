@@ -96,7 +96,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $
    fi
    echo "Installing packages... -----------------------------------------"
    conda activate /home/$USER/miniconda3/envs/oumi
-   pip install -e '.[train]'
+   pip install -e '.'
    pip install -e '.[gpu]'
 
   echo "Submitting job... -----------------------------------------"

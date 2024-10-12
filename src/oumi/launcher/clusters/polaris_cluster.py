@@ -236,11 +236,11 @@ class PolarisCluster(BaseCluster):
             f"if [ ! -d {oumi_env_path} ]; then",
             'echo "Creating Oumi Conda environment... ---------------------------"',
             f"conda create -y python=3.11 --prefix {oumi_env_path}",
+            "pip install uv",
             "fi",
             'echo "Installing packages... ---------------------------------------"',
             f"conda activate {oumi_env_path}",
-            "pip install -e '.[train]'",
-            "pip install -e '.[gpu]'",
+            "uv pip install -e '.[gpu]'",
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.
