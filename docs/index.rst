@@ -77,23 +77,6 @@ Overview
 
 .. toctree::
    :maxdepth: 2
-   :caption: Models
-
-   models/recipes
-   models/cambrian
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Datasets
-
-   datasets/local_datasets
-   datasets/pretraining
-   datasets/sft
-   datasets/preference_tuning
-   datasets/vl_sft
-
-.. toctree::
-   :maxdepth: 2
    :caption: Advanced Topics
 
    advanced/custom_models
@@ -101,6 +84,24 @@ Overview
    advanced/quantization
    advanced/performance_optimization
    advanced/custom_vl_datasets
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Models
+   :collapsed:
+   models/recipes
+   models/cambrian
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Datasets
+   :collapsed:
+
+   datasets/local_datasets
+   datasets/pretraining
+   datasets/sft
+   datasets/preference_tuning
+   datasets/vl_sft
 
 .. toctree::
    :maxdepth: 1
@@ -116,7 +117,6 @@ Overview
 
    Python API <api/oumi>
    CLI Reference <cli/commands>
-
 
 .. toctree::
    :maxdepth: 1
