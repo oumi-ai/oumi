@@ -196,6 +196,7 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
 
 def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
     """Converts string dtype to torch.dtype."""
+    torch_dtype_str = torch_dtype_str.lower()
     if torch_dtype_str in ["f64", "float64", "double"]:
         return torch.float64
     elif torch_dtype_str in ["f32", "float32", "float"]:
