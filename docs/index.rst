@@ -80,7 +80,7 @@ Oumi is an open, collaborative modeling platform that allows you to build founda
    :maxdepth: 2
    :caption: Python API
 
-   api/index
+   api/modules
 
 .. toctree::
    :maxdepth: 2
