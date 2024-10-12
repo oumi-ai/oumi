@@ -38,12 +38,13 @@ class InferenceConfig(BaseConfig):
     """The inference engine to use for generation.
 
     Options:
-        NATIVE: Use the native inference engine via a local forward pass.
-        VLLM: Use the vLLM inference engine.
-        LLAMACPP: Use LlamaCPP inference engine.
-        REMOTE: Use the inference engine for APIs that implement the OpenAI Chat API
-            interface.
-        ANTHROPIC: Use the inference engine for Anthropic's API.
+
+        - NATIVE: Use the native inference engine via a local forward pass.
+        - VLLM: Use the vLLM inference engine.
+        - LLAMACPP: Use LlamaCPP inference engine.
+        - REMOTE: Use the inference engine for APIs that implement the OpenAI Chat API
+          interface.
+        - ANTHROPIC: Use the inference engine for Anthropic's API.
 
     If not specified, the "NATIVE" engine will be used.
     """
