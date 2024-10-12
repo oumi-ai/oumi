@@ -1,5 +1,9 @@
 # Training Configuration
 
+```{attention}
+Section under construction. Contributions welcome!
+```
+
 ## Introduction
 
 - Overview of training configuration in Oumi

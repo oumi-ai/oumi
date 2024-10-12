@@ -1,5 +1,9 @@
 # Distributed Training
 
+```{attention}
+Section under construction. Contributions welcome!
+```
+
 ## Multi-GPU Training on a Single Node
 
 To configure multi-GPU training, edit the `accelerators` section of your SkyPilot config

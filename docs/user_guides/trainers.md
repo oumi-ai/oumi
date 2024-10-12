@@ -1,4 +1,8 @@
-# Oumi Trainers
+# Trainers
+
+```{attention}
+Section under construction. Contributions welcome!
+```
 
 ## Introduction
 
