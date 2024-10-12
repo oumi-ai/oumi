@@ -86,7 +86,6 @@ Overview
    :maxdepth: 2
    :caption: Examples
 
-   examples/notebooks
    examples/tutorials
 
 .. toctree::
@@ -144,6 +143,7 @@ Overview
    :caption: Development
 
    development/contributing
+   development/dev_setup
    development/code_of_conduct
    development/style_guide
    development/git_workflow
