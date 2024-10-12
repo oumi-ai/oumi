@@ -45,7 +45,6 @@ extensions = [
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
-    ".ipynb": "nbsphinx",
 }
 
 nbsphinx_execute = "never"
@@ -85,9 +84,9 @@ html_theme_options = {
 # modeule name -> (url, inventory file)
 intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/stable", None),
-    "transformers": ("https://huggingface.co/docs/transformers/master/en", None),
-    "trl": ("https://huggingface.co/docs/trl/master/en", None),
-    "datasets": ("https://huggingface.co/docs/datasets/master/en", None),
+    "transformers": ("https://huggingface.co/docs/transformers/main/en", None),
+    "trl": ("https://huggingface.co/docs/trl/main/en", None),
+    "datasets": ("https://huggingface.co/docs/datasets/main/en", None),
 }
 # Disable all reftypes for intersphinx
 # Reftypes need to be pre-fixed with :external: to be linked
