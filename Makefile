@@ -110,11 +110,11 @@ upgrade:
 		$(CONDA_RUN) pip install --upgrade -e ".[dev]"; \
 	fi
 
-clean:
+clean: docs-clean
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
-	rm -rf $(DOCS_BUILDDIR)
+
 
 check:
 	$(CONDA_RUN) pre-commit run --all-files
@@ -131,7 +131,6 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-
 skyssh:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	ssh "${USERNAME}-dev"
@@ -140,7 +139,7 @@ skycode:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
-docs:
+docs: copy-doc-files
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-help:
@@ -151,9 +150,15 @@ docs-serve: docs
 	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
-docs-rebuild:
-	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
+docs-rebuild: docs-clean docs-copy-files
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/api"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild
+docs-copy-files:
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py copy "$(DOCS_SOURCEDIR)/_doclinks.config"
+
+docs-clean:
+	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
+	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
+
+.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs
