@@ -4,17 +4,109 @@ Welcome to the documentation for Open Universal Machine Intelligence (Oumi) !
 
 Oumi is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
+.. .. toctree::
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Get started
+
+   installation
+   quickstart
+   configuration
+
+.. toctree::
+   :maxdepth: 2
+   :caption: User Guide
+
+   user_guide/training
+   user_guide/training_config
+   user_guide/trainers
+   user_guide/inference
+   user_guide/inference_engines
+   user_guide/evaluation
+   user_guide/lm_harness
+   user_guide/judge
+   user_guide/oumi_judge
+   user_guide/custom_judge
+   user_guide/launch
+   user_guide/distributed_training
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Examples
+
+   examples/notebooks
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Models
+
+   models/recipes
+   models/custom_models
+   models/mlp_encoder
+   models/cambrian
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Datasets
+
+   datasets/local_datasets
+   datasets/pretraining
+   datasets/sft
+   datasets/preference_tuning
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Topics
+
+   advanced/custom_models
+   advanced/custom_datasets
+   advanced/quantization
+   advanced/model_parallelism
+   advanced/telemetry
+   advanced/performance_optimization
+   advance/new_multimodal_dataset
+
 .. toctree::
    :maxdepth: 1
-   :caption: Overview
+   :caption: FAQ
 
-   links/usage
-   tutorials
-   links/dev_setup
-   links/distributed_training
-   links/cloud_training
-   links/contributing
-   links/new_multimodal_dataset
+   faq/troubleshooting
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Python API
+
+   api/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: CLI
+
+   cli/commands
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Development
+
+   development/contributing
+   development/code_of_conduct
+
+.. toctree::
+   :maxdepth: 1
+   :caption: About
+
+   about/changelog
+   about/acknowledgement
+   about/license
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
 
 Getting Started
 ---------------

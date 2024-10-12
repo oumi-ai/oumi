@@ -28,7 +28,6 @@
    ~/miniconda3/bin/conda init zsh
    ```
 
-
 ### 2.1.1 Installation instructions for Mac
 
    Install Homebrew (the command below was copied from <www.brew.sh>)
@@ -78,6 +77,7 @@
 ### 3.2 Install Oumi package and its dependencies
 
    This command creates a new Conda env, installs relevant packages, and installs pre-commit.
+
    ```shell
    make setup
    ```
