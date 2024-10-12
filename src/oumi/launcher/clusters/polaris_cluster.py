@@ -236,10 +236,12 @@ class PolarisCluster(BaseCluster):
             f"if [ ! -d {oumi_env_path} ]; then",
             'echo "Creating Oumi Conda environment... ---------------------------"',
             f"conda create -y python=3.11 --prefix {oumi_env_path}",
-            "pip install uv",
             "fi",
             'echo "Installing packages... ---------------------------------------"',
             f"conda activate {oumi_env_path}",
+            "if ! command -v uv >/dev/null 2>&1; then",
+            "pip install -U uv",
+            "fi",
             "uv pip install -e '.[gpu]'",
         ]
         self._client.run_commands(install_cmds)
