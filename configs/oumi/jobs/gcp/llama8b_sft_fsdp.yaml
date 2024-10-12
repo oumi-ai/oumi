@@ -1,46 +1,42 @@
-# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
+# Config to FSDP full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama8b_sft.yaml --cluster llama8b-sft
-name: llama8b-sft
+# oumi launch up -c configs/oumi/jobs/gcp/llama8b_sft_fsdp.yaml --cluster llama8b-sft-fsdp
+name: llama8b-sft-fsdp
 
 num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
-  disk_size: 200 # Disk size in GBs
+  disk_size: 2000 # Disk size in GBs
 
-# Upload a working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Upload local files.
 file_mounts:
-  ~/.netrc: ~/.netrc  # mount local netrc file to access private repos
+  ~/.netrc: ~/.netrc  # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama8b.sft
+  OUMI_RUN_NAME: llama8b.sft.fsdp
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  pip install hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
 
-  set -x  # Print "accelerate launch" command with expanded variables
+  set -x
   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
@@ -51,9 +47,6 @@ run: |
       --config_file configs/accelerate/llama.fsdp.yaml \
       -m oumi.train \
       -c configs/oumi/llama8b.sft.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=10" \
-      "training.save_steps=10" \
-      "training.save_final_model=true"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
