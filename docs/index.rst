@@ -86,7 +86,6 @@ Overview
    :maxdepth: 2
    :caption: Examples
 
-   examples/notebooks
    examples/tutorials
 
 .. toctree::
