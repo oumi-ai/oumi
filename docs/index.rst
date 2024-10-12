@@ -88,14 +88,13 @@ Overview
 .. toctree::
    :maxdepth: 2
    :caption: Models
-   :collapsed:
+
    models/recipes
    models/cambrian
 
 .. toctree::
    :maxdepth: 2
    :caption: Datasets
-   :collapsed:
 
    datasets/local_datasets
    datasets/pretraining
