@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-import torch
 from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.distributed_utils import is_using_accelerate
+from oumi.utils.torch_utils import get_torch_dtype
 
 
 @dataclass
@@ -156,16 +156,7 @@ class ModelParams(BaseParams):
 
     def torch_dtype(self):
         """Converts string dtype to torch.dtype."""
-        if self.torch_dtype_str in ["f64", "float64", "double"]:
-            return torch.float64
-        elif self.torch_dtype_str in ["f32", "float32", "float"]:
-            return torch.float32
-        elif self.torch_dtype_str in ["bf16", "bfloat16"]:
-            return torch.bfloat16
-        elif self.torch_dtype_str in ["f16", "float16", "half"]:
-            return torch.float16
-        else:
-            raise ValueError(f"Unsupported data type: {self.torch_dtype_str}")
+        return get_torch_dtype(self.torch_dtype_str)
 
     def to_lm_harness(self) -> Dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
