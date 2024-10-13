@@ -22,8 +22,8 @@ Explore our :doc:`tutorials <get_started/tutorials>` for in-depth guides on usin
 - :doc:`Getting started with Finetuning <user_guides/train/finetuning>`
 - :doc:`Using the Oumi job launcher <user_guides/launch/deploy>`
 - :doc:`Running jobs remotely <user_guides/launch/remote>`
-- :doc:`Launching jobs on custom clusters <user_guides/launch/custom_cluster>`
-- :doc:`Working with Datasets in Oumi <user_guides/advanced/custom_datasets>`
+- :doc:`Launching jobs on custom clusters <advanced/custom_cluster>`
+- :doc:`Working with Datasets in Oumi <advanced/custom_datasets>`
 
 API Reference
 -------------
@@ -84,6 +84,8 @@ Overview
    advanced/quantization
    advanced/performance_optimization
    advanced/custom_vl_datasets
+   advanced/nanopgt
+   advanced/custom_cluster
 
 .. toctree::
    :maxdepth: 2
