@@ -28,7 +28,6 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
-    # "autodoc2",
     "sphinx.ext.coverage",
     "sphinx.ext.duration",
     "sphinx.ext.intersphinx",
