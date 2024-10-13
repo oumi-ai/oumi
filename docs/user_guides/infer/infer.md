@@ -3,8 +3,10 @@
 ```{toctree}
 :maxdepth: 2
 :caption: Inference
+:hidden:
 
 inference_engines
+vllm
 ```
 
 ```{attention}

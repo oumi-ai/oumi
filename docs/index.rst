@@ -69,9 +69,9 @@ Overview
    :maxdepth: 2
    :caption: User Guide
 
-   user_guides/train/training
-   user_guides/infer/inference
-   user_guides/evaluate/evaluation
+   user_guides/train/train
+   user_guides/infer/infer
+   user_guides/evaluate/evaluate
    user_guides/judge/judge
    user_guides/launch/launch
 
