@@ -1,6 +1,3 @@
-import os
-import sys
-
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -12,7 +9,6 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-sys.path.insert(0, os.path.abspath("../.."))
 
 
 # -- Project information -----------------------------------------------------
@@ -32,6 +28,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
+    # "autodoc2",
     "sphinx.ext.coverage",
     "sphinx.ext.duration",
     "sphinx.ext.intersphinx",
@@ -39,6 +36,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
 ]
+
 
 source_suffix = {
     ".rst": "restructuredtext",
@@ -116,7 +114,8 @@ bibtex_bibfiles = ["citations.bib"]
 bibtex_encoding = "utf-8"
 
 myst_enable_extensions = [
-    "colon_fence",
+    "colon_fence",  # Allows for directive blocks to be denoted by :::
+    "tasklist",  # Enables GitHub-style task lists
 ]
 
 nb_execution_mode = "off"
