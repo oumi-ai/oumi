@@ -1,6 +1,6 @@
 # Citations
 
-```{bibliography}
+:::{bibliography}
 :cited:
 :notcited:
-```
+:::
