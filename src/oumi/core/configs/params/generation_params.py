@@ -64,7 +64,7 @@ class GenerationParams(BaseParams):
     stop: Optional[List[str]] = None
     """List of sequences where the API will stop generating further tokens."""
 
-    eos_token_id: Optional[List[int]] = None
+    stop_token_ids: Optional[List[int]] = None
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 

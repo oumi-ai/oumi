@@ -97,7 +97,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             detokenize=True,
             seed=generation_params.seed,
             stop_strings=generation_params.stop,
-            eos_token_id=generation_params.eos_token_id,
+            eos_token_id=generation_params.stop_token_ids,
         )
 
         # Generate model outputs (batch mode).
