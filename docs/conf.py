@@ -52,6 +52,12 @@ napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 napoleon_numpy_docstring = False
 napoleon_google_docstring = True
+napoleon_custom_sections = [
+    ("Data Fields", "params_style"),
+    ("License", "notes"),
+    ("Citations", "admonition"),
+    ("Citation", "admonition"),
+]
 
 coverage_statistics_to_stdout = True
 coverage_statistics_to_report = True
