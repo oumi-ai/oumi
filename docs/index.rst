@@ -12,18 +12,18 @@ If you're new to Oumi, we recommend starting with the following sections:
 
 1. :doc:`Introduction <get_started/quickstart>` - Learn about the core concepts and philosophy behind Oumi.
 2. :doc:`Installation <get_started/installation>` - Get Oumi up and running on your system.
-3. `A tour of our library <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of Oumi's features.
+3. :doc:`A tour of our library <get_started/tour>`  - Take a comprehensive tour of Oumi's features.
 
 Tutorials
 ---------
 
 Explore our :doc:`tutorials <get_started/tutorials>` for in-depth guides on using Oumi for various tasks:
 
-- `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb>`_
-- `Using the Oumi job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb>`_
-- `Running jobs remotely <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb>`_
-- `Launching jobs on custom clusters <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb>`_
-- `Working with Datasets in Oumi <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb>`_
+- :doc:`Getting started with Finetuning <user_guides/train/finetuning>`
+- :doc:`Using the Oumi job launcher <user_guides/launch/deploy>`
+- :doc:`Running jobs remotely <user_guides/launch/remote>`
+- :doc:`Launching jobs on custom clusters <advanced/custom_cluster>`
+- :doc:`Working with Datasets in Oumi <advanced/custom_datasets>`
 
 API Reference
 -------------
@@ -69,9 +69,9 @@ Overview
    :maxdepth: 2
    :caption: User Guide
 
-   user_guides/train/training
-   user_guides/infer/inference
-   user_guides/evaluate/evaluation
+   user_guides/train/train
+   user_guides/infer/infer
+   user_guides/evaluate/evaluate
    user_guides/judge/judge
    user_guides/launch/launch
 
@@ -80,10 +80,12 @@ Overview
    :caption: Advanced Topics
 
    advanced/custom_models
+   advanced/nanopgt
    advanced/custom_datasets
+   advanced/custom_cluster
+   advanced/custom_vl_datasets
    advanced/quantization
    advanced/performance_optimization
-   advanced/custom_vl_datasets
 
 .. toctree::
    :maxdepth: 2
@@ -121,8 +123,8 @@ Overview
    :maxdepth: 1
    :caption: Development
 
-   development/contributing
    development/dev_setup
+   development/contributing
    development/code_of_conduct
    development/style_guide
    development/git_workflow

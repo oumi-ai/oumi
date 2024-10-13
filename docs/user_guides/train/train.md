@@ -6,6 +6,7 @@
 :hidden:
 
 finetuning
+llama
 training_config
 trainers
 distributed_training
