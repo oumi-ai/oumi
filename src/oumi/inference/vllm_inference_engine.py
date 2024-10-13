@@ -110,6 +110,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             stop=generation_params.stop,
+            stop_token_ids=generation_params.eos_token_id,
             min_p=generation_params.min_p,
         )
 

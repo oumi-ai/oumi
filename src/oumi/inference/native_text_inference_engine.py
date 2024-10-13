@@ -93,10 +93,11 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             presence_penalty=generation_params.presence_penalty,
             do_sample=generation_params.temperature > 0,
             min_p=generation_params.min_p,
-            stop=generation_params.stop,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
+            stop_strings=generation_params.stop,
+            eos_token_id=generation_params.eos_token_id,
         )
 
         # Generate model outputs (batch mode).
@@ -106,7 +107,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         ):
             batch = input_batches[batch_index]
             output_batch = self._model.generate(
-                **batch, generation_config=generation_config
+                **batch, generation_config=generation_config, tokenizer=self._tokenizer
             )
 
             # For each batch, remove the prepended prompts from all model reponses.
