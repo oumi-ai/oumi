@@ -36,7 +36,6 @@ extensions = [
     "sphinxcontrib.bibtex",
 ]
 
-
 source_suffix = {
     ".rst": "restructuredtext",
 }
