@@ -19,11 +19,11 @@ Tutorials
 
 Explore our :doc:`tutorials <get_started/tutorials>` for in-depth guides on using Oumi for various tasks:
 
-- `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb>`_
-- `Using the Oumi job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb>`_
-- `Running jobs remotely <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb>`_
-- `Launching jobs on custom clusters <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb>`_
-- `Working with Datasets in Oumi <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb>`_
+- :doc:`Getting started with Finetuning <user_guides/train/finetuning>`
+- :doc:`Using the Oumi job launcher <user_guides/launch/deploy>`
+- :doc:`Running jobs remotely <user_guides/launch/remote>`
+- :doc:`Launching jobs on custom clusters <user_guides/launch/custom_cluster>`
+- :doc:`Working with Datasets in Oumi <user_guides/advanced/custom_datasets>`
 
 API Reference
 -------------
