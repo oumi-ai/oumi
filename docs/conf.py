@@ -118,7 +118,6 @@ myst_enable_extensions = [
     "tasklist",  # Enables GitHub-style task lists
 ]
 
-
 suppress_warnings = [
     # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
     "myst.header",
