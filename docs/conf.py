@@ -1,3 +1,6 @@
+import os
+import sys
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -9,6 +12,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+sys.path.insert(0, os.path.abspath("../.."))
 
 
 # -- Project information -----------------------------------------------------
@@ -24,7 +28,8 @@ author = "Open Universal Machine Intelligence"
 main_doc = "index"
 
 extensions = [
-    "myst_nb",  # implicitly enables myst_parser
+    "myst_parser",
+    "nbsphinx",
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
@@ -36,10 +41,12 @@ extensions = [
     "sphinxcontrib.bibtex",
 ]
 
-
 source_suffix = {
     ".rst": "restructuredtext",
 }
+
+nbsphinx_execute = "never"
+nbsphinx_allow_errors = True
 
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
@@ -115,13 +122,4 @@ bibtex_encoding = "utf-8"
 myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
-]
-
-nb_execution_mode = "off"
-
-suppress_warnings = [
-    # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
-    "myst.header",
-    # Ignore warnings from autodoc
-    # "autodoc",
 ]
