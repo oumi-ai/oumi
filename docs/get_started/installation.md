@@ -85,7 +85,7 @@ Oumi has several optional features that require additional dependencies:
 After installation, you can verify that Oumi is installed correctly by running:
 
 ```bash
-oumi --help"
+oumi --help
 ```
 
 This should print the help message for Oumi.
