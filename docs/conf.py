@@ -41,6 +41,8 @@ source_suffix = {
     ".rst": "restructuredtext",
 }
 
+nb_execution_mode = "off"
+
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 napoleon_numpy_docstring = False
@@ -115,13 +117,4 @@ bibtex_encoding = "utf-8"
 myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
-]
-
-nb_execution_mode = "off"
-
-suppress_warnings = [
-    # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
-    "myst.header",
-    # Ignore warnings from autodoc
-    # "autodoc",
 ]
