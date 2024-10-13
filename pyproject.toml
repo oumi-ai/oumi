@@ -78,7 +78,7 @@ dev = [
 train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
-    "nbsphinx",                # Allows us to include ipython notebooks in the docs
+    "myst-nb",                 # Allows us to include ipython notebooks in the docs
     "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
     "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
     "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
