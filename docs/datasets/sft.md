@@ -6,9 +6,9 @@ Section under construction. Contributions welcome!
 
 ## TODO
 
-[ ] SFT base class overview
-[ ] How to use a specific dataset in config
-[ ] How to use a specific dataset in code
+- [ ] SFT base class overview
+- [ ] How to use a specific dataset in config
+- [ ] How to use a specific dataset in code
 
 ## SFT Datasets
 

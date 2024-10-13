@@ -6,9 +6,9 @@ Section under construction. Contributions welcome!
 
 ## TODO
 
-[ ] Pretraining base class overview
-[ ] How to use a specific dataset in config
-[ ] How to use a specific dataset in code
+- [ ] Pretraining base class overview
+- [ ] How to use a specific dataset in config
+- [ ] How to use a specific dataset in code
 
 ## Pre-training Datasets
 
