@@ -65,7 +65,7 @@ Basic guidelines that will make your PR easier to review:
 
 - **Code Formatting and Type Checking**
   - Use `pre-commit` to handle formatting and type checking:
-  - Ensure you have it installed as described in the [Prerequisites](#prerequisites) section.
+  - Ensure you have it installed as described in the prerequisites section.
   - Run pre-commit hooks before submitting your PR.
 
 ## Running Tests
