@@ -80,12 +80,12 @@ Overview
    :caption: Advanced Topics
 
    advanced/custom_models
+   advanced/nanopgt
    advanced/custom_datasets
+   advanced/custom_cluster
+   advanced/custom_vl_datasets
    advanced/quantization
    advanced/performance_optimization
-   advanced/custom_vl_datasets
-   advanced/nanopgt
-   advanced/custom_cluster
 
 .. toctree::
    :maxdepth: 2
@@ -123,8 +123,8 @@ Overview
    :maxdepth: 1
    :caption: Development
 
-   development/contributing
    development/dev_setup
+   development/contributing
    development/code_of_conduct
    development/style_guide
    development/git_workflow
