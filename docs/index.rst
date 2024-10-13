@@ -12,7 +12,7 @@ If you're new to Oumi, we recommend starting with the following sections:
 
 1. :doc:`Introduction <get_started/quickstart>` - Learn about the core concepts and philosophy behind Oumi.
 2. :doc:`Installation <get_started/installation>` - Get Oumi up and running on your system.
-3. `A tour of our library <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb>`_ - Take a comprehensive tour of Oumi's features.
+3. :doc:`A tour of our library <get_started/tour>`  - Take a comprehensive tour of Oumi's features.
 
 Tutorials
 ---------
