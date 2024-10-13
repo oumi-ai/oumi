@@ -17,7 +17,7 @@ If you're new to Oumi, we recommend starting with the following sections:
 Tutorials
 ---------
 
-Explore our :doc:`tutorials <examples/tutorials>` for in-depth guides on using Oumi for various tasks:
+Explore our :doc:`tutorials <get_started/tutorials>` for in-depth guides on using Oumi for various tasks:
 
 - `Getting started with Finetuning <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb>`_
 - `Using the Oumi job launcher <https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb>`_

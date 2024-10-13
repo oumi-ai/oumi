@@ -6,7 +6,7 @@ from oumi.core.registry import register_dataset
 class DolmaDataset(BasePretrainingIterableDataset):
     """Dolma: A dataset of 3 trillion tokens from diverse web content.
 
-    Dolma :cite:authorpar:`2024_dolma` is a large-scale dataset containing
+    Dolma :footcite:`2024_dolma` is a large-scale dataset containing
     approximately 3 trillion tokens sourced from various web content, academic
     publications, code, books, and encyclopedic materials. It is designed for
     language modeling tasks and casual language model training.
@@ -16,28 +16,25 @@ class DolmaDataset(BasePretrainingIterableDataset):
     Common Crawl, Refined Web, StarCoder, C4, Reddit, Semantic Scholar, arXiv,
     StackExchange, and more.
 
-    For more information, see:
+    Data Fields:
+      id (str): Unique identifier for the data entry.
+      text (str): The main content of the data entry.
+      added (str, optional): Timestamp indicating when the entry was added
+        to the dataset.
+      created (str, optional): Timestamp indicating when the original content
+        was created.
+      source (str, optional): Information about the origin or source of the
+        data.
 
-        - Manuscript and Data Sheet: https://arxiv.org/abs/2402.00159
-        - GitHub project: https://github.com/allenai/dolma
-        - Hugging Face Hub: https://huggingface.co/datasets/allenai/dolma
+    See Also:
+      - Paper: https://arxiv.org/abs/2402.00159
+      - GitHub project: https://github.com/allenai/dolma
+      - Hugging Face Hub: https://huggingface.co/datasets/allenai/dolma
 
     Note:
         The dataset is released under the ODC-BY license. Users are bound by
         the license agreements and terms of use of the original data sources.
 
-    Data Fields:
-
-        - id (str): Unique identifier for the data entry.
-        - text (str): The main content of the data entry.
-        - added (str, optional): Timestamp indicating when the entry was added
-          to the dataset.
-        - created (str, optional): Timestamp indicating when the original content
-          was created.
-        - source (str, optional): Information about the origin or source of the
-          data.
-
     Citations:
-      .. bibliography::
-        :filter: docname in docnames
+      .. footbibliography::
     """
