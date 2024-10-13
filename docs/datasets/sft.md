@@ -12,5 +12,5 @@ Section under construction. Contributions welcome!
 
 ## SFT Datasets
 
-```{include} ../tables/sft_datasets.md
+```{include} ../api/summary/sft_datasets.md
 ```

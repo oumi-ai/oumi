@@ -12,5 +12,5 @@ Section under construction. Contributions welcome!
 
 ## Pre-training Datasets
 
-```{include} ../tables/pretraining_datasets.md
+```{include} ../api/summary/pretraining_datasets.md
 ```

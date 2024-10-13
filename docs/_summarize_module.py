@@ -1,5 +1,6 @@
 import importlib
 import inspect
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -97,8 +98,9 @@ def summarize_module(
         markdown += f"| {obj['name']} | {obj['description']} | {obj['reference']} |\n"
 
     if output_file:
-        with open(output_file, "w") as f:
-            f.write(markdown)
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown)
     else:
         print(markdown)
 

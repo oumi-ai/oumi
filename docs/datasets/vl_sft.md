@@ -12,5 +12,5 @@ Section under construction. Contributions welcome!
 
 ## Vision-Language Supervised Fine-Tuning Datasets
 
-```{include} ../_summary/vl_sft_datasets.md
+```{include} ../api/summary/vl_sft_datasets.md
 ```
