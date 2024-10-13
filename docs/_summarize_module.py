@@ -20,6 +20,9 @@ def summarize_module(
     parent_class: Optional[str] = typer.Option(
         None, help="Only include children of this class (format: module.ClassName)"
     ),
+    exclude_imported: bool = typer.Option(
+        False, help="Only include objects defined in the module, not imported"
+    ),
 ) -> str:
     """Generate a markdown table of objects defined in a Python module.
 
@@ -29,6 +32,8 @@ def summarize_module(
             Can be 'class', 'method', 'attribute', 'function', or a list of these.
         output_file: Optional file path to save the generated markdown.
         parent_class: Optional parent class to filter children.
+        exclude_imported: If True, only include objects defined in the module,
+            not imported.
 
     Returns:
         A string containing the generated markdown table.
@@ -66,6 +71,9 @@ def summarize_module(
 
     for name, obj in inspect.getmembers(module):
         if name.startswith("_"):  # skip private objects
+            continue
+
+        if exclude_imported and not _is_defined_in_module(obj, module):
             continue
 
         obj_type = _get_object_type(obj)
@@ -138,6 +146,15 @@ def _is_child_of(obj, parent_class) -> bool:
     return (
         inspect.isclass(obj) and issubclass(obj, parent_class) and obj != parent_class
     )
+
+
+def _is_defined_in_module(obj, module):
+    """Check if an object is defined in the given module."""
+    try:
+        return inspect.getmodule(obj) == module
+    except AttributeError:
+        # Some objects might not have a module, assume they're not defined in the module
+        return False
 
 
 if __name__ == "__main__":
