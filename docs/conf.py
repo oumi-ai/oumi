@@ -28,8 +28,7 @@ author = "Open Universal Machine Intelligence"
 main_doc = "index"
 
 extensions = [
-    "myst_parser",
-    "nbsphinx",
+    "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
@@ -44,9 +43,6 @@ extensions = [
 source_suffix = {
     ".rst": "restructuredtext",
 }
-
-nbsphinx_execute = "never"
-nbsphinx_allow_errors = True
 
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
@@ -123,3 +119,5 @@ bibtex_encoding = "utf-8"
 myst_enable_extensions = [
     "colon_fence",
 ]
+
+nb_execution_mode = "off"
