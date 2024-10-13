@@ -62,7 +62,7 @@ Overview
 
    get_started/installation
    get_started/quickstart
-   get_started/usage
+   get_started/configuration
    get_started/tutorials
 
 .. toctree::

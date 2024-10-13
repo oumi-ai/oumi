@@ -81,5 +81,5 @@ To run pre-commit hooks manually, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure,
+See the [Oumi Style Guide](/development/style_guide.md) for guidelines on how to structure,
 and format your code.

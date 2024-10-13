@@ -37,8 +37,8 @@ run manually via:
 pre-commit run ruff --all-files
 ```
 
-The configuration is stored in [pyproject.toml](pyproject.toml) and
-[.pre-commit-config.yaml](.pre-commit-config.yaml).
+The configuration is stored in [pyproject.toml](https://github.com/oumi-ai/oumi/blob/main/pyproject.toml) and
+[.pre-commit-config.yaml](https://github.com/oumi-ai/oumi/blob/main/.pre-commit-config.yaml).
 
 ## 2. Type Annotations and Static Type Checking
 
@@ -62,7 +62,7 @@ We use Sphinx for documentation. To build and serve the documentation, use the f
 
 ```shell
 make docs-rebuild # cleanup everything, rebuild apidocs, rebuild html
-make docs-serve # serve existing html
+make docs-serve   # serve existing html
 ```
 
 Documentation is generated from the docstrings in the code. We use Google style
