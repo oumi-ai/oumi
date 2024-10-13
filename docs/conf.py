@@ -118,3 +118,8 @@ intersphinx_disabled_reftypes = ["*"]
 
 bibtex_bibfiles = ["citations.bib"]
 bibtex_encoding = "utf-8"
+
+myst_enable_extensions = [
+    "colon_fence",  # Allows for directive blocks to be denoted by :::
+    "tasklist",  # Enables GitHub-style task lists
+]
