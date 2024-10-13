@@ -114,10 +114,16 @@ intersphinx_disabled_reftypes = ["*"]
 
 bibtex_bibfiles = ["citations.bib"]
 bibtex_encoding = "utf-8"
-# bibtex_reference_style = "author_year"
 
 myst_enable_extensions = [
     "colon_fence",
 ]
 
 nb_execution_mode = "off"
+
+suppress_warnings = [
+    # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
+    "myst.header",
+    # Ignore warnings from autodoc
+    # "autodoc",
+]
