@@ -151,7 +151,7 @@ docs-serve: docs
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
 docs-rebuild: docs-clean docs-copy-files
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/api"
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-copy-files:
