@@ -1,5 +1,6 @@
 from typing import Any, Dict, NamedTuple, Optional
 
+import torch
 import transformers
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -50,6 +51,7 @@ class TextCollatorWithPadding:
             tokenizer=tokenizer,
             max_length=max_length,
             padding=("max_length" if self._max_length is not None else "longest"),
+            return_tensors="pt",
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
@@ -101,6 +103,7 @@ class TextCollatorWithPadding:
         if labels_present:
             collated_labels = self._default_collator({_INPUT_IDS_KEY: labels})  # type: ignore
             labels = collated_labels[_INPUT_IDS_KEY]
+            assert isinstance(labels, torch.Tensor)
             # Ignore `pad_token_id`-s in the loss computation.
             if self._special_tokens.label_ignore_index is not None:
                 labels[labels == self._special_tokens.pad_token_id] = int(

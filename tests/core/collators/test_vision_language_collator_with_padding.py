@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+import torch
 
 from oumi.builders import build_tokenizer
 from oumi.core.collators.vision_language_collator_with_padding import (
@@ -59,6 +60,7 @@ def test_success_basic():
     )
 
     assert "input_ids" in collated_batch
+    assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
         np.array(collated_batch["input_ids"], dtype=np.int32)
         == np.array(
@@ -67,11 +69,13 @@ def test_success_basic():
         )
     )
     assert "attention_mask" in collated_batch
+    assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
         np.array(collated_batch["attention_mask"], dtype=np.int32)
         == np.array([[1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
     assert "labels" in collated_batch
+    assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
         np.array(collated_batch["labels"], dtype=np.int32)
         == np.array(
