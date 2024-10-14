@@ -1,3 +1,4 @@
+import functools
 from typing import Tuple
 from unittest.mock import MagicMock
 
@@ -17,6 +18,7 @@ def mock_tokenizer():
     return mock
 
 
+@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
 def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
     tokenizer = build_tokenizer(
         ModelParams(
@@ -44,16 +46,16 @@ def test_success_basic():
 
     assert "input_ids" in collated_batch
     assert np.all(
-        np.array(
-            collated_batch["input_ids"]
-            == np.array([[101, 102, 103, 104], [201, 202, pad_token_id, pad_token_id]])
+        np.array(collated_batch["input_ids"], dtype=np.int32)
+        == np.array(
+            [[101, 102, 103, 104], [201, 202, pad_token_id, pad_token_id]],
+            dtype=np.int32,
         )
     )
     assert "attention_mask" in collated_batch
     assert np.all(
-        np.array(
-            collated_batch["attention_mask"] == np.array([[1, 1, 1, 1], [1, 1, 0, 0]])
-        )
+        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        == np.array([[1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
     assert "labels" not in collated_batch
 
@@ -99,21 +101,22 @@ def test_success_with_labels_and_max_length():
     assert "input_ids" in collated_batch
     assert len(collated_batch["input_ids"]) == 3
     assert np.all(
-        np.array(collated_batch["input_ids"])
-        == np.array([[101, pad_token_id], [201, 202], [301, 302]])
+        np.array(collated_batch["input_ids"], dtype=np.int32)
+        == np.array([[101, pad_token_id], [201, 202], [301, 302]], dtype=np.int32)
     )
 
     assert "attention_mask" in collated_batch
     assert len(collated_batch["attention_mask"]) == 3
     assert np.all(
-        np.array(collated_batch["attention_mask"]) == np.array([[1, 0], [1, 1], [1, 1]])
+        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        == np.array([[1, 0], [1, 1], [1, 1]], dtype=np.int32)
     )
 
     assert "labels" in collated_batch
     assert len(collated_batch["labels"]) == 3
     assert np.all(
-        np.array(collated_batch["labels"])
-        == np.array([[101, pad_token_id], [201, 202], [301, 302]])
+        np.array(collated_batch["labels"], dtype=np.int32)
+        == np.array([[101, pad_token_id], [201, 202], [301, 302]], dtype=np.int32)
     )
 
 
@@ -135,32 +138,34 @@ def test_success_label_ingnore_index():
     assert len(collated_batch["input_ids"]) == 3
 
     assert np.all(
-        np.array(collated_batch["input_ids"])
+        np.array(collated_batch["input_ids"], dtype=np.int32)
         == np.array(
             [
                 [101, pad_token_id, pad_token_id, pad_token_id],
                 [201, 202, 203, 204],
                 [301, 302, pad_token_id, pad_token_id],
-            ]
+            ],
+            dtype=np.int32,
         )
     )
 
     assert "attention_mask" in collated_batch
     assert len(collated_batch["attention_mask"]) == 3
     assert np.all(
-        np.array(collated_batch["attention_mask"])
-        == np.array([[1, 0, 0, 0], [1, 1, 1, 1], [1, 1, 0, 0]])
+        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        == np.array([[1, 0, 0, 0], [1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
 
     assert "labels" in collated_batch
     assert len(collated_batch["labels"]) == 3
     assert np.all(
-        np.array(collated_batch["labels"])
+        np.array(collated_batch["labels"], dtype=np.int32)
         == np.array(
             [
                 [101, -100, -100, -100],
                 [201, 202, 203, 204],
                 [301, 302, -100, -100],
-            ]
+            ],
+            dtype=np.int32,
         )
     )

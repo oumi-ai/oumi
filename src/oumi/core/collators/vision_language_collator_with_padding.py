@@ -13,13 +13,27 @@ class VisionLanguageCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
+        *,
         max_length: Optional[int],
+        truncation: bool = False,
         label_ignore_index: Optional[int] = None,
     ):
-        """Custom collator for multi-modal vision-language training."""
+        """Custom collator for multi-modal vision-language training.
+
+        Args:
+        tokenizer ([`PreTrainedTokenizer`] or [`PreTrainedTokenizerFast`]):
+            The tokenizer used for encoding the data.
+        max_length (`int`, *optional*): Padding length.
+        truncation: Whether to truncate long inputs to `max_length`.
+            If False, the long inputs are preserved as is even if they exceed
+            `max_length`. Only has effect if `max_length` is specified.
+        label_ignore_index:  If set, then label values of tokens that shouldn't
+            contribute to the loss computation will be replaced by this special value.
+        """
         self._text_collator = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
+            truncation=truncation,
             label_ignore_index=label_ignore_index,
         )
 

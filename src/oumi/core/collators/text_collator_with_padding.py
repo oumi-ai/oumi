@@ -80,7 +80,7 @@ class TextCollatorWithPadding:
                     f"Available keys: {item.keys()}"
                 )
             if self._max_length is not None and self._truncation:
-                # Truncate to max length if specified.
+                # Truncate to max length.
                 text_inputs.append(item[_INPUT_IDS_KEY][0 : self._max_length])
                 if labels_present:
                     labels.append(item[_LABELS_KEY][0 : self._max_length])
