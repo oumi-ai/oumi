@@ -21,9 +21,8 @@ class VisionLanguageCollatorWithPadding:
         """Custom collator for multi-modal vision-language training.
 
         Args:
-        tokenizer ([`PreTrainedTokenizer`] or [`PreTrainedTokenizerFast`]):
-            The tokenizer used for encoding the data.
-        max_length (`int`, *optional*): Padding length.
+        tokenizer: The tokenizer used for encoding the data.
+        max_length: Padding length.
         truncation: Whether to truncate long inputs to `max_length`.
             If False, the long inputs are preserved as is even if they exceed
             `max_length`. Only has effect if `max_length` is specified.
