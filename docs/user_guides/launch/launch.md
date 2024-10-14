@@ -7,7 +7,6 @@
 
 deploy
 remote
-polaris
 skypilot
 ```
 
