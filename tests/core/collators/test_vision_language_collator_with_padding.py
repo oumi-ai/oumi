@@ -48,12 +48,12 @@ def test_success_basic():
         [
             {
                 "input_ids": [101, 102, 103, 104],
-                "pixel_values": np.ones(shape=(3, 2, 8)),
+                "pixel_values": np.ones(shape=(3, 2, 8)) * 0.6,
                 "labels": [101, 102, 103, 104],
             },
             {
                 "input_ids": [201, 202],
-                "pixel_values": np.ones(shape=(3, 2, 8)) * 0.2,
+                "pixel_values": np.ones(shape=(3, 2, 8)) * 0.4,
                 "labels": [201, 202],
             },
         ]
@@ -83,3 +83,9 @@ def test_success_basic():
             dtype=np.int32,
         )
     )
+
+    assert "pixel_values" in collated_batch
+    assert isinstance(collated_batch["pixel_values"], torch.Tensor)
+    pixel_values = np.array(collated_batch["pixel_values"])
+    assert pixel_values.shape == (2, 3, 2, 8)
+    assert np.all(pixel_values >= 0.4 and pixel_values <= 0.6)
