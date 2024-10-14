@@ -85,8 +85,6 @@ docs = [
     "sphinx",                  # Used to build the docs
     "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
-    "sphinxemoji",             # Allows us to use emojis in the docs
-    "sphinx-hoverxref",        # Allows us to hover over objects in the docs
     "sphinxcontrib-autoyaml",  # Allows us to include yaml in the docs
 ]
 # Dependencies that require a GPU to install
