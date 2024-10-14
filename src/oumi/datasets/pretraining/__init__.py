@@ -1,4 +1,4 @@
-"""Petraining datasets module."""
+"""Pretraining datasets module."""
 
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
