@@ -14,7 +14,7 @@ DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
-SPHINXOPTS    ?=
+SPHINXOPTS    ?= -v
 SPHINXBUILD   ?= sphinx-build
 DOCS_SOURCEDIR     = $(DOCS_DIR)
 DOCS_BUILDDIR      = $(DOCS_DIR)/_build
@@ -140,7 +140,7 @@ skycode:
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
 docs:
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(CONDA_RUN) $(SPHINXBUILD) -M  html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-rebuild: docs-clean docs-copy-files docs-update-summaries
 	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/apidoc"

@@ -37,7 +37,10 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
     "sphinxemoji.sphinxemoji",
+    # "sphinxcontrib.termynal",
     # "hoverxref.extension",
+    # "sphinx_term.cssterm",
+    # "sphinx_term.termynal",
 ]
 
 source_suffix = {
