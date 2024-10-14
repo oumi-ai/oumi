@@ -84,6 +84,7 @@ docs = [
     "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
     "sphinx",                  # Used to build the docs
     "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
+    "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]

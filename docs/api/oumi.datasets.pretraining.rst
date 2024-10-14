@@ -1,3 +1,6 @@
 oumi.datasets.pretraining
 =========================
-.. py:module:: oumi.datasets.pretraining
+.. automodule:: oumi.datasets.pretraining
+   :members:
+   :undoc-members:
+   :show-inheritance:
