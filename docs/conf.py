@@ -117,3 +117,10 @@ myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
 ]
+
+suppress_warnings = [
+    # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
+    "myst.header",
+    # Ignore warnings from autodoc
+    # "autodoc",
+]

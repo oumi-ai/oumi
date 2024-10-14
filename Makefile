@@ -139,7 +139,11 @@ skycode:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
-docs: copy-doc-files
+docs:
+	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
+
+docs-rebuild: docs-clean docs-copy-files docs-update-summaries
+	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/apidoc"
 	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docs-help:
@@ -150,12 +154,11 @@ docs-serve: docs
 	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
 	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
 
-docs-rebuild: docs-clean docs-copy-files
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/apidoc"
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
-
 docs-copy-files:
 	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py copy "$(DOCS_SOURCEDIR)/_doclinks.config"
+
+docs-update-summaries:
+	$(CONDA_RUN) bash $(DOCS_SOURCEDIR)/_docsummaries.sh
 
 docs-clean:
 	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
