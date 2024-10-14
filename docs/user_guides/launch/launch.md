@@ -1,4 +1,18 @@
-# Training on a cloud cluster
+# Launch
+
+```{toctree}
+:maxdepth: 2
+:caption: Judge
+:hidden:
+
+deploy
+remote
+polaris
+```
+
+```{attention}
+Section under construction. Contributions welcome!
+```
 
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 

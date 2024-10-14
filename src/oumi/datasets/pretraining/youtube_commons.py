@@ -18,8 +18,8 @@ class YouTubeCommonsDataset(BasePretrainingIterableDataset):
     This dataset aims to expand the availability of conversational data for research
     in AI, computational social science, and digital humanities.
 
-    For more information, visit the dataset page:
-    https://huggingface.co/datasets/PleIAs/YouTube-Commons
+    See Also:
+        - Hugging Face Hub: https://huggingface.co/datasets/PleIAs/YouTube-Commons
 
     Data Fields:
         - video_id: string
@@ -36,11 +36,11 @@ class YouTubeCommonsDataset(BasePretrainingIterableDataset):
         - word_count: int64
         - character_count: int64
 
-    Usage:
+    Note:
         The text can be used for training models and republished for reproducibility
         purposes. In accordance with the CC-By license, every YouTube channel is fully
         credited.
 
-    License:
+    Note:
         This dataset is licensed under CC-BY-4.0.
     """

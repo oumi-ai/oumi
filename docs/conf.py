@@ -1,6 +1,3 @@
-import os
-import sys
-
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -12,7 +9,6 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-sys.path.insert(0, os.path.abspath("../.."))
 
 
 # -- Project information -----------------------------------------------------
@@ -28,8 +24,7 @@ author = "Open Universal Machine Intelligence"
 main_doc = "index"
 
 extensions = [
-    "myst_parser",
-    "nbsphinx",
+    "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
     "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
@@ -38,20 +33,25 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.bibtex",
 ]
 
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
 }
 
-nbsphinx_execute = "never"
-nbsphinx_allow_errors = True
+nb_execution_mode = "off"
 
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 napoleon_numpy_docstring = False
 napoleon_google_docstring = True
+napoleon_custom_sections = [
+    ("Data Fields", "params_style"),
+    ("License", "notes"),
+    ("Citations", "admonition"),
+    ("Citation", "admonition"),
+]
 
 coverage_statistics_to_stdout = True
 coverage_statistics_to_report = True
@@ -80,7 +80,7 @@ html_theme_options = {
     # Sphinx options
     "navigation_with_keys": True,
     # Sphinx-book-theme options
-    "home_page_in_toc": True,
+    "home_page_in_toc": False,  # Hide "Home" in the sidebar
     "launch_buttons": {"colab_url": "https://colab.research.google.com"},
     "path_to_docs": "docs",
     "repository_branch": "main",
@@ -109,3 +109,18 @@ intersphinx_mapping = {
 # Disable all reftypes for intersphinx
 # Reftypes need to be pre-fixed with :external: to be linked
 intersphinx_disabled_reftypes = ["*"]
+
+bibtex_bibfiles = ["citations.bib"]
+bibtex_encoding = "utf-8"
+
+myst_enable_extensions = [
+    "colon_fence",  # Allows for directive blocks to be denoted by :::
+    "tasklist",  # Enables GitHub-style task lists
+]
+
+suppress_warnings = [
+    # Ignore warning about non-consecutive header increase, e.g. H1 followed by H3
+    "myst.header",
+    # Ignore warnings from autodoc
+    # "autodoc",
+]
