@@ -33,8 +33,10 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.autoyaml",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
+    "sphinxemoji.sphinxemoji",
 ]
 
 source_suffix = {
@@ -117,6 +119,7 @@ bibtex_encoding = "utf-8"
 myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
+    "fieldlist",  # Allows using rst-like field lists in markdown
 ]
 
 suppress_warnings = [

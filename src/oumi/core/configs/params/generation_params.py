@@ -7,7 +7,6 @@ from oumi.core.configs.params.remote_params import RemoteParams
 
 @dataclass
 class GenerationParams(BaseParams):
-    # TODO: OPE-328 - Add more parameters to control text generation.
     max_new_tokens: int = 256
     """The maximum number of new tokens to generate.
 
