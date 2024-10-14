@@ -37,7 +37,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
     "sphinxemoji.sphinxemoji",
-    "hoverxref.extension",
+    # "hoverxref.extension",
 ]
 
 source_suffix = {
@@ -129,3 +129,7 @@ suppress_warnings = [
     # Ignore warnings from autodoc
     # "autodoc",
 ]
+
+# Experimental features
+# hoverxref_auto_ref = True
+# hoverxref_domains = ["py", "cite"]
