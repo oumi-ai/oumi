@@ -12,42 +12,89 @@ trainers
 distributed_training
 ```
 
-## Overview
-
-1. **Model Selection**: Choose from a variety of pre-trained models or define your own. See the {doc}`../../models/recipes` page for available model recipes.
-
-2. **Dataset**: Prepare your dataset for training. Oumi supports various dataset formats and provides tools for custom dataset creation. You have several options:
-
-   - Local dataset: Load your own data in supported formats. See {doc}`../../datasets/local_datasets` for details.
-   - Existing dataset classes: Utilize pre-defined dataset classes for common tasks:
-      - Supervised fine-tuning (SFT): {doc}`../../datasets/sft`
-      - Vision-Language SFT: {doc}`../../datasets/vl_sft`
-      - Pre-training: {doc}`../../datasets/pretraining`
-      - Preference tuning: {doc}`../../datasets/preference_tuning`
-   - Define a new dataset adapter class: Create a custom dataset class for specific needs. Learn how in {doc}`../../advanced/custom_datasets`.
-
-3. **Training Configuration**: Set up your training parameters using YAML configuration files. For details, refer to the {doc}`training_config` page.
-
-4. **Trainers**: Oumi offers different trainers for various training scenarios. Explore available options in the {doc}`trainers` page.
-
-5. **Distributed Training**: For large-scale training, Oumi supports distributed training across multiple GPUs and nodes. See the {doc}`distributed_training` page for more information.
-
 ## Training Process
 
-1. **Preparing our Configuration**: Create or modify a YAML configuration file with your desired training settings.
+1. **Model Selection**: Choose from a variety of pre-trained models or define your own.
 
-2. **Training**: Use the Oumi CLI to start the training process:
+   ```{seealso}
+   Explore available model recipes in the {doc}`Model Recipes <../../models/recipes>` page.
+   ```
 
-   ```bash
+2. **Dataset Preparation**: Prepare your dataset for training. Oumi supports various dataset formats and provides tools for custom dataset creation.
+
+   ```{admonition} Dataset Options
+   :class: note
+
+   - **Local dataset**: Load your own data in supported formats. See {doc}`Local Datasets <../../datasets/local_datasets>` for details.
+   - **Existing dataset classes**: Utilize pre-defined dataset classes for common tasks:
+     - Supervised fine-tuning (SFT): {doc}`SFT Datasets <../../datasets/sft>`
+     - Vision-Language SFT: {doc}`VL-SFT Datasets <../../datasets/vl_sft>`
+     - Pre-training: {doc}`Pretraining Datasets <../../datasets/pretraining>`
+     - Preference tuning: {doc}`Preference Tuning Datasets <../../datasets/preference_tuning>`
+   - **Custom dataset**: Create a custom dataset class for specific needs. Learn how in {doc}`Custom Datasets <../../advanced/custom_datasets>`.
+   ```
+
+3. **Training Configuration**: Set up your training parameters using YAML configuration files.
+
+   ```{tip}
+   For detailed information on configuration options, refer to the {doc}`Training Configuration <training_config>` page.
+   ```
+
+4. **Trainer Selection**: Oumi offers different trainers for various training scenarios.
+
+   ```{seealso}
+   Explore available trainers and their use cases in the {doc}`Trainers <trainers>` page.
+   ```
+
+5. **Distributed Training**: For large-scale training, Oumi supports distributed training across multiple GPUs and nodes.
+
+   ```{note}
+   Learn more about distributed training setups in the {doc}`Distributed Training <distributed_training>` guide.
+   ```
+
+## Running a Training Job
+
+1. **Preparing Configuration**: Create or modify a YAML configuration file with your desired training settings.
+
+   ```{code-block} yaml
+   model:
+     model_name: "gpt2"
+
+   data:
+     train:
+       datasets:
+         - dataset_name: "tatsu-lab/alpaca"
+           split: "train"
+
+   training:
+     output_dir: "output/my_training_run"
+     num_train_epochs: 3
+     learning_rate: 5e-5
+   ```
+
+2. **Starting Training**: Use the Oumi CLI to start the training process:
+
+   ```{code-block} bash
    oumi train -c path/to/your/config.yaml
    ```
 
-3. **Monitoring**: Track the training progress using TensorBoard or Weights & Biases (if configured).
+   ```{tip}
+   You can override configuration parameters directly from the command line:
+
+   ```{code-block} bash
+   oumi train -c path/to/your/config.yaml --training.learning_rate 1e-4
+   ```
+
+3. **Monitoring Progress**: Track the training progress using TensorBoard or Weights & Biases (if configured).
+
+   ```{code-block} bash
+   tensorboard --logdir output/my_training_run/tensorboard
+   ```
 
 4. **Next Steps**: After training, we can:
-   - Evaluate the model's performance using the `oumi evaluate` command. See the {doc}`../evaluate/evaluate` page for details.
-   - Run inference with `oumi infer` command. Learn more on the {doc}`../infer/infer` page.
-   - Judge your model's outputs using the `oumi judge` command. Refer to the {doc}`../judge/judge` page for guidance.
+    - **Evaluate** the model's performance using the `oumi evaluate` command. See the {doc}`Evaluation Guide <../evaluate/evaluate>` for details.
+    - **Run inference** with the `oumi infer` command. Learn more on the {doc}`Inference Guide <../infer/infer>` page.
+    - **Judge** your model's outputs using the `oumi judge` command. Refer to the {doc}`Judge Guide <../judge/judge>` for guidance.
 
 ## Advanced Topics
 
@@ -58,4 +105,6 @@ distributed_training
 
 ## Troubleshooting
 
-If you encounter issues during training, check the {doc}`../../faq/troubleshooting` page for common problems and solutions.
+If you encounter issues during training, check the {doc}`Troubleshooting Guide <../../faq/troubleshooting>` for common problems and solutions.
+
+For more help, don't hesitate to open an issue on the [Oumi GitHub repository](https://github.com/oumi-ai/oumi/issues).
