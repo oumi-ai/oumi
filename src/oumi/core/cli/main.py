@@ -1,3 +1,5 @@
+import sys
+
 import typer
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
@@ -31,3 +33,7 @@ def run():
     """The entrypoint for the CLI."""
     app = get_app()
     return app()
+
+
+if "sphinx" in sys.modules:
+    app = get_app()
