@@ -84,6 +84,7 @@ Overview
    advanced/custom_datasets
    advanced/custom_cluster
    advanced/custom_vl_datasets
+   advanced/custom_evaluation
    advanced/quantization
    advanced/performance_optimization
 

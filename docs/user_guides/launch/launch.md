@@ -8,6 +8,7 @@
 deploy
 remote
 polaris
+skypilot
 ```
 
 ```{attention}
