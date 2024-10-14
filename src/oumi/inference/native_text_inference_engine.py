@@ -85,11 +85,12 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             input_batches[batch_index] = batch_tokenized
 
         # Validate or (if needed) set the End Of Sequence (EOS) tokens.
-        if self._tokenizer.eos_token and generation_params.stop:
-            if self._tokenizer.eos_token not in generation_params.stop:
+        if self._tokenizer.eos_token and generation_params.stop_strings:
+            if self._tokenizer.eos_token not in generation_params.stop_strings:
                 logger.warning(
-                    f"User-defined EOS token(s) {generation_params.stop} do NOT include"
-                    f" tokenizer's default EOS token `{self._tokenizer.eos_token}`.")
+                    f"User-defined EOS token(s) {generation_params.stop_strings} do NOT"
+                    f" include tokenizer's default EOS token"
+                    f" `{self._tokenizer.eos_token}`.")
         if self._tokenizer.eos_token_id and generation_params.stop_token_ids:
             if self._tokenizer.eos_token_id not in generation_params.stop_token_ids:
                 logger.warning(
@@ -97,13 +98,13 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     f" do NOT include tokenizer's default EOS token id"
                     f" `{self._tokenizer.eos_token_id}`.")
 
-        if not generation_params.stop_token_ids and not generation_params.stop:
+        if not generation_params.stop_token_ids and not generation_params.stop_strings:
             if self._tokenizer.eos_token_id:
                 logger.info(f"Setting EOS token id to `{self._tokenizer.eos_token_id}`")
                 generation_params.stop_token_ids = [self._tokenizer.eos_token_id]
             elif self._tokenizer.eos_token:
                 logger.info(f"Setting EOS token to `{self._tokenizer.eos_token}`")
-                generation_params.stop = [self._tokenizer.eos_token]
+                generation_params.stop_strings = [self._tokenizer.eos_token]
             else:
                 logger.warning("No EOS token defined.")
 
@@ -120,7 +121,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
-            stop_strings=generation_params.stop,
+            stop_strings=generation_params.stop_strings,
             eos_token_id=generation_params.stop_token_ids,
         )
 
