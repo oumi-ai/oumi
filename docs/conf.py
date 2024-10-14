@@ -37,6 +37,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
     "sphinxemoji.sphinxemoji",
+    "hoverxref.extension",
 ]
 
 source_suffix = {
