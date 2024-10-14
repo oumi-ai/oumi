@@ -75,6 +75,7 @@ def test_generation_params(engine_class, sample_conversations):
             frequency_penalty=0.1,
             presence_penalty=0.1,
             stop=["END"],
+            stop_token_ids=[128001, 128008, 128009],
             logit_bias={1: 1.0, 2: -1.0},
             min_p=0.05,
             remote_params=RemoteParams(api_url="<placeholder>"),
@@ -94,6 +95,7 @@ def test_generation_params(engine_class, sample_conversations):
         assert called_params.frequency_penalty == 0.1
         assert called_params.presence_penalty == 0.1
         assert called_params.stop == ["END"]
+        assert called_params.stop_token_ids == [128001, 128008, 128009]
         assert called_params.logit_bias == {1: 1.0, 2: -1.0}
         assert called_params.min_p == 0.05
 
