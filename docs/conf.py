@@ -50,7 +50,8 @@ source_suffix = {
 nb_execution_mode = "off"
 
 napoleon_include_special_with_doc = True
-napoleon_use_ivar = True
+napoleon_use_ivar = False
+napoleon_use_param = False
 napoleon_numpy_docstring = False
 napoleon_google_docstring = True
 napoleon_custom_sections = [
@@ -59,10 +60,11 @@ napoleon_custom_sections = [
     ("Citations", "admonition"),
     ("Citation", "admonition"),
 ]
-
+napoleon_use_keyword = True
 coverage_statistics_to_stdout = True
 coverage_statistics_to_report = True
 coverage_show_missing_items = True
+napoleon_use_rtype = True
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
