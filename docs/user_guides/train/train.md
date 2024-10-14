@@ -16,12 +16,12 @@ distributed_training
 Section under construction. Contributions welcome!
 ```
 
-## Introduction
+## TODO
 
-- Configuring the training parameters
-- Starting a training job
-- Monitoring training progress
-- Handling checkpoints
-- Fine-tuning pre-trained models
-- Multi-GPU training
-- FSDP and DDP training options
+- [ ] Configuring the training parameters
+- [ ] Starting a training job
+- [ ] Monitoring training progress
+- [ ] Handling checkpoints
+- [ ] Fine-tuning pre-trained models
+- [ ] Multi-GPU training
+- [ ] FSDP and DDP training options
