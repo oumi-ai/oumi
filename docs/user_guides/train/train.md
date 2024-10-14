@@ -8,6 +8,7 @@
 finetuning
 llama
 training_config
+training_config_alt
 trainers
 distributed_training
 ```
