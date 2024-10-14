@@ -1,4 +1,4 @@
-"""Vision-Language Datasets."""
+"""Vision-Language datasets module."""
 
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
