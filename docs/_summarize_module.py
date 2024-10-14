@@ -9,6 +9,8 @@ import typer
 
 app = typer.Typer()
 
+GITHUB_BASE_URL = "https://github.com/oumi-ai/oumi/blob/main"
+
 
 @app.command()
 def summarize_module(
@@ -87,7 +89,7 @@ def summarize_module(
             continue
 
         docstring = _get_object_docstring(obj, summary=True)
-        reference = "{py:obj}" + f"`{module_name}.{name}`"
+        reference = "{py:obj}" + f"`~{module_name}.{name}`"
 
         objects.append(
             {
@@ -161,16 +163,20 @@ def summarize_configs(
                     "name": Path(config_file).stem,
                     "type": config.__class__.__name__,
                     "path": os.path.relpath(config_file, config_folder),
+                    "github_link": f"{GITHUB_BASE_URL}/{config_file}",
                 }
             )
         except Exception:
             pass
 
-    markdown = "| Name | Path |\n"
-    markdown += "|------|------|\n"
+    markdown = "| Name | Path | GitHub Link |\n"
+    markdown += "|------|------|-------------|\n"
 
     for config in sorted(configs, key=lambda x: x["name"]):
-        markdown += f"| {config['name']} | {config['path']} |\n"
+        markdown += (
+            f"| {config['name']} | {config['path']} "
+            f"| [View on GitHub]({config['github_link']}) |\n"
+        )
 
     if output_file:
         output_path = Path(output_file)
