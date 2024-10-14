@@ -1,9 +1,5 @@
 # Development Setup
 
-```{attention}
-Section under construction. Contributions welcome!
-```
-
 ## 1. Install Miniconda
 
    <https://docs.anaconda.com/free/miniconda/miniconda-install/>
