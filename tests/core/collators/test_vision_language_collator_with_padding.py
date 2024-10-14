@@ -88,4 +88,5 @@ def test_success_basic():
     assert isinstance(collated_batch["pixel_values"], torch.Tensor)
     pixel_values = np.array(collated_batch["pixel_values"])
     assert pixel_values.shape == (2, 3, 2, 8)
-    assert np.all(pixel_values >= 0.4 and pixel_values <= 0.6)
+    assert np.all(pixel_values >= 0.4)
+    assert np.all(pixel_values <= 0.6)
