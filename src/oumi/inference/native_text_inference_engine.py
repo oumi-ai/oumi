@@ -13,6 +13,7 @@ from oumi.builders import (
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.turn import Conversation, Message, Role
+from oumi.utils.logging import logger
 
 
 class NativeTextInferenceEngine(BaseInferenceEngine):
@@ -82,6 +83,29 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             batch_tokenized = self._tokenizer(batch, return_tensors="pt", padding=True)
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
+
+        # Validate or (if needed) set the End Of Sequence (EOS) tokens.
+        if self._tokenizer.eos_token and generation_params.stop:
+            if self._tokenizer.eos_token not in generation_params.stop:
+                logger.warning(
+                    f"User-defined EOS token(s) {generation_params.stop} do NOT include"
+                    f" tokenizer's default EOS token `{self._tokenizer.eos_token}`.")
+        if self._tokenizer.eos_token_id and generation_params.stop_token_ids:
+            if self._tokenizer.eos_token_id not in generation_params.stop_token_ids:
+                logger.warning(
+                    f"User-defined EOS token ids(s) {generation_params.stop_token_ids}"
+                    f" do NOT include tokenizer's default EOS token id"
+                    f" `{self._tokenizer.eos_token_id}`.")
+
+        if not generation_params.stop_token_ids and not generation_params.stop:
+            if self._tokenizer.eos_token_id:
+                logger.info(f"Setting EOS token id to `{self._tokenizer.eos_token_id}`")
+                generation_params.stop_token_ids = [self._tokenizer.eos_token_id]
+            elif self._tokenizer.eos_token:
+                logger.info(f"Setting EOS token to `{self._tokenizer.eos_token}`")
+                generation_params.stop = [self._tokenizer.eos_token]
+            else:
+                logger.warning("No EOS token defined.")
 
         # Create a GenerationConfig object with the new parameters
         # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
