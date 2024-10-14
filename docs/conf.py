@@ -36,7 +36,7 @@ extensions = [
     "sphinxcontrib.autoyaml",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
-    # "sphinxcontrib.termynal",
+    # TODO: more testing needed for these options
     # "sphinx_term.cssterm",
     # "sphinx_term.termynal",
 ]
@@ -48,8 +48,6 @@ source_suffix = {
 nb_execution_mode = "off"
 
 napoleon_include_special_with_doc = True
-napoleon_use_ivar = False
-napoleon_use_param = False
 napoleon_numpy_docstring = False
 napoleon_google_docstring = True
 napoleon_custom_sections = [
@@ -58,11 +56,16 @@ napoleon_custom_sections = [
     ("Citations", "admonition"),
     ("Citation", "admonition"),
 ]
-napoleon_use_keyword = True
+
+# TODO: more testing needed for these options
+# napoleon_use_keyword = True
+# napoleon_use_rtype = True
+# napoleon_use_ivar = False
+# napoleon_use_param = False
+
 coverage_statistics_to_stdout = True
 coverage_statistics_to_report = True
 coverage_show_missing_items = True
-napoleon_use_rtype = True
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -132,7 +135,3 @@ suppress_warnings = [
     # Ignore warnings from autodoc
     # "autodoc",
 ]
-
-# Experimental features
-# hoverxref_auto_ref = True
-# hoverxref_domains = ["py", "cite"]
