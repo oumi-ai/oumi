@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import torch
@@ -14,7 +14,7 @@ class VisionLanguageCollatorWithPadding:
         self,
         tokenizer: BaseTokenizer,
         max_length: Optional[int],
-        label_ignore_index: Optional[int] = -100,
+        label_ignore_index: Optional[int] = None,
     ):
         """Custom collator for multi-modal vision-language training."""
         self._text_collator = TextCollatorWithPadding(
@@ -23,7 +23,7 @@ class VisionLanguageCollatorWithPadding:
             label_ignore_index=label_ignore_index,
         )
 
-    def __call__(self, batch):
+    def __call__(self, batch) -> Dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.
 
         Args:

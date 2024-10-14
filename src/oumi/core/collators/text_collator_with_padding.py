@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 import transformers
 
@@ -25,14 +25,32 @@ class TextCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
+        *,
         max_length: Optional[int],
-        label_ignore_index: Optional[int] = -100,
+        truncation: bool = False,
+        label_ignore_index: Optional[int] = None,
     ):
-        """Custom collator for multi-modal vision-language training."""
+        """Custom collator for text LLM training.
+
+        Args:
+        tokenizer ([`PreTrainedTokenizer`] or [`PreTrainedTokenizerFast`]):
+            The tokenizer used for encoding the data.
+        max_length (`int`, *optional*): Padding length.
+        truncation: Whether to truncate long inputs to `max_length`.
+            If False, the long inputs are preserved as is even if they exceed
+            `max_length`. Only has effect if `max_length` is specified.
+        label_ignore_index:  If set, then label values of tokens that shouldn't
+            contribute to the loss computation will be replaced by this special value.
+        """
+        self._max_length: Optional[int] = (
+            int(max_length) if max_length is not None and max_length > 0 else None
+        )
+        self._truncation: bool = bool(truncation)
+
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
-            padding=True,
+            padding=("max_length" if self._max_length is not None else "longest"),
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
@@ -43,7 +61,7 @@ class TextCollatorWithPadding:
             label_ignore_index=label_ignore_index,
         )
 
-    def __call__(self, batch):
+    def __call__(self, batch) -> Dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:
@@ -61,9 +79,15 @@ class TextCollatorWithPadding:
                     f"Item doesn't contain '{_INPUT_IDS_KEY}' key. "
                     f"Available keys: {item.keys()}"
                 )
-            text_inputs.append(item[_INPUT_IDS_KEY])
-            if labels_present:
-                labels.append(item[_LABELS_KEY])
+            if self._max_length is not None and self._truncation:
+                # Truncate to max length if specified.
+                text_inputs.append(item[_INPUT_IDS_KEY][0 : self._max_length])
+                if labels_present:
+                    labels.append(item[_LABELS_KEY][0 : self._max_length])
+            else:
+                text_inputs.append(item[_INPUT_IDS_KEY])
+                if labels_present:
+                    labels.append(item[_LABELS_KEY])
 
         # Collate batch prompts.
         collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
