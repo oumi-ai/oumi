@@ -9,7 +9,7 @@ model:
 
 data:
   train:
-    collator_name: "vision_language"
+    collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: False
     target_col: "text" # TODO: useless col, but required by the trainer
     datasets:
