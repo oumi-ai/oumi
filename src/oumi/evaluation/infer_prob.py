@@ -66,7 +66,7 @@ def infer_prob(
     if input_filepath:
         return load_infer_prob(input_filepath)
 
-    tokenizer = build_tokenizer(model_params, is_training=False)
+    tokenizer = build_tokenizer(model_params, training=False)
     token_vocab = set(tokenizer.get_vocab())
     token_id_vocab = set(tokenizer.get_vocab().values())
 

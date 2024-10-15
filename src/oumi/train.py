@@ -223,7 +223,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
     # Initialize model and tokenizer.
-    tokenizer = build_tokenizer(config.model, is_training=True)
+    tokenizer = build_tokenizer(config.model, training=True)
 
     # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft

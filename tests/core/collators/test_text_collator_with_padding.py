@@ -27,7 +27,7 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
             torch_dtype_str="float16",
             trust_remote_code=False,
         ),
-        is_training=True
+        training=True,
     )
     assert tokenizer.pad_token_id
     assert isinstance(tokenizer.pad_token_id, int)

@@ -26,7 +26,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters to use for inference.
         """
         self._model = build_model(model_params)
-        self._tokenizer = build_tokenizer(model_params, is_training=False)
+        self._tokenizer = build_tokenizer(model_params, training=False)
         self._model_params = model_params
 
     def _make_batches(
