@@ -45,7 +45,7 @@ The {py:obj}`~oumi.core.trainers.HuggingFaceTrainer` is a wrapper around the Hug
 
 For more details on the underlying HuggingFace Transformers Trainer, refer to the [Trainer documentation](https://huggingface.co/docs/transformers/main/en/main_classes/trainer).
 
-### TRL SFT Trainer
+#### TRL SFT Trainer
 
 The TRL SFT (Supervised Fine-Tuning) Trainer is accessed through the {py:obj}`oumi.core.trainers.HuggingFaceTrainer` class. It's specifically designed for fine-tuning language models on instruction-following and conversational tasks.
 
@@ -53,7 +53,7 @@ To use the TRL SFT Trainer, set the `trainer_type` in your {py:obj}`~oumi.core.c
 
 For more information on the TRL library and SFT training, see the [TRL documentation](https://huggingface.co/docs/trl/sft_trainer).
 
-### DPO Trainer
+#### DPO Trainer
 
 The DPO (Direct Preference Optimization) Trainer is accessed through the {py:obj}`oumi.core.trainers.HuggingFaceTrainer` class. It implements the DPO algorithm for fine-tuning language models based on human preferences.
 
