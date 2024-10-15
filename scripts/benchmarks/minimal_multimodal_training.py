@@ -55,6 +55,8 @@ class ModelName(str, Enum):
     QWEN = "Qwen/Qwen2-VL-2B-Instruct"  # not supported by transformers==4.43.4
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
+    PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
+    LLAMA32_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
 
 
 _FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
@@ -163,7 +165,7 @@ def test_multimodal_trainer(
         optimizer="sgd",
         learning_rate=2e-5,
         gradient_accumulation_steps=1,
-        log_model_summary=False,
+        log_model_summary=True,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )
