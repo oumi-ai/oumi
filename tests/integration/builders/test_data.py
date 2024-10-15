@@ -154,7 +154,7 @@ def test_data_multiple_datasets(stream: bool):
         stream,
         DatasetSplit.TEST,
     )
-    tokenizer = build_tokenizer(config.model, is_training=True)
+    tokenizer = build_tokenizer(config.model, is_training=False)
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
     assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 

@@ -360,7 +360,7 @@ def build_tokenizer(
 
     if tokenizer.pad_token is None:
         if is_training:
-            logger.error(
+            raise ValueError(
                 "Tokenizer does not have a pad token. During training, <pad> token "
                 "should NOT be set to <eos>. Please ensure that the tokenizer has "
                 "`pad_token` set."
