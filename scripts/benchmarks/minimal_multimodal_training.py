@@ -175,9 +175,10 @@ def test_multimodal_trainer(
 
     # Initialize trainer with custom collator
     collator = build_data_collator(
-        collator_name="vision_language",
+        collator_name="vision_language_with_padding",
         tokenizer=tokenizer,
         max_length=model_params.model_max_length,
+        label_ignore_index=-100,
     )
 
     trainer = Trainer(

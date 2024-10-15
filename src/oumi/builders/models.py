@@ -380,7 +380,7 @@ def build_tokenizer(
             "This will be required in future versions of Oumi."
         )
         logger.warning(
-            "Setting tokenizer to use the 'default' chat template."
+            "Setting tokenizer to use the 'default' chat template. "
             "The 'default' template does not use any special tokens, "
             "and is unlikely to yield good results. "
         )
