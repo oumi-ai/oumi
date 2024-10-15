@@ -360,18 +360,25 @@ def build_tokenizer(
         **kwargs,
     )
 
-    if tokenizer.pad_token is None:
+    # Ensure that the tokenizer has a pad token set.
+    if (tokenizer.pad_token is None) and (tokenizer.pad_token_id is None):
         if training:
             raise ValueError(
                 "Tokenizer does not have a pad token. During training, <pad> token "
                 "should NOT be set to <eos>. Please ensure that the tokenizer has "
                 "`pad_token` set."
             )
+        elif (tokenizer.eos_token is None) and (tokenizer.eos_token_id is None):
+            raise ValueError(
+                "Tokenizer does not have a <pad> token and an <eos> token. Please "
+                "ensure that `pad_token` and `eos_token` are both set."
+            )
         else:
             # Set pad token to eos token if not already set
             # Older models may not have pad token set
             logger.warning("<pad> token not found: setting <pad> with <eos>.")
             tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.pad_token_id = tokenizer.eos_token_id
 
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length
