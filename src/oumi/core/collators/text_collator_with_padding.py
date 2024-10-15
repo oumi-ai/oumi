@@ -4,6 +4,7 @@ import torch
 import transformers
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.logging import logger
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
@@ -49,7 +50,7 @@ class TextCollatorWithPadding:
 
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
-            max_length=max_length,
+            max_length=self._max_length,
             padding=("max_length" if self._max_length is not None else "longest"),
             return_tensors="pt",
         )
@@ -74,12 +75,19 @@ class TextCollatorWithPadding:
         text_inputs = []
         labels = []
         labels_present = _LABELS_KEY in batch[0]
+
+        max_input_ids_length: int = 0
+        max_labels_length: int = 0
         for item in batch:
             if _INPUT_IDS_KEY not in item:
                 raise ValueError(
                     f"Item doesn't contain '{_INPUT_IDS_KEY}' key. "
                     f"Available keys: {item.keys()}"
                 )
+            max_input_ids_length = max(max_input_ids_length, len(item[_INPUT_IDS_KEY]))
+            if labels_present:
+                max_labels_length = max(max_labels_length, len(item[_LABELS_KEY]))
+
             if self._max_length is not None and self._truncation:
                 # Truncate to max length.
                 text_inputs.append(item[_INPUT_IDS_KEY][0 : self._max_length])
@@ -91,7 +99,17 @@ class TextCollatorWithPadding:
                     labels.append(item[_LABELS_KEY])
 
         # Collate batch prompts.
-        collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
+        try:
+            collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
+        except ValueError as e:
+            logger.exception(
+                "Failed to collate inputs! "
+                f"model_max_length: {self._max_length} "
+                f"truncation: {self._truncation} "
+                f"max_input_ids_length: {max_input_ids_length} "
+                f"max_labels_length: {max_labels_length}"
+            )
+            raise e
 
         # Combine all inputs.
         combined_batch = {

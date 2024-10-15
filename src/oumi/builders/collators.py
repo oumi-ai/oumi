@@ -41,11 +41,13 @@ def build_data_collator(
     if not collator_name:
         raise ValueError("Empty data collator name.")
 
+    enable_truncation: bool = max_length is not None and max_length > 0
     if collator_name == "text_with_padding":
         return TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             label_ignore_index=label_ignore_index,
+            truncation=enable_truncation,
             **kwargs,
         )
     elif collator_name == "vision_language_with_padding":
@@ -53,6 +55,7 @@ def build_data_collator(
             tokenizer=tokenizer,
             max_length=max_length,
             label_ignore_index=label_ignore_index,
+            truncation=enable_truncation,
             **kwargs,
         )
 
