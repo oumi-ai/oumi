@@ -64,7 +64,7 @@ Section under construction. Contributions welcome!
 
    ```shell
    git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@learning-machines.ai
+   git config --global user.email YOUR_USERNAME@oumi.ai
    ```
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
