@@ -82,6 +82,7 @@ Overview
    advanced/customization
    advanced/quantization
    advanced/performance_optimization
+   advanced/distributed_training
 
 .. toctree::
    :maxdepth: 2

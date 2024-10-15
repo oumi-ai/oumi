@@ -10,7 +10,6 @@ llama
 training_config
 training_config_alt
 trainers
-distributed_training
 ```
 
 ## Training Process
@@ -50,7 +49,7 @@ distributed_training
 5. **Distributed Training**: For large-scale training, Oumi supports distributed training across multiple GPUs and nodes.
 
    ```{note}
-   Learn more about distributed training setups in the {doc}`Distributed Training <distributed_training>` guide.
+   Learn more about distributed training setups in the {doc}`Distributed Training <../../advanced/distributed_training>` guide.
    ```
 
 ## Running a Training Job
