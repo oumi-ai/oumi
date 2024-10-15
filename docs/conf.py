@@ -38,7 +38,7 @@ extensions = [
     "sphinxcontrib.typer",
     # TODO: more testing needed for these options
     # "sphinx_term.cssterm",
-    # "sphinx_term.termynal",
+    "sphinx_term.termynal",
 ]
 
 source_suffix = {
