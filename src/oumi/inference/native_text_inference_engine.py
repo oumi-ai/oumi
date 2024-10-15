@@ -85,6 +85,11 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             input_batches[batch_index] = batch_tokenized
 
         # Validate or (if needed) set the End Of Sequence (EOS) tokens.
+        # Note: model.generate accepts both `stop_strings` and `stop_token_ids` as stop
+        # criteria. Though these are both defined as lists (for compatibility with other
+        # APIs), in this API they could also be single values (a `str` or an `int`).
+        # If both are provided, we will stop at the first one that is found, either the
+        # stop string or the stop token id.
         if self._tokenizer.eos_token and generation_params.stop_strings:
             if self._tokenizer.eos_token not in generation_params.stop_strings:
                 logger.warning(
