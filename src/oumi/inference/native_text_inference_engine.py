@@ -44,7 +44,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         return [input[i : i + batch_size] for i in range(0, len(input), batch_size)]
 
     def _update_stop_criteria(
-            self, generation_params: GenerationParams
+        self, generation_params: GenerationParams
     ) -> GenerationParams:
         """Updates the stop tokens/strings in the generation params, if needed.
 
