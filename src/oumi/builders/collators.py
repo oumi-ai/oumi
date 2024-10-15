@@ -27,7 +27,9 @@ def build_data_collator(
         label_ignore_index: If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
             For example, this can be `PAD`, or image tokens.
-            PyTorch convention is to use -100 as `ignore_index` label.
+            PyTorch convention is to use -100 as the `ignore_index` label. Refer to
+            the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
+            for more details.
         **kwargs: Additional keyword arguments to pass to the collator constructor.
 
     Returns:

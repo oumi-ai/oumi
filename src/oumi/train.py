@@ -177,7 +177,7 @@ def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any
         collator_name=train_split.collator_name,
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
-        label_ignore_index=config.training.label_ignore_index,
+        label_ignore_index=-100,
     )
 
 
