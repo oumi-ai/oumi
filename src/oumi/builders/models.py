@@ -332,12 +332,13 @@ def build_cambrian_model(
 
 
 def build_tokenizer(
-    model_params: ModelParams, **kwargs
+    model_params: ModelParams, is_training: bool, **kwargs,
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
         model_params (ModelParams): The model parameters.
+        is_training (bool): Whether the tokenizer is being built for training.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
@@ -358,10 +359,17 @@ def build_tokenizer(
     )
 
     if tokenizer.pad_token is None:
-        # Set pad token to eos token if not already set
-        # Older models may not have pad token set
-        logger.warning("<pad> token not found: setting <pad> with <eos>.")
-        tokenizer.pad_token = tokenizer.eos_token
+        if is_training:
+            logger.error(
+                "Tokenizer does not have a pad token. During training, <pad> token "
+                "should NOT be set to <eos>. Please ensure that the tokenizer has "
+                "`pad_token` set."
+            )
+        else:
+            # Set pad token to eos token if not already set
+            # Older models may not have pad token set
+            logger.warning("<pad> token not found: setting <pad> with <eos>.")
+            tokenizer.pad_token = tokenizer.eos_token
 
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length

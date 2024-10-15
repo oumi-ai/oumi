@@ -61,7 +61,7 @@ def test_train_native_pt_model_from_api():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config = _get_default_config(output_temp_dir)
 
-        tokenizer = build_tokenizer(config.model)
+        tokenizer = build_tokenizer(config.model, is_training=True)
 
         dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
 

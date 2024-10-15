@@ -26,7 +26,8 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
             model_name="openai-community/gpt2",
             torch_dtype_str="float16",
             trust_remote_code=False,
-        )
+        ),
+        is_training=True
     )
     assert tokenizer.pad_token_id
     assert isinstance(tokenizer.pad_token_id, int)

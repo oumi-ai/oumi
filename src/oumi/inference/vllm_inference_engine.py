@@ -50,7 +50,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 lora_path=model_params.adapter_model,
             )
             logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
-        self._tokenizer = build_tokenizer(model_params)
+        self._tokenizer = build_tokenizer(model_params, is_training=False)
         self._model_params = model_params
         self._llm = vllm.LLM(
             model=model_params.model_name,
