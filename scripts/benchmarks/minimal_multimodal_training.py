@@ -56,7 +56,8 @@ class ModelName(str, Enum):
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
-    LLAMA32_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    MOLMOE_1B = "allenai/MolmoE-1B-0924"
 
 
 _FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
@@ -65,6 +66,9 @@ _FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
     ModelName.QWEN: ["visual"],
     ModelName.CHAMELEON: ["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
     ModelName.PALIGEMMA: ["vision_tower"],
+    ModelName.PHI3_VISION: [],
+    ModelName.LLAMA_11B_VISION_INSTRUCT: [],
+    ModelName.MOLMOE_1B: [],
 }
 
 
@@ -95,7 +99,7 @@ def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
-    max_steps: int = 20,
+    max_steps: int = 5,  # 20,
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
