@@ -43,6 +43,51 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         return [input[i : i + batch_size] for i in range(0, len(input), batch_size)]
 
+    def _update_stop_criteria(
+            self, generation_params: GenerationParams
+    ) -> GenerationParams:
+        """Updates the stop tokens/strings in the generation params, if needed.
+
+        Args:
+            generation_params: Parameters for generation during inference.
+
+        Returns:
+            GenerationParams: Updated generation params.
+
+        Note:
+            model.generate accepts both `stop_strings` and `stop_token_ids` as stop
+            criteria. Though these are defined as lists in our generation config
+            (for compatibility with other APIs), in this API they could also be single
+            values (a `str` or an `int`). If both are provided, we will stop at the
+            first one that is found, either a stop string or a stop token id.
+        """
+        if self._tokenizer.eos_token and generation_params.stop_strings:
+            if self._tokenizer.eos_token not in generation_params.stop_strings:
+                logger.warning(
+                    f"User-defined EOS token(s) {generation_params.stop_strings} do NOT"
+                    f" include the tokenizer's default EOS token"
+                    f" `{self._tokenizer.eos_token}`."
+                )
+        if self._tokenizer.eos_token_id and generation_params.stop_token_ids:
+            if self._tokenizer.eos_token_id not in generation_params.stop_token_ids:
+                logger.warning(
+                    f"User-defined EOS token ids(s) {generation_params.stop_token_ids}"
+                    f" do NOT include the tokenizer's default EOS token id"
+                    f" `{self._tokenizer.eos_token_id}`."
+                )
+
+        if not generation_params.stop_token_ids and not generation_params.stop_strings:
+            if self._tokenizer.eos_token_id:
+                logger.info(f"Setting EOS token id to `{self._tokenizer.eos_token_id}`")
+                generation_params.stop_token_ids = [self._tokenizer.eos_token_id]
+            elif self._tokenizer.eos_token:
+                logger.info(f"Setting EOS token to `{self._tokenizer.eos_token}`")
+                generation_params.stop_strings = [self._tokenizer.eos_token]
+            else:
+                logger.warning("No EOS token defined.")
+
+        return generation_params
+
     def _infer(
         self,
         input: List[Conversation],
@@ -84,36 +129,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             batch_tokenized = batch_tokenized.to(model_device)
             input_batches[batch_index] = batch_tokenized
 
-        # Validate or (if needed) set the End Of Sequence (EOS) tokens.
-        # Note: model.generate accepts both `stop_strings` and `stop_token_ids` as stop
-        # criteria. Though these are both defined as lists (for compatibility with other
-        # APIs), in this API they could also be single values (a `str` or an `int`).
-        # If both are provided, we will stop at the first one that is found, either the
-        # stop string or the stop token id.
-        if self._tokenizer.eos_token and generation_params.stop_strings:
-            if self._tokenizer.eos_token not in generation_params.stop_strings:
-                logger.warning(
-                    f"User-defined EOS token(s) {generation_params.stop_strings} do NOT"
-                    f" include tokenizer's default EOS token"
-                    f" `{self._tokenizer.eos_token}`."
-                )
-        if self._tokenizer.eos_token_id and generation_params.stop_token_ids:
-            if self._tokenizer.eos_token_id not in generation_params.stop_token_ids:
-                logger.warning(
-                    f"User-defined EOS token ids(s) {generation_params.stop_token_ids}"
-                    f" do NOT include tokenizer's default EOS token id"
-                    f" `{self._tokenizer.eos_token_id}`."
-                )
-
-        if not generation_params.stop_token_ids and not generation_params.stop_strings:
-            if self._tokenizer.eos_token_id:
-                logger.info(f"Setting EOS token id to `{self._tokenizer.eos_token_id}`")
-                generation_params.stop_token_ids = [self._tokenizer.eos_token_id]
-            elif self._tokenizer.eos_token:
-                logger.info(f"Setting EOS token to `{self._tokenizer.eos_token}`")
-                generation_params.stop_strings = [self._tokenizer.eos_token]
-            else:
-                logger.warning("No EOS token defined.")
+        # Validate or (if needed) set the End Of Sequence (EOS) tokens/strings.
+        generation_params = self._update_stop_criteria(generation_params)
 
         # Create a GenerationConfig object with the new parameters
         # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
