@@ -63,6 +63,11 @@ class TextCollatorWithPadding:
             label_ignore_index=label_ignore_index,
         )
 
+        self._max_input_ids_length: int = 0
+        self._max_labels_length: int = 0
+        self._max_previously_logged_input_ids_length: int = 0
+        self._max_previously_logged_labels_length: int = 0
+
     def __call__(self, batch) -> Dict[str, Any]:
         """Pads to the longest length present in the batch.
 
@@ -76,17 +81,23 @@ class TextCollatorWithPadding:
         labels = []
         labels_present = _LABELS_KEY in batch[0]
 
-        max_input_ids_length: int = 0
-        max_labels_length: int = 0
+        # Maximum sequence lengths in this batch.
+        batch_max_input_ids_length: int = 0
+        batch_max_labels_length: int = 0
+
         for item in batch:
             if _INPUT_IDS_KEY not in item:
                 raise ValueError(
                     f"Item doesn't contain '{_INPUT_IDS_KEY}' key. "
                     f"Available keys: {item.keys()}"
                 )
-            max_input_ids_length = max(max_input_ids_length, len(item[_INPUT_IDS_KEY]))
+            batch_max_input_ids_length = max(
+                batch_max_input_ids_length, len(item[_INPUT_IDS_KEY])
+            )
             if labels_present:
-                max_labels_length = max(max_labels_length, len(item[_LABELS_KEY]))
+                batch_max_labels_length = max(
+                    batch_max_labels_length, len(item[_LABELS_KEY])
+                )
 
             if self._max_length is not None and self._truncation:
                 # Truncate to max length.
@@ -101,15 +112,22 @@ class TextCollatorWithPadding:
         # Collate batch prompts.
         try:
             collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
-        except ValueError as e:
+        except ValueError:
             logger.exception(
                 "Failed to collate inputs! "
                 f"model_max_length: {self._max_length} "
                 f"truncation: {self._truncation} "
-                f"max_input_ids_length: {max_input_ids_length} "
-                f"max_labels_length: {max_labels_length}"
+                f"max_input_ids_length: {batch_max_input_ids_length} "
+                f"max_labels_length: {batch_max_labels_length}"
             )
-            raise e
+            raise
+
+        # Update global (dataset) maximum lengths, and possibly log a warning
+        # about truncation.
+        self._update_max_lengths_and_log(
+            max_input_ids_length=batch_max_input_ids_length,
+            max_labels_length=batch_max_labels_length,
+        )
 
         # Combine all inputs.
         combined_batch = {
@@ -130,3 +148,44 @@ class TextCollatorWithPadding:
             combined_batch[_LABELS_KEY] = labels
 
         return combined_batch
+
+    def _update_max_lengths_and_log(
+        self, *, max_input_ids_length: int, max_labels_length: int
+    ):
+        """Updates max length counters.
+
+        Also, logs a truncation warning if increment is large enough.
+        """
+        # Update global (dataset) maximum lengths.
+        log_max_lengths: bool = False
+
+        if max_input_ids_length > self._max_input_ids_length:
+            if self._max_length is not None and max_input_ids_length > self._max_length:
+                if (
+                    max_input_ids_length - self._max_previously_logged_input_ids_length
+                ) >= 0.1 * self._max_previously_logged_input_ids_length:
+                    log_max_lengths = True
+                    self._max_previously_logged_input_ids_length = max_input_ids_length
+
+            self._max_input_ids_length = max_input_ids_length
+
+        if max_labels_length > self._max_labels_length:
+            if (
+                self._max_length is not None
+                and self._max_labels_length > self._max_length
+            ):
+                if (
+                    max_labels_length - self._max_previously_logged_labels_length
+                ) >= 0.1 * self._max_previously_logged_labels_length:
+                    log_max_lengths = True
+                    self._max_previously_logged_input_ids_length = max_labels_length
+
+            self._max_labels_length = max_labels_length
+
+        if log_max_lengths:
+            logger.warning(
+                "Input sequences exceed max length: "
+                f"model_max_length: {self._max_length} "
+                f"max_input_ids_length: {self._max_input_ids_length} "
+                f"max_labels_length: {self._max_labels_length}"
+            )
