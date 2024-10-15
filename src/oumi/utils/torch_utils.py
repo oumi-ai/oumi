@@ -1,12 +1,10 @@
 import os
 from pathlib import Path
-from pprint import pformat
 from typing import Any, List, NamedTuple, Optional
 
 import numpy as np
 import torch
 
-from oumi.core.configs import TrainingConfig
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
 
@@ -36,11 +34,6 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
     """
     if torch.cuda.is_available():
         torch.cuda.set_per_process_memory_fraction(percent)
-
-
-def log_training_config(config: TrainingConfig) -> None:
-    """Logs training config."""
-    logger.info(f"TrainingConfig: {pformat(config)}")
 
 
 def log_versioning_info() -> None:
@@ -199,3 +192,33 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
         f"Trainable params: {trainable_params} || All params: {all_params} "
         f"|| Trainable%: {100 * trainable_params / all_params :.4f}"
     )
+
+
+def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
+    """Converts string dtype to torch.dtype."""
+    torch_dtype_str = torch_dtype_str.lower()
+    if torch_dtype_str in ["f64", "float64", "double"]:
+        return torch.float64
+    elif torch_dtype_str in ["f32", "float32", "float"]:
+        return torch.float32
+    elif torch_dtype_str in ["bf16", "bfloat16"]:
+        return torch.bfloat16
+    elif torch_dtype_str in ["f16", "float16", "half"]:
+        return torch.float16
+    else:
+        raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
+
+
+def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
+    """Coerces the model to the desired dtype.
+
+    This is needed as a temporary workaround to support QLoRA FSDP training. See:
+    https://github.com/huggingface/accelerate/issues/1620#issuecomment-2407102051
+    """
+    for name, module in model.named_modules():
+        try:
+            module.to(dtype)
+        except Exception as e:
+            logger.warning(
+                f"Failed to coerce module {name} to dtype {dtype}. Error: {e}"
+            )

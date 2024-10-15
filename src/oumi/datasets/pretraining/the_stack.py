@@ -16,10 +16,8 @@ class TheStackDataset(BasePretrainingIterableDataset):
     comments and docstrings. It supports tasks such as code completion,
     documentation generation, and auto-completion of code snippets.
 
-    For more information, see the dataset card:
-    https://huggingface.co/datasets/bigcode/the-stack
-
-    References:
+    See Also:
+        - Huggingface hub: https://huggingface.co/datasets/bigcode/the-stack
         - Homepage: https://www.bigcode-project.org/
         - Repository: https://github.com/bigcode-project
         - Paper: https://arxiv.org/abs/2211.15533

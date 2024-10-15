@@ -78,10 +78,13 @@ dev = [
 train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
-    "nbsphinx",                # Allows us to include ipython notebooks in the docs
-    "sphinx",                  # Used to build the docs
+    "myst-nb",                 # Allows us to include ipython notebooks in the docs
+    "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
+    "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
     "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
-    "sphinx_copybutton",       # Add copy button to code blocks in Sphinx
+    "sphinx",                  # Used to build the docs
+    "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
+    "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]

@@ -168,7 +168,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 top_p=generation_params.top_p,
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
-                stop=generation_params.stop,
+                stop=generation_params.stop_strings,
                 logit_bias=generation_params.logit_bias,
                 min_p=generation_params.min_p,
             )
