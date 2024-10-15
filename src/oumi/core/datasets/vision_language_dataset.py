@@ -1,7 +1,9 @@
+import copy
 import io
 from abc import ABC, abstractmethod
 from typing import Any, List, NamedTuple, Optional, Tuple, Union
 
+import numpy as np
 import requests
 import torch
 from PIL import Image
@@ -19,8 +21,7 @@ class _SpecialTokens(NamedTuple):
 
     image_token: Optional[str]
     image_token_id: Optional[int]
-    pad_token_id: int
-    ignore_token_id: int
+    label_ignore_index: Optional[int]
 
 
 class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
@@ -56,6 +57,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
+        label_ignore_index: Optional[int] = None,
         limit: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -66,10 +68,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
-
-        if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
-            raise RuntimeError("Tokenizer doesn't define `pad_token_id`")
-        pad_token_id: int = int(tokenizer.pad_token_id)
 
         if processor is None:
             if processor_name:
@@ -86,7 +84,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         image_token: Optional[str] = None
         image_token_id: Optional[int] = None
-        ignore_token_id: Optional[int] = None
         if self._processor is not None:
             # We must use oumi's "chat template", not the one from HF,
             # as its input data is different (`oumi.core.types.turn.Message`).
@@ -99,7 +96,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 try:
                     image_token = str(self._processor.image_token)
                     image_token_id = tokenizer.convert_tokens_to_ids(image_token)  # type: ignore
-                    if isinstance(image_token_id, int):
+                    if not isinstance(image_token_id, int):
                         raise ValueError(
                             "Image token id must be an integer. "
                             "The token is likely not in tokenizer's vocabulary. "
@@ -119,10 +116,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         self._special_tokens: _SpecialTokens = _SpecialTokens(
             image_token=image_token,
             image_token_id=image_token_id,
-            pad_token_id=pad_token_id,
-            ignore_token_id=(
-                int(ignore_token_id) if ignore_token_id is not None else pad_token_id
-            ),
+            label_ignore_index=label_ignore_index,
         )
 
         if limit is not None:
@@ -196,6 +190,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 padding=True,
             )
 
+        # Clone `input_ids` as `labels`.
+        if self._return_tensors:
+            inputs["labels"] = inputs["input_ids"].clone()
+        else:
+            inputs["labels"] = copy.deepcopy(inputs["input_ids"])
+
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
         # Images will be of shape (C, H, W) and texts will be of shape (T)
@@ -204,8 +204,24 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         inputs["input_ids"] = inputs["input_ids"][0]
         inputs["pixel_values"] = inputs["pixel_values"][0]
         inputs["attention_mask"] = inputs["attention_mask"][0]
+        inputs["labels"] = inputs["labels"][0]
 
-        inputs["labels"] = inputs["input_ids"]
+        # Ignore `image_token_id`-s in the loss computation.
+        if (
+            self._special_tokens.label_ignore_index is not None
+            and self._special_tokens.image_token_id is not None
+        ):
+            labels = inputs["labels"]
+            image_token_id = int(self._special_tokens.image_token_id)
+            label_ignore_index = int(self._special_tokens.label_ignore_index)
+            if isinstance(labels, (torch.Tensor, np.ndarray)):
+                # Modify in-place
+                labels[labels == image_token_id] = label_ignore_index
+            else:
+                # Create numpy array, modify, and copy back.
+                labels = np.array(labels)
+                labels[labels == image_token_id] = label_ignore_index
+                inputs["labels"] = labels.tolist()
 
         return inputs
 
