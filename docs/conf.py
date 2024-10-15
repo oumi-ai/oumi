@@ -36,7 +36,6 @@ extensions = [
     "sphinxcontrib.autoyaml",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
-    # TODO: more testing needed for these options
     # "sphinx_term.cssterm",
     "sphinx_term.termynal",
 ]
@@ -83,6 +82,10 @@ html_theme = "sphinx_book_theme"
 html_show_sourcelink = True
 html_show_sphinx = False
 html_title = "Oumi"
+html_favicon = "_static/logo/oumi_logo_light.png"
+html_static_path = ["_static"]
+# https://pydata-sphinx-theme.readthedocs.io/en/latest/user_guide/styling.html
+# html_css_files = ["css/custom.css"]
 
 add_module_names = True
 
@@ -102,6 +105,12 @@ html_theme_options = {
     "use_issues_button": True,
     "use_repository_button": True,
     "use_source_button": True,
+    "logo": {
+        "image_light": "_static/logo/oumi_logo_light.png",
+        "image_dark": "_static/logo/oumi_logo_dark.png",
+        "alt_text": "Oumi Documentation - Home",
+        # "link": "https://oumi.ai",
+    },
 }
 
 # see https://pygments.org/demo/ for options
