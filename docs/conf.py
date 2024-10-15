@@ -114,6 +114,7 @@ intersphinx_mapping = {
     "transformers": ("https://huggingface.co/docs/transformers/main/en", None),
     "trl": ("https://huggingface.co/docs/trl/main/en", None),
     "datasets": ("https://huggingface.co/docs/datasets/main/en", None),
+    "bitsandbytes": ("https://huggingface.co/docs/bitsandbytes/main/en", None),
 }
 
 # Disable all reftypes for intersphinx
