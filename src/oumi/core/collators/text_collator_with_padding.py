@@ -74,9 +74,9 @@ class TextCollatorWithPadding:
         except ValueError:
             logger.exception(
                 "Failed to collate inputs! "
-                f"model_max_length: {self._max_length} "
-                f"truncation: {self._truncation} "
-                f"batch_max_length: {batch_max_length}"
+                f"Batch maximum length: {batch_max_length} "
+                f"Model maximum length: {self._max_length} "
+                f"Truncation: {self._truncation}"
             )
             raise
         return result
