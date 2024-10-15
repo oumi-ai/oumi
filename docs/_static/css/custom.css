@@ -1,5 +1,5 @@
 html {
     --pst-font-family-base: Palatino, var(--pst-font-family-base-system);
-    --pst-font-family-heading: Palatino, Georgia, Times, var(--pst-font-family-base-system);
-    --pst-font-family-monospace: Palatino, var(--pst-font-family-monospace-system);
+    --pst-font-family-heading: Inria Sans, var(--pst-font-family-base-system);
+    /* --pst-font-family-monospace: Palatino, var(--pst-font-family-monospace-system); */
 }
