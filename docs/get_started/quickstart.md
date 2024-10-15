@@ -6,6 +6,24 @@ We'll use a small model (`SmolLM-135M`) so that the examples can be run on CPU. 
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the [configs/recipes](https://github.com/oumi-ai/oumi/tree/main/configs/recipes) folder.
 
+```{termynal} termynal:oumi-train
+---
+typeDelay: 40
+lineDelay: 700
+---
+- value: oumi train -c configs/recipes/smollm/smollm-135m_fft.yaml
+  type: input
+- Loading configuration...
+- "Initializing model: SmolLM-135M"
+- type: progress
+- Starting training...
+- "Epoch 1/3: 100%|██████████| 1000/1000 [00:45<00:00, 22.22it/s]"
+- "Epoch 2/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
+- "Epoch 3/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
+- "Training complete!"
+- "Saving model to output/smollm-135m-fft..."
+```
+
 ## Oumi CLI
 
 The general structure of Oumi CLI commands is:
