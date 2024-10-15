@@ -163,17 +163,16 @@ class TextCollatorWithPadding:
 
         Also, logs a truncation warning if increment is large enough.
         """
-        # Update global (dataset) maximum lengths.
+        _LOG_REL_INCREMENT = 0.1  # log if max length is up 10%
         log_max_lengths: bool = False
 
         if max_input_ids_length > self._max_input_ids_length:
             if self._max_length is not None and max_input_ids_length > self._max_length:
                 if (
                     max_input_ids_length - self._max_previously_logged_input_ids_length
-                ) >= 0.1 * self._max_previously_logged_input_ids_length:
+                ) >= _LOG_REL_INCREMENT * self._max_previously_logged_input_ids_length:
                     log_max_lengths = True
                     self._max_previously_logged_input_ids_length = max_input_ids_length
-
             self._max_input_ids_length = max_input_ids_length
 
         if max_labels_length > self._max_labels_length:
@@ -183,16 +182,18 @@ class TextCollatorWithPadding:
             ):
                 if (
                     max_labels_length - self._max_previously_logged_labels_length
-                ) >= 0.1 * self._max_previously_logged_labels_length:
+                ) >= _LOG_REL_INCREMENT * self._max_previously_logged_labels_length:
                     log_max_lengths = True
-                    self._max_previously_logged_input_ids_length = max_labels_length
-
+                    self._max_previously_logged_labels_length = max_labels_length
             self._max_labels_length = max_labels_length
 
         if log_max_lengths:
             logger.warning(
-                "Input sequences exceed max length: "
-                f"model_max_length: {self._max_length} "
-                f"max_input_ids_length: {self._max_input_ids_length} "
-                f"max_labels_length: {self._max_labels_length}"
+                "Input sequences exceeded max model length"
+                + (" and truncated! " if self._truncation else ".")
+                + (
+                    f"Model max length: {self._max_length} "
+                    f"Max 'input_ids' length: {self._max_input_ids_length} "
+                    f"Max 'labels' length: {self._max_labels_length}"
+                )
             )
