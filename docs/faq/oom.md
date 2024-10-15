@@ -80,6 +80,20 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
    )
    ```
 
+7. Use Paged Adam:
+
+```python
+config = TrainingConfig(
+    training=TrainingParams(
+        optimizer="paged_adamw_32bit",
+    ),
+)
+```
+
+```{note}
+Paged Adam requires `bitsandbytes` to be installed.
+```
+
 ## Model Configuration
 
 1. Use flash attention:
@@ -102,7 +116,19 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
    )
    ```
 
-3. Reduce training sequence length:
+3. Enable Liger Kernels:
+
+    ```python
+    from oumi.core.configs import ModelParams
+
+    config = TrainingConfig(
+        model=ModelParams(
+            enable_liger_kernel=True,
+        ),
+    )
+    ```
+
+4. Reduce training sequence length:
 
    ```python
    config = TrainingConfig(
@@ -112,7 +138,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
    )
    ```
 
-4. Selectively freeze layers:
+5. Selectively freeze layers:
 
    ```python
    config = TrainingConfig(
@@ -122,7 +148,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
    )
    ```
 
-5. Enable ring attention:
+6. Enable ring attention:
 
 ````{versionadded} 0.2.0 (Coming soon)
 
