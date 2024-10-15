@@ -73,10 +73,10 @@ class TextCollatorWithPadding:
             result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
         except ValueError:
             logger.exception(
-                "Failed to collate inputs! "
-                f"Batch maximum length: {batch_max_length} "
-                f"Model maximum length: {self._max_length} "
-                f"Truncation: {self._truncation}"
+                "Failed to collate! "
+                f"Batch maximum length: {batch_max_length}. "
+                f"Model maximum length: {self._max_length}. "
+                f"Truncation: {self._truncation}."
             )
             raise
         return result
@@ -192,8 +192,8 @@ class TextCollatorWithPadding:
                 "Input sequences exceeded max model length"
                 + (" and truncated! " if self._truncation else ".")
                 + (
-                    f"Model max length: {self._max_length} "
-                    f"Max 'input_ids' length: {self._max_input_ids_length} "
-                    f"Max 'labels' length: {self._max_labels_length}"
+                    f"Model max length: {self._max_length}. "
+                    f"'input_ids' length: {self._max_input_ids_length}. "
+                    f"'labels' length: {self._max_labels_length}."
                 )
             )
