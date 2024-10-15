@@ -1,4 +1,4 @@
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 import torch
 import transformers
@@ -68,6 +68,19 @@ class TextCollatorWithPadding:
         self._max_previously_logged_input_ids_length: int = 0
         self._max_previously_logged_labels_length: int = 0
 
+    def _collate(self, inputs: List[Any], batch_max_length: int) -> Dict[str, Any]:
+        try:
+            result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
+        except ValueError:
+            logger.exception(
+                "Failed to collate inputs! "
+                f"model_max_length: {self._max_length} "
+                f"truncation: {self._truncation} "
+                f"batch_max_length: {batch_max_length}"
+            )
+            raise
+        return result
+
     def __call__(self, batch) -> Dict[str, Any]:
         """Pads to the longest length present in the batch.
 
@@ -109,24 +122,16 @@ class TextCollatorWithPadding:
                 if labels_present:
                     labels.append(item[_LABELS_KEY])
 
-        # Collate batch prompts.
-        try:
-            collated_text_inputs = self._default_collator({_INPUT_IDS_KEY: text_inputs})  # type: ignore
-        except ValueError:
-            logger.exception(
-                "Failed to collate inputs! "
-                f"model_max_length: {self._max_length} "
-                f"truncation: {self._truncation} "
-                f"max_input_ids_length: {batch_max_input_ids_length} "
-                f"max_labels_length: {batch_max_labels_length}"
-            )
-            raise
-
-        # Update global (dataset) maximum lengths, and possibly log a warning
-        # about truncation.
+        # Update global (dataset) maximum lengths, and log a warning
+        # about truncation if needed.
         self._update_max_lengths_and_log(
             max_input_ids_length=batch_max_input_ids_length,
             max_labels_length=batch_max_labels_length,
+        )
+
+        # Collate batch prompts.
+        collated_text_inputs = self._collate(
+            text_inputs, batch_max_length=batch_max_input_ids_length
         )
 
         # Combine all inputs.
@@ -137,7 +142,9 @@ class TextCollatorWithPadding:
 
         # Add labels if present.
         if labels_present:
-            collated_labels = self._default_collator({_INPUT_IDS_KEY: labels})  # type: ignore
+            collated_labels = self._collate(
+                labels, batch_max_length=batch_max_labels_length
+            )
             labels = collated_labels[_INPUT_IDS_KEY]
             assert isinstance(labels, torch.Tensor)
             # Ignore `pad_token_id`-s in the loss computation.
