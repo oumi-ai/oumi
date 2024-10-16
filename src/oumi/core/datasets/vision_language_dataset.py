@@ -72,7 +72,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         if processor is None:
             if processor_name:
                 processor = AutoProcessor.from_pretrained(
-                    processor_name, trust_remote_code=True
+                    processor_name
+                    # TODO Provide an option to set `trust_remote_code=True` here.
                 )
         else:
             if processor_name:
