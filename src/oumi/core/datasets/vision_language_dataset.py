@@ -81,6 +81,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 )
 
         self._processor = processor
+        if self._processor is not None and not callable(self._processor):
+            raise ValueError("Processor is not callable!")
 
         image_token: Optional[str] = None
         image_token_id: Optional[int] = None
