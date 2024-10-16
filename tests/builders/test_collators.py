@@ -10,6 +10,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 def mock_tokenizer():
     mock = MagicMock(spec=BaseTokenizer)
     mock.pad_token_id = 32001
+    mock.model_max_length = 1024
     return mock
 
 
