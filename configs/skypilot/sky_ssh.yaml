@@ -7,7 +7,7 @@ resources:
   # accelerators: { "A100": 2, "L4": 4 }  # Some multi-gpu options
 
   disk_size: 200  # Disk size in GB
-  # region: us-west3  # Uncomment this line to only consider a specific region.
+  # region: us-central1  # Uncomment this line to only consider a specific region.
 
   use_spot: false
 
@@ -17,6 +17,10 @@ workdir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
+  /output_dir_gcs:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+    mode: MOUNT
 
 envs:
   WANDB_PROJECT: oumi-debug
