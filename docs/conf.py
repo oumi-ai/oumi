@@ -111,7 +111,7 @@ html_theme_options = {
         # "link": "https://oumi.ai",
     },
     "analytics": {
-        "google_analytics_id": "G-1234567890",
+        "google_analytics_id": "G-YZE0YFDLPT",
     },
 }
 
@@ -147,3 +147,8 @@ suppress_warnings = [
     # Ignore warnings from autodoc
     # "autodoc",
 ]
+
+
+# html_additional_pages = {
+#     "interactive_chat": "interactive_chat.html",
+# }
