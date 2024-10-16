@@ -74,7 +74,7 @@
             "request": "launch",
             "module": "oumi.infer",
             "args": [
-                "--interactive",
+                "--image=/home/user/scratch/models/cambrian/images/cambrian.png",
                 "model.model_name=llava-hf/llava-1.5-7b-hf",
                 "model.chat_template=llava",
                 "model.trust_remote_code=true",

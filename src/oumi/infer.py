@@ -50,16 +50,12 @@ def parse_cli():
     )
     parser.add_argument(
         "-i",
-        "--interactive",
-        action="store_true",
-    )
-    parser.add_argument(
         "--image",
         type=argparse.FileType("rb"),
         help="File path of an input image to be used with `image+text` VLLMs.",
     )
     args, unknown = parser.parse_known_args()
-    return args.config, args.interactive, args.image, unknown
+    return args.config, args.image, unknown
 
 
 def _load_image_png_bytes(input_image_filepath: str) -> bytes:
@@ -84,7 +80,7 @@ def main():
     3. Default arguments values defined in the data class
     """
     # Load configuration
-    config_path, interactive, input_image_filepath, arg_list = parse_cli()
+    config_path, input_image_filepath, arg_list = parse_cli()
 
     config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
