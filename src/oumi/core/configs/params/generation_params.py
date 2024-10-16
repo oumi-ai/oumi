@@ -31,6 +31,12 @@ class GenerationParams(BaseParams):
     output_filepath: Optional[str] = None
     """Path where the generated text will be saved."""
 
+    input_image_filepath_for_infer_interactive: Optional[str] = None
+    """Path to the input image to excercise LLMs with image and text inputs.
+
+    Only used in interactive mode (`infer_interactive`).
+    """
+
     seed: Optional[int] = None
     """Seed to use for random number determinism.
     If specified, APIs may use this parameter to make a best-effort at determinism.
