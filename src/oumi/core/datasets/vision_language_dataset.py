@@ -71,7 +71,10 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
         if processor is None:
             if processor_name:
-                processor = AutoProcessor.from_pretrained(processor_name)
+                processor = AutoProcessor.from_pretrained(
+                    processor_name
+                    # TODO Provide an option to set `trust_remote_code=True` here.
+                )
         else:
             if processor_name:
                 logger.warning(
@@ -81,6 +84,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 )
 
         self._processor = processor
+        if self._processor is not None and not callable(self._processor):
+            raise ValueError("Processor is not callable!")
 
         image_token: Optional[str] = None
         image_token_id: Optional[int] = None

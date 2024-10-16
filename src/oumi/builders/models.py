@@ -234,6 +234,7 @@ def _get_transformers_model_class(config):
         "idefics3",
         "instructblip",
         "llava",
+        "mllama",
         "paligemma",
         "qwen2_vl",
         "vipllava",
@@ -246,11 +247,21 @@ def _get_transformers_model_class(config):
         if config.model_type not in tested_models:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
-                "Using AutoModelForCausalLM as the model class."
+                "Using AutoModelForVision2Seq as the model class."
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
 
         auto_model_class = transformers.AutoModelForVision2Seq
+    elif config.model_type in ("molmo"):
+        tested_models = {}  # TODO: OPE-353, make sure we have all models supported
+
+        if config.model_type not in tested_models:
+            logger.warning(
+                f"Model type {config.model_type} not tested. "
+                "Using AutoModelForCausalLM as the model class."
+                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
+            )
+        auto_model_class = transformers.AutoModelForCausalLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
