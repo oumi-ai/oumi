@@ -52,7 +52,7 @@ from oumi.utils.torch_utils import (
 class ModelName(str, Enum):
     BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"  # not supported by transformers==4.43.4
+    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn

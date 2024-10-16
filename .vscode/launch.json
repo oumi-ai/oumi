@@ -140,7 +140,7 @@
             "program": "scripts/benchmarks/minimal_multimodal_training.py",
             "args": [
                 "--model-name",
-                "allenai/MolmoE-1B-0924",
+                "Qwen/Qwen2-VL-2B-Instruct",
                 "--dataset-name",
                 "HuggingFaceH4/llava-instruct-mix-vsft"
             ],
