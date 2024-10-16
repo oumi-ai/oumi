@@ -33,6 +33,13 @@ class ModelParams(BaseParams):
     for the model.
     """
 
+    tokenizer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the tokenizer's constructor.
+
+    This allows for passing any tokenizer-specific parameters that are not
+    covered by other fields in ModelParams.
+    """
+
     model_max_length: Optional[int] = None
     """The maximum sequence length the model can handle.
 
