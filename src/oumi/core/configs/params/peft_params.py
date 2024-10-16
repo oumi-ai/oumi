@@ -4,6 +4,7 @@ from typing import List, Optional
 from peft.utils.peft_types import TaskType
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.utils.torch_utils import get_torch_dtype
 
 
 @dataclass
@@ -138,3 +139,26 @@ class PeftParams(BaseParams):
 
     Defaults to 'uint8' for efficient storage.
     """
+
+    bnb_4bit_compute_dtype_str: str = field(
+        default="float32",
+        metadata={"help": "The compute type of the quantized parameters as a string."},
+    )
+    """Compute type of the quantized parameters.
+    It can be different than the input type, e.g., it can be set to a lower precision
+    for improved speed.
+
+    Valid options are:
+    - "float32" or "f32" or "float" for 32-bit floating point
+    - "float16" or "f16" or "half" for 16-bit floating point
+    - "bfloat16" or "bf16" for brain floating point
+    - "float64" or "f64" or "double" for 64-bit floating point
+
+    This string will be converted to the corresponding torch.dtype.
+
+    Defaults to "float32" for full precision.
+    """
+
+    def __post_init__(self):
+        """Populates some additional (derivative) parameters."""
+        self.bnb_4bit_compute_dtype = get_torch_dtype(self.bnb_4bit_compute_dtype_str)
