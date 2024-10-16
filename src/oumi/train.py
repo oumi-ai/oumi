@@ -1,15 +1,15 @@
 import argparse
 import gc
-import random
 import time
 from pathlib import Path
-from typing import Callable, Optional, Union
+from pprint import pformat
+from typing import Any, Callable, Optional, Union
 
-import numpy as np
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
+    build_data_collator,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -18,7 +18,12 @@ from oumi.builders import (
     build_trainer,
     build_training_callbacks,
 )
-from oumi.core.configs import DatasetSplit, TrainerType, TrainingConfig
+from oumi.core.configs import (
+    DatasetSplit,
+    DatasetSplitParams,
+    TrainerType,
+    TrainingConfig,
+)
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -28,22 +33,24 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
-from oumi.utils.debugging_utils import (
-    log_nvidia_gpu_memory_utilization,
-    log_nvidia_gpu_temperature,
+from oumi.utils.device_utils import (
+    log_nvidia_gpu_runtime_info,
 )
+from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
+    coerce_model_to_dtype,
     device_cleanup,
+    get_torch_dtype,
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
-    log_training_config,
     log_versioning_info,
 )
 
@@ -160,29 +167,18 @@ def _log_training_info(config: TrainingConfig) -> None:
         )
 
 
-def set_random_seeds(seed: int = 42, set_deterministic: bool = False) -> None:
-    """Set random seeds for reproducibility.
+def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
+    """Creates data collator if specified in config."""
+    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
+    if not train_split.collator_name:
+        return None
 
-    Each worker will have a different seed to ensure that each worker
-    starts with a different random state.
-
-    Args:
-        seed: The seed value to set for random number generators.
-        set_deterministic: Whether to set deterministic mode for CUDA operations.
-    """
-    device_info = get_device_rank_info()
-
-    local_seed = seed + device_info.rank
-
-    logger.info(f"Setting random seed to {local_seed} on rank {device_info.rank}.")
-    random.seed(local_seed)
-    np.random.seed(local_seed)
-    torch.manual_seed(local_seed)
-    torch.cuda.manual_seed(local_seed)
-
-    if set_deterministic:
-        logger.info("Setting deterministic mode for CUDA operations.")
-        torch.backends.cudnn.deterministic = True
+    return build_data_collator(
+        collator_name=train_split.collator_name,
+        tokenizer=tokenizer,
+        max_length=config.model.model_max_length,
+        label_ignore_index=-100,
+    )
 
 
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
@@ -222,7 +218,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     config = _finalize_training_config(config)
 
     if is_local_process_zero():
-        log_training_config(config)
+        logger.info(f"TrainingConfig: {pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
@@ -267,6 +263,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Reclaim memory before training starts.
     gc.collect()
 
+    collator = _build_collator_if_needed(config, tokenizer)
+
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -287,14 +285,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 eval_dataset=eval_dataset,
                 compute_metrics=metrics_function,
                 callbacks=callbacks,
+                data_collator=collator,
                 **kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):
-            log_nvidia_gpu_memory_utilization(
-                log_prefix="Max Memory Usage Before Training:"
-            )
-            log_nvidia_gpu_temperature(log_prefix="Device Temperature Before Training:")
+            log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
             verify_torch_distributed_initialized_if_needed()
 
         with torch.profiler.record_function("find_checkpoint_to_resume_from"):
@@ -304,19 +300,35 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 config.training.output_dir,
             )
 
+        # TODO: OPE-577 - Remove when the issue is resolved.
+        # QLoRA FSDP training currently has an issue where some submodules of the model
+        # are float32 instead of the requested dtype. As a workaround, we coerce all
+        # modules to the desired dtype. See:
+        # https://github.com/huggingface/accelerate/issues/1620#issuecomment-2407102051
+        if is_using_accelerate_fsdp() and config.peft.q_lora:
+            # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage
+            quant_storage_dtype = get_torch_dtype(config.peft.bnb_4bit_quant_storage)
+            if quant_storage_dtype != config.model.torch_dtype:
+                raise ValueError(
+                    f"BnB 4-bit quantization storage dtype must match model dtype. "
+                    f"Instead got {config.peft.bnb_4bit_quant_storage} and "
+                    f"{config.model.torch_dtype}."
+                )
+            coerce_model_to_dtype(model, config.model.torch_dtype)
+            logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
+
         with torch.profiler.record_function("wait_for_all_ranks"):
             # Make sure all workers start training at the same time.
             barrier()
 
         with torch.profiler.record_function("train"):
-            logger.info(f"Training init time: {time.time() - _START_TIME}s")
+            logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
             logger.info("Starting training...")
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
 
-    log_nvidia_gpu_memory_utilization(log_prefix="Max Memory Usage After Training:")
-    log_nvidia_gpu_temperature(log_prefix="Device Temperature After Training:")
+    log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:

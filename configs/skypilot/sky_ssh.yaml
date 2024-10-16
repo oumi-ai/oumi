@@ -1,6 +1,6 @@
 name: oumi-ssh
 
-num_nodes: 1  # Set it to N for multi-node training.
+num_nodes: 1
 
 resources:
   accelerators: { "A40", "A10", "A10g", "A100-80GB-SXM", "A100", "L4" } # Some single-gpu options
@@ -23,7 +23,7 @@ envs:
 
 setup: |
   set -e
-  pip install -e '.[dev,train]'
+  pip install uv && uv pip install '.[dev]'
 
 run: |
   set -e  # Exit if any command failed.

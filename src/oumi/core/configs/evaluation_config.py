@@ -3,8 +3,8 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.generation_config import GenerationConfig
-from oumi.core.configs.params.data_params import DatasetSplitParams
+from oumi.core.configs.params.evaluation_params import LMHarnessParams
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.utils.str_utils import sanitize_run_name
 
@@ -18,13 +18,6 @@ class EvaluationFramework(Enum):
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    """Parameters for the dataset split to be used in evaluation.
-
-    This includes specifications for train, validation, and test splits,
-    as well as any data preprocessing parameters.
-    """
-
     model: ModelParams = field(default_factory=ModelParams)
     """Parameters for the model to be evaluated.
 
@@ -32,16 +25,16 @@ class EvaluationConfig(BaseConfig):
     and any specific configurations required for the evaluation task.
     """
 
-    generation: GenerationConfig = field(default_factory=GenerationConfig)
-    """Configuration for text generation during evaluation.
+    generation: GenerationParams = field(default_factory=GenerationParams)
+    """Parameters for text generation during evaluation.
 
     This includes settings such as temperature, top-k, top-p,
     maximum length, and any other parameters that control the
     text generation process.
     """
 
-    evaluation_framework: EvaluationFramework = EvaluationFramework.LM_HARNESS
-    """The evaluation framework to be used.
+    lm_harness_params: Optional[LMHarnessParams] = None
+    """Parameters for the LM Harness evaluation framework.
 
     LM_HARNESS is the default, which is a comprehensive benchmark
     for evaluating large language models across various tasks.
@@ -87,15 +80,14 @@ class EvaluationConfig(BaseConfig):
         """Verifies params."""
         # TODO: wandb doesn't work with oumi eval, verify.
         self.run_name = sanitize_run_name(self.run_name)
-        if not isinstance(self.evaluation_framework, EvaluationFramework):
-            raise ValueError(
-                "`evaluation_framework` must belong to class `EvaluationFramework`."
-            )
-        if self.evaluation_framework not in list(EvaluationFramework):
-            raise ValueError(
-                f"Unknown `evaluation_framework` value: {self.evaluation_framework}."
-            )
-        if self.num_shots and self.num_shots < 0:
-            raise ValueError("`num_shots` must be non-negative.")
-        if self.num_samples is not None and self.num_samples <= 0:
-            raise ValueError("`num_samples` must be None or a positive integer.")
+        if self.lm_harness_params is not None:
+            if (
+                self.lm_harness_params.num_fewshot
+                and self.lm_harness_params.num_fewshot < 0
+            ):
+                raise ValueError("`num_fewshot` must be non-negative.")
+            if (
+                self.lm_harness_params.num_samples is not None
+                and self.lm_harness_params.num_samples <= 0
+            ):
+                raise ValueError("`num_samples` must be None or a positive integer.")

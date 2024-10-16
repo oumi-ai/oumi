@@ -1,16 +1,5 @@
-# Sample command:
-# accelerate launch \
-#   --use_fsdp \
-#   --config_file configs/accelerate/llama.fsdp.yaml \
-#   -m oumi.train \
-#   -c configs/oumi/llama3.8b.aya.sft.yaml \
-#   "training.output_dir=/tmp/train/" \
-#   "training.enable_wandb=false" \
-#   "training.enable_tensorboard=false" \
-#   "training.include_performance_metrics=true" \
-#   "training.max_steps=100" \
-#   "training.logging_steps=10"
-
+# Accelerate FSDP config for Llama models <8B in size.
+# Intended node: 4xA100-40GB GPUs
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: FSDP
@@ -31,7 +20,6 @@ fsdp_config:
   fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
-mixed_precision: 'bf16'
 num_machines: 1
 num_processes: 4
 rdzv_backend: static

@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import datasets
 import torch
 from torch.utils.data import IterDataPipe
+from typing_extensions import override
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
@@ -23,13 +24,17 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         dataset_name_or_path: Optional[str],
         subset: Optional[str] = None,
         split: Optional[str] = None,
+        stream: bool = True,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseIterableDataset class."""
+        dataset_type_name = self.__class__.__name__
+        logger.info(f"Creating iterable dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
-                "Please check the class constructor for supported arguments."
+                "Please check the class constructor for supported arguments "
+                f"(type: {dataset_type_name})."
             )
 
         dataset_name_or_path = dataset_name_or_path or self.default_dataset
@@ -37,12 +42,14 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         if dataset_name_or_path is None:
             raise ValueError(
                 "Please specify a dataset_name_or_path or "
-                "set the default_dataset class attribute."
+                "set the default_dataset class attribute "
+                f"(type: {dataset_type_name})."
             )
 
         self.dataset_name_or_path = dataset_name_or_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
+        self.stream = stream
         self._data = self._load_data()
 
     #
@@ -87,12 +94,36 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
             path=self.dataset_name_or_path,
             name=self.dataset_subset,
             split=self.split,
-            streaming=True,
+            streaming=self.stream,
         )
 
 
 class BasePretrainingIterableDataset(BaseIterableDataset):
-    """Abstract base class for pretraining iterable datasets."""
+    """Abstract base class for pretraining iterable datasets.
+
+    This class extends BaseIterableDataset to provide functionality specific to
+    pretraining tasks.
+
+    Attributes:
+        tokenizer (BaseTokenizer): The tokenizer used for text encoding.
+        seq_length (int): The desired sequence length for model inputs.
+        concat_token_id (int): The ID of the token used to concatenate documents.
+
+    Example:
+        >>> from transformers import AutoTokenizer
+        >>> from oumi.core.datasets import PretrainingDataset
+        >>>
+        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        >>> dataset = PretrainingDataset(
+        ...     dataset_name_or_path="wikimedia/wikipedia",
+        ...     subset="20231101.en",
+        ...     tokenizer=tokenizer,
+        ...     seq_length=512
+        ... )
+        >>>
+        >>> for batch in dataset:
+        ...     print(batch)  # Process the batch
+    """
 
     def __init__(
         self,
@@ -127,7 +158,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
 
         The underlying dataset is a stream of documents. Each document is expected to
         containt a text field `self._dataset_text_field` that will be tokenized.
-        Training sampels are then yielded in sequences of length `self.seq_length`.
+        Training samples are then yielded in sequences of length `self.seq_length`.
 
         Given this iterator might return samples from different documents, we optionally
         use `self.concat_token_id` to separate the sequences from different documents.
@@ -156,6 +187,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
             if not self._skip_last or len(buffer) == self.seq_length:
                 yield self._create_training_sample(buffer)
 
+    @override
     def transform(self, sample: Any) -> List[int]:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(sample)

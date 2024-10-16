@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -28,8 +29,8 @@ def build_model(
     """Builds and returns a model based on the provided Oumi configuration.
 
     Args:
-        model_params: The configuration object containing the model parameters.
-        peft_params: The configuration object containing the peft parameters.
+        model_params: The model parameters.
+        peft_params: The PEFT parameters.
         kwargs (dict, optional): Additional keyword arguments for model loading.
 
     Returns:
@@ -37,6 +38,17 @@ def build_model(
     """
     if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
         model = build_oumi_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            *kwargs,
+        )
+    elif model_params.model_name in (
+        "nyu-visionx/cambrian-phi3-3b",
+        "nyu-visionx/cambrian-8b",
+        "nyu-visionx/cambrian-13b",
+        "nyu-visionx/cambrian-34b",
+    ):
+        model = build_cambrian_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
@@ -53,12 +65,12 @@ def build_model(
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
-            logger.info(f"Freezing layer {layer_name}.")
+            logger.info(f"Freezing layer '{layer_name}'...")
 
             for param in getattr(model, layer_name).parameters():
                 param.requires_grad_(False)
         else:
-            logger.warning(f"Layer {layer_name} not found in model.")
+            logger.warning(f"Layer '{layer_name}' not found in model.")
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
@@ -108,7 +120,7 @@ def build_oumi_model(
     if model_params.adapter_model is not None:
         raise NotImplementedError
 
-    dtype = model_params.torch_dtype()
+    dtype = model_params.torch_dtype
     model = model.to(dtype=dtype)
     # Needed for MFUTrainerCallback
     model.dtype = dtype
@@ -163,7 +175,7 @@ def build_huggingface_model(
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=peft_params.q_lora_bits == 4,
             load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype(),
+            bnb_4bit_compute_dtype=model_params.torch_dtype,
             bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
             bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
             bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
@@ -179,7 +191,7 @@ def build_huggingface_model(
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
-            torch_dtype=model_params.torch_dtype(),
+            torch_dtype=model_params.torch_dtype,
             device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
@@ -190,7 +202,7 @@ def build_huggingface_model(
     else:
         model = transformers_model_class.from_config(
             config=hf_config,
-            torch_dtype=model_params.torch_dtype(),
+            torch_dtype=model_params.torch_dtype,
             trust_remote_code=model_params.trust_remote_code,
             attn_implementation=model_params.attn_implementation,
             **kwargs,
@@ -222,6 +234,7 @@ def _get_transformers_model_class(config):
         "idefics3",
         "instructblip",
         "llava",
+        "mllama",
         "paligemma",
         "qwen2_vl",
         "vipllava",
@@ -234,15 +247,99 @@ def _get_transformers_model_class(config):
         if config.model_type not in tested_models:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
-                "Using AutoModelForCausalLM as the model class."
+                "Using AutoModelForVision2Seq as the model class."
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
 
         auto_model_class = transformers.AutoModelForVision2Seq
+    elif config.model_type in ("molmo"):
+        tested_models = {}  # TODO: OPE-353, make sure we have all models supported
+
+        if config.model_type not in tested_models:
+            logger.warning(
+                f"Model type {config.model_type} not tested. "
+                "Using AutoModelForCausalLM as the model class."
+                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
+            )
+        auto_model_class = transformers.AutoModelForCausalLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
     return auto_model_class
+
+
+def build_cambrian_model(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+) -> nn.Module:
+    """Downloads and builds the model from the HuggingFace Hub."""
+    from importlib.util import find_spec
+
+    for dependency_name in ("diffusers", "einops", "open_clip", "timm"):
+        if not find_spec(dependency_name):
+            raise RuntimeError(
+                f"Failed to find the required dependency package:'{dependency_name}' "
+                f"for the Cambrian model: '{model_params.model_name}'. "
+                "Run `pip install oumi[cambrian]`, and try again."
+            )
+
+    try:
+        from oumi.models.experimental.cambrian.mm_utils import (
+            get_model_name_from_path as get_cambrian_model_name_from_path,
+        )
+        from oumi.models.experimental.cambrian.model.builder import (
+            load_pretrained_model as load_cambrian_pretrained_model,
+        )
+    except ImportError as e:
+        raise RuntimeError(
+            "Failed to load a required dependency "
+            f"for the Cambrian model: '{model_params.model_name}'. "
+            "Run `pip install oumi[cambrian]`, and try again."
+        ) from e
+
+    device_map = model_params.device_map
+    device_rank_info = get_device_rank_info()
+
+    # If we're using FSDP via HF Accelerate, we should not specify the device map
+    # so that HF properly initializes the model for FSDP.
+    # If we set device_map to "auto", it seems HF will try to shard the model when
+    # loading it, which conflicts with FSDP's sharding.
+    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
+    # load the model only on rank 0, which will OOM for large models.
+    # See https://github.com/huggingface/transformers/pull/25107.
+    if is_using_accelerate_fsdp():
+        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
+        device_map = None
+    elif device_map == "auto" and device_rank_info.world_size > 1:
+        # "auto" is not compatible with DDP.
+        logger.info(
+            f"Building model for distributed training "
+            f"(world_size: {device_rank_info.world_size})..."
+        )
+        device_map = f"cuda:{device_rank_info.local_rank}"
+    logger.info(
+        f"Building model using device_map: {device_map} ({device_rank_info})..."
+    )
+
+    model_path = str(Path(model_params.model_name).expanduser())
+    model_name = get_cambrian_model_name_from_path(model_path)
+    tokenizer, model, processor, _ = load_cambrian_pretrained_model(
+        model_path, None, model_name, device_map=(device_map or "auto")
+    )
+
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+
+    # TODO Find a better way to handle it
+
+    # Load pretrained PEFT adapters
+    if model_params.adapter_model:
+        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+
+    return model
 
 
 def build_tokenizer(
@@ -251,8 +348,7 @@ def build_tokenizer(
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
-        model_params (ModelParams): The configuration object containing
-            the model parameters.
+        model_params (ModelParams): The model parameters.
         **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
@@ -282,6 +378,10 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     if model_params.chat_template:
+        logger.info(
+            f"Using the chat template '{model_params.chat_template}' "
+            "specified in model config!"
+        )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
     if tokenizer.chat_template is None:
@@ -290,6 +390,12 @@ def build_tokenizer(
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
         )
+        logger.warning(
+            "Setting tokenizer to use the 'default' chat template. "
+            "The 'default' template does not use any special tokens, "
+            "and is unlikely to yield good results. "
+        )
+        tokenizer.chat_template = build_chat_template(template_name="default")
 
     return tokenizer
 

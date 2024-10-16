@@ -1,6 +1,6 @@
 # Config to eval Llama 3.1 8B Instruct on GCP.
 # Example command:
-# oumi-launch -p configs/oumi/jobs/gcp/llama8b_eval.yaml -c llama8b-eval
+# oumi launch up -c configs/oumi/jobs/gcp/llama8b_eval.yaml --cluster llama8b-eval
 name: llama8b-eval
 
 resources:
@@ -28,7 +28,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install uv && uv pip install '.[gpu]'
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   pip install hf_transfer

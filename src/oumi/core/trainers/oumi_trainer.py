@@ -74,7 +74,9 @@ class Trainer(BaseTrainer):
         self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
-        self.max_norm: float = args.max_grad_norm
+        self.max_norm = (
+            float(args.max_grad_norm) if args.max_grad_norm is not None else None
+        )
 
         self.fsdp_params = fsdp_params or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
@@ -287,9 +289,10 @@ class Trainer(BaseTrainer):
                 if end_of_global_step or stop_on_max_steps_limit:
                     with self._telemetry_block("optimizer step"):
                         self.scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.parameters(), max_norm=self.max_norm
-                        )
+                        if self.max_norm is not None and self.max_norm > 0:
+                            torch.nn.utils.clip_grad_norm_(
+                                self.model.parameters(), max_norm=self.max_norm
+                            )
 
                         # save lr for logging
                         last_lr = self.lr_scheduler.get_last_lr()[0]

@@ -20,10 +20,11 @@ def judge_dataset(
     This function evaluates a given dataset using a specified Judge configuration.
 
     The function performs the following steps:
-    1. Initializes the Judge with the provided configuration.
-    2. Iterates through the dataset to extract conversation inputs.
-    3. Uses the Judge to evaluate each conversation input.
-    4. Collects and returns the judged outputs.
+
+        1. Initializes the Judge with the provided configuration.
+        2. Iterates through the dataset to extract conversation inputs.
+        3. Uses the Judge to evaluate each conversation input.
+        4. Collects and returns the judged outputs.
 
     Args:
         config: The configuration for the judge.
@@ -33,11 +34,11 @@ def judge_dataset(
     Returns:
         List[Dict[str, Any]]: A list of judgement results for each conversation.
 
-        Example output:
-            [
-                {'helpful': True, 'safe': False},
-                {'helpful': True, 'safe': True},
-            ]
+        >>> # Example output:
+        [
+            {'helpful': True, 'safe': False},
+            {'helpful': True, 'safe': True},
+        ]
 
     Example:
         >>> config = JudgeConfig(...)
@@ -60,9 +61,10 @@ def judge_conversations(
     This function evaluates a list of conversations using the specified Judge.
 
     The function performs the following steps:
-    1. Initializes the Judge with the provided configuration.
-    2. Uses the Judge to evaluate each conversation input.
-    3. Collects and returns the judged outputs.
+
+        1. Initializes the Judge with the provided configuration.
+        2. Uses the Judge to evaluate each conversation input.
+        3. Collects and returns the judged outputs.
 
     Args:
         config: The configuration for the judge.
@@ -71,11 +73,11 @@ def judge_conversations(
     Returns:
         List[Dict[str, Any]]: A list of judgement results for each conversation.
 
-        Example output:
-            [
-                {'helpful': True, 'safe': False},
-                {'helpful': True, 'safe': True},
-            ]
+        >>> # Example output:
+        [
+            {'helpful': True, 'safe': False},
+            {'helpful': True, 'safe': True},
+        ]
 
     Example:
         >>> config = JudgeConfig(...)

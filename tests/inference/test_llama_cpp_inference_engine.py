@@ -1,10 +1,13 @@
+from importlib.util import find_spec
 from unittest.mock import patch
 
 import pytest
 
-from oumi.core.configs import GenerationConfig, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.turn import Conversation, Message, Role
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
+
+llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 @pytest.fixture
@@ -23,6 +26,7 @@ def inference_engine(mock_llama):
     return LlamaCppInferenceEngine(model_params)
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_initialization(mock_llama):
     model_params = ModelParams(
         model_name="test_model.gguf",
@@ -43,6 +47,7 @@ def test_initialization(mock_llama):
     )
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_convert_conversation_to_llama_input(inference_engine):
     conversation = Conversation(
         messages=[
@@ -62,6 +67,7 @@ def test_convert_conversation_to_llama_input(inference_engine):
     assert result == expected
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_infer_online(inference_engine):
     with patch.object(inference_engine, "_infer") as mock_infer:
         mock_infer.return_value = [
@@ -71,20 +77,19 @@ def test_infer_online(inference_engine):
         input_conversations = [
             Conversation(messages=[Message(content="Hello", role=Role.USER)])
         ]
-        generation_config = GenerationConfig(max_new_tokens=50)
+        generation_params = GenerationParams(max_new_tokens=50)
 
-        result = inference_engine.infer_online(input_conversations, generation_config)
+        result = inference_engine.infer_online(input_conversations, generation_params)
 
-        mock_infer.assert_called_once_with(input_conversations, generation_config)
+        mock_infer.assert_called_once_with(input_conversations, generation_params)
         assert result == mock_infer.return_value
 
 
+@pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_infer_from_file(inference_engine):
     with patch.object(
         inference_engine, "_read_conversations"
-    ) as mock_read, patch.object(
-        inference_engine, "_infer"
-    ) as mock_infer, patch.object(inference_engine, "_save_conversations") as mock_save:
+    ) as mock_read, patch.object(inference_engine, "_infer") as mock_infer:
         mock_read.return_value = [
             Conversation(messages=[Message(content="Hello", role=Role.USER)])
         ]
@@ -97,12 +102,11 @@ def test_infer_from_file(inference_engine):
             )
         ]
 
-        generation_config = GenerationConfig(
+        generation_params = GenerationParams(
             max_new_tokens=50, output_filepath="output.json"
         )
-        result = inference_engine.infer_from_file("input.json", generation_config)
+        result = inference_engine.infer_from_file("input.json", generation_params)
 
         mock_read.assert_called_once_with("input.json")
         mock_infer.assert_called_once()
-        mock_save.assert_called_once_with(mock_infer.return_value, "output.json")
         assert result == mock_infer.return_value
