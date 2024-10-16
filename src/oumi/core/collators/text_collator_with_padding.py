@@ -190,7 +190,7 @@ class TextCollatorWithPadding:
         if log_max_lengths:
             logger.warning(
                 "Input sequences exceeded max model length"
-                + (" and truncated! " if self._truncation else ".")
+                + (" and truncated! " if self._truncation else ". ")
                 + (
                     f"Model max length: {self._max_length}. "
                     f"'input_ids' length: {self._max_input_ids_length}. "
