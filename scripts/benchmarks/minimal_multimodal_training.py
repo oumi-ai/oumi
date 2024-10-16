@@ -168,9 +168,7 @@ def test_multimodal_trainer(
 
     model = build_model(model_params)
     processor = AutoProcessor.from_pretrained(model_name.value, trust_remote_code=True)
-    assert callable(processor) or (
-        hasattr(processor, "process") and callable(processor.process)
-    )
+    assert callable(processor)
     tokenizer: BaseTokenizer = processor.tokenizer
 
     # TODO: assign the right chat template for each model

@@ -235,8 +235,8 @@ def _get_transformers_model_class(config):
         "instructblip",
         "llava",
         "mllama",
-        "qwen2_vl",
         "paligemma",
+        "qwen2_vl",
         "vipllava",
     ):
         tested_models = {
