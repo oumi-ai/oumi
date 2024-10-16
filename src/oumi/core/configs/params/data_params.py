@@ -158,7 +158,8 @@ class DatasetSplitParams(BaseParams):
 
     Valid options are:
     - "text_with_padding": Uses DataCollatorWithPadding for text data.
-    - "vision_language": Uses VisionLanguageCollator for image+text multi-modal data.
+    - "vision_language_with_padding": Uses VisionLanguageCollator
+        for image+text multi-modal data.
 
     If None, then a default collator will be assigned.
     """

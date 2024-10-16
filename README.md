@@ -81,7 +81,7 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 View our API documentation [here](https://oumi.ai/docs/latest/index.html).
 
-Reach out to <matthew@learning-machines.ai> if you have problems with access.
+Reach out to <matthew@oumi.ai> if you have problems with access.
 
 ## Contributing
 
