@@ -18,9 +18,9 @@ def get_default_special_tokens(
 ) -> SpecialTokensMixin:
     """Returns the default special tokens for the tokenizer that was provided."""
     if tokenizer and tokenizer.name_or_path:
-        if "llama" in tokenizer.name_or_path:
+        if "llama" in tokenizer.name_or_path.lower():
             return special_tokens["llama"]
-        elif "gpt2" in tokenizer.name_or_path:
+        elif "gpt2" in tokenizer.name_or_path.lower():
             return special_tokens["gpt2"]
         else:
             logger.warning(
