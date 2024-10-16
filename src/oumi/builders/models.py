@@ -357,12 +357,19 @@ def build_tokenizer(
         **model_params.tokenizer_kwargs,
     )
 
+    if model_params.tokenizer_pad_token:
+        tokenizer.add_special_tokens(
+            special_tokens_dict={"pad_token": model_params.tokenizer_pad_token}
+        )
+
     # Ensure that the tokenizer has a pad token set.
     if (tokenizer.pad_token is None) and (tokenizer.pad_token_id is None):
         default_pad_token = get_default_special_tokens(tokenizer).pad_token
         if default_pad_token:
             logger.warning(f"Undefined pad token. Setting it to `{default_pad_token}`.")
-            tokenizer.pad_token = default_pad_token
+            tokenizer.add_special_tokens(
+                special_tokens_dict={"pad_token": default_pad_token}
+            )
         else:
             raise ValueError(
                 "Tokenizer does not have a pad token. This is expected for older "
