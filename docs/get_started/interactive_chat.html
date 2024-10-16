@@ -1,0 +1,73 @@
+
+{% extends "!layout.html" %}
+
+{% block content %}
+<h1>Interactive Chatbot</h1>
+<div id="chat-container">
+    <div id="chat-messages"></div>
+    <input type="text" id="user-input" placeholder="Type your message...">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+function sendMessage() {
+    var userInput = document.getElementById('user-input');
+    var message = userInput.value;
+    userInput.value = '';
+
+    // Display user message
+    addMessage('User: ' + message);
+
+    // Call external API
+    fetch('YOUR_API_ENDPOINT', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: message }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Display bot response
+        addMessage('Bot: ' + data.response);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        addMessage('Bot: Sorry, there was an error processing your request.');
+    });
+}
+
+function addMessage(message) {
+    var chatMessages = document.getElementById('chat-messages');
+    var messageElement = document.createElement('p');
+    messageElement.textContent = message;
+    chatMessages.appendChild(messageElement);
+}
+</script>
+
+<style>
+#chat-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#chat-messages {
+    height: 300px;
+    border: 1px solid #ccc;
+    overflow-y: scroll;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+#user-input {
+    width: calc(100% - 70px);
+    padding: 5px;
+}
+
+button {
+    width: 60px;
+    padding: 5px;
+}
+</style>
+{% endblock %}
