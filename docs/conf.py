@@ -111,6 +111,9 @@ html_theme_options = {
         "alt_text": "Oumi Documentation - Home",
         # "link": "https://oumi.ai",
     },
+    "analytics": {
+        "google_analytics_id": "G-1234567890",
+    },
 }
 
 # see https://pygments.org/demo/ for options
