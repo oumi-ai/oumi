@@ -7,7 +7,7 @@ message: >-
   metadata from this file.
 type: software
 authors:
-  - name: Oumi Team
+  - name: Oumi Community
 repository-code: "https://github.com/oumi-ai/oumi"
 url: "https://oumi.ai"
 keywords:
