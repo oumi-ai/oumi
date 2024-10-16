@@ -1,10 +1,10 @@
 model:
-  model_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
+  model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
   model_max_length: 256
   trust_remote_code: True
-  attn_implementation: "flash_attention_2" # "sdpa"
-  chat_template: "llama3-instruct" # "llava"
+  attn_implementation:  "sdpa"
+  chat_template: "llava"
   freeze_layers:
     - "vision_tower"
 
@@ -19,7 +19,7 @@ data:
         shuffle: True
         seed: 42
         dataset_kwargs:
-          processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
+          processor_name: "llava-hf/llava-1.5-7b-hf"
           limit: 1024
           return_tensors: True
       # - dataset_name: "coco_captions"
@@ -57,4 +57,5 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
   include_performance_metrics: true
+  log_model_summary: False
   enable_wandb: True

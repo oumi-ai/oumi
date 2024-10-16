@@ -85,7 +85,10 @@ _MODELS_MAP: Dict[ModelName, ModelInfo] = {
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
     ),
     ModelName.PHI3_VISION: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=[]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[
+            "model.vision_embed_tokens"
+        ],  # FIXME Freeze nested layers OPE-505
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
         chat_template="llama3-instruct", freeze_layers=["vision_model"]
@@ -134,7 +137,7 @@ def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
-    max_steps: int = 5,  # 20,
+    max_steps: int = 20,
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
@@ -207,7 +210,7 @@ def test_multimodal_trainer(
         optimizer="sgd",
         learning_rate=2e-5,
         gradient_accumulation_steps=1,
-        log_model_summary=True,
+        log_model_summary=False,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )
