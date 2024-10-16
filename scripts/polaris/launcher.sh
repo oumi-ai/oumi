@@ -93,11 +93,13 @@ ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $
   if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then
       echo "Creating Oumi Conda environment... -----------------------------------------"
       conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/oumi
-   fi
-   echo "Installing packages... -----------------------------------------"
-   conda activate /home/$USER/miniconda3/envs/oumi
-   pip install -e '.[train]'
-   pip install -e '.[gpu]'
+  fi
+  echo "Installing packages... -----------------------------------------"
+  conda activate /home/$USER/miniconda3/envs/oumi
+  if ! command -v uv >/dev/null 2>&1; then
+      pip install -U uv
+  fi
+  uv pip install -e '.[gpu]'
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.

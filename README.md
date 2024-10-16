@@ -27,7 +27,7 @@ For an overview of the Oumi features and usage, checkout the [user guide](/USAGE
 
 0. (Optional) Set up Git and Conda:
 
-   For new developers, we highly recommend that you follow the [installation guide](/docs/DEV_SETUP.md) to help set up Git and a local conda environment.
+   For new developers, we highly recommend that you follow the [installation guide](/docs/development/dev_setup.md) to help set up Git and a local conda environment.
 
 1. Install Oumi:
 
@@ -81,7 +81,7 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 View our API documentation [here](https://oumi.ai/docs/latest/index.html).
 
-Reach out to <matthew@learning-machines.ai> if you have problems with access.
+Reach out to <matthew@oumi.ai> if you have problems with access.
 
 ## Contributing
 

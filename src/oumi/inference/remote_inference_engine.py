@@ -109,8 +109,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 "This parameter will be ignored."
             )
 
-        if generation_params.stop:
-            api_input["stop"] = generation_params.stop
+        if generation_params.stop_strings:
+            api_input["stop"] = generation_params.stop_strings
 
         return api_input
 

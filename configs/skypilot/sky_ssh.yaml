@@ -23,7 +23,7 @@ envs:
 
 setup: |
   set -e
-  pip install -e '.[dev,train]'
+  pip install uv && uv pip install '.[dev]'
 
 run: |
   set -e  # Exit if any command failed.

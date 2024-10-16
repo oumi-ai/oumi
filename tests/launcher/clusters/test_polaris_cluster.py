@@ -364,8 +364,10 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -464,8 +466,10 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -563,8 +567,10 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -650,8 +656,10 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -739,8 +747,10 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -820,8 +830,10 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
             call(

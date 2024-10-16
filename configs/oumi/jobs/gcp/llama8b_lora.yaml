@@ -1,4 +1,4 @@
-# Config to LoRA tune Llama 3.1 8B Instruct on GCP.
+# Config to LoRA tune Llama 3.1 8B Instruct on 1 GCP node.
 # Example command:
 # oumi launch up -c configs/oumi/jobs/gcp/llama8b_lora.yaml --cluster llama8b-lora
 name: llama8b-lora
@@ -28,7 +28,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install uv && uv pip install '.[gpu]'
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
@@ -47,8 +47,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/oumi/llama8b.lora.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
-      "training.save_final_model=false"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

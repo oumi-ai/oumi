@@ -14,14 +14,12 @@ class TinyTextbooksDataset(BasePretrainingIterableDataset):
     the best of the falcon-refinedweb and minipile datasets to ensure diversity and
     quality while maintaining a small size.
 
-    For more information, see the dataset card:
-    https://huggingface.co/datasets/nampdn-ai/tiny-textbooks
-
-    References:
-    - Textbooks Are All You Need II: phi-1.5 technical report
-      (https://arxiv.org/abs/2309.05463)
-    - Falcon: A Large Language Model for Search
-      (https://arxiv.org/abs/2306.01116)
-    - The MiniPile Challenge for Data-Efficient Language Models
+    See Also:
+        - Huggingface hub: https://huggingface.co/datasets/nampdn-ai/tiny-textbooks
+        - Textbooks Are All You Need II: phi-1.5 technical report
+          (https://arxiv.org/abs/2309.05463)
+        - Falcon: A Large Language Model for Search
+          (https://arxiv.org/abs/2306.01116)
+        - The MiniPile Challenge for Data-Efficient Language Models
       (https://arxiv.org/abs/2304.08442)
     """
