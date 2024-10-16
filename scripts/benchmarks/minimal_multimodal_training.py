@@ -18,7 +18,7 @@ Working configs:
 
 from enum import Enum
 from pprint import pformat
-from typing import Dict, List, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 import torch
 import typer
@@ -52,28 +52,72 @@ from oumi.utils.torch_utils import (
 class ModelName(str, Enum):
     BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"  # not supported by transformers==4.43.4
+    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
+    PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
+    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    MOLMOE_1B = "allenai/MolmoE-1B-0924"
 
 
-_FREEZE_LAYERS_MAP: Dict[ModelName, List[str]] = {
-    ModelName.BLIP2: ["vision_model"],
-    ModelName.LLAVA: ["vision_tower"],
-    ModelName.QWEN: ["visual"],
-    ModelName.CHAMELEON: ["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
-    ModelName.PALIGEMMA: ["vision_tower"],
+class ModelInfo(NamedTuple):
+    chat_template: str
+    freeze_layers: List[str]
+
+
+_DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
+
+_MODELS_MAP: Dict[ModelName, ModelInfo] = {
+    ModelName.BLIP2: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
+    ),
+    ModelName.LLAVA: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+    ),
+    ModelName.QWEN: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
+    ),
+    ModelName.CHAMELEON: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
+    ),
+    ModelName.PALIGEMMA: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+    ),
+    ModelName.PHI3_VISION: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[
+            "model.vision_embed_tokens"
+        ],  # FIXME Freeze nested layers OPE-505
+    ),
+    ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
+        chat_template="llama3-instruct", freeze_layers=["vision_model"]
+    ),
+    ModelName.MOLMOE_1B: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["model.vision_backbone"],  # FIXME Freeze nested layers OPE-505
+    ),
 }
 
 
 def _get_freeze_layers(model_name: ModelName) -> List[str]:
     result = []
-    if model_name in _FREEZE_LAYERS_MAP:
-        result = _FREEZE_LAYERS_MAP[model_name]
+    if model_name in _MODELS_MAP:
+        result = _MODELS_MAP[model_name].freeze_layers
         print(f"Frozen layers: {result}")
     else:
         print(f"No frozen layers defined for {model_name}!")
     return result
+
+
+def _get_chat_template(model_name: ModelName) -> str:
+    result = ""
+    if model_name in _MODELS_MAP:
+        result = _MODELS_MAP[model_name].chat_template
+        print(f"Chat template: {result}")
+    else:
+        print(f"No chat templates  defined for {model_name}!")
+    return result or _DEFAULT_MLLM_CHAT_TEMPLATE
 
 
 class DatasetName(str, Enum):
@@ -123,7 +167,8 @@ def test_multimodal_trainer(
         print(f"ModelParams:\n{pformat(model_params)}")
 
     model = build_model(model_params)
-    processor = AutoProcessor.from_pretrained(model_name.value)
+    processor = AutoProcessor.from_pretrained(model_name.value, trust_remote_code=True)
+    assert callable(processor)
     tokenizer: BaseTokenizer = processor.tokenizer
 
     # TODO: assign the right chat template for each model
@@ -131,7 +176,7 @@ def test_multimodal_trainer(
     # NOTE: We can't use the original model's template because
     # oumi will feed it an array of `oumi.core.types.turn.Message`
     # objects (vs model-specific Python dict).
-    chat_template = build_chat_template("llava")
+    chat_template = build_chat_template(_get_chat_template(model_name))
     processor.chat_template = chat_template
     tokenizer.chat_template = chat_template
 
