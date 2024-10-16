@@ -29,10 +29,15 @@ setup: |
   # downloading the model during training.
   pip install hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
+  # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
+
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/skypilot/sky_init.sh
+
+  pip install '.[gpu]'
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
