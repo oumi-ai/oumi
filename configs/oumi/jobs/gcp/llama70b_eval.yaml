@@ -27,7 +27,7 @@ envs:
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install uv && uv pip install '.[gpu]'
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   pip install hf_transfer

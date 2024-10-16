@@ -10,12 +10,10 @@ class TinyStoriesDataset(BasePretrainingIterableDataset):
     vocabulary, created by GPT-3.5 and GPT-4. It is designed for text generation
     tasks and is available in English.
 
-    The dataset is described in the paper:
-    "TinyStories: How Small Can Language Models Be and Still Speak Coherent
-    English?" (https://arxiv.org/abs/2305.07759)
+    See Also:
+        - Paper: https://arxiv.org/abs/2305.07759
+        - Huggingface hub: https://huggingface.co/datasets/roneneldan/TinyStories
 
-    For more information and to access the dataset, visit:
-    https://huggingface.co/datasets/roneneldan/TinyStories
-
-    The dataset is available under the CDLA-Sharing-1.0 license.
+    Note:
+        The dataset is available under the CDLA-Sharing-1.0 license.
     """

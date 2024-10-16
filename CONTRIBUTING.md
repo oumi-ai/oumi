@@ -1,4 +1,4 @@
-# Contributing to Oumi
+# Contributing
 
 Thanks for considering contributing to Oumi! We welcome contributions for new models,
 incremental improvements, datasets, and bug fixes!

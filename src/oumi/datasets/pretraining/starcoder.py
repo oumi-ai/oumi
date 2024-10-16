@@ -14,15 +14,15 @@ class StarCoderDataset(BasePretrainingIterableDataset):
     The Stack dataset, with PII removed. It includes various programming languages,
     GitHub issues, Jupyter Notebooks, and GitHub commits.
 
-    Huggingface hub:
-    https://huggingface.co/datasets/bigcode/starcoderdata
+    Data Fields:
+        id: str
+        content: str
+        max_stars_repo_path: str
+        max_stars_repo_name: int
+        max_stars_count: str
 
-    Fields:
-        - id: str
-        - content: str
-        - max_stars_repo_path: str
-        - max_stars_repo_name: int
-        - max_stars_count: str
+    See Also:
+        - Huggingface hub: https://huggingface.co/datasets/bigcode/starcoderdata
 
     Note:
         GitHub issues, GitHub commits, and Jupyter notebooks subsets have different
@@ -40,7 +40,7 @@ class StarCoderDataset(BasePretrainingIterableDataset):
         - awk
         - git-commits-cleaned
         - github-issues-filtered-structured
-        ...
+        - ...
 
     Warning:
         Not all subsets have the same format, in particular:
