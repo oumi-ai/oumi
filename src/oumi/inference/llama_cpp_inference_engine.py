@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 
 try:

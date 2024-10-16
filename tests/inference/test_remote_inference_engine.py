@@ -8,7 +8,7 @@ import pytest
 from aioresponses import aioresponses
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
 
 _TARGET_SERVER: str = "http://fakeurl"

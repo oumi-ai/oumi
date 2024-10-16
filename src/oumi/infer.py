@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,

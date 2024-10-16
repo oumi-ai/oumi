@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 
 llama_cpp_import_failed = find_spec("llama_cpp") is None

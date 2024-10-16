@@ -12,7 +12,7 @@ from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
 

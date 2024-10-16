@@ -5,7 +5,7 @@ from typing import List
 import jsonlines
 
 from oumi.core.configs import GenerationParams, ModelParams
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import NativeTextInferenceEngine
 
 

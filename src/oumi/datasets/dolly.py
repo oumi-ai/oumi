@@ -6,7 +6,7 @@ from typing_extensions import override
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("argilla/databricks-dolly-15k-curated-en")
