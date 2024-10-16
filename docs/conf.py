@@ -36,7 +36,6 @@ extensions = [
     "sphinxcontrib.autoyaml",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
-    # "sphinx_term.cssterm",
     "sphinx_term.termynal",
 ]
 
