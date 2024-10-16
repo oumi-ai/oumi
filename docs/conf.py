@@ -81,7 +81,7 @@ html_theme = "sphinx_book_theme"
 html_show_sourcelink = True
 html_show_sphinx = False
 html_title = "Oumi"
-html_favicon = "_static/logo/oumi_logo_light.png"
+html_favicon = "_static/logo/favicon.png"
 html_static_path = ["_static"]
 # https://pydata-sphinx-theme.readthedocs.io/en/latest/user_guide/styling.html
 # html_css_files = ["css/custom.css"]
