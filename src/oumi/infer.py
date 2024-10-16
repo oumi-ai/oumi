@@ -1,9 +1,12 @@
 import argparse
+import io
 from typing import List, Optional
+
+import PIL.Image
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.turn import Conversation, Message, Role, Type
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
@@ -50,8 +53,25 @@ def parse_cli():
         "--interactive",
         action="store_true",
     )
+    parser.add_argument(
+        "--image",
+        type=argparse.FileType("rb"),
+        help="File path of an input image to be used with `image+text` VLLMs.",
+    )
     args, unknown = parser.parse_known_args()
-    return args.config, args.interactive, unknown
+    return args.config, args.interactive, args.image, unknown
+
+
+def _load_image_png_bytes(input_image_filepath: str) -> bytes:
+    try:
+        image_bin = PIL.Image.open(input_image_filepath).convert("RGB")
+
+        output = io.BytesIO()
+        image_bin.save(output, format="PNG")
+        return output.getvalue()
+    except Exception:
+        logger.error(f"Failed to load image from path: {input_image_filepath}")
+        raise
 
 
 def main():
@@ -64,18 +84,24 @@ def main():
     3. Default arguments values defined in the data class
     """
     # Load configuration
-    config_path, interactive, arg_list = parse_cli()
+    config_path, interactive, input_image_filepath, arg_list = parse_cli()
 
     config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
     config.validate()
 
+    input_image_png_bytes: Optional[bytes] = (
+        _load_image_png_bytes(input_image_filepath) if input_image_filepath else None
+    )
+
     # Run inference
-    infer_interactive(config)
+    infer_interactive(config, input_image_bytes=input_image_png_bytes)
 
 
-def infer_interactive(config: InferenceConfig) -> None:
+def infer_interactive(
+    config: InferenceConfig, *, input_image_bytes: Optional[bytes] = None
+) -> None:
     """Interactively provide the model response for a user-provided input."""
     input_text = input("Enter your input prompt: ")
     model_response = infer(
@@ -83,6 +109,7 @@ def infer_interactive(config: InferenceConfig) -> None:
         inputs=[
             input_text,
         ],
+        input_image_bytes=input_image_bytes,
     )
     print(model_response[0])
 
@@ -91,22 +118,41 @@ def infer_interactive(config: InferenceConfig) -> None:
 def infer(
     config: InferenceConfig,
     inputs: Optional[List[str]] = None,
+    *,
+    input_image_bytes: Optional[bytes] = None,
 ) -> List[str]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
         config: The configuration to use for inference.
         inputs: A list of inputs for inference.
+        input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
+            Only used in interactive mode.
 
     Returns:
         object: A list of model responses.
     """
     inference_engine = _get_engine(config)
+
+    image_messages = (
+        [
+            Message(
+                binary=input_image_bytes,
+                type=Type.IMAGE_BINARY,
+                role=Role.USER,
+            )
+        ]
+        if input_image_bytes is not None
+        else []
+    )
+
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
         conversations = [
-            Conversation(messages=[Message(content=content, role=Role.USER)])
+            Conversation(
+                messages=(image_messages + [Message(content=content, role=Role.USER)])
+            )
             for content in inputs
         ]
     generations = inference_engine.infer(
