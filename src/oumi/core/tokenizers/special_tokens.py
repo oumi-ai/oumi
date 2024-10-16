@@ -71,10 +71,8 @@ def get_default_special_tokens(
         in the tokenizer's vocabulary.
     """
     if tokenizer and tokenizer.name_or_path:
-        if "llama" in tokenizer.name_or_path.lower():
-            return special_tokens["llama"]
-        elif "gpt2" in tokenizer.name_or_path.lower():
-            return special_tokens["gpt2"]
+        if tokenizer.name_or_path in special_tokens:
+            return special_tokens[tokenizer.name_or_path]
         else:
             logger.warning(
                 f"Special tokens lookup for tokenizer {tokenizer.name_or_path} failed."
