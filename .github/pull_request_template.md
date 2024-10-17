@@ -5,7 +5,7 @@ Thank you for contributing to Oumi! Before sending your PR out for review, pleas
 
 When your PR is merged, its title will appear in our release notes. Make sure your title gives a clear description of your change!
 
-After you've updated your title, please replace this section with a clear description of your change. Include as much context as possible so your reviewers can easily understand *what* you're changing and *why*.
+After you've updated your title, please replace this section with a detailed description of your change. Include as much context as possible so your reviewers can easily understand *what* you're changing and *why*.
 The more information you provide, the faster we can review your change!
 -->
 
