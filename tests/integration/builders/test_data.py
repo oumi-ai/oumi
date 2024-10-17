@@ -20,7 +20,9 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from oumi.core.datasets.pretraining_async_text_dataset import (
+    PretrainingAsyncTextDataset,
+)
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
 
@@ -42,6 +44,7 @@ def _get_default_config(
         model=ModelParams(
             model_name="openai-community/gpt2",
             model_max_length=1024,
+            tokenizer_pad_token="<|endoftext|>",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.HF,

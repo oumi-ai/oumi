@@ -37,21 +37,22 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
+        exclude: src/oumi/models/experimental/cambrian
   - repo: local
     hooks:
       - id: pyright
         name: pyright
-        entry: pyright
+        entry: env PYRIGHT_PYTHON_PYLANCE_VERSION=latest-release pyright
         language: node
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.368"]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.16.0
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
+        exclude: src/oumi/models/experimental/cambrian
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.16.1
     hooks:

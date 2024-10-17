@@ -5,6 +5,7 @@ the Oumi framework for tasks such as training, evaluation, inference,
 and job management.
 
 The configurations are organized into different categories:
+
 - Evaluation:
     - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
     - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
@@ -12,6 +13,7 @@ The configurations are organized into different categories:
 - Generation and Inference:
     - :class:`~oumi.core.configs.params.generation_params.GenerationParams`
     - :class:`~oumi.core.configs.inference_config.InferenceConfig`
+    - :class:`~oumi.core.configs.inference_config.InferenceEngineType`
 - Job Management:
     - :class:`~oumi.core.configs.job_config.JobConfig`
     - :class:`~oumi.core.configs.job_config.JobResources`
@@ -39,7 +41,8 @@ The configurations are organized into different categories:
 - Judge:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
 
-For more information on using these configurations, see the :ref:`configuration_guide`.
+For more information on using these configurations, see the
+:doc:`/get_started/configuration` guide.
 
 Example:
     >>> from oumi.core.configs import TrainingConfig, ModelParams
@@ -63,7 +66,7 @@ from oumi.core.configs.evaluation_config import (
     EvaluationConfig,
     EvaluationFramework,
 )
-from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.data_params import (
@@ -105,6 +108,7 @@ __all__ = [
     "FSDPParams",
     "GenerationParams",
     "InferenceConfig",
+    "InferenceEngineType",
     "JobConfig",
     "JobResources",
     "JudgeConfig",

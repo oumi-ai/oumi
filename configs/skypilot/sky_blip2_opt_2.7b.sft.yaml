@@ -7,7 +7,7 @@ resources:
   any_of:
     - use_spot: true
     - use_spot: false
-  disk_size: 200 # Disk size in GBs
+  disk_size: 500 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -20,10 +20,11 @@ envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: blip2_opt_2.7b.sft
   ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install '.[train,gpu]'
+  pip install uv && uv pip install '.[gpu]'
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
@@ -43,7 +44,7 @@ run: |
       -m oumi.train \
       -c configs/oumi/blip2_opt_2.7b.sft.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100" \
+      "training.max_steps=10" \
       "training.save_steps=0" \
       "training.save_final_model=false"
 

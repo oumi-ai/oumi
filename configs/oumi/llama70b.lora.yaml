@@ -21,10 +21,10 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+      - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
         preprocessing_function_name: "alpaca"
     target_col: "prompt"
-    experimental_use_async_dataset: True
+    use_async_dataset: True
 
 training:
   trainer_type: TRL_SFT
@@ -54,8 +54,9 @@ training:
 
 peft:
   q_lora: False
-  lora_r: 8
-  lora_alpha: 16
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "k_proj"

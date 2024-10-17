@@ -33,9 +33,8 @@ def main() -> None:
     infer_config.model.model_name = model_output_dir
     infer_config.validate()
     model_responses = infer(
-        model_params=infer_config.model,
-        generation_params=infer_config.generation,
-        input=[
+        config=infer_config,
+        inputs=[
             "Foo",
             "Bar",
         ],

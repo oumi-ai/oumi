@@ -61,8 +61,12 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop: Optional[List[str]] = None
+    stop_strings: Optional[List[str]] = None
     """List of sequences where the API will stop generating further tokens."""
+
+    stop_token_ids: Optional[List[int]] = None
+    """List of token ids for which the API will stop generating further tokens. This
+    is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""

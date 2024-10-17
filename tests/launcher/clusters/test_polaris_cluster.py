@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -14,6 +15,13 @@ from oumi.launcher.clusters.polaris_cluster import PolarisCluster
 @pytest.fixture
 def mock_polaris_client():
     yield Mock(spec=PolarisClient)
+
+
+@pytest.fixture
+def mock_datetime():
+    with patch("oumi.launcher.clusters.polaris_cluster.datetime") as mock_dt:
+        mock_dt.now.return_value = datetime(2024, 10, 9, 13, 4, 24, 513094)
+        yield mock_dt
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -56,7 +64,7 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_polaris_cluster_name(mock_polaris_client):
+def test_polaris_cluster_name(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("demand.einstein", mock_polaris_client)
     assert cluster.name() == "demand.einstein"
 
@@ -73,17 +81,17 @@ def test_polaris_cluster_name(mock_polaris_client):
     assert cluster.name() == "prod.einstein"
 
 
-def test_polaris_cluster_invalid_name(mock_polaris_client):
+def test_polaris_cluster_invalid_name(mock_datetime, mock_polaris_client):
     with pytest.raises(ValueError):
         PolarisCluster("einstein", mock_polaris_client)
 
 
-def test_polaris_cluster_invalid_queue(mock_polaris_client):
+def test_polaris_cluster_invalid_queue(mock_datetime, mock_polaris_client):
     with pytest.raises(ValueError):
         PolarisCluster("albert.einstein", mock_polaris_client)
 
 
-def test_polaris_cluster_get_job_valid_id(mock_polaris_client):
+def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -120,7 +128,7 @@ def test_polaris_cluster_get_job_valid_id(mock_polaris_client):
     assert job.cluster == "debug.name"
 
 
-def test_polaris_cluster_get_job_invalid_id_empty(mock_polaris_client):
+def test_polaris_cluster_get_job_invalid_id_empty(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = []
     job = cluster.get_job("myjob")
@@ -130,7 +138,9 @@ def test_polaris_cluster_get_job_invalid_id_empty(mock_polaris_client):
     assert job is None
 
 
-def test_polaris_cluster_get_job_invalid_id_nonempty(mock_polaris_client):
+def test_polaris_cluster_get_job_invalid_id_nonempty(
+    mock_datetime, mock_polaris_client
+):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -165,7 +175,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(mock_polaris_client):
     assert job is None
 
 
-def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
+def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -226,7 +236,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_polaris_client):
     assert jobs == expected_jobs
 
 
-def test_polaris_cluster_get_jobs_empty(mock_polaris_client):
+def test_polaris_cluster_get_jobs_empty(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = []
     jobs = cluster.get_jobs()
@@ -237,7 +247,7 @@ def test_polaris_cluster_get_jobs_empty(mock_polaris_client):
     assert jobs == expected_jobs
 
 
-def test_polaris_cluster_stop_job(mock_polaris_client):
+def test_polaris_cluster_stop_job(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("prod.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -281,7 +291,7 @@ def test_polaris_cluster_stop_job(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_stop_job_fails(mock_polaris_client):
+def test_polaris_cluster_stop_job_fails(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("prod.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -297,7 +307,7 @@ def test_polaris_cluster_stop_job_fails(mock_polaris_client):
         _ = cluster.stop_job("myjobid")
 
 
-def test_polaris_cluster_run_job(mock_polaris_client):
+def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
@@ -326,7 +336,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/myjob",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -342,7 +352,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/myjob",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -354,11 +364,15 @@ def test_polaris_cluster_run_job(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
             call(
                 [
                     "mkdir -p some/log",
@@ -373,11 +387,11 @@ def test_polaris_cluster_run_job(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/myjob/oumi_job.sh",
-        "/home/user/oumi_launcher/myjob",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -388,7 +402,7 @@ def test_polaris_cluster_run_job(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
+def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_failed_cmd = Mock()
@@ -424,7 +438,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/myjob",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -440,7 +454,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/myjob",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -452,11 +466,15 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
             call(
                 [
                     "mkdir -p some/log",
@@ -471,11 +489,11 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/myjob/oumi_job.sh",
-        "/home/user/oumi_launcher/myjob",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -486,7 +504,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_name(mock_polaris_client):
+def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_polaris_client.run_commands.return_value = mock_successful_cmd
@@ -521,7 +539,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/1-2-3",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -537,7 +555,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/1-2-3",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -549,11 +567,15 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/1-2-3/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
             call(
                 [
                     "mkdir -p some/log",
@@ -568,11 +590,11 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/1-2-3/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/1-2-3/oumi_job.sh",
-        "/home/user/oumi_launcher/1-2-3",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "1-2-3",
@@ -583,7 +605,7 @@ def test_polaris_cluster_run_job_no_name(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
+def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_polaris_client.run_commands.return_value = mock_successful_cmd
@@ -614,7 +636,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/myjob",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
         ],
     )
@@ -622,7 +644,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/myjob",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -634,11 +656,15 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
             call(
                 [
                     "mkdir -p some/log",
@@ -653,11 +679,11 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/myjob/oumi_job.sh",
-        "/home/user/oumi_launcher/myjob",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -668,7 +694,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
+def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_polaris_client.run_commands.return_value = mock_successful_cmd
@@ -701,7 +727,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/myjob",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
         ],
     )
@@ -709,7 +735,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/myjob",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -721,22 +747,26 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
         ]
     )
     job_script = (
         "#!/bin/bash\n\n" "export var1=val1\n\n" "small setup\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/myjob/oumi_job.sh",
-        "/home/user/oumi_launcher/myjob",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -747,7 +777,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
+def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_polaris_client.run_commands.return_value = mock_successful_cmd
@@ -780,7 +810,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/myjob",
+                "/home/user/oumi_launcher/09102024_130424513094",
             ),
         ],
     )
@@ -788,7 +818,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/myjob",
+                    "cd /home/user/oumi_launcher/09102024_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -800,20 +830,24 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
                     'echo "Installing packages... '
                     '---------------------------------------"',
                     "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "pip install -e '.[train]'",
-                    "pip install -e '.[gpu]'",
+                    "if ! command -v uv >/dev/null 2>&1; then",
+                    "pip install -U uv",
+                    "fi",
+                    "uv pip install -e '.[gpu]'",
                 ]
             ),
-            call(["chmod +x /home/user/oumi_launcher/myjob/oumi_job.sh"]),
+            call(
+                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+            ),
         ]
     )
     job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/myjob/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/myjob/oumi_job.sh",
-        "/home/user/oumi_launcher/myjob",
+        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/09102024_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -824,7 +858,7 @@ def test_polaris_cluster_run_job_no_setup(mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_fails(mock_polaris_client):
+def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug.name", mock_polaris_client)
     mock_polaris_client.submit_job.return_value = "234"
     mock_polaris_client.list_jobs.return_value = [
@@ -841,7 +875,7 @@ def test_polaris_cluster_run_job_fails(mock_polaris_client):
         _ = cluster.run_job(_get_default_job("polaris"))
 
 
-def test_polaris_cluster_down(mock_polaris_client):
+def test_polaris_cluster_down(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
     cluster.down()
     # Nothing to assert, this method is a no-op.

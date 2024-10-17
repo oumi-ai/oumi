@@ -28,11 +28,9 @@ echo "Starting evaluation for ${EVAL_CHECKPOINT_DIR} ..."
 
 set -x # Enable command tracing.
 
-TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * 4))
-
 if [ "$EVALUATION_FRAMEWORK" == "lm_harness" ]; then
     accelerate launch \
-        --num_processes=${TOTAL_NUM_GPUS} \
+        --num_processes=${OUMI_TOTAL_NUM_GPUS} \
         --num_machines=${OUMI_NUM_NODES} \
         -m oumi.evaluate \
         -c configs/oumi/llama8b.eval.yaml \

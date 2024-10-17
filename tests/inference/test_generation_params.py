@@ -1,3 +1,4 @@
+import contextlib
 from importlib.util import find_spec
 from typing import List
 from unittest.mock import patch
@@ -5,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
@@ -15,10 +16,11 @@ from oumi.inference import (
 )
 
 vllm_import_failed = find_spec("vllm") is None
+llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 # Mock model params for testing
-MODEL_PARAMS = ModelParams(model_name="gpt2")
+MODEL_PARAMS = ModelParams(model_name="gpt2", tokenizer_pad_token="<|endoftext|>")
 
 # Sample conversation for testing
 SAMPLE_CONVERSATION = Conversation(
@@ -33,6 +35,12 @@ def sample_conversations() -> List[Conversation]:
     return [SAMPLE_CONVERSATION]
 
 
+def _should_skip_engine(engine_class) -> bool:
+    return (engine_class == VLLMInferenceEngine and vllm_import_failed) or (
+        engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed
+    )
+
+
 @pytest.mark.parametrize(
     "engine_class",
     [
@@ -44,12 +52,20 @@ def sample_conversations() -> List[Conversation]:
     ],
 )
 def test_generation_params(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
@@ -58,7 +74,8 @@ def test_generation_params(engine_class, sample_conversations):
             top_p=0.9,
             frequency_penalty=0.1,
             presence_penalty=0.1,
-            stop=["END"],
+            stop_strings=["END"],
+            stop_token_ids=[128001, 128008, 128009],
             logit_bias={1: 1.0, 2: -1.0},
             min_p=0.05,
             remote_params=RemoteParams(api_url="<placeholder>"),
@@ -77,7 +94,8 @@ def test_generation_params(engine_class, sample_conversations):
         assert called_params.top_p == 0.9
         assert called_params.frequency_penalty == 0.1
         assert called_params.presence_penalty == 0.1
-        assert called_params.stop == ["END"]
+        assert called_params.stop_strings == ["END"]
+        assert called_params.stop_token_ids == [128001, 128008, 128009]
         assert called_params.logit_bias == {1: 1.0, 2: -1.0}
         assert called_params.min_p == 0.05
 
@@ -93,12 +111,20 @@ def test_generation_params(engine_class, sample_conversations):
     ],
 )
 def test_generation_params_defaults(engine_class, sample_conversations):
-    if engine_class == VLLMInferenceEngine and vllm_import_failed:
-        pytest.skip("VLLMInferenceEngine is not available")
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
+    # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
+    # otherwise it will try to load a non-existent model
+    mock_ctx = (
+        patch("llama_cpp.Llama.from_pretrained")
+        if engine_class == LlamaCppInferenceEngine
+        else contextlib.nullcontext()
+    )
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, patch("llama_cpp.Llama.from_pretrained"):
+    ) as mock_infer, mock_ctx:
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
@@ -116,7 +142,7 @@ def test_generation_params_defaults(engine_class, sample_conversations):
         assert called_params.top_p == 1.0
         assert called_params.frequency_penalty == 0.0
         assert called_params.presence_penalty == 0.0
-        assert called_params.stop is None
+        assert called_params.stop_strings is None
         assert called_params.logit_bias == {}
         assert called_params.min_p == 0.0
 
