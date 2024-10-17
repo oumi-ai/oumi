@@ -1,3 +1,5 @@
+import os
+
 import typer
 from typing_extensions import Annotated
 
@@ -34,6 +36,8 @@ def infer(
         config, extra_args, logger=logger
     )
     parsed_config.validate()
+    # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     if not detach:
         return oumi_infer_interactive(parsed_config)
     if parsed_config.generation.input_filepath is None:
