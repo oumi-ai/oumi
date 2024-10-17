@@ -18,5 +18,5 @@ model:
   trust_remote_code: True
 
 generation:
-  max_new_tokens: 512
-  batch_size: 4
+  max_new_tokens: 128
+  batch_size: 1
