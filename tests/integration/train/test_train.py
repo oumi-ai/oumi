@@ -34,7 +34,7 @@ def test_train_basic():
                 model_name="openai-community/gpt2",
                 model_max_length=1024,
                 trust_remote_code=True,
-                tokenizer_pad_token="<|pad|>",
+                tokenizer_pad_token="<|endoftext|>",
             ),
             training=TrainingParams(
                 trainer_type=TrainerType.TRL_SFT,

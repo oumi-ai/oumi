@@ -27,6 +27,7 @@ CORRECT_ANSWERS = [
 ]
 
 
+@pytest.mark.skip(reason="infer_prob is dead code (to be cleaned up)")
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
 def test_infer_prob(num_batches, batch_size):
     model_params = ModelParams(
