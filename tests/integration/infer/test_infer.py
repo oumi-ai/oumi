@@ -13,6 +13,7 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
             model_name="openai-community/gpt2",
             trust_remote_code=True,
             chat_template="gpt2",
+            tokenizer_pad_token="<|endoftext|>",
         ),
         generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
     )
@@ -28,6 +29,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
         model_name="openai-community/gpt2",
         trust_remote_code=True,
         chat_template="gpt2",
+        tokenizer_pad_token="<|endoftext|>",
     )
     generation_params = GenerationParams(
         max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size

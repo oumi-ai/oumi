@@ -14,6 +14,7 @@ def _get_default_model_params() -> ModelParams:
         model_name="openai-community/gpt2",
         trust_remote_code=True,
         chat_template="gpt2",
+        tokenizer_pad_token="<|endoftext|>",
     )
 
 
