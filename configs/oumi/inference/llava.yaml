@@ -2,7 +2,6 @@ model:
   model_name: "llava-hf/llava-1.5-7b-hf"
   model_max_length: 1024
   chat_template: "llava"
-  torch_dtype_str: "bfloat16"
   trust_remote_code: True
 
 generation:
