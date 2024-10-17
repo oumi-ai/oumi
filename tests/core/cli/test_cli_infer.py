@@ -117,7 +117,7 @@ def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
         config: InferenceConfig = _create_inference_config()
         config.generation.input_filepath = "some/path"
         config.to_yaml(yaml_path)
-        _ = runner.invoke(app, ["--config", yaml_path, "--detach"])
+        _ = runner.invoke(app, ["--config", yaml_path])
         mock_infer.assert_has_calls([call(config)])
 
 
@@ -132,7 +132,6 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
             [
                 "--config",
                 yaml_path,
-                "--detach",
                 "--model.model_name",
                 "new_name",
                 "--generation.max_new_tokens",
