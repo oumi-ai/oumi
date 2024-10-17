@@ -93,10 +93,10 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
             data_frame = pd.DataFrame({self._data_column: data})
 
         elif self._dataset_path is not None:
-            if self._dataset_path.suffix == ".jsonl":
+            if self._dataset_path.suffix.lower() == ".jsonl":
                 data = load_jsonlines(self._dataset_path)
 
-            elif self._dataset_path.suffix == ".json":
+            elif self._dataset_path.suffix.lower() == ".json":
                 data = load_json(self._dataset_path)
 
             else:
