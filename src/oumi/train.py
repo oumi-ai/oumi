@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional, Union
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
+import oumi.core.constants as constants
 from oumi.builders import (
     build_data_collator,
     build_dataset_mixture,
@@ -177,7 +178,7 @@ def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any
         collator_name=train_split.collator_name,
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
-        label_ignore_index=-100,
+        label_ignore_index=constants.LABEL_IGNORE_INDEX,
     )
 
 
