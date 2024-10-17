@@ -119,7 +119,7 @@ def test_infer_online_to_file():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="\nThe U.S",
+                        content="The U.S.",
                         role=Role.ASSISTANT,
                     ),
                 ],
@@ -256,7 +256,7 @@ def test_infer_from_file_to_file():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="\nThe U.S",
+                        content="The U.S.",
                         role=Role.ASSISTANT,
                     ),
                 ],
