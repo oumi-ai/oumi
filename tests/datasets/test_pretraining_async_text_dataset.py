@@ -1,7 +1,9 @@
 import datasets
 import transformers
 
-from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from oumi.core.datasets.pretraining_async_text_dataset import (
+    PretrainingAsyncTextDataset,
+)
 
 _DATASET_LENGTH = 3
 _BATCH_SIZE = 1

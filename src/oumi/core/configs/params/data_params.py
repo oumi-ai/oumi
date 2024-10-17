@@ -213,14 +213,11 @@ class DatasetSplitParams(BaseParams):
     If set to `None` mixing will be non-deterministic.
     """
 
-    # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_async_dataset: bool = False
+    use_async_dataset: bool = False
     """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
-
-    Warning:
-        This is an experimental feature and may change without notice.
     """
 
+    # EXPERIMENTAL PARAMS -------------------------
     experimental_use_torch_datapipes: bool = False
     """Whether to use the torch DataPipes for dataset processing.
 

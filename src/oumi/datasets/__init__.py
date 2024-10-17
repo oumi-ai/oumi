@@ -21,7 +21,11 @@ Example:
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
 
-from oumi.datasets.debug import DebugClassificationDataset, DebugPretrainingDataset
+from oumi.datasets.debug import (
+    DebugClassificationDataset,
+    DebugPretrainingDataset,
+    DebugSftDataset,
+)
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
 from oumi.datasets.pretraining.falcon_refinedweb import FalconRefinedWebDataset
@@ -64,6 +68,7 @@ __all__ = [
     "COCOCaptionsDataset",
     "DebugClassificationDataset",
     "DebugPretrainingDataset",
+    "DebugSftDataset",
     "DolmaDataset",
     "FalconRefinedWebDataset",
     "FineWebEduDataset",
