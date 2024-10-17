@@ -74,10 +74,11 @@
             "request": "launch",
             "module": "oumi.infer",
             "args": [
-                "model.model_name=openai-community/gpt2",
-                "model.chat_template=gpt2",
+                "--image",
+                "/home/user/scratch/models/cambrian/images/cambrian.png",
+                "model.model_name=llava-hf/llava-1.5-7b-hf",
+                "model.chat_template=llava",
                 "model.trust_remote_code=true",
-                "model.tokenizer_pad_token='<|endoftext|>'",
                 "generation.max_new_tokens=32"
             ],
             "justMyCode": true
