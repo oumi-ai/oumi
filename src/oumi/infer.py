@@ -104,7 +104,7 @@ def infer_interactive(
     while True:
         try:
             input_text = input("Enter your input prompt: ")
-        except EOFError:  # Triggered by Ctrl+D
+        except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
         model_response = infer(
