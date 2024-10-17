@@ -43,6 +43,7 @@ def _get_default_config(output_temp_dir):
                 "input_dim": 50257,
                 "output_dim": 50257,
             },  # vocab size of GPT2 tokenizer
+            tokenizer_pad_token="<|endoftext|>",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.HF,
