@@ -127,7 +127,9 @@ def test_dataset_image_path(
         def _load_data(self):
             pass
 
-    return TestDatasetImagePath(processor=mock_processor, tokenizer=mock_tokenizer)
+    return TestDatasetImagePath(
+        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=None
+    )
 
 
 @pytest.fixture
@@ -148,7 +150,8 @@ def test_dataset_image_binary_label_ignore_index(
             pass
 
     return TestDatasetImageBinary(
-        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=-100
+        processor=mock_processor,
+        tokenizer=mock_tokenizer,
     )
 
 

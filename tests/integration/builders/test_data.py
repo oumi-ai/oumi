@@ -20,7 +20,9 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
+from oumi.core.datasets.pretraining_async_text_dataset import (
+    PretrainingAsyncTextDataset,
+)
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
 
