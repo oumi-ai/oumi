@@ -86,7 +86,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         return self._data
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object.
 
         Args:
