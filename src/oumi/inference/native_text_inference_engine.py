@@ -28,6 +28,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = build_model(model_params)
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
+        # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
+        self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
     def _make_batches(
         self, input: List[Conversation], batch_size: int
