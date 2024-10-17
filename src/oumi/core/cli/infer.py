@@ -37,14 +37,14 @@ def infer(
         bool,
         typer.Option("-d", "--detach", help="Do not run in an interactive session."),
     ] = False,
-    input_image_filepath: Annotated[
+    image: Annotated[
         str,
         typer.Option(
             "-i",
             "--image",
             help=(
                 "File path of an input image to be used with `image+text` VLLMs. "
-                "Only used in interactive mode ()."
+                "Only used in interactive mode."
             ),
         ),
     ] = "",
@@ -55,7 +55,7 @@ def infer(
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
         detach: Do not run in an interactive session.
-        input_image_filepath: Path to thje input image for `image+text` VLLMs.
+        image: Path to the input image for `image+text` VLLMs.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
@@ -64,7 +64,7 @@ def infer(
     parsed_config.validate()
 
     input_image_png_bytes: Optional[bytes] = (
-        _load_image_png_bytes(input_image_filepath) if input_image_filepath else None
+        _load_image_png_bytes(image) if image else None
     )
 
     if detach:
