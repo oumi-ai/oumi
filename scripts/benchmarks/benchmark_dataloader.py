@@ -85,9 +85,7 @@ def main(args):
             "stream": config.data.train.stream,
             "params": config.data.train.pack,
             "mixture_strategy": config.data.train.mixture_strategy,
-            "experimental_use_async_dataset": (
-                config.data.train.experimental_use_async_dataset
-            ),
+            "use_async_dataset": (config.data.train.use_async_dataset),
         }
 
         matrix = BENCHMARK_MATRIX.copy()
