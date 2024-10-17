@@ -192,21 +192,25 @@ class Conversation(pydantic.BaseModel):
 
     def to_dict(self):
         """Converts the conversation to a dictionary."""
-        return self.model_dump(mode="json")
+        return self.model_dump(
+            mode="json", exclude_unset=True, exclude_defaults=False, exclude_none=True
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "Conversation":
         """Converts a dictionary to a conversation."""
-        return cls.model_validate(data, strict=True)
+        return cls.model_validate(data)
 
     def to_json(self) -> str:
         """Converts the conversation to a JSON string."""
-        return self.model_dump_json()
+        return self.model_dump_json(
+            exclude_unset=True, exclude_defaults=False, exclude_none=True
+        )
 
     @classmethod
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
-        return cls.model_validate_json(data, strict=True)
+        return cls.model_validate_json(data)
 
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""
