@@ -106,7 +106,7 @@ def conversations(
         raise ValueError("Input file is required.")
 
     input_data = load_jsonlines(input_file)
-    conversations = [Conversation.model_validate(conv) for conv in input_data]
+    conversations = [Conversation.from_dict(conv) for conv in input_data]
 
     # Judge the conversations
     results = judge_conversations(judge_config, judge_inputs=conversations)

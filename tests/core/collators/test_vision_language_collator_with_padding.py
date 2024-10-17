@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
@@ -41,7 +42,10 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
 def test_success_basic():
     tokenizer, pad_token_id = create_test_tokenizer()
     collator = VisionLanguageCollatorWithPadding(
-        tokenizer, max_length=4, truncation=True, label_ignore_index=-100
+        tokenizer,
+        max_length=4,
+        truncation=True,
+        label_ignore_index=constants.LABEL_IGNORE_INDEX,
     )
     assert callable(collator)
 
