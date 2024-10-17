@@ -48,7 +48,7 @@ def infer(
 ):
     """Run inference on a model.
 
-    If `input_filepath` is provided in the configuration file, inference will be run on
+    If `input_filepath` is provided in the configuration file, inference will run on
     those input examples. Otherwise, inference will run interactively with user-provided
     inputs.
 
@@ -70,6 +70,10 @@ def infer(
     )
 
     if not parsed_config.generation.input_filepath:
+        print(
+            "No value provided for `generation.input_filepath`. Running inference in "
+            "interactive mode."
+        )
         return oumi_infer_interactive(
             parsed_config, input_image_bytes=input_image_png_bytes
         )
