@@ -122,3 +122,31 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
         ),
     )
     return config
+
+
+@register_judge("oumi/v1_xml_unit_test")
+def unit_test_judge():
+    """Tiny judge for unit testing.
+
+    Do not use this judge for anything serious as it returns random results.
+    """
+    judges_directory = get_oumi_root_directory() / "judges" / "test_judge"
+
+    attribute_names = ["helpful"]
+
+    attributes = {
+        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+            str(judges_directory / f"{attribute}.json")
+        )
+        for attribute in attribute_names
+    }
+
+    config = JudgeConfig(
+        attributes=attributes,
+        model=ModelParams(
+            model_name="gpt2",
+        ),
+        generation=GenerationParams(max_new_tokens=128),
+    )
+
+    return config
