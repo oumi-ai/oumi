@@ -5,7 +5,7 @@ from typing import List, Optional
 import jsonlines
 
 from oumi.core.configs import GenerationParams
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @pytest.fixture

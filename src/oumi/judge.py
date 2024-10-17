@@ -8,7 +8,7 @@ import typer
 from oumi.core.configs import JudgeConfig
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import REGISTRY
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.judges.oumi_judge import OumiXmlJudge as Judge
 
 

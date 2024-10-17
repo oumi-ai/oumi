@@ -5,8 +5,8 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.types.turn import Conversation
-from oumi.datasets.sft_jsonlines import TextSftJsonLinesDataset
+from oumi.core.types.conversation import Conversation
+from oumi.datasets import TextSftJsonLinesDataset
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ import aiohttp
 from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
