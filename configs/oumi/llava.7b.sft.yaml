@@ -20,7 +20,7 @@ data:
         seed: 42
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-      #   limit: 1024
+          limit: 1024
           return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
