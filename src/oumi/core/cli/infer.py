@@ -38,7 +38,7 @@ def infer(
         typer.Option("-d", "--detach", help="Do not run in an interactive session."),
     ] = False,
     image: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "-i",
             "--image",
@@ -47,7 +47,7 @@ def infer(
                 "Only used in interactive mode."
             ),
         ),
-    ] = "",
+    ] = None,
 ):
     """Run inference on a model.
 
