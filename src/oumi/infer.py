@@ -71,37 +71,66 @@ def main():
     )
     config.validate()
 
-    # Run inference
-    infer_interactive(config)
+    # Run inference with user input if input file not provided.
+    if not config.generation.input_filepath:
+        return infer_interactive(config)
+    generations = infer(config)
+    if config.generation.output_filepath:
+        return
+
+    if len(generations) > 10:
+        logger.warning(
+            f"Outputting only the first 10 generations out of {len(generations)}"
+        )
+        generations = generations[:10]
+
+    for generation in generations:
+        print("------------")
+        print(repr(generation))
+    print("------------")
 
 
 def infer_interactive(config: InferenceConfig) -> None:
     """Interactively provide the model response for a user-provided input."""
-    input_text = input("Enter your input prompt: ")
-    model_response = infer(
-        config=config,
-        inputs=[
-            input_text,
-        ],
-    )
-    print(model_response[0])
+    # Create engine up front to avoid reinitializing it for each input.
+    inference_engine = _get_engine(config)
+    while True:
+        try:
+            input_text = input("Enter your input prompt (Ctrl+D to exit): ")
+            model_response = infer(
+                config=config,
+                inputs=[
+                    input_text,
+                ],
+                inference_engine=inference_engine,
+            )
+            for g in model_response:
+                print("------------")
+                print(repr(g))
+                print("------------")
+            print()
+        except EOFError:
+            print("\nExiting...")
+            return
 
 
-# TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
     config: InferenceConfig,
     inputs: Optional[List[str]] = None,
-) -> List[str]:
+    inference_engine: Optional[BaseInferenceEngine] = None,
+) -> List[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
         config: The configuration to use for inference.
         inputs: A list of inputs for inference.
+        inference_engine: The engine to use for inference.
 
     Returns:
         object: A list of model responses.
     """
-    inference_engine = _get_engine(config)
+    if not inference_engine:
+        inference_engine = _get_engine(config)
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
@@ -113,9 +142,7 @@ def infer(
         input=conversations,
         generation_params=config.generation,
     )
-    if not generations:
-        raise RuntimeError("No generations were returned.")
-    return [conversation.messages[-1].content or "" for conversation in generations]
+    return generations
 
 
 if __name__ == "__main__":
