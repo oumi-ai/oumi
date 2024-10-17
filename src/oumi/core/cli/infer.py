@@ -42,7 +42,7 @@ def infer(
     if not detach:
         if parsed_config.generation.input_filepath:
             logger.warning(
-                "Interactive inference requested, so skipping inference from "
+                "Interactive inference requested, skipping inference from "
                 "`input_filepath`."
             )
         return oumi_infer_interactive(parsed_config)
@@ -54,12 +54,6 @@ def infer(
     # Don't print results if output_filepath is provided.
     if parsed_config.generation.output_filepath:
         return
-
-    if len(generations) > 10:
-        logger.warning(
-            f"Outputting only the first 10 generations out of {len(generations)}"
-        )
-        generations = generations[:10]
 
     for generation in generations:
         print("------------")

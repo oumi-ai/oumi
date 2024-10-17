@@ -104,22 +104,22 @@ def infer_interactive(
     while True:
         try:
             input_text = input("Enter your input prompt: ")
-            model_response = infer(
-                config=config,
-                inputs=[
-                    input_text,
-                ],
-                input_image_bytes=input_image_bytes,
-                inference_engine=inference_engine,
-            )
-            for g in model_response:
-                print("------------")
-                print(repr(g))
-                print("------------")
-            print()
         except EOFError:  # Triggered by Ctrl+D
             print("\nExiting...")
             return
+        model_response = infer(
+            config=config,
+            inputs=[
+                input_text,
+            ],
+            input_image_bytes=input_image_bytes,
+            inference_engine=inference_engine,
+        )
+        for g in model_response:
+            print("------------")
+            print(repr(g))
+            print("------------")
+        print()
 
 
 def infer(
