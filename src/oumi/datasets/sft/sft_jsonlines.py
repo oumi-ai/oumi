@@ -28,9 +28,8 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
             (.jsonl or .json).
         data (Optional[List[Dict[str, Any]]]): List of conversation dicts if not
             loading from a file.
-        format (Optional[str]): The format of the data. Either "conversations",
-            "alpaca", or "openai".
-                                If not provided, the format will be auto-detected.
+        format (Optional[str]): The format of the data. Either "conversations" or
+            "alpaca". If not provided, the format will be auto-detected.
         **kwargs: Additional arguments to pass to the parent class.
 
     Examples:
@@ -131,7 +130,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
             data_frame: The DataFrame containing the data.
 
         Returns:
-            str: The detected format ("conversations", "alpaca", or "openai").
+            str: The detected format ("oumi", or "alpaca").
 
         Raises:
             ValueError: If the format cannot be detected.
@@ -165,8 +164,6 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
             "{'messages': [{'role': 'user', 'content': '...'}, ...]}\n"
             "2. Alpaca format: "
             "{'instruction': '...', 'input': '...', 'output': '...'}\n"
-            "3. OpenAI format: "
-            "{'messages': [{'role': 'user', 'content': '...'}, ...]}"
         )
 
     @override
