@@ -149,12 +149,6 @@ def infer_prob(
             inputs = input_tok[batch_index].input_ids.to(data_device)
             token_logits = model(inputs)  # type: ignore
             token_logits = token_logits.logits[:, -1, :].tolist()
-
-            # For most tokenizers, the model returns as many probabilities as the number
-            # of tokens that exist in the vocabulary. But, some models may return
-            # more, and also include special tokens (such as "end of generation"), which
-            # are not included in the vocabulary provided to the user. Thus the ">=".
-            assert len(token_logits[-1]) >= len(token_vocab)
             output.append(token_logits)
 
     def reduce_to_acceptable_tokens(token_logits: List[float]) -> List[float]:

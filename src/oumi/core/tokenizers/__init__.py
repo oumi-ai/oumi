@@ -6,7 +6,9 @@ natural language processing tasks.
 """
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.tokenizers.special_tokens import get_default_special_tokens
 
 __all__ = [
     "BaseTokenizer",
+    "get_default_special_tokens",
 ]
