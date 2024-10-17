@@ -127,3 +127,20 @@ class TrainingConfig(BaseConfig):
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )
                 self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
+
+        all_collators = set()
+        if self.data.train.collator_name:
+            all_collators.add(self.data.train.collator_name)
+        if self.data.validation.collator_name:
+            all_collators.add(self.data.validation.collator_name)
+        if self.data.test.collator_name:
+            all_collators.add(self.data.test.collator_name)
+        if len(all_collators) >= 2:
+            raise ValueError(
+                f"Different data collators are not supported: {all_collators}"
+            )
+        elif len(all_collators) == 1 and not self.data.train.collator_name:
+            raise ValueError(
+                "Data collator must be also specified "
+                f"on the `train` split: {all_collators}"
+            )
