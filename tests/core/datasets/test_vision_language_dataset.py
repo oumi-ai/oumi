@@ -12,7 +12,7 @@ from typing_extensions import override
 from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 
 
 class EqBytesIO:
