@@ -38,8 +38,15 @@ def infer(
     parsed_config.validate()
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     if not detach:
+        if parsed_config.generation.input_filepath:
+            logger.warning(
+                "Interactive inference requested, so skipping inference from "
+                "`input_filepath`."
+            )
         return oumi_infer_interactive(parsed_config)
+
     if parsed_config.generation.input_filepath is None:
         raise ValueError("`input_filepath` must be provided for non-interactive mode.")
     generations = oumi_infer(parsed_config)
