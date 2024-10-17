@@ -15,8 +15,8 @@ from oumi.core.configs import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
+from oumi.datasets.preference_tuning import trl_dpo_chat_preprocessor_fn
 from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
-from oumi.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
