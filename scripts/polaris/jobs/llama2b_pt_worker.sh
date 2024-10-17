@@ -92,7 +92,7 @@ TRAIN_DATASETS="data.train.datasets=
 
 # Training params shared between the different training modes, and likely
 # don't need to be modified during experimentation.
-SHARED_TRAINING_PARAMS="data.train.experimental_use_async_dataset=true
+SHARED_TRAINING_PARAMS="data.train.use_async_dataset=true
 training.max_steps=${MAX_STEPS}
 training.save_steps=0
 training.save_final_model=false
