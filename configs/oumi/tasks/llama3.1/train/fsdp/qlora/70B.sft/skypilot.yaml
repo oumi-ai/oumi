@@ -36,7 +36,7 @@ file_mounts:
 
 setup: |
   set -e
-  pip install -e '.[train,gpu]'
+  pip install -e '.[gpu]'
   pip install -U bitsandbytes
 
 run: |
