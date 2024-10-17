@@ -99,36 +99,51 @@ def infer_interactive(
     config: InferenceConfig, *, input_image_bytes: Optional[bytes] = None
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
-    input_text = input("Enter your input prompt: ")
-    model_response = infer(
-        config=config,
-        inputs=[
-            input_text,
-        ],
-        input_image_bytes=input_image_bytes,
-    )
-    print(model_response[0])
+    # Create engine up front to avoid reinitializing it for each input.
+    inference_engine = _get_engine(config)
+    while True:
+        try:
+            input_text = input("Enter your input prompt: ")
+        except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
+            print("\nExiting...")
+            return
+        model_response = infer(
+            config=config,
+            inputs=[
+                input_text,
+            ],
+            input_image_bytes=input_image_bytes,
+            inference_engine=inference_engine,
+        )
+        for g in model_response:
+            print("------------")
+            print(repr(g))
+            print("------------")
+        print()
 
 
-# TODO: Consider stripping a prompt i.e., keep just newly generated tokens.
 def infer(
     config: InferenceConfig,
     inputs: Optional[List[str]] = None,
+    inference_engine: Optional[BaseInferenceEngine] = None,
     *,
     input_image_bytes: Optional[bytes] = None,
-) -> List[str]:
+) -> List[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
         config: The configuration to use for inference.
         inputs: A list of inputs for inference.
+        inference_engine: The engine to use for inference. If unspecified, the engine
+            will be inferred from `config`.
         input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
             Only used in interactive mode.
 
     Returns:
         object: A list of model responses.
     """
-    inference_engine = _get_engine(config)
+    if not inference_engine:
+        inference_engine = _get_engine(config)
 
     image_messages = (
         [
@@ -155,9 +170,7 @@ def infer(
         input=conversations,
         generation_params=config.generation,
     )
-    if not generations:
-        raise RuntimeError("No generations were returned.")
-    return [conversation.messages[-1].content or "" for conversation in generations]
+    return generations
 
 
 if __name__ == "__main__":

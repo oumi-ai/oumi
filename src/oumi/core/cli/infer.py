@@ -1,4 +1,5 @@
 import io
+import os
 from typing import Optional
 
 import PIL.Image
@@ -62,16 +63,32 @@ def infer(
         config, extra_args, logger=logger
     )
     parsed_config.validate()
+    # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     input_image_png_bytes: Optional[bytes] = (
         _load_image_png_bytes(image) if image else None
     )
 
-    if detach:
-        if parsed_config.generation.input_filepath is None:
-            raise ValueError(
-                "`input_filepath` must be provided for non-interactive mode."
+    if not detach:
+        if parsed_config.generation.input_filepath:
+            logger.warning(
+                "Interactive inference requested, skipping inference from "
+                "`input_filepath`."
             )
-        oumi_infer(config=parsed_config)
-    else:
-        oumi_infer_interactive(parsed_config, input_image_bytes=input_image_png_bytes)
+        return oumi_infer_interactive(
+            parsed_config, input_image_bytes=input_image_png_bytes
+        )
+
+    if parsed_config.generation.input_filepath is None:
+        raise ValueError("`input_filepath` must be provided for non-interactive mode.")
+    generations = oumi_infer(parsed_config)
+
+    # Don't print results if output_filepath is provided.
+    if parsed_config.generation.output_filepath:
+        return
+
+    for generation in generations:
+        print("------------")
+        print(repr(generation))
+    print("------------")
