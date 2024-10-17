@@ -112,7 +112,7 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.experimental_use_async_dataset:
+        if dataset_split_params.use_async_dataset:
             dataset = PretrainingAsyncTextDataset(
                 tokenizer,
                 dataset,
@@ -137,7 +137,7 @@ def build_dataset_from_params(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    experimental_use_async_dataset: bool = False,
+    use_async_dataset: bool = False,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
@@ -150,7 +150,7 @@ def build_dataset_from_params(
                 datasets=[dataset_params],
                 stream=stream,
                 pack=pack,
-                experimental_use_async_dataset=experimental_use_async_dataset,
+                use_async_dataset=use_async_dataset,
                 experimental_use_torch_datapipes=experimental_use_torch_datapipes,
             )
         )
@@ -171,7 +171,7 @@ def build_dataset(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    experimental_use_async_dataset: bool = False,
+    use_async_dataset: bool = False,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
@@ -191,7 +191,7 @@ def build_dataset(
         stream=stream,
         pack=pack,
         experimental_use_torch_datapipes=experimental_use_torch_datapipes,
-        experimental_use_async_dataset=experimental_use_async_dataset,
+        use_async_dataset=use_async_dataset,
     )
 
 

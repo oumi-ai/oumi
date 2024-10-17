@@ -214,7 +214,7 @@ class DatasetSplitParams(BaseParams):
     """
 
     # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_async_dataset: bool = False
+    use_async_dataset: bool = False
     """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
 
     Warning:
