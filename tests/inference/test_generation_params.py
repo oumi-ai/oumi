@@ -20,7 +20,7 @@ llama_cpp_import_failed = find_spec("llama_cpp") is None
 
 
 # Mock model params for testing
-MODEL_PARAMS = ModelParams(model_name="gpt2")
+MODEL_PARAMS = ModelParams(model_name="gpt2", tokenizer_pad_token="<|endoftext|>")
 
 # Sample conversation for testing
 SAMPLE_CONVERSATION = Conversation(

@@ -30,7 +30,9 @@ CORRECT_ANSWERS = [
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
 def test_infer_prob(num_batches, batch_size):
     model_params = ModelParams(
-        model_name="openai-community/gpt2", trust_remote_code=True
+        model_name="openai-community/gpt2",
+        trust_remote_code=True,
+        tokenizer_pad_token="<|endoftext|>",
     )
 
     input = []
@@ -55,7 +57,9 @@ def test_infer_prob(num_batches, batch_size):
 
 def test_infer_prob_entire_vocab():
     model_params = ModelParams(
-        model_name="openai-community/gpt2", trust_remote_code=True
+        model_name="openai-community/gpt2",
+        trust_remote_code=True,
+        tokenizer_pad_token="<|endoftext|>",
     )
 
     input = [

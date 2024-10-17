@@ -34,11 +34,22 @@ def infer(
         config, extra_args, logger=logger
     )
     parsed_config.validate()
-    if detach:
-        if parsed_config.generation.input_filepath is None:
-            raise ValueError(
-                "`input_filepath` must be provided for non-interactive mode."
-            )
-        oumi_infer(config=parsed_config)
-    else:
-        oumi_infer_interactive(parsed_config)
+    if not detach:
+        return oumi_infer_interactive(parsed_config)
+    if parsed_config.generation.input_filepath is None:
+        raise ValueError("`input_filepath` must be provided for non-interactive mode.")
+    generations = oumi_infer(config=parsed_config)
+
+    if parsed_config.generation.output_filepath:
+        return
+
+    if len(generations) > 10:
+        logger.warning(
+            f"Outputting only the first 10 generations out of {len(generations)}"
+        )
+        generations = generations[:10]
+
+    for generation in generations:
+        print("------------")
+        print(repr(generation))
+    print("------------")
