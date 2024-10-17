@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -86,7 +86,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         return self._data
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object.
 
         Args:
@@ -95,11 +95,5 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         Returns:
             Conversation: A Conversation object containing the messages.
         """
-        conversation = example[self._data_column]
-
-        if isinstance(conversation, pd.Series):
-            conversation_dict = conversation.to_dict()
-        else:
-            conversation_dict = conversation
-
-        return Conversation.from_dict(cast(dict, conversation_dict))
+        conversation_dict = example[self._data_column]
+        return Conversation.model_validate(conversation_dict)
