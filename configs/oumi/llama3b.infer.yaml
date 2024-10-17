@@ -1,15 +1,15 @@
-# Inference config for Llama 1B Instruct.
+# Inference config for Llama 3B Instruct.
 
 model:
   # Vocab size: 128256
-  # Hidden size: 2048
+  # Hidden size: 3072
   # MLP intermediate size: 8192
-  # Num layers: 16
-  # Num attention heads: 32
+  # Num layers: 28
+  # Num attention heads: 24
   # Num KV heads: 8
   # Weight tying: True
   # Model max length: 131072 (initially trained with 8192)
-  model_name: "meta-llama/Llama-3.2-1B-Instruct"
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"
   adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 512
   torch_dtype_str: "bfloat16"
