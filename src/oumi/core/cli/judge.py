@@ -14,10 +14,7 @@ from oumi.judge import judge_conversations, judge_dataset
 from oumi.utils.io_utils import load_jsonlines
 
 
-def _load_judge_config(config: Optional[str], extra_args: List[str]) -> JudgeConfig:
-    if not config:
-        raise ValueError("Config is required.")
-
+def _load_judge_config(config: str, extra_args: List[str]) -> JudgeConfig:
     judge_config_builder = REGISTRY.get_judge_config(config)
 
     if judge_config_builder:
