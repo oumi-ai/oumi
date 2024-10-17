@@ -89,8 +89,8 @@ def dataset(
 def conversations(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str], typer.Option(help="Path to the judge config file")
-    ] = None,
+        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
+    ],
     input_file: Annotated[
         Optional[str], typer.Option(help="Path to the input file (jsonl)")
     ] = None,
