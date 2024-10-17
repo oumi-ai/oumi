@@ -5,46 +5,34 @@ from transformers import SpecialTokensMixin
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
 
+# Llama 3.1/3.2 models already have `<|finetune_right_pad_id|>` token in their vocab.
+LLAMA_SPECIAL_TOKENS_MIXIN = SpecialTokensMixin(pad_token="<|finetune_right_pad_id|>")
+
 special_tokens = {
-    # Llama-3.1 models already have `<|finetune_right_pad_id|>` token in their vocab.
-    "meta-llama/Llama-3.1-8B": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-8B-Instruct": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-70B": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-70B-Instruct": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-405B": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-405B-Instruct": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-405B-FP8": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.1-405B-Instruct-FP8": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    # Llama-3.2 models already have `<|finetune_right_pad_id|>` token in their vocab.
-    "meta-llama/Llama-3.2-1B": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.2-1B-Instruct": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.2-3B": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
-    "meta-llama/Llama-3.2-3B-Instruct": SpecialTokensMixin(
-        pad_token="<|finetune_right_pad_id|>"
-    ),
+    "meta-llama/Llama-3.1-8B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-70B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-405B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-8B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-70B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-405B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.2-1B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.2-1B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.2-3B": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.2-3B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
 }
+
+# Lowercase all keys for case-insensitive lookup.
+special_tokens = {k.lower(): v for k, v in special_tokens.items()}
 
 
 def get_default_special_tokens(
@@ -68,8 +56,8 @@ def get_default_special_tokens(
         in the tokenizer's vocabulary.
     """
     if tokenizer and tokenizer.name_or_path:
-        if tokenizer.name_or_path in special_tokens:
-            return special_tokens[tokenizer.name_or_path]
+        if tokenizer.name_or_path.lower() in special_tokens:
+            return special_tokens[tokenizer.name_or_path.lower()]
         else:
             logger.warning(
                 f"Special tokens lookup for tokenizer {tokenizer.name_or_path} failed."

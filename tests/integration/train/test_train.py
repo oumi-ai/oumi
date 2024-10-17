@@ -72,7 +72,7 @@ def test_train_unregistered_metrics_function():
                     model_name="openai-community/gpt2",
                     model_max_length=1024,
                     trust_remote_code=True,
-                    tokenizer_pad_token="<|pad|>",
+                    tokenizer_pad_token="<|endoftext|>",
                 ),
                 training=TrainingParams(
                     trainer_type=TrainerType.TRL_SFT,
@@ -114,7 +114,7 @@ def test_train_pack():
                 # reduce test runtime.
                 model_max_length=128,
                 trust_remote_code=True,
-                tokenizer_pad_token="<|pad|>",
+                tokenizer_pad_token="<|endoftext|>",
             ),
             training=TrainingParams(
                 trainer_type=TrainerType.TRL_SFT,
