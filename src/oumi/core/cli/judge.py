@@ -39,8 +39,8 @@ def _load_judge_config(config: Optional[str], extra_args: List[str]) -> JudgeCon
 def dataset(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str], typer.Option(help="Path to the judge config file")
-    ] = None,
+        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
+    ],
     dataset_name: Annotated[
         Optional[str], typer.Option(help="Name of the dataset from the registry")
     ] = None,
