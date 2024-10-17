@@ -7,6 +7,7 @@ import pytest
 from oumi.core.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
+    InferenceConfig,
     JobConfig,
     TrainingConfig,
 )
@@ -37,10 +38,11 @@ def _get_all_config_paths() -> List[str]:
 @pytest.mark.parametrize("config_path", _get_all_config_paths())
 def test_parse_configs(config_path: str):
     valid_config_classes = [
-        TrainingConfig,
-        EvaluationConfig,
         AsyncEvaluationConfig,
+        EvaluationConfig,
+        InferenceConfig,
         JobConfig,
+        TrainingConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
@@ -58,10 +60,11 @@ def test_parse_configs(config_path: str):
 @pytest.mark.parametrize("config_path", _get_all_config_paths())
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
-        TrainingConfig,
-        EvaluationConfig,
         AsyncEvaluationConfig,
+        EvaluationConfig,
+        InferenceConfig,
         JobConfig,
+        TrainingConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
