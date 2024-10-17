@@ -21,6 +21,13 @@ def _load_judge_config(config: Optional[str], extra_args: List[str]) -> JudgeCon
     judge_config_builder = REGISTRY.get_judge_config(config)
 
     if judge_config_builder:
+        if extra_args:
+            raise ValueError(
+                "For consistent judge results, a named judge config cannot be "
+                "overridden with extra arguments. Got: {extra_args}. "
+                "Please register a new named judge config, or provide a path to a "
+                "judge config file."
+            )
         return judge_config_builder()
 
     if not Path(config).exists():
