@@ -38,8 +38,9 @@ def infer(
         return oumi_infer_interactive(parsed_config)
     if parsed_config.generation.input_filepath is None:
         raise ValueError("`input_filepath` must be provided for non-interactive mode.")
-    generations = oumi_infer(config=parsed_config)
+    generations = oumi_infer(parsed_config)
 
+    # Don't print results if output_filepath is provided.
     if parsed_config.generation.output_filepath:
         return
 

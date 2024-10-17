@@ -117,7 +117,7 @@ def infer_interactive(
                 print(repr(g))
                 print("------------")
             print()
-        except EOFError:
+        except EOFError:  # Triggered by Ctrl+D
             print("\nExiting...")
             return
 
