@@ -190,6 +190,20 @@ class Conversation(pydantic.BaseModel):
             messages = self.messages
         return messages
 
+    def to_dict(self):
+        """Converts the conversation to a dictionary."""
+        return self.model_dump(mode="json")
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Conversation":
+        """Converts a dictionary to a conversation."""
+        return cls.model_validate(data, strict=True)
+
+    @classmethod
+    def from_json(cls, data: str) -> "Conversation":
+        """Converts a JSON string to a conversation."""
+        return cls.model_validate_json(data, strict=True)
+
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""
         return "\n".join([repr(m) for m in self.messages])

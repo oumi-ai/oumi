@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import pandas as pd
 from typing_extensions import override
@@ -95,5 +95,11 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         Returns:
             Conversation: A Conversation object containing the messages.
         """
-        conversation_dict = example[self._data_column]
-        return Conversation.model_validate(conversation_dict)
+        conversation = example[self._data_column]
+
+        if isinstance(conversation, pd.Series):
+            conversation_dict = conversation.to_dict()
+        else:
+            conversation_dict = conversation
+
+        return Conversation.from_dict(cast(dict, conversation_dict))
