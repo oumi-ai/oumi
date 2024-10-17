@@ -28,12 +28,12 @@ def _load_image_png_bytes(input_image_filepath: str) -> bytes:
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ],
+    ] = None,
     image: Annotated[
         Optional[str],
         typer.Option(
