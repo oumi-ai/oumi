@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import oumi.core.constants as constants
 from oumi.builders.collators import build_data_collator
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
@@ -28,7 +29,7 @@ def test_build_data_collator_empty_name(mock_tokenizer):
             collator_name="",
             tokenizer=mock_tokenizer,
             max_length=1024,
-            label_ignore_index=-100,
+            label_ignore_index=constants.LABEL_IGNORE_INDEX,
         )
 
 
@@ -59,7 +60,7 @@ def test_build_data_collator_unknown_name(mock_tokenizer):
             collator_name="non_existent_collator02",
             tokenizer=mock_tokenizer,
             max_length=1024,
-            label_ignore_index=-100,
+            label_ignore_index=constants.LABEL_IGNORE_INDEX,
         )
 
 
