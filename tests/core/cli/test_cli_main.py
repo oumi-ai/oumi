@@ -188,9 +188,9 @@ def test_main_judge_dataset_registered(mock_judge_dataset):
         [
             "judge",
             "dataset",
-            "--config_name",
+            "--config",
             "some_config",
-            "--dataset_name",
+            "--dataset-name",
             "some_dataset",
         ],
     )
@@ -203,9 +203,9 @@ def test_main_judge_conversations_registered(mock_judge_conversations):
         [
             "judge",
             "conversations",
-            "--config_name",
+            "--config",
             "some_config",
-            "--input_file",
+            "--input-file",
             "some_file.jsonl",
         ],
     )
