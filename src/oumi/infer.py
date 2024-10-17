@@ -134,7 +134,7 @@ def infer(
     Args:
         config: The configuration to use for inference.
         inputs: A list of inputs for inference.
-        inference_engine: The engine to use for inference. If unspecified the engine
+        inference_engine: The engine to use for inference. If unspecified, the engine
             will be inferred from `config`.
         input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
             Only used in interactive mode.
