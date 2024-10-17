@@ -92,6 +92,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
 
         if data is not None:
             data_frame = pd.DataFrame({self._data_column: data})
+
         elif self._dataset_path is not None:
             if self._dataset_path.suffix == ".jsonl":
                 data = load_jsonlines(self._dataset_path)
@@ -104,7 +105,11 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
                     f"Unsupported file format: {self._dataset_path.suffix}. "
                     "Use .jsonl or .json file extensions."
                 )
+
             data_frame = pd.DataFrame({self._data_column: data})
+
+        else:
+            raise ValueError("Dataset path or data must be provided")
 
         assert data_frame is not None
         self._data: pd.DataFrame = data_frame
@@ -145,8 +150,9 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
                 isinstance(m, dict) and "role" in m and "content" in m
                 for m in first_item["messages"]
             ):
-                return "openai"
+                return "oumi"
             return "conversations"
+
         elif all(key in first_item for key in ["instruction", "input", "output"]):
             return "alpaca"
 
@@ -169,7 +175,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         return self._data
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object.
 
         Args:
@@ -196,7 +202,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
         else:
             raise ValueError(f"Unsupported format: {self._format}")
 
-    def _alpaca_to_conversation(self, turn: Union[dict, pd.Series]) -> Conversation:
+    def _alpaca_to_conversation(self, turn: dict) -> Conversation:
         """Convert an Alpaca-style turn to a Conversation object.
 
         Args:
