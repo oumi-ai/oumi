@@ -1,45 +1,38 @@
 import json
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import jsonlines
 import typer
 from typing_extensions import Annotated
 
+from oumi.core.cli import cli_utils
 from oumi.core.configs import JudgeConfig
 from oumi.core.registry import REGISTRY
 from oumi.core.types.conversation import Conversation
 from oumi.judge import judge_conversations, judge_dataset
+from oumi.utils.io_utils import load_jsonlines
 
 
-def _load_judge_config(
-    config_name: Optional[str], config_path: Optional[str]
-) -> JudgeConfig:
-    if bool(config_name) == bool(config_path):
-        raise ValueError(
-            "Exactly one of 'config_name' or 'config_path' must be provided. "
-            f"Currently: {'both' if config_name and config_path else 'neither'} "
-            "specified."
-        )
+def _load_judge_config(config: Optional[str], extra_args: List[str]) -> JudgeConfig:
+    if not config:
+        raise ValueError("Config is required.")
 
-    if config_name:
-        judge_config_builder = REGISTRY.get_judge_config(config_name)
-        if judge_config_builder is None:
-            raise ValueError(f"Judge config '{config_name}' not found in registry.")
+    judge_config_builder = REGISTRY.get_judge_config(config)
+
+    if judge_config_builder:
         return judge_config_builder()
 
-    if not config_path or not Path(config_path).exists():
-        raise ValueError(f"Config file not found: '{config_path}'")
-    return JudgeConfig.from_yaml(config_path)
+    if not Path(config).exists():
+        raise ValueError(f"Config file not found: '{config}'")
+
+    return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
 
 
 def dataset(
     ctx: typer.Context,
-    config_path: Annotated[
+    config: Annotated[
         Optional[str], typer.Option(help="Path to the judge config file")
-    ] = None,
-    config_name: Annotated[
-        Optional[str], typer.Option(help="Name of the judge configuration")
     ] = None,
     dataset_name: Annotated[
         Optional[str], typer.Option(help="Name of the dataset from the registry")
@@ -58,8 +51,12 @@ def dataset(
     if not dataset_name:
         raise ValueError("Dataset name is required.")
 
-    judge_config = _load_judge_config(config_name, config_path)
+    # Load the judge config
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    judge_config = _load_judge_config(config, extra_args)
+
+    # Load the dataset class from the registry
     dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
 
     if dataset_class is None:
@@ -70,8 +67,10 @@ def dataset(
         subset=dataset_subset,
     )
 
+    # Judge the dataset
     results = judge_dataset(judge_config, dataset=dataset)
 
+    # Save the results
     if output_file:
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
@@ -82,11 +81,8 @@ def dataset(
 
 def conversations(
     ctx: typer.Context,
-    config_path: Annotated[
+    config: Annotated[
         Optional[str], typer.Option(help="Path to the judge config file")
-    ] = None,
-    config_name: Annotated[
-        Optional[str], typer.Option(help="Name of the judge configuration")
     ] = None,
     input_file: Annotated[
         Optional[str], typer.Option(help="Path to the input file (jsonl)")
@@ -96,18 +92,22 @@ def conversations(
     ] = None,
 ):
     """Judge a list of conversations."""
-    judge_config = _load_judge_config(config_name, config_path)
+    # Load the judge config
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    judge_config = _load_judge_config(config, extra_args)
+
+    # Load the conversations from the input file
     if not input_file:
         raise ValueError("Input file is required.")
 
-    with open(input_file) as f:
-        input_data = json.load(f)
+    input_data = load_jsonlines(input_file)
+    conversations = [Conversation.model_validate(conv) for conv in input_data]
 
-    conversations = [Conversation(**conv) for conv in input_data]
-
+    # Judge the conversations
     results = judge_conversations(judge_config, judge_inputs=conversations)
 
+    # Save the results
     if output_file:
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
