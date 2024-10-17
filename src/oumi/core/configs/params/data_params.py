@@ -307,3 +307,22 @@ class DataParams(BaseParams):
             return self.validation
         else:
             raise ValueError(f"Received invalid split: {split}.")
+
+    def __post_init__(self):
+        """Verifies params."""
+        all_collators = set()
+        if self.train.collator_name:
+            all_collators.add(self.train.collator_name)
+        if self.validation.collator_name:
+            all_collators.add(self.validation.collator_name)
+        if self.test.collator_name:
+            all_collators.add(self.test.collator_name)
+        if len(all_collators) >= 2:
+            raise ValueError(
+                f"Different data collators are not supported yet: {all_collators}"
+            )
+        elif len(all_collators) == 1 and not self.train.collator_name:
+            raise ValueError(
+                "Data collator must be also specified "
+                f"on the `train` split: {all_collators}"
+            )
