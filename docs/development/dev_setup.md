@@ -60,7 +60,7 @@
 
    ```shell
    git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@learning-machines.ai
+   git config --global user.email YOUR_USERNAME@oumi.ai
    ```
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
@@ -92,12 +92,12 @@
 ## 4. [optional] Add an Oumi shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
-   alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
+   alias oumi-conda="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
    ```
 
    Ensure that this works with:
 
    ```shell
    source ~/{.zshrc or .bashrc}
-   oumi
+   oumi-conda
    ```

@@ -8,7 +8,7 @@ import pytest
 from aioresponses import aioresponses
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
 
 _TARGET_SERVER: str = "http://fakeurl"
@@ -35,7 +35,7 @@ def _setup_input_conversations(filepath: str, conversations: List[Conversation])
     Path(filepath).touch()
     with jsonlines.open(filepath, mode="w") as writer:
         for conversation in conversations:
-            json_obj = conversation.model_dump()
+            json_obj = conversation.to_dict()
             writer.write(json_obj)
     # Add some empty lines into the file
     with open(filepath, "a") as f:
@@ -641,11 +641,11 @@ def test_infer_from_file_to_file():
             with open(output_path.parent / "scratch" / output_path.name) as f:
                 parsed_conversations = []
                 for line in f:
-                    parsed_conversations.append(Conversation.model_validate_json(line))
+                    parsed_conversations.append(Conversation.from_json(line))
                 assert len(expected_result) == len(parsed_conversations)
             # Ensure the final output is in order.
             with open(output_path) as f:
                 parsed_conversations = []
                 for line in f:
-                    parsed_conversations.append(Conversation.model_validate_json(line))
+                    parsed_conversations.append(Conversation.from_json(line))
                 assert expected_result == parsed_conversations

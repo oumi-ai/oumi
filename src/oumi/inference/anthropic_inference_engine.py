@@ -3,7 +3,7 @@ from typing import Any, Dict
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
 
@@ -88,8 +88,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if system_message:
             body["system"] = system_message
 
-        if generation_params.stop is not None:
-            body["stop_sequences"] = generation_params.stop
+        if generation_params.stop_strings is not None:
+            body["stop_sequences"] = generation_params.stop_strings
 
         # Log warnings for unsupported parameters
         if generation_params.frequency_penalty != 0:

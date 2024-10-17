@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 
 try:
@@ -168,7 +168,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 top_p=generation_params.top_p,
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
-                stop=generation_params.stop,
+                stop=generation_params.stop_strings,
                 logit_bias=generation_params.logit_bias,
                 min_p=generation_params.min_p,
             )

@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 

@@ -4,7 +4,7 @@ import pytest
 from transformers import AutoTokenizer
 
 from oumi.core.registry import REGISTRY
-from oumi.core.types.turn import Conversation, Message
+from oumi.core.types.conversation import Conversation, Message
 
 
 def is_content_empty_expected(dataset_name, conversation_idx, message_idx):

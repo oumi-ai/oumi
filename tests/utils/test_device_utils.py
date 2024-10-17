@@ -17,7 +17,11 @@ from oumi.utils.device_utils import (
 
 
 def is_cuda_available_and_initialized():
-    return torch.cuda.is_available() and torch.cuda.is_initialized()
+    if not torch.cuda.is_available():
+        return False
+    if not torch.cuda.is_initialized():
+        torch.cuda.init()
+    return torch.cuda.is_initialized()
 
 
 @pytest.mark.skipif(

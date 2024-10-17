@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Union
 import jsonlines
 
 
-def load_json(filename: Union[str, Path]) -> Dict[str, Any]:
+def load_json(filename: Union[str, Path]) -> Any:
     """Load JSON data from a file.
 
     Args:

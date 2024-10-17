@@ -5,7 +5,7 @@ from typing import List
 import jsonlines
 
 from oumi.core.configs import GenerationParams, ModelParams
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import NativeTextInferenceEngine
 
 
@@ -14,6 +14,7 @@ def _get_default_model_params() -> ModelParams:
         model_name="openai-community/gpt2",
         trust_remote_code=True,
         chat_template="gpt2",
+        tokenizer_pad_token="<|endoftext|>",
     )
 
 
@@ -22,7 +23,7 @@ def _setup_input_conversations(filepath: str, conversations: List[Conversation])
     Path(filepath).touch()
     with jsonlines.open(filepath, mode="w") as writer:
         for conversation in conversations:
-            json_obj = conversation.model_dump()
+            json_obj = conversation.to_dict()
             writer.write(json_obj)
     # Add some empty lines into the file
     with open(filepath, "a") as f:
@@ -141,7 +142,7 @@ def test_infer_online_to_file():
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
-                parsed_conversations.append(Conversation.model_validate_json(line))
+                parsed_conversations.append(Conversation.from_json(line))
             assert expected_result == parsed_conversations
 
 
@@ -278,5 +279,5 @@ def test_infer_from_file_to_file():
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
-                parsed_conversations.append(Conversation.model_validate_json(line))
+                parsed_conversations.append(Conversation.from_json(line))
             assert expected_result == parsed_conversations

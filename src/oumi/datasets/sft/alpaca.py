@@ -11,7 +11,7 @@ import pandas as pd
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("yahma/alpaca-cleaned")
