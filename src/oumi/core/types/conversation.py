@@ -199,6 +199,10 @@ class Conversation(pydantic.BaseModel):
         """Converts a dictionary to a conversation."""
         return cls.model_validate(data, strict=True)
 
+    def to_json(self) -> str:
+        """Converts the conversation to a JSON string."""
+        return self.model_dump_json()
+
     @classmethod
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
