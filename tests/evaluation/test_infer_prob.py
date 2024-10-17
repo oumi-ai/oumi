@@ -30,7 +30,9 @@ CORRECT_ANSWERS = [
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
 def test_infer_prob(num_batches, batch_size):
     model_params = ModelParams(
-        model_name="openai-community/gpt2", trust_remote_code=True
+        model_name="openai-community/gpt2",
+        trust_remote_code=True,
+        tokenizer_pad_token="<|pad|>",
     )
 
     input = []
@@ -56,7 +58,9 @@ def test_infer_prob(num_batches, batch_size):
 @pytest.mark.skip(reason="infer_prob is dead code (to be cleaned up)")
 def test_infer_prob_entire_vocab():
     model_params = ModelParams(
-        model_name="openai-community/gpt2", trust_remote_code=True
+        model_name="openai-community/gpt2",
+        trust_remote_code=True,
+        tokenizer_pad_token="<|pad|>",
     )
 
     input = [
@@ -65,7 +69,7 @@ def test_infer_prob_entire_vocab():
         ],
     ]
     output = infer_prob(model_params=model_params, input=input)
-    assert len(output[0][0]) == 50258  # 50257 (GPT-2 vocab size) + EOS token
+    assert len(output[0][0]) == 50257  # 50257 is the GPT-2 vocab size
 
 
 @pytest.mark.parametrize(

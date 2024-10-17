@@ -44,9 +44,6 @@ special_tokens = {
     "meta-llama/Llama-3.2-3B-Instruct": SpecialTokensMixin(
         pad_token="<|finetune_right_pad_id|>"
     ),
-    # GPT-2 has no padding token; this is defined by Oumi.
-    "gpt2": SpecialTokensMixin(pad_token="<|pad|>"),
-    "openai-community/gpt2": SpecialTokensMixin(pad_token="<|pad|>"),
 }
 
 
