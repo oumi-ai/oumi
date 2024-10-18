@@ -42,6 +42,12 @@ class DatasetParams(BaseParams):
     dataset_name: str = MISSING
     """The name of the dataset to load. Required."""
 
+    dataset_path: Optional[str] = None
+    """The path to the dataset to load.
+
+    If specified, this will be used to override the default dataset path.
+    """
+
     subset: Optional[str] = None
     """The subset of the dataset to load.
 

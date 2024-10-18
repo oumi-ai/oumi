@@ -38,7 +38,7 @@ def dataset_fixture(request):
     tokenizer.eos_token = "</s>"
 
     return dataset_name, dataset_class(
-        dataset_name_or_path=dataset_name,
+        dataset_name=dataset_name,
         subset=dataset_subset,
         split="train",
         tokenizer=tokenizer,
