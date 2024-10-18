@@ -145,8 +145,8 @@ select = [
     "Q",     # flake8-quotes
     "RSE",   # flake8-raise, use raise statements instead of return statements
     "TID",   # flake8-tidy-imports: check for import tidiness
-    "INT",   # flake8-gettext,
-    "PD",    # pandas vet,
+    "INT",   # flake8-gettext
+    "PD",    # pandas vet
     "PTH",   # pathlib
 ]
 ignore = [
