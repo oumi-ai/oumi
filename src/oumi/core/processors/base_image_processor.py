@@ -37,7 +37,7 @@ class DefaultImageProcessor(BaseImageProcessor):
             raise RuntimeError("Image processor returned `None`.")
         elif not isinstance(result, dict):
             raise RuntimeError(
-                "Image processor returned an object, which is not a dictionary."
-                f"Type: {type(result)}"
+                "Image processor returned an object that is not a dictionary. "
+                f"Actual type: {type(result)}"
             )
         return result
