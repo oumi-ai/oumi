@@ -131,23 +131,22 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "F",     # pyflakes: detect various errors
-    "E",     # pycodestyle: errors
-    "W",     # pycodestyle: warnings
-    "I",     # isort: check import order
-    "D",     # pydocstyle: check docstring style
-    "TID",   # flake8-tidy-imports: check import tidiness
-    "NPY",   # NumPy-specific rules
-    "UP",    # pyupgrade: check for Python syntax updates
     "ASYNC", # flake8-async: check for async/await syntax
+    "D",     # pydocstyle: check docstring style
+    "E",     # pycodestyle: errors
+    "F",     # pyflakes: detect various errors
+    "I",     # isort: check import order
     "ICN",   # flake-8 import conventions,
-    "LOG",   # flake8-logging-format: check for logging format,
-    "Q",     # flake8-quotes
-    "RSE",   # flake8-raise, use raise statements instead of return statements
-    "TID",   # flake8-tidy-imports: check for import tidiness
     "INT",   # flake8-gettext
+    "LOG",   # flake8-logging-format: check for logging format,
+    "NPY",   # NumPy-specific rules
     "PD",    # pandas vet
     "PTH",   # pathlib
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise, use raise statements instead of return statements
+    "TID",   # flake8-tidy-imports: check import tidiness
+    "UP",    # pyupgrade: check for Python syntax updates
+    "W",     # pycodestyle: warnings
 ]
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
