@@ -2,6 +2,7 @@ import abc
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import PIL.Image
+import transformers
 from typing_extensions import override
 
 from oumi.core.processors.base_image_processor import (
@@ -9,6 +10,7 @@ from oumi.core.processors.base_image_processor import (
     DefaultImageProcessor,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.types.conversation import Message
 
 
 class BaseProcessor(abc.ABC):
@@ -61,8 +63,8 @@ class BaseProcessor(abc.ABC):
         self,
         *,
         text: Union[str, List[str]],
-        images: Union[PIL.Image.Image, List[PIL.Image.Image]],
         padding: bool,
+        images: Optional[Union[PIL.Image.Image, List[PIL.Image.Image]]] = None,
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""
@@ -70,7 +72,7 @@ class BaseProcessor(abc.ABC):
 
     @abc.abstractmethod
     def apply_chat_template(
-        self, texts: Union[str, List[str]], add_generation_prompt: bool = False
+        self, conversation: List[Message], add_generation_prompt: bool = False
     ) -> str:
         """Applies chat template."""
         raise NotImplementedError
@@ -82,35 +84,24 @@ class DefaultProcessor(BaseProcessor):
     Validates that worker conforms to basic required invariants.
     """
 
-    def __init__(self, worker_processor: Any):
+    def __init__(self, worker_processor: Any, tokenizer: BaseTokenizer):
         """Initializes the processor."""
         if worker_processor is None:
             raise ValueError("Worker processor must be provided!")
         elif not callable(worker_processor):
             raise ValueError("Worker processor is not callable!")
         elif not (
-            hasattr(self._worker_processor, "apply_chat_template")
-            and self._worker_processor.apply_chat_template is not None
-            and callable(self._worker_processor.apply_chat_template)
+            hasattr(worker_processor, "apply_chat_template")
+            and worker_processor.apply_chat_template is not None
+            and callable(worker_processor.apply_chat_template)
         ):
             raise ValueError(
                 "Worker processor doesn't have " "the `apply_chat_template` method"
             )
 
         self._worker_processor: Callable = worker_processor
-
-        if not (
-            hasattr(self._worker_processor, "tokenizer")
-            and self._worker_processor.tokenizer is not None
-        ):
-            raise ValueError("Worker processor doesn't have a tokenizer!")
-
-        if not isinstance(self._worker_processor.tokenizer, BaseTokenizer):
-            raise ValueError(
-                "Worker processor's tokenizer has unsupported type: "
-                f"{type(self._worker_processor.tokenizer)}"
-            )
-        self._tokenizer: BaseTokenizer = self._worker_processor.tokenizer
+        self._worker_processor.tokenizer = tokenizer
+        self._tokenizer: BaseTokenizer = tokenizer
 
         self._image_processor: Optional[BaseImageProcessor] = None
         if (
@@ -180,16 +171,25 @@ class DefaultProcessor(BaseProcessor):
         self,
         *,
         text: Union[str, List[str]],
-        images: Union[PIL.Image.Image, List[PIL.Image.Image]],
         padding: bool,
+        images: Optional[Union[PIL.Image.Image, List[PIL.Image.Image]]] = None,
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""
-        result = self._worker_processor(
-            text=text, images=images, padding=padding, return_tensors=return_tensors
-        )
+        if images is None:
+            result = self._worker_processor(
+                text=text, padding=padding, return_tensors=return_tensors
+            )
+        else:
+            result = self._worker_processor(
+                text=text, images=images, padding=padding, return_tensors=return_tensors
+            )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
+        elif isinstance(
+            result, (transformers.BatchFeature, transformers.BatchEncoding)
+        ):
+            result = result.data
         elif not isinstance(result, dict):
             raise RuntimeError(
                 "Processor returned an object that is not a dictionary. "
@@ -199,17 +199,33 @@ class DefaultProcessor(BaseProcessor):
 
     @override
     def apply_chat_template(
-        self, texts: Union[str, List[str]], add_generation_prompt: bool = False
+        self, conversation: List[Message], add_generation_prompt: bool = False
     ) -> str:
         """Applies chat template."""
-        result = self._worker_processor.apply_chat_template(
-            texts=texts, add_generation_prompt=add_generation_prompt
-        )
+        if isinstance(self._worker_processor, BaseTokenizer):
+            # If the processor is actually a tokenizer, then disallow non-text messages.
+            for message in conversation:
+                if not message.is_text():
+                    raise ValueError(
+                        f"Conversation includes non-text messages: {message.type}. "
+                        "This is not allowed for processors that are tokenizers."
+                    )
+
+            result = self._worker_processor.apply_chat_template(
+                conversation,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+        else:
+            result = self._worker_processor.apply_chat_template(
+                conversation, add_generation_prompt=add_generation_prompt
+            )
+
         if result is None:
             raise RuntimeError("`apply_chat_template` returned `None`.")
         elif not isinstance(result, str):
             raise RuntimeError(
                 "`apply_chat_template` returned an object that is not a string. "
-                f"Actual type: {type(result)}"
+                f"Actual type: {type(result)} {result}"
             )
         return result
