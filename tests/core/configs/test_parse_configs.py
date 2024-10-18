@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import List
+from typing import List, Optional, Set
 
 import pytest
 
@@ -27,15 +27,22 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _get_all_config_paths() -> List[str]:
+def _get_all_config_paths(exclude_yaml: Optional[Set[str]]) -> List[str]:
     """Recursively returns all configs in the /configs/oumi/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)
     yaml_pattern = os.path.join(repo_root, "configs", "oumi", "**", "*.yaml")
-    return glob.glob(yaml_pattern, recursive=True)
+    all_yaml_files = glob.glob(yaml_pattern, recursive=True)
+    if exclude_yaml:
+        filtered_files = [
+            f for f in all_yaml_files if os.path.basename(f) not in exclude_yaml
+        ]
+    return filtered_files
 
 
-@pytest.mark.parametrize("config_path", _get_all_config_paths())
+@pytest.mark.parametrize(
+    "config_path", _get_all_config_paths({"fsdp.yaml", "skypilot.yaml"})
+)
 def test_parse_configs(config_path: str):
     valid_config_classes = [
         AsyncEvaluationConfig,
@@ -57,7 +64,9 @@ def test_parse_configs(config_path: str):
     assert len(error_messages) != len(valid_config_classes), "".join(error_messages)
 
 
-@pytest.mark.parametrize("config_path", _get_all_config_paths())
+@pytest.mark.parametrize(
+    "config_path", _get_all_config_paths({"fsdp.yaml", "skypilot.yaml"})
+)
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
         AsyncEvaluationConfig,

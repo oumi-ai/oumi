@@ -110,11 +110,14 @@ cambrian = [ # Consider merging into "train"
     "einops==0.6.1",
 ]
 optional = [
-    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
     "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
 ]
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+
+quant = [
+    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
+]                       # TODO: consider augmenting with more quantization frameworks
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
