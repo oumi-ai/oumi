@@ -224,3 +224,57 @@ def test_registry_datasets():
     assert dataset_subset_class is not None
     # If a subset is specificed, we should get the subset class if one was registered
     assert dataset_subset_class == TestDataset
+
+
+@pytest.mark.parametrize(
+    "registry_type",
+    [
+        RegistryType.CLOUD,
+        RegistryType.MODEL,
+        RegistryType.MODEL_CONFIG,
+        RegistryType.METRICS_FUNCTION,
+    ],
+)
+def test_registry_case_insensitive(registry_type):
+    class DummyClass:
+        pass
+
+    @register("Dummy_Class", registry_type)
+    def dummy_builder():
+        return DummyClass()
+
+    # Check if the registry contains the key, regardless of case
+    assert REGISTRY.contains("dummy_class", registry_type)
+    assert REGISTRY.contains("DUMMY_CLASS", registry_type)
+    assert REGISTRY.contains("Dummy_Class", registry_type)
+
+    # Check if we can retrieve the builder using different cases
+    assert REGISTRY.get("dummy_class", registry_type) == dummy_builder
+    assert REGISTRY.get("DUMMY_CLASS", registry_type) == dummy_builder
+    assert REGISTRY.get("Dummy_Class", registry_type) == dummy_builder
+
+
+def test_registry_case_insensitive_multiple_registrations():
+    @register("Test_Class", RegistryType.MODEL)
+    class TestClass1:
+        pass
+
+    with pytest.raises(ValueError, match="already registered"):
+
+        @register("test_class", RegistryType.MODEL)
+        class TestClass2:
+            pass
+
+
+def test_registry_case_insensitive_get_all():
+    @register("Class_One", RegistryType.CLOUD)
+    def builder_one():
+        pass
+
+    @register("CLASS_TWO", RegistryType.CLOUD)
+    def builder_two():
+        pass
+
+    all_builders = REGISTRY.get_all(RegistryType.CLOUD)
+    assert set(all_builders.keys()) == {"class_one", "class_two"}
+    assert list(all_builders.values()) == [builder_one, builder_two]
