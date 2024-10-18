@@ -59,7 +59,7 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
         config.to_yaml(yaml_path)
-        _ = runner.invoke(app, ["--config", yaml_path])
+        _ = runner.invoke(app, ["-i", "--config", yaml_path])
         mock_infer_interactive.assert_has_calls([call(config, input_image_bytes=None)])
 
 
@@ -71,6 +71,7 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
         _ = runner.invoke(
             app,
             [
+                "-i",
                 "--config",
                 yaml_path,
                 "--model.model_name",
@@ -105,7 +106,9 @@ def test_infer_runs_with_image(app, mock_infer, mock_infer_interactive):
         with image_path.open(mode="wb") as f:
             f.write(image_bytes)
 
-        _ = runner.invoke(app, ["--config", yaml_path, "--image", str(image_path)])
+        _ = runner.invoke(
+            app, ["-i", "--config", yaml_path, "--image", str(image_path)]
+        )
         mock_infer_interactive.assert_has_calls(
             [call(config, input_image_bytes=image_bytes)]
         )
