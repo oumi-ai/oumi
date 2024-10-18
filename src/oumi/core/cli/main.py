@@ -14,13 +14,13 @@ def get_app() -> typer.Typer:
     app = typer.Typer(pretty_exceptions_enable=False)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Evauate a model.",
+        help="Evaluate a model.",
     )(evaluate)
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Evauate a model.",
+        help="Evaluate a model.",
     )(evaluate)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
