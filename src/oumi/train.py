@@ -170,7 +170,7 @@ def _log_training_info(config: TrainingConfig) -> None:
         )
         oumi_version = version("oumi")
         logger.info(f"Oumi version: {oumi_version}")
-        if "dev" in oumi_version:
+        if ".dev" in oumi_version:
             logger.info(f"Git revision hash: {get_git_revision_hash()}")
             logger.info(f"Git tag: {get_git_tag()}")
 
