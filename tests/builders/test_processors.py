@@ -181,6 +181,20 @@ def test_build_processor_basic_multimodal_success():
     assert isinstance(result["pixel_values"], torch.Tensor)
     assert result["pixel_values"].shape == (1, 3, 336, 336)
 
+    image_proc_result = processor.image_processor(
+        images=[test_image], return_tensors="pt"
+    )
+    assert isinstance(image_proc_result, dict)
+    assert sorted(list(image_proc_result.keys())) == [
+        "pixel_values",
+    ]
+    assert isinstance(image_proc_result["pixel_values"], torch.Tensor)
+    assert image_proc_result["pixel_values"].shape == (1, 3, 336, 336)
+
+    assert np.all(
+        image_proc_result["pixel_values"].numpy() == result["pixel_values"].numpy()
+    )
+
     # Multiple prompts, Multiple images (different counts).
     result = processor(
         text=[prompt, prompt, prompt],
@@ -208,7 +222,11 @@ def test_build_processor_basic_multimodal_success():
     )
     assert isinstance(image_proc_result, dict)
     assert sorted(list(image_proc_result.keys())) == [
-        "attention_mask",
-        "input_ids",
         "pixel_values",
     ]
+    assert isinstance(image_proc_result["pixel_values"], torch.Tensor)
+    assert image_proc_result["pixel_values"].shape == (2, 3, 336, 336)
+
+    assert np.all(
+        image_proc_result["pixel_values"].numpy() == result["pixel_values"].numpy()
+    )

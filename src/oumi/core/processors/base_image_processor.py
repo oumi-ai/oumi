@@ -1,7 +1,8 @@
 import abc
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List
 
 import PIL.Image
+import transformers
 from typing_extensions import override
 
 
@@ -12,7 +13,7 @@ class BaseImageProcessor(abc.ABC):
     def __call__(
         self,
         *,
-        images: Union[PIL.Image.Image, List[PIL.Image.Image]],
+        images: List[PIL.Image.Image],
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Extracts image features."""
@@ -34,13 +35,17 @@ class DefaultImageProcessor(BaseImageProcessor):
     def __call__(
         self,
         *,
-        images: Union[PIL.Image.Image, List[PIL.Image.Image]],
+        images: List[PIL.Image.Image],
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Extracts image features."""
         result = self._worker_processor(images=images, return_tensors=return_tensors)
         if result is None:
             raise RuntimeError("Image processor returned `None`.")
+        elif isinstance(
+            result, (transformers.BatchFeature, transformers.BatchEncoding)
+        ):
+            result = result.data
         elif not isinstance(result, dict):
             raise RuntimeError(
                 "Image processor returned an object that is not a dictionary. "
