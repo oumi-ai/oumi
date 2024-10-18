@@ -79,11 +79,8 @@
             "module": "oumi",
             "args": [
                 "infer",
-                "model.model_name=openai-community/gpt2",
-                "model.chat_template=gpt2",
-                "model.trust_remote_code=true",
-                "model.tokenizer_pad_token='<|endoftext|>'",
-                "generation.max_new_tokens=32"
+                "-c",
+                "configs/oumi/inference/gpt2.yaml"
             ],
             "justMyCode": true
         },

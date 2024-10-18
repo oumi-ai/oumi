@@ -116,6 +116,13 @@ def test_main_infer_registered(mock_infer):
     mock_infer.assert_called_once()
 
 
+def test_main_eval_registered(mock_eval):
+    _ = runner.invoke(
+        get_app(), ["eval", "--config", "some/path", "--allow_extra" "args"]
+    )
+    mock_eval.assert_called_once()
+
+
 def test_main_evaluate_registered(mock_eval):
     _ = runner.invoke(
         get_app(), ["evaluate", "--config", "some/path", "--allow_extra" "args"]

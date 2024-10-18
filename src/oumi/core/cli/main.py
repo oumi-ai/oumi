@@ -12,9 +12,24 @@ from oumi.core.cli.train import train
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
-    app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(evaluate)
-    app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(infer)
-    app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(train)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Evaluate a model.",
+    )(evaluate)
+    app.command(  # Alias for evaluate
+        name="eval",
+        hidden=True,
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Evaluate a model.",
+    )(evaluate)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Run inference on a model.",
+    )(infer)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Train a model.",
+    )(train)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
