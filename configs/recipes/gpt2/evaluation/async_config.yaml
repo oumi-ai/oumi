@@ -1,0 +1,21 @@
+evaluation:
+  output_dir: "" # "/output_dir_gcs/matthew/gpt2.pt.4xA10080GB.5000steps/hellaswag/"
+  model:
+    model_name: "gpt2"  # 124M params
+    # For local testing.
+    # model_max_length: 128
+    model_max_length: 1024
+    torch_dtype_str: "bfloat16"
+    attn_implementation: "sdpa"
+    compile: True
+    trust_remote_code: True
+
+  lm_harness_params:
+    tasks:
+      - "hellaswag"
+
+  generation:
+    batch_size: 32
+
+checkpoints_dir: "" # "/output_dir_gcs/wizeng/runs/20240703_gpt2_fullrun_drop0.pt/"
+polling_interval: 5

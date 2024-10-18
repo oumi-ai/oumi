@@ -1,0 +1,27 @@
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+lm_harness_params:
+  tasks:
+    - "m_mmlu_ar"
+    - "m_mmlu_zh"
+    - "m_mmlu_en"
+    - "m_mmlu_fr"
+    - "m_mmlu_de"
+    - "m_mmlu_hi"
+    - "m_mmlu_id"
+    - "m_mmlu_it"
+    - "m_mmlu_pt"
+    - "m_mmlu_ro"
+    - "m_mmlu_ru"
+    - "m_mmlu_es"
+    - "m_mmlu_uk"
+    - "m_mmlu_vi"
+  num_fewshot: 5
+
+generation:
+  batch_size: 8

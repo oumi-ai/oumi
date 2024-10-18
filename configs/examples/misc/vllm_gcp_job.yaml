@@ -1,0 +1,40 @@
+name: vllm
+# NOTE: Replace with your username.
+user: your_username
+num_nodes: 1
+
+resources:
+  cloud: polaris
+
+# Upload working directory to /home/$USER/oumi_launcher/vllm.
+working_dir: .
+
+# NOTE: Replace with your input/output paths, and adjust other parameters as needed.
+envs:
+  REPO: meta-llama  # HF model repo.
+  MODEL: Meta-Llama-3.1-70B-Instruct  # HF model name.
+  OUMI_VLLM_INPUT_FILEPATH: your_input_filepath  # Path to input data file.
+  OUMI_VLLM_OUTPUT_DIR: your_output_dir  # Output dir.
+  OUMI_VLLM_NUM_WORKERS: 100  # Samples will be divided amongst workers
+  OUMI_VLLM_WORKERS_SPAWNED_PER_SECOND: 10
+
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=00:40:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs
+  #PBS -e /eagle/community_ai/jobs/logs
+
+run: |
+  set -e
+
+  # Change to the directory where the job was submitted.
+  echo "Changing directory to ${PBS_O_WORKDIR} ..."
+  cd ${PBS_O_WORKDIR}
+
+  # Run the job.
+  ./scripts/polaris/jobs/vllm_job.sh

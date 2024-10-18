@@ -1,0 +1,30 @@
+# Sample command to execute CPU-only training on a single machine:
+# CUDA_VISIBLE_DEVICES= accelerate launch \
+#   --config_file configs/accelerate/local_machine_no_distributed_cpu_only.yaml \
+#   -m oumi.train \
+#   -c configs/oumi/gpt2.pt.yaml \
+#   "training.output_dir=/tmp/train/" \
+#   "training.enable_wandb=false" \
+#   "training.enable_tensorboard=false" \
+#   "training.include_performance_metrics=true" \
+#   "training.max_steps=10" \
+#   "training.logging_steps=10"
+
+compute_environment: LOCAL_MACHINE
+debug: false
+distributed_type: 'NO'
+downcast_bf16: 'no'
+enable_cpu_affinity: false
+ipex_config:
+  ipex: true
+machine_rank: 0
+main_training_function: main
+mixed_precision: 'no'
+num_machines: 1
+num_processes: 1
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: true

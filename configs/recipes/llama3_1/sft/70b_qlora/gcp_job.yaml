@@ -1,0 +1,55 @@
+# Config to FSDP QLoRA tune Llama 3.1 70B Instruct on 2 GCP nodes.
+# Example command:
+# oumi launch up -c configs/oumi/jobs/gcp/llama70b_qlora_fsdp.yaml --cluster llama70b-qlora-fsdp
+name: llama70b-qlora-fsdp
+
+num_nodes: 2
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: true
+  disk_size: 1000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama70b.qlora.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]' hf_transfer bitsandbytes
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/skypilot/sky_init.sh
+
+  set -x
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  accelerate launch \
+      --num_machines ${OUMI_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --num_processes ${OUMI_TOTAL_NUM_GPUS} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
+      --main_process_port 8007 \
+      --use_fsdp \
+      --config_file configs/accelerate/llama70b.lora.yaml \
+      -m oumi.train \
+      -c configs/oumi/llama70b.qlora.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "peft.bnb_4bit_quant_storage=bfloat16"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

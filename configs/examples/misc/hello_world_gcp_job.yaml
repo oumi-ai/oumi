@@ -1,0 +1,19 @@
+name: hello-world
+resources:
+  cloud: gcp
+  accelerators: A100
+
+# Upload working directory to remote.
+working_dir: .
+
+envs:
+  TEST_ENV_VARIABLE: '"Hello, World!"'
+
+# For GCP, setup is only run once at cluster creation.
+setup: |
+  echo "Running setup..."
+
+run: |
+  set -e  # Exit if any command failed.
+
+  echo "$TEST_ENV_VARIABLE"

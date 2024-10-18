@@ -1,0 +1,8 @@
+model:
+  model_name: "mistralai/Mistral-Small-Instruct-2409"
+  model_max_length: 128
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+generation:
+  batch_size: 1
