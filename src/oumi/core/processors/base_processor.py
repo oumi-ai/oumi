@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import PIL.Image
 import transformers
@@ -62,9 +62,9 @@ class BaseProcessor(abc.ABC):
     def __call__(
         self,
         *,
-        text: Union[str, List[str]],
+        text: List[str],
         padding: bool,
-        images: Optional[Union[PIL.Image.Image, List[PIL.Image.Image]]] = None,
+        images: Optional[List[PIL.Image.Image]] = None,
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""
@@ -170,9 +170,9 @@ class DefaultProcessor(BaseProcessor):
     def __call__(
         self,
         *,
-        text: Union[str, List[str]],
+        text: List[str],
         padding: bool,
-        images: Optional[Union[PIL.Image.Image, List[PIL.Image.Image]]] = None,
+        images: Optional[List[PIL.Image.Image]] = None,
         return_tensors: str = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""

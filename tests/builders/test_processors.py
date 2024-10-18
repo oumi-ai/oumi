@@ -2,6 +2,7 @@ from typing import Final
 from unittest.mock import MagicMock
 
 import numpy as np
+import PIL.Image
 import pytest
 import torch
 
@@ -10,7 +11,7 @@ from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message, Role, Type
 
-_LLAVA_SYSTEM_PROMPT = (
+_LLAVA_SYSTEM_PROMPT: Final[str] = (
     "A chat between a curious user and an artificial "
     "intelligence assistant. "
     "The assistant gives helpful, detailed, and "
@@ -60,7 +61,7 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     assert processor.image_token is None
     assert processor.image_token_id is None
 
-    result = processor(text="hello world", padding=False)
+    result = processor(text=["hello world"], padding=False)
     assert isinstance(result, dict)
     assert len(result) == 2
 
@@ -126,7 +127,7 @@ def test_build_processor_basic_multimodal_success():
     assert processor.image_token == _IMAGE_TOKEN
     assert processor.image_token_id == _IMAGE_TOKEN_ID
 
-    result = processor(text="hello world", padding=False)
+    result = processor(text=["hello world"], padding=False)
     assert isinstance(result, dict)
     assert len(result) == 2
 
@@ -160,3 +161,44 @@ def test_build_processor_basic_multimodal_success():
         _LLAVA_SYSTEM_PROMPT
         + " USER: Hello ASSISTANT: How can I help? </s>USER: Hmm ASSISTANT: "
     )
+
+    test_image = PIL.Image.new(mode="RGB", size=(512, 256))
+    result = processor(
+        text=[prompt], images=[test_image], padding=True, return_tensors="pt"
+    )
+    assert isinstance(result, dict)
+    assert sorted(list(result.keys())) == [
+        "attention_mask",
+        "input_ids",
+        "pixel_values",
+    ]
+    assert isinstance(result["attention_mask"], torch.Tensor)
+    assert result["attention_mask"].shape == (1, 57)
+
+    assert isinstance(result["input_ids"], torch.Tensor)
+    assert result["input_ids"].shape == (1, 57)
+
+    assert isinstance(result["pixel_values"], torch.Tensor)
+    assert result["pixel_values"].shape == (1, 3, 336, 336)
+
+    # Multiple prompts, Multiple images (different counts).
+    result = processor(
+        text=[prompt, prompt, prompt],
+        images=[test_image, test_image],
+        padding=True,
+        return_tensors="pt",
+    )
+    assert isinstance(result, dict)
+    assert sorted(list(result.keys())) == [
+        "attention_mask",
+        "input_ids",
+        "pixel_values",
+    ]
+    assert isinstance(result["attention_mask"], torch.Tensor)
+    assert result["attention_mask"].shape == (3, 57)
+
+    assert isinstance(result["input_ids"], torch.Tensor)
+    assert result["input_ids"].shape == (3, 57)
+
+    assert isinstance(result["pixel_values"], torch.Tensor)
+    assert result["pixel_values"].shape == (2, 3, 336, 336)
