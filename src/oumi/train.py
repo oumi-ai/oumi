@@ -167,9 +167,8 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-        logger.info(
-            f"Git revision hash: {get_git_revision_hash()}" f"Git tag: {get_git_tag()}"
-        )
+        logger.info(f"Git revision hash: {get_git_revision_hash()}")
+        logger.info(f"Git tag: {get_git_tag()}")
 
 
 def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
