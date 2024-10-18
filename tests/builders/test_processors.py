@@ -202,3 +202,13 @@ def test_build_processor_basic_multimodal_success():
 
     assert isinstance(result["pixel_values"], torch.Tensor)
     assert result["pixel_values"].shape == (2, 3, 336, 336)
+
+    image_proc_result = processor.image_processor(
+        images=[test_image, test_image], return_tensors="pt"
+    )
+    assert isinstance(image_proc_result, dict)
+    assert sorted(list(image_proc_result.keys())) == [
+        "attention_mask",
+        "input_ids",
+        "pixel_values",
+    ]
