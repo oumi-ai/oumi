@@ -233,6 +233,7 @@ def test_registry_datasets():
         RegistryType.MODEL,
         RegistryType.MODEL_CONFIG,
         RegistryType.METRICS_FUNCTION,
+        RegistryType.DATASET,
     ],
 )
 def test_registry_case_insensitive(registry_type):
@@ -252,6 +253,11 @@ def test_registry_case_insensitive(registry_type):
     assert REGISTRY.get("dummy_class", registry_type) == dummy_builder
     assert REGISTRY.get("DUMMY_CLASS", registry_type) == dummy_builder
     assert REGISTRY.get("Dummy_Class", registry_type) == dummy_builder
+
+    # Check if the registry does not contain the key, regardless of case
+    assert not REGISTRY.contains("dummy_class_not_registered", registry_type)
+    assert not REGISTRY.contains("DUMMY_CLASS_NOT_REGISTERED", registry_type)
+    assert not REGISTRY.contains("Dummy_Class_Not_Registered", registry_type)
 
 
 def test_registry_case_insensitive_multiple_registrations():
