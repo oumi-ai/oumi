@@ -8,7 +8,7 @@ from typing_extensions import Self
 
 from oumi.core.configs import JudgeConfig
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,

@@ -1,7 +1,7 @@
 model:
   model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
-  model_max_length: 512
+  model_max_length: 1024
   trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "llava"

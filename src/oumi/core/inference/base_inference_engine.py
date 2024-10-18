@@ -5,7 +5,7 @@ from typing import List, Optional
 import jsonlines
 
 from oumi.core.configs import GenerationParams
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
 
@@ -64,7 +64,7 @@ class BaseInferenceEngine(ABC):
             for line in f:
                 # Only parse non-empty lines.
                 if line.strip():
-                    conversation = Conversation.model_validate_json(line)
+                    conversation = Conversation.from_json(line)
                     conversations.append(conversation)
         return conversations
 
@@ -96,7 +96,7 @@ class BaseInferenceEngine(ABC):
         # Make the directory if it doesn't exist.
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="a") as writer:
-            json_obj = conversation.model_dump()
+            json_obj = conversation.to_dict()
             writer.write(json_obj)
 
     def _save_conversations(
@@ -113,7 +113,7 @@ class BaseInferenceEngine(ABC):
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="w") as writer:
             for conversation in conversations:
-                json_obj = conversation.model_dump()
+                json_obj = conversation.to_dict()
                 writer.write(json_obj)
 
     @abstractmethod

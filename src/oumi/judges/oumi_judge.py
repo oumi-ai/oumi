@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from typing_extensions import override
 
-from oumi.core.types.turn import Conversation, Role, TemplatedMessage
+from oumi.core.types.conversation import Conversation, Role, TemplatedMessage
 from oumi.judges.base_judge import BaseJudge, BaseJudgeOutput
 from oumi.utils.str_utils import str_to_bool
 

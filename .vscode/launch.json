@@ -5,8 +5,9 @@
             "name": "Oumi - Train",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.train",
+            "module": "oumi",
             "args": [
+                "train",
                 "-c",
                 "configs/oumi/phi3.lora.yaml"
             ],
@@ -16,8 +17,9 @@
             "name": "Oumi - Judge",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.judge",
+            "module": "oumi",
             "args": [
+                "judge",
                 "--config-name",
                 "oumi/v1_xml_local",
                 "--dataset-name",
@@ -36,7 +38,8 @@
                 "--nproc_per_node",
                 "4",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
                 "configs/oumi/gpt2.pt.yaml"
             ]
@@ -58,7 +61,8 @@
                 "--config_file",
                 "configs/accelerate/llama.fsdp.yaml",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
                 "configs/oumi/llama8b.sft.yaml",
                 "training.max_steps=2",
@@ -72,12 +76,11 @@
             "name": "Oumi - Inference",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.infer",
+            "module": "oumi",
             "args": [
-                "--interactive",
-                "model.model_name=openai-community/gpt2",
-                "model.trust_remote_code=true",
-                "generation.max_new_tokens=16"
+                "infer",
+                "-c",
+                "configs/oumi/inference/gpt2.yaml"
             ],
             "justMyCode": true
         },
@@ -85,8 +88,9 @@
             "name": "Oumi - Evaluate - LM Harness",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.evaluate",
+            "module": "oumi",
             "args": [
+                "evaluate",
                 "-c",
                 "configs/oumi/phi3.eval.lm_harness.yaml"
             ],
