@@ -24,7 +24,7 @@ data:
       - dataset_name: "yahma/alpaca-cleaned"
         preprocessing_function_name: "alpaca"
     target_col: "prompt"
-    experimental_use_async_dataset: True
+    use_async_dataset: True
 
 training:
   trainer_type: TRL_SFT

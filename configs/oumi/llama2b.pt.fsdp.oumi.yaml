@@ -32,7 +32,7 @@ data:
     stream: True
     pack: True
     target_col: "text"
-    experimental_use_async_dataset: True
+    use_async_dataset: True
 
 training:
   trainer_type: OUMI

@@ -42,6 +42,6 @@ data:
         subset: "sample-10BT"
         split: "train"
     target_col: "text"
-    experimental_use_async_dataset: True
+    use_async_dataset: True
     stream: True
     pack: True

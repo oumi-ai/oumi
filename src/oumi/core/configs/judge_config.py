@@ -8,7 +8,7 @@ import pydantic
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 
 
 class JudgeAttributeValueType(str, Enum):

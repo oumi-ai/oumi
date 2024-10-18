@@ -1,7 +1,7 @@
 ## Recipe and HPs used for Quantized Zephyr.7B:
 ## https://huggingface.co/alignment-handbook/zephyr-7b-sft-qlora
 
-## Setup for training with 8, A-100, GPUS.
+## Setup for training with 8, A100, GPUS.
 ## Adjust per_device_train_batch_size & gradient_accumulation_steps for your setup.
 
 model:

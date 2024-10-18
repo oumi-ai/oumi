@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.configs import ModelParams
@@ -26,6 +27,7 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
             model_name="openai-community/gpt2",
             torch_dtype_str="float16",
             trust_remote_code=False,
+            tokenizer_pad_token="<|endoftext|>",
         )
     )
     assert tokenizer.pad_token_id
@@ -129,7 +131,9 @@ def test_success_with_labels_and_max_length():
 def test_success_label_ingnore_index():
     tokenizer, pad_token_id = create_test_tokenizer()
 
-    collator = TextCollatorWithPadding(tokenizer, max_length=4, label_ignore_index=-100)
+    collator = TextCollatorWithPadding(
+        tokenizer, max_length=4, label_ignore_index=constants.LABEL_IGNORE_INDEX
+    )
     assert callable(collator)
 
     collated_batch = collator(

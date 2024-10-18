@@ -2,30 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Oumi - Train From CLI Example",
+            "name": "Oumi - Train",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.train",
+            "module": "oumi",
             "args": [
-                "data.train.datasets=[{'dataset_name':'yahma/alpaca-cleaned', 'preprocessing_function_name': 'alpaca'}]",
-                "data.train.target_col=prompt",
-                "model.model_name=openai-community/gpt2",
-                "model.trust_remote_code=true",
-                "training.trainer_type=TRL_SFT",
-                "training.max_steps=3",
-                "training.logging_steps=3",
-                "training.enable_wandb=false",
-                "training.enable_tensorboard=false",
-                "training.output_dir=tmp"
-            ],
-            "justMyCode": true
-        },
-        {
-            "name": "Oumi - Train From Config Example",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi.train",
-            "args": [
+                "train",
                 "-c",
                 "configs/oumi/phi3.lora.yaml"
             ],
@@ -35,8 +17,9 @@
             "name": "Oumi - Judge",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.judge",
+            "module": "oumi",
             "args": [
+                "judge",
                 "--config-name",
                 "oumi/v1_xml_local",
                 "--dataset-name",
@@ -45,18 +28,7 @@
             "justMyCode": true
         },
         {
-            "name": "Oumi - Pretrain From Config Example",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi.train",
-            "args": [
-                "-c",
-                "configs/oumi/gpt2.pt.mac.yaml"
-            ],
-            "justMyCode": true
-        },
-        {
-            "name": "Oumi Distributed",
+            "name": "Oumi - Train - Multi-GPU",
             "type": "debugpy",
             "module": "torch.distributed.run",
             "request": "launch",
@@ -66,13 +38,14 @@
                 "--nproc_per_node",
                 "4",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
                 "configs/oumi/gpt2.pt.yaml"
             ]
         },
         {
-            "name": "Oumi Distributed - Accelerate",
+            "name": "Oumi - Train - Accelerate",
             "type": "debugpy",
             "module": "accelerate.commands.launch",
             "request": "launch",
@@ -83,12 +56,13 @@
                 "--machine_rank",
                 "0",
                 "--num_processes",
-                "8",
+                "4",
                 "--use_fsdp",
                 "--config_file",
                 "configs/accelerate/llama.fsdp.yaml",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
                 "configs/oumi/llama8b.sft.yaml",
                 "training.max_steps=2",
@@ -99,42 +73,31 @@
             ]
         },
         {
-            "name": "Oumi - Inference From CLI Example",
+            "name": "Oumi - Inference",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.infer",
+            "module": "oumi",
             "args": [
-                "--interactive",
-                "model.model_name=openai-community/gpt2",
-                "model.trust_remote_code=true",
-                "generation.max_new_tokens=16"
-            ],
-            "justMyCode": true
-        },
-        {
-            "name": "Oumi - Evaluate with custom Oumi framework from config example",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi.evaluate",
-            "args": [
+                "infer",
                 "-c",
-                "configs/oumi/phi3.eval.oumi.mac.yaml"
+                "configs/oumi/inference/gpt2.yaml"
             ],
             "justMyCode": true
         },
         {
-            "name": "Oumi - Evaluate with the LM Harness framework from config example",
+            "name": "Oumi - Evaluate - LM Harness",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.evaluate",
+            "module": "oumi",
             "args": [
+                "evaluate",
                 "-c",
                 "configs/oumi/phi3.eval.lm_harness.yaml"
             ],
             "justMyCode": true
         },
         {
-            "name": "Python Debugger: Minimal Multimodal Training",
+            "name": "Oumi - Experimental - Multimodal Training",
             "type": "debugpy",
             "request": "launch",
             "program": "scripts/benchmarks/minimal_multimodal_training.py",

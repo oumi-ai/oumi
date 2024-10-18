@@ -33,6 +33,20 @@ class ModelParams(BaseParams):
     for the model.
     """
 
+    tokenizer_pad_token: Optional[str] = None
+    """The padding token used by the tokenizer.
+
+    If this is set, it will override the default padding token of the tokenizer and the
+    padding token optionally defined in the `tokenizer_kwargs`.
+    """
+
+    tokenizer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the tokenizer's constructor.
+
+    This allows for passing any tokenizer-specific parameters that are not
+    covered by other fields in ModelParams.
+    """
+
     model_max_length: Optional[int] = None
     """The maximum sequence length the model can handle.
 

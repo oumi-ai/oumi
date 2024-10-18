@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: >-
+  Oumi: An Open, Collaborative Platform for Training Large
+  Foundation Models
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - name: Oumi Community
+repository-code: "https://github.com/oumi-ai/oumi"
+url: "https://oumi.ai"
+keywords:
+  - machine-learning
+  - artificial-intelligence
+  - natural-language-processing
+  - deep-learning
+  - foundation-models
+  - llm
+license: Apache-2.0

@@ -10,6 +10,7 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.core.tokenizers import get_default_special_tokens
 from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
@@ -342,13 +343,12 @@ def build_cambrian_model(
 
 
 def build_tokenizer(
-    model_params: ModelParams, **kwargs
+    model_params: ModelParams,
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
         model_params (ModelParams): The model parameters.
-        **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
         tokenizer: The tokenizer object built from the configuration.
@@ -364,14 +364,28 @@ def build_tokenizer(
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
-        **kwargs,
+        **model_params.tokenizer_kwargs,
     )
 
-    if tokenizer.pad_token is None:
-        # Set pad token to eos token if not already set
-        # Older models may not have pad token set
-        logger.warning("<pad> token not found: setting <pad> with <eos>.")
-        tokenizer.pad_token = tokenizer.eos_token
+    if model_params.tokenizer_pad_token:
+        tokenizer.add_special_tokens(
+            special_tokens_dict={"pad_token": model_params.tokenizer_pad_token}
+        )
+
+    # Ensure that the tokenizer has a pad token set.
+    if (tokenizer.pad_token is None) and (tokenizer.pad_token_id is None):
+        default_pad_token = get_default_special_tokens(tokenizer).pad_token
+        if default_pad_token:
+            logger.warning(f"Undefined pad token. Setting it to `{default_pad_token}`.")
+            tokenizer.add_special_tokens(
+                special_tokens_dict={"pad_token": default_pad_token}
+            )
+        else:
+            raise ValueError(
+                "Tokenizer does not have a pad token. This is expected for older "
+                "models, but you need to set it manually in your model config as: "
+                "tokenizer_kwargs={'pad_token': 'user_defined_pad_token'}"
+            )
 
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length

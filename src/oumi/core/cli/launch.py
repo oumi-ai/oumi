@@ -13,36 +13,45 @@ from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.utils.logging import logger
 
 
-def _print_and_wait(message: str, task: Callable, **kwargs) -> None:
+def _print_spinner_and_sleep(
+    message: str, spinner: itertools.cycle, sleep_duration: float
+) -> None:
+    """Prints a message with a loading spinner and sleeps."""
+    _ = sys.stdout.write(f" {next(spinner)} {message}\r")
+    _ = sys.stdout.flush()
+    time.sleep(sleep_duration)
+    # Clear the line before printing the next spinner. This makes the spinner appear
+    # animated instead of printing each iteration on a new line. \r (written above)
+    # moves the cursor to the beginning of the line. \033[K deletes everything from the
+    # cursor to the end of the line.
+    _ = sys.stdout.write("\033[K")
+
+
+def _print_and_wait(message: str, task: Callable, asynchronous=True, **kwargs) -> None:
     """Prints a message with a loading spinner until the provided task is done."""
     spinner = itertools.cycle(["⠁", "⠈", "⠐", "⠠", "⢀", "⡀", "⠄", "⠂"])
-    with Pool(processes=1) as worker_pool:
-        worker_result = worker_pool.apply_async(task, kwds=kwargs)
-        while not worker_result.ready():
-            _ = sys.stdout.write(f" {next(spinner)} {message}\r")
-            _ = sys.stdout.flush()
-            time.sleep(0.1)
-            # Clear the line before printing the next spinner. This makes the spinner
-            # appear animated instead of printing each iteration on a new line.
-            # \r (written above) moves the cursor to the beginning of the line.
-            # \033[K deletes everything from the cursor to the end of the line.
-            _ = sys.stdout.write("\033[K")
-        worker_result.wait()
-        # Call get() to reraise any exceptions that occurred in the worker.
-        worker_result.get()
+    sleep_duration = 0.1
+    if asynchronous:
+        with Pool(processes=1) as worker_pool:
+            worker_result = worker_pool.apply_async(task, kwds=kwargs)
+            while not worker_result.ready():
+                _print_spinner_and_sleep(message, spinner, sleep_duration)
+            worker_result.wait()
+            # Call get() to reraise any exceptions that occurred in the worker.
+            worker_result.get()
+    else:
+        while not task(**kwargs):
+            _print_spinner_and_sleep(message, spinner, sleep_duration)
 
 
-def _create_job_poller(job_status: JobStatus, cluster: BaseCluster) -> Callable:
-    """Creates a function that polls the job status."""
-
-    def poll():
-        """Returns True if the job is done."""
-        status = cluster.get_job(job_status.id)
-        while not status.done:
-            time.sleep(30)  # Poll every 30 seconds.
-            status = cluster.get_job(job_status.id)
-
-    return poll
+def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
+    """Returns true IFF a job is no longer running."""
+    running_cloud = launcher.get_cloud(cloud)
+    running_cluster = running_cloud.get_cluster(cluster)
+    if not running_cluster:
+        return True
+    status = running_cluster.get_job(id)
+    return status.done
 
 
 def _stop_worker(id: str, cloud: str, cluster: str) -> None:
@@ -96,10 +105,11 @@ def _poll_job(
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
-    if detach and cloud != "local":
+    is_local = cloud == "local"
+    if detach and not is_local:
         print(f"Running job {job_status.id} in detached mode.")
         return
-    if detach and cloud == "local":
+    if detach and is_local:
         print("Cannot detach from jobs in local mode.")
 
     if not running_cluster:
@@ -108,10 +118,14 @@ def _poll_job(
 
     assert running_cluster
 
-    status = running_cluster.get_job(job_status.id)
-    while not status.done:
-        time.sleep(30)  # Poll every 30 seconds.
-        status = running_cluster.get_job(job_status.id)
+    _print_and_wait(
+        "Running job {job_status.id}",
+        _is_job_done,
+        asynchronous=not is_local,
+        id=job_status.id,
+        cloud=cloud,
+        cluster=job_status.cluster,
+    )
 
     final_status = running_cluster.get_job(job_status.id)
     if final_status:

@@ -4,7 +4,7 @@ import pandas as pd
 
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation, Message
+from oumi.core.types.conversation import Conversation, Message
 
 
 @register_dataset("HuggingFaceH4/ultrachat_200k")
