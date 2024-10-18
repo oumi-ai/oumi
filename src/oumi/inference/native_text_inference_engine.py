@@ -1,3 +1,4 @@
+import copy
 from typing import List
 
 import peft
@@ -8,6 +9,7 @@ from transformers import BatchEncoding
 
 from oumi.builders import (
     build_model,
+    build_processor,
     build_tokenizer,
 )
 from oumi.core.configs import GenerationParams, ModelParams
@@ -25,9 +27,13 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Args:
             model_params: The model parameters to use for inference.
         """
-        self._model = build_model(model_params)
-        self._tokenizer = build_tokenizer(model_params)
-        self._model_params = model_params
+        self._model_params = copy.deepcopy(model_params)
+        self._model = build_model(self._model_params)
+        self._tokenizer = build_tokenizer(self._model_params)
+        self._processor = build_processor(
+            self._model_params.model_name, self._tokenizer
+        )
+
         # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
         self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
