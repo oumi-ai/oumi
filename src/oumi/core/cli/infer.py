@@ -79,14 +79,16 @@ def infer(
         if parsed_config.generation.input_filepath:
             logger.warning(
                 "Interactive inference requested, skipping reading from "
-                "`input_filepath`."
+                "`generation.input_filepath`."
             )
         return oumi_infer_interactive(
             parsed_config, input_image_bytes=input_image_png_bytes
         )
 
     if parsed_config.generation.input_filepath is None:
-        raise ValueError("`input_filepath` must be provided for non-interactive mode.")
+        raise ValueError(
+            "`generation.input_filepath` must be provided for non-interactive mode."
+        )
     generations = oumi_infer(parsed_config)
 
     # Don't print results if output_filepath is provided.
