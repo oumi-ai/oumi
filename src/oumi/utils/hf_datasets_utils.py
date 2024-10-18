@@ -7,7 +7,7 @@ from oumi.utils.logging import logger
 def is_cached_to_disk_hf_dataset(dataset_folder: Union[str, Path]) -> bool:
     """Detects whether a dataset was saved using `dataset.save_to_disk()`.
 
-    Such datasets should be loaded using `datasets.Daataset.load_from_disk()`
+    Such datasets should be loaded using `datasets.Dataset.load_from_disk()`
 
     Returns:
         Whether the dataset was saved using `dataset.save_to_disk()` method.
