@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import PIL.Image
 import transformers
@@ -14,7 +14,7 @@ class BaseImageProcessor(abc.ABC):
         self,
         *,
         images: List[PIL.Image.Image],
-        return_tensors: str = "pt",
+        return_tensors: Optional[str] = "pt",
     ) -> Dict[str, Any]:
         """Extracts image features."""
         raise NotImplementedError
@@ -36,7 +36,7 @@ class DefaultImageProcessor(BaseImageProcessor):
         self,
         *,
         images: List[PIL.Image.Image],
-        return_tensors: str = "pt",
+        return_tensors: Optional[str] = "pt",
     ) -> Dict[str, Any]:
         """Extracts image features."""
         result = self._worker_processor(images=images, return_tensors=return_tensors)

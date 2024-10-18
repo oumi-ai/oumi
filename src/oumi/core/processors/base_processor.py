@@ -65,7 +65,7 @@ class BaseProcessor(abc.ABC):
         text: List[str],
         padding: bool,
         images: Optional[List[PIL.Image.Image]] = None,
-        return_tensors: str = "pt",
+        return_tensors: Optional[str] = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""
         raise NotImplementedError
@@ -166,8 +166,16 @@ class DefaultProcessor(BaseProcessor):
         token_str = self.image_token
         if not token_str:
             return None
-        image_token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
-        return int(image_token_id)
+
+        token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
+        if not isinstance(token_id, int):
+            raise ValueError(
+                "Image token id must be an integer. "
+                "The token is likely not in tokenizer's vocabulary. "
+                f"Image token: '{token_str}' "
+                f"Actual type: {type(token_id)}"
+            )
+        return int(token_id)
 
     @override
     def __call__(
@@ -176,7 +184,7 @@ class DefaultProcessor(BaseProcessor):
         text: List[str],
         padding: bool,
         images: Optional[List[PIL.Image.Image]] = None,
-        return_tensors: str = "pt",
+        return_tensors: Optional[str] = "pt",
     ) -> Dict[str, Any]:
         """Invokes the processor to extract features."""
         if images is None:

@@ -8,6 +8,7 @@ import torch
 
 from oumi.builders import build_chat_template, build_processor, build_tokenizer
 from oumi.core.configs import ModelParams
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message, Role, Type
 
@@ -113,8 +114,8 @@ def test_build_processor_basic_multimodal_success():
     model_params = ModelParams(
         model_name="llava-hf/llava-1.5-7b-hf", chat_template="default"
     )
-    tokenizer = build_tokenizer(model_params)
-    processor = build_processor(
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
         model_params.model_name, tokenizer, trust_remote_code=False
     )
     assert callable(processor)

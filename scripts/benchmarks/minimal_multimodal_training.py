@@ -42,6 +42,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.str_utils import sanitize_run_name
@@ -170,7 +171,9 @@ def test_multimodal_trainer(
 
     model = build_model(model_params)
     tokenizer: BaseTokenizer = build_tokenizer(model_params)
-    processor = build_processor(model_name.value, tokenizer, trust_remote_code=True)
+    processor: BaseProcessor = build_processor(
+        model_name.value, tokenizer, trust_remote_code=True
+    )
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
