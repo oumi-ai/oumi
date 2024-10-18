@@ -23,6 +23,7 @@ from oumi.builders.models import (
     build_tokenizer,
 )
 from oumi.builders.optimizers import build_optimizer
+from oumi.builders.processors import build_processor
 from oumi.builders.training import build_trainer
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "build_model",
     "build_optimizer",
     "build_peft_model",
+    "build_processor",
     "build_tokenizer",
     "build_trainer",
     "build_training_callbacks",
