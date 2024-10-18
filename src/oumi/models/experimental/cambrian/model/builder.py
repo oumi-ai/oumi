@@ -13,8 +13,8 @@
 #    limitations under the License.
 
 
-import os
 import warnings
+from pathlib import Path
 
 import torch
 from transformers import (
@@ -98,9 +98,11 @@ def load_pretrained_model(
                 )
 
             logger.info("Loading additional Cambrian weights...")
-            if os.path.exists(os.path.join(model_path, "non_lora_trainables.bin")):
+            model_path = Path(model_path)
+            non_lora_trainables_path = model_path / "non_lora_trainables.bin"
+            if non_lora_trainables_path.exists():
                 non_lora_trainables = torch.load(
-                    os.path.join(model_path, "non_lora_trainables.bin"),
+                    non_lora_trainables_path,
                     map_location="cpu",
                 )
             else:
@@ -114,7 +116,7 @@ def load_pretrained_model(
                     return torch.load(cache_file, map_location="cpu")
 
                 non_lora_trainables = load_from_hf(
-                    model_path, "non_lora_trainables.bin"
+                    str(model_path), "non_lora_trainables.bin"
                 )
             non_lora_trainables = {
                 (k[11:] if k.startswith("base_model.") else k): v
@@ -130,7 +132,7 @@ def load_pretrained_model(
             from peft import PeftModel
 
             logger.info("Loading LoRA weights...")
-            model = PeftModel.from_pretrained(model, model_path)
+            model = PeftModel.from_pretrained(model, str(model_path))
             logger.info("Merging LoRA weights...")
             model = model.merge_and_unload()
             logger.info("Model is loaded...")
@@ -144,7 +146,7 @@ def load_pretrained_model(
             )
 
             mm_projector_weights = torch.load(
-                os.path.join(model_path, "mm_projector.bin"), map_location="cpu"
+                Path(model_path) / "mm_projector.bin", map_location="cpu"
             )
             mm_projector_weights = {
                 k: v.to(torch.float16) for k, v in mm_projector_weights.items()
