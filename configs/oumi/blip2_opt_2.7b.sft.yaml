@@ -29,9 +29,9 @@ data:
       #     limit: 100
       #     return_tensors: True
       # - dataset_name: vision_language_jsonl
+      #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
       #   dataset_kwargs:
       #     data_column: "messages"
-      #     dataset_path: "training.jsonl"  # See notebook for example how to generate this file
       #     processor_name: "Salesforce/blip2-opt-2.7b"
 
 training:
