@@ -175,7 +175,7 @@ class DefaultProcessor(BaseProcessor):
         image_token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
         return int(image_token_id)
 
-    @abc.abstractmethod
+    @override
     def __call__(
         self,
         *,
@@ -197,7 +197,7 @@ class DefaultProcessor(BaseProcessor):
             )
         return result
 
-    @abc.abstractmethod
+    @override
     def apply_chat_template(
         self, texts: Union[str, List[str]], add_generation_prompt: bool = False
     ) -> str:
