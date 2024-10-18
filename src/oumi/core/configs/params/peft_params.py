@@ -141,7 +141,7 @@ class PeftParams(BaseParams):
     """
 
     bnb_4bit_compute_dtype_str: str = field(
-        default="float32",
+        default="float16",
         metadata={"help": "The compute type of the quantized parameters as a string."},
     )
     """Compute type of the quantized parameters.
