@@ -1,6 +1,7 @@
 import argparse
 import gc
 import time
+from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Optional, Union
@@ -167,6 +168,7 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
+        logger.info(f"Oumi version: {version('oumi')}")
         logger.info(f"Git revision hash: {get_git_revision_hash()}")
         logger.info(f"Git tag: {get_git_tag()}")
 
