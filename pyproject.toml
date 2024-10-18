@@ -152,7 +152,7 @@ ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
-    "PTH001", # pathlib
+    "PTH123", # pathlib: `open()` should be replaced by `Path.open()`
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
