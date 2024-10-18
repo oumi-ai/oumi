@@ -1,8 +1,8 @@
 import argparse
-import os
 import re
 import time
 from copy import deepcopy
+from pathlib import Path
 from typing import List
 
 from oumi.core.configs import AsyncEvaluationConfig
@@ -43,16 +43,14 @@ def main() -> None:
     evaluate_async(config)
 
 
-def _get_checkpoints(checkpoint_dir: str) -> List[str]:
+def _get_checkpoints(checkpoint_dir: Path) -> List[Path]:
     """Returns all checkpoints in the target directory."""
     # Modified from HF's transformers.trainer_utils.get_last_checkpoint().
     re_checkpoint = re.compile(r"^" + _PREFIX_CHECKPOINT_DIR + r"\-(\d+)$")
-    directory_list = os.listdir(checkpoint_dir)
     return [
-        os.path.join(checkpoint_dir, path)
-        for path in directory_list
-        if re_checkpoint.search(path) is not None
-        and os.path.isdir(os.path.join(checkpoint_dir, path))
+        path
+        for path in checkpoint_dir.iterdir()
+        if re_checkpoint.search(path.name) is not None and path.is_dir()
     ]
 
 
@@ -73,12 +71,13 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
     """
     retry_count = 0
     seen_checkpoints = set()
-    base_output_dir = config.evaluation.output_dir
+    base_output_dir = Path(config.evaluation.output_dir)
+    checkpoints_dir = Path(config.checkpoints_dir)
     while retry_count <= config.num_retries:
         # Check for a valid checkpoint.
         unseen_checkpoints = [
             checkpoint
-            for checkpoint in _get_checkpoints(config.checkpoints_dir)
+            for checkpoint in _get_checkpoints(checkpoints_dir)
             if checkpoint not in seen_checkpoints
         ]
         if len(unseen_checkpoints) == 0:
@@ -89,23 +88,15 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
         while len(unseen_checkpoints) > 0:
             checkpoint = unseen_checkpoints.pop()
             seen_checkpoints.add(checkpoint)
-            output_eval_dir = os.path.join(
-                base_output_dir, os.path.basename(checkpoint)
-            )
+            output_eval_dir = base_output_dir / checkpoint.name
             mutable_evaluation_config = deepcopy(config.evaluation)
             # Update the model to point to the checkpoint.
-            mutable_evaluation_config.model.model_name = checkpoint
+            mutable_evaluation_config.model.model_name = str(checkpoint)
             # Update the eval output location.
-            mutable_evaluation_config.output_dir = output_eval_dir
-            logger.info(
-                "Starting evaluation for checkpoint: "
-                f"{os.path.basename(checkpoint)}..."
-            )
+            mutable_evaluation_config.output_dir = str(output_eval_dir)
+            logger.info(f"Starting evaluation for checkpoint: {checkpoint.name}...")
             evaluate(mutable_evaluation_config)
-            logger.info(
-                "Finished evaluation for checkpoint: "
-                f"{os.path.basename(checkpoint)} !"
-            )
+            logger.info(f"Finished evaluation for checkpoint: {checkpoint.name} !")
         retry_count = 0
         time.sleep(config.polling_interval)
     logger.info(f"Retries exceeded `num_retries`: {config.num_retries}. Exiting...")
