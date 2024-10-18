@@ -116,9 +116,8 @@ optional = [
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 quant = [
-    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
-]                       # TODO: consider augmenting with more quantization frameworks
-
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+]
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
 
@@ -138,18 +137,20 @@ select = [
     "D",   # pydocstyle: check docstring style
     "TID", # flake8-tidy-imports: check import tidiness
     "NPY", # NumPy-specific rules
+    "PTH",
 ]
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
+    "PTH123", # `open()` should be replaced by `Path.open()`
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D"] # Ignore docstring checks in tests
+"tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
 "src/oumi/models/experimental/cambrian/**" = [
     "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
     "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated
