@@ -158,13 +158,22 @@ class DefaultProcessor(BaseProcessor):
     @override
     def image_token(self) -> Optional[str]:
         """Returns an image token."""
-        raise NotImplementedError
+        if (
+            hasattr(self._worker_processor, "image_token")
+            and self._worker_processor.image_token
+        ):
+            return str(self._worker_processor.image_token)
+        return None
 
     @property
     @override
     def image_token_id(self) -> Optional[int]:
         """Returns an image token id."""
-        raise NotImplementedError
+        token_str = self.image_token
+        if not token_str:
+            return None
+        image_token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
+        return int(image_token_id)
 
     @abc.abstractmethod
     def __call__(
