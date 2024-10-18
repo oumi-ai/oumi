@@ -115,7 +115,7 @@ optional = [
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
-quantization = [
+quant = [
     "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
 ]                       # TODO: consider augmenting with more quantization frameworks
 
