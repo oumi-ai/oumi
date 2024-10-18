@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union
 
+import torch
 from peft.utils.peft_types import TaskType
+from transformers import BitsAndBytesConfig
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.utils.torch_utils import get_torch_dtype
@@ -140,25 +142,41 @@ class PeftParams(BaseParams):
     Defaults to 'uint8' for efficient storage.
     """
 
-    bnb_4bit_compute_dtype_str: str = field(
-        default="float16",
-        metadata={"help": "The compute type of the quantized parameters as a string."},
+    bnb_4bit_compute_dtype: Union[str, torch.dtype] = field(
+        default=torch.float16,
+        metadata={"help": "The compute type of the quantized parameters."},
     )
     """Compute type of the quantized parameters.
     It can be different than the input type, e.g., it can be set to a lower precision
     for improved speed.
 
-    Valid options are:
+    If a string is used it will be converted to the corresponding torch.dtype.
+
+    Valid string options are:
     - "float32" or "f32" or "float" for 32-bit floating point
     - "float16" or "f16" or "half" for 16-bit floating point
     - "bfloat16" or "bf16" for brain floating point
     - "float64" or "f64" or "double" for 64-bit floating point
 
-    This string will be converted to the corresponding torch.dtype.
-
-    Defaults to "float32" for full precision.
+    Defaults to torch.float16 for half precision.
     """
 
     def __post_init__(self):
         """Populates some additional (derivative) parameters."""
-        self.bnb_4bit_compute_dtype = get_torch_dtype(self.bnb_4bit_compute_dtype_str)
+        if isinstance(self.bnb_4bit_compute_dtype, str):
+            self.bnb_4bit_compute_dtype = get_torch_dtype(self.bnb_4bit_compute_dtype)
+
+    def get_bits_and_bytes_config(self) -> BitsAndBytesConfig:
+        """Creates a configuration for quantized models via BitsAndBytes.
+
+        The resulting configuration uses the instantiated peft parameters.
+        """
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=self.q_lora_bits == 4,
+            load_in_8bit=self.q_lora_bits == 8,
+            bnb_4bit_compute_dtype=self.bnb_4bit_compute_dtype,
+            bnb_4bit_quant_type=self.bnb_4bit_quant_type,
+            bnb_4bit_use_double_quant=self.use_bnb_nested_quant,
+            bnb_4bit_quant_storage=self.bnb_4bit_quant_storage,
+        )
+        return quantization_config
