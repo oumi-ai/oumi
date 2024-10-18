@@ -20,7 +20,7 @@ deepspeed_config:
   # For details about the DeepSpeed config file, see:
   # https://huggingface.co/docs/accelerate/en/usage_guides/deepspeed#deepspeed-config-file
   # https://www.deepspeed.ai/docs/config-json/
-  deepspeed_config_file: "configs/examples/fineweb_ablation_pretraining/deepspeed/config.json"
+  deepspeed_config_file: "configs/examples/fineweb_ablation_pretraining/deepspeed/ds_config.json"
 distributed_type: DEEPSPEED
 downcast_bf16: no
 enable_cpu_affinity: false
