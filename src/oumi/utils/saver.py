@@ -29,7 +29,7 @@ def load_infer_prob(input_filepath: str) -> List[List[List[float]]]:
         return probs_list
 
     df_probs = pd.read_parquet(f"{input_filepath}{PARQUET_EXTENSION}")
-    probabilities = df_probs.values.tolist()
+    probabilities = df_probs.to_numpy().tolist()
     probabilities = [[to_list(probs) for probs in batch] for batch in probabilities]
     return probabilities
 

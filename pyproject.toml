@@ -116,8 +116,8 @@ optional = [
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
 
 quant = [
-    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
-]                       # TODO: consider augmenting with more quantization frameworks
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+]
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
@@ -131,13 +131,22 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "F",   # pyflakes: detect various errors
-    "E",   # pycodestyle: errors
-    "W",   # pycodestyle: warnings
-    "I",   # isort: check import order
-    "D",   # pydocstyle: check docstring style
-    "TID", # flake8-tidy-imports: check import tidiness
-    "NPY", # NumPy-specific rules
+    "F",     # pyflakes: detect various errors
+    "E",     # pycodestyle: errors
+    "W",     # pycodestyle: warnings
+    "I",     # isort: check import order
+    "D",     # pydocstyle: check docstring style
+    "TID",   # flake8-tidy-imports: check import tidiness
+    "NPY",   # NumPy-specific rules
+    "UP",    # pyupgrade: check for Python syntax updates
+    "ASYNC", # flake8-async: check for async/await syntax
+    "ICN",   # flake-8 import conventions,
+    "LOG",   # flake8-logging-format: check for logging format,
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise, use raise statements instead of return statements
+    "TID",   # flake8-tidy-imports: check for import tidiness
+    "INT",   # flake8-gettext,
+    "PD",    # pandas vet
 ]
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
