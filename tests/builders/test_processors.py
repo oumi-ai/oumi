@@ -24,6 +24,7 @@ _IMAGE_TOKEN_ID: Final[int] = 32000
 @pytest.fixture
 def mock_tokenizer():
     mock = MagicMock(spec=BaseTokenizer)
+    mock.chat_template = build_chat_template(template_name="default")
     mock.pad_token_id = 32001
     return mock
 
@@ -52,8 +53,10 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     assert id(mock_tokenizer) == id(processor.tokenizer)
     processor.tokenizer = mock_tokenizer
     assert id(mock_tokenizer) == id(processor.tokenizer)
-    assert processor.chat_template is None
+    assert processor.chat_template == test_chat_template
 
+    processor.chat_template = test_chat_template + " "
+    assert processor.chat_template == test_chat_template + " "
     processor.chat_template = test_chat_template
     assert processor.chat_template == test_chat_template
 
@@ -104,10 +107,11 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
 
 
 def test_build_processor_basic_multimodal_success():
-    oumi_chat_template: Final[str] = build_chat_template(template_name="llava")
+    default_chat_template: Final[str] = build_chat_template(template_name="default")
+    llava_chat_template: Final[str] = build_chat_template(template_name="llava")
 
     model_params = ModelParams(
-        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="default"
     )
     tokenizer = build_tokenizer(model_params)
     processor = build_processor(
@@ -119,9 +123,9 @@ def test_build_processor_basic_multimodal_success():
     processor.tokenizer = tokenizer
     assert id(tokenizer) == id(processor.tokenizer)
     assert processor.chat_template
-    assert processor.chat_template != oumi_chat_template
-    processor.chat_template = oumi_chat_template
-    assert processor.chat_template == oumi_chat_template
+    assert processor.chat_template == default_chat_template
+    processor.chat_template = llava_chat_template
+    assert processor.chat_template == llava_chat_template
 
     assert processor.image_processor is not None
     assert processor.image_token == _IMAGE_TOKEN

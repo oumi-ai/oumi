@@ -103,6 +103,9 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
+        # Use chat template from tokenizer.
+        self._worker_processor.chat_template = tokenizer.chat_template
+
         self._image_processor: Optional[BaseImageProcessor] = None
         if (
             hasattr(self._worker_processor, "image_processor")
