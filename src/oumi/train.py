@@ -52,6 +52,7 @@ from oumi.utils.torch_utils import (
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
+    log_peak_gpu_memory,
     log_versioning_info,
 )
 
@@ -330,6 +331,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Training is Complete.")
 
     log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
+    log_peak_gpu_memory()
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:
