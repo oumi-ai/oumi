@@ -1,7 +1,7 @@
 # import json
 # import tempfile
 # from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 import typer
@@ -26,22 +26,17 @@ def app():
 
 @pytest.fixture
 def mock_judge_dataset():
-    with patch("oumi.core.cli.judge.dataset") as m_judge_dataset:
-        yield m_judge_dataset
+    with patch("oumi.core.cli.judge.dataset") as mock_dataset:
+        yield mock_dataset
 
 
 @pytest.fixture
 def mock_judge_conversations():
-    with patch("oumi.core.cli.judge.conversations") as m_judge_conversations:
-        yield m_judge_conversations
+    with patch("oumi.core.cli.judge.conversations") as mock_conversations:
+        yield mock_conversations
 
 
 def test_judge_dataset_runs(app, mock_judge_dataset):
-    mock_dataset = Mock()
-    # mock_registry.get_dataset.return_value.return_value = mock_dataset
-    # mock_registry.get_judge.return_value = unit_test_judge
-
-    # judge = Judge(unit_test_judge)
     config = "oumi/v1_xml_unit_test"
     result = runner.invoke(
         app,
@@ -55,7 +50,8 @@ def test_judge_dataset_runs(app, mock_judge_dataset):
     )
 
     assert result.exit_code == 0
-    mock_judge_dataset.assert_called_once_with(config, dataset=mock_dataset)
+    mock_judge_dataset.assert_called()
+    mock_judge_dataset.assert_called_once_with(config, dataset_name="debug_sft")
     # mock_registry.get_dataset.assert_called_once_with("test_dataset", subset=None)
 
 

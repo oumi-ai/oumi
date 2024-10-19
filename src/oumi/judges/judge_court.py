@@ -145,8 +145,12 @@ def unit_test_judge():
         attributes=attributes,
         model=ModelParams(
             model_name="gpt2",
+            tokenizer_pad_token="</s>",
+            chat_template="gpt2",
         ),
-        generation=GenerationParams(max_new_tokens=128),
+        generation=GenerationParams(
+            max_new_tokens=128,
+        ),
     )
 
     return config

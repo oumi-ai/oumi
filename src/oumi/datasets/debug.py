@@ -114,7 +114,7 @@ class DebugSftDataset(BaseLMSftDataset):
 
     def __init__(
         self,
-        dataset_size: int = 1000,
+        dataset_size: int = 5,
         **kwargs,
     ):
         """Initializes a DebugSftDataset."""
