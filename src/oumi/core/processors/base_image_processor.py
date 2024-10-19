@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 import PIL.Image
 import transformers
@@ -15,7 +15,7 @@ class BaseImageProcessor(abc.ABC):
         *,
         images: List[PIL.Image.Image],
         return_tensors: Optional[str] = "pt",
-    ) -> Dict[str, Any]:
+    ) -> transformers.BatchFeature:
         """Extracts image features."""
         raise NotImplementedError
 
@@ -37,18 +37,14 @@ class DefaultImageProcessor(BaseImageProcessor):
         *,
         images: List[PIL.Image.Image],
         return_tensors: Optional[str] = "pt",
-    ) -> Dict[str, Any]:
+    ) -> transformers.BatchFeature:
         """Extracts image features."""
         result = self._worker_processor(images=images, return_tensors=return_tensors)
         if result is None:
             raise RuntimeError("Image processor returned `None`.")
-        elif isinstance(
-            result, (transformers.BatchFeature, transformers.BatchEncoding)
-        ):
-            result = result.data
-        elif not isinstance(result, dict):
+        elif not isinstance(result, transformers.BatchFeature):
             raise RuntimeError(
-                "Image processor returned an object that is not a dictionary. "
+                "Image processor returned an object that is not a BatchFeature. "
                 f"Actual type: {type(result)}"
             )
         return result

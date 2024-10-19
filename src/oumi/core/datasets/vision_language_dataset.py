@@ -155,8 +155,9 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             )
 
         # Clone `input_ids` as `labels`.
-        if self._return_tensors:
-            inputs["labels"] = inputs["input_ids"].clone()
+        input_ids = inputs["input_ids"]
+        if isinstance(input_ids, torch.Tensor):
+            inputs["labels"] = input_ids.clone()
         else:
             inputs["labels"] = copy.deepcopy(inputs["input_ids"])
 
@@ -165,10 +166,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        inputs["input_ids"] = inputs["input_ids"][0]
-        inputs["pixel_values"] = inputs["pixel_values"][0]
-        inputs["attention_mask"] = inputs["attention_mask"][0]
-        inputs["labels"] = inputs["labels"][0]
+        for feature_name in ("input_ids", "pixel_values", "attention_mask", "labels"):
+            x = inputs[feature_name]
+            if isinstance(x, torch.Tensor):
+                inputs[feature_name] = x[0]
+            elif isinstance(x, list):
+                inputs[feature_name] = x[0]
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
@@ -187,7 +190,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 labels[labels == image_token_id] = label_ignore_index
                 inputs["labels"] = labels.tolist()
 
-        return inputs
+        return inputs.data
 
     def _prepare_simple_model(
         self, conversation: Conversation

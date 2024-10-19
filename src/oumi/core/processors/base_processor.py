@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 import PIL.Image
 import transformers
@@ -66,7 +66,7 @@ class BaseProcessor(abc.ABC):
         padding: bool,
         images: Optional[List[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
-    ) -> Dict[str, Any]:
+    ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features."""
         raise NotImplementedError
 
@@ -185,9 +185,9 @@ class DefaultProcessor(BaseProcessor):
         padding: bool,
         images: Optional[List[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
-    ) -> Dict[str, Any]:
+    ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features."""
-        if images is None:
+        if images is None or len(images) == 0:
             result = self._worker_processor(
                 text=text, padding=padding, return_tensors=return_tensors
             )
@@ -197,13 +197,13 @@ class DefaultProcessor(BaseProcessor):
             )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
-        elif isinstance(
-            result, (transformers.BatchFeature, transformers.BatchEncoding)
-        ):
-            result = result.data
-        elif not isinstance(result, dict):
+        elif isinstance(result, transformers.BatchFeature):
+            result = transformers.BatchEncoding(
+                data=dict(**result), tensor_type=return_tensors
+            )
+        elif not isinstance(result, transformers.BatchEncoding):
             raise RuntimeError(
-                "Processor returned an object that is not a dictionary. "
+                "Processor returned an object that is not a BatchEncoding. "
                 f"Actual type: {type(result)}"
             )
         return result

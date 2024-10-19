@@ -5,6 +5,7 @@ import numpy as np
 import PIL.Image
 import pytest
 import torch
+import transformers
 
 from oumi.builders import build_chat_template, build_processor, build_tokenizer
 from oumi.core.configs import ModelParams
@@ -66,17 +67,20 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     assert processor.image_token_id is None
 
     result = processor(text=["hello world"], padding=False)
-    assert isinstance(result, dict)
+    assert isinstance(result, transformers.BatchEncoding)
     assert len(result) == 2
 
     assert "input_ids" in result
-    assert isinstance(result["input_ids"], torch.Tensor)
-    assert result["input_ids"].shape == (1, 2)
-    assert np.all(result["input_ids"].numpy() == np.array([[31373, 995]]))
+    input_ids = result["input_ids"]
+    assert isinstance(input_ids, torch.Tensor)
+    assert input_ids.shape == (1, 2)
+    assert np.all(input_ids.numpy() == np.array([[31373, 995]]))
 
     assert "attention_mask" in result
-    assert result["attention_mask"].shape == (1, 2)
-    assert np.all(result["attention_mask"].numpy() == np.array([[1, 1]]))
+    attention_mask = result["attention_mask"]
+    assert isinstance(attention_mask, torch.Tensor)
+    assert attention_mask.shape == (1, 2)
+    assert np.all(attention_mask.numpy() == np.array([[1, 1]]))
 
     prompt = processor.apply_chat_template(
         [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
@@ -133,18 +137,20 @@ def test_build_processor_basic_multimodal_success():
     assert processor.image_token_id == _IMAGE_TOKEN_ID
 
     result = processor(text=["hello world"], padding=False)
-    assert isinstance(result, dict)
+    assert isinstance(result, transformers.BatchEncoding)
     assert len(result) == 2
 
     assert "input_ids" in result
-    assert isinstance(result["input_ids"], torch.Tensor)
-    assert result["input_ids"].shape == (1, 3)
-    assert np.all(result["input_ids"].numpy() == np.array([[1, 22172, 3186]]))
+    input_ids = result["input_ids"]
+    assert isinstance(input_ids, torch.Tensor)
+    assert input_ids.shape == (1, 3)
+    assert np.all(input_ids.numpy() == np.array([[1, 22172, 3186]]))
 
     assert "attention_mask" in result
-    assert isinstance(result["attention_mask"], torch.Tensor)
-    assert result["attention_mask"].shape == (1, 3)
-    assert np.all(result["attention_mask"].numpy() == np.array([[1, 1, 1]]))
+    attention_mask = result["attention_mask"]
+    assert isinstance(attention_mask, torch.Tensor)
+    assert attention_mask.shape == (1, 3)
+    assert np.all(attention_mask.numpy() == np.array([[1, 1, 1]]))
 
     prompt = processor.apply_chat_template(
         [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
@@ -171,34 +177,36 @@ def test_build_processor_basic_multimodal_success():
     result = processor(
         text=[prompt], images=[test_image], padding=True, return_tensors="pt"
     )
-    assert isinstance(result, dict)
+    assert isinstance(result, transformers.BatchEncoding)
     assert sorted(list(result.keys())) == [
         "attention_mask",
         "input_ids",
         "pixel_values",
     ]
-    assert isinstance(result["attention_mask"], torch.Tensor)
-    assert result["attention_mask"].shape == (1, 57)
+    attention_mask = result["attention_mask"]
+    assert isinstance(attention_mask, torch.Tensor)
+    assert attention_mask.shape == (1, 57)
 
-    assert isinstance(result["input_ids"], torch.Tensor)
-    assert result["input_ids"].shape == (1, 57)
+    input_ids = result["input_ids"]
+    assert isinstance(input_ids, torch.Tensor)
+    assert input_ids.shape == (1, 57)
 
-    assert isinstance(result["pixel_values"], torch.Tensor)
-    assert result["pixel_values"].shape == (1, 3, 336, 336)
+    pixel_values = result["pixel_values"]
+    assert isinstance(pixel_values, torch.Tensor)
+    assert pixel_values.shape == (1, 3, 336, 336)
 
     image_proc_result = processor.image_processor(
         images=[test_image], return_tensors="pt"
     )
-    assert isinstance(image_proc_result, dict)
+    assert isinstance(image_proc_result, transformers.BatchFeature)
     assert sorted(list(image_proc_result.keys())) == [
         "pixel_values",
     ]
-    assert isinstance(image_proc_result["pixel_values"], torch.Tensor)
-    assert image_proc_result["pixel_values"].shape == (1, 3, 336, 336)
+    image_proc_pixel_values = result["pixel_values"]
+    assert isinstance(image_proc_pixel_values, torch.Tensor)
+    assert image_proc_pixel_values.shape == (1, 3, 336, 336)
 
-    assert np.all(
-        image_proc_result["pixel_values"].numpy() == result["pixel_values"].numpy()
-    )
+    assert np.all(image_proc_pixel_values.numpy() == pixel_values.numpy())
 
     # Multiple prompts, Multiple images (different counts).
     result = processor(
@@ -207,31 +215,33 @@ def test_build_processor_basic_multimodal_success():
         padding=True,
         return_tensors="pt",
     )
-    assert isinstance(result, dict)
+    assert isinstance(result, transformers.BatchEncoding)
     assert sorted(list(result.keys())) == [
         "attention_mask",
         "input_ids",
         "pixel_values",
     ]
-    assert isinstance(result["attention_mask"], torch.Tensor)
-    assert result["attention_mask"].shape == (3, 57)
+    attention_mask = result["attention_mask"]
+    assert isinstance(attention_mask, torch.Tensor)
+    assert attention_mask.shape == (3, 57)
 
-    assert isinstance(result["input_ids"], torch.Tensor)
-    assert result["input_ids"].shape == (3, 57)
+    input_ids = result["input_ids"]
+    assert isinstance(input_ids, torch.Tensor)
+    assert input_ids.shape == (3, 57)
 
-    assert isinstance(result["pixel_values"], torch.Tensor)
-    assert result["pixel_values"].shape == (2, 3, 336, 336)
+    pixel_values = result["pixel_values"]
+    assert isinstance(pixel_values, torch.Tensor)
+    assert pixel_values.shape == (2, 3, 336, 336)
 
     image_proc_result = processor.image_processor(
         images=[test_image, test_image], return_tensors="pt"
     )
-    assert isinstance(image_proc_result, dict)
+    assert isinstance(image_proc_result, transformers.BatchFeature)
     assert sorted(list(image_proc_result.keys())) == [
         "pixel_values",
     ]
-    assert isinstance(image_proc_result["pixel_values"], torch.Tensor)
-    assert image_proc_result["pixel_values"].shape == (2, 3, 336, 336)
+    image_proc_pixel_values = image_proc_result["pixel_values"]
+    assert isinstance(image_proc_pixel_values, torch.Tensor)
+    assert image_proc_pixel_values.shape == (2, 3, 336, 336)
 
-    assert np.all(
-        image_proc_result["pixel_values"].numpy() == result["pixel_values"].numpy()
-    )
+    assert np.all(image_proc_pixel_values.numpy() == pixel_values.numpy())
