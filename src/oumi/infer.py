@@ -11,7 +11,7 @@ from oumi.inference import (
     RemoteInferenceEngine,
     VLLMInferenceEngine,
 )
-from oumi.utils.image_utils import load_image_png_bytes
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
 
 
@@ -74,7 +74,9 @@ def main():
     config.validate()
 
     input_image_png_bytes: Optional[bytes] = (
-        load_image_png_bytes(input_image_filepath) if input_image_filepath else None
+        load_image_png_bytes_from_path(input_image_filepath)
+        if input_image_filepath
+        else None
     )
 
     # Run inference

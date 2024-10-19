@@ -8,7 +8,7 @@ import oumi.core.cli.cli_utils as cli_utils
 from oumi import infer as oumi_infer
 from oumi import infer_interactive as oumi_infer_interactive
 from oumi.core.configs import InferenceConfig
-from oumi.utils.image_utils import load_image_png_bytes
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
 
 
@@ -54,7 +54,7 @@ def infer(
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     input_image_png_bytes: Optional[bytes] = (
-        load_image_png_bytes(image) if image else None
+        load_image_png_bytes_from_path(image) if image else None
     )
 
     if not detach:
