@@ -80,18 +80,14 @@ def build_dataset_mixture(
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     datasets = [
-        _preprocess_dataset(
-            _sample_dataset(
-                _load_dataset(
-                    dataset_params=dataset_params,
-                    stream=dataset_split_params.stream,
-                    tokenizer=tokenizer,
-                ),
+        _sample_dataset(
+            _load_dataset(
                 dataset_params=dataset_params,
                 stream=dataset_split_params.stream,
+                tokenizer=tokenizer,
             ),
-            dataset_params,
-            tokenizer,
+            dataset_params=dataset_params,
+            stream=dataset_split_params.stream,
         )
         for dataset_params in dataset_split_params.datasets
     ]
@@ -276,25 +272,7 @@ def _preprocess_dataset(
     tokenizer: Optional[BaseTokenizer],
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
-    if (
-        dataset_params.preprocessing_function_name is None
-        or REGISTRY.get_dataset(
-            dataset_params.dataset_name, subset=dataset_params.subset
-        )
-        is not None
-    ):
-        # Custom datasets handle pre-processing internally.
-        return dataset
-
-    if tokenizer is None:
-        raise ValueError(
-            "Tokenizer is required for preprocessing but was not provided."
-        )
-
-    preprocessing_fn = build_prompt_generation_fn(
-        dataset_params.preprocessing_function_name, tokenizer
-    )
-    return dataset.map(preprocessing_fn, **dataset_params.preprocessing_function_kwargs)
+    return dataset
 
 
 def _build_iterable_dataset_sampler(
