@@ -79,8 +79,10 @@
             "module": "oumi",
             "args": [
                 "infer",
+                "--image",
+                "/home/user/scratch/models/cambrian/images/cambrian.png",
                 "-c",
-                "configs/recipes/gpt2/inference/infer.yaml"
+                "configs/examples/vision/llava_7b/infer.yaml"
             ],
             "justMyCode": true
         },

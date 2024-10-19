@@ -8,7 +8,7 @@ from oumi.core.processors.base_image_processor import BaseImageProcessor
 
 
 class DefaultImageProcessor(BaseImageProcessor):
-    """Default implementation of image processor that wraps a callable function."""
+    """Default implementation of image processor that wraps a callable object."""
 
     def __init__(self, worker_processor: Any):
         """Initializes the processor."""
