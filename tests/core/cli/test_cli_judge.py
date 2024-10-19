@@ -6,7 +6,7 @@ import typer
 from typer.testing import CliRunner
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.judge import conversations, dataset
+from oumi.core.cli.judge import conversations, dataset, model
 from oumi.core.types import Conversation, Message
 from oumi.core.types.conversation import Role
 from oumi.utils.io_utils import save_jsonlines
@@ -16,7 +16,7 @@ runner = CliRunner()
 config = "oumi/v1_xml_unit_test"
 
 
-# import json
+#
 # Fixtures
 #
 @pytest.fixture
@@ -24,23 +24,14 @@ def app():
     judge_app = typer.Typer()
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(dataset)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
+    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(model)
     yield judge_app
 
 
-@pytest.fixture
-def app_mock_commands(mock_judge_dataset, mock_judge_conversations):
-    judge_app = typer.Typer()
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(mock_judge_dataset)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
-        mock_judge_conversations
-    )
-    yield judge_app
-
-
-def test_judge_dataset_runs(app_mock_commands):
+def test_judge_dataset_runs(app):
     config = "oumi/v1_xml_unit_test"
     result = runner.invoke(
-        app_mock_commands,
+        app,
         [
             "dataset",
             "--config",
