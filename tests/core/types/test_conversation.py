@@ -211,11 +211,27 @@ def test_roundtrip_json():
     assert original == reconstructed
 
 
-def test_from_dict_with_invalid_data():
-    with pytest.raises(ValueError):
+def test_from_dict_with_invalid_field():
+    with pytest.raises(ValueError, match="Field required"):
         Conversation.from_dict({"invalid": "data"})
 
 
-def test_from_json_with_invalid_json():
-    with pytest.raises(ValueError):
+def test_from_json_with_invalid_field():
+    with pytest.raises(ValueError, match="Invalid JSON"):
         Conversation.from_json('{"invalid": json')
+
+
+def test_from_dict_with_invalid_base64():
+    with pytest.raises(ValueError, match="Invalid base64-encoded string"):
+        Conversation.from_dict(
+            {
+                "messages": [
+                    {
+                        "binary": "INVALID_BASE64!",
+                        "role": "user",
+                        "type": "image_binary",
+                    },
+                ],
+                "metadata": {"test": "metadata"},
+            }
+        )

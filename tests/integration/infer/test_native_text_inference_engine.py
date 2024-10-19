@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Final, List
 
 import jsonlines
+import pytest
+import torch
 
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
@@ -14,6 +16,14 @@ OUMI_ROOT_DIR: Final[Path] = (
     pathlib.Path(__file__).resolve().parent.parent.parent.parent
 )
 TEST_IMAGE_DIR: Final[Path] = OUMI_ROOT_DIR / "tests" / "testdata" / "images"
+
+
+def is_cuda_available_and_initialized():
+    if not torch.cuda.is_available():
+        return False
+    if not torch.cuda.is_initialized():
+        torch.cuda.init()
+    return torch.cuda.is_initialized()
 
 
 def _get_default_text_model_params() -> ModelParams:
@@ -299,6 +309,10 @@ def test_infer_from_file_to_file():
             assert expected_result == parsed_conversations
 
 
+@pytest.mark.skipif(
+    not is_cuda_available_and_initialized(),
+    reason="CUDA is not available",
+)
 def test_infer_from_file_to_file_with_images():
     png_image_bytes_cambrian = load_image_png_bytes_from_path(
         TEST_IMAGE_DIR / "cambrian.png"
