@@ -4,7 +4,9 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from oumi.builders.lr_schedules import build_lr_scheduler
+from oumi.builders.lr_schedules import (
+    build_lr_scheduler,
+)
 from oumi.core.configs import SchedulerType, TrainingParams
 
 #
@@ -135,51 +137,105 @@ def test_no_warmup_provided(optimizer, training_params):
     assert isinstance(scheduler, torch.optim.lr_scheduler.LambdaLR)
 
 
-@patch("transformers.get_linear_schedule_with_warmup")
-def test_linear_scheduler_params(mock_get_linear, optimizer, training_params):
+def test_linear_scheduler_params(optimizer, training_params):
     num_training_steps = 1000
+    # Do epoch 0 first to initialize `initial_lr` in param_groups
+    with patch(
+        "oumi.builders.lr_schedules.get_linear_schedule_with_warmup"
+    ) as mock_get_linear:
+        build_lr_scheduler(optimizer, training_params, num_training_steps, 0)
+        mock_get_linear.assert_called()
+        mock_get_linear.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=-1,
+        )
+
     current_epoch = 5
-    build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
-    mock_get_linear.assert_called_once_with(
-        optimizer=optimizer,
-        num_warmup_steps=10,
-        num_training_steps=num_training_steps,
-        last_epoch=4,
-    )
+    with patch(
+        "oumi.builders.lr_schedules.get_linear_schedule_with_warmup"
+    ) as mock_get_linear:
+        build_lr_scheduler(
+            optimizer, training_params, num_training_steps, current_epoch
+        )
+        mock_get_linear.assert_called()
+        mock_get_linear.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=4,
+        )
 
 
-@patch("transformers.get_cosine_schedule_with_warmup")
-def test_cosine_scheduler_params(mock_get_cosine, optimizer, training_params):
+def test_cosine_scheduler_params(optimizer, training_params):
     training_params.lr_scheduler_type = SchedulerType.COSINE
     num_training_steps = 1000
+
+    # Do epoch 0 first to initialize `initial_lr` in param_groups
+    with patch(
+        "oumi.builders.lr_schedules.get_cosine_schedule_with_warmup"
+    ) as mock_get_cosine:
+        build_lr_scheduler(optimizer, training_params, num_training_steps, 0)
+        mock_get_cosine.assert_called()
+        mock_get_cosine.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=-1,
+            num_cycles=0.5,
+        )
+
     current_epoch = 5
-    build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
-    mock_get_cosine.assert_called_once_with(
-        optimizer=optimizer,
-        num_warmup_steps=10,
-        num_training_steps=num_training_steps,
-        last_epoch=4,
-        num_cycles=0.5,
-    )
+    with patch(
+        "oumi.builders.lr_schedules.get_cosine_schedule_with_warmup"
+    ) as mock_get_cosine:
+        build_lr_scheduler(
+            optimizer, training_params, num_training_steps, current_epoch
+        )
+        mock_get_cosine.assert_called()
+        mock_get_cosine.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=4,
+            num_cycles=0.5,
+        )
 
 
-@patch("transformers.get_cosine_with_hard_restarts_schedule_with_warmup")
-def test_cosine_with_restarts_scheduler_params(
-    mock_get_cosine_restarts, optimizer, training_params
-):
+def test_cosine_with_restarts_scheduler_params(optimizer, training_params):
     training_params.lr_scheduler_type = SchedulerType.COSINE_WITH_RESTARTS
     num_training_steps = 1000
-    current_epoch = 5
     training_params.lr_scheduler_kwargs = {"num_cycles": 3}
-    build_lr_scheduler(optimizer, training_params, num_training_steps, -1)
-    build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
-    mock_get_cosine_restarts.assert_called_once_with(
-        optimizer=optimizer,
-        num_warmup_steps=10,
-        num_training_steps=num_training_steps,
-        last_epoch=-1,
-        num_cycles=3,
-    )
+    # Do epoch 0 first to initialize `initial_lr` in param_groups
+    with patch(
+        "oumi.builders.lr_schedules.get_cosine_with_hard_restarts_schedule_with_warmup"
+    ) as mock_get_cosine_restarts:
+        build_lr_scheduler(optimizer, training_params, num_training_steps, 0)
+        mock_get_cosine_restarts.assert_called()
+        mock_get_cosine_restarts.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=-1,
+            num_cycles=3,
+        )
+
+    current_epoch = 5
+    with patch(
+        "oumi.builders.lr_schedules.get_cosine_with_hard_restarts_schedule_with_warmup"
+    ) as mock_get_cosine_restarts:
+        build_lr_scheduler(
+            optimizer, training_params, num_training_steps, current_epoch
+        )
+        mock_get_cosine_restarts.assert_called()
+        mock_get_cosine_restarts.assert_called_once_with(
+            optimizer=optimizer,
+            num_warmup_steps=10,
+            num_training_steps=num_training_steps,
+            last_epoch=4,
+            num_cycles=3,
+        )
 
 
 @pytest.mark.parametrize(
