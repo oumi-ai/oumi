@@ -168,10 +168,12 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # TODO: OPE-355 add support for multiple images
         for feature_name in ("input_ids", "pixel_values", "attention_mask", "labels"):
             x = inputs[feature_name]
-            if isinstance(x, torch.Tensor):
+            if isinstance(x, (torch.Tensor, np.ndarray, list)):
                 inputs[feature_name] = x[0]
-            elif isinstance(x, list):
-                inputs[feature_name] = x[0]
+            else:
+                raise ValueError(
+                    f"Unexpected type of the feature '{feature_name}': {type(x)}"
+                )
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
