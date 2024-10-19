@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
+import transformers
 from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
 from typing_extensions import override
@@ -52,18 +53,23 @@ def mock_processor():
     processor.chat_template = None
     processor.image_token = _IMAGE_TOKEN
     processor.image_token_id = _IMAGE_TOKEN_ID
-    processor.side_effect = lambda images, text, return_tensors, padding: {
-        "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
-        "attention_mask": [[1, 1, 1, 1]],
-        "pixel_values": [
-            [
-                np.ones(shape=(3, 2, 8)),
-                np.zeros(shape=(3, 2, 8)),
-                np.ones(shape=(3, 2, 8)) * 0.5,
-                np.ones(shape=(3, 2, 8)) * 0.7,
-            ]
-        ],
-    }
+    processor.side_effect = (
+        lambda images, text, return_tensors, padding: transformers.BatchEncoding(
+            data={
+                "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
+                "attention_mask": [[1, 1, 1, 1]],
+                "pixel_values": [
+                    [
+                        np.ones(shape=(3, 2, 8)),
+                        np.zeros(shape=(3, 2, 8)),
+                        np.ones(shape=(3, 2, 8)) * 0.5,
+                        np.ones(shape=(3, 2, 8)) * 0.7,
+                    ]
+                ],
+            },
+            tensor_type=return_tensors,
+        )
+    )
     return processor
 
 
