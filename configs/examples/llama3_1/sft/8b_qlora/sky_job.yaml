@@ -6,7 +6,7 @@
 #
 # Example command:
 # sky launch -r --cloud GCP -c llama3.1_8B_qlora_sft_ddp \
-# configs/oumi/tasks/llama3.1/train/ddp/qlora/8B.sft/skypilot.yaml
+# configs/examples/llama3_1/sft/8b_qlora/sky_job.yaml
 #
 ####################################################################
 

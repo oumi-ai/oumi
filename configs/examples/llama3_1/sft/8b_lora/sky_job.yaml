@@ -6,7 +6,7 @@
 #
 # Example command:
 # sky launch -r --cloud GCP -c llama3.1_8B_lora_sft_ddp \
-# configs/oumi/tasks/llama3.1/train/ddp/lora/8B.sft/skypilot.yaml
+# configs/examples/llama3_1/sft/8b_lora/sky_job.yaml
 #
 ##################################################################
 
@@ -50,7 +50,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/oumi/tasks/llama3.1/train/ddp/lora/8B.sft/train.yaml \
+      -c configs/examples/llama3_1/sft/8b_lora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir='${OUMI_RUN_NAME}'" \
       "training.logging_dir='${OUMI_RUN_NAME}/runs'"
