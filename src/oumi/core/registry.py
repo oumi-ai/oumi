@@ -12,7 +12,18 @@ class RegistryType(Enum):
     JUDGE_CONFIG = auto()
 
 
-RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
+class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
+    def __new__(cls, name: str, registry_type: RegistryType):
+        """Create a new RegistryKey instance.
+
+        Args:
+            name: The name of the registry key.
+            registry_type: The type of the registry.
+
+        Returns:
+            A new RegistryKey instance with lowercase name.
+        """
+        return super().__new__(cls, name.lower(), registry_type)
 
 
 class Registry:
