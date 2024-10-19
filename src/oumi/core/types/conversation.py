@@ -1,5 +1,6 @@
+import base64
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 from jinja2 import Template
@@ -82,6 +83,24 @@ class Message(pydantic.BaseModel):
 
     type: Type = Type.TEXT
     """The type of the message content (e.g., text, image path, image URL)."""
+
+    @pydantic.field_serializer("binary")
+    def _encode_binary(self, value: Optional[bytes]) -> str:
+        """Encode binary value as base64 ASCII string.
+
+        This is needed for compatibility with JSON.
+        """
+        if value is None or len(value) == 0:
+            return ""
+        return base64.b64encode(value).decode("ascii")
+
+    @pydantic.field_validator("binary", mode="before")
+    def _decode_binary(cls, value: Optional[Union[str, bytes]]) -> Optional[bytes]:
+        if value is None:
+            return None
+        elif isinstance(value, str):
+            return base64.b64decode(value)
+        return value
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.

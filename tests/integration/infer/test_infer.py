@@ -1,4 +1,5 @@
-import pathlib
+from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -10,7 +11,8 @@ from oumi.utils.image_utils import load_image_png_bytes_from_path
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
 
-OUMI_ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent.parent.parent
+OUMI_ROOT_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent.parent
+TEST_IMAGE_DIR: Final[Path] = OUMI_ROOT_DIR / "tests" / "testdata" / "images"
 
 
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
@@ -49,9 +51,7 @@ def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
         generation=GenerationParams(max_new_tokens=16, temperature=0.0, seed=42),
     )
 
-    png_image_bytes = load_image_png_bytes_from_path(
-        OUMI_ROOT_DIR / "tests" / "testdata" / "images" / "cambrian.png"
-    )
+    png_image_bytes = load_image_png_bytes_from_path(TEST_IMAGE_DIR / "cambrian.png")
 
     # Simulate the user entering "Hello world!" in the terminal folowed by Ctrl+D.
     input_iterator = iter(["Describe the image!"])
@@ -109,9 +109,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         max_new_tokens=10, temperature=0.0, seed=42, batch_size=batch_size
     )
 
-    png_image_bytes = load_image_png_bytes_from_path(
-        OUMI_ROOT_DIR / "tests" / "testdata" / "images" / "cambrian.png"
-    )
+    png_image_bytes = load_image_png_bytes_from_path(TEST_IMAGE_DIR / "cambrian.png")
 
     input = ["Describe the high-level theme of the image in few words!"] * (
         num_batches * batch_size
