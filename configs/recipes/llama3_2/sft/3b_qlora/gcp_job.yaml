@@ -29,7 +29,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   set -x
   torchrun \
@@ -39,7 +39,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/oumi/llama3b.qlora.yaml \
+      -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

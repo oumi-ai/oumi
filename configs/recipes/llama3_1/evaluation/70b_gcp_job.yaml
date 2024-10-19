@@ -35,7 +35,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   if test ${OUMI_NUM_NODES} -ne 1; then
     echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
@@ -49,7 +49,7 @@ run: |
 
   set -x # Enable command tracing.
   python -m oumi.evaluate \
-    -c configs/oumi/llama70b.eval.yaml \
+    -c configs/recipes/llama3_1/evaluation/70b_eval.yaml \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 

@@ -2,13 +2,13 @@
 #
 # Run command for 8x40GB A100 GPUs
 # accelerate launch \
-#     --config_file configs/accelerate/llama8b.fsdp.yaml \
+#     --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
 #     --use_fsdp \
 #     --num_processes 8 \
 #     --dynamo_backend inductor \
 #     --mixed_precision no \
 #     -m oumi.train \
-#     -c "configs/oumi/llama3.8b.sft.longctx.yaml"
+#     -c "configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml"
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"

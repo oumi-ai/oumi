@@ -32,7 +32,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
@@ -42,7 +42,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/oumi/llava.7b.sft.yaml \
+      -c configs/examples/vision/llava_7b/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=10" \
       "training.save_steps=0" \

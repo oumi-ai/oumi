@@ -13,7 +13,7 @@ time accelerate launch \
     --dynamo_backend inductor \
     --mixed_precision no \
     -m oumi.train \
-    -c "configs/oumi/llama2b.pt.yaml" \
+    -c "configs/examples/fineweb_ablation_pretraining/ddp/train.yaml" \
     "training.trainer_type=TRL_SFT" \
     "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \
@@ -30,7 +30,7 @@ time accelerate launch \
 # time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
 time torchrun --standalone --nproc_per_node 1 \
     -m oumi.train \
-    -c "configs/oumi/llama2b.pt.yaml" \
+    -c "configs/examples/fineweb_ablation_pretraining/ddp/train.yaml" \
     "training.trainer_type=OUMI" \
     "training.per_device_train_batch_size=4" \
     "training.gradient_accumulation_steps=1" \

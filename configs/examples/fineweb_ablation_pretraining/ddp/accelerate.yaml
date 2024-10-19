@@ -6,9 +6,9 @@
 #   --main_process_ip ${OUMI_MASTER_ADDR} \
 #   --main_process_port 8007 \
 #   --multi-gpu \
-#   --config_file configs/accelerate/llama.ddp.yaml \
+#   --config_file configs/examples/fineweb_ablation_pretraining/ddp/accelerate.yaml \
 #   -m oumi.train \
-#   -c configs/oumi/llama2b.pt.yaml \
+#   -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \

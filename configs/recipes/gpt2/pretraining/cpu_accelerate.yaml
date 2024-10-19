@@ -1,8 +1,8 @@
 # Sample command to execute CPU-only training on a single machine:
 # CUDA_VISIBLE_DEVICES= accelerate launch \
-#   --config_file configs/accelerate/local_machine_no_distributed_cpu_only.yaml \
+#   --config_file configs/recipes/gpt2/pretraining/cpu_accelerate.yaml \
 #   -m oumi.train \
-#   -c configs/oumi/gpt2.pt.yaml \
+#   -c configs/recipes/gpt2/pretraining/train.yaml \
 #   "training.output_dir=/tmp/train/" \
 #   "training.enable_wandb=false" \
 #   "training.enable_tensorboard=false" \

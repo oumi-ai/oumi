@@ -1,17 +1,3 @@
-# Sample command:
-# accelerate launch \
-#   --use_fsdp \
-#   --config_file configs/accelerate/phi3.fsdp.dpo.yaml \
-#   -m oumi.train \
-#   -c configs/oumi/phi3.dpo.nvidia.24g.yaml \
-#   "training.output_dir=train/" \
-#   "training.enable_wandb=true" \
-#   "training.enable_tensorboard=true" \
-#   "training.include_performance_metrics=false" \
-#   "training.per_device_train_batch_size=4" \
-#   "training.max_steps=100" \
-#   "training.logging_steps=10"
-
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: FSDP

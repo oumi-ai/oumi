@@ -34,7 +34,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   set -x
   accelerate launch \
@@ -44,9 +44,9 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/accelerate/llama.fsdp.yaml \
+      --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
       -m oumi.train \
-      -c configs/oumi/llama8b.sft.yaml \
+      -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

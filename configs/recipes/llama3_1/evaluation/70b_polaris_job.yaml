@@ -44,7 +44,7 @@ run: |
 
   set -x # Enable command tracing.
   python -m oumi.evaluate \
-    -c configs/oumi/llama70b.eval.yaml \
+    -c configs/recipes/llama3_1/evaluation/70b_eval.yaml \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 

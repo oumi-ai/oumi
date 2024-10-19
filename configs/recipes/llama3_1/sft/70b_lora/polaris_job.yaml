@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.1 70B Instruct on 3 Polaris nodes.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/polaris/llama70b_lora.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+# oumi launch up -c configs/recipes/llama3_1/sft/70b_lora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama70b-lora
 # NOTE: Replace with your username.
 user: your_username

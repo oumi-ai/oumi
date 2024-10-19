@@ -35,7 +35,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
@@ -45,7 +45,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/oumi/phi3.dpo.nvidia.24g.yaml \
+      -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir=train/" \
       "training.enable_wandb=true" \

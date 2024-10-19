@@ -34,7 +34,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
@@ -44,7 +44,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/oumi/llama8b.lora.yaml \
+      -c configs/recipes/llama3_1/sft/8b_lora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=100" \
       "training.save_final_model=false"
