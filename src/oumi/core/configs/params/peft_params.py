@@ -159,7 +159,7 @@ class PeftParams(BaseParams):
     Defaults to "float16" for half precision.
     """
 
-    def get_bits_and_bytes_config(self) -> BitsAndBytesConfig:
+    def to_bits_and_bytes(self) -> BitsAndBytesConfig:
         """Creates a configuration for quantized models via BitsAndBytes.
 
         The resulting configuration uses the instantiated peft parameters.

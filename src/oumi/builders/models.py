@@ -171,7 +171,7 @@ def build_huggingface_model(
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
-        quantization_config = peft_params.get_bits_and_bytes_config()
+        quantization_config = peft_params.to_bits_and_bytes()
     else:
         quantization_config = None
 
