@@ -1,9 +1,7 @@
 import transformers
 
-from oumi.core.processors.base_processor import (
-    BaseProcessor,
-    DefaultProcessor,
-)
+from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.processors.default_processor import DefaultProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 

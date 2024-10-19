@@ -61,6 +61,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         processor_name: Optional[str] = None,
         label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
+        trust_remote_code: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
@@ -79,9 +80,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 )
         elif processor_name:
             processor = build_processor(
-                processor_name,
-                tokenizer,
-                # TODO Provide an option to set `trust_remote_code=True` here.
+                processor_name, tokenizer, trust_remote_code=trust_remote_code
             )
 
         self._processor: Optional[BaseProcessor] = processor
