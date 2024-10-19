@@ -1,6 +1,6 @@
 # Config to FSDP LoRA tune Llama 3.2 3B Instruct on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama3b_lora_fsdp.yaml --cluster llama3b-lora-fsdp
+# oumi launch up -c configs/recipes/llama3_2/sft/3b_lora/fsdp_gcp_job.yaml --cluster llama3b-lora-fsdp
 name: llama3b-lora-fsdp
 
 resources:

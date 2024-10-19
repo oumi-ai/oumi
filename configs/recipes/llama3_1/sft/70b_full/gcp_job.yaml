@@ -1,6 +1,6 @@
 # Config to FSDP full fine-tune Llama 3.1 70B Instruct on 4 GCP nodes.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama70b_sft_fsdp.yaml --cluster llama70b-sft-fsdp
+# oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
 name: llama70b-sft-fsdp
 
 num_nodes: 4

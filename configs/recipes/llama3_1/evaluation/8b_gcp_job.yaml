@@ -1,6 +1,6 @@
 # Config to eval Llama 3.1 8B Instruct on GCP.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama8b_eval.yaml --cluster llama8b-eval
+# oumi launch up -c configs/recipes/llama3_1/evaluation/8b_gcp_job.yaml --cluster llama8b-eval
 name: llama8b-eval
 
 resources:

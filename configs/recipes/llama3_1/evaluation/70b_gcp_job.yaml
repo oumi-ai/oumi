@@ -1,6 +1,6 @@
 # Config to eval Llama 3.1 70B Instruct on GCP.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama70b_eval.yaml --cluster llama70b-eval
+# oumi launch up -c configs/recipes/llama3_1/evaluation/70b_gcp_job.yaml --cluster llama70b-eval
 name: llama70b-eval
 
 resources:

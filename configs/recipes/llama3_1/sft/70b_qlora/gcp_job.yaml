@@ -1,6 +1,6 @@
 # Config to FSDP QLoRA tune Llama 3.1 70B Instruct on 2 GCP nodes.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama70b_qlora_fsdp.yaml --cluster llama70b-qlora-fsdp
+# oumi launch up -c configs/recipes/llama3_1/sft/70b_qlora/gcp_job.yaml --cluster llama70b-qlora-fsdp
 name: llama70b-qlora-fsdp
 
 num_nodes: 2

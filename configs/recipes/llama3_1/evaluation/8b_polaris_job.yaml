@@ -1,6 +1,6 @@
 # Config to eval Llama 3.1 8B Instruct on Polaris.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/polaris/llama8b_eval.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+# oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 name: llama8b-eval
 # NOTE: Replace with your username.
 user: your_username

@@ -1,6 +1,6 @@
 # Config to QLoRA tune Llama 3.2 3B Instruct on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama3b_qlora.yaml --cluster llama3b-qlora
+# oumi launch up -c configs/recipes/llama3_2/sft/3b_qlora/gcp_job.yaml --cluster llama3b-qlora
 name: llama3b-qlora
 
 resources:

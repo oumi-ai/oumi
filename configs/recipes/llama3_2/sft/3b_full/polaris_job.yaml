@@ -1,6 +1,6 @@
 # Config for Llama 3.2 3B Instruct SFT on 1 Polaris node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/polaris/llama3b_sft.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+# oumi launch up -c configs/recipes/llama3_2/sft/3b_full/polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 name: llama3b-sft
 # NOTE: Replace with your username.
 user: your_username

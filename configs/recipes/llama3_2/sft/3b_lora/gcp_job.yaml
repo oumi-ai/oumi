@@ -1,6 +1,6 @@
 # Config to LoRA tune Llama 3.2 3B Instruct on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/oumi/jobs/gcp/llama3b_lora.yaml --cluster llama3b-lora
+# oumi launch up -c configs/recipes/llama3_2/sft/3b_lora/gcp_job.yaml --cluster llama3b-lora
 name: llama3b-lora
 
 resources:
