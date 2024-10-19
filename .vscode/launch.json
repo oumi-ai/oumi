@@ -80,7 +80,7 @@
             "args": [
                 "infer",
                 "--image",
-                "/home/user/scratch/models/cambrian/images/cambrian.png",
+                "tests/testdata/images/cambrian.png",
                 "-c",
                 "configs/examples/vision/llava_7b/infer.yaml"
             ],

@@ -24,7 +24,11 @@ def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> by
         raise ValueError("Empty image file path.")
     input_image_filepath = Path(input_image_filepath)
     if not input_image_filepath.is_file():
-        raise ValueError("Image path is not a file.")
+        raise ValueError(
+            f"Image path is not a file: {input_image_filepath}"
+            if input_image_filepath.exists()
+            else f"Image path doesn't exist: {input_image_filepath}"
+        )
 
     try:
         pil_image = PIL.Image.open(input_image_filepath).convert("RGB")
