@@ -19,16 +19,18 @@ def _load_judge_config(config: str, extra_args: List[str]) -> JudgeConfig:
 
     if judge_config_builder:
         if extra_args:
-            raise ValueError(
+            typer.echo(
                 "For consistent judge results, a named judge config cannot be "
-                "overridden with extra arguments. Got: {extra_args}. "
+                f"overridden with extra arguments. Got: {extra_args}. "
                 "Please register a new named judge config, or provide a path to a "
                 "judge config file."
             )
+            raise typer.Exit(code=1)
         return judge_config_builder()
 
     if not Path(config).exists():
-        raise ValueError(f"Config file not found: '{config}'")
+        typer.echo(f"Config file not found: '{config}'")
+        raise typer.Exit(code=1)
 
     return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
 
@@ -53,7 +55,8 @@ def dataset(
 ):
     """Judge a dataset."""
     if not dataset_name:
-        raise ValueError("Dataset name is required.")
+        typer.echo("Dataset name is required.")
+        raise typer.Exit(code=1)
 
     # Load the judge config
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -64,7 +67,8 @@ def dataset(
     dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
 
     if dataset_class is None:
-        raise ValueError(f"Dataset '{dataset_name}' not found in registry.")
+        typer.echo(f"Dataset '{dataset_name}' not found in registry.")
+        raise typer.Exit(code=1)
 
     dataset = dataset_class(
         split=dataset_split,
@@ -76,6 +80,7 @@ def dataset(
 
     # Save the results
     if output_file:
+        typer.echo(f"Saving results to {output_file}")
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
@@ -103,7 +108,8 @@ def conversations(
 
     # Load the conversations from the input file
     if not input_file:
-        raise ValueError("Input file is required.")
+        typer.echo("Input file is required.")
+        raise typer.Exit(code=1)
 
     input_data = load_jsonlines(input_file)
     conversations = [Conversation.from_dict(conv) for conv in input_data]
@@ -113,6 +119,7 @@ def conversations(
 
     # Save the results
     if output_file:
+        typer.echo(f"Saving results to {output_file}")
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
