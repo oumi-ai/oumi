@@ -6,8 +6,9 @@ import jsonlines
 import typer
 from typing_extensions import Annotated
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.cli import cli_utils
-from oumi.core.configs import JudgeConfig
+from oumi.core.configs import InferenceConfig, JudgeConfig
 from oumi.core.registry import REGISTRY
 from oumi.core.types.conversation import Conversation
 from oumi.judge import judge_conversations, judge_dataset
@@ -118,6 +119,65 @@ def conversations(
     results = judge_conversations(judge_config, judge_inputs=conversations)
 
     # Save the results
+    if output_file:
+        typer.echo(f"Saving results to {output_file}")
+        with jsonlines.open(output_file, mode="w") as writer:
+            writer.write_all(results)
+    else:
+        for result in results:
+            print(json.dumps(result))
+
+
+def model(
+    ctx: typer.Context,
+    config: Annotated[
+        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
+    ],
+    inference_config: Annotated[
+        str,
+        typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the inference config file"),
+    ],
+    input_file: Annotated[
+        Optional[str], typer.Option(help="Path to the input file (jsonl)")
+    ] = None,
+    output_file: Annotated[
+        Optional[str], typer.Option(help="Path to the output file (jsonl)")
+    ] = None,
+):
+    """Judge the outputs of a model on a dataset."""
+    # Load the judge config
+    judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
+    judge_config = _load_judge_config(config, judge_extra_args)
+
+    # Load the inference config
+    inference_extra_args = cli_utils.parse_extra_cli_args(ctx)
+    model_inference_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
+        inference_config, inference_extra_args
+    )
+
+    if not model_inference_config.engine:
+        typer.echo("Inference engine is required.")
+        raise typer.Exit(code=1)
+
+    # Load the dataset
+    if not input_file:
+        typer.echo("Input file is required.")
+        raise typer.Exit(code=1)
+
+    input_data = load_jsonlines(input_file)
+    input_conversations = [Conversation.from_dict(output) for output in input_data]
+
+    # Run inference
+    inference_engine = build_inference_engine(
+        model_inference_config.engine, model_params=model_inference_config.model
+    )
+
+    model_outputs = inference_engine.infer(
+        input=input_conversations, generation_params=model_inference_config.generation
+    )
+
+    results = judge_conversations(judge_config, judge_inputs=model_outputs)
+
     if output_file:
         typer.echo(f"Saving results to {output_file}")
         with jsonlines.open(output_file, mode="w") as writer:
