@@ -171,12 +171,13 @@ def test_cosine_with_restarts_scheduler_params(
     num_training_steps = 1000
     current_epoch = 5
     training_params.lr_scheduler_kwargs = {"num_cycles": 3}
+    build_lr_scheduler(optimizer, training_params, num_training_steps, -1)
     build_lr_scheduler(optimizer, training_params, num_training_steps, current_epoch)
     mock_get_cosine_restarts.assert_called_once_with(
         optimizer=optimizer,
         num_warmup_steps=10,
         num_training_steps=num_training_steps,
-        last_epoch=4,
+        last_epoch=-1,
         num_cycles=3,
     )
 
