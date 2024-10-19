@@ -1,5 +1,4 @@
 import copy
-import io
 from typing import List, Optional
 
 import peft
@@ -18,6 +17,7 @@ from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import load_image_from_bytes
 from oumi.utils.logging import logger
 
 
@@ -132,28 +132,38 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         for i, conversation in enumerate(conversations):
             image_turns = [m for m in conversation.messages if m.is_image()]
             num_images = len(image_turns)
-            if num_images == 1:
+            if num_images >= 1:
+                if num_images > 1:
+                    # FIXME OPE-355 Support multiple images
+                    logger.warning(
+                        conversation.append_id_to_string(
+                            f"A conversation contains multiple images ({num_images}). "
+                            "Only 1 image is currently supported. "
+                            "Using the last image."
+                        )
+                    )
                 if len(pil_images) != i:
                     raise ValueError(
-                        "All or none conversations in a batch must contain images."
+                        conversation.append_id_to_string(
+                            "All or none conversations in a batch must contain images."
+                        )
                     )
-                image_turn = image_turns[0]
+                image_turn = image_turns[-1]
                 if image_turn.type != Type.IMAGE_BINARY:
                     raise NotImplementedError(
-                        "Only binary image messages (`IMAGE_BINARY`) are supported. "
-                        f"Actual: {image_turn.type}"
+                        conversation.append_id_to_string(
+                            "Only binary image messages (`IMAGE_BINARY`) are supported."
+                            f"Actual: {image_turn.type}"
+                        )
                     )
-                elif image_turn.binary is None:
+                elif image_turn.binary is None or len(image_turn.binary) == 0:
                     raise ValueError(
-                        "No image bytes in binary image messages (`IMAGE_BINARY`)!"
+                        conversation.append_id_to_string(
+                            "No image bytes in a binary image message (`IMAGE_BINARY`)!"
+                        )
                     )
-                image = PIL.Image.open(io.BytesIO(image_turn.binary)).convert("RGB")
+                image = load_image_from_bytes(image_turn.binary)
                 pil_images.append(image)
-            elif num_images > 1:
-                raise ValueError(
-                    "A conversation may contain maximum 1 image."
-                    f"Actual: {num_images}"
-                )
 
         batch = self._processor(
             text=text_prompts,

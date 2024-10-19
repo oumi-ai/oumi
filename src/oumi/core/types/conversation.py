@@ -196,6 +196,21 @@ class Conversation(pydantic.BaseModel):
             mode="json", exclude_unset=True, exclude_defaults=False, exclude_none=True
         )
 
+    def append_id_to_string(self, s: str) -> str:
+        """Appends conversation ID to a string.
+
+        Can be useful for log or exception errors messages to allow users
+        to identify relevant conversation.
+        """
+        if not self.conversation_id:
+            return s
+        suffix = f"Conversation id: {self.conversation_id}."
+        if not s:
+            return suffix
+        if s[-1:].isspace():
+            return s + suffix
+        return s + " " + suffix
+
     @classmethod
     def from_dict(cls, data: dict) -> "Conversation":
         """Converts a dictionary to a conversation."""
