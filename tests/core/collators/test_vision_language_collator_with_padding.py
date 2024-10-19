@@ -67,7 +67,7 @@ def test_success_basic():
     assert "input_ids" in collated_batch
     assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["input_ids"], dtype=np.int32)
+        collated_batch["input_ids"].numpy()
         == np.array(
             [[101, 102, 103, 104], [201, 202, pad_token_id, pad_token_id]],
             dtype=np.int32,
@@ -76,13 +76,13 @@ def test_success_basic():
     assert "attention_mask" in collated_batch
     assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        collated_batch["attention_mask"].numpy()
         == np.array([[1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
     assert "labels" in collated_batch
     assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["labels"], dtype=np.int32)
+        collated_batch["labels"].numpy()
         == np.array(
             [[101, 102, 103, 104], [201, 202, -100, -100]],
             dtype=np.int32,
@@ -91,7 +91,7 @@ def test_success_basic():
 
     assert "pixel_values" in collated_batch
     assert isinstance(collated_batch["pixel_values"], torch.Tensor)
-    pixel_values = np.array(collated_batch["pixel_values"])
+    pixel_values = collated_batch["pixel_values"].numpy()
     assert pixel_values.shape == (2, 3, 2, 8)
     assert np.all(pixel_values >= 0.4)
     assert np.all(pixel_values <= 0.6)
