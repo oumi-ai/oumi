@@ -9,7 +9,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/oumi/phi3.lora.yaml"
+                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
             ],
             "justMyCode": true
         },
@@ -41,7 +41,7 @@
                 "oumi",
                 "train",
                 "-c",
-                "configs/oumi/gpt2.pt.yaml"
+                "configs/recipes/gpt2/pretraining/train.yaml"
             ]
         },
         {
@@ -59,12 +59,12 @@
                 "4",
                 "--use_fsdp",
                 "--config_file",
-                "configs/accelerate/llama.fsdp.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/accelerate.yaml",
                 "-m",
                 "oumi",
                 "train",
                 "-c",
-                "configs/oumi/llama8b.sft.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/train.yaml",
                 "training.max_steps=2",
                 "training.save_steps=1",
                 "training.save_final_model=true",
@@ -80,7 +80,7 @@
             "args": [
                 "infer",
                 "-c",
-                "configs/oumi/inference/gpt2.yaml"
+                "configs/recipes/gpt2/inference/infer.yaml"
             ],
             "justMyCode": true
         },
@@ -92,7 +92,7 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/oumi/phi3.eval.lm_harness.yaml"
+                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
             ],
             "justMyCode": true
         },
