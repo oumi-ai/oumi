@@ -18,32 +18,10 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.datasets.preference_tuning import trl_dpo_chat_preprocessor_fn
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
-
-
-def build_prompt_generation_fn(
-    function_name: str, tokenizer: BaseTokenizer
-) -> Callable:
-    """Builds a prompt generation function.
-
-    Args:
-        function_name (str): The name of the prompt generation function.
-        tokenizer: The tokenizer object used for tokenization.
-
-    Returns:
-        The prompt generation function corresponding to the given function_name.
-
-    Raises:
-        ValueError: If the function_name is unknown.
-    """
-    if function_name == "trl_dpo":
-        return trl_dpo_chat_preprocessor_fn(tokenizer)
-
-    raise ValueError(f"Unknown prompt generation function: {function_name}")
 
 
 def build_dataset_mixture(
