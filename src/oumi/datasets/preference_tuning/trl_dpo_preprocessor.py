@@ -1,6 +1,5 @@
-from typing import Callable, Dict
-
-from oumi.core.tokenizers import BaseTokenizer
+from oumi.core.datasets.base_dataset import BaseMapDataset
+from oumi.core.registry import register_dataset
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -11,36 +10,33 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-def trl_dpo_chat_preprocessor_fn(
-    tokenizer: BaseTokenizer,
-) -> Callable[..., Dict]:
-    """Builds a preprocessing function for the TRL DPO trainer.
+@register_dataset("mlabonne/orpo-dpo-mix-40k")
+class BaseDpoPreprocessor(BaseMapDataset):
+    """Preprocess the samples to the Oumi format."""
 
-    DPOTrainer expects prompts, as well as the chosen and rejected responses
-    for each prompt.
-    """
-    return _convert_to_oumi_format
+    def __getitem__(self, index: int) -> dict:
+        """Transform the samples to the Oumi format."""
+        return self.transform_preference(self.dataset[index])
 
+    def transform_preference(self, samples: dict) -> dict:
+        """Transform the samples to the Oumi format."""
+        prompt = samples[_PROMPT_KEY]
+        chosen_chat = samples[_CHOSEN_KEY]
+        rejected_chat = samples[_REJECTED_KEY]
 
-def _extract_from_chat_format(sample):
-    # Get the last 'assistant' turn in the chat.
-    for turn in sample[::-1]:
-        if turn[_ROLE] == _ASSISTANT:
-            return turn[_CONTENT]
+        chosen_chat_response = self._extract_from_chat_format(chosen_chat)
+        rejected_chat_response = self._extract_from_chat_format(rejected_chat)
 
-    raise ValueError("No chat turn was found with an 'assistant' role.")
+        return {
+            _PROMPT_KEY: prompt,
+            _CHOSEN_KEY: chosen_chat_response,
+            _REJECTED_KEY: rejected_chat_response,
+        }
 
+    def _extract_from_chat_format(self, sample: dict) -> str:
+        """Extract the last 'assistant' turn in the chat."""
+        for turn in sample[::-1]:
+            if turn[_ROLE] == _ASSISTANT:
+                return turn[_CONTENT]
 
-def _convert_to_oumi_format(samples: dict) -> dict:
-    prompt = samples[_PROMPT_KEY]
-    chosen_chat = samples[_CHOSEN_KEY]
-    rejected_chat = samples[_REJECTED_KEY]
-
-    chosen_chat_response = _extract_from_chat_format(chosen_chat)
-    rejected_chat_response = _extract_from_chat_format(rejected_chat)
-
-    return {
-        _PROMPT_KEY: prompt,
-        _CHOSEN_KEY: chosen_chat_response,
-        _REJECTED_KEY: rejected_chat_response,
-    }
+        raise ValueError("No chat turn was found with an 'assistant' role.")
