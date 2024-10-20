@@ -35,8 +35,6 @@ Each section in the configuration file controls different aspects of the trainin
 - `data`: Defines the datasets for training and validation
 - `training`: Sets training hyperparameters and output locations
 
-For more advanced use cases and examples of other configuration options, see the [Configuration](https://github.com/oumi-ai/oumi/tree/main/configs/oumi) directory.
-
 ## 2. Model Selection
 
 Oumi supports various model architectures. To use a different model, simply change the `model_name` in your configuration:

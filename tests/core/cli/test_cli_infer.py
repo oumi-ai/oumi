@@ -118,13 +118,7 @@ def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
         config.generation.input_filepath = "some/path"
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path, "--detach"])
-        mock_infer.assert_has_calls(
-            [
-                call(
-                    config=config,
-                )
-            ]
-        )
+        mock_infer.assert_has_calls([call(config)])
 
 
 def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_interactive):
@@ -149,10 +143,4 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
         expected_config.model.model_name = "new_name"
         expected_config.generation.max_new_tokens = 5
         expected_config.generation.input_filepath = "some/path"
-        mock_infer.assert_has_calls(
-            [
-                call(
-                    config=expected_config,
-                )
-            ]
-        )
+        mock_infer.assert_has_calls([call(expected_config)])

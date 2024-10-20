@@ -90,6 +90,13 @@ def log_devices_info(filepath: Optional[Path] = None) -> None:
             f.write(all_text)
 
 
+def log_peak_gpu_memory():
+    """Log the peak GPU memory usage."""
+    if torch.cuda.is_available():
+        peak_memory = torch.cuda.max_memory_allocated() / 1024**3  # Convert to GB
+        logger.info(f"Peak GPU memory usage: {peak_memory:.2f} GB")
+
+
 def create_model_summary(model: Any) -> str:
     """Creates a model summary as a free-formed string."""
     lines = ["Model summary:", repr(model), ""]
