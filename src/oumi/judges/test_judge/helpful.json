@@ -1,0 +1,13 @@
+{
+    "name": "helpful",
+    "system_prompt": "Act as an impartial judge and evaluate whether the response provided by an AI chatbot to the user request below is helpful.",
+    "examples": [
+        {
+            "template": "<request>{{ request }}</request>\n{% if context %}<context>{{ context }}</context>{% endif %}\n{% if response %}<response>{{ response }}</response>{% endif %}\n",
+            "role": "user",
+            "request": "Give me a brief summary of the history of the Mona Lisa painting without mentioning any specific dates",
+            "response": "The Mona Lisa is a renowned portrait created by Leonardo da Vinci. It features a woman with an enigmatic smile, believed to be Lisa Gherardini. The painting is celebrated for its intricate detail, use of sfumato technique, and lifelike representation. Over time, it has become one of the most iconic and recognizable artworks in the world, housed in the Louvre Museum in Paris."
+        }
+    ],
+    "value_type": "bool"
+}
