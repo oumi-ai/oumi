@@ -1,6 +1,6 @@
 Oumi Documentation
 ==================
-Welcome to the documentation for Oumi !
+Welcome to the documentation for Oumi!
 
 Oumi is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
