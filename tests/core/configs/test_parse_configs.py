@@ -27,21 +27,33 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _get_all_config_paths(exclude_yaml: Optional[Set[str]]) -> List[str]:
-    """Recursively returns all configs in the /configs/oumi/ dir of the repo."""
+def _get_all_config_paths(exclude_yaml_suffixes: Optional[Set[str]]) -> List[str]:
+    """Recursively returns all configs in the /configs/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)
-    yaml_pattern = os.path.join(repo_root, "configs", "oumi", "**", "*.yaml")
+    yaml_pattern = os.path.join(repo_root, "configs", "**", "*.yaml")
     all_yaml_files = glob.glob(yaml_pattern, recursive=True)
-    if exclude_yaml:
-        filtered_files = [
-            f for f in all_yaml_files if os.path.basename(f) not in exclude_yaml
-        ]
-    return filtered_files
+    if exclude_yaml_suffixes:
+        exclude_files = []
+        for file in all_yaml_files:
+            for exclude_yaml in exclude_yaml_suffixes:
+                if file.endswith(exclude_yaml):
+                    exclude_files.append(file)
+                    break
+        all_yaml_files = [file for file in all_yaml_files if file not in exclude_files]
+    return all_yaml_files
 
 
 @pytest.mark.parametrize(
-    "config_path", _get_all_config_paths({"fsdp.yaml", "skypilot.yaml"})
+    "config_path",
+    _get_all_config_paths(
+        {
+            "accelerate.yaml",
+            "sky_job.yaml",
+            "sky_ssh_job.yaml",
+            "oumi_dev_iam_custom_role.yaml",
+        }
+    ),
 )
 def test_parse_configs(config_path: str):
     valid_config_classes = [
@@ -65,7 +77,15 @@ def test_parse_configs(config_path: str):
 
 
 @pytest.mark.parametrize(
-    "config_path", _get_all_config_paths({"fsdp.yaml", "skypilot.yaml"})
+    "config_path",
+    _get_all_config_paths(
+        {
+            "accelerate.yaml",
+            "sky_job.yaml",
+            "sky_ssh_job.yaml",
+            "oumi_dev_iam_custom_role.yaml",
+        }
+    ),
 )
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
