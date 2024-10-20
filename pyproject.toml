@@ -111,11 +111,14 @@ cambrian = [ # Consider merging into "train"
     "einops==0.6.1",
 ]
 optional = [
-    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
     "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
 ]
 # TODO: Deprecated, will be removed in a future release
 all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+
+quant = [
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+]
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
@@ -129,25 +132,35 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "F",   # pyflakes: detect various errors
-    "E",   # pycodestyle: errors
-    "W",   # pycodestyle: warnings
-    "I",   # isort: check import order
-    "D",   # pydocstyle: check docstring style
-    "TID", # flake8-tidy-imports: check import tidiness
-    "NPY", # NumPy-specific rules
+    "ASYNC", # flake8-async: check for async/await syntax
+    "D",     # pydocstyle: check docstring style
+    "E",     # pycodestyle: errors
+    "F",     # pyflakes: detect various errors
+    "I",     # isort: check import order
+    "ICN",   # flake-8 import conventions,
+    "INT",   # flake8-gettext
+    "LOG",   # flake8-logging-format: check for logging format,
+    "NPY",   # NumPy-specific rules
+    "PD",    # pandas vet
+    "PTH",   # pathlib
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise, use raise statements instead of return statements
+    "TID",   # flake8-tidy-imports: check import tidiness
+    "UP",    # pyupgrade: check for Python syntax updates
+    "W",     # pycodestyle: warnings
 ]
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
+    "PTH123", # pathlib: `open()` should be replaced by `Path.open()`
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D"] # Ignore docstring checks in tests
+"tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
 "src/oumi/models/experimental/cambrian/**" = [
     "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
     "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated

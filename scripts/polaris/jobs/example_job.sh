@@ -29,7 +29,7 @@ torchrun \
     --master-addr=${OUMI_MASTER_ADDR} \
     --master-port=8007 \
     -m oumi.train \
-    -c configs/oumi/gpt2.pt.yaml \
+    -c configs/recipes/gpt2/pretraining/train.yaml \
     "training.run_name='gpt2.pt.${PBS_JOBID}'" \
     "$TRAIN_DATASETS" \
     "training.max_steps=100" \

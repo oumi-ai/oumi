@@ -1,8 +1,8 @@
 import argparse
 import json
-import os
 import time
 from copy import deepcopy
+from pathlib import Path
 from pprint import pformat
 from typing import Any, Dict
 
@@ -165,10 +165,11 @@ def save_evaluation_results(
     metric_dict: Dict[str, Any],
 ) -> None:
     """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     output_filename = SAVE_FILENAME_JSON.format(benchmark_name=benchmark_name)
-    output_path = os.path.join(output_dir, output_filename)
-    with open(output_path, mode="w", encoding="utf-8") as f:
+    output_file = output_path / output_filename
+    with output_file.open(mode="w", encoding="utf-8") as f:
         json.dump(metric_dict, f)
 
 
