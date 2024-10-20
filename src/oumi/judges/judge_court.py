@@ -130,19 +130,16 @@ def unit_test_judge():
 
     Do not use this judge for anything serious as it returns random results.
     """
-    judges_directory = get_oumi_root_directory() / "judges" / "test_judge"
+    attribute_path = (
+        get_oumi_root_directory() / "judges" / "test_judge" / "helpful.json"
+    )
 
-    attribute_names = ["helpful"]
-
-    attributes = {
-        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
-            str(judges_directory / f"{attribute}.json")
-        )
-        for attribute in attribute_names
-    }
+    attribute = JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+        str(attribute_path)
+    )
 
     config = JudgeConfig(
-        attributes=attributes,
+        attributes={"helpful": attribute},
         model=ModelParams(
             model_name="gpt2",
             tokenizer_pad_token="</s>",
