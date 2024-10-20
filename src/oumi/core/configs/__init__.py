@@ -68,7 +68,7 @@ from oumi.core.configs.evaluation_config import (
 )
 from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
-from oumi.core.configs.judge_config import JudgeConfig
+from oumi.core.configs.judge_config import JudgeAttribute, JudgeConfig
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -111,6 +111,7 @@ __all__ = [
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
+    "JudgeAttribute",
     "JudgeConfig",
     "LMHarnessParams",
     "MixedPrecisionDtype",
