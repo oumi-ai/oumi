@@ -79,6 +79,18 @@
             "module": "oumi",
             "args": [
                 "infer",
+                "-c",
+                "configs/recipes/gpt2/inference/infer.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Oumi - Multimodal Inference",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "infer",
                 "--image",
                 "tests/testdata/images/cambrian.png",
                 "-c",
