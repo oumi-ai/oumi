@@ -176,10 +176,11 @@ class TrainingParams(BaseParams):
     gradient_accumulation_steps: int = 1
     """Number of update steps to accumulate before performing a backward/update pass.
 
-    This technique allows for effectively larger batch sizes without increasing
-    memory usage. The gradients from multiple forward passes are accumulated
-    before performing a single optimization step. Setting this to >1 can increase
-    memory usage for training setups wihout existing gradient accumulation buffers
+    This technique allows for effectively larger batch sizes and is especially
+    useful when such batch sizes would not fit in memory. This is achieved by
+    accumulating gradients from multiple forward passes before performing
+    a single optimization step. Setting this to >1 can increase however
+    memory usage for training setups without existing gradient accumulation buffers
     (ex. 1-GPU training).
     """
 

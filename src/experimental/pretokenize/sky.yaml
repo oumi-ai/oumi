@@ -33,7 +33,7 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/skypilot/sky_init.sh
+  source ./configs/examples/misc/sky_init.sh
 
   # Example of using files-based dataset:
   # export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT"
@@ -43,7 +43,7 @@ run: |
   # export INPUT_DATASET="${INPUT_DATA}/train/"
   # export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
   # Use these extra params:
-  #   --config ./configs/oumi/llama2b.pt.yaml \
+  #   --config ./configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
   #   --target_col text \
 
   # Example of using a remote HuggingFace dataset:

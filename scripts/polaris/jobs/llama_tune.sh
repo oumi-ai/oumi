@@ -111,7 +111,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
-                -c configs/oumi/llama3b.lora.yaml \
+                -c configs/recipes/llama3_2/sft/3b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             set -x # Print "torchrun" command with expanded variables
@@ -122,7 +122,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
-                -c configs/oumi/llama3b.qlora.yaml \
+                -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         else # SFT
             set -x # Print "torchrun" command with expanded variables
@@ -133,7 +133,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
-                -c configs/oumi/llama3b.sft.yaml \
+                -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
                 "model.model_max_length=512" \
                 $SHARED_TRAINING_PARAMS
         fi
@@ -156,7 +156,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
-                -c configs/oumi/llama8b.lora.yaml \
+                -c configs/recipes/llama3_1/sft/8b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora DDP is currently not supported!"
@@ -177,9 +177,9 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --main_process_ip ${OUMI_MASTER_ADDR} \
                 --main_process_port 8007 \
                 --use_fsdp \
-                --config_file configs/accelerate/llama.fsdp.yaml \
+                --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
                 -m oumi.train \
-                -c configs/oumi/llama8b.sft.yaml \
+                -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
@@ -200,9 +200,9 @@ else # 70B
                 --main_process_ip ${OUMI_MASTER_ADDR} \
                 --main_process_port 8007 \
                 --use_fsdp \
-                --config_file configs/accelerate/llama70b.lora.yaml \
+                --config_file configs/recipes/llama3_1/sft/70b_lora/accelerate.yaml \
                 -m oumi.train \
-                -c configs/oumi/llama70b.lora.yaml \
+                -c configs/recipes/llama3_1/sft/70b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 70B QLora is currently not supported!"
@@ -215,9 +215,9 @@ else # 70B
                 --main_process_ip ${OUMI_MASTER_ADDR} \
                 --main_process_port 8007 \
                 --use_fsdp \
-                --config_file configs/accelerate/llama70b.fsdp.yaml \
+                --config_file configs/recipes/llama3_1/sft/70b_full/accelerate.yaml \
                 -m oumi.train \
-                -c configs/oumi/llama70b.sft.yaml \
+                -c configs/recipes/llama3_1/sft/70b_full/train.yaml \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
