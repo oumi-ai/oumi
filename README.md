@@ -52,17 +52,17 @@ These configurations demonstrate how to setup and run full training for differen
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
 | **Llama Instruction Finetuning** | | | | |
-| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/oumi/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/oumi/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/oumi/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/oumi/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 8b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 8b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
 | **Example Models** | | | | |
-| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/oumi/llama3.8b.aya.sft.yaml) | GCP | ✨ Supported ✨ |
-| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/oumi/zephyr.7b/sft/qlora.yaml) | GCP | ✨ Supported ✨ |
-| ChatQA | SFT | [chatqa.stage1.yaml](/configs/oumi/chatqa/chatqa.stage1.yaml) | GCP | ✨ Supported ✨ |
+| Aya | SFT | [train.yaml](configs/projects/aya/sft/train.yaml) | GCP | ✨ Supported ✨ |
+| Zephyr |QLoRA | [qlora_train.yaml](/configs/projects/zephyr/sft/qlora_train.yaml) | GCP | ✨ Supported ✨ |
+| ChatQA | SFT | [chatqa_stage1_train.yaml](/configs/examples/chatqa/chatqa_stage1_train.yaml) | GCP | ✨ Supported ✨ |
 | **Pre-training** | | | | |
-| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/oumi/gpt2.pt.mac.yaml) | Mac (mps) | ✨ Supported ✨ |
-| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/oumi/llama2b.pt.yaml) | Polaris | ✨ Supported ✨ |
+| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/recipes/gpt2/pretraining/mac_train.yaml) | Mac (mps) | ✨ Supported ✨ |
+| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) | Polaris | ✨ Supported ✨ |
 
 ## Tutorials
 
