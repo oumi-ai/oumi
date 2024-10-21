@@ -6,8 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from typing_extensions import override
 
-from oumi.core.datasets import BaseExperimentalDpoPreprocessor
-from oumi.core.datasets.base_dataset import BaseLMSftDataset
+from oumi.core.datasets.base_dpo_processor import BaseExperimentalDpoPreprocessor
+from oumi.core.datasets.base_sft_dataset import BaseLMSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 

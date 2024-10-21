@@ -12,7 +12,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalDpoPreprocessor(BaseMapDataset):
+class BaseExperimentalDpoDataset(BaseMapDataset):
     """Preprocess the samples to the Oumi format.
 
     Warning:
