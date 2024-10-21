@@ -40,7 +40,24 @@ class MixtureStrategy(str, Enum):
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
-    """The name of the dataset to load. Required."""
+    """The name of the dataset to load. Required.
+
+    This field is used to retrieve the appropriate class from the dataset registry
+    that can be used to instantiate and preprocess the data.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry. Otherwise, the dataset will
+    be loaded from the specified `dataset_path`.
+    """
+
+    dataset_path: Optional[str] = None
+    """The path to the dataset to load.
+
+    This can be used to load a dataset of type `dataset_name` from a custom path.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry.
+    """
 
     subset: Optional[str] = None
     """The subset of the dataset to load.
