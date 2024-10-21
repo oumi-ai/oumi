@@ -1,5 +1,4 @@
 import copy
-from pathlib import Path
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import datasets
@@ -297,9 +296,9 @@ def _load_dataset(
             )
             return dataset.to_hf()
 
-    dataset_name_or_path: Path = Path(dataset_params.dataset_name)
-    if is_cached_to_disk_hf_dataset(dataset_name_or_path):
-        return datasets.Dataset.load_from_disk(dataset_name_or_path)
+    dataset_path = dataset_params.dataset_path
+    if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
+        return datasets.Dataset.load_from_disk(dataset_path)
     else:
         return datasets.load_dataset(
             dataset_params.dataset_name,
