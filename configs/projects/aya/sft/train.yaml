@@ -10,7 +10,6 @@ data:
     datasets:
       - dataset_name: "CohereForAI/aya_dataset"
         split: "train"
-        preprocessing_function_name: "aya"
     stream: True
     pack: True
     target_col: "text"
@@ -18,11 +17,9 @@ data:
     datasets:
       - dataset_name: "CohereForAI/aya_dataset"
         split: "test"
-        preprocessing_function_name: "aya"
     stream: False
     pack: False
     target_col: ${data.train.target_col}
-
 
 training:
   optimizer: "adafactor"

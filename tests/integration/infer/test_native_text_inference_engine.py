@@ -4,7 +4,7 @@ from typing import List
 
 import jsonlines
 
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import NativeTextInferenceEngine
 
@@ -15,6 +15,12 @@ def _get_default_model_params() -> ModelParams:
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+    )
+
+
+def _get_default_inference_config() -> InferenceConfig:
+    return InferenceConfig(
+        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
     )
 
 
@@ -62,17 +68,13 @@ def test_infer_online():
             conversation_id="123",
         )
     ]
-    result = engine.infer_online(
-        [conversation], GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
-    )
+    result = engine.infer_online([conversation], _get_default_inference_config())
     assert expected_result == result
 
 
 def test_infer_online_empty():
     engine = NativeTextInferenceEngine(_get_default_model_params())
-    result = engine.infer_online(
-        [], GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
-    )
+    result = engine.infer_online([], _get_default_inference_config())
     assert [] == result
 
 
@@ -129,14 +131,11 @@ def test_infer_online_to_file():
         ]
 
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
+        inference_config = _get_default_inference_config()
+        inference_config.output_path = str(output_path)
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationParams(
-                max_new_tokens=5,
-                temperature=0.0,
-                seed=42,
-                output_filepath=str(output_path),
-            ),
+            inference_config,
         )
         assert result == expected_result
         with open(output_path) as f:
@@ -180,17 +179,12 @@ def test_infer_from_file():
         ]
         result = engine.infer_from_file(
             str(input_path),
-            GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
+            _get_default_inference_config(),
         )
         assert expected_result == result
-        infer_result = engine.infer(
-            generation_params=GenerationParams(
-                max_new_tokens=5,
-                temperature=0.0,
-                seed=42,
-                input_filepath=str(input_path),
-            )
-        )
+        inference_config = _get_default_inference_config()
+        inference_config.input_path = str(input_path)
+        infer_result = engine.infer(inference_config=inference_config)
         assert expected_result == infer_result
 
 
@@ -199,15 +193,11 @@ def test_infer_from_file_empty():
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
         _setup_input_conversations(str(input_path), [])
         engine = NativeTextInferenceEngine(_get_default_model_params())
-        result = engine.infer_from_file(
-            str(input_path), GenerationParams(max_new_tokens=5)
-        )
+        inference_config = _get_default_inference_config()
+        result = engine.infer_from_file(str(input_path), inference_config)
         assert [] == result
-        infer_result = engine.infer(
-            generation_params=GenerationParams(
-                max_new_tokens=5, input_filepath=str(input_path)
-            )
-        )
+        inference_config.input_path = str(input_path)
+        infer_result = engine.infer(inference_config=inference_config)
         assert [] == infer_result
 
 
@@ -266,14 +256,11 @@ def test_infer_from_file_to_file():
         ]
 
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
+        inference_config = _get_default_inference_config()
+        inference_config.output_path = str(output_path)
         result = engine.infer_online(
             [conversation_1, conversation_2],
-            GenerationParams(
-                max_new_tokens=5,
-                output_filepath=str(output_path),
-                temperature=0.0,
-                seed=42,
-            ),
+            inference_config,
         )
         assert result == expected_result
         with open(output_path) as f:
