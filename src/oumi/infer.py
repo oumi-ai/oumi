@@ -168,7 +168,7 @@ def infer(
         ]
     generations = inference_engine.infer(
         input=conversations,
-        generation_params=config.generation,
+        inference_config=config,
     )
     return generations
 

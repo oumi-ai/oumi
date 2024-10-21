@@ -118,7 +118,7 @@ def test_infer_not_interactive_runs(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
-        config.generation.input_filepath = "some/path"
+        config.input_path = "some/path"
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
         mock_infer.assert_has_calls([call(config)])
@@ -128,7 +128,7 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")
         config: InferenceConfig = _create_inference_config()
-        config.generation.input_filepath = "some/path"
+        config.input_path = "some/path"
         config.to_yaml(yaml_path)
         _ = runner.invoke(
             app,
@@ -144,5 +144,5 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
         expected_config = _create_inference_config()
         expected_config.model.model_name = "new_name"
         expected_config.generation.max_new_tokens = 5
-        expected_config.generation.input_filepath = "some/path"
+        expected_config.input_path = "some/path"
         mock_infer.assert_has_calls([call(expected_config)])

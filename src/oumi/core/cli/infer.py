@@ -76,23 +76,21 @@ def infer(
     )
 
     if interactive:
-        if parsed_config.generation.input_filepath:
+        if parsed_config.input_path:
             logger.warning(
                 "Interactive inference requested, skipping reading from "
-                "`generation.input_filepath`."
+                "`input_path`."
             )
         return oumi_infer_interactive(
             parsed_config, input_image_bytes=input_image_png_bytes
         )
 
-    if parsed_config.generation.input_filepath is None:
-        raise ValueError(
-            "One of `--interactive` or `--generation.input_filepath` must be provided."
-        )
+    if parsed_config.input_path is None:
+        raise ValueError("One of `--interactive` or `input_path` must be provided.")
     generations = oumi_infer(parsed_config)
 
     # Don't print results if output_filepath is provided.
-    if parsed_config.generation.output_filepath:
+    if parsed_config.output_path:
         return
 
     for generation in generations:

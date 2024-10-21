@@ -173,7 +173,7 @@ def model(
     )
 
     model_outputs = inference_engine.infer(
-        input=input_conversations, generation_params=model_inference_config.generation
+        input=input_conversations, inference_config=model_inference_config
     )
 
     results = judge_conversations(judge_config, judge_inputs=model_outputs)

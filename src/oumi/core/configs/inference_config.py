@@ -34,6 +34,12 @@ class InferenceConfig(BaseConfig):
     generation: GenerationParams = field(default_factory=GenerationParams)
     """Parameters for text generation during inference."""
 
+    input_path: Optional[str] = None
+    """Path to the input file containing prompts for text generation."""
+
+    output_path: Optional[str] = None
+    """Path to the output file where the generated text will be saved."""
+
     engine: Optional[InferenceEngineType] = None
     """The inference engine to use for generation.
 
