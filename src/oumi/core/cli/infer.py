@@ -36,9 +36,7 @@ def infer(
     ] = None,
     interactive: Annotated[
         bool,
-        typer.Option(
-            "-i", "--interactive", help="Whether to run in an interactive session."
-        ),
+        typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
     image: Annotated[
         Optional[str],

@@ -35,7 +35,11 @@ class InferenceConfig(BaseConfig):
     """Parameters for text generation during inference."""
 
     input_path: Optional[str] = None
-    """Path to the input file containing prompts for text generation."""
+    """Path to the input file containing prompts for text generation.
+
+    The input file should be in JSONL format, where each line is a JSON representation
+    of an Oumi `Conversation` object.
+    """
 
     output_path: Optional[str] = None
     """Path to the output file where the generated text will be saved."""

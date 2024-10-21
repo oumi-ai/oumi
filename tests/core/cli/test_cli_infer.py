@@ -71,7 +71,7 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
         _ = runner.invoke(
             app,
             [
-                "-i",
+                "--interactive",
                 "--config",
                 yaml_path,
                 "--model.model_name",
