@@ -119,7 +119,17 @@ class DefaultProcessor(BaseProcessor):
         images: Optional[List[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchEncoding:
-        """Invokes the processor to extract features."""
+        """Invokes the processor to extract features.
+
+        Args:
+            text: A list of text prompts.
+            padding: Whether to pad sequences to common length.
+            images: A list of input images.
+            return_tensors: The format of returned tensors.
+
+        Returns:
+            transformers.BatchEncoding: The model-specific input features.
+        """
         if images is None or len(images) == 0:
             result = self._worker_processor(
                 text=text, padding=padding, return_tensors=return_tensors
@@ -145,7 +155,15 @@ class DefaultProcessor(BaseProcessor):
     def apply_chat_template(
         self, conversation: List[Message], add_generation_prompt: bool = False
     ) -> str:
-        """Applies chat template."""
+        """Applies a chat template.
+
+        Args:
+            conversation: A list of messages (conversation "turns").
+            add_generation_prompt: Whether to append generation prompt to the output.
+
+        Returns:
+            A text prompt, which includes all input messages formatted into a string.
+        """
         if isinstance(self._worker_processor, BaseTokenizer):
             # If the processor is actually a tokenizer, then disallow non-text messages.
             for message in conversation:
