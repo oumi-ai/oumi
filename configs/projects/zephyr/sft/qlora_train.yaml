@@ -16,12 +16,8 @@ data:
     datasets:
       - dataset_name: "HuggingFaceH4/ultrachat_200k"
         split: "train_sft"
-        preprocessing_function_name: "trl_sft_ultrachat_200k"
         shuffle: True
         seed: 42
-        preprocessing_function_kwargs:
-          num_proc: 12
-          batched: False
     target_col: "text"
 
 training:
@@ -57,11 +53,11 @@ peft:
   lora_alpha: 16
   lora_dropout: 0.05
   lora_target_modules:
-  - q_proj
-  - k_proj
-  - v_proj
-  - o_proj
-  - gate_proj
-  - up_proj
-  - down_proj
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
   bnb_4bit_quant_type: "nf4"
