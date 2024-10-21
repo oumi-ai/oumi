@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Oumi - Train",
+            "name": "Oumi - Train - SFT",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
@@ -12,6 +12,18 @@
                 "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
             ],
             "justMyCode": true
+        },
+        {
+            "name": "Oumi - Train - DPO",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "train",
+                "-c",
+                "configs/recipes/phi3/dpo/mac_train.yaml"
+            ],
+            "justMyCode": false
         },
         {
             "name": "Oumi - Judge",
