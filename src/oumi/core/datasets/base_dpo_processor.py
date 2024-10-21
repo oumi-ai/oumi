@@ -47,10 +47,6 @@ class BaseExperimentalDpoPreprocessor(BaseMapDataset):
 
         self._data = self._load_data()
 
-    # def __getitem__(self, index: int) -> dict:
-    #     """Transform the samples to the Oumi format."""
-    #     return self.transform_preference(self.dataset[index])
-
     def transform_preference(self, samples: dict) -> dict:
         """Transform the samples to the Oumi format."""
         prompt = samples[_PROMPT_KEY]
@@ -66,6 +62,10 @@ class BaseExperimentalDpoPreprocessor(BaseMapDataset):
             _REJECTED_KEY: rejected_chat_response,
         }
 
+    def transform(self, sample: dict) -> dict:
+        """Transform the samples to the Oumi format."""
+        return self.transform_preference(sample)
+
     def _extract_from_chat_format(self, sample: dict) -> str:
         """Extract the last 'assistant' turn in the chat."""
         for turn in sample[::-1]:
@@ -73,7 +73,3 @@ class BaseExperimentalDpoPreprocessor(BaseMapDataset):
                 return turn[_CONTENT]
 
         raise ValueError("No chat turn was found with an 'assistant' role.")
-
-    def transform(self, sample: dict) -> dict:
-        """Transform the samples to the Oumi format."""
-        return self.transform_preference(sample)
