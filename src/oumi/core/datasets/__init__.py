@@ -12,6 +12,7 @@ documentation.
 """
 
 from oumi.core.datasets.base_dataset import BaseLMSftDataset, BaseMapDataset
+from oumi.core.datasets.base_dpo_processor import BaseExperimentalDpoPreprocessor
 from oumi.core.datasets.iterable_dataset import (
     BaseIterableDataset,
     BasePretrainingIterableDataset,
@@ -22,10 +23,11 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 
 __all__ = [
+    "BaseExperimentalDpoPreprocessor",
     "BaseIterableDataset",
     "BaseLMSftDataset",
     "BaseMapDataset",
     "BasePretrainingIterableDataset",
-    "VisionLanguageSftDataset",
     "PretrainingAsyncTextDataset",
+    "VisionLanguageSftDataset",
 ]
