@@ -22,7 +22,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-        preprocessing_function_name: "alpaca"
         shuffle: True
     target_col: "prompt"
     seed: 123
