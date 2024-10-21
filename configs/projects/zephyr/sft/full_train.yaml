@@ -18,9 +18,6 @@ data:
         split: "train_sft"
         shuffle: True
         seed: 42
-        preprocessing_function_kwargs:
-          num_proc: 12
-          batched: False
     target_col: "text"
 
 training:
