@@ -13,6 +13,7 @@ Subpackages
 
    oumi.core.callbacks
    oumi.core.cli
+   oumi.core.collators
    oumi.core.configs
    oumi.core.datasets
    oumi.core.inference
