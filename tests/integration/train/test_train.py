@@ -135,7 +135,7 @@ def test_train_dpo():
                 train=DatasetSplitParams(
                     datasets=[
                         DatasetParams(
-                            dataset_name="mlabonne/orpo-dpo-mix-40k",
+                            dataset_name="debug_dpo",
                         )
                     ],
                 ),
