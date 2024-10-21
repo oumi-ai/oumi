@@ -12,6 +12,7 @@ from oumi.builders import (
     build_model,
     build_processor,
     build_tokenizer,
+    is_image_text_llm,
 )
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
@@ -34,8 +35,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
-        # FIXME Replace it with more general mechanism.
-        if "llava" in self._model_params.model_name:
+        if is_image_text_llm(self._model_params):
             # Only enable Processor for LLAVA for now
             self._processor = build_processor(
                 self._model_params.model_name,
