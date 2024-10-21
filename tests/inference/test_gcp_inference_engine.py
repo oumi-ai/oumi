@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference.gcp_inference_engine import GCPInferenceEngine
 
@@ -33,6 +38,13 @@ def generation_params(remote_params):
         temperature=0.7,
         top_p=0.9,
         remote_params=remote_params,
+    )
+
+
+@pytest.fixture
+def inference_config(generation_params):
+    return InferenceConfig(
+        generation=generation_params,
     )
 
 
@@ -67,9 +79,9 @@ def test_get_request_headers(gcp_engine, remote_params):
         }
 
 
-def test_convert_conversation_to_api_input(gcp_engine, conversation, generation_params):
+def test_convert_conversation_to_api_input(gcp_engine, conversation, inference_config):
     api_input = gcp_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, inference_config.generation
     )
     assert api_input["model"] == "gcp-model"
     assert len(api_input["messages"]) == 3
@@ -78,16 +90,16 @@ def test_convert_conversation_to_api_input(gcp_engine, conversation, generation_
     assert api_input["top_p"] == 0.9
 
 
-def test_infer_online(gcp_engine, conversation, generation_params):
+def test_infer_online(gcp_engine, conversation, inference_config):
     with patch.object(gcp_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gcp_engine.infer_online([conversation], generation_params)
+        results = gcp_engine.infer_online([conversation], inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation
 
 
-def test_infer_from_file(gcp_engine, conversation, generation_params, tmp_path):
+def test_infer_from_file(gcp_engine, conversation, inference_config, tmp_path):
     input_file = tmp_path / "input.jsonl"
     with open(input_file, "w") as f:
         json.dump(conversation.to_dict(), f)
@@ -95,7 +107,7 @@ def test_infer_from_file(gcp_engine, conversation, generation_params, tmp_path):
 
     with patch.object(gcp_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gcp_engine.infer_from_file(str(input_file), generation_params)
+        results = gcp_engine.infer_from_file(str(input_file), inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation
