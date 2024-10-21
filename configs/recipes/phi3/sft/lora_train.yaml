@@ -7,7 +7,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-        preprocessing_function_name: "alpaca"
     target_col: "prompt"
 
 training:
@@ -15,7 +14,7 @@ training:
   use_peft: true
   output_dir: "output/phi3.sft"
   trainer_type: "TRL_SFT"
-  per_device_train_batch_size: 2  # Each batch seems to be approx. 1.8GB
+  per_device_train_batch_size: 2 # Each batch seems to be approx. 1.8GB
   gradient_accumulation_steps: 8
 
   # Use for debugging purposes
@@ -24,10 +23,10 @@ training:
 peft:
   q_lora: False
   lora_target_modules:
-  - "q_proj"
-  - "k_proj"
-  - "v_proj"
-  - "o_proj"
-  - "gate_proj"
-  - "up_proj"
-  - "down_proj"
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
