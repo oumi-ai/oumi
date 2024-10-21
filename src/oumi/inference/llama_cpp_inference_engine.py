@@ -98,7 +98,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             # Too many can cause deadlocks
             "n_threads": 4,
             # Use Q8 quantization by default.
-            "filename": "*q8_0.gguf",
+            "filename": "*8_0.gguf",
             "flash_attn": True,
         }
 

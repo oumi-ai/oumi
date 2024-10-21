@@ -141,7 +141,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
             raise ValueError("Only the `train` split is supported for this dataset.")
 
         dataset = datasets.load_dataset(
-            self.dataset_name_or_path, data_files={"train": filename}
+            self.dataset_name, data_files={"train": filename}
         )
         dataset = cast(datasets.DatasetDict, dataset)
         return cast(pd.DataFrame, dataset["train"].to_pandas())
