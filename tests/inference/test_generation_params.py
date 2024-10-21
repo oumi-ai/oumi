@@ -5,7 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import (
     AnthropicInferenceEngine,
@@ -80,15 +85,18 @@ def test_generation_params(engine_class, sample_conversations):
             min_p=0.05,
             remote_params=RemoteParams(api_url="<placeholder>"),
         )
+        inference_config = InferenceConfig(
+            model=MODEL_PARAMS, generation=generation_params
+        )
 
-        result = engine.infer_online(sample_conversations, generation_params)
+        result = engine.infer_online(sample_conversations, inference_config)
 
         # Check that the result is as expected
         assert result == sample_conversations
 
         # Check that _infer was called with the correct parameters
         mock_infer.assert_called_once()
-        called_params = mock_infer.call_args[0][1]
+        called_params = mock_infer.call_args[0][1].generation
         assert called_params.max_new_tokens == 100
         assert called_params.temperature == 0.7
         assert called_params.top_p == 0.9
@@ -130,13 +138,16 @@ def test_generation_params_defaults(engine_class, sample_conversations):
         generation_params = GenerationParams(
             remote_params=RemoteParams(api_url="<placeholder>")
         )
+        inference_config = InferenceConfig(
+            model=MODEL_PARAMS, generation=generation_params
+        )
 
-        result = engine.infer_online(sample_conversations, generation_params)
+        result = engine.infer_online(sample_conversations, inference_config)
 
         assert result == sample_conversations
 
         mock_infer.assert_called_once()
-        called_params = mock_infer.call_args[0][1]
+        called_params = mock_infer.call_args[0][1].generation
         assert called_params.max_new_tokens == 256
         assert called_params.temperature == 1.0
         assert called_params.top_p == 1.0

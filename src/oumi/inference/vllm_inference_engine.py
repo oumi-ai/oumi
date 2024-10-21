@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from oumi.builders import build_tokenizer
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -88,7 +88,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: list[Conversation], generation_params: GenerationParams
+        self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
@@ -96,11 +96,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
+        generation_params = inference_config.generation
         output_conversations = []
         sampling_params = SamplingParams(
             n=1,
@@ -145,29 +146,29 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
-            if generation_params.output_filepath:
+            if inference_config.output_path:
                 self._save_conversation(
                     new_conversation,
-                    generation_params.output_filepath,
+                    inference_config.output_path,
                 )
         return output_conversations
 
     def infer_online(
-        self, input: list[Conversation], generation_params: GenerationParams
+        self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)
 
     def infer_from_file(
-        self, input_filepath: str, generation_params: GenerationParams
+        self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -177,10 +178,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)
