@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.configs import ModelParams
@@ -26,6 +27,7 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
             model_name="openai-community/gpt2",
             torch_dtype_str="float16",
             trust_remote_code=False,
+            tokenizer_pad_token="<|endoftext|>",
         )
     )
     assert tokenizer.pad_token_id
@@ -48,7 +50,7 @@ def test_success_basic():
     assert "input_ids" in collated_batch
     assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["input_ids"], dtype=np.int32)
+        collated_batch["input_ids"].numpy()
         == np.array(
             [[101, 102, 103, 104], [201, 202, pad_token_id, pad_token_id]],
             dtype=np.int32,
@@ -57,7 +59,7 @@ def test_success_basic():
     assert "attention_mask" in collated_batch
     assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        collated_batch["attention_mask"].numpy()
         == np.array([[1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
     assert "labels" not in collated_batch
@@ -105,7 +107,7 @@ def test_success_with_labels_and_max_length():
     assert len(collated_batch["input_ids"]) == 3
     assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["input_ids"], dtype=np.int32)
+        collated_batch["input_ids"].numpy()
         == np.array([[101, pad_token_id], [201, 202], [301, 302]], dtype=np.int32)
     )
 
@@ -113,7 +115,7 @@ def test_success_with_labels_and_max_length():
     assert len(collated_batch["attention_mask"]) == 3
     assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        collated_batch["attention_mask"].numpy()
         == np.array([[1, 0], [1, 1], [1, 1]], dtype=np.int32)
     )
 
@@ -121,7 +123,7 @@ def test_success_with_labels_and_max_length():
     assert len(collated_batch["labels"]) == 3
     assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["labels"], dtype=np.int32)
+        collated_batch["labels"].numpy()
         == np.array([[101, pad_token_id], [201, 202], [301, 302]], dtype=np.int32)
     )
 
@@ -129,7 +131,9 @@ def test_success_with_labels_and_max_length():
 def test_success_label_ingnore_index():
     tokenizer, pad_token_id = create_test_tokenizer()
 
-    collator = TextCollatorWithPadding(tokenizer, max_length=4, label_ignore_index=-100)
+    collator = TextCollatorWithPadding(
+        tokenizer, max_length=4, label_ignore_index=constants.LABEL_IGNORE_INDEX
+    )
     assert callable(collator)
 
     collated_batch = collator(
@@ -144,7 +148,7 @@ def test_success_label_ingnore_index():
     assert len(collated_batch["input_ids"]) == 3
     assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["input_ids"], dtype=np.int32)
+        collated_batch["input_ids"].numpy()
         == np.array(
             [
                 [101, pad_token_id, pad_token_id, pad_token_id],
@@ -159,7 +163,7 @@ def test_success_label_ingnore_index():
     assert len(collated_batch["attention_mask"]) == 3
     assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        collated_batch["attention_mask"].numpy()
         == np.array([[1, 0, 0, 0], [1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
 
@@ -167,7 +171,7 @@ def test_success_label_ingnore_index():
     assert len(collated_batch["labels"]) == 3
     assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["labels"], dtype=np.int32)
+        collated_batch["labels"].numpy()
         == np.array(
             [
                 [101, -100, -100, -100],

@@ -1,0 +1,36 @@
+name: Feature Request
+description: Request a new feature for Oumi
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this feature request!
+  - type: textarea
+    id: feature-request
+    attributes:
+      label: Feature request
+      description: |
+        Give a clear and concise description of the feature you'd like to see added to
+        Oumi.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / references
+      description: |
+        Please provide the motivation and rationale for the feature request. Link any
+        relevant GitHub issues, PRs, papers, or other resources so we can better
+        understand your request.
+    validations:
+      required: true
+  - type: textarea
+    id: contribution
+    attributes:
+      label: Your contribution
+      description: |
+        Can you help with this feature request (submitting a PR, etc)?
+    validations:
+      required: true

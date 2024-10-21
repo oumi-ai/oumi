@@ -6,14 +6,16 @@ from typing import Any, Dict, List, Optional, Union
 from tqdm.auto import tqdm
 from typing_extensions import Self
 
-from oumi.core.configs import JudgeConfig
+from oumi.builders.inference_engines import build_inference_engine
+from oumi.core.configs import InferenceConfig, JudgeConfig
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.turn import Conversation, Message, Role, TemplatedMessage
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
     RemoteInferenceEngine,
 )
+from oumi.utils.logging import logger
 
 
 class BaseJudgeOutput(ABC, TemplatedMessage):
@@ -90,10 +92,12 @@ class BaseJudge(ABC):
                 "At least one attribute must be specified in the judge configuration."
             )
 
-        if inference_engine is None:
-            self.inference_engine = self._create_inference_engine(config)
-        else:
+        if inference_engine is not None:
+            logger.debug("Using provided inference engine.")
             self.inference_engine = inference_engine
+        else:
+            logger.debug("Initializing inference engine.")
+            self.inference_engine = build_inference_engine(config.engine, config.model)
 
     def judge(
         self,
@@ -197,8 +201,11 @@ class BaseJudge(ABC):
         """Judge a single attribute."""
         metadatas = [convo.metadata for convo in conversations]
 
+        # Wrap the generation params in an inference config for inference.
+        # Only the generations params are used by the inference engine.
+        inference_config = InferenceConfig(generation=self._config.generation)
         responses = self.inference_engine.infer(
-            input=conversations, generation_params=self._config.generation
+            input=conversations, inference_config=inference_config
         )
 
         assert len(responses) == len(metadatas)

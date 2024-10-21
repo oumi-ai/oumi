@@ -40,7 +40,24 @@ class MixtureStrategy(str, Enum):
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
-    """The name of the dataset to load. Required."""
+    """The name of the dataset to load. Required.
+
+    This field is used to retrieve the appropriate class from the dataset registry
+    that can be used to instantiate and preprocess the data.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry. Otherwise, the dataset will
+    be loaded from the specified `dataset_path`.
+    """
+
+    dataset_path: Optional[str] = None
+    """The path to the dataset to load.
+
+    This can be used to load a dataset of type `dataset_name` from a custom path.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry.
+    """
 
     subset: Optional[str] = None
     """The subset of the dataset to load.
@@ -213,14 +230,11 @@ class DatasetSplitParams(BaseParams):
     If set to `None` mixing will be non-deterministic.
     """
 
-    # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_async_dataset: bool = False
+    use_async_dataset: bool = False
     """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
-
-    Warning:
-        This is an experimental feature and may change without notice.
     """
 
+    # EXPERIMENTAL PARAMS -------------------------
     experimental_use_torch_datapipes: bool = False
     """Whether to use the torch DataPipes for dataset processing.
 
@@ -307,3 +321,22 @@ class DataParams(BaseParams):
             return self.validation
         else:
             raise ValueError(f"Received invalid split: {split}.")
+
+    def __post_init__(self):
+        """Verifies params."""
+        all_collators = set()
+        if self.train.collator_name:
+            all_collators.add(self.train.collator_name)
+        if self.validation.collator_name:
+            all_collators.add(self.validation.collator_name)
+        if self.test.collator_name:
+            all_collators.add(self.test.collator_name)
+        if len(all_collators) >= 2:
+            raise ValueError(
+                f"Different data collators are not supported yet: {all_collators}"
+            )
+        elif len(all_collators) == 1 and not self.train.collator_name:
+            raise ValueError(
+                "Data collator must be also specified "
+                f"on the `train` split: {all_collators}"
+            )

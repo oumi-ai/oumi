@@ -1,12 +1,13 @@
 import glob
 import os
-from typing import List
+from typing import List, Optional, Set
 
 import pytest
 
 from oumi.core.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
+    InferenceConfig,
     JobConfig,
     TrainingConfig,
 )
@@ -26,21 +27,41 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _get_all_config_paths() -> List[str]:
-    """Recursively returns all configs in the /configs/oumi/ dir of the repo."""
+def _get_all_config_paths(exclude_yaml_suffixes: Optional[Set[str]]) -> List[str]:
+    """Recursively returns all configs in the /configs/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)
-    yaml_pattern = os.path.join(repo_root, "configs", "oumi", "**", "*.yaml")
-    return glob.glob(yaml_pattern, recursive=True)
+    yaml_pattern = os.path.join(repo_root, "configs", "**", "*.yaml")
+    all_yaml_files = glob.glob(yaml_pattern, recursive=True)
+    if exclude_yaml_suffixes:
+        exclude_files = []
+        for file in all_yaml_files:
+            for exclude_yaml in exclude_yaml_suffixes:
+                if file.endswith(exclude_yaml):
+                    exclude_files.append(file)
+                    break
+        all_yaml_files = [file for file in all_yaml_files if file not in exclude_files]
+    return all_yaml_files
 
 
-@pytest.mark.parametrize("config_path", _get_all_config_paths())
+@pytest.mark.parametrize(
+    "config_path",
+    _get_all_config_paths(
+        {
+            "accelerate.yaml",
+            "sky_job.yaml",
+            "sky_ssh_job.yaml",
+            "oumi_dev_iam_custom_role.yaml",
+        }
+    ),
+)
 def test_parse_configs(config_path: str):
     valid_config_classes = [
-        TrainingConfig,
-        EvaluationConfig,
         AsyncEvaluationConfig,
+        EvaluationConfig,
+        InferenceConfig,
         JobConfig,
+        TrainingConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
@@ -55,13 +76,24 @@ def test_parse_configs(config_path: str):
     assert len(error_messages) != len(valid_config_classes), "".join(error_messages)
 
 
-@pytest.mark.parametrize("config_path", _get_all_config_paths())
+@pytest.mark.parametrize(
+    "config_path",
+    _get_all_config_paths(
+        {
+            "accelerate.yaml",
+            "sky_job.yaml",
+            "sky_ssh_job.yaml",
+            "oumi_dev_iam_custom_role.yaml",
+        }
+    ),
+)
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
-        TrainingConfig,
-        EvaluationConfig,
         AsyncEvaluationConfig,
+        EvaluationConfig,
+        InferenceConfig,
         JobConfig,
+        TrainingConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:

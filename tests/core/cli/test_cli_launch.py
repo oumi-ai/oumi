@@ -157,7 +157,7 @@ def test_launch_up_job(app, mock_launcher, mock_pool):
                 job_yaml_path,
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
 
 
 def test_launch_up_job_existing_cluster(app, mock_launcher, mock_pool):
@@ -281,7 +281,7 @@ def test_launch_up_job_detached_local(app, mock_launcher, mock_pool):
                 "--detach",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
 
 
 def test_launch_up_job_not_found(app, mock_launcher):
@@ -345,8 +345,8 @@ def test_launch_run_job(app, mock_launcher, mock_pool):
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
-        mock_launcher.get_cloud.return_value = mock_cloud
-        mock_cloud.get_cluster.return_value = mock_cluster
+        mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
+        mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -367,8 +367,10 @@ def test_launch_run_job(app, mock_launcher, mock_pool):
         )
         mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_launcher.get_cloud.assert_called_once_with("aws")
-        mock_cloud.get_cluster.assert_called_once_with("cluster_id")
+        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
+        mock_cloud.get_cluster.assert_has_calls(
+            [call("cluster_id"), call("cluster_id")]
+        )
 
 
 def test_launch_run_job_detached(app, mock_launcher, mock_pool):
@@ -425,6 +427,7 @@ def test_launch_run_job_detached_local(app, mock_launcher, mock_pool):
         config.to_yaml(train_yaml_path)
         job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
         job_config = _create_job_config(train_yaml_path)
+        job_config.resources.cloud = "local"
         job_config.to_yaml(job_yaml_path)
         mock_launcher.JobConfig = JobConfig
         mock_cluster = Mock()
@@ -438,9 +441,9 @@ def test_launch_run_job_detached_local(app, mock_launcher, mock_pool):
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
-        mock_launcher.get_cloud.return_value = mock_cloud
+        mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.return_value = mock_cluster
-        mock_cluster.get_job.return_value = job_status = JobStatus(
+        mock_cluster.get_job.return_value = JobStatus(
             id="job_id",
             cluster="local",
             name="job_name",
@@ -460,8 +463,8 @@ def test_launch_run_job_detached_local(app, mock_launcher, mock_pool):
         )
         mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "local")
-        mock_launcher.get_cloud.assert_called_once_with("aws")
-        mock_cloud.get_cluster.assert_called_once_with("local")
+        mock_cloud.get_cluster.assert_has_calls([call("local"), call("local")])
+        mock_launcher.get_cloud.assert_has_calls([call("local"), call("local")])
 
 
 def test_launch_run_job_no_cluster(app, mock_launcher, mock_pool):

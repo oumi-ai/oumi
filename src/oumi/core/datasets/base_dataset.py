@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import MapDataPipe
 
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
@@ -17,7 +17,8 @@ class BaseMapDataset(MapDataPipe, ABC):
     """Abstract base class for map datasets."""
 
     _data: pd.DataFrame
-    dataset_name_or_path: str
+    dataset_name: str
+    dataset_path: Optional[str] = None
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
     trust_remote_code: bool
@@ -25,7 +26,8 @@ class BaseMapDataset(MapDataPipe, ABC):
     def __init__(
         self,
         *,
-        dataset_name_or_path: Optional[str],
+        dataset_name: Optional[str],
+        dataset_path: Optional[str] = None,
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
@@ -41,16 +43,17 @@ class BaseMapDataset(MapDataPipe, ABC):
                 f"(type: {dataset_type_name})."
             )
 
-        dataset_name_or_path = dataset_name_or_path or self.default_dataset
+        dataset_name = dataset_name or self.default_dataset
 
-        if dataset_name_or_path is None:
+        if dataset_name is None:
             raise ValueError(
-                "Please specify a dataset_name_or_path or "
+                "Please specify a dataset_name or "
                 "set the default_dataset class attribute "
                 f"(type: {dataset_type_name})."
             )
 
-        self.dataset_name_or_path = dataset_name_or_path
+        self.dataset_name = dataset_name
+        self.dataset_path = dataset_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
@@ -130,23 +133,10 @@ class BaseMapDataset(MapDataPipe, ABC):
         Returns:
             dict: The loaded dataset.
         """
-        dataset_path = Path(self.dataset_name_or_path)
-        if dataset_path.exists():
-            if self.dataset_name_or_path.endswith(".jsonl") and dataset_path.is_file():
-                result = self._load_jsonl_dataset(self.dataset_name_or_path)
-            elif (
-                self.dataset_name_or_path.endswith(".parquet")
-                and dataset_path.is_file()
-            ):
-                result = self._load_parquet_dataset(self.dataset_name_or_path)
-            elif is_cached_to_disk_hf_dataset(self.dataset_name_or_path):
-                result = self._load_dataset_from_disk(self.dataset_name_or_path)
-            else:
-                raise ValueError(
-                    f"File format not supported for {self.dataset_name_or_path}"
-                )
+        if self.dataset_path:
+            result = self._load_local_dataset(self.dataset_path)
         else:
-            result = self._load_hf_hub_dataset(self.dataset_name_or_path)
+            result = self._load_hf_hub_dataset()
 
         # Reclaim memory after data loading.
         gc.collect()
@@ -157,14 +147,39 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
         return result
 
-    def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
+    def _load_local_dataset(self, path: str) -> pd.DataFrame:
+        """Loads the dataset from the specified local source.
+
+        Returns:
+            dict: The loaded dataset.
+        """
+        dataset_path = Path(path)
+
+        if not dataset_path.exists():
+            raise FileNotFoundError(f"File not found: {dataset_path}")
+
+        if self.dataset_name.endswith(".jsonl") and dataset_path.is_file():
+            result = self._load_jsonl_dataset(self.dataset_name)
+
+        elif self.dataset_name.endswith(".parquet") and dataset_path.is_file():
+            result = self._load_parquet_dataset(self.dataset_name)
+
+        elif is_cached_to_disk_hf_dataset(self.dataset_name):
+            result = self._load_dataset_from_disk(self.dataset_name)
+
+        else:
+            raise ValueError(f"File format not supported for {self.dataset_name}")
+
+        return result
+
+    def _load_hf_hub_dataset(self) -> pd.DataFrame:
         """Loads the dataset from the specified Hugging Face Hub source.
 
         Returns:
             dict: The loaded dataset.
         """
         splits_or_dataset = datasets.load_dataset(
-            path=path,
+            path=self.dataset_name,
             name=self.dataset_subset,
             split=self.split,
             trust_remote_code=self.trust_remote_code,
@@ -234,7 +249,8 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
     def __init__(
         self,
         *,
-        dataset_name_or_path: Optional[str] = None,
+        dataset_name: Optional[str] = None,
+        dataset_path: Optional[str] = None,
         split: Optional[str] = None,
         tokenizer: Optional[BaseTokenizer] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
@@ -244,7 +260,10 @@ class BaseLMSftDataset(BaseMapDataset, ABC):
     ) -> None:
         """Initializes a new instance of the BaseSftDataset class."""
         super().__init__(
-            dataset_name_or_path=dataset_name_or_path, split=split, **kwargs
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            split=split,
+            **kwargs,
         )
 
         self._task = task

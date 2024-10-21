@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
@@ -28,6 +29,7 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
             model_name="openai-community/gpt2",
             torch_dtype_str="float16",
             trust_remote_code=False,
+            tokenizer_pad_token="<|endoftext|>",
         )
     )
     assert tokenizer.pad_token_id
@@ -40,7 +42,10 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
 def test_success_basic():
     tokenizer, pad_token_id = create_test_tokenizer()
     collator = VisionLanguageCollatorWithPadding(
-        tokenizer, max_length=4, truncation=True, label_ignore_index=-100
+        tokenizer,
+        max_length=4,
+        truncation=True,
+        label_ignore_index=constants.LABEL_IGNORE_INDEX,
     )
     assert callable(collator)
 
@@ -62,7 +67,7 @@ def test_success_basic():
     assert "input_ids" in collated_batch
     assert isinstance(collated_batch["input_ids"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["input_ids"], dtype=np.int32)
+        collated_batch["input_ids"].numpy()
         == np.array(
             [[101, 102, 103, 104], [201, 202, pad_token_id, pad_token_id]],
             dtype=np.int32,
@@ -71,13 +76,13 @@ def test_success_basic():
     assert "attention_mask" in collated_batch
     assert isinstance(collated_batch["attention_mask"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["attention_mask"], dtype=np.int32)
+        collated_batch["attention_mask"].numpy()
         == np.array([[1, 1, 1, 1], [1, 1, 0, 0]], dtype=np.int32)
     )
     assert "labels" in collated_batch
     assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
-        np.array(collated_batch["labels"], dtype=np.int32)
+        collated_batch["labels"].numpy()
         == np.array(
             [[101, 102, 103, 104], [201, 202, -100, -100]],
             dtype=np.int32,
@@ -86,7 +91,7 @@ def test_success_basic():
 
     assert "pixel_values" in collated_batch
     assert isinstance(collated_batch["pixel_values"], torch.Tensor)
-    pixel_values = np.array(collated_batch["pixel_values"])
+    pixel_values = collated_batch["pixel_values"].numpy()
     assert pixel_values.shape == (2, 3, 2, 8)
     assert np.all(pixel_values >= 0.4)
     assert np.all(pixel_values <= 0.6)

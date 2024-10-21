@@ -1,5 +1,6 @@
 from typing import Callable, Optional
 
+import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
@@ -16,7 +17,7 @@ def build_data_collator(
     tokenizer: BaseTokenizer,
     *,
     max_length: Optional[int],
-    label_ignore_index: Optional[int],
+    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
     **kwargs,
 ) -> Callable:
     """Builds a data collator based on the given collator name.

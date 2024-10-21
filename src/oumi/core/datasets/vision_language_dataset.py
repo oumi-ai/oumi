@@ -10,9 +10,10 @@ from PIL import Image
 from transformers import AutoProcessor
 from typing_extensions import override
 
+import oumi.core.constants as constants
 from oumi.core.datasets import BaseLMSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
 
@@ -57,7 +58,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[Any] = None,
         processor_name: Optional[str] = None,
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
         **kwargs,
     ) -> None:

@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.core.configs import GenerationParams, ModelParams
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 
 llama_cpp_import_failed = find_spec("llama_cpp") is None
@@ -102,10 +102,11 @@ def test_infer_from_file(inference_engine):
             )
         ]
 
-        generation_params = GenerationParams(
-            max_new_tokens=50, output_filepath="output.json"
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=50), output_path="output.json"
         )
-        result = inference_engine.infer_from_file("input.json", generation_params)
+
+        result = inference_engine.infer_from_file("input.json", inference_config)
 
         mock_read.assert_called_once_with("input.json")
         mock_infer.assert_called_once()

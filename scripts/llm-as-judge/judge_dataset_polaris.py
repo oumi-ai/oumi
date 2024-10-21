@@ -13,7 +13,7 @@ POLARIS_QUEUE = "preemptable"
 
 POLARIS_USERNAME = "kaisopos"
 PROJECT = "community_ai"
-VLLM_JOB_PATH = "/Users/{user}/Code/oumi/configs/oumi/jobs/polaris/vllm.yaml"
+VLLM_JOB_PATH = "/Users/{user}/Code/oumi/configs/examples/misc/vllm_gcp_job.yaml"
 DATA_FILE_TYPE = "jsonl"
 
 INPUT_PATH_PREFIX_POLARIS = (

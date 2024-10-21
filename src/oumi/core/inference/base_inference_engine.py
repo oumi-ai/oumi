@@ -4,8 +4,8 @@ from typing import List, Optional
 
 import jsonlines
 
-from oumi.core.configs import GenerationParams
-from oumi.core.types.turn import Conversation
+from oumi.core.configs import InferenceConfig
+from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
 
@@ -15,39 +15,34 @@ class BaseInferenceEngine(ABC):
     def infer(
         self,
         input: Optional[List[Conversation]] = None,
-        generation_params: Optional[GenerationParams] = None,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> List[Conversation]:
         """Runs model inference.
 
         Args:
             input: A list of conversations to run inference on. Optional.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
                 If not specified, a default config is inferred.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        if (
-            input is not None
-            and generation_params is not None
-            and generation_params.input_filepath is not None
-        ):
+        if inference_config is None:
+            logger.warning("No inference config provided. Using the default config.")
+            inference_config = InferenceConfig()
+        if input is not None and inference_config.input_path is not None:
             raise ValueError(
-                "Only one of input or generation_params.input_filepath should be "
+                "Only one of input or inference_config.input_path should be "
                 "provided."
             )
-        if generation_params is None:
-            logger.warning("No generation params provided. Using the default params.")
-            generation_params = GenerationParams()
+
         if input is not None:
-            return self.infer_online(input, generation_params)
-        elif generation_params.input_filepath is not None:
-            return self.infer_from_file(
-                generation_params.input_filepath, generation_params
-            )
+            return self.infer_online(input, inference_config)
+        elif inference_config.input_path is not None:
+            return self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
-                "One of input or generation_params.input_filepath must be provided."
+                "One of input or inference_config.input_path must be provided."
             )
 
     def _read_conversations(self, input_filepath: str) -> List[Conversation]:
@@ -64,7 +59,7 @@ class BaseInferenceEngine(ABC):
             for line in f:
                 # Only parse non-empty lines.
                 if line.strip():
-                    conversation = Conversation.model_validate_json(line)
+                    conversation = Conversation.from_json(line)
                     conversations.append(conversation)
         return conversations
 
@@ -96,7 +91,7 @@ class BaseInferenceEngine(ABC):
         # Make the directory if it doesn't exist.
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="a") as writer:
-            json_obj = conversation.model_dump()
+            json_obj = conversation.to_dict()
             writer.write(json_obj)
 
     def _save_conversations(
@@ -113,18 +108,18 @@ class BaseInferenceEngine(ABC):
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="w") as writer:
             for conversation in conversations:
-                json_obj = conversation.model_dump()
+                json_obj = conversation.to_dict()
                 writer.write(json_obj)
 
     @abstractmethod
     def infer_online(
-        self, input: List[Conversation], generation_params: GenerationParams
+        self, input: List[Conversation], inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
@@ -133,7 +128,7 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_from_file(
-        self, input_filepath: str, generation_params: GenerationParams
+        self, input_filepath: str, inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -142,7 +137,7 @@ class BaseInferenceEngine(ABC):
 
         Args:
             input_filepath: Path to the input file containing prompts for generation.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.

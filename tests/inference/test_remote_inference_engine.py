@@ -7,8 +7,13 @@ import jsonlines
 import pytest
 from aioresponses import aioresponses
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
 
 _TARGET_SERVER: str = "http://fakeurl"
@@ -30,12 +35,20 @@ def _get_default_model_params() -> ModelParams:
     )
 
 
+def _get_default_inference_config() -> InferenceConfig:
+    return InferenceConfig(
+        generation=GenerationParams(
+            max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        )
+    )
+
+
 def _setup_input_conversations(filepath: str, conversations: List[Conversation]):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     Path(filepath).touch()
     with jsonlines.open(filepath, mode="w") as writer:
         for conversation in conversations:
-            json_obj = conversation.model_dump()
+            json_obj = conversation.to_dict()
             writer.write(json_obj)
     # Add some empty lines into the file
     with open(filepath, "a") as f:
@@ -103,9 +116,7 @@ def test_infer_online():
         ]
         result = engine.infer_online(
             [conversation],
-            GenerationParams(
-                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-            ),
+            _get_default_inference_config(),
         )
         assert expected_result == result
 
@@ -115,11 +126,11 @@ def test_infer_no_remote_params():
     with pytest.raises(
         ValueError, match="Remote params must be provided in generation_params."
     ):
-        engine.infer_online([], GenerationParams())
+        engine.infer_online([], InferenceConfig())
     with pytest.raises(
         ValueError, match="Remote params must be provided in generation_params."
     ):
-        engine.infer_from_file("path", GenerationParams())
+        engine.infer_from_file("path", InferenceConfig())
 
 
 def test_infer_online_empty():
@@ -127,9 +138,7 @@ def test_infer_online_empty():
     expected_result = []
     result = engine.infer_online(
         [],
-        GenerationParams(
-            max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-        ),
+        _get_default_inference_config(),
     )
     assert expected_result == result
 
@@ -159,9 +168,7 @@ def test_infer_online_fails():
         with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
             _ = engine.infer_online(
                 [conversation],
-                GenerationParams(
-                    max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-                ),
+                _get_default_inference_config(),
             )
 
 
@@ -213,9 +220,7 @@ def test_infer_online_recovers_from_retries():
         ]
         result = engine.infer_online(
             [conversation],
-            GenerationParams(
-                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-            ),
+            _get_default_inference_config(),
         )
         assert expected_result == result
 
@@ -306,9 +311,7 @@ def test_infer_online_multiple_requests():
         ]
         result = engine.infer_online(
             [conversation1, conversation2],
-            GenerationParams(
-                max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-            ),
+            _get_default_inference_config(),
         )
         assert expected_result == result
 
@@ -398,14 +401,17 @@ def test_infer_online_multiple_requests_politeness():
             ),
         ]
         start = time.time()
-        result = engine.infer_online(
-            [conversation1, conversation2],
-            GenerationParams(
+        inference_config = InferenceConfig(
+            generation=GenerationParams(
                 max_new_tokens=5,
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER, politeness_policy=0.5
                 ),
-            ),
+            )
+        )
+        result = engine.infer_online(
+            [conversation1, conversation2],
+            inference_config,
         )
         total_time = time.time() - start
         assert 1.0 < total_time < 1.5
@@ -497,16 +503,19 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             ),
         ]
         start = time.time()
-        result = engine.infer_online(
-            [conversation1, conversation2],
-            GenerationParams(
+        inference_config = InferenceConfig(
+            generation=GenerationParams(
                 max_new_tokens=5,
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER,
                     politeness_policy=0.5,
                     num_workers=2,
                 ),
-            ),
+            )
+        )
+        result = engine.infer_online(
+            [conversation1, conversation2],
+            inference_config,
         )
         total_time = time.time() - start
         assert 0.5 < total_time < 1.0
@@ -519,24 +528,20 @@ def test_infer_from_file_empty():
         _setup_input_conversations(str(input_path), [])
         engine = RemoteInferenceEngine(_get_default_model_params())
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
-        result = engine.infer_online(
-            [],
-            GenerationParams(
+        inference_config = InferenceConfig(
+            input_path=str(input_path),
+            output_path=str(output_path),
+            generation=GenerationParams(
                 max_new_tokens=5,
-                input_filepath=str(input_path),
                 remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
-                output_filepath=str(output_path),
             ),
         )
-        assert [] == result
-        infer_result = engine.infer(
-            generation_params=GenerationParams(
-                max_new_tokens=5,
-                input_filepath=str(input_path),
-                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
-                output_filepath=str(output_path),
-            )
+        result = engine.infer_online(
+            [],
+            inference_config,
         )
+        assert [] == result
+        infer_result = engine.infer(inference_config=inference_config)
         assert [] == infer_result
 
 
@@ -628,24 +633,27 @@ def test_infer_from_file_to_file():
                 ),
             ]
             output_path = Path(output_temp_dir) / "b" / "output.jsonl"
-            result = engine.infer_online(
-                [conversation1, conversation2],
-                GenerationParams(
+            inference_config = InferenceConfig(
+                output_path=str(output_path),
+                generation=GenerationParams(
                     max_new_tokens=5,
                     remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
-                    output_filepath=str(output_path),
                 ),
+            )
+            result = engine.infer_online(
+                [conversation1, conversation2],
+                inference_config,
             )
             assert expected_result == result
             # Ensure that intermediary results are saved to the scratch directory.
             with open(output_path.parent / "scratch" / output_path.name) as f:
                 parsed_conversations = []
                 for line in f:
-                    parsed_conversations.append(Conversation.model_validate_json(line))
+                    parsed_conversations.append(Conversation.from_json(line))
                 assert len(expected_result) == len(parsed_conversations)
             # Ensure the final output is in order.
             with open(output_path) as f:
                 parsed_conversations = []
                 for line in f:
-                    parsed_conversations.append(Conversation.model_validate_json(line))
+                    parsed_conversations.append(Conversation.from_json(line))
                 assert expected_result == parsed_conversations

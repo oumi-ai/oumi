@@ -8,7 +8,7 @@ from pandas.core.api import DataFrame as DataFrame
 
 from oumi.builders import build_chat_template
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.turn import Conversation, Type
+from oumi.core.types.conversation import Conversation, Type
 from oumi.datasets.vision_language.vision_jsonlines import (
     VLJsonlinesDataset,
 )

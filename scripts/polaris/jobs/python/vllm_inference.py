@@ -41,16 +41,16 @@ def main() -> None:
     MODEL = models.data[0].id
     MODEL_NAME = _get_model_name(MODEL)
     JOB_NUMBER = os.environ["JOB_NUMBER"]
-    INPUT_FILEPATH = os.environ["OUMI_VLLM_INPUT_FILEPATH"]
-    OUTPUT_DIR = os.environ["OUMI_VLLM_OUTPUT_DIR"]
-    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+    INPUT_FILEPATH = Path(os.environ["OUMI_VLLM_INPUT_FILEPATH"])
+    OUTPUT_DIR = Path(os.environ["OUMI_VLLM_OUTPUT_DIR"])
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILENAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
-    OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
+    OUTPUT_FILEPATH = OUTPUT_DIR / OUTPUT_FILENAME
     print(f"Input filepath is {INPUT_FILEPATH}")
     print(f"Files will be output to {OUTPUT_FILEPATH}")
 
-    if not os.path.isfile(INPUT_FILEPATH):
+    if not INPUT_FILEPATH.is_file():
         raise FileNotFoundError(f"Input file not found: {INPUT_FILEPATH}")
     json_objects = pd.read_json(INPUT_FILEPATH, lines=True)
     all_messages = json_objects["messages"].to_list()

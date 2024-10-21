@@ -12,7 +12,7 @@ from typing_extensions import override
 from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 
 
 class EqBytesIO:
@@ -127,7 +127,9 @@ def test_dataset_image_path(
         def _load_data(self):
             pass
 
-    return TestDatasetImagePath(processor=mock_processor, tokenizer=mock_tokenizer)
+    return TestDatasetImagePath(
+        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=None
+    )
 
 
 @pytest.fixture
@@ -148,7 +150,8 @@ def test_dataset_image_binary_label_ignore_index(
             pass
 
     return TestDatasetImageBinary(
-        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=-100
+        processor=mock_processor,
+        tokenizer=mock_tokenizer,
     )
 
 

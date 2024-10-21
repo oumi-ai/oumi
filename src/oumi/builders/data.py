@@ -1,5 +1,4 @@
 import copy
-from pathlib import Path
 from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
 
 import datasets
@@ -13,10 +12,12 @@ from oumi.core.configs import (
     MixtureStrategy,
     TrainingConfig,
 )
+from oumi.core.datasets.pretraining_async_text_dataset import (
+    PretrainingAsyncTextDataset,
+)
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.datasets.pretraining_async_text_dataset import PretrainingAsyncTextDataset
-from oumi.datasets.trl_dpo_preprocessor import trl_dpo_chat_preprocessor_fn
+from oumi.datasets.preference_tuning import trl_dpo_chat_preprocessor_fn
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
@@ -110,7 +111,7 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.experimental_use_async_dataset:
+        if dataset_split_params.use_async_dataset:
             dataset = PretrainingAsyncTextDataset(
                 tokenizer,
                 dataset,
@@ -135,7 +136,7 @@ def build_dataset_from_params(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    experimental_use_async_dataset: bool = False,
+    use_async_dataset: bool = False,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
@@ -148,7 +149,7 @@ def build_dataset_from_params(
                 datasets=[dataset_params],
                 stream=stream,
                 pack=pack,
-                experimental_use_async_dataset=experimental_use_async_dataset,
+                use_async_dataset=use_async_dataset,
                 experimental_use_torch_datapipes=experimental_use_torch_datapipes,
             )
         )
@@ -169,7 +170,7 @@ def build_dataset(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    experimental_use_async_dataset: bool = False,
+    use_async_dataset: bool = False,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
@@ -189,7 +190,7 @@ def build_dataset(
         stream=stream,
         pack=pack,
         experimental_use_torch_datapipes=experimental_use_torch_datapipes,
-        experimental_use_async_dataset=experimental_use_async_dataset,
+        use_async_dataset=use_async_dataset,
     )
 
 
@@ -339,9 +340,9 @@ def _load_dataset(
             )
             return dataset.to_hf()
 
-    dataset_name_or_path: Path = Path(dataset_params.dataset_name)
-    if is_cached_to_disk_hf_dataset(dataset_name_or_path):
-        return datasets.Dataset.load_from_disk(dataset_name_or_path)
+    dataset_path = dataset_params.dataset_path
+    if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
+        return datasets.Dataset.load_from_disk(dataset_path)
     else:
         return datasets.load_dataset(
             dataset_params.dataset_name,

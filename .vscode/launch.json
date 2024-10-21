@@ -5,10 +5,11 @@
             "name": "Oumi - Train",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.train",
+            "module": "oumi",
             "args": [
+                "train",
                 "-c",
-                "configs/oumi/phi3.lora.yaml"
+                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
             ],
             "justMyCode": true
         },
@@ -16,8 +17,9 @@
             "name": "Oumi - Judge",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.judge",
+            "module": "oumi",
             "args": [
+                "judge",
                 "--config-name",
                 "oumi/v1_xml_local",
                 "--dataset-name",
@@ -36,9 +38,10 @@
                 "--nproc_per_node",
                 "4",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
-                "configs/oumi/gpt2.pt.yaml"
+                "configs/recipes/gpt2/pretraining/train.yaml"
             ]
         },
         {
@@ -56,11 +59,12 @@
                 "4",
                 "--use_fsdp",
                 "--config_file",
-                "configs/accelerate/llama.fsdp.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/accelerate.yaml",
                 "-m",
-                "oumi.train",
+                "oumi",
+                "train",
                 "-c",
-                "configs/oumi/llama8b.sft.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/train.yaml",
                 "training.max_steps=2",
                 "training.save_steps=1",
                 "training.save_final_model=true",
@@ -72,12 +76,11 @@
             "name": "Oumi - Inference",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.infer",
+            "module": "oumi",
             "args": [
-                "--interactive",
-                "model.model_name=openai-community/gpt2",
-                "model.trust_remote_code=true",
-                "generation.max_new_tokens=16"
+                "infer",
+                "-c",
+                "configs/recipes/gpt2/inference/infer.yaml"
             ],
             "justMyCode": true
         },
@@ -85,10 +88,11 @@
             "name": "Oumi - Evaluate - LM Harness",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi.evaluate",
+            "module": "oumi",
             "args": [
+                "evaluate",
                 "-c",
-                "configs/oumi/phi3.eval.lm_harness.yaml"
+                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
             ],
             "justMyCode": true
         },

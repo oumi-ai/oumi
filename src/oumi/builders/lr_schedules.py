@@ -2,6 +2,11 @@ from typing import Optional
 
 import torch
 import transformers
+from transformers import (
+    get_cosine_schedule_with_warmup,
+    get_cosine_with_hard_restarts_schedule_with_warmup,
+    get_linear_schedule_with_warmup,
+)
 
 from oumi.core.configs import SchedulerType, TrainingParams
 from oumi.utils.logging import logger
@@ -84,7 +89,7 @@ def build_lr_scheduler(
                 "Ignoring them."
             )
 
-        return transformers.get_linear_schedule_with_warmup(
+        return get_linear_schedule_with_warmup(
             optimizer=optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=num_training_steps,
@@ -101,7 +106,7 @@ def build_lr_scheduler(
                 "Ignoring them."
             )
 
-        return transformers.get_cosine_schedule_with_warmup(
+        return get_cosine_schedule_with_warmup(
             optimizer=optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=num_training_steps,
@@ -131,7 +136,7 @@ def build_lr_scheduler(
                 "Ignoring them."
             )
 
-        return transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
+        return get_cosine_with_hard_restarts_schedule_with_warmup(
             optimizer=optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=num_training_steps,

@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
+from oumi.core.cli.judge import conversations, dataset
 from oumi.core.cli.launch import down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.main import get_app
@@ -87,6 +88,20 @@ def mock_which():
         yield m_which
 
 
+@pytest.fixture
+def mock_judge_dataset():
+    with patch("oumi.core.cli.main.dataset") as m_dataset:
+        _copy_command(m_dataset, dataset)
+        yield m_dataset
+
+
+@pytest.fixture
+def mock_judge_conversations():
+    with patch("oumi.core.cli.main.conversations") as m_conversations:
+        _copy_command(m_conversations, conversations)
+        yield m_conversations
+
+
 def test_main_train_registered(mock_train):
     _ = runner.invoke(
         get_app(), ["train", "--config", "some/path", "--allow_extra" "args"]
@@ -99,6 +114,13 @@ def test_main_infer_registered(mock_infer):
         get_app(), ["infer", "--config", "some/path", "--allow_extra" "args"]
     )
     mock_infer.assert_called_once()
+
+
+def test_main_eval_registered(mock_eval):
+    _ = runner.invoke(
+        get_app(), ["eval", "--config", "some/path", "--allow_extra" "args"]
+    )
+    mock_eval.assert_called_once()
 
 
 def test_main_evaluate_registered(mock_eval):
@@ -165,3 +187,33 @@ def test_main_up_registered(mock_up):
 def test_main_which_registered(mock_which):
     _ = runner.invoke(get_app(), ["launch", "which"])
     mock_which.assert_called_once()
+
+
+def test_main_judge_dataset_registered(mock_judge_dataset):
+    _ = runner.invoke(
+        get_app(),
+        [
+            "judge",
+            "dataset",
+            "--config",
+            "some_config",
+            "--dataset-name",
+            "some_dataset",
+        ],
+    )
+    mock_judge_dataset.assert_called_once()
+
+
+def test_main_judge_conversations_registered(mock_judge_conversations):
+    _ = runner.invoke(
+        get_app(),
+        [
+            "judge",
+            "conversations",
+            "--config",
+            "some_config",
+            "--input-file",
+            "some_file.jsonl",
+        ],
+    )
+    mock_judge_conversations.assert_called_once()
