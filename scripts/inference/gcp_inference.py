@@ -21,18 +21,17 @@ def get_new_inputs(source: str, processed: str) -> List[str]:
 
 def run_inference(
     file: str,
-    input_dir,
+    input_dir: str,
     output_dir: str,
     config: InferenceConfig,
     engine: VLLMInferenceEngine,
-):
+) -> None:
     """Runs inference on a file."""
-    generation_params = config.generation
-    generation_params.output_filepath = str(Path(output_dir) / file)
-    generation_params.input_filepath = str(Path(input_dir) / file)
-    print(f"Preparing to read input file: {generation_params.input_filepath}")
-    print(f"Preparing to write output file: {generation_params.output_filepath}")
-    engine.infer_from_file(generation_params.input_filepath, generation_params)
+    config.input_path = str(Path(input_dir) / file)
+    config.output_path = str(Path(output_dir) / file)
+    print(f"Preparing to read input file: {config.input_path}")
+    print(f"Preparing to write output file: {config.output_path}")
+    engine.infer_from_file(config.input_path, config)
 
 
 def main():

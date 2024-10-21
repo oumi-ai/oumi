@@ -15,20 +15,19 @@ from oumi.utils.logging import logger
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ],
-    detach: Annotated[
+    ] = None,
+    interactive: Annotated[
         bool,
-        typer.Option("-d", "--detach", help="Do not run in an interactive session."),
+        typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
     image: Annotated[
         Optional[str],
         typer.Option(
-            "-i",
             "--image",
             help=(
                 "File path of an input image to be used with `image+text` VLLMs. "
@@ -39,10 +38,14 @@ def infer(
 ):
     """Run inference on a model.
 
+    If `input_filepath` is provided in the configuration file, inference will run on
+    those input examples. Otherwise, inference will run interactively with user-provided
+    inputs.
+
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        detach: Do not run in an interactive session.
+        interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -57,22 +60,22 @@ def infer(
         load_image_png_bytes_from_path(image) if image else None
     )
 
-    if not detach:
-        if parsed_config.generation.input_filepath:
+    if interactive:
+        if parsed_config.input_path:
             logger.warning(
-                "Interactive inference requested, skipping inference from "
-                "`input_filepath`."
+                "Interactive inference requested, skipping reading from "
+                "`input_path`."
             )
         return oumi_infer_interactive(
             parsed_config, input_image_bytes=input_image_png_bytes
         )
 
-    if parsed_config.generation.input_filepath is None:
-        raise ValueError("`input_filepath` must be provided for non-interactive mode.")
+    if parsed_config.input_path is None:
+        raise ValueError("One of `--interactive` or `input_path` must be provided.")
     generations = oumi_infer(parsed_config)
 
     # Don't print results if output_filepath is provided.
-    if parsed_config.generation.output_filepath:
+    if parsed_config.output_path:
         return
 
     for generation in generations:

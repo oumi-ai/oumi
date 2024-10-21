@@ -51,7 +51,6 @@ def _create_training_config() -> TrainingConfig:
                 datasets=[
                     DatasetParams(
                         dataset_name="yahma/alpaca-cleaned",
-                        preprocessing_function_name="alpaca",
                     )
                 ],
                 target_col="text",

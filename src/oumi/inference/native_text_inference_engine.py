@@ -13,7 +13,7 @@ from oumi.builders import (
     build_processor,
     build_tokenizer,
 )
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
@@ -152,8 +152,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 if image_turn.type != Type.IMAGE_BINARY:
                     raise NotImplementedError(
                         conversation.append_id_to_string(
-                            "Only binary image messages (`IMAGE_BINARY`) are supported."
-                            f"Actual: {image_turn.type}"
+                            "Only binary image messages (`IMAGE_BINARY`) "
+                            f"are supported. Actual: {image_turn.type}"
                         )
                     )
                 elif image_turn.binary is None or len(image_turn.binary) == 0:
@@ -176,17 +176,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: List[Conversation],
-        generation_params: GenerationParams,
+        inference_config: InferenceConfig,
     ) -> List[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             object: A list of model responses of shape (num_batches, batch_size).
         """
+        generation_params = inference_config.generation
         if generation_params.batch_size < 1:
             raise ValueError("Batch size must be greater than or equal to 1.")
         if isinstance(self._model, peft.PeftModel):
@@ -270,30 +271,30 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     metadata=conversation.metadata,
                     conversation_id=conversation.conversation_id,
                 )
-                if generation_params.output_filepath:
+                if inference_config.output_path:
                     self._save_conversation(
-                        new_conversation, generation_params.output_filepath
+                        new_conversation, inference_config.output_path
                     )
                 output_conversations.append(new_conversation)
 
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], generation_params: GenerationParams
+        self, input: List[Conversation], inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)
 
     def infer_from_file(
-        self, input_filepath: str, generation_params: GenerationParams
+        self, input_filepath: str, inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -302,10 +303,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         Args:
             input_filepath: Path to the input file containing prompts for generation.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)
