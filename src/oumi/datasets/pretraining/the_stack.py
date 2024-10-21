@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("bigcode/the-stack")
-class TheStackDataset(BasePretrainingIterableDataset):
+class TheStackDataset(BasePretrainingDataset):
     """A dataset containing over 6TB of permissively-licensed source code files.
 
     The Stack was created as part of the BigCode Project, an open scientific

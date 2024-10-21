@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("allenai/dolma")
-class DolmaDataset(BasePretrainingIterableDataset):
+class DolmaDataset(BasePretrainingDataset):
     """Dolma: A dataset of 3 trillion tokens from diverse web content.
 
     Dolma :footcite:`2024_dolma` is a large-scale dataset containing

@@ -7,7 +7,7 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.tokenizers import BaseTokenizer
 
 
-class BasePretrainingIterableDataset(BaseIterableDataset):
+class BasePretrainingDataset(BaseIterableDataset):
     """Abstract base class for pretraining iterable datasets.
 
     This class extends BaseIterableDataset to provide functionality specific to
@@ -45,7 +45,7 @@ class BasePretrainingIterableDataset(BaseIterableDataset):
         skip_last: bool = True,
         **kwargs,
     ):
-        """Initializes a new instance of the BasePretrainingIterableDataset class."""
+        """Initializes a new instance of the BasePretrainingDataset class."""
         if append_concat_token and tokenizer.eos_token_id is None:
             raise ValueError(
                 "Tokenizer must have an EOS token if append_concat_token is enabled."
