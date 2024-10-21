@@ -11,7 +11,7 @@ from transformers import AutoProcessor
 from typing_extensions import override
 
 import oumi.core.constants as constants
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
@@ -25,10 +25,10 @@ class _SpecialTokens(NamedTuple):
     label_ignore_index: Optional[int]
 
 
-class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
+class VisionLanguageSftDataset(BaseSftDataset, ABC):
     """Abstract dataset for vision-language models.
 
-    This class extends BaseLMSftDataset to provide functionality specific to
+    This class extends BaseSftDataset to provide functionality specific to
     vision-language tasks. It handles the processing of both image and text data.
 
     Note:

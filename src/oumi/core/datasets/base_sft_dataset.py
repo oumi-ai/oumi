@@ -8,7 +8,7 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation
 
 
-class BaseLMSftDataset(BaseMapDataset, ABC):
+class BaseSftDataset(BaseMapDataset, ABC):
     """In-memory dataset for SFT data.
 
     The SFT datasets are expected to be in the following format:
