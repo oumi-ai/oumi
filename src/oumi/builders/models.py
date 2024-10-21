@@ -135,8 +135,8 @@ class _InternalModelKind(Enum):
     DEFAULT = "default"
     """Default/unknown model type."""
 
-    IMAGE_TEXT_VLLM = "image_text_vllm"
-    """Basic image+text VLLM."""
+    IMAGE_TEXT_LLM = "image_text_llm"
+    """Basic image+text LLM."""
 
 
 def build_huggingface_model(
@@ -265,7 +265,7 @@ def _get_transformers_model_class(config):
             )
 
         auto_model_class = transformers.AutoModelForVision2Seq
-        model_kind = _InternalModelKind.IMAGE_TEXT_VLLM
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     elif config.model_type in ("molmo"):
         tested_models = {}  # TODO: OPE-353, make sure we have all models supported
 
@@ -276,7 +276,7 @@ def _get_transformers_model_class(config):
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
         auto_model_class = transformers.AutoModelForCausalLM
-        model_kind = _InternalModelKind.IMAGE_TEXT_VLLM
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
         model_kind = _InternalModelKind.DEFAULT
@@ -284,15 +284,15 @@ def _get_transformers_model_class(config):
     return auto_model_class, model_kind
 
 
-def is_image_text_vllm(model_params: ModelParams) -> bool:
-    """Determines whether the model is a basic image+text VLLM."""
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
         return_unused_kwargs=True,
     )
     _, model_kind = _get_transformers_model_class(hf_config)
-    return model_kind == _InternalModelKind.IMAGE_TEXT_VLLM
+    return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
 
 
 def build_cambrian_model(
