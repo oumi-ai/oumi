@@ -144,6 +144,7 @@ def unit_test_judge():
 
     config = JudgeConfig(
         attributes={"helpful": attribute},
+        engine=InferenceEngineType.NATIVE,
         model=ModelParams(
             model_name="gpt2",
             tokenizer_pad_token="</s>",
