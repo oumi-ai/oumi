@@ -1,8 +1,5 @@
 from typing import Any, Dict, Optional
 
-from google.auth import default
-from google.auth.transport.requests import Request
-from google.oauth2 import service_account
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
@@ -14,12 +11,23 @@ _CONTENT_KEY: str = "content"
 _ROLE_KEY: str = "role"
 
 
-class GCPInferenceEngine(RemoteInferenceEngine):
+class GoogleVertexInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Google Vertex AI."""
 
     @override
     def _get_api_key(self, remote_params: RemoteParams) -> str:
         """Gets the authentication token for GCP."""
+        try:
+            from google.auth import default
+            from google.auth.transport.requests import Request
+            from google.oauth2 import service_account
+        except ModuleNotFoundError:
+            raise RuntimeError(
+                "Google-auth is not installed. "
+                "Please install oumi with GCP extra:`pip install oumi[gcp]`, "
+                "or install google-auth with `pip install google-auth`."
+            )
+
         if remote_params.api_key:
             credentials = service_account.Credentials.from_service_account_file(
                 filename=remote_params.api_key,
@@ -50,7 +58,7 @@ class GCPInferenceEngine(RemoteInferenceEngine):
     ) -> Dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
-        Documentation: https://platform.openai.com/docs/api-reference/chat/create
+        Documentation: https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/call-vertex-using-openai-library
 
         Args:
             conversation: The conversation to convert.

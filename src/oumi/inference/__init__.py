@@ -4,7 +4,7 @@ This module provides various implementations for running model inference.
 """
 
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
-from oumi.inference.gcp_inference_engine import GCPInferenceEngine
+from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
@@ -16,5 +16,5 @@ __all__ = [
     "NativeTextInferenceEngine",
     "RemoteInferenceEngine",
     "VLLMInferenceEngine",
-    "GCPInferenceEngine",
+    "GoogleVertexInferenceEngine",
 ]

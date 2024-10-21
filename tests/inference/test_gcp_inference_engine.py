@@ -10,13 +10,13 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.inference.gcp_inference_engine import GCPInferenceEngine
+from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 
 
 @pytest.fixture
 def gcp_engine():
     model_params = ModelParams(model_name="gcp-model")
-    return GCPInferenceEngine(model_params)
+    return GoogleVertexInferenceEngine(model_params)
 
 
 @pytest.fixture
