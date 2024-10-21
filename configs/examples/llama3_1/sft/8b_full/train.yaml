@@ -28,7 +28,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-        preprocessing_function_name: "alpaca"
         shuffle: True
     target_col: "prompt"
     seed: 123
@@ -40,7 +39,7 @@ training:
   gradient_accumulation_steps: 16
   enable_gradient_checkpointing: False # TODO: Activated via FSDP - not clean.
   gradient_checkpointing_kwargs:
-    use_reentrant: False               # TODO: what happens if this is not passed?
+    use_reentrant: False # TODO: what happens if this is not passed?
   learning_rate: 2.0e-05
   warmup_ratio: 0.03
   lr_scheduler_type: "cosine"
