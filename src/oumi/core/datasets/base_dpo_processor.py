@@ -1,4 +1,7 @@
+from typing import Optional
+
 from oumi.core.datasets.base_dataset import BaseMapDataset
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -10,11 +13,43 @@ _ASSISTANT = "assistant"
 
 
 class BaseExperimentalDpoPreprocessor(BaseMapDataset):
-    """Preprocess the samples to the Oumi format."""
+    """Preprocess the samples to the Oumi format.
 
-    def __getitem__(self, index: int) -> dict:
-        """Transform the samples to the Oumi format."""
-        return self.transform_preference(self.dataset[index])
+    Warning:
+        This class is experimental and subject to change.
+    """
+
+    def __init__(
+        self,
+        *,
+        dataset_name: Optional[str] = None,
+        dataset_path: Optional[str] = None,
+        split: Optional[str] = None,
+        tokenizer: Optional[BaseTokenizer] = None,
+        return_tensors: bool = False,
+        **kwargs,
+    ) -> None:
+        """Initializes a new instance of the BaseSftDataset class."""
+        super().__init__(
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            split=split,
+            **kwargs,
+        )
+
+        if return_tensors:
+            raise NotImplementedError(
+                "return_tensors=True is not implemented for this class"
+            )
+
+        self._tokenizer = tokenizer
+        self._return_tensors = return_tensors
+
+        self._data = self._load_data()
+
+    # def __getitem__(self, index: int) -> dict:
+    #     """Transform the samples to the Oumi format."""
+    #     return self.transform_preference(self.dataset[index])
 
     def transform_preference(self, samples: dict) -> dict:
         """Transform the samples to the Oumi format."""
@@ -38,3 +73,7 @@ class BaseExperimentalDpoPreprocessor(BaseMapDataset):
                 return turn[_CONTENT]
 
         raise ValueError("No chat turn was found with an 'assistant' role.")
+
+    def transform(self, sample: dict) -> dict:
+        """Transform the samples to the Oumi format."""
+        return self.transform_preference(sample)
