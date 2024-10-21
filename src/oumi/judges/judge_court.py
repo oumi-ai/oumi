@@ -6,6 +6,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.inference_config import InferenceEngineType
 from oumi.core.configs.judge_config import JudgeAttribute
 from oumi.core.registry import register_judge
 from oumi.judges.oumi_judge import OumiJudgeInput, OumiJudgeOutput
@@ -77,7 +78,8 @@ def oumi_v1_xml_local_judge() -> JudgeConfig:
     config = JudgeConfig(
         attributes=attributes,
         model=ModelParams(model_name="Qwen/Qwen2-0.5B-Instruct-GGUF"),
-        generation=GenerationParams(max_new_tokens=1024),
+        engine=InferenceEngineType.LLAMACPP,
+        generation=GenerationParams(max_new_tokens=1024, temperature=0.0),
     )
     return config
 
@@ -112,8 +114,10 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
         model=ModelParams(
             model_name="gpt-4o-2024-08-06",
         ),
+        engine=InferenceEngineType.REMOTE,
         generation=GenerationParams(
             max_new_tokens=1024,
+            temperature=0.0,
             remote_params=RemoteParams(
                 api_url="https://api.openai.com/v1/chat/completions",
                 api_key_env_varname="OPENAI_API_KEY",
@@ -140,6 +144,7 @@ def unit_test_judge():
 
     config = JudgeConfig(
         attributes={"helpful": attribute},
+        engine=InferenceEngineType.NATIVE,
         model=ModelParams(
             model_name="gpt2",
             tokenizer_pad_token="</s>",
@@ -147,6 +152,7 @@ def unit_test_judge():
         ),
         generation=GenerationParams(
             max_new_tokens=128,
+            temperature=0.0,
         ),
     )
 
