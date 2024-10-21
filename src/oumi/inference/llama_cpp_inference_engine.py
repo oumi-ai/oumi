@@ -3,7 +3,7 @@ from typing import Dict, List, cast
 
 from tqdm.auto import tqdm
 
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -98,7 +98,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             # Too many can cause deadlocks
             "n_threads": 4,
             # Use Q8 quantization by default.
-            "filename": "*q8_0.gguf",
+            "filename": "*8_0.gguf",
             "flash_attn": True,
         }
 
@@ -133,20 +133,21 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: List[Conversation], generation_params: GenerationParams
+        self, input: List[Conversation], inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
         Args:
             input: A list of conversations to run inference on.
                 Each conversation should contain at least one message.
-            generation_params: Parameters for text generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: A list of conversations with the model's responses
             appended. Each conversation in the output list corresponds to an input
             conversation, with an additional message from the assistant (model) added.
         """
+        generation_params = inference_config.generation
         output_conversations = []
 
         # skip using a progress for single turns
@@ -189,42 +190,41 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
-            if generation_params.output_filepath:
+            if inference_config.output_path:
                 self._save_conversation(
                     new_conversation,
-                    generation_params.output_filepath,
+                    inference_config.output_path,
                 )
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], generation_params: GenerationParams
+        self, input: List[Conversation], inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)
 
     def infer_from_file(
-        self, input_filepath: str, generation_params: GenerationParams
+        self, input_filepath: str, inference_config: InferenceConfig
     ) -> List[Conversation]:
         """Runs model inference on inputs in the provided file.
 
-        This is a convenience method to prevent boilerplate from asserting the
-        existence of input_filepath in the generation_params.
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_params.
 
         Args:
-            input_filepath: Path to the input file containing prompts for
-                generation.
-            generation_params: Parameters for generation during inference.
+            input_filepath: Path to the input file containing prompts for generation.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
         input = self._read_conversations(input_filepath)
-        return self._infer(input, generation_params)
+        return self._infer(input, inference_config)

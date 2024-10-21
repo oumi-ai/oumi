@@ -38,7 +38,7 @@ class TestDataset(BasePretrainingIterableDataset):
 def test_dataset(tokenizer):
     return TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy_path",
+        dataset_name="dummy_path",
         seq_length=10,
         dataset_text_field="text",
     )
@@ -60,7 +60,7 @@ def create_sample_data(tmp_path):
 class DiskDataset(BasePretrainingIterableDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data_dir = self.dataset_name_or_path
+        self.data_dir = self.dataset_name
 
     def _load_data(self):
         for filename in os.listdir(self.data_dir):
@@ -76,7 +76,7 @@ class DiskDataset(BasePretrainingIterableDataset):
 def test_initialization(tokenizer):
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy_path",
+        dataset_name="dummy_path",
         seq_length=10,
         dataset_text_field="text",
     )
@@ -119,7 +119,7 @@ def test_iter(test_dataset, tokenizer):
 def test_buffer_handling(tokenizer):
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy_path",
+        dataset_name="dummy_path",
         seq_length=20,  # Longer sequence length to test buffer handling
         dataset_text_field="text",
     )
@@ -134,7 +134,7 @@ def test_buffer_handling(tokenizer):
 def test_disk_dataset(tokenizer, create_sample_data):
     dataset = DiskDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path=create_sample_data,
+        dataset_name=create_sample_data,
         seq_length=50,
         dataset_text_field="text",
     )
@@ -175,7 +175,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
     ]
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=20,
         mock_data=mock_data,
         skip_last=False,
@@ -186,7 +186,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
 
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=19,
         mock_data=mock_data,
         skip_last=False,
@@ -205,7 +205,7 @@ def test_dataset_with_very_long_sequence(tokenizer):
     mock_data = [{"text": "long " * 1000}]  # 1000 tokens
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=10,
         mock_data=mock_data,
     )
@@ -221,7 +221,7 @@ def test_dataset_with_non_text_field(tokenizer):
     mock_data = [{"non_text": "This should not be processed."}]
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=10,
         dataset_text_field="text",
         mock_data=mock_data,
@@ -234,7 +234,7 @@ def test_dataset_with_no_docs(tokenizer):
     mock_data = []
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=10,
         dataset_text_field="text",
         mock_data=mock_data,
@@ -249,7 +249,7 @@ def test_dataset_with_empty_docs(tokenizer):
     mock_data = [{"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}]
     dataset = TestDataset(
         tokenizer=tokenizer,
-        dataset_name_or_path="dummy",
+        dataset_name="dummy",
         seq_length=10,
         dataset_text_field="text",
         mock_data=mock_data,
