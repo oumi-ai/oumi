@@ -12,7 +12,11 @@ from oumi.core.types.conversation import Message
 
 
 class BaseProcessor(abc.ABC):
-    """Base class for oumi image processors."""
+    """Base class for oumi processors.
+
+    The high-level purpose of a processor is to generate model-specific input features
+    from input data such as text, images, conversations, etc.
+    """
 
     @property
     @abc.abstractmethod

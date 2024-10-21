@@ -44,7 +44,6 @@ def _get_default_image_model_params() -> ModelParams:
     )
 
 
-# output_filepath=str(output_path),
 def _get_default_inference_config() -> InferenceConfig:
     return InferenceConfig(
         generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
