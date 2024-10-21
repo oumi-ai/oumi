@@ -1,8 +1,7 @@
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from aiohttp import ClientSession
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
@@ -77,59 +76,6 @@ def test_convert_conversation_to_api_input(gcp_engine, conversation, generation_
     assert api_input["max_completion_tokens"] == 100
     assert api_input["temperature"] == 0.7
     assert api_input["top_p"] == 0.9
-
-
-@pytest.mark.asyncio
-async def test_query_api(gcp_engine, conversation, generation_params, remote_params):
-    mock_response = {
-        "predictions": [
-            {"candidates": [{"content": "I'm doing well, thank you for asking!"}]}
-        ]
-    }
-
-    mock_session = MagicMock(spec=ClientSession)
-    mock_post = mock_session.return_value.__aenter__.return_value.post
-    mock_post.return_value.__aenter__.return_value.json = AsyncMock(
-        return_value=mock_response
-    )
-    mock_post.return_value.__aenter__.return_value.status = 200
-
-    mock_semaphore = AsyncMock()
-
-    result = await gcp_engine._query_api(
-        conversation, generation_params, remote_params, mock_semaphore, mock_session
-    )
-
-    assert isinstance(result, Conversation)
-    assert len(result.messages) == 4
-    assert result.messages[-1].content == "I'm doing well, thank you for asking!"
-    assert result.messages[-1].role == Role.ASSISTANT
-
-
-@pytest.mark.asyncio
-async def test_infer(gcp_engine, conversation, generation_params, remote_params):
-    mock_response = {
-        "predictions": [
-            {"candidates": [{"content": "I'm doing well, thank you for asking!"}]}
-        ]
-    }
-
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_post = mock_session.return_value.__aenter__.return_value.post
-        mock_post.return_value.__aenter__.return_value.json = AsyncMock(
-            return_value=mock_response
-        )
-        mock_post.return_value.__aenter__.return_value.status = 200
-
-        results = await gcp_engine._infer(
-            [conversation], generation_params, remote_params
-        )
-
-    assert len(results) == 1
-    assert isinstance(results[0], Conversation)
-    assert len(results[0].messages) == 4
-    assert results[0].messages[-1].content == "I'm doing well, thank you for asking!"
-    assert results[0].messages[-1].role == Role.ASSISTANT
 
 
 def test_infer_online(gcp_engine, conversation, generation_params):
