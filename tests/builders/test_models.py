@@ -3,7 +3,11 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from oumi.builders.models import _patch_model_for_liger_kernel, build_chat_template
+from oumi.builders.models import (
+    _patch_model_for_liger_kernel,
+    build_chat_template,
+    is_image_text_llm,
+)
 from oumi.core.configs import ModelParams
 
 
@@ -93,3 +97,15 @@ def test_build_chat_template_removes_indentation_and_newlines():
 
         assert result == expected
         mock_load_file.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "model_name, expected_result",
+    [
+        ("openai-community/gpt2", False),
+        ("llava-hf/llava-1.5-7b-hf", True),
+        ("Salesforce/blip2-opt-2.7b", True),
+    ],
+)
+def test_is_image_text_llm(model_name, expected_result):
+    assert is_image_text_llm(ModelParams(model_name=model_name)) == expected_result
