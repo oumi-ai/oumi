@@ -1,5 +1,4 @@
 from oumi.core.datasets.base_dataset import BaseMapDataset
-from oumi.core.registry import register_dataset
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -10,8 +9,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-@register_dataset("mlabonne/orpo-dpo-mix-40k")
-class BaseDpoPreprocessor(BaseMapDataset):
+class BaseExperimentalDpoPreprocessor(BaseMapDataset):
     """Preprocess the samples to the Oumi format."""
 
     def __getitem__(self, index: int) -> dict:

@@ -1,9 +1,7 @@
 """Preference tuning datasets module."""
 
-from oumi.datasets.preference_tuning.trl_dpo_preprocessor import (
-    BaseDpoPreprocessor,
-)
+from oumi.datasets.preference_tuning.orpo import ORPOExperimentalDpoPreprocessor
 
 __all__ = [
-    "BaseDpoPreprocessor",
+    "ORPOExperimentalDpoPreprocessor",
 ]

@@ -20,6 +20,7 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
+from oumi.datasets.preference_tuning import ORPOExperimentalDpoPreprocessor
 
 __all__ = [
     "BaseIterableDataset",
@@ -28,4 +29,5 @@ __all__ = [
     "BasePretrainingIterableDataset",
     "VisionLanguageSftDataset",
     "PretrainingAsyncTextDataset",
+    "ORPOExperimentalDpoPreprocessor",
 ]
