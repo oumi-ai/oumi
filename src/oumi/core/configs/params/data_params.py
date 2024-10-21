@@ -111,43 +111,6 @@ class DatasetParams(BaseParams):
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the dataset."""
 
-    @staticmethod
-    def _default_factory_preprocessing_kwargs() -> dict:
-        """Creates default param values for the data preprocessing .map function.
-
-        Returns:
-        dict: contains the default set params.
-        """
-        defaults = dict()
-        defaults["batched"] = False  # Note: same default as huggingface data loader.
-        return defaults
-
-    preprocessing_function_name: Optional[str] = None
-    """[Deprecated] The name of the preprocessing function to apply to the dataset.
-
-    If specified, this function will be applied to the dataset using the dataset's
-    `map` method. The function should be defined in the preprocessing module.
-
-    Warning:
-        This is deprecated and will be removed in a future release.
-
-        To customize dataset preprocessing, please see `Dataset.transform`.
-    """
-
-    preprocessing_function_kwargs: Dict[str, Any] = field(
-        default_factory=_default_factory_preprocessing_kwargs
-    )
-    """[Deprecated] Keyword arguments to pass to the preprocessing function.
-
-    These arguments will be passed directly to the preprocessing function when it
-    is applied to the dataset using the `map` method.
-
-    Warning:
-        This is deprecated and will be removed in a future release.
-
-        To customize dataset preprocessing, please see `Dataset.transform`.
-    """
-
     def __post_init__(self):
         """Verifies params."""
         if self.sample_count is not None:

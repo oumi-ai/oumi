@@ -24,7 +24,6 @@ def test_train_basic():
                     datasets=[
                         DatasetParams(
                             dataset_name="yahma/alpaca-cleaned",
-                            preprocessing_function_name="alpaca",
                         )
                     ],
                     target_col="text",
@@ -62,7 +61,6 @@ def test_train_unregistered_metrics_function():
                         datasets=[
                             DatasetParams(
                                 dataset_name="yahma/alpaca-cleaned",
-                                preprocessing_function_name="alpaca",
                             )
                         ],
                         target_col="text",

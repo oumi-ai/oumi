@@ -16,12 +16,8 @@ data:
     datasets:
       - dataset_name: "HuggingFaceH4/ultrachat_200k"
         split: "train_sft"
-        preprocessing_function_name: "trl_sft_ultrachat_200k"
         shuffle: True
         seed: 42
-        preprocessing_function_kwargs:
-          num_proc: 12
-          batched: False
     target_col: "text"
 
 training:
@@ -30,7 +26,7 @@ training:
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 16
-  gradient_accumulation_steps: 1  # Effective batch-size is 128=16x(1)x8
+  gradient_accumulation_steps: 1 # Effective batch-size is 128=16x(1)x8
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
   output_dir: "output/zephyr-7b-sft-full"
