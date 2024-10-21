@@ -111,7 +111,7 @@ class DebugPretrainingDataset(Dataset):
 
 @register_dataset("debug_sft")
 class DebugSftDataset(BaseLMSftDataset):
-    default_dataset = "debugsft"
+    default_dataset = "debug_sft"
 
     def __init__(
         self,
