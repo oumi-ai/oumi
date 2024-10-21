@@ -79,6 +79,7 @@
             "module": "oumi",
             "args": [
                 "infer",
+                "--interactive",
                 "-c",
                 "configs/recipes/gpt2/inference/infer.yaml"
             ],
@@ -91,6 +92,7 @@
             "module": "oumi",
             "args": [
                 "infer",
+                "--interactive",
                 "--image",
                 "tests/testdata/images/cambrian.png",
                 "-c",
