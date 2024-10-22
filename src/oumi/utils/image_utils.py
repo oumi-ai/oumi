@@ -8,7 +8,14 @@ from oumi.utils.logging import logger
 
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
-    """Returns image bytes in PNG format."""
+    """Encodes PIL image into PNG format, and returns PNG image bytes.
+
+    Args:
+        pil_image: An input image.
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
     try:
         output = io.BytesIO()
         pil_image.save(output, format="PNG")
@@ -19,7 +26,15 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
 
 
 def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> bytes:
-    """Loads an image from a path, converts it to PNG, and returns image bytes."""
+    """Loads an image from a path, converts it to PNG, and returns image bytes.
+
+    Args:
+        input_image_filepath: A file path of an image.
+            The image can be in any format supported by PIL.
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
     if not input_image_filepath:
         raise ValueError("Empty image file path.")
     input_image_filepath = Path(input_image_filepath)
@@ -40,7 +55,14 @@ def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> by
 
 
 def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
-    """Loads an image from raw image bytes."""
+    """Loads an image from raw image bytes.
+
+    Args:
+        image_bytes: A input image bytes. Can be in any image format supported by PIL.
+
+    Returns:
+        PIL.Image.Image: PIL representation of the image.
+    """
     if image_bytes is None or len(image_bytes) == 0:
         raise ValueError("No image bytes.")
 
