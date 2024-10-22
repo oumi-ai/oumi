@@ -69,7 +69,6 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
     Returns:
         None.
     """
-    # TODO: Test wandb with async logging
     retry_count = 0
     seen_checkpoints = set()
     base_output_dir = Path(config.evaluation.output_dir)
