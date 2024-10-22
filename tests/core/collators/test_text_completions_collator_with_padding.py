@@ -124,8 +124,6 @@ def test_success_basic():
     assert "labels" in collated_batch
     assert len(collated_batch["labels"]) == len(batch)
     assert isinstance(collated_batch["labels"], torch.Tensor)
-    print(collated_batch["labels"].numpy())
-    print(np.array(expected_labels, dtype=np.int32))
     assert np.all(
         collated_batch["labels"].numpy()
         == np.array(expected_labels, dtype=np.int32)
