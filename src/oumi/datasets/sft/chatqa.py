@@ -4,13 +4,13 @@ import datasets
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("nvidia/ChatQA-Training-Data")
-class ChatqaDataset(BaseLMSftDataset):
+class ChatqaDataset(BaseSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
     default_subset = "sft"
 

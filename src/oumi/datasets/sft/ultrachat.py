@@ -2,13 +2,13 @@ from typing import Dict, Union
 
 import pandas as pd
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message
 
 
 @register_dataset("HuggingFaceH4/ultrachat_200k")
-class UltrachatH4Dataset(BaseLMSftDataset):
+class UltrachatH4Dataset(BaseSftDataset):
     """Dataset class for the HuggingFaceH4/ultrachat_200k dataset."""
 
     default_dataset = "HuggingFaceH4/ultrachat_200k"

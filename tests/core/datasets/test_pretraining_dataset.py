@@ -5,7 +5,7 @@ import pytest
 import torch
 from transformers import AutoTokenizer
 
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 
 
 #
@@ -16,7 +16,7 @@ def tokenizer():
     return AutoTokenizer.from_pretrained("gpt2")
 
 
-class TestDataset(BasePretrainingIterableDataset):
+class TestDataset(BasePretrainingDataset):
     def __init__(self, *args, mock_data=None, **kwargs):
         self.mock_data = (
             mock_data if mock_data is not None else self._default_mock_data()
@@ -57,7 +57,7 @@ def create_sample_data(tmp_path):
     return str(data_dir)
 
 
-class DiskDataset(BasePretrainingIterableDataset):
+class DiskDataset(BasePretrainingDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_dir = self.dataset_name

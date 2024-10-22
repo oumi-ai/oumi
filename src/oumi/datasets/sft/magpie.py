@@ -2,13 +2,13 @@ from typing import Dict, Union
 
 import pandas as pd
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("argilla/magpie-ultra-v0.1")
-class ArgillaMagpieUltraDataset(BaseLMSftDataset):
+class ArgillaMagpieUltraDataset(BaseSftDataset):
     """Dataset class for the argilla/magpie-ultra-v0.1 dataset."""
 
     default_dataset = "argilla/magpie-ultra-v0.1"
@@ -28,7 +28,7 @@ class ArgillaMagpieUltraDataset(BaseLMSftDataset):
 
 @register_dataset("Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1")
 @register_dataset("Magpie-Align/Magpie-Pro-300K-Filtered")
-class MagpieProDataset(BaseLMSftDataset):
+class MagpieProDataset(BaseSftDataset):
     """Dataset class for the Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1 dataset."""
 
     default_dataset = "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"
