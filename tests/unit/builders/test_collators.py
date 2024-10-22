@@ -1,18 +1,7 @@
-from unittest.mock import MagicMock
-
 import pytest
 
 import oumi.core.constants as constants
 from oumi.builders.collators import build_data_collator
-from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-
-
-@pytest.fixture
-def mock_tokenizer():
-    mock = MagicMock(spec=BaseTokenizer)
-    mock.pad_token_id = 32001
-    mock.model_max_length = 1024
-    return mock
 
 
 def test_build_data_collator_empty_name(mock_tokenizer):

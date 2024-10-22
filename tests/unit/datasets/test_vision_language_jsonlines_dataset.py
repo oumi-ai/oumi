@@ -1,25 +1,14 @@
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import jsonlines
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 
-from oumi.builders import build_chat_template
-from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Type
 from oumi.datasets.vision_language.vision_jsonlines import (
     VLJsonlinesDataset,
 )
-
-
-@pytest.fixture
-def mock_tokenizer():
-    mock = MagicMock(spec=BaseTokenizer)
-    mock.pad_token_id = 0
-    mock.chat_template = build_chat_template("llava")
-    return mock
 
 
 @pytest.fixture

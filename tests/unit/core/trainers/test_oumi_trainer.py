@@ -7,7 +7,6 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 
 from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
-from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
 
@@ -23,13 +22,6 @@ def model():
 @pytest.fixture
 def mock_model():
     return MagicMock(spec=torch.nn.Module)
-
-
-@pytest.fixture
-def mock_tokenizer():
-    mock = MagicMock(spec=BaseTokenizer)
-    mock.pad_token_id = 0
-    return mock
 
 
 @pytest.fixture
