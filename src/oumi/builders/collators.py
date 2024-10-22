@@ -87,7 +87,7 @@ def build_data_collator(
             tokenizer=tokenizer,
             instruction_template="<|start_header_id|>user<|end_header_id|>\n\n",
             response_template="<|start_header_id|>assistant<|end_header_id|>\n\n",
-            **kwargs
+            **kwargs,
         )
 
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
