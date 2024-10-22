@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("PleIAs/YouTube-Commons")
-class YouTubeCommonsDataset(BasePretrainingIterableDataset):
+class YouTubeCommonsDataset(BasePretrainingDataset):
     """YouTube-Commons Dataset.
 
     This dataset is a collection of audio transcripts from 2,063,066 videos shared on

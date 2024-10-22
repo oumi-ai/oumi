@@ -1,6 +1,8 @@
-from typing import List
+import copy
+from typing import List, Optional
 
 import peft
+import PIL.Image
 import torch
 import transformers
 from tqdm import tqdm
@@ -8,11 +10,15 @@ from transformers import BatchEncoding
 
 from oumi.builders import (
     build_model,
+    build_processor,
     build_tokenizer,
+    is_image_text_llm,
 )
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import load_image_from_bytes
 from oumi.utils.logging import logger
 
 
@@ -25,9 +31,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Args:
             model_params: The model parameters to use for inference.
         """
-        self._model = build_model(model_params)
-        self._tokenizer = build_tokenizer(model_params)
-        self._model_params = model_params
+        self._model_params = copy.deepcopy(model_params)
+        self._model = build_model(self._model_params)
+        self._tokenizer = build_tokenizer(self._model_params)
+        self._processor: Optional[BaseProcessor] = None
+        if is_image_text_llm(self._model_params):
+            # Only enable Processor for LLAVA for now
+            self._processor = build_processor(
+                self._model_params.model_name,
+                self._tokenizer,
+                trust_remote_code=self._model_params.trust_remote_code,
+            )
+
         # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
         self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
@@ -90,6 +105,74 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         return generation_params
 
+    def _apply_chat_template_impl(self, conversation: Conversation) -> str:
+        if self._processor is None:
+            return self._tokenizer.apply_chat_template(
+                conversation,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        return self._processor.apply_chat_template(
+            conversation,  # type: ignore
+            add_generation_prompt=True,
+        )
+
+    def _generate_batch_encoding_with_tokenizer(
+        self, text_prompts: List[str]
+    ) -> BatchEncoding:
+        return self._tokenizer(text_prompts, return_tensors="pt", padding=True)
+
+    def _generate_batch_encoding_with_processor(
+        self, text_prompts: List[str], conversations: List[Conversation]
+    ) -> BatchEncoding:
+        assert len(text_prompts) == len(conversations)
+        assert self._processor is not None
+
+        pil_images: List[PIL.Image.Image] = []
+        for i, conversation in enumerate(conversations):
+            image_turns = [m for m in conversation.messages if m.is_image()]
+            num_images = len(image_turns)
+            if num_images >= 1:
+                if num_images > 1:
+                    # FIXME OPE-355 Support multiple images
+                    logger.warning(
+                        conversation.append_id_to_string(
+                            f"A conversation contains multiple images ({num_images}). "
+                            "Only 1 image is currently supported. "
+                            "Using the last image."
+                        )
+                    )
+                if len(pil_images) != i:
+                    raise ValueError(
+                        conversation.append_id_to_string(
+                            "All or none conversations in a batch must contain images."
+                        )
+                    )
+                image_turn = image_turns[-1]
+                if image_turn.type != Type.IMAGE_BINARY:
+                    raise NotImplementedError(
+                        conversation.append_id_to_string(
+                            "Only binary image messages (`IMAGE_BINARY`) "
+                            f"are supported. Actual: {image_turn.type}"
+                        )
+                    )
+                elif image_turn.binary is None or len(image_turn.binary) == 0:
+                    raise ValueError(
+                        conversation.append_id_to_string(
+                            "No image bytes in a binary image message (`IMAGE_BINARY`)!"
+                        )
+                    )
+                image = load_image_from_bytes(image_turn.binary)
+                pil_images.append(image)
+
+        batch = self._processor(
+            text=text_prompts,
+            images=(pil_images if len(pil_images) > 0 else None),
+            return_tensors="pt",
+            padding=True,
+        )
+        return batch
+
     def _infer(
         self,
         input: List[Conversation],
@@ -112,25 +195,25 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 "Inference does not work yet for pretrained PEFT models."
             )
         model_device = next(self._model.parameters()).device
-        batched_input = self._make_batches(input, generation_params.batch_size)
-        batched_formatted_input: List[List[str]] = [
-            [
-                self._tokenizer.apply_chat_template(
-                    conversation,  # type: ignore
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
-                for conversation in batch
-            ]
-            for batch in batched_input
-        ]
-        input_batches: List[BatchEncoding] = [BatchEncoding()] * len(
-            batched_formatted_input
+        batched_input: List[List[Conversation]] = self._make_batches(
+            input, generation_params.batch_size
         )
-        for batch_index, batch in enumerate(batched_formatted_input):
-            batch_tokenized = self._tokenizer(batch, return_tensors="pt", padding=True)
-            batch_tokenized = batch_tokenized.to(model_device)
-            input_batches[batch_index] = batch_tokenized
+        num_batches: int = len(batched_input)
+        input_batches: List[BatchEncoding] = [BatchEncoding()] * num_batches
+
+        for batch_index in range(num_batches):
+            batch = batched_input[batch_index]
+            text_prompts: List[str] = [
+                self._apply_chat_template_impl(conversation) for conversation in batch
+            ]
+            if self._processor is None:
+                batch = self._generate_batch_encoding_with_tokenizer(text_prompts)
+            else:
+                batch = self._generate_batch_encoding_with_processor(
+                    text_prompts, batch
+                )
+
+            input_batches[batch_index] = batch.to(model_device)
 
         # Validate or (if needed) set the End Of Sequence (EOS) tokens/strings.
         generation_params = self._update_stop_criteria(generation_params)

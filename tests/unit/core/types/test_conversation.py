@@ -1,6 +1,7 @@
 import pytest
 
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 
 
 @pytest.fixture
@@ -146,11 +147,28 @@ def test_conversation_from_json():
     assert conv.messages[1].content == "Hi there!"
 
 
-def test_roundtrip_dict():
+def test_roundtrip_dict(root_testdata_dir):
+    png_image_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "math.png"
+    )
+
     original = Conversation(
         messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(role=Role.USER, binary=png_image_bytes, type=Type.IMAGE_BINARY),
+            Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
+            Message(
+                role=Role.ASSISTANT,
+                content="https://www.oumi.ai/logo.png",
+                type=Type.IMAGE_URL,
+            ),
+            Message(
+                id="xyz",
+                role=Role.TOOL,
+                content=str(root_testdata_dir / "images" / "math.png"),
+                type=Type.IMAGE_PATH,
+            ),
         ],
         metadata={"test": "metadata"},
     )
@@ -160,11 +178,28 @@ def test_roundtrip_dict():
     assert original == reconstructed
 
 
-def test_roundtrip_json():
+def test_roundtrip_json(root_testdata_dir):
+    png_image_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "math.png"
+    )
+
     original = Conversation(
         messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(role=Role.USER, binary=png_image_bytes, type=Type.IMAGE_BINARY),
+            Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
+            Message(
+                role=Role.ASSISTANT,
+                content="https://www.oumi.ai/logo.png",
+                type=Type.IMAGE_URL,
+            ),
+            Message(
+                id="xyz",
+                role=Role.TOOL,
+                content=str(root_testdata_dir / "images" / "math.png"),
+                type=Type.IMAGE_PATH,
+            ),
         ],
         metadata={"test": "metadata"},
     )
@@ -174,11 +209,27 @@ def test_roundtrip_json():
     assert original == reconstructed
 
 
-def test_from_dict_with_invalid_data():
-    with pytest.raises(ValueError):
+def test_from_dict_with_invalid_field():
+    with pytest.raises(ValueError, match="Field required"):
         Conversation.from_dict({"invalid": "data"})
 
 
-def test_from_json_with_invalid_json():
-    with pytest.raises(ValueError):
+def test_from_json_with_invalid_field():
+    with pytest.raises(ValueError, match="Invalid JSON"):
         Conversation.from_json('{"invalid": json')
+
+
+def test_from_dict_with_invalid_base64():
+    with pytest.raises(ValueError, match="Invalid base64-encoded string"):
+        Conversation.from_dict(
+            {
+                "messages": [
+                    {
+                        "binary": "INVALID_BASE64!",
+                        "role": "user",
+                        "type": "image_binary",
+                    },
+                ],
+                "metadata": {"test": "metadata"},
+            }
+        )
