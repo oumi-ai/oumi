@@ -145,6 +145,8 @@ class TelemetryCallback(BaseTrainerCallback):
             return
         self._complete_previous_epoch_if_needed()
 
+        log_nvidia_gpu_runtime_info(log_prefix="On epoch end:")
+
     def on_log(
         self,
         args: Union[transformers.TrainingArguments, TrainingParams],
@@ -184,8 +186,6 @@ class TelemetryCallback(BaseTrainerCallback):
 
         if _LOGS_KWARG in kwargs and is_world_process_zero():
             self._last_metrics_dict = copy.deepcopy(kwargs[_LOGS_KWARG])
-
-        log_nvidia_gpu_runtime_info(log_prefix="On log:")
 
     def on_train_end(
         self,
