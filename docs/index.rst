@@ -64,6 +64,7 @@ Overview
    get_started/quickstart
    get_started/configuration
    get_started/tutorials
+   get_started/tour
 
 .. toctree::
    :maxdepth: 2
