@@ -99,7 +99,7 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[List[ChatTemplateTestSpec]] = [
 def _generate_all_test_specs() -> List[ChatTemplateTestSpec]:
     result = copy.deepcopy(_ALL_CHAT_TEMPLATE_TESTS)
 
-    # Bakcfill with templates for which there is no explicit test defined yet.
+    # Backfill with templates for which there is no explicit test defined yet.
     known_template_names = {t.chat_template_name for t in result}
     chat_template_dir = get_oumi_root_directory() / "datasets" / "chat_templates"
     for f in chat_template_dir.glob("*.jinja"):
