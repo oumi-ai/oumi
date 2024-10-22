@@ -23,13 +23,13 @@ data:
           limit: 2048
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #  split: "train"
-      #  shuffle: True
-      #  seed: 42
-      #  dataset_kwargs:
-      #    processor_name: "llava-hf/llava-1.5-7b-hf"
-      #    limit: 1024
-      #    return_tensors: True
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   dataset_kwargs:
+      #     processor_name: "llava-hf/llava-1.5-7b-hf"
+      #     limit: 1024
+      #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True

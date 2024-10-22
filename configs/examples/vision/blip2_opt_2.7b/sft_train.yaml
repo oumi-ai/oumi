@@ -22,13 +22,13 @@ data:
           limit: 2048
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #  split: "train"
-      #  shuffle: True
-      #  seed: 42
-      #  dataset_kwargs:
-      #    processor_name: "Salesforce/blip2-opt-2.7b"
-      #    limit: 1024
-      #    return_tensors: True
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   dataset_kwargs:
+      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     limit: 1024
+      #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
