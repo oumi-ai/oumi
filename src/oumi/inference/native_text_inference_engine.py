@@ -235,10 +235,15 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             eos_token_id=generation_params.stop_token_ids,
         )
 
+        # skip using a progress for single turns
+        disable_tgdm = len(input) < 2
+
         # Generate model outputs (batch mode).
         output_conversations = []
         for batch_index in tqdm(
-            range(len(input_batches)), desc="Generating Model Responses"
+            range(len(input_batches)),
+            desc="Generating Model Responses",
+            disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
             output_batch = self._model.generate(
