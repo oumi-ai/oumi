@@ -153,12 +153,8 @@ class TelemetryCallback(BaseTrainerCallback):
         **kwargs,
     ):
         """Event called after logging the last logs."""
-        log_nvidia_gpu_runtime_info(log_prefix="On logging step BEFORE:")
-
         if self._callback_disabled():
             return
-
-        log_nvidia_gpu_runtime_info(log_prefix="On logging step AFTER:")
 
         device_rank_info = get_device_rank_info()
         basename = f"telemetry_rank{device_rank_info.rank:03}"
@@ -188,6 +184,8 @@ class TelemetryCallback(BaseTrainerCallback):
 
         if _LOGS_KWARG in kwargs and is_world_process_zero():
             self._last_metrics_dict = copy.deepcopy(kwargs[_LOGS_KWARG])
+
+        log_nvidia_gpu_runtime_info(log_prefix="On log:")
 
     def on_train_end(
         self,
