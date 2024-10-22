@@ -34,6 +34,8 @@ def build_processor(
         worker_processor = create_processor_fn(
             patch_size=14, vision_feature_select_strategy="default"
         )
+    elif processor_name == "Salesforce/blip2-opt-2.7b":
+        worker_processor = create_processor_fn(num_query_tokens=32)
     else:
         worker_processor = create_processor_fn()
 

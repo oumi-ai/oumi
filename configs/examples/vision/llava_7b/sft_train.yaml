@@ -20,7 +20,7 @@ data:
         seed: 42
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          limit: 1024
+          limit: 2048
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #  split: "train"
@@ -44,7 +44,6 @@ data:
       #     processor_name: "llava-hf/llava-1.5-7b-hf"
 
 training:
-  optimizer: "sgd"
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
@@ -59,7 +58,13 @@ training:
   empty_device_cache_steps: 5
   learning_rate: 2e-5
   compile: False
-  warmup_ratio: 0.1
+
+  # optimizer: "sgd"
+  optimizer: "adamw_torch"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
   logging_steps: 5
   save_steps: 0
   dataloader_num_workers: "auto"

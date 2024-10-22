@@ -13,6 +13,9 @@ from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.configs import TrainingParams
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
 from oumi.performance.telemetry import TelemetryTracker, TimerContext
+from oumi.utils.device_utils import (
+    log_nvidia_gpu_runtime_info,
+)
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import logger
 
@@ -152,6 +155,8 @@ class TelemetryCallback(BaseTrainerCallback):
         """Event called after logging the last logs."""
         if self._callback_disabled():
             return
+
+        log_nvidia_gpu_runtime_info()
 
         device_rank_info = get_device_rank_info()
         basename = f"telemetry_rank{device_rank_info.rank:03}"
