@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
+import transformers
 from pandas.core.api import DataFrame as DataFrame
 from PIL import Image
 from typing_extensions import override
@@ -51,18 +52,24 @@ def mock_processor():
     processor.image_processor = Mock()
     processor.chat_template = None
     processor.image_token = _IMAGE_TOKEN
-    processor.side_effect = lambda images, text, return_tensors, padding: {
-        "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
-        "attention_mask": [[1, 1, 1, 1]],
-        "pixel_values": [
-            [
-                np.ones(shape=(3, 2, 8)),
-                np.zeros(shape=(3, 2, 8)),
-                np.ones(shape=(3, 2, 8)) * 0.5,
-                np.ones(shape=(3, 2, 8)) * 0.7,
-            ]
-        ],
-    }
+    processor.image_token_id = _IMAGE_TOKEN_ID
+    processor.side_effect = (
+        lambda images, text, return_tensors, padding: transformers.BatchEncoding(
+            data={
+                "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
+                "attention_mask": [[1, 1, 1, 1]],
+                "pixel_values": [
+                    [
+                        np.ones(shape=(3, 2, 8)),
+                        np.zeros(shape=(3, 2, 8)),
+                        np.ones(shape=(3, 2, 8)) * 0.5,
+                        np.ones(shape=(3, 2, 8)) * 0.7,
+                    ]
+                ],
+            },
+            tensor_type=return_tensors,
+        )
+    )
     return processor
 
 
@@ -153,33 +160,6 @@ def test_dataset_image_binary_label_ignore_index(
         processor=mock_processor,
         tokenizer=mock_tokenizer,
     )
-
-
-def test_transform_image_using_image_path(test_dataset_image_path):
-    with patch("PIL.Image.open") as mock_open:
-        mock_image = Mock(spec=Image.Image)
-        mock_open.return_value.convert.return_value = mock_image
-
-        test_dataset_image_path.transform_image("path/to/image.jpg")
-
-        mock_open.assert_called_once_with("path/to/image.jpg")
-        test_dataset_image_path._image_processor.assert_called_once()
-
-
-def test_transform_image_using_image_binary(
-    test_dataset_image_binary_label_ignore_index,
-):
-    with patch("PIL.Image.open") as mock_open:
-        mock_image = Mock(spec=Image.Image)
-        mock_open.return_value.convert.return_value = mock_image
-
-        test_image_bytes = _get_test_png_image_bytes()
-        test_dataset_image_binary_label_ignore_index.transform_image(
-            Message(type=Type.IMAGE_BINARY, binary=test_image_bytes, role=Role.USER)
-        )
-
-        mock_open.assert_called_once_with(EqBytesIO(io.BytesIO(test_image_bytes)))
-        test_dataset_image_binary_label_ignore_index._image_processor.assert_called_once()
 
 
 def test_transform_simple_model_using_image_path(test_dataset_image_path):

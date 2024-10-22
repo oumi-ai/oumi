@@ -1,8 +1,6 @@
-import io
 import os
 from typing import Optional
 
-import PIL.Image
 import typer
 from typing_extensions import Annotated
 
@@ -10,19 +8,8 @@ import oumi.core.cli.cli_utils as cli_utils
 from oumi import infer as oumi_infer
 from oumi import infer_interactive as oumi_infer_interactive
 from oumi.core.configs import InferenceConfig
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
-
-
-def _load_image_png_bytes(input_image_filepath: str) -> bytes:
-    try:
-        image_bin = PIL.Image.open(input_image_filepath).convert("RGB")
-
-        output = io.BytesIO()
-        image_bin.save(output, format="PNG")
-        return output.getvalue()
-    except Exception:
-        logger.error(f"Failed to load image from path: {input_image_filepath}")
-        raise
 
 
 def infer(
@@ -70,7 +57,7 @@ def infer(
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     input_image_png_bytes: Optional[bytes] = (
-        _load_image_png_bytes(image) if image else None
+        load_image_png_bytes_from_path(image) if image else None
     )
 
     if interactive:
