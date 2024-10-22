@@ -98,7 +98,7 @@
             "justMyCode": true
         },
         {
-            "name": "Oumi - Multimodal Inference",
+            "name": "Oumi - Experimental - Multimodal Inference",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
