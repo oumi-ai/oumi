@@ -15,7 +15,7 @@ def build_processor(
         tokenizer: A tokenizer to use with the processor.
         trust_remote_code: Whether to allow loading remote code for this processor
             Some processors come with downloadable executable Python files,
-            which can be a potential security risk.
+            which can be a potential security risk, unless it's from a trusted source.
 
     Returns:
         BaseProcessor: The newly created processor.
