@@ -16,6 +16,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: llama3.8b.aya.sft
 
 setup: |
   set -e
@@ -26,4 +27,5 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   python -m oumi.evaluate \
-      -c configs/projects/aya/evaluation/eval.yaml
+    -c configs/projects/aya/evaluation/eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
