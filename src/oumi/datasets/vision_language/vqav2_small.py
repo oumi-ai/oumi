@@ -9,17 +9,21 @@ from oumi.core.types.conversation import Conversation, Message, Role, Type
 class Vqav2SmallDataset(VisionLanguageSftDataset):
     default_dataset = "merve/vqav2-small"
 
+    def _process_text_value(self, s: str) -> str:
+        # The data contains occasional `\n` at the beginning or end
+        # of text values. Let's strip them.
+        return s.strip() if s else ""
+
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
-        print(example)
-        input_text = example["question"][0]
-        output_text = example["multiple_choice_answer"][0]
+        input_text = self._process_text_value(example["question"])
+        output_text = self._process_text_value(example["multiple_choice_answer"])
 
         messages = [
             Message(
                 role=Role.USER,
-                binary=example["image"],
+                binary=example["image"]["bytes"],
                 type=Type.IMAGE_BINARY,
             ),
             Message(role=Role.USER, content=input_text),
