@@ -156,8 +156,10 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                         f"not found in '{prompt}' ({debug_tag})"
                     )
 
+            # Same test but using JSON dict.
+            convo_dict = test_convo_tuple.convo.to_dict()
             prompt = tokenizer.apply_chat_template(
-                test_convo_tuple.convo.to_dict(),  # type: ignore
+                convo_dict["messages"],  # type: ignore
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
