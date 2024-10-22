@@ -133,6 +133,8 @@ def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     if dataset_name == DatasetName.FLICKR:
         # The dataset only has "test" split.
         return "test"
+    elif dataset_name == DatasetName.MERVE_VQAV2_SMALL:
+        return "validation"
     return "train"
 
 
