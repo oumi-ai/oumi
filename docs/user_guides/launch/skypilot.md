@@ -1,6 +1,6 @@
 # Running Jobs with SkyPilot
 
-```{deprecated}
+```{deprecated} 0.1.1
 SkyPilot support is deprecated. Please use oumi launcher, which extends SkyPilot with support for oumi specific features.
 ```
 

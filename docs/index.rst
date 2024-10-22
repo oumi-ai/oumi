@@ -79,13 +79,10 @@ Overview
    :maxdepth: 2
    :caption: Advanced Topics
 
-   advanced/custom_models
-   advanced/nanopgt
-   advanced/custom_datasets
-   advanced/custom_cluster
-   advanced/custom_vl_datasets
+   advanced/customization
    advanced/quantization
    advanced/performance_optimization
+   advanced/distributed_training
 
 .. toctree::
    :maxdepth: 2

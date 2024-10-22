@@ -86,8 +86,8 @@ config = TrainingConfig(
 
 ## Sample Configurations
 
-- [Llama 8B QLoRA](../../configs/oumi/llama8b.qlora.yaml)
-- [Llama 3.2 3B QLoRA](../../configs/oumi/llama3b.qlora.yaml)
+- [Llama 8B QLoRA](../../configs/recipes/llama3_1/sft/8b_qlora/train.yaml)
+- [Llama 3.2 3B QLoRA](../../configs/recipes/llama3_2/sft/3b_qlora/train.yaml)
 
 ```{seealso}
 For more advanced quantization techniques and configurations, refer to the [bitsandbytes documentation](https://github.com/TimDettmers/bitsandbytes) and the [PEFT library documentation](https://huggingface.co/docs/peft/index).
