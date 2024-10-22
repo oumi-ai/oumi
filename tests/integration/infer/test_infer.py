@@ -14,7 +14,7 @@ FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
 
 TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory() / "tests" / "testdata" / "images"
+    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
 )
 
 

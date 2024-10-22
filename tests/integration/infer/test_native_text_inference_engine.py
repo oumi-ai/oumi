@@ -13,7 +13,7 @@ from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.io_utils import get_oumi_root_directory
 
 TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory() / "tests" / "testdata" / "images"
+    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
 )
 
 
