@@ -1,18 +1,4 @@
-# Launch
-
-```{toctree}
-:maxdepth: 2
-:caption: Judge
-:hidden:
-
-deploy
-remote
-skypilot
-```
-
-```{attention}
-Section under construction. Contributions welcome!
-```
+# Running Jobs with SkyPilot
 
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
@@ -49,7 +35,7 @@ You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), 
 To launch a job on the cloud, you can use the following command:
 
 ```shell
-sky launch -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
+sky launch -c oumi-cluster configs/skypilot/sky_gpt2.yaml
 ```
 
 To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
@@ -57,7 +43,7 @@ To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`
 Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
 
 ```shell
-sky exec -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
+sky exec -c oumi-cluster configs/skypilot/sky_gpt2.yaml
 ```
 
 If you made any code changes to the codebase (not including configs), you need to run
