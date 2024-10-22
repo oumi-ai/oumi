@@ -1,4 +1,4 @@
-# Acknowledgements
+# Acknowledgments
 
 Oumi makes use of several libraries and tools from the open-source community 🚀.
 
