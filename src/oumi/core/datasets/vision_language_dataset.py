@@ -1,17 +1,18 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import Any, List, NamedTuple, Optional, Tuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import requests
 import torch
 from PIL import Image
-from transformers import AutoProcessor
 from typing_extensions import override
 
 import oumi.core.constants as constants
+from oumi.builders.processors import build_processor
 from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
@@ -56,10 +57,11 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         self,
         *,
         tokenizer: Optional[BaseTokenizer] = None,
-        processor: Optional[Any] = None,
+        processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
         label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
+        trust_remote_code: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
@@ -70,58 +72,32 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
 
-        if processor is None:
-            if processor_name:
-                processor = AutoProcessor.from_pretrained(
-                    processor_name
-                    # TODO Provide an option to set `trust_remote_code=True` here.
-                )
-        else:
+        if processor is not None:
             if processor_name:
                 logger.warning(
                     "Both processor and processor_name are provided. "
-                    "Ignoring processor_name: %s",
-                    processor_name,
+                    f"Ignoring processor_name: {processor_name}"
                 )
+        elif processor_name:
+            processor = build_processor(
+                processor_name, tokenizer, trust_remote_code=trust_remote_code
+            )
 
-        self._processor = processor
-        if self._processor is not None and not callable(self._processor):
-            raise ValueError("Processor is not callable!")
-
-        image_token: Optional[str] = None
-        image_token_id: Optional[int] = None
+        self._processor: Optional[BaseProcessor] = processor
         if self._processor is not None:
-            # We must use oumi's "chat template", not the one from HF,
-            # as its input data is different (`oumi.core.types.turn.Message`).
-            self._processor.chat_template = tokenizer.chat_template or None
-            # Reset processor's tokenizer to oumi's tokenizer for consistency.
-            self._processor.tokenizer = tokenizer
+            if not callable(self._processor):
+                raise ValueError("Processor is not callable!")
             self._image_processor = self._processor.image_processor
-
-            if hasattr(self._processor, "image_token") and self._processor.image_token:
-                try:
-                    image_token = str(self._processor.image_token)
-                    image_token_id = tokenizer.convert_tokens_to_ids(image_token)  # type: ignore
-                    if not isinstance(image_token_id, int):
-                        raise ValueError(
-                            "Image token id must be an integer. "
-                            "The token is likely not in tokenizer's vocabulary. "
-                            f"Image token: '{image_token}' "
-                            f"Actual type: {type(image_token_id)}"
-                        )
-                except Exception as e:
-                    raise RuntimeError(
-                        "Failed to process "
-                        f"image token: '{self._processor.image_token}'"
-                    ) from e
-
         else:
+            assert self._processor is None
             self._tokenizer = None  # Reset base class's member variable.
             self._image_processor = None
 
         self._special_tokens: _SpecialTokens = _SpecialTokens(
-            image_token=image_token,
-            image_token_id=image_token_id,
+            image_token=(self._processor.image_token if self._processor else None),
+            image_token_id=(
+                self._processor.image_token_id if self._processor else None
+            ),
             label_ignore_index=label_ignore_index,
         )
 
@@ -143,25 +119,6 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         """
         raise NotImplementedError
 
-    def transform_image(self, message: Union[str, Message]) -> torch.Tensor:
-        """Transforms a single image from a message for debugging.
-
-        Args:
-            message (Union[str, Message]): A string representing the image path or a
-                Message object.
-
-        Returns:
-            torch.Tensor: a tensor representing the processed image.
-        """
-        if self._image_processor is None:
-            raise ValueError("Processor required for transform")
-
-        image_bin = self._load_image(message)
-        features = self._image_processor(
-            images=image_bin, return_tensors=self._return_tensors
-        )
-        return features
-
     @override
     def transform(self, sample: dict) -> dict:
         """Transforms an Oumi conversation into a dictionary of inputs for a model.
@@ -181,8 +138,8 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             image, prompt = self._prepare_simple_model(conversation)
 
             inputs = self._processor(
-                images=image,
-                text=prompt,
+                images=[image],
+                text=[prompt],
                 return_tensors=self._return_tensors,
                 padding=True,
             )
@@ -197,8 +154,9 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
             )
 
         # Clone `input_ids` as `labels`.
-        if self._return_tensors:
-            inputs["labels"] = inputs["input_ids"].clone()
+        input_ids = inputs["input_ids"]
+        if isinstance(input_ids, torch.Tensor):
+            inputs["labels"] = input_ids.clone()
         else:
             inputs["labels"] = copy.deepcopy(inputs["input_ids"])
 
@@ -207,10 +165,14 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        inputs["input_ids"] = inputs["input_ids"][0]
-        inputs["pixel_values"] = inputs["pixel_values"][0]
-        inputs["attention_mask"] = inputs["attention_mask"][0]
-        inputs["labels"] = inputs["labels"][0]
+        for feature_name in ("input_ids", "pixel_values", "attention_mask", "labels"):
+            x = inputs[feature_name]
+            if isinstance(x, (torch.Tensor, np.ndarray, list)):
+                inputs[feature_name] = x[0]
+            else:
+                raise ValueError(
+                    f"Unexpected type of the feature '{feature_name}': {type(x)}"
+                )
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
@@ -229,7 +191,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
                 labels[labels == image_token_id] = label_ignore_index
                 inputs["labels"] = labels.tolist()
 
-        return inputs
+        return inputs.data
 
     def _prepare_simple_model(
         self, conversation: Conversation
