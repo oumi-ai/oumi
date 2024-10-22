@@ -22,14 +22,14 @@ from typing import Dict, List, NamedTuple, Optional
 
 import torch
 import typer
-from transformers import AutoProcessor
 
 import oumi.core.constants as constants
 from oumi.builders import (
-    build_chat_template,
     build_data_collator,
     build_dataset,
     build_model,
+    build_processor,
+    build_tokenizer,
 )
 from oumi.core.configs import (
     FSDPParams,
@@ -42,6 +42,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.str_utils import sanitize_run_name
@@ -162,24 +163,17 @@ def test_multimodal_trainer(
         model_name=model_name.value,
         torch_dtype_str="float16",
         trust_remote_code=True,
+        chat_template=_get_chat_template(model_name),
         freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp
     )
     if is_local_process_zero():
         print(f"ModelParams:\n{pformat(model_params)}")
 
     model = build_model(model_params)
-    processor = AutoProcessor.from_pretrained(model_name.value, trust_remote_code=True)
-    assert callable(processor)
-    tokenizer: BaseTokenizer = processor.tokenizer
-
-    # TODO: assign the right chat template for each model
-    # For now, we use the LLaVA chat template for all models
-    # NOTE: We can't use the original model's template because
-    # oumi will feed it an array of `oumi.core.types.turn.Message`
-    # objects (vs model-specific Python dict).
-    chat_template = build_chat_template(_get_chat_template(model_name))
-    processor.chat_template = chat_template
-    tokenizer.chat_template = chat_template
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_name.value, tokenizer, trust_remote_code=True
+    )
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
