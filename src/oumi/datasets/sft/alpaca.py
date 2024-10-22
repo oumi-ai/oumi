@@ -9,14 +9,14 @@ from typing import Union, cast
 
 import pandas as pd
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("yahma/alpaca-cleaned")
 @register_dataset("tatsu-lab/alpaca")
-class AlpacaDataset(BaseLMSftDataset):
+class AlpacaDataset(BaseSftDataset):
     system_prompt_with_context = (
         "Below is an instruction that describes a task, "
         "paired with an input that provides further context. "

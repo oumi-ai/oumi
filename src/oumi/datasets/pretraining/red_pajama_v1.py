@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("togethercomputer/RedPajama-Data-1T")
-class RedPajamaDataV1Dataset(BasePretrainingIterableDataset):
+class RedPajamaDataV1Dataset(BasePretrainingDataset):
     """RedPajama is a clean-room, fully open-source implementation of the LLaMa dataset.
 
     This dataset contains approximately 1.2 trillion tokens from various sources:

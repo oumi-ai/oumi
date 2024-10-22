@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("cerebras/SlimPajama-627B")
-class SlimPajamaDataset(BasePretrainingIterableDataset):
+class SlimPajamaDataset(BasePretrainingDataset):
     """SlimPajama-627B: A cleaned and deduplicated version of RedPajama.
 
     SlimPajama is the largest extensively deduplicated, multi-corpora, open-source

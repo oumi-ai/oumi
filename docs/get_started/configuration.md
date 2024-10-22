@@ -53,12 +53,12 @@ The choice of model depends on your specific task and computational resources.
 Oumi handles most data preprocessing automatically. However, for custom datasets or specific requirements, you can implement your own preprocessing logic. Here's an example of how to preprocess data for a text classification task:
 
 ```python
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role
 
 @register_dataset("my_text_classification_dataset")
-class MyTextClassificationDataset(BaseLMSftDataset):
+class MyTextClassificationDataset(BaseSftDataset):
     def transform_conversation(self, raw_example):
         text = raw_example['text']
         label = raw_example['label']
