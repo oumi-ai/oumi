@@ -1,13 +1,7 @@
-from pathlib import Path
-from typing import Final
-
 import pytest
 
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.image_utils import load_image_png_bytes_from_path
-
-OUMI_ROOT_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent.parent
-TEST_IMAGE_DIR: Final[Path] = OUMI_ROOT_DIR / "tests" / "testdata" / "images"
 
 
 @pytest.fixture
@@ -153,8 +147,10 @@ def test_conversation_from_json():
     assert conv.messages[1].content == "Hi there!"
 
 
-def test_roundtrip_dict():
-    png_image_bytes = load_image_png_bytes_from_path(TEST_IMAGE_DIR / "math.png")
+def test_roundtrip_dict(root_testdata_dir):
+    png_image_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "math.png"
+    )
 
     original = Conversation(
         messages=[
@@ -170,7 +166,7 @@ def test_roundtrip_dict():
             Message(
                 id="xyz",
                 role=Role.TOOL,
-                content=str(TEST_IMAGE_DIR / "math.png"),
+                content=str(root_testdata_dir / "images" / "math.png"),
                 type=Type.IMAGE_PATH,
             ),
         ],
@@ -182,8 +178,10 @@ def test_roundtrip_dict():
     assert original == reconstructed
 
 
-def test_roundtrip_json():
-    png_image_bytes = load_image_png_bytes_from_path(TEST_IMAGE_DIR / "math.png")
+def test_roundtrip_json(root_testdata_dir):
+    png_image_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "math.png"
+    )
 
     original = Conversation(
         messages=[
@@ -199,7 +197,7 @@ def test_roundtrip_json():
             Message(
                 id="xyz",
                 role=Role.TOOL,
-                content=str(TEST_IMAGE_DIR / "math.png"),
+                content=str(root_testdata_dir / "images" / "math.png"),
                 type=Type.IMAGE_PATH,
             ),
         ],
