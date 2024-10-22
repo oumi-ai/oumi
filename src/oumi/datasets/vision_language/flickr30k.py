@@ -16,12 +16,12 @@ class Flickr30kDataset(VisionLanguageSftDataset):
         output_text = example["caption"][0]
 
         messages = [
-            Message(role=Role.USER, content=input_text),
             Message(
                 role=Role.USER,
                 binary=example["image"]["bytes"],
                 type=Type.IMAGE_BINARY,
             ),
+            Message(role=Role.USER, content=input_text),
             Message(role=Role.ASSISTANT, content=output_text),
         ]
 
