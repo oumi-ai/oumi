@@ -8,12 +8,14 @@ from oumi import infer, infer_interactive
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.image_utils import load_image_png_bytes_from_path
+from oumi.utils.io_utils import get_oumi_root_directory
 
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
 
-OUMI_ROOT_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent.parent
-TEST_IMAGE_DIR: Final[Path] = OUMI_ROOT_DIR / "tests" / "testdata" / "images"
+TEST_IMAGE_DIR: Final[Path] = (
+    get_oumi_root_directory() / "tests" / "testdata" / "images"
+)
 
 
 def is_cuda_available_and_initialized():
