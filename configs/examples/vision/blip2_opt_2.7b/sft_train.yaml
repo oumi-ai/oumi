@@ -43,12 +43,11 @@ data:
       #     processor_name: "Salesforce/blip2-opt-2.7b"
 
 training:
-  optimizer: "sgd"
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 8
   max_steps: 20
 
   gradient_checkpointing_kwargs:
@@ -56,12 +55,17 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   empty_device_cache_steps: 5
-  learning_rate: 2e-5
   compile: False
-  warmup_ratio: 0.1
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
   logging_steps: 5
   save_steps: 0
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
-  include_performance_metrics: true
+  include_performance_metrics: True
   enable_wandb: True
