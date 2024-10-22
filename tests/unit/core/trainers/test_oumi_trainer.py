@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+from markers import requires_gpu
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
@@ -280,7 +281,7 @@ def test_process_callbacks(trainer):
     assert isinstance(logs, dict)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_cuda_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu
     trainer = Trainer(

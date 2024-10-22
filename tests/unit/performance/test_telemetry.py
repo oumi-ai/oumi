@@ -1,8 +1,8 @@
 import math
 import time
 
-import pytest
 import torch
+from markers import requires_gpu
 
 from oumi.performance.telemetry import (
     CudaTimerContext,
@@ -39,7 +39,7 @@ def test_timer_context_as_decorator():
 #
 # Cuda Timer
 #
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_cuda_timer_context():
     measurements = []
     with CudaTimerContext("test_cuda_timer", measurements):
@@ -49,7 +49,7 @@ def test_cuda_timer_context():
     assert measurements[0] > 0
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_cuda_timer_context_as_decorator():
     measurements = []
 
@@ -79,7 +79,7 @@ def test_telemetry_tracker_timer():
     tracker.print_summary()
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_telemetry_tracker_cuda_timer():
     tracker = TelemetryTracker()
 
@@ -94,7 +94,7 @@ def test_telemetry_tracker_cuda_timer():
     tracker.print_summary()
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_telemetry_tracker_log_gpu_memory():
     tracker = TelemetryTracker()
 
@@ -108,7 +108,7 @@ def test_telemetry_tracker_log_gpu_memory():
     tracker.print_summary()
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_telemetry_tracker_record_gpu_temperature():
     tracker = TelemetryTracker()
 
@@ -218,7 +218,7 @@ def test_telemetry_tracker_get_summary():
     assert len(info["timers"]["operation2"]["max"]) == 8
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@requires_gpu
 def test_telemetry_tracker_get_summary_with_gpu_temperature():
     tracker = TelemetryTracker()
 
