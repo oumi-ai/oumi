@@ -1,9 +1,5 @@
 # Configuration
 
-```{attention}
-Section under construction. Contributions welcome!
-```
-
 ## 1. Configuration
 
 Oumi uses YAML configuration files to specify model and training parameters. Create a file named `config.yaml` with your desired settings. Here's a basic example:
