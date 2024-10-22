@@ -19,6 +19,7 @@ Subpackages
    oumi.core.inference
    oumi.core.launcher
    oumi.core.models
+   oumi.core.processors
    oumi.core.tokenizers
    oumi.core.trainers
    oumi.core.types
