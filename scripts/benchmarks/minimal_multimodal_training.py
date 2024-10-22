@@ -10,9 +10,9 @@ For multi-GPU training, use torchrun:
             --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
@@ -52,8 +52,8 @@ from oumi.utils.torch_utils import (
 
 
 class ModelName(str, Enum):
-    BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
+    BLIP2 = "Salesforce/blip2-opt-2.7b"
     QWEN = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
