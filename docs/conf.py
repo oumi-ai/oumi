@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
+    "sphinx_term.termynal",
 ]
 
 source_suffix = {
