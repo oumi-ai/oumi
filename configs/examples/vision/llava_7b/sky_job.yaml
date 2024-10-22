@@ -44,7 +44,7 @@ run: |
       -m oumi.train \
       -c configs/examples/vision/llava_7b/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=10" \
+      "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"
 
