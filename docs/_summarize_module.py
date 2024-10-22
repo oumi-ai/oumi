@@ -1,11 +1,14 @@
 import importlib
 import inspect
+import os
 from pathlib import Path
 from typing import List, Optional
 
 import typer
 
 app = typer.Typer()
+
+GITHUB_BASE_URL = "https://github.com/oumi-ai/oumi/blob/main"
 
 
 @app.command()
@@ -85,7 +88,7 @@ def summarize_module(
             continue
 
         docstring = _get_object_docstring(obj, summary=True)
-        reference = "{py:obj}" + f"`{module_name}.{name}`"
+        reference = "{py:obj}" + f"`~{module_name}.{name}`"
 
         objects.append(
             {
@@ -104,6 +107,75 @@ def summarize_module(
 
     for obj in sorted(objects, key=lambda x: x["name"]):
         markdown += f"| {obj['name']} | {obj['description']} | {obj['reference']} |\n"
+
+    if output_file:
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown)
+    else:
+        print(markdown)
+
+    return markdown
+
+
+@app.command()
+def summarize_configs(
+    config_folder: str = typer.Argument(..., help="The folder containing config files"),
+    config_class: str = typer.Argument(
+        ..., help="The class to instantiate configs (format: module.ClassName)"
+    ),
+    output_file: Optional[str] = typer.Option(
+        None, help="File path to save the generated markdown"
+    ),
+):
+    """Generate a markdown table summarizing config files in a folder.
+
+    Args:
+        config_folder: The folder containing config files.
+        config_class: The class to instantiate configs (format: module.ClassName).
+        output_file: Optional file path to save the generated markdown.
+
+    Returns:
+        A string containing the generated markdown table.
+
+    Raises:
+        ImportError: If the specified config_class cannot be imported.
+        ValueError: If the config_folder does not exist.
+    """
+    config_path = Path(config_folder)
+    if not config_path.is_dir():
+        raise ValueError(f"Config folder does not exist: {config_folder}")
+
+    try:
+        module_name, class_name = config_class.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        config_cls = getattr(module, class_name)
+    except (ValueError, ImportError, AttributeError):
+        raise ImportError(f"Could not import config class: {config_class}")
+
+    configs = []
+    for config_file in config_path.rglob("*.yaml"):
+        try:
+            config = config_cls.from_yaml(config_file)
+            configs.append(
+                {
+                    "name": Path(config_file).stem,
+                    "type": config.__class__.__name__,
+                    "path": os.path.relpath(config_file, config_folder),
+                    "github_link": f"{GITHUB_BASE_URL}/{config_file}",
+                }
+            )
+        except Exception:
+            pass
+
+    markdown = "| Name | Path | GitHub Link |\n"
+    markdown += "|------|------|-------------|\n"
+
+    for config in sorted(configs, key=lambda x: x["name"]):
+        markdown += (
+            f"| {config['name']} | {config['path']} "
+            f"| [View on GitHub]({config['github_link']}) |\n"
+        )
 
     if output_file:
         output_path = Path(output_file)
