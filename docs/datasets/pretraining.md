@@ -25,7 +25,7 @@ training:
           pack: true
           dataset_kwargs:
             seq_length: 512
-      experimental_use_async_dataset: true
+      use_async_dataset: true
   # ... other configuration parameters
 ```
 

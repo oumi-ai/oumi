@@ -14,10 +14,9 @@ Oumi can work with JSONL (JSON Lines) datasets that follow the structure defined
 
 ```json
 {"messages": [
-    {"role": "user",      "content": "What's the weather like in Seattle today?"},
-    {"role": "assistant", "content": "I apologize, but I don't have access to real-time
-    weather information for Seattle."},
-    {"role": "user",     "content": "I see. Can you tell me about Seattle's typical weather patterns?"},
+    {"role": "user", "content": "What's the weather like in Seattle today?"},
+    {"role": "assistant", "content": "I apologize, but I don't have access to real-time weather information for Seattle."},
+    {"role": "user", "content": "I see. Can you tell me about Seattle's typical weather patterns?"},
     {"role": "assistant", "content": "Certainly! Seattle is known for its mild, but wet climate."}
 ]}
 ```
