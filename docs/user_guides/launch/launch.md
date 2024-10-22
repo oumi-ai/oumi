@@ -10,15 +10,17 @@ remote
 skypilot
 ```
 
-```{attention}
-Section under construction. Contributions welcome!
-```
-
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
-```shell
-pip install 'oumi[cloud]'
-```
+For specific cloud providers:
+
+  ```bash
+  pip install oumi[aws]     # For Amazon Web Services
+  pip install oumi[azure]   # For Microsoft Azure
+  pip install oumi[gcp]     # For Google Cloud Platform
+  pip install oumi[lambda]  # For Lambda Cloud
+  pip install oumi[runpod]  # For RunPod
+  ```
 
 Then setup your cloud credentials:
 
