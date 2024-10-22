@@ -1,3 +1,5 @@
+import functools
+
 import transformers
 
 from oumi.core.processors.base_processor import BaseProcessor
@@ -23,8 +25,18 @@ def build_processor(
     if not processor_name:
         raise ValueError("Empty model name.")
 
-    worker_processor = transformers.AutoProcessor.from_pretrained(
-        processor_name, trust_remote_code=trust_remote_code
+    create_processor_fn = functools.partial(
+        transformers.AutoProcessor.from_pretrained,
+        processor_name,
+        trust_remote_code=trust_remote_code,
     )
+    if processor_name == "llava-hf/llava-1.5-7b-hf":
+        worker_processor = create_processor_fn(
+            patch_size=14, vision_feature_select_strategy="default"
+        )
+    elif processor_name == "Salesforce/blip2-opt-2.7b":
+        worker_processor = create_processor_fn(num_query_tokens=32)
+    else:
+        worker_processor = create_processor_fn()
 
     return DefaultProcessor(worker_processor, tokenizer)
