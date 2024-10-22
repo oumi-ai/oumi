@@ -7,7 +7,6 @@ import pytest
 import torch
 from trl import DataCollatorForCompletionOnlyLM
 
-import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -42,32 +41,45 @@ def test_success_basic():
     response_template = "ignore this but not after me"
 
     instruction_prefix_tokens = tokenizer.encode(
-        instruction_template, add_special_tokens=False)
+        instruction_template, add_special_tokens=False
+    )
     response_prefix_tokens = tokenizer.encode(
-        response_template, add_special_tokens=False)
+        response_template, add_special_tokens=False
+    )
 
-    collator = DataCollatorForCompletionOnlyLM(tokenizer=tokenizer,
-                                            instruction_template=instruction_template,
-                                            response_template=response_template)
+    collator = DataCollatorForCompletionOnlyLM(
+        tokenizer=tokenizer,
+        instruction_template=instruction_template,
+        response_template=response_template,
+    )
     assert callable(collator)
 
     batch = [
         # Instructions with no response, all tokens are ignored
         {"input_ids": instruction_prefix_tokens + [101] + response_prefix_tokens},
-
         # Response with no instructions, only in-between tokens are used
-        {"input_ids": (
-            response_prefix_tokens + [201, 202, 203, 204] + instruction_prefix_tokens
-        )},
-
+        {
+            "input_ids": (
+                response_prefix_tokens
+                + [201, 202, 203, 204]
+                + instruction_prefix_tokens
+            )
+        },
         # No instructions or response, all tokens are ignored
         {"input_ids": [301, 302]},
-
         # Normal multi-turn conversation, only tokens after response are used
-        {"input_ids": (instruction_prefix_tokens + [301, 302]
-                        + response_prefix_tokens + [303, 304]
-                        + instruction_prefix_tokens + [305, 306]
-                        + response_prefix_tokens + [307, 308])},
+        {
+            "input_ids": (
+                instruction_prefix_tokens
+                + [301, 302]
+                + response_prefix_tokens
+                + [303, 304]
+                + instruction_prefix_tokens
+                + [305, 306]
+                + response_prefix_tokens
+                + [307, 308]
+            )
+        },
     ]
 
     pad_length = max([len(b["input_ids"]) for b in batch])
@@ -76,7 +88,6 @@ def test_success_basic():
     ]
 
     collated_batch = collator(batch)
-
     instruction_labels = [-100 for _ in instruction_prefix_tokens]
     response_labels = [-100 for _ in response_prefix_tokens]
 
@@ -96,13 +107,24 @@ def test_success_basic():
 
     expected_labels = [
         instruction_labels + [-100] + response_labels + pad_tokens_per_batch[0],
-        (response_labels + [201, 202, 203, 204]
-         + instruction_labels + pad_tokens_per_batch[1]),
+        (
+            response_labels
+            + [201, 202, 203, 204]
+            + instruction_labels
+            + pad_tokens_per_batch[1]
+        ),
         [-100, -100] + pad_tokens_per_batch[2],
-        (instruction_labels + [-100, -100]
-         + response_labels + [303, 304]
-         + instruction_labels + [-100, -100]
-         + response_labels + [307, 308] + pad_tokens_per_batch[3]),
+        (
+            instruction_labels
+            + [-100, -100]
+            + response_labels
+            + [303, 304]
+            + instruction_labels
+            + [-100, -100]
+            + response_labels
+            + [307, 308]
+            + pad_tokens_per_batch[3]
+        ),
     ]
 
     assert "input_ids" in collated_batch
@@ -125,6 +147,5 @@ def test_success_basic():
     assert len(collated_batch["labels"]) == len(batch)
     assert isinstance(collated_batch["labels"], torch.Tensor)
     assert np.all(
-        collated_batch["labels"].numpy()
-        == np.array(expected_labels, dtype=np.int32)
+        collated_batch["labels"].numpy() == np.array(expected_labels, dtype=np.int32)
     )
