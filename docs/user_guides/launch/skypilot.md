@@ -1,5 +1,9 @@
 # Running Jobs with SkyPilot
 
+```{deprecated}
+SkyPilot support is deprecated. Please use oumi launcher, which extends SkyPilot with support for oumi specific features.
+```
+
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
 ```shell
