@@ -54,6 +54,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.stream = stream
+        self.trust_remote_code = trust_remote_code
         self._data = self._load_data()
 
     #
@@ -108,6 +109,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
             name=self.dataset_subset,
             split=self.split,
             streaming=self.stream,
+            trust_remote_code=self.trust_remote_code,
         )
 
     def _load_dataset_from_disk(self, path: str) -> Iterable[Any]:
