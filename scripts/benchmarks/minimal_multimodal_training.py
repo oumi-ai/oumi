@@ -123,10 +123,10 @@ def _get_chat_template(model_name: ModelName) -> str:
 
 
 class DatasetName(str, Enum):
-    COCO = "coco_captions"
-    FLICKR = "nlphuji/flickr30k"
-    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
     MERVE_VQAV2_SMALL = "merve/vqav2-small"
+    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
+    FLICKR = "nlphuji/flickr30k"
+    COCO = "coco_captions"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -143,6 +143,7 @@ def test_multimodal_trainer(
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
     max_steps: int = 20,
+    optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
@@ -203,10 +204,10 @@ def test_multimodal_trainer(
         per_device_train_batch_size=batch_size,
         max_steps=max_steps,
         save_steps=0,
-        optimizer="adamw_torch_fused",
+        optimizer=(optimizer or "sgd"),
         learning_rate=2e-5,
-        warmup_ratio=0.1,
-        weight_decay=0.0,
+        warmup_steps=int(max(10, 0.2 * max_steps)),
+        max_grad_norm=10,
         lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
         log_model_summary=False,
