@@ -29,8 +29,8 @@ class TestConversationTuple(NamedTuple):
 _ALL_TEST_CHARS: Final[str] = string.ascii_uppercase + string.digits
 
 
-def _generate_text_piece(idx: int) -> str:
-    return f"X{idx:03}" + "".join(random.choices(_ALL_TEST_CHARS, k=8))
+def _generate_unique_text_piece(idx: int) -> str:
+    return f"x{idx:03}" + "".join(random.choices(_ALL_TEST_CHARS, k=8))
 
 
 def create_test_conversation(
@@ -41,7 +41,7 @@ def create_test_conversation(
         messages.append(Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY))
     unique_text_pieces = []
     for i in range(num_messages - 1 if include_image else num_messages):
-        s = _generate_text_piece(i)
+        s = _generate_unique_text_piece(i)
         messages.append(
             Message(
                 role=(Role.USER if (i % 2 == 0) else Role.ASSISTANT),
