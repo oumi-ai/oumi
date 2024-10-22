@@ -224,11 +224,7 @@ class Conversation(pydantic.BaseModel):
         if not self.conversation_id:
             return s
         suffix = f"Conversation id: {self.conversation_id}."
-        if not s:
-            return suffix
-        if s[-1:].isspace():
-            return s + suffix
-        return s + " " + suffix
+        return (s.strip() + " " + suffix) if s else suffix
 
     @classmethod
     def from_dict(cls, data: dict) -> "Conversation":

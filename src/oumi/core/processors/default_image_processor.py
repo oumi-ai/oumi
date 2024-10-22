@@ -25,7 +25,15 @@ class DefaultImageProcessor(BaseImageProcessor):
         images: List[PIL.Image.Image],
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchFeature:
-        """Extracts image features."""
+        """Extracts image features.
+
+        Args:
+            images: A list of input images.
+            return_tensors: The format of returned tensors.
+
+        Returns:
+            transformers.BatchFeature: The model-specific input features.
+        """
         result = self._worker_processor(images=images, return_tensors=return_tensors)
         if result is None:
             raise RuntimeError("Image processor returned `None`.")
