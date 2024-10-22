@@ -138,8 +138,26 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                 f"include_image: {include_image} "
                 f"add_generation_prompt: {add_generation_prompt}"
             )
+
             prompt = tokenizer.apply_chat_template(
                 test_convo_tuple.convo,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+
+            for text_piece in test_convo_tuple.unique_text_pieces:
+                assert (
+                    text_piece in prompt
+                ), f"Text piece '{text_piece}' not found in '{prompt}' ({debug_tag})"
+
+                if include_image and test_spec.image_placeholder:
+                    assert test_spec.image_placeholder in prompt, (
+                        f"Image tag {test_spec.image_placeholder} "
+                        f"not found in '{prompt}' ({debug_tag})"
+                    )
+
+            prompt = tokenizer.apply_chat_template(
+                test_convo_tuple.convo.to_dict(),  # type: ignore
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
