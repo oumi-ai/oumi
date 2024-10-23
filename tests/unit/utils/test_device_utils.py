@@ -13,18 +13,10 @@ from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
     log_nvidia_gpu_temperature,
 )
-from tests.markers import requires_gpus
+from tests.markers import requires_cuda_initialized
 
 
-def is_cuda_available_and_initialized():
-    if not torch.cuda.is_available():
-        return False
-    if not torch.cuda.is_initialized():
-        torch.cuda.init()
-    return torch.cuda.is_initialized()
-
-
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_memory_utilization():
     num_devices = torch.cuda.device_count()
     if num_devices > 0:
@@ -45,13 +37,13 @@ def test_nvidia_gpu_memory_utilization():
     log_nvidia_gpu_memory_utilization()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_memory_utilization_no_cuda():
     assert get_nvidia_gpu_memory_utilization() == 0.0
     log_nvidia_gpu_memory_utilization()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_temperature():
     num_devices = torch.cuda.device_count()
     if num_devices > 0:
@@ -70,13 +62,13 @@ def test_nvidia_gpu_temperature():
     log_nvidia_gpu_temperature()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_temperature_no_cuda():
     assert get_nvidia_gpu_temperature() == 0.0
     log_nvidia_gpu_temperature()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_fan_speeds():
     num_devices = torch.cuda.device_count()
     if num_devices > 0:
@@ -108,13 +100,13 @@ def test_nvidia_gpu_fan_speeds():
     log_nvidia_gpu_fan_speeds()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_fan_speeds_no_cuda():
     assert get_nvidia_gpu_fan_speeds() == tuple()
     log_nvidia_gpu_fan_speeds()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_power_usage():
     num_devices = torch.cuda.device_count()
     if num_devices > 0:
@@ -133,13 +125,13 @@ def test_nvidia_gpu_power_usage():
     log_nvidia_gpu_power_usage()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_power_usage_no_cuda():
     assert get_nvidia_gpu_power_usage() == 0.0
     log_nvidia_gpu_power_usage()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_runtime_info():
     num_devices = torch.cuda.device_count()
     if num_devices > 0:
@@ -217,7 +209,7 @@ def test_nvidia_gpu_runtime_info():
     log_nvidia_gpu_runtime_info()
 
 
-@requires_gpus()
+@requires_cuda_initialized()
 def test_nvidia_gpu_runtime_info_no_cuda():
     assert get_nvidia_gpu_runtime_info() is None
     log_nvidia_gpu_runtime_info()
