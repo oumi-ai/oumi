@@ -153,7 +153,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_conversations,
             sampling_params=sampling_params,
             lora_request=self._lora_request,
-            enable_tqdm=enable_tqdm,
+            use_tqdm=enable_tqdm,
         )
 
         for chat_response in chat_responses:
