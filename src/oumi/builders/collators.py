@@ -1,9 +1,10 @@
 from typing import Callable, Optional
 
-import trl
-
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
+from oumi.core.collators.text_completions_collator_with_padding import (
+    TextCompletionsCollatorWithPadding,
+)
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
@@ -82,12 +83,11 @@ def build_data_collator(
             truncation=enable_truncation,
             **kwargs,
         )
-    elif collator_name == "text_completions_only":
-        return trl.DataCollatorForCompletionOnlyLM(
+    elif collator_name == "text_completions_only_with_padding":
+        return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_template="<|start_header_id|>user<|end_header_id|>\n\n",
-            response_template="<|start_header_id|>assistant<|end_header_id|>\n\n",
-            **kwargs,
+            instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
+            response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
         )
 
     raise ValueError(f"Unknown data collator name: '{collator_name}'")

@@ -5,9 +5,11 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 import torch
-from trl import DataCollatorForCompletionOnlyLM
 
 from oumi.builders import build_tokenizer
+from oumi.core.collators.text_completions_collator_with_padding import (
+    TextCompletionsCollatorWithPadding,
+)
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
@@ -37,20 +39,18 @@ def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
 def test_success_basic():
     tokenizer, pad_token_id = create_test_tokenizer()
 
-    instruction_template = "ignore this and after me"
-    response_template = "ignore this but not after me"
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
 
     instruction_prefix_tokens = tokenizer.encode(
-        instruction_template, add_special_tokens=False
+        instruction_prefix, add_special_tokens=False
     )
-    response_prefix_tokens = tokenizer.encode(
-        response_template, add_special_tokens=False
-    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
 
-    collator = DataCollatorForCompletionOnlyLM(
+    collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        instruction_template=instruction_template,
-        response_template=response_template,
+        instruction_prefix=instruction_prefix,
+        response_prefix=response_prefix,
     )
     assert callable(collator)
 
