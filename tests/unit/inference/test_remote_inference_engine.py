@@ -257,7 +257,7 @@ def test_infer_online_multiple_requests():
         ),
     }
 
-    def callback(url, **kwargs):
+    def response_callback(url, **kwargs):
         request = kwargs.get("json", {})
         conversation_id = request.get("messages", [])[0]["content"][0]["text"]
 
@@ -273,7 +273,7 @@ def test_infer_online_multiple_requests():
         )
 
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
         engine = RemoteInferenceEngine(_get_default_model_params())
         conversation1 = Conversation(
@@ -367,7 +367,7 @@ def test_infer_online_multiple_requests_politeness():
         ),
     }
 
-    def callback(url, **kwargs):
+    def response_callback(url, **kwargs):
         request = kwargs.get("json", {})
         conversation_id = request.get("messages", [])[0]["content"][0]["text"]
 
@@ -383,7 +383,7 @@ def test_infer_online_multiple_requests_politeness():
         )
 
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
         engine = RemoteInferenceEngine(_get_default_model_params())
         conversation1 = Conversation(
@@ -488,7 +488,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         ),
     }
 
-    def callback(url, **kwargs):
+    def response_callback(url, **kwargs):
         request = kwargs.get("json", {})
         conversation_id = request.get("messages", [])[0]["content"][0]["text"]
 
@@ -504,7 +504,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         )
 
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
         engine = RemoteInferenceEngine(_get_default_model_params())
 
@@ -638,7 +638,7 @@ def test_infer_from_file_to_file():
             ),
         }
 
-        def callback(url, **kwargs):
+        def response_callback(url, **kwargs):
             request = kwargs.get("json", {})
             conversation_id = request.get("messages", [])[0]["content"][0]["text"]
 
@@ -654,7 +654,7 @@ def test_infer_from_file_to_file():
             )
 
         with aioresponses() as m:
-            m.post(_TARGET_SERVER, callback=callback, repeat=True)
+            m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
             engine = RemoteInferenceEngine(_get_default_model_params())
             conversation1 = Conversation(
