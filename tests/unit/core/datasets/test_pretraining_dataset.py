@@ -1,4 +1,3 @@
-import functools
 import json
 import os
 
@@ -13,7 +12,6 @@ from oumi.core.datasets import BasePretrainingDataset
 # Fixtures
 #
 @pytest.fixture
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
 def tokenizer():
     return AutoTokenizer.from_pretrained("gpt2")
 
