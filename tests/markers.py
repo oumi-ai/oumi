@@ -28,3 +28,17 @@ def requires_gpus(count: int = 1) -> pytest.MarkDecorator:
         )
 
     return pytest.mark.skipif(cuda_unavailable or low_gpu_count, reason=message)
+
+
+def requires_cuda_initialized() -> pytest.MarkDecorator:
+    if not torch.cuda.is_available():
+        return pytest.mark.skipif(
+            not torch.cuda.is_initialized(), reason="CUDA is not available"
+        )
+
+    if not torch.cuda.is_initialized():
+        torch.cuda.init()
+
+    return pytest.mark.skipif(
+        not torch.cuda.is_initialized(), reason="CUDA is not initialized"
+    )
