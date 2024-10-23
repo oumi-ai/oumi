@@ -1,9 +1,11 @@
+import sys
+
 import typer
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
-from oumi.core.cli.judge import conversations, dataset
+from oumi.core.cli.judge import conversations, dataset, model
 from oumi.core.cli.launch import down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.train import train
@@ -34,7 +36,10 @@ def get_app() -> typer.Typer:
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(dataset)
-    app.add_typer(judge_app, name="judge", help="Judge datasets or conversations.")
+    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(model)
+    app.add_typer(
+        judge_app, name="judge", help="Judge datasets, models or conversations."
+    )
 
     launch_app = typer.Typer(pretty_exceptions_enable=False)
     launch_app.command()(down)
@@ -53,3 +58,8 @@ def run():
     """The entrypoint for the CLI."""
     app = get_app()
     return app()
+
+
+if "sphinx-build" in sys.modules:
+    # Create the CLI app when building the docs to auto-generate the CLI reference.
+    app = get_app()

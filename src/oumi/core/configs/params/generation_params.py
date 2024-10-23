@@ -7,7 +7,6 @@ from oumi.core.configs.params.remote_params import RemoteParams
 
 @dataclass
 class GenerationParams(BaseParams):
-    # TODO: OPE-328 - Add more parameters to control text generation.
     max_new_tokens: int = 256
     """The maximum number of new tokens to generate.
 
@@ -24,12 +23,6 @@ class GenerationParams(BaseParams):
 
     exclude_prompt_from_response: bool = True
     """Whether to trim the model's response and remove the prepended prompt."""
-
-    input_filepath: Optional[str] = None
-    """Path to the input file containing prompts for text generation."""
-
-    output_filepath: Optional[str] = None
-    """Path where the generated text will be saved."""
 
     seed: Optional[int] = None
     """Seed to use for random number determinism.

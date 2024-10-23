@@ -1,6 +1,6 @@
 Oumi Documentation
 ==================
-Welcome to the documentation for Oumi !
+Welcome to the documentation for Oumi!
 
 Oumi is an open, collaborative modeling platform that allows you to build foundation models end-to-end including data curation/synthesis, pretraining, tuning, and evaluation.
 
@@ -64,6 +64,7 @@ Overview
    get_started/quickstart
    get_started/configuration
    get_started/tutorials
+   get_started/tour
 
 .. toctree::
    :maxdepth: 2
@@ -79,13 +80,10 @@ Overview
    :maxdepth: 2
    :caption: Advanced Topics
 
-   advanced/custom_models
-   advanced/nanopgt
-   advanced/custom_datasets
-   advanced/custom_cluster
-   advanced/custom_vl_datasets
+   advanced/customization
    advanced/quantization
    advanced/performance_optimization
+   advanced/distributed_training
 
 .. toctree::
    :maxdepth: 2
