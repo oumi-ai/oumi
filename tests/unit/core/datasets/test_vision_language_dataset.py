@@ -32,7 +32,7 @@ _IMAGE_TOKEN_ID = 32001
 
 
 @pytest.fixture
-def mock_tokenizer() -> MagicMock:
+def mock_image_tokenizer() -> MagicMock:
     def _convert_tokens_to_ids(token: str) -> int:
         if token == _IMAGE_TOKEN:
             return _IMAGE_TOKEN_ID
@@ -121,7 +121,7 @@ def sample_conversation_using_image_binary():
 def test_dataset_image_path(
     mock_processor: Mock,
     sample_conversation_using_image_path: Conversation,
-    mock_tokenizer: MagicMock,
+    mock_image_tokenizer: MagicMock,
 ):
     class TestDatasetImagePath(VisionLanguageSftDataset):
         default_dataset = "custom"
@@ -135,7 +135,9 @@ def test_dataset_image_path(
             pass
 
     return TestDatasetImagePath(
-        processor=mock_processor, tokenizer=mock_tokenizer, label_ignore_index=None
+        processor=mock_processor,
+        tokenizer=mock_image_tokenizer,
+        label_ignore_index=None,
     )
 
 
@@ -143,7 +145,7 @@ def test_dataset_image_path(
 def test_dataset_image_binary_label_ignore_index(
     mock_processor: Mock,
     sample_conversation_using_image_binary: Conversation,
-    mock_tokenizer: MagicMock,
+    mock_image_tokenizer: MagicMock,
 ):
     class TestDatasetImageBinary(VisionLanguageSftDataset):
         default_dataset = "custom"
@@ -158,7 +160,7 @@ def test_dataset_image_binary_label_ignore_index(
 
     return TestDatasetImageBinary(
         processor=mock_processor,
-        tokenizer=mock_tokenizer,
+        tokenizer=mock_image_tokenizer,
     )
 
 

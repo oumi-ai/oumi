@@ -2,13 +2,13 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-import torch
 
 from oumi import infer, infer_interactive
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.io_utils import get_oumi_root_directory
+from tests.markers import requires_cuda_initialized, requires_gpus
 
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
@@ -18,14 +18,8 @@ TEST_IMAGE_DIR: Final[Path] = (
 )
 
 
-def is_cuda_available_and_initialized():
-    if not torch.cuda.is_available():
-        return False
-    if not torch.cuda.is_initialized():
-        torch.cuda.init()
-    return torch.cuda.is_initialized()
-
-
+@requires_cuda_initialized()
+@requires_gpus()
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
@@ -51,10 +45,8 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     infer_interactive(config)
 
 
-@pytest.mark.skipif(
-    not is_cuda_available_and_initialized(),
-    reason="CUDA is not available",
-)
+@requires_cuda_initialized()
+@requires_gpus()
 def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
@@ -114,10 +106,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
     assert output == expected_output
 
 
-@pytest.mark.skipif(
-    not is_cuda_available_and_initialized(),
-    reason="CUDA is not available",
-)
+@requires_gpus()
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2)])
 def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
     model_params = ModelParams(
