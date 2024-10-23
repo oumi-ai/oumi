@@ -2,13 +2,13 @@ import math
 import time
 
 import torch
-from markers import requires_gpu
 
 from oumi.performance.telemetry import (
     CudaTimerContext,
     TelemetryTracker,
     TimerContext,
 )
+from tests.markers import requires_gpu
 
 
 #

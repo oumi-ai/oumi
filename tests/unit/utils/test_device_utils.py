@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from markers import requires_gpu
 
 from oumi.utils.device_utils import (
     get_nvidia_gpu_fan_speeds,
@@ -14,6 +13,7 @@ from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
     log_nvidia_gpu_temperature,
 )
+from tests.markers import requires_gpu
 
 
 def is_cuda_available_and_initialized():

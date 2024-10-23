@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-from markers import requires_gpu
 
 from oumi.builders.models import (
     _patch_model_for_liger_kernel,
@@ -9,6 +8,7 @@ from oumi.builders.models import (
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
+from tests.markers import requires_gpu
 
 
 @pytest.fixture

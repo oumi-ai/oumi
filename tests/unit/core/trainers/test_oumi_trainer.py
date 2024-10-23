@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from markers import requires_gpu
 from torch.utils.data import DataLoader
 from torchdata.stateful_dataloader import StatefulDataLoader
 
@@ -10,6 +9,7 @@ from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
+from tests.markers import requires_gpu
 
 
 #
