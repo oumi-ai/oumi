@@ -57,6 +57,7 @@ from oumi.utils.torch_utils import (
     log_peak_gpu_memory,
     log_versioning_info,
 )
+from oumi.utils.version_utils import is_dev_build
 
 _START_TIME = -1.0
 
@@ -171,7 +172,7 @@ def _log_training_info(config: TrainingConfig) -> None:
         )
         oumi_version = version("oumi")
         logger.info(f"Oumi version: {oumi_version}")
-        if ".dev" in oumi_version:
+        if is_dev_build():
             logger.info(f"Git revision hash: {get_git_revision_hash()}")
             logger.info(f"Git tag: {get_git_tag()}")
 
