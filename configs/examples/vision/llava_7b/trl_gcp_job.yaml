@@ -1,6 +1,6 @@
 # Sample command:
 # oumi launch up --config configs/examples/vision/llava_7b/trl_gcp_job.yaml --cluster my-oumi-cluster
-name: llava-7b-sft-trl-trainer
+name: llava-7b-sft-trl-train
 
 resources:
   cloud: gcp
