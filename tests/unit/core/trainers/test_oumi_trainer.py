@@ -9,7 +9,7 @@ from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
-from tests.markers import requires_gpu
+from tests.markers import requires_gpus
 
 
 #
@@ -281,7 +281,7 @@ def test_process_callbacks(trainer):
     assert isinstance(logs, dict)
 
 
-@requires_gpu
+@requires_gpus()
 def test_cuda_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu
     trainer = Trainer(

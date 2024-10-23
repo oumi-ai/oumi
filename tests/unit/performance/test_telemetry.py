@@ -8,7 +8,7 @@ from oumi.performance.telemetry import (
     TelemetryTracker,
     TimerContext,
 )
-from tests.markers import requires_gpu
+from tests.markers import requires_gpus
 
 
 #
@@ -39,7 +39,7 @@ def test_timer_context_as_decorator():
 #
 # Cuda Timer
 #
-@requires_gpu
+@requires_gpus()
 def test_cuda_timer_context():
     measurements = []
     with CudaTimerContext("test_cuda_timer", measurements):
@@ -49,7 +49,7 @@ def test_cuda_timer_context():
     assert measurements[0] > 0
 
 
-@requires_gpu
+@requires_gpus()
 def test_cuda_timer_context_as_decorator():
     measurements = []
 
@@ -79,7 +79,7 @@ def test_telemetry_tracker_timer():
     tracker.print_summary()
 
 
-@requires_gpu
+@requires_gpus()
 def test_telemetry_tracker_cuda_timer():
     tracker = TelemetryTracker()
 
@@ -94,7 +94,7 @@ def test_telemetry_tracker_cuda_timer():
     tracker.print_summary()
 
 
-@requires_gpu
+@requires_gpus()
 def test_telemetry_tracker_log_gpu_memory():
     tracker = TelemetryTracker()
 
@@ -108,7 +108,7 @@ def test_telemetry_tracker_log_gpu_memory():
     tracker.print_summary()
 
 
-@requires_gpu
+@requires_gpus()
 def test_telemetry_tracker_record_gpu_temperature():
     tracker = TelemetryTracker()
 
@@ -218,7 +218,7 @@ def test_telemetry_tracker_get_summary():
     assert len(info["timers"]["operation2"]["max"]) == 8
 
 
-@requires_gpu
+@requires_gpus()
 def test_telemetry_tracker_get_summary_with_gpu_temperature():
     tracker = TelemetryTracker()
 

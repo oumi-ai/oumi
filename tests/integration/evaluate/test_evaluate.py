@@ -9,10 +9,10 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.evaluate import SAVE_FILENAME_JSON
-from tests.markers import requires_gpu
+from tests.markers import requires_gpus
 
 
-@requires_gpu
+@requires_gpus()
 def test_evaluate_lm_harness():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")

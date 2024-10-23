@@ -8,7 +8,7 @@ from oumi.builders.models import (
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
-from tests.markers import requires_gpu
+from tests.markers import requires_gpus
 
 
 @pytest.fixture
@@ -27,14 +27,14 @@ def mock_liger_kernel():
         ("mistralai/Mixtral-8x7B-v0.1", "apply_liger_kernel_to_mixtral"),
     ],
 )
-@requires_gpu
+@requires_gpus()
 def test_patch_model_for_liger_kernel(mock_liger_kernel, model_name, expected_function):
     model_params = ModelParams(model_name=model_name)
     _patch_model_for_liger_kernel(model_params.model_name)
     getattr(mock_liger_kernel, expected_function).assert_called_once()
 
 
-@requires_gpu
+@requires_gpus()
 def test_patch_model_for_liger_kernel_unsupported():
     model_params = ModelParams(model_name="gpt2")
     with pytest.raises(ValueError, match="Unsupported model: gpt2"):
