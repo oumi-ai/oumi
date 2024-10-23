@@ -30,6 +30,17 @@
   :width: 80
 ```
 
+## Judge
+
+```{typer} oumi.core.cli.main.app.judge
+  :prog: oumi judge
+  :make-sections:
+  :show-nested:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
 ## Launch
 
 ```{typer} oumi.core.cli.main.app.launch

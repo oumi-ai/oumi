@@ -1,0 +1,5 @@
+# Jupyter notebooks, auto-copied from notebooks/ to docs/
+*.ipynb
+
+# Auto-generated summary files
+api/summary/*

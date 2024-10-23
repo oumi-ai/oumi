@@ -10,9 +10,9 @@ For multi-GPU training, use torchrun:
             --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
@@ -52,8 +52,8 @@ from oumi.utils.torch_utils import (
 
 
 class ModelName(str, Enum):
-    BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
+    BLIP2 = "Salesforce/blip2-opt-2.7b"
     QWEN = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
@@ -123,10 +123,10 @@ def _get_chat_template(model_name: ModelName) -> str:
 
 
 class DatasetName(str, Enum):
-    COCO = "coco_captions"
-    FLICKR = "nlphuji/flickr30k"
-    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
     MERVE_VQAV2_SMALL = "merve/vqav2-small"
+    LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
+    FLICKR = "nlphuji/flickr30k"
+    COCO = "coco_captions"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -143,6 +143,7 @@ def test_multimodal_trainer(
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
     max_steps: int = 20,
+    optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
@@ -203,8 +204,11 @@ def test_multimodal_trainer(
         per_device_train_batch_size=batch_size,
         max_steps=max_steps,
         save_steps=0,
-        optimizer="sgd",
+        optimizer=(optimizer or "sgd"),
         learning_rate=2e-5,
+        warmup_steps=int(max(10, 0.2 * max_steps)),
+        max_grad_norm=10,
+        lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
         log_model_summary=False,
         logging_steps=logging_steps,

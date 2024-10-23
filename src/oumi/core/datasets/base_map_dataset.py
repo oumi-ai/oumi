@@ -156,14 +156,14 @@ class BaseMapDataset(MapDataPipe, ABC):
         if not dataset_path.exists():
             raise FileNotFoundError(f"File not found: {dataset_path}")
 
-        if self.dataset_name.endswith(".jsonl") and dataset_path.is_file():
-            result = self._load_jsonl_dataset(self.dataset_name)
+        if dataset_path.suffix.lower() == ".jsonl" and dataset_path.is_file():
+            result = self._load_jsonl_dataset(dataset_path)
 
-        elif self.dataset_name.endswith(".parquet") and dataset_path.is_file():
-            result = self._load_parquet_dataset(self.dataset_name)
+        elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
+            result = self._load_parquet_dataset(dataset_path)
 
-        elif is_cached_to_disk_hf_dataset(self.dataset_name):
-            result = self._load_dataset_from_disk(self.dataset_name)
+        elif is_cached_to_disk_hf_dataset(dataset_path):
+            result = self._load_dataset_from_disk(dataset_path)
 
         else:
             raise ValueError(f"File format not supported for {self.dataset_name}")
@@ -220,13 +220,13 @@ class BaseMapDataset(MapDataPipe, ABC):
         del dataset
         return cast(pd.DataFrame, result)
 
-    def _load_jsonl_dataset(self, path: str) -> pd.DataFrame:
+    def _load_jsonl_dataset(self, path: Path) -> pd.DataFrame:
         return pd.read_json(path, lines=True)
 
-    def _load_parquet_dataset(self, path: str) -> pd.DataFrame:
+    def _load_parquet_dataset(self, path: Path) -> pd.DataFrame:
         return pd.read_parquet(path)
 
-    def _load_dataset_from_disk(self, path: str) -> pd.DataFrame:
+    def _load_dataset_from_disk(self, path: Path) -> pd.DataFrame:
         dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
         result = dataset.to_pandas()
         del dataset
