@@ -1,9 +1,7 @@
 import functools
 from typing import Tuple
-from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 import torch
 
 import oumi.core.constants as constants
@@ -13,13 +11,6 @@ from oumi.core.collators.vision_language_collator_with_padding import (
 )
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-
-
-@pytest.fixture
-def mock_tokenizer():
-    mock = MagicMock(spec=BaseTokenizer)
-    mock.pad_token_id = 32001
-    return mock
 
 
 @functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9

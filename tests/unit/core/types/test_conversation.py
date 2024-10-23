@@ -149,7 +149,7 @@ def test_conversation_from_json():
 
 def test_roundtrip_dict(root_testdata_dir):
     png_image_bytes = load_image_png_bytes_from_path(
-        root_testdata_dir / "images" / "math.png"
+        root_testdata_dir / "images" / "oumi_logo_dark.png"
     )
 
     original = Conversation(
@@ -166,7 +166,7 @@ def test_roundtrip_dict(root_testdata_dir):
             Message(
                 id="xyz",
                 role=Role.TOOL,
-                content=str(root_testdata_dir / "images" / "math.png"),
+                content=str(root_testdata_dir / "images" / "oumi_logo_dark.png"),
                 type=Type.IMAGE_PATH,
             ),
         ],
@@ -180,7 +180,7 @@ def test_roundtrip_dict(root_testdata_dir):
 
 def test_roundtrip_json(root_testdata_dir):
     png_image_bytes = load_image_png_bytes_from_path(
-        root_testdata_dir / "images" / "math.png"
+        root_testdata_dir / "images" / "oumi_logo_light.png"
     )
 
     original = Conversation(
@@ -197,7 +197,7 @@ def test_roundtrip_json(root_testdata_dir):
             Message(
                 id="xyz",
                 role=Role.TOOL,
-                content=str(root_testdata_dir / "images" / "math.png"),
+                content=str(root_testdata_dir / "images" / "oumi_logo_dark.png"),
                 type=Type.IMAGE_PATH,
             ),
         ],

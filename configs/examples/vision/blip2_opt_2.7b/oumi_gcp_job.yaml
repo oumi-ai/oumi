@@ -1,18 +1,19 @@
-name: blip2-opt-2.7b-sft
+# Sample command:
+# oumi launch up --config configs/examples/vision/blip2_opt_2.7b/oumi_gcp_job.yaml --cluster my-oumi-cluster
+
+name: blip2-opt-2.7b-sft-oumi-train
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
+  use_spot: true
+  disk_size: 500 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-resources:
-  accelerators: { "A100": 4 }
-  any_of:
-    - use_spot: true
-    - use_spot: false
-
-  disk_tier: "medium"
-  disk_size: 500 # Disk size in GBs
-
 # Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:
@@ -46,6 +47,7 @@ run: |
       -m oumi.train \
       -c configs/examples/vision/blip2_opt_2.7b/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.trainer_type=OUMI" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"

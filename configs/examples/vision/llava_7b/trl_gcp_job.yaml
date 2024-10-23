@@ -1,18 +1,18 @@
-name: blip2-opt-2.7b-sft
+# Sample command:
+# oumi launch up --config configs/examples/vision/llava_7b/trl_gcp_job.yaml --cluster my-oumi-cluster
+name: llava-7b-sft-trl-train
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:4"
+  # Allow Spot VM-s, which cost ~3X less.
+  use_spot: true
+  disk_size: 500 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-resources:
-  accelerators: { "A100": 4 }
-  any_of:
-    - use_spot: true
-    - use_spot: false
-
-  disk_tier: "medium"
-  disk_size: 500 # Disk size in GBs
-
 # Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:
@@ -20,7 +20,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: blip2_opt_2.7b.sft
+  OUMI_RUN_NAME: llava.7b.sft.trl
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -30,7 +30,7 @@ setup: |
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Salesforce/blip2-opt-2.7b
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
 
 run: |
   set -e  # Exit if any command failed.
@@ -44,7 +44,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/blip2_opt_2.7b/sft_train.yaml \
+      -c configs/examples/vision/llava_7b/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

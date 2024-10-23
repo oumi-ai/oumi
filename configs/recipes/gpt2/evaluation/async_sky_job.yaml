@@ -22,6 +22,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: gpt2.eval
   # The HellaSwag dataset requires trusted code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
 
@@ -34,4 +35,5 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   python -m oumi.evaluate_async \
-      -c configs/recipes/gpt2/evaluation/async_eval.yaml
+    -c configs/recipes/gpt2/evaluation/async_eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"

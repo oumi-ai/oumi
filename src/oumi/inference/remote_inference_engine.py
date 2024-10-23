@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
@@ -249,18 +250,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            return await asyncio.gather(
-                *[
-                    self._query_api(
-                        conversation,
-                        inference_config,
-                        remote_params,
-                        semaphore,
-                        session,
-                    )
-                    for conversation in input
-                ]
-            )
+            tasks = [
+                self._query_api(
+                    conversation,
+                    inference_config,
+                    remote_params,
+                    semaphore,
+                    session,
+                )
+                for conversation in input
+            ]
+
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
 
     def infer_online(
         self,

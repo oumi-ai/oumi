@@ -565,7 +565,9 @@ class Trainer(BaseTrainer):
         if self.params.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")
             self.log(f"Logging to Weights and Biases project: '{project_name}'")
-            run = wandb.init(project=project_name, name=self.params.run_name)
+            run = wandb.init(
+                project=project_name, name=self.params.run_name, job_type="train"
+            )
             self.log(f"View wandb run {run.id} at: {run.get_url()}")
             wandb.watch(self.model)
 

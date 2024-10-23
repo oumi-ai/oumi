@@ -1,5 +1,4 @@
 from typing import Final
-from unittest.mock import MagicMock
 
 import numpy as np
 import PIL.Image
@@ -21,14 +20,6 @@ _LLAVA_SYSTEM_PROMPT: Final[str] = (
 )
 _IMAGE_TOKEN: Final[str] = "<image>"
 _IMAGE_TOKEN_ID: Final[int] = 32000
-
-
-@pytest.fixture
-def mock_tokenizer():
-    mock = MagicMock(spec=BaseTokenizer)
-    mock.chat_template = build_chat_template(template_name="default")
-    mock.pad_token_id = 32001
-    return mock
 
 
 @pytest.mark.parametrize(

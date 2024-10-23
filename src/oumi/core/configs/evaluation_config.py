@@ -6,6 +6,7 @@ from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.evaluation_params import LMHarnessParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.utils.str_utils import sanitize_run_name
 
 
 class EvaluationFramework(Enum):
@@ -40,11 +41,24 @@ class EvaluationConfig(BaseConfig):
     If specified, the tasks provided in the LMHarnessParams will be evaluated.
     """
 
+    run_name: Optional[str] = None
+    """A unique identifier for the current training run.
+    This name is used to identify the run in Weights & Biases.
+    """
+
+    enable_wandb: bool = False
+    """Whether to enable Weights & Biases (wandb) logging.
+    If True, wandb will be used for experiment tracking and visualization.
+    After enabling, you must set the `WANDB_API_KEY` environment variable.
+    Alternatively, you can use the `wandb login` command to authenticate.
+    """
+
     output_dir: str = "output"
     """Where to write computed evaluations."""
 
     def __post_init__(self):
         """Verifies params."""
+        self.run_name = sanitize_run_name(self.run_name)
         if self.lm_harness_params is not None:
             if (
                 self.lm_harness_params.num_fewshot
