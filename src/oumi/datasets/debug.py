@@ -6,8 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from typing_extensions import override
 
-from oumi.core.datasets import BaseExperimentalDpoPreprocessor
-from oumi.core.datasets.base_dataset import BaseLMSftDataset
+from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -110,7 +110,7 @@ class DebugPretrainingDataset(Dataset):
 
 
 @register_dataset("debug_sft")
-class DebugSftDataset(BaseLMSftDataset):
+class DebugSftDataset(BaseSftDataset):
     default_dataset = "debug_sft"
 
     def __init__(
@@ -145,7 +145,7 @@ class DebugSftDataset(BaseLMSftDataset):
 
 
 @register_dataset("debug_dpo")
-class DebugDpoDataset(BaseExperimentalDpoPreprocessor):
+class DebugDpoDataset(BaseExperimentalDpoDataset):
     default_dataset = "debug_dpo"
 
     def __init__(

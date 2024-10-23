@@ -98,7 +98,19 @@
             "justMyCode": true
         },
         {
-            "name": "Oumi - Multimodal Inference",
+            "name": "Oumi - Evaluate - LM Harness",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "evaluate",
+                "-c",
+                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Oumi - Experimental - Multimodal Inference",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
@@ -109,18 +121,6 @@
                 "tests/testdata/images/cambrian.png",
                 "-c",
                 "configs/examples/vision/llava_7b/infer.yaml"
-            ],
-            "justMyCode": true
-        },
-        {
-            "name": "Oumi - Evaluate - LM Harness",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-                "evaluate",
-                "-c",
-                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
             ],
             "justMyCode": true
         },
