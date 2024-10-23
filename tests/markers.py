@@ -18,7 +18,7 @@ def requires_gpus(count: int = 1) -> pytest.MarkDecorator:
     cuda_unavailable = not torch.cuda.is_available()
     low_gpu_count = torch.cuda.device_count() < count
 
-    if not cuda_unavailable:
+    if cuda_unavailable:
         message = "CUDA not available"
 
     elif low_gpu_count:
