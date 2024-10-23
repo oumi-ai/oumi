@@ -8,3 +8,5 @@ lm_harness_params:
 
 generation:
   batch_size: 0  # This will let LM HARNESS decide.
+
+enable_wandb: True
