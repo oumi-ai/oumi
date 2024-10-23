@@ -23,7 +23,7 @@ def test_train_basic():
                 train=DatasetSplitParams(
                     datasets=[
                         DatasetParams(
-                            dataset_name="debug_sft",
+                            dataset_name="yahma/alpaca-cleaned",
                         )
                     ],
                     target_col="text",
@@ -97,7 +97,8 @@ def test_train_pack():
                 train=DatasetSplitParams(
                     datasets=[
                         DatasetParams(
-                            dataset_name="debug_pretraining",
+                            dataset_name="Salesforce/wikitext",
+                            subset="wikitext-2-raw-v1",
                         )
                     ],
                     stream=True,
