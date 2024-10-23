@@ -260,7 +260,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 )
                 for conversation in input
             ]
-            return await tqdm.gather(*tasks, desc="Processing conversations")
+
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
 
     def infer_online(
         self,
