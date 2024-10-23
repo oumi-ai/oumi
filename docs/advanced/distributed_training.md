@@ -31,9 +31,9 @@ NOTE: PyTorch FSDP paper: <https://arxiv.org/abs/2304.11277>
 
 For example, for Phi3 DPO model, there are two related sample configs provided:
 
-- SkyPilot config: [configs/recipes/phi3/dpo/fsdp_sky_job.yaml](../../../configs/recipes/phi3/dpo/fsdp_sky_job.yaml)
+- SkyPilot config: [configs/recipes/phi3/dpo/fsdp_sky_job.yaml](../../configs/recipes/phi3/dpo/fsdp_sky_job.yaml)
   - Set the `accelerators:` section as follows: `accelerators: {"A40": N}`, where `N` is the number of GPUs to use e.g., `2`.
-- [`accelerate`](https://github.com/huggingface/accelerate) config: [configs/recipes/phi3/dpo/accelerate.yaml](../../../configs/recipes/phi3/dpo/accelerate.yaml)
+- [`accelerate`](https://github.com/huggingface/accelerate) config: [configs/recipes/phi3/dpo/accelerate.yaml](../../configs/recipes/phi3/dpo/accelerate.yaml)
   - Set `num_processes: N`, where `N` is the number of GPUs. NOTE: This step can be optional as the value is overridden in SkyPilot config as: `--num_processes ${OUMI_TOTAL_NUM_GPUS}`)
   - Update `fsdp_transformer_layer_cls_to_wrap` to match transformer layer class name in your model.
   - Review and tune other parameters in the config, as described in [FSDP Configuration](https://huggingface.co/docs/transformers/main/en/fsdp#fsdp-configuration) and in [accelerate FSDP usage guide](https://huggingface.co/docs/accelerate/en/usage_guides/fsdp). They control various performance trade-offs.
