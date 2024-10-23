@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("bigcode/starcoderdata")
-class StarCoderDataset(BasePretrainingIterableDataset):
+class StarCoderDataset(BasePretrainingDataset):
     """StarCoder Training Dataset used for training StarCoder and StarCoderBase models.
 
     This dataset contains 783GB of code in 86 programming languages, including 54GB

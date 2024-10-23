@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("EleutherAI/pile")
-class PileV1Dataset(BasePretrainingIterableDataset):
+class PileV1Dataset(BasePretrainingDataset):
     """The Pile: An 825 GiB diverse, open source language modeling dataset.
 
     The Pile is a large-scale English language dataset consisting of 22 smaller,

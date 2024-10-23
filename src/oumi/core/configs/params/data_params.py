@@ -137,9 +137,10 @@ class DatasetSplitParams(BaseParams):
     Data collator controls how to form a mini-batch from individual dataset elements.
 
     Valid options are:
-    - "text_with_padding": Uses DataCollatorWithPadding for text data.
-    - "vision_language_with_padding": Uses VisionLanguageCollator
-        for image+text multi-modal data.
+
+        - "text_with_padding": Uses DataCollatorWithPadding for text data.
+        - "vision_language_with_padding": Uses VisionLanguageCollator
+            for image+text multi-modal data.
 
     If None, then a default collator will be assigned.
     """

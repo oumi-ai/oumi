@@ -1,9 +1,9 @@
-from oumi.core.datasets.base_dpo_processor import BaseExperimentalDpoPreprocessor
+from oumi.core.datasets import BaseExperimentalDpoDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("mlabonne/orpo-dpo-mix-40k")
-class OrpoDpoMix40kDataset(BaseExperimentalDpoPreprocessor):
+class OrpoDpoMix40kDataset(BaseExperimentalDpoDataset):
     """Preprocess the ORPO dataset for DPO.
 
     A dataset designed for ORPO (Offline Reinforcement Learning for Preference

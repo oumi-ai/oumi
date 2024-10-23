@@ -1,6 +1,6 @@
 from typing import Optional
 
-from oumi.core.datasets.base_dataset import BaseMapDataset
+from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 _PROMPT_KEY = "prompt"
@@ -12,7 +12,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalDpoPreprocessor(BaseMapDataset):
+class BaseExperimentalDpoDataset(BaseMapDataset):
     """Preprocess the samples to the Oumi format.
 
     Warning:
