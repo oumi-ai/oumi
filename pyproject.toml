@@ -55,7 +55,7 @@ dependencies = [
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.8
     "wandb",                      # Optional, for logging to Weights and Biases
-    "vllm>=0.6.2,<0.7.0",
+    "vllm>=0.6.3,<0.7.0",
 ]
 
 [project.urls]
@@ -111,7 +111,7 @@ optional = [
     "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
 ]
 ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
-ci_gpu = ["oumi[ci_cpu,gpu,quant]"]
+ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
 quant = [
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
