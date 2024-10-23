@@ -226,9 +226,10 @@ def test_infer_online_recovers_from_retries():
 
 
 def test_infer_online_multiple_requests():
-    with aioresponses() as m:
-        m.post(
-            _TARGET_SERVER,
+    # Note: We use the first message's content as the key to avoid
+    # stringifying the message object.
+    response_by_conversation_id = {
+        "Hello world!": dict(
             status=200,
             payload=dict(
                 choices=[
@@ -238,11 +239,10 @@ def test_infer_online_multiple_requests():
                             "content": "The first time I saw",
                         }
                     }
-                ]
+                ],
             ),
-        )
-        m.post(
-            _TARGET_SERVER,
+        ),
+        "Goodbye world!": dict(
             status=200,
             payload=dict(
                 choices=[
@@ -254,7 +254,26 @@ def test_infer_online_multiple_requests():
                     }
                 ]
             ),
+        ),
+    }
+
+    def callback(url, **kwargs):
+        request = kwargs.get("json", {})
+        conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+
+        if response := response_by_conversation_id.get(conversation_id):
+            return CallbackResult(
+                status=response["status"],  # type: ignore
+                payload=response["payload"],  # type: ignore
+            )
+
+        raise ValueError(
+            "Test error: Static response not found "
+            f"for conversation_id: {conversation_id}"
         )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
 
         engine = RemoteInferenceEngine(_get_default_model_params())
         conversation1 = Conversation(
@@ -317,9 +336,10 @@ def test_infer_online_multiple_requests():
 
 
 def test_infer_online_multiple_requests_politeness():
-    with aioresponses() as m:
-        m.post(
-            _TARGET_SERVER,
+    # Note: We use the first message's content as the key to avoid
+    # stringifying the message object.
+    response_by_conversation_id = {
+        "Hello world!": dict(
             status=200,
             payload=dict(
                 choices=[
@@ -329,11 +349,10 @@ def test_infer_online_multiple_requests_politeness():
                             "content": "The first time I saw",
                         }
                     }
-                ]
+                ],
             ),
-        )
-        m.post(
-            _TARGET_SERVER,
+        ),
+        "Goodbye world!": dict(
             status=200,
             payload=dict(
                 choices=[
@@ -345,7 +364,26 @@ def test_infer_online_multiple_requests_politeness():
                     }
                 ]
             ),
+        ),
+    }
+
+    def callback(url, **kwargs):
+        request = kwargs.get("json", {})
+        conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+
+        if response := response_by_conversation_id.get(conversation_id):
+            return CallbackResult(
+                status=response["status"],  # type: ignore
+                payload=response["payload"],  # type: ignore
+            )
+
+        raise ValueError(
+            "Test error: Static response not found "
+            f"for conversation_id: {conversation_id}"
         )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
 
         engine = RemoteInferenceEngine(_get_default_model_params())
         conversation1 = Conversation(
@@ -419,35 +457,6 @@ def test_infer_online_multiple_requests_politeness():
 
 
 def test_infer_online_multiple_requests_politeness_multiple_workers():
-    conversation1 = Conversation(
-        messages=[
-            Message(
-                content="Hello world!",
-                role=Role.USER,
-            ),
-            Message(
-                content="Hello again!",
-                role=Role.USER,
-            ),
-        ],
-        metadata={"foo": "bar"},
-        conversation_id="123",
-    )
-    conversation2 = Conversation(
-        messages=[
-            Message(
-                content="Goodbye world!",
-                role=Role.USER,
-            ),
-            Message(
-                content="Goodbye again!",
-                role=Role.USER,
-            ),
-        ],
-        metadata={"bar": "foo"},
-        conversation_id="321",
-    )
-
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
     response_by_conversation_id = {
@@ -499,6 +508,34 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
 
         engine = RemoteInferenceEngine(_get_default_model_params())
 
+        conversation1 = Conversation(
+            messages=[
+                Message(
+                    content="Hello world!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Hello again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        conversation2 = Conversation(
+            messages=[
+                Message(
+                    content="Goodbye world!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Goodbye again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"bar": "foo"},
+            conversation_id="321",
+        )
         expected_result = [
             Conversation(
                 messages=[
@@ -569,9 +606,11 @@ def test_infer_from_file_empty():
 def test_infer_from_file_to_file():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
-        with aioresponses() as m:
-            m.post(
-                _TARGET_SERVER,
+
+        # Note: We use the first message's content as the key to avoid
+        # stringifying the message object.
+        response_by_conversation_id = {
+            "Hello world!": dict(
                 status=200,
                 payload=dict(
                     choices=[
@@ -581,11 +620,10 @@ def test_infer_from_file_to_file():
                                 "content": "The first time I saw",
                             }
                         }
-                    ]
+                    ],
                 ),
-            )
-            m.post(
-                _TARGET_SERVER,
+            ),
+            "Goodbye world!": dict(
                 status=200,
                 payload=dict(
                     choices=[
@@ -597,7 +635,26 @@ def test_infer_from_file_to_file():
                         }
                     ]
                 ),
+            ),
+        }
+
+        def callback(url, **kwargs):
+            request = kwargs.get("json", {})
+            conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+
+            if response := response_by_conversation_id.get(conversation_id):
+                return CallbackResult(
+                    status=response["status"],  # type: ignore
+                    payload=response["payload"],  # type: ignore
+                )
+
+            raise ValueError(
+                "Test error: Static response not found "
+                f"for conversation_id: {conversation_id}"
             )
+
+        with aioresponses() as m:
+            m.post(_TARGET_SERVER, callback=callback, repeat=True)
 
             engine = RemoteInferenceEngine(_get_default_model_params())
             conversation1 = Conversation(
