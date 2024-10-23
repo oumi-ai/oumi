@@ -300,10 +300,12 @@ def test_infer_from_file_to_file():
     reason="CUDA is not available",
 )
 def test_infer_from_file_to_file_with_images():
-    png_image_bytes_cambrian = load_image_png_bytes_from_path(
-        TEST_IMAGE_DIR / "cambrian.png"
+    png_image_bytes_great_wave = load_image_png_bytes_from_path(
+        TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
     )
-    png_image_bytes_math = load_image_png_bytes_from_path(TEST_IMAGE_DIR / "math.png")
+    png_image_bytes_logo = load_image_png_bytes_from_path(
+        TEST_IMAGE_DIR / "oumi_logo_dark.png"
+    )
 
     with tempfile.TemporaryDirectory() as output_temp_dir:
         engine = NativeTextInferenceEngine(_get_default_image_model_params())
@@ -312,7 +314,7 @@ def test_infer_from_file_to_file_with_images():
                 Message(
                     role=Role.USER,
                     type=Type.IMAGE_BINARY,
-                    binary=png_image_bytes_cambrian,
+                    binary=png_image_bytes_great_wave,
                 ),
                 Message(
                     content="Describe the high-level theme of the image in few words!",
@@ -327,7 +329,7 @@ def test_infer_from_file_to_file_with_images():
                 Message(
                     role=Role.USER,
                     type=Type.IMAGE_BINARY,
-                    binary=png_image_bytes_math,
+                    binary=png_image_bytes_logo,
                 ),
                 Message(
                     content="Describe the high-level theme of the image in few words!",
@@ -344,7 +346,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="3D underwater scene",
+                        content="2 boats in a wave",
                         role=Role.ASSISTANT,
                     ),
                 ],
@@ -355,7 +357,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="25 is the value",
+                        content="4x4 square.",
                         role=Role.ASSISTANT,
                     ),
                 ],
