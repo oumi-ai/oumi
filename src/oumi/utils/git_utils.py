@@ -35,3 +35,21 @@ def get_git_tag() -> Optional[str]:
         ).strip()
     except subprocess.CalledProcessError:
         return None
+
+
+def get_git_root_dir() -> Optional[str]:
+    """Get the root directory of the current git repository.
+
+    Returns:
+        Optional[str]: The root directory of the current git repository, or None if it
+        cannot be retrieved.
+    """
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=Path(__file__).parent,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None

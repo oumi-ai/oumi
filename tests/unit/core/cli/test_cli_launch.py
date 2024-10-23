@@ -1,13 +1,11 @@
 import pathlib
 import tempfile
-from pathlib import Path
 from unittest.mock import Mock, call, patch
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
-import oumi
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.launch import down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
@@ -85,8 +83,15 @@ def mock_version():
         yield version_mock
 
 
+@pytest.fixture
+def mock_git_root():
+    with patch("oumi.core.cli.launch.get_git_root_dir") as root_mock:
+        root_mock.return_value = _oumi_root()
+        yield root_mock
+
+
 def _oumi_root() -> str:
-    return str(Path(oumi.__file__).parent.parent.parent)
+    return "fake/oumi/root"
 
 
 def _create_training_config() -> TrainingConfig:
@@ -179,7 +184,7 @@ def test_launch_up_job(app, mock_launcher, mock_pool, mock_version, mock_confirm
 
 
 def test_launch_up_job_dev_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = True
@@ -485,7 +490,7 @@ def test_launch_run_job(app, mock_launcher, mock_pool, mock_version, mock_confir
 
 
 def test_launch_run_job_dev_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = True
