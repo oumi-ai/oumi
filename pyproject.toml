@@ -39,7 +39,7 @@ dependencies = [
     "jsonlines",
     "lm-eval>=0.4.5,<0.5.0",
     "numpy",
-    "omegaconf",
+    "omegaconf>=2.1", # for OmegaConf.to_object()
     "pandas",
     "peft",
     "pexpect",                    # Used by Polaris client
