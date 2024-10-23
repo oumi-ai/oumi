@@ -47,7 +47,6 @@ def get_git_root_dir() -> Optional[str]:
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"],
-            cwd=Path(__file__).parent,
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
