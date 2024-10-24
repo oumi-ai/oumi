@@ -275,9 +275,6 @@ class Trainer(BaseTrainer):
                             for k, v in batch.items()
                         }
 
-                        for k, v in batch.items():
-                            logger.info(f"{k}: {v.shape}")
-
                 with self.mixed_precision_ctx, self._telemetry_block("model forward"):
                     self.model.require_backward_grad_sync = (  # type: ignore
                         end_of_global_step or stop_on_max_steps_limit

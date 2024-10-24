@@ -95,13 +95,7 @@ class VisionLanguageCollatorWithPadding:
                     other_inputs[input_name].append(item[input_name])
 
             for input_name, values_list in other_inputs.items():
-                logger.info(f"{input_name}: {len(values_list)} elements")
                 tensors_list = convert_to_list_of_tensors(values_list)
-
-                if True:
-                    shapes_list = [item.shape for item in tensors_list]
-                    logger.info(f"'{input_name}': {shapes_list}")
-
                 collated_value = torch.stack(tensors_list)
                 collated_batch[input_name] = collated_value
 

@@ -131,7 +131,7 @@
             "program": "scripts/benchmarks/minimal_multimodal_training.py",
             "args": [
                 "--model-name",
-                "meta-llama/Llama-3.2-11B-Vision-Instruct",
+                "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
                 "merve/vqav2-small"
             ],
