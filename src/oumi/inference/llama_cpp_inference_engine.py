@@ -208,7 +208,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             "stop_strings",
             "temperature",
             "top_p",
-            "batch_size",
         }
 
     def infer_online(

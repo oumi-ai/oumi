@@ -339,11 +339,15 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         )
 
         if issubclass(engine_class, RemoteInferenceEngine):
+            # To avoid running inference, we just call the method that converts
+            # the conversation to the API input. This should access most of the
+            # parameters.
             engine._convert_conversation_to_api_input(
                 sample_conversation, tracked_params
             )
-
-            # engine._get_request_headers(tracked_params.remote_params)
+            # Manually access the remote params since it's used elsewhere
+            # in the engine.
+            tracked_params.remote_params
         elif engine_class == LlamaCppInferenceEngine:
             with patch.object(engine, "_llm") as mock_llm:
                 mock_llm.create_chat_completion.return_value = {
@@ -352,22 +356,21 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
 
                 engine.infer([sample_conversation], inference_config)
         else:
-            # Run inference
             engine.infer([sample_conversation], inference_config)
 
         # Get params that were supported but never accessed
-        # unused_params = engine.get_supported_params() - tracked_params.accessed_params
+        unused_params = engine.get_supported_params() - tracked_params.accessed_params
 
-        # assert not unused_params, (
-        #     f"{engine_class.__name__} claims to support these parameters "
-        #     f"but never accessed them: {unused_params}"
-        # )
+        assert not unused_params, (
+            f"{engine_class.__name__} claims to support these parameters "
+            f"but never accessed them: {unused_params}"
+        )
 
-        # Get params that were supported but never accessed
+        # Get params that were accessed but not marked as supported
         unregistered_params = (
             tracked_params.accessed_params - engine.get_supported_params()
         )
-        unregistered_params.remove("accessed_params")  # Ignore this param
+        unregistered_params.remove("accessed_params")  # Test param, ignore
 
         assert not unregistered_params, (
             f"{engine_class.__name__} accessed 'unsupported' parameters: "

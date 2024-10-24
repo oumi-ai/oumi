@@ -322,7 +322,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "batch_size",
             "exclude_prompt_from_response",
             "frequency_penalty",
-            "logit_bias",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
