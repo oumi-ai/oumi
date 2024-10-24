@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("allenai/c4")
-class C4Dataset(BasePretrainingIterableDataset):
+class C4Dataset(BasePretrainingDataset):
     """A dataset for pretraining on the Colossal Clean Crawled Corpus (C4).
 
     The C4 dataset is based on the Common Crawl dataset and is available in

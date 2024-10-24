@@ -40,7 +40,24 @@ class MixtureStrategy(str, Enum):
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
-    """The name of the dataset to load. Required."""
+    """The name of the dataset to load. Required.
+
+    This field is used to retrieve the appropriate class from the dataset registry
+    that can be used to instantiate and preprocess the data.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry. Otherwise, the dataset will
+    be loaded from the specified `dataset_path`.
+    """
+
+    dataset_path: Optional[str] = None
+    """The path to the dataset to load.
+
+    This can be used to load a dataset of type `dataset_name` from a custom path.
+
+    If `dataset_path` is not specified, then the raw data will be automatically
+    downloaded from the huggingface hub or oumi registry.
+    """
 
     subset: Optional[str] = None
     """The subset of the dataset to load.
@@ -94,43 +111,6 @@ class DatasetParams(BaseParams):
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the dataset."""
 
-    @staticmethod
-    def _default_factory_preprocessing_kwargs() -> dict:
-        """Creates default param values for the data preprocessing .map function.
-
-        Returns:
-        dict: contains the default set params.
-        """
-        defaults = dict()
-        defaults["batched"] = False  # Note: same default as huggingface data loader.
-        return defaults
-
-    preprocessing_function_name: Optional[str] = None
-    """[Deprecated] The name of the preprocessing function to apply to the dataset.
-
-    If specified, this function will be applied to the dataset using the dataset's
-    `map` method. The function should be defined in the preprocessing module.
-
-    Warning:
-        This is deprecated and will be removed in a future release.
-
-        To customize dataset preprocessing, please see `Dataset.transform`.
-    """
-
-    preprocessing_function_kwargs: Dict[str, Any] = field(
-        default_factory=_default_factory_preprocessing_kwargs
-    )
-    """[Deprecated] Keyword arguments to pass to the preprocessing function.
-
-    These arguments will be passed directly to the preprocessing function when it
-    is applied to the dataset using the `map` method.
-
-    Warning:
-        This is deprecated and will be removed in a future release.
-
-        To customize dataset preprocessing, please see `Dataset.transform`.
-    """
-
     def __post_init__(self):
         """Verifies params."""
         if self.sample_count is not None:
@@ -157,9 +137,10 @@ class DatasetSplitParams(BaseParams):
     Data collator controls how to form a mini-batch from individual dataset elements.
 
     Valid options are:
-    - "text_with_padding": Uses DataCollatorWithPadding for text data.
-    - "vision_language_with_padding": Uses VisionLanguageCollator
-        for image+text multi-modal data.
+
+        - "text_with_padding": Uses DataCollatorWithPadding for text data.
+        - "vision_language_with_padding": Uses VisionLanguageCollator
+            for image+text multi-modal data.
 
     If None, then a default collator will be assigned.
     """

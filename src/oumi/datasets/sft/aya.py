@@ -2,13 +2,13 @@ from typing import Dict, Union
 
 import pandas as pd
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("CohereForAI/aya_dataset")
-class AyaDataset(BaseLMSftDataset):
+class AyaDataset(BaseSftDataset):
     """Dataset class for the CohereForAI/aya_dataset dataset."""
 
     default_dataset = "CohereForAI/aya_dataset"

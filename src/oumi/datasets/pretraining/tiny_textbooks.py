@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("nampdn-ai/tiny-textbooks")
-class TinyTextbooksDataset(BasePretrainingIterableDataset):
+class TinyTextbooksDataset(BasePretrainingDataset):
     """A dataset of textbook-like content for training small language models.
 
     This dataset contains 420,000 textbook documents covering a wide range of topics

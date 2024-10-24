@@ -6,7 +6,6 @@ data:
   train:
     datasets:
       - dataset_name: "mlabonne/orpo-dpo-mix-40k"
-        preprocessing_function_name: "trl_dpo"
 
 training:
   optimizer: "adamw_torch"
@@ -17,10 +16,10 @@ training:
 peft:
   q_lora: False
   lora_target_modules:
-  - "q_proj"
-  - "k_proj"
-  - "v_proj"
-  - "o_proj"
-  - "gate_proj"
-  - "up_proj"
-  - "down_proj"
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

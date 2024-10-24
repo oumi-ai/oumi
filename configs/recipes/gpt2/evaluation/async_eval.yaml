@@ -17,5 +17,7 @@ evaluation:
   generation:
     batch_size: 32
 
+  enable_wandb: True
+
 checkpoints_dir: "" # "/output_dir_gcs/wizeng/runs/20240703_gpt2_fullrun_drop0.pt/"
 polling_interval: 5

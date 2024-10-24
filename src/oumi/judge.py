@@ -1,14 +1,12 @@
 from typing import Any, Dict, List
 
 from oumi.core.configs import JudgeConfig
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.types.conversation import Conversation
 from oumi.judges.oumi_judge import OumiXmlJudge as Judge
 
 
-def judge_dataset(
-    config: JudgeConfig, dataset: BaseLMSftDataset
-) -> List[Dict[str, Any]]:
+def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> List[Dict[str, Any]]:
     """Judge a dataset.
 
     This function evaluates a given dataset using a specified Judge configuration.

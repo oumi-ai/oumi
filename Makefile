@@ -14,7 +14,7 @@ DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
-SPHINXOPTS    ?=
+SPHINXOPTS    ?= -v
 SPHINXBUILD   ?= sphinx-build
 DOCS_SOURCEDIR     = $(DOCS_DIR)
 DOCS_BUILDDIR      = $(DOCS_DIR)/_build

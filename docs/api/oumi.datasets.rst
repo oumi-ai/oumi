@@ -11,5 +11,7 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
+   oumi.datasets.preference_tuning
    oumi.datasets.pretraining
+   oumi.datasets.sft
    oumi.datasets.vision_language
