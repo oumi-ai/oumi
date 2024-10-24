@@ -96,6 +96,7 @@ def build_dataset_mixture(
                     tokenizer,
                     dataset,
                     dataset_text_field=dataset_split_params.target_col,
+                    pretokenized=True,
                     **dataset_kwargs,
                 )
             else:

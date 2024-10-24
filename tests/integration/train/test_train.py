@@ -26,7 +26,6 @@ def test_train_basic():
                             dataset_name="debug_sft",
                         )
                     ],
-                    target_col="text",
                 ),
             ),
             model=ModelParams(
@@ -63,7 +62,6 @@ def test_train_unregistered_metrics_function():
                                 dataset_name="debug_sft",
                             )
                         ],
-                        target_col="text",
                     ),
                 ),
                 model=ModelParams(
@@ -103,7 +101,6 @@ def test_train_pack():
                     ],
                     stream=True,
                     pack=True,
-                    target_col="text",
                 ),
             ),
             model=ModelParams(

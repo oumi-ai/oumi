@@ -29,7 +29,6 @@ def _get_default_config(output_temp_dir):
                 ],
                 stream=True,
                 pack=True,
-                target_col="text",
             ),
         ),
         model=ModelParams(

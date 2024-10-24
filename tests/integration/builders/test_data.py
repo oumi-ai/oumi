@@ -1,7 +1,7 @@
 from typing import List, Union
 
+import datasets
 import pytest
-from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
 from oumi.builders import (
@@ -20,6 +20,8 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -32,18 +34,19 @@ def _get_default_config(
     stream: bool,
     split: DatasetSplit,
     pack: bool = False,
+    model_max_length: int = 64,
 ) -> TrainingConfig:
     dataset_split_params = DatasetSplitParams(
         datasets=datasets,
-        target_col="question",
         stream=stream,
         pack=pack,
+        use_async_dataset=pack,
     )
     base_config = TrainingConfig(
         data=DataParams(),
         model=ModelParams(
             model_name="openai-community/gpt2",
-            model_max_length=1024,
+            model_max_length=model_max_length,
             tokenizer_pad_token="<|endoftext|>",
         ),
         training=TrainingParams(
@@ -62,25 +65,37 @@ def _get_default_config(
 
 def _get_dataset_size(
     dataset: Union[
-        Dataset, IterableDataset, ConstantLengthDataset, PretrainingAsyncTextDataset
+        datasets.Dataset,
+        datasets.IterableDataset,
+        ConstantLengthDataset,
+        PretrainingAsyncTextDataset,
     ],
     stream: bool,
     pack: bool = False,
 ) -> int:
-    if stream:
-        if pack:
-            assert isinstance(
-                dataset, (ConstantLengthDataset, PretrainingAsyncTextDataset)
-            )
-        else:
-            assert isinstance(dataset, (IterableDataset))
+    if pack:
+        assert isinstance(
+            dataset,
+            (
+                ConstantLengthDataset,
+                PretrainingAsyncTextDataset,
+                BasePretrainingDataset,
+            ),
+        )
+
+    elif stream:
+        assert isinstance(dataset, (datasets.IterableDataset, BaseIterableDataset))
+
+    if pack or stream:
         example_count = 0
         for _ in dataset:
             example_count += 1
         return example_count
-    else:
-        assert isinstance(dataset, Dataset)
+
+    elif isinstance(dataset, datasets.Dataset):
         return dataset.num_rows
+    else:
+        raise ValueError(f"Unsupported dataset type: {type(dataset)}")
 
 
 def test_data_single_dataset_in_mixture(stream: bool):
@@ -281,25 +296,19 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.1,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=50,
                 mixture_proportion=0.4,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.5,
                 trust_remote_code=True,
@@ -323,23 +332,17 @@ def test_data_multiple_datasets_mixed_exception(stream: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
@@ -356,23 +359,17 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="cais/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.1,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
@@ -390,69 +387,32 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
 
 
 def test_data_multiple_datasets_packing(stream: bool):
-    if stream:
-        config = _get_default_config(
-            [
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.1,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.4,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.5,
-                ),
-            ],
-            stream,
-            DatasetSplit.TEST,
-            pack=True,
-        )
-        config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
-        config.data.get_split(DatasetSplit.TEST).seed = 1
-        tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
-        # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, stream, pack=True) == 3
-    else:
-        # Raise an exception as streaming is requried for packing.
-        with pytest.raises(Exception):
-            _ = _get_default_config(
-                [
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.1,
-                    ),
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=50,
-                        mixture_proportion=0.4,
-                    ),
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.5,
-                    ),
-                ],
-                stream,
-                DatasetSplit.TEST,
-                pack=True,
-            )
+    config = _get_default_config(
+        [
+            DatasetParams(
+                dataset_name="debug_sft",
+                sample_count=50,
+                mixture_proportion=0.1,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                sample_count=50,
+                mixture_proportion=0.4,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                sample_count=50,
+                mixture_proportion=0.5,
+            ),
+        ],
+        stream,
+        DatasetSplit.TEST,
+        model_max_length=1024,
+        pack=True,
+    )
+    config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
+    config.data.get_split(DatasetSplit.TEST).seed = 1
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
+    # The packed dataset should be even smaller.
+    assert _get_dataset_size(dataset, stream, pack=True) == 2

@@ -30,7 +30,6 @@ def _create_training_config() -> TrainingConfig:
                         dataset_name="debug_sft",
                     )
                 ],
-                target_col="text",
             ),
         ),
         model=ModelParams(
