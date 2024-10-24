@@ -1,3 +1,3 @@
 # Projects
 
-Configs for fully replicating the training of specific models or recipes.
+Configs for fully replicating the training of specific models.
