@@ -1,4 +1,4 @@
-from typing import List, Optional, cast
+from typing import Optional, cast
 
 import torch.utils.data.datapipes as dp
 from torch.utils.data import IterDataPipe, MapDataPipe
@@ -42,7 +42,7 @@ def build_dataset_mixture(
     if len(dataset_split_params.datasets) == 0:
         raise ValueError("No datasets specified in the split.")
 
-    datapipes: List[IterDataPipe] = []
+    datapipes: list[IterDataPipe] = []
 
     for dataset_params in dataset_split_params.datasets:
         # Load the dataset
@@ -94,7 +94,7 @@ def build_dataset_mixture(
                 )
         else:
             # All mixture_proportions are not None.
-            mixture_proportions = cast(List[float], mixture_proportions)
+            mixture_proportions = cast(list[float], mixture_proportions)
             mixture = {
                 datapipe: mixture_proportion
                 for mixture_proportion, datapipe in zip(mixture_proportions, datapipes)

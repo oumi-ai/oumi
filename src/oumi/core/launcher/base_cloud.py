@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from oumi.core.configs.job_config import JobConfig
 from oumi.core.launcher.base_cluster import BaseCluster, JobStatus
@@ -19,6 +19,6 @@ class BaseCloud(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_clusters(self) -> List[BaseCluster]:
+    def list_clusters(self) -> list[BaseCluster]:
         """Lists the active clusters on this cloud."""
         raise NotImplementedError

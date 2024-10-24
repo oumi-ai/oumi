@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Coroutine, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 

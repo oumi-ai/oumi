@@ -1,5 +1,6 @@
 import copy
-from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
+from collections.abc import Sequence
+from typing import Callable, Optional, TypeVar, Union, cast
 
 import datasets
 from trl.trainer import ConstantLengthDataset
@@ -169,7 +170,7 @@ def build_dataset(
 
 
 def _mix_datasets(
-    dataset_list: List[DatasetType],
+    dataset_list: list[DatasetType],
     mixture_proportions: Sequence[Optional[float]],
     mixture_strategy: str,
     seed: Optional[int],
@@ -180,7 +181,7 @@ def _mix_datasets(
         return datasets.concatenate_datasets(dataset_list)
     else:
         # All mixture_proportions are not None.
-        mixture_proportions = cast(List[float], mixture_proportions)
+        mixture_proportions = cast(list[float], mixture_proportions)
         # Interleave datasets using the specified proportions and mixture strategy.
         return datasets.interleave_datasets(
             dataset_list,

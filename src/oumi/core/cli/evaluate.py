@@ -1,5 +1,6 @@
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
 from oumi import evaluate as oumi_evaluate

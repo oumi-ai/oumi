@@ -1,5 +1,3 @@
-from typing import List
-
 from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
@@ -20,8 +18,8 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
         return s.strip() if s else ""
 
     def _parse_user_messages(
-        self, message_list: List[dict], images: List[dict]
-    ) -> List[Message]:
+        self, message_list: list[dict], images: list[dict]
+    ) -> list[Message]:
         role = Role.USER
         if len(message_list) not in (1, 2):
             raise ValueError(
@@ -89,7 +87,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
         # Add image messages before text messages!
         return image_messages + text_messages
 
-    def _parse_assistant_messages(self, message_list: List[dict]) -> Message:
+    def _parse_assistant_messages(self, message_list: list[dict]) -> Message:
         role = Role.ASSISTANT
         if len(message_list) != 1:
             raise ValueError(
@@ -122,7 +120,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
         elif len(images) != 1:
             logger.warning(f"Example contains multiple images: {len(images)}")
 
-        messages: List[Message] = []
+        messages: list[Message] = []
         for message in example_messages:
             message_list = message.get("content")
             if message_list is None or len(message_list) == 0:

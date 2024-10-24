@@ -1,10 +1,12 @@
-from typing import Any, Dict, Optional
+import collections
+from typing import Any, Optional
 
 import numpy as np
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.torch_utils import convert_to_list_of_tensors
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -29,14 +31,14 @@ class VisionLanguageCollatorWithPadding:
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
         """
-        self._text_collator = TextCollatorWithPadding(
+        self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=truncation,
             label_ignore_index=label_ignore_index,
         )
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.
 
         Args:
@@ -47,6 +49,10 @@ class VisionLanguageCollatorWithPadding:
         """
         # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
+        known_input_names: set[str] = set(collated_batch.keys()).union(
+            {_PIXEL_VALUES_KEY}
+        )
+        other_input_names: set[str] = set()
 
         images = []
         for item in batch:
@@ -60,11 +66,36 @@ class VisionLanguageCollatorWithPadding:
                 )
             images.append(item[_PIXEL_VALUES_KEY])
 
-        # Collate batch images.
+            for key in item:
+                if (
+                    key
+                    and (key not in known_input_names)
+                    and (key not in other_input_names)
+                ):
+                    other_input_names.add(key)
+
+        # Collate images.
         pixel_values = self.collate_images(images)
 
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
+
+        # For other inputs, let's verify they present in all examples and stack them.
+        if len(other_input_names) > 0:
+            other_inputs: dict[str, list[Any]] = collections.defaultdict(list)
+            for item in batch:
+                for input_name in other_input_names:
+                    if input_name not in item:
+                        raise ValueError(
+                            f"Item doesn't contain '{input_name}' key. "
+                            f"Available keys: {item.keys()}"
+                        )
+                    other_inputs[input_name].append(item[input_name])
+
+            for input_name, values_list in other_inputs.items():
+                tensors_list = convert_to_list_of_tensors(values_list)
+                collated_value = torch.stack(tensors_list)
+                collated_batch[input_name] = collated_value
 
         return collated_batch
 

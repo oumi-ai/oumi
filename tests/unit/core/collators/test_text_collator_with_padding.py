@@ -1,5 +1,4 @@
 import functools
-from typing import Tuple
 
 import numpy as np
 import pytest
@@ -12,8 +11,8 @@ from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
-def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
+@functools.cache  # same as @cache added in Python 3.9
+def create_test_tokenizer() -> tuple[BaseTokenizer, int]:
     tokenizer = build_tokenizer(
         ModelParams(
             model_name="openai-community/gpt2",
@@ -62,7 +61,9 @@ def test_success_with_labels_and_max_length():
 
     with pytest.raises(
         ValueError,
-        match="Unable to create tensor, you should probably activate truncation",
+        match=(
+            "Maximum sequence length exceeded. You should probably activate truncation"
+        ),
     ):
         TextCollatorWithPadding(tokenizer, max_length=2)(
             [
@@ -74,7 +75,9 @@ def test_success_with_labels_and_max_length():
 
     with pytest.raises(
         ValueError,
-        match="Unable to create tensor, you should probably activate truncation",
+        match=(
+            "Maximum sequence length exceeded. You should probably activate truncation"
+        ),
     ):
         TextCollatorWithPadding(tokenizer, max_length=2, truncation=False)(
             [

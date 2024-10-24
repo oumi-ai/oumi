@@ -3,7 +3,7 @@ import itertools
 import time
 from pathlib import Path as Pathlib
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import datasets as hf_datasets
 import torch.distributed as dist
@@ -168,15 +168,15 @@ def main(args):
 # Helper functions
 #
 def _generate_config_combinations(
-    variable_params: Dict[str, List[Any]],
-) -> List[Dict[str, Any]]:
+    variable_params: dict[str, list[Any]],
+) -> list[dict[str, Any]]:
     """Generates a list of configs based on a list of variable parameters."""
     keys, values = zip(*variable_params.items())
     configurations = [dict(zip(keys, v)) for v in itertools.product(*values)]
     return [{**conf} for conf in configurations]
 
 
-def _load_dataset(dataset_fn, *args, **kwargs) -> Tuple[float, Any]:
+def _load_dataset(dataset_fn, *args, **kwargs) -> tuple[float, Any]:
     """Measures the time taken to initialize a dataset using the given dataset function.
 
     Parameters:
@@ -209,7 +209,7 @@ def _benchmark_dataloader_epoch(
     use_distributed_sampler: bool = False,
     max_steps: Optional[int] = None,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Measures the time taken to iterate over a DataLoader for one epoch."""
     if use_distributed_sampler:
         sampler = DistributedSampler(dataset)

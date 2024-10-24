@@ -4,7 +4,7 @@ import os
 import random
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import List, NamedTuple, Optional, TypeVar, cast
+from typing import NamedTuple, Optional, TypeVar, cast
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ class DeviceRankInfo(NamedTuple):
 #
 # Process Info
 #
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
+@functools.cache  # same as @cache added in Python 3.9
 def get_device_rank_info() -> DeviceRankInfo:
     """Returns device rank and world size."""
     world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -141,7 +141,7 @@ T = TypeVar("T")
 
 def all_gather_object(
     obj: T, group: Optional[torch.distributed.ProcessGroup] = None
-) -> List[T]:
+) -> list[T]:
     """Gathers picklable objects from the whole group into a list."""
     verify_torch_distributed_initialized_if_needed()
     if is_distributed():
@@ -154,7 +154,7 @@ def all_gather_object(
 
     # We have to cast because the inferred type is `List[Optional[T]])`
     # while `None` must never happen here.
-    return cast(List[T], object_list)
+    return cast(list[T], object_list)
 
 
 def local_leader_only(*barrier_args, **barrier_kwargs):

@@ -1,5 +1,5 @@
 import csv
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 from datasets import load_dataset
@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 @llama_chat_format.register_chat_format("llama-3-modified")
 def _format_llama3(
-    messages: List[llama_types.ChatCompletionRequestMessage],
+    messages: list[llama_types.ChatCompletionRequestMessage],
     **kwargs: Any,
 ) -> llama_chat_format.ChatFormatterResponse:
     _roles = dict(
