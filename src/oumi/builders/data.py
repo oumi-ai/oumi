@@ -280,21 +280,19 @@ def _load_dataset(
     datasets.IterableDataset,
 ]:
     """Loads a dataset with the specified name and subset."""
-    if not stream:
-        # Streaming is not supported yet for custom datasets.
-        dataset_class = REGISTRY.get_dataset(
-            dataset_params.dataset_name, subset=dataset_params.subset
-        )
+    dataset_class = REGISTRY.get_dataset(
+        dataset_params.dataset_name, subset=dataset_params.subset
+    )
 
-        if dataset_class is not None:
-            dataset = dataset_class(
-                split=dataset_params.split,
-                subset=dataset_params.subset,
-                tokenizer=tokenizer,
-                trust_remote_code=dataset_params.trust_remote_code,
-                **dataset_params.dataset_kwargs,
-            )
-            return dataset.to_hf()
+    if dataset_class is not None:
+        dataset = dataset_class(
+            split=dataset_params.split,
+            subset=dataset_params.subset,
+            tokenizer=tokenizer,
+            trust_remote_code=dataset_params.trust_remote_code,
+            **dataset_params.dataset_kwargs,
+        )
+        return dataset.to_hf()
 
     dataset_path = dataset_params.dataset_path
     if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):

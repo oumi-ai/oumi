@@ -19,7 +19,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str],
+        dataset_name: Optional[str] = None,
         dataset_path: Optional[str] = None,
         subset: Optional[str] = None,
         split: Optional[str] = None,
@@ -51,6 +51,8 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.stream = stream
+        self.trust_remote_code = trust_remote_code
+
         self._data = self._load_data()
 
     #

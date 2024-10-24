@@ -76,7 +76,7 @@ def _create_training_config() -> TrainingConfig:
             train=DatasetSplitParams(
                 datasets=[
                     DatasetParams(
-                        dataset_name="yahma/alpaca-cleaned",
+                        dataset_name="debug_sft",
                     )
                 ],
                 target_col="text",

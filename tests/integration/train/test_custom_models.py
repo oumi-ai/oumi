@@ -1,5 +1,4 @@
 import tempfile
-import unittest
 
 from transformers import Trainer
 
@@ -24,8 +23,8 @@ def _get_default_config(output_temp_dir):
             train=DatasetSplitParams(
                 datasets=[
                     DatasetParams(
-                        dataset_name="Salesforce/wikitext",
-                        subset="wikitext-2-raw-v1",
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"seq_length": 128},
                     )
                 ],
                 stream=True,
@@ -80,7 +79,6 @@ def test_train_native_pt_model_from_api():
         trainer.train()
 
 
-@unittest.skip("Temporarily disabled. Failing potentially due to network timeout")
 def test_train_native_pt_model_from_config():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config = _get_default_config(output_temp_dir)
