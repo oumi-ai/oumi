@@ -200,14 +200,14 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> Set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "max_new_tokens",
-            "temperature",
-            "top_p",
             "frequency_penalty",
+            "logit_bias",
+            "max_new_tokens",
+            "min_p",
             "presence_penalty",
             "stop",
-            "logit_bias",
-            "min_p",
+            "temperature",
+            "top_p",
         }
 
     def infer_online(

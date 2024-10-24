@@ -224,11 +224,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "frequency_penalty",
             "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "stop_strings",
             "temperature",
             "top_p",
-            "frequency_penalty",
-            "presence_penalty",
-            "stop",
-            "min_p",
         }

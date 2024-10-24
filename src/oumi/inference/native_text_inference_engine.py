@@ -319,13 +319,13 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> Set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "frequency_penalty",
             "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
-            "frequency_penalty",
-            "presence_penalty",
-            "stop_strings",
-            "min_p",
-            "seed",
-            "stop_token_ids",
         }
