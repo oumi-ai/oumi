@@ -1,13 +1,4 @@
-# Pretraining (PT) config for Llama 2B.
-
 model:
-  # Vocab size: 50272
-  # Hidden size: 2048
-  # MLP intermediate size: 8192
-  # Num layers: 24
-  # Num attention heads: 32
-  # Num KV heads: 32
-  # Weight tying: True
   model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"

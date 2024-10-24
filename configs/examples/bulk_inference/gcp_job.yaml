@@ -1,6 +1,3 @@
-# Config to run inference on a large dataset using GCP.
-# Example command:
-# oumi launch up -c configs/examples/bulk_inference/gcp_job.yaml --cluster oumi-bulk-inference
 name: oumi-bulk-inference
 
 num_nodes: 1
