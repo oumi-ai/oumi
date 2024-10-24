@@ -23,3 +23,5 @@ lm_harness_params:
   tasks:
     - "m_mmlu_en"
   num_fewshot: 5
+
+enable_wandb: True

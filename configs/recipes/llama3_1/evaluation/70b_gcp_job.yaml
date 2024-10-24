@@ -24,6 +24,8 @@ envs:
   MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-70B-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: llama70b.eval
 
 setup: |
   set -e
@@ -50,6 +52,7 @@ run: |
   set -x # Enable command tracing.
   python -m oumi.evaluate \
     -c configs/recipes/llama3_1/evaluation/70b_eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 

@@ -2,6 +2,9 @@ from typing import Callable, Optional
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
+from oumi.core.collators.text_completions_collator_with_padding import (
+    TextCompletionsCollatorWithPadding,
+)
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
@@ -23,10 +26,11 @@ def build_data_collator(
     """Builds a data collator based on the given collator name.
 
     Args:
-        collator_name: The name of the collator to build. Supported values are:
-            - "text_with_padding": Uses TextCollatorWithPadding for text data.
-            - "vision_language_with_padding": Uses VisionLanguageCollatorWithPadding
-                for multi-modal data.
+        collator_name: The name of the collator to build.
+            Supported values are:
+                - "text_with_padding": Uses TextCollatorWithPadding for text data.
+                - "vision_language_with_padding": Uses VisionLanguageCollatorWithPadding
+                  for multi-modal data.
         tokenizer: A tokenizer.
         max_length: An optional maximum sequence length.
         label_ignore_index: If set, then label values of tokens that shouldn't
@@ -79,6 +83,12 @@ def build_data_collator(
             label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
             **kwargs,
+        )
+    elif collator_name == "text_completions_only_with_padding":
+        return TextCompletionsCollatorWithPadding(
+            tokenizer=tokenizer,
+            instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
+            response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
         )
 
     raise ValueError(f"Unknown data collator name: '{collator_name}'")

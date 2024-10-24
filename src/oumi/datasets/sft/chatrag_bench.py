@@ -3,13 +3,13 @@ from typing import Optional, Union
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("nvidia/ChatRAG-Bench")
-class ChatRAGBenchDataset(BaseLMSftDataset):
+class ChatRAGBenchDataset(BaseSftDataset):
     default_dataset: str = "nvidia/ChatRAG-Bench"
     default_system_message: str = (
         "This is a chat between a user and an artificial intelligence assistant. "

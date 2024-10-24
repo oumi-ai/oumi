@@ -1,3 +1,5 @@
+import sys
+
 import typer
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
@@ -56,3 +58,8 @@ def run():
     """The entrypoint for the CLI."""
     app = get_app()
     return app()
+
+
+if "sphinx-build" in sys.modules:
+    # Create the CLI app when building the docs to auto-generate the CLI reference.
+    app = get_app()

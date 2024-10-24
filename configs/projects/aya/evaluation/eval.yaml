@@ -25,3 +25,5 @@ lm_harness_params:
 
 generation:
   batch_size: 8
+
+enable_wandb: True

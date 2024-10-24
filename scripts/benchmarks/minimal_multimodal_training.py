@@ -10,9 +10,9 @@ For multi-GPU training, use torchrun:
             --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
@@ -22,14 +22,14 @@ from typing import Dict, List, NamedTuple, Optional
 
 import torch
 import typer
-from transformers import AutoProcessor
 
 import oumi.core.constants as constants
 from oumi.builders import (
-    build_chat_template,
     build_data_collator,
     build_dataset,
     build_model,
+    build_processor,
+    build_tokenizer,
 )
 from oumi.core.configs import (
     FSDPParams,
@@ -42,6 +42,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.str_utils import sanitize_run_name
@@ -51,8 +52,8 @@ from oumi.utils.torch_utils import (
 
 
 class ModelName(str, Enum):
-    BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
+    BLIP2 = "Salesforce/blip2-opt-2.7b"
     QWEN = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
@@ -122,15 +123,18 @@ def _get_chat_template(model_name: ModelName) -> str:
 
 
 class DatasetName(str, Enum):
-    COCO = "coco_captions"
-    FLICKR = "nlphuji/flickr30k"
+    MERVE_VQAV2_SMALL = "merve/vqav2-small"
     LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
+    FLICKR = "nlphuji/flickr30k"
+    COCO = "coco_captions"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     if dataset_name == DatasetName.FLICKR:
         # The dataset only has "test" split.
         return "test"
+    elif dataset_name == DatasetName.MERVE_VQAV2_SMALL:
+        return "validation"
     return "train"
 
 
@@ -139,6 +143,7 @@ def test_multimodal_trainer(
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
     max_steps: int = 20,
+    optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
@@ -162,24 +167,17 @@ def test_multimodal_trainer(
         model_name=model_name.value,
         torch_dtype_str="float16",
         trust_remote_code=True,
+        chat_template=_get_chat_template(model_name),
         freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp
     )
     if is_local_process_zero():
         print(f"ModelParams:\n{pformat(model_params)}")
 
     model = build_model(model_params)
-    processor = AutoProcessor.from_pretrained(model_name.value, trust_remote_code=True)
-    assert callable(processor)
-    tokenizer: BaseTokenizer = processor.tokenizer
-
-    # TODO: assign the right chat template for each model
-    # For now, we use the LLaVA chat template for all models
-    # NOTE: We can't use the original model's template because
-    # oumi will feed it an array of `oumi.core.types.turn.Message`
-    # objects (vs model-specific Python dict).
-    chat_template = build_chat_template(_get_chat_template(model_name))
-    processor.chat_template = chat_template
-    tokenizer.chat_template = chat_template
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_name.value, tokenizer, trust_remote_code=True
+    )
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
@@ -206,8 +204,11 @@ def test_multimodal_trainer(
         per_device_train_batch_size=batch_size,
         max_steps=max_steps,
         save_steps=0,
-        optimizer="sgd",
+        optimizer=(optimizer or "sgd"),
         learning_rate=2e-5,
+        warmup_steps=int(max(10, 0.2 * max_steps)),
+        max_grad_norm=10,
+        lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
         log_model_summary=False,
         logging_steps=logging_steps,

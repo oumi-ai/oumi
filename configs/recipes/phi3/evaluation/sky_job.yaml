@@ -1,4 +1,4 @@
-name: phi3-eval-lm_harness
+name: phi3-eval
 
 resources:
   accelerators: {"A100"}
@@ -23,9 +23,10 @@ file_mounts:
     mode: MOUNT
 
 envs:
-  WANDB_PROJECT: oumi-eval
   # HF datasets require trusting remote code to be enabled.
   HF_DATASETS_TRUST_REMOTE_CODE: 1
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: phi3.eval
 
 setup: |
   set -e
@@ -36,4 +37,5 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   python -m oumi.evaluate \
-    -c configs/recipes/phi3/evaluation/eval.yaml
+    -c configs/recipes/phi3/evaluation/eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
