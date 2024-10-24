@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional
+from typing import List, Optional, Set
 
 import peft
 import PIL.Image
@@ -315,3 +315,19 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
+
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "batch_size",
+            "exclude_prompt_from_response",
+            "frequency_penalty",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "stop_token_ids",
+            "temperature",
+            "top_p",
+        }
