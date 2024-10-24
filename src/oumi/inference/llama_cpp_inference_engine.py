@@ -205,7 +205,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             "max_new_tokens",
             "min_p",
             "presence_penalty",
-            "stop",
+            "stop_strings",
             "temperature",
             "top_p",
         }
