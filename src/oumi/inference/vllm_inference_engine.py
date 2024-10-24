@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import torch
 
 from oumi.builders import build_tokenizer
@@ -65,7 +63,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 lora_path=model_params.adapter_model,
             )
             logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
-            lora_rank = get_lora_rank(Path(model_params.adapter_model))
+            lora_rank = get_lora_rank(model_params.adapter_model)
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
         self._tokenizer = build_tokenizer(model_params)

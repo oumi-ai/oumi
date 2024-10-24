@@ -3,6 +3,8 @@ from typing import Union
 
 from oumi.utils.io_utils import load_json
 
+_ADAPTER_CONFIG_RANK_KEY = "r"
+
 
 def get_lora_rank(adapter_dir: Union[str, Path]) -> int:
     """Gets the LoRA rank for a saved adapter model.
@@ -21,12 +23,12 @@ def get_lora_rank(adapter_dir: Union[str, Path]) -> int:
     """
     adapter_config_path = Path(adapter_dir) / "adapter_config.json"
     adapter_config = load_json(adapter_config_path)
-    if "r" not in adapter_config:
+    if _ADAPTER_CONFIG_RANK_KEY not in adapter_config:
         raise ValueError(
             f"LoRA rank not found in adapter config: {adapter_config_path}"
         )
-    if not isinstance(adapter_config["r"], int):
+    if not isinstance(adapter_config[_ADAPTER_CONFIG_RANK_KEY], int):
         raise ValueError(
             f"LoRA rank in adapter config not an int: {adapter_config_path}"
         )
-    return adapter_config["r"]
+    return adapter_config[_ADAPTER_CONFIG_RANK_KEY]
