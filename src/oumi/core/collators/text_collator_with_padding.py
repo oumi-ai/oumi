@@ -51,6 +51,8 @@ class TextCollatorWithPadding:
         )
         self._truncation: bool = bool(truncation)
 
+        # TODO OPE-642 Remove dependency on `DataCollatorWithPadding`,
+        # and always use simple collation after more testing.
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=self._max_length,
@@ -129,8 +131,8 @@ class TextCollatorWithPadding:
         attention_mask_on = _ATTENTION_MASK_KEY in batch[0]
         cross_attention_mask_on = _CROSS_ATTENTION_MASK_KEY in batch[0]
 
-        # FIXME Drop dependency on `DataCollatorWithPadding`, and always use simple
-        # collation after more testing.
+        # TODO OPE-642 Remove dependency on `DataCollatorWithPadding`,
+        # and always use simple collation after more testing.
         use_simple_collation: bool = cross_attention_mask_on
 
         # Maximum sequence lengths in this batch.
