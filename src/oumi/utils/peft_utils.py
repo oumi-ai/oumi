@@ -1,9 +1,10 @@
 from pathlib import Path
+from typing import Union
 
 from oumi.utils.io_utils import load_json
 
 
-def get_lora_rank(adapter_dir: Path) -> int:
+def get_lora_rank(adapter_dir: Union[str, Path]) -> int:
     """Gets the LoRA rank for a saved adapter model.
 
     Example config:
