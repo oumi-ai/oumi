@@ -7,6 +7,7 @@ import torch
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import convert_to_list_of_tensors
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -94,18 +95,13 @@ class VisionLanguageCollatorWithPadding:
 
             for input_name, values_list in other_inputs.items():
                 logger.info(f"{input_name}: {len(values_list)} elements")
+                tensors_list = convert_to_list_of_tensors(values_list)
 
-                if isinstance(values_list[0], np.ndarray):
-                    values_list = [torch.from_numpy(item) for item in values_list]
-                    shapes_list = [item.shape for item in values_list]
+                if True:
+                    shapes_list = [item.shape for item in tensors_list]
                     logger.info(f"'{input_name}': {shapes_list}")
 
-                if isinstance(values_list[0], torch.Tensor):
-                    collated_value = torch.stack(values_list)
-                else:
-                    raise ValueError(
-                        f"'{input_name}': Unsupported type: {type(values_list[0])}"
-                    )
+                collated_value = torch.stack(tensors_list)
                 collated_batch[input_name] = collated_value
 
         return collated_batch

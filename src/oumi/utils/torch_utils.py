@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional, TypeVar, cast
 
 import numpy as np
 import torch
@@ -229,3 +229,116 @@ def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
             logger.warning(
                 f"Failed to coerce module {name} to dtype {dtype}. Error: {e}"
             )
+
+
+T = TypeVar("T")
+
+
+def convert_to_list_of_tensors(values: List[T]) -> List[torch.Tensor]:
+    """Converts a list of array-like objects into alist of torch tensors."""
+    if len(values) == 0:
+        return []
+
+    first_item = values[0]
+    if isinstance(first_item, torch.Tensor):
+        return [cast(torch.Tensor, item) for item in values]
+
+    if isinstance(first_item, np.ndarray):
+        return [torch.from_numpy(item) for item in values]
+    elif isinstance(first_item, list):
+        return [torch.from_numpy(np.asarray(item)) for item in values]
+
+    raise ValueError(
+        f"Unsupported element type: {type(first_item)}. "
+        "Must be numpy array, torch tensor, or Python list."
+    )
+
+
+def _pad_sequences_impl(
+    sequences: List[torch.Tensor], *, padding_value: float = 0
+) -> torch.Tensor:
+    return torch.nn.utils.rnn.pad_sequence(
+        sequences, batch_first=True, padding_value=padding_value
+    )
+
+
+def pad_sequences_right_side(
+    sequences: List[T], *, padding_value: float = 0
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Appends `padding_value` to the right side of each sequence
+    to expand to the longest length.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
+        L is the longest length (`max(values[i])`)
+    """
+    if len(sequences) == 0:
+        raise ValueError("Empty list is not allowed.")
+    tensor_sequences = convert_to_list_of_tensors(sequences)
+
+    return _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
+
+
+def pad_sequences_left_side(
+    sequences: List[T], *, padding_value: float = 0
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Prepends `padding_value` to the left side of each sequence
+    to expand to the longest length.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
+        L is the longest length (`max(values[i])`)
+    """
+    if len(sequences) == 0:
+        raise ValueError("Empty list is not allowed.")
+    tensor_sequences = convert_to_list_of_tensors(sequences)
+
+    # FIXME Start using `torch.nn.utils.rnn.pad_sequence(padding_size="left")``
+    # after we migrate to torch >=2.5.*.
+
+    # For now, do this to achieve left side padding:
+    # 1. Reverse all input sequences.
+    # 2. Right pad.
+    # 3. Unreverse all sequences in right-padded result.
+    # Note that torch.flip() copies tensors, so there is a performance cost.
+
+    tensor_sequences = [torch.flip(s, dims=(0,)) for s in tensor_sequences]
+    result = _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
+    result = torch.flip(result, dims=(1,))
+    return result
+
+
+def pad_sequences(
+    sequences: List[T], *, padding_value: float = 0, padding_side: Optional[str] = None
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+        padding_side: side to apply padding to. Valid values:  'right', 'left'.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
+        L is the longest length (`max(values[i])`)
+    """
+    if not padding_side or padding_side == "right":
+        return pad_sequences_right_side(sequences, padding_value=padding_value)
+    elif padding_side == "left":
+        return pad_sequences_left_side(sequences, padding_value=padding_value)
+
+    raise ValueError(
+        f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
+    )

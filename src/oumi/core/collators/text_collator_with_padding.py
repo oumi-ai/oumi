@@ -1,13 +1,12 @@
 import collections
 from typing import Any, Dict, List, NamedTuple, Optional, Set
 
-import numpy as np
 import torch
 import transformers
-from torch.nn.utils.rnn import pad_sequence
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import pad_sequences
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
@@ -55,7 +54,7 @@ class TextCollatorWithPadding:
         self._default_collator = transformers.DataCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=self._max_length,
-            padding=("max_length" if self._max_length is not None else "longest"),
+            padding="longest",
             return_tensors="pt",
         )
 
@@ -111,14 +110,9 @@ class TextCollatorWithPadding:
                     f"Can't collate {key} if padding_side={self._padding_side}"
                 )
             for key, values_list in nested_inputs_dict.items():
-                if isinstance(values_list, np.ndarray):
-                    values_list = torch.from_numpy(values_list)
-                else:
-                    if isinstance(values_list[0], (np.ndarray, list)):
-                        values_list = [torch.from_numpy(item) for item in values_list]
-
-                x = pad_sequence(values_list, batch_first=True)
-                result[key] = x
+                result[key] = pad_sequences(
+                    values_list, padding_side=self._padding_side
+                )
 
         return result
 
