@@ -114,18 +114,25 @@ class BaseInferenceEngine(ABC):
                 writer.write(json_obj)
 
     def _check_unsupported_params(self, generation_params: GenerationParams):
-        """Checks for unsupported parameters and logs warnings."""
-        supported_params = self.get_supported_params()
-        all_params = set(generation_params.__dict__.keys())
-        unsupported_params = all_params - supported_params
+        """Checks for unsupported parameters and logs warnings.
 
-        for param in unsupported_params:
-            value = getattr(generation_params, param)
-            if value is not None and value != 0 and value != {} and value != []:
-                logger.warning(
-                    f"{self.__class__.__name__} does not support {param}. "
-                    f"Received value: {param}={value}. This parameter will be ignored."
+        If a parameter is not supported, and a non-default value is provided,
+        a warning is logged.
+        """
+        supported_params = self.get_supported_params()
+
+        for param_name, value in generation_params:
+            if param_name not in supported_params:
+                is_non_default_value = (
+                    value is not None and value != 0 and value != {} and value != []
                 )
+
+                if is_non_default_value:
+                    logger.warning(
+                        f"{self.__class__.__name__} does not support {param_name}. "
+                        f"Received value: {param_name}={value}. "
+                        "This parameter will be ignored."
+                    )
 
     @abstractmethod
     def get_supported_params(self) -> Set[str]:
