@@ -328,4 +328,3 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "min_p",
             "seed",
         }
-        return self._infer(input, inference_config)

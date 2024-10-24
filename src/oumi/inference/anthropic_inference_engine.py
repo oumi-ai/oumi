@@ -145,6 +145,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_new_tokens",
             "temperature",
             "top_p",
-            "stop",
+            "stop_strings",
             "remote_params",
         }
