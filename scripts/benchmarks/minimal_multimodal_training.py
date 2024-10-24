@@ -54,11 +54,11 @@ from oumi.utils.torch_utils import (
 class ModelName(str, Enum):
     LLAVA = "llava-hf/llava-1.5-7b-hf"
     BLIP2 = "Salesforce/blip2-opt-2.7b"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
+    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    QWEN2 = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
-    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
 
 
@@ -76,7 +76,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.LLAVA: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
     ),
-    ModelName.QWEN: ModelInfo(
+    ModelName.QWEN2: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
     ),
     ModelName.CHAMELEON: ModelInfo(
