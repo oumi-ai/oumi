@@ -324,7 +324,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "top_p",
             "frequency_penalty",
             "presence_penalty",
-            "stop",
+            "stop_strings",
             "min_p",
             "seed",
+            "stop_token_ids",
         }
