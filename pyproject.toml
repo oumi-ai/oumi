@@ -102,7 +102,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 # CI targets
-ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs,optional]"]
 ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
 # Optional dependencies

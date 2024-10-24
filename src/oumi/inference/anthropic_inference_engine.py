@@ -91,28 +91,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
-        # Log warnings for unsupported parameters
-        if generation_params.frequency_penalty != 0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support frequency_penalty."
-                " This parameter will be ignored."
-            )
-        if generation_params.presence_penalty != 0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support presence_penalty."
-                " This parameter will be ignored."
-            )
-        if generation_params.logit_bias:
-            logger.warning(
-                "AnthropicInferenceEngine does not support logit_bias."
-                " This parameter will be ignored."
-            )
-        if generation_params.min_p != 0.0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support min_p."
-                " This parameter will be ignored."
-            )
-
         return body
 
     @override
@@ -137,4 +115,14 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,
             "X-API-Key": self._get_api_key(remote_params) or "",
+        }
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "remote_params",
+            "stop_strings",
+            "temperature",
+            "top_p",
         }
