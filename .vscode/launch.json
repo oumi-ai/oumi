@@ -135,7 +135,7 @@
                 "--dataset-name",
                 "merve/vqav2-small"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python Debugger: Current File",

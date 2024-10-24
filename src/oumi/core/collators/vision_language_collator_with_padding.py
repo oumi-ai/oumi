@@ -102,10 +102,6 @@ class VisionLanguageCollatorWithPadding:
 
                 if isinstance(values_list[0], torch.Tensor):
                     collated_value = torch.stack(values_list)
-                elif isinstance(values_list[0], np.ndarray):
-                    collated_value = torch.stack(
-                        [torch.from_numpy(item) for item in values_list]
-                    )
                 else:
                     raise ValueError(
                         f"'{input_name}': Unsupported type: {type(values_list[0])}"

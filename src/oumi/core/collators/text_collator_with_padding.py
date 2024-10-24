@@ -1,7 +1,10 @@
-from typing import Any, Dict, List, NamedTuple, Optional
+import collections
+from typing import Any, Dict, List, NamedTuple, Optional, Set
 
+import numpy as np
 import torch
 import transformers
+from torch.nn.utils.rnn import pad_sequence
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
@@ -56,6 +59,10 @@ class TextCollatorWithPadding:
             return_tensors="pt",
         )
 
+        if not hasattr(tokenizer, "padding_side") or not tokenizer.padding_side:
+            raise RuntimeError("Tokenizer doesn't define `padding_side`.")
+        self._padding_side = str(tokenizer.padding_side)
+
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
 
@@ -69,9 +76,26 @@ class TextCollatorWithPadding:
         self._max_previously_logged_input_ids_length: int = 0
         self._max_previously_logged_labels_length: int = 0
 
-    def _collate(self, inputs: List[Any], batch_max_length: int) -> Dict[str, Any]:
+    def _collate(
+        self,
+        inputs_dict: Dict[str, List[Any]],
+        batch_max_length: int,
+        nested_input_names: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        nested_inputs_dict: Optional[Dict[str, List[Any]]] = None
+        if nested_input_names is not None and len(nested_input_names) > 0:
+            basic_inputs_dict: Dict[str, List[Any]] = {}
+            nested_inputs_dict = {}
+            for key, values_list in inputs_dict.items():
+                if key in nested_input_names:
+                    nested_inputs_dict[key] = list(values_list)
+                else:
+                    basic_inputs_dict[key] = list(values_list)
+        else:
+            basic_inputs_dict = inputs_dict
+
         try:
-            result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
+            result = self._default_collator(basic_inputs_dict)  # type: ignore
         except ValueError:
             logger.error(
                 "Failed to collate! "
@@ -80,6 +104,22 @@ class TextCollatorWithPadding:
                 f"Truncation: {self._truncation}."
             )
             raise
+
+        if nested_inputs_dict is not None:
+            if self._padding_side != "right":
+                raise RuntimeError(
+                    f"Can't collate {key} if padding_side={self._padding_side}"
+                )
+            for key, values_list in nested_inputs_dict.items():
+                if isinstance(values_list, np.ndarray):
+                    values_list = torch.from_numpy(values_list)
+                else:
+                    if isinstance(values_list[0], (np.ndarray, list)):
+                        values_list = [torch.from_numpy(item) for item in values_list]
+
+                x = pad_sequence(values_list)
+                result[key] = x
+
         return result
 
     def __call__(self, batch) -> Dict[str, Any]:
@@ -91,9 +131,10 @@ class TextCollatorWithPadding:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        text_inputs = []
+        collation_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
         labels = []
-        labels_present = _LABELS_KEY in batch[0]
+        labels_on = _LABELS_KEY in batch[0]
+        cross_attention_mask_on = _CROSS_ATTENTION_MASK_KEY in batch[0]
 
         # Maximum sequence lengths in this batch.
         batch_max_input_ids_length: int = 0
@@ -108,19 +149,29 @@ class TextCollatorWithPadding:
             batch_max_input_ids_length = max(
                 batch_max_input_ids_length, len(item[_INPUT_IDS_KEY])
             )
-            if labels_present:
+            if labels_on:
                 batch_max_labels_length = max(
                     batch_max_labels_length, len(item[_LABELS_KEY])
                 )
 
             if self._max_length is not None and self._truncation:
                 # Truncate to max length.
-                text_inputs.append(item[_INPUT_IDS_KEY][0 : self._max_length])
-                if labels_present:
+                collation_inputs[_INPUT_IDS_KEY].append(
+                    item[_INPUT_IDS_KEY][0 : self._max_length]
+                )
+                if cross_attention_mask_on:
+                    collation_inputs[_CROSS_ATTENTION_MASK_KEY].append(
+                        item[_CROSS_ATTENTION_MASK_KEY][0 : self._max_length]
+                    )
+                if labels_on:
                     labels.append(item[_LABELS_KEY][0 : self._max_length])
             else:
-                text_inputs.append(item[_INPUT_IDS_KEY])
-                if labels_present:
+                collation_inputs[_INPUT_IDS_KEY].append(item[_INPUT_IDS_KEY])
+                if cross_attention_mask_on:
+                    collation_inputs[_CROSS_ATTENTION_MASK_KEY].append(
+                        item[_CROSS_ATTENTION_MASK_KEY]
+                    )
+                if labels_on:
                     labels.append(item[_LABELS_KEY])
 
         # Update global (dataset) maximum lengths, and log a warning
@@ -132,19 +183,26 @@ class TextCollatorWithPadding:
 
         # Collate batch prompts.
         collated_text_inputs = self._collate(
-            text_inputs, batch_max_length=batch_max_input_ids_length
+            collation_inputs,
+            batch_max_length=batch_max_input_ids_length,
+            nested_input_names=(
+                {_CROSS_ATTENTION_MASK_KEY} if cross_attention_mask_on else None
+            ),
         )
 
         # Combine all inputs.
         combined_batch = {
             _INPUT_IDS_KEY: collated_text_inputs[_INPUT_IDS_KEY],
             _ATTENTION_MASK_KEY: collated_text_inputs.get(_ATTENTION_MASK_KEY),
+            _CROSS_ATTENTION_MASK_KEY: collated_text_inputs.get(
+                _CROSS_ATTENTION_MASK_KEY
+            ),
         }
 
         # Add labels if present.
-        if labels_present:
+        if labels_on:
             collated_labels = self._collate(
-                labels, batch_max_length=batch_max_labels_length
+                {_INPUT_IDS_KEY: labels}, batch_max_length=batch_max_labels_length
             )
             labels = collated_labels[_INPUT_IDS_KEY]
             assert isinstance(labels, torch.Tensor)
