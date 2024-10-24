@@ -1,7 +1,6 @@
 import os
 import sys
 from pathlib import Path
-from typing import List
 
 from oumi.core.configs import InferenceConfig
 from oumi.inference import VLLMInferenceEngine
@@ -12,7 +11,7 @@ _OUTPUT_DIR = "/output_gcs_bucket"
 _INFERENCE_ENV_VAR = "INFERENCE_CONFIG"
 
 
-def get_new_inputs(source: str, processed: str) -> List[str]:
+def get_new_inputs(source: str, processed: str) -> list[str]:
     """Returns a list of new files in the source directory."""
     source_filenames = {f.name for f in Path(source).rglob("*")}
     processed_filenames = {f.name for f in Path(processed).rglob("*")}

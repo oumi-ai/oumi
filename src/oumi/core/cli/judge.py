@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, Optional
 
 import jsonlines
 import typer
-from typing_extensions import Annotated
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.cli import cli_utils
@@ -15,7 +14,7 @@ from oumi.judge import judge_conversations, judge_dataset
 from oumi.utils.io_utils import load_jsonlines
 
 
-def _load_judge_config(config: str, extra_args: List[str]) -> JudgeConfig:
+def _load_judge_config(config: str, extra_args: list[str]) -> JudgeConfig:
     judge_config_builder = REGISTRY.get_judge_config(config)
 
     if judge_config_builder:

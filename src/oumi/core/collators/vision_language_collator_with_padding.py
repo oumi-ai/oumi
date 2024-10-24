@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -36,7 +36,7 @@ class VisionLanguageCollatorWithPadding:
             label_ignore_index=label_ignore_index,
         )
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.
 
         Args:

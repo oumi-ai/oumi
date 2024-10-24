@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -42,7 +42,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Gets the request headers for GCP."""
         if not remote_params:
             raise ValueError("Remote params are required for GCP inference.")
@@ -55,7 +55,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
         Documentation: https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/call-vertex-using-openai-library

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import torch
 import transformers
@@ -68,7 +68,7 @@ class TextCollatorWithPadding:
         self._max_previously_logged_input_ids_length: int = 0
         self._max_previously_logged_labels_length: int = 0
 
-    def _collate(self, inputs: List[Any], batch_max_length: int) -> Dict[str, Any]:
+    def _collate(self, inputs: list[Any], batch_max_length: int) -> dict[str, Any]:
         try:
             result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
         except ValueError:
@@ -81,7 +81,7 @@ class TextCollatorWithPadding:
             raise
         return result
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:

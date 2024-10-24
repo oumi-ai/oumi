@@ -1,6 +1,6 @@
 from collections import namedtuple
 from enum import Enum, auto
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional
 
 
 class RegistryType(Enum):
@@ -112,7 +112,7 @@ class Registry:
     #
     # Magic methods
     #
-    def __getitem__(self, args: Tuple[str, RegistryType]) -> Callable:
+    def __getitem__(self, args: tuple[str, RegistryType]) -> Callable:
         """Gets a record by name and type."""
         if not isinstance(args, tuple) or len(args) != 2:
             raise ValueError(

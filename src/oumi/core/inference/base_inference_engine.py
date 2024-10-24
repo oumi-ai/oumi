@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import jsonlines
 
@@ -14,9 +14,9 @@ class BaseInferenceEngine(ABC):
 
     def infer(
         self,
-        input: Optional[List[Conversation]] = None,
+        input: Optional[list[Conversation]] = None,
         inference_config: Optional[InferenceConfig] = None,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference.
 
         Args:
@@ -45,7 +45,7 @@ class BaseInferenceEngine(ABC):
                 "One of input or inference_config.input_path must be provided."
             )
 
-    def _read_conversations(self, input_filepath: str) -> List[Conversation]:
+    def _read_conversations(self, input_filepath: str) -> list[Conversation]:
         """Reads conversations from a file in Oumi chat format.
 
         Args:
@@ -95,7 +95,7 @@ class BaseInferenceEngine(ABC):
             writer.write(json_obj)
 
     def _save_conversations(
-        self, conversations: List[Conversation], output_filepath: str
+        self, conversations: list[Conversation], output_filepath: str
     ) -> None:
         """Saves conversations to a file in Oumi chat format.
 
@@ -113,8 +113,8 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_online(
-        self, input: List[Conversation], inference_config: InferenceConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -129,7 +129,7 @@ class BaseInferenceEngine(ABC):
     @abstractmethod
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence

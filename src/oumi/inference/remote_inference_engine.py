@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import aiohttp
 from tqdm.asyncio import tqdm
@@ -38,7 +38,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         self._model = model_params.model_name
 
-    def _get_content_for_message(self, message: Message) -> Dict[str, Any]:
+    def _get_content_for_message(self, message: Message) -> dict[str, Any]:
         """Returns the content for a message.
 
         Args:
@@ -47,7 +47,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: The content for the message.
         """
-        content: Dict[str, Any] = {
+        content: dict[str, Any] = {
             _TYPE_KEY: message.type.value,
         }
         b64_image = None if message.binary is None else base64.b64encode(message.binary)
@@ -75,7 +75,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
         Documentation: https://platform.openai.com/docs/api-reference/chat/create
@@ -121,7 +121,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return api_input
 
     def _convert_api_output_to_conversation(
-        self, response: Dict[str, Any], original_conversation: Conversation
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an API response to a conversation.
 
@@ -160,7 +160,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         headers = {}
 
         if not remote_params:
@@ -231,10 +231,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _infer(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
         remote_params: RemoteParams,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
@@ -266,9 +266,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def infer_online(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -290,7 +290,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the

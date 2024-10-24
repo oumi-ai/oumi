@@ -1,6 +1,5 @@
 import contextlib
 from importlib.util import find_spec
-from typing import List
 from unittest.mock import patch
 
 import pytest
@@ -36,7 +35,7 @@ SAMPLE_CONVERSATION = Conversation(
 
 
 @pytest.fixture
-def sample_conversations() -> List[Conversation]:
+def sample_conversations() -> list[Conversation]:
     return [SAMPLE_CONVERSATION]
 
 
@@ -69,9 +68,12 @@ def test_generation_params(engine_class, sample_conversations):
     else:
         mock_ctx = contextlib.nullcontext()
 
-    with patch.object(
-        engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, mock_ctx:
+    with (
+        patch.object(
+            engine_class, "_infer", return_value=sample_conversations
+        ) as mock_infer,
+        mock_ctx,
+    ):
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(
@@ -132,9 +134,12 @@ def test_generation_params_defaults(engine_class, sample_conversations):
     else:
         mock_ctx = contextlib.nullcontext()
 
-    with patch.object(
-        engine_class, "_infer", return_value=sample_conversations
-    ) as mock_infer, mock_ctx:
+    with (
+        patch.object(
+            engine_class, "_infer", return_value=sample_conversations
+        ) as mock_infer,
+        mock_ctx,
+    ):
         engine = engine_class(MODEL_PARAMS)
 
         generation_params = GenerationParams(

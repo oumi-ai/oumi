@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 import torch
@@ -129,8 +129,8 @@ class ModelParameterCount(NamedTuple):
 
 
 def _get_parameter_names(
-    model: torch.nn.Module, forbidden_layer_types: List[Any]
-) -> List[str]:
+    model: torch.nn.Module, forbidden_layer_types: list[Any]
+) -> list[str]:
     """Returns the names of the model parameters that are not inside a forbidden layer.
 
     Borrowed from

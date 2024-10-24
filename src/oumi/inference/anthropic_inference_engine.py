@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from typing_extensions import override
 
@@ -30,7 +30,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an Anthropic API input.
 
         This method transforms an Oumi Conversation object into a format
@@ -117,7 +117,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_api_output_to_conversation(
-        self, response: Dict[str, Any], original_conversation: Conversation
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
         new_message = Message(
@@ -132,7 +132,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> Dict[str, str]:
+    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,

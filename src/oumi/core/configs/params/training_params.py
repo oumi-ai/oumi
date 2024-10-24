@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import transformers
 import trl
@@ -144,7 +144,7 @@ class TrainingParams(BaseParams):
     `fsdp_config.fsdp_activation_checkpointing` to true in the accelerate yaml config.
     """
 
-    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    gradient_checkpointing_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for gradient checkpointing.
 
     The `use_reentrant` parameter is required and is recommended to be set to False.
@@ -350,7 +350,7 @@ class TrainingParams(BaseParams):
     See `src/oumi/builders/lr_schedules.py` for more details on each scheduler.
     """
 
-    lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
+    lr_scheduler_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the learning rate scheduler.
 
     These arguments can be used to fine-tune the behavior of the chosen scheduler.
@@ -513,7 +513,7 @@ class TrainingParams(BaseParams):
     Defaults to 1.0. When set to 0.0 or None gradient clipping will not be applied.
     """
 
-    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    trainer_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the Trainer.
 
     This allows for customization of the Trainer beyond the standard parameters
@@ -644,7 +644,7 @@ class TrainingParams(BaseParams):
         assert isinstance(result, transformers.TrainingArguments)
         return result
 
-    def _get_hf_report_to(self) -> List[str]:
+    def _get_hf_report_to(self) -> list[str]:
         """Gets the list of reporting tools enabled for the current instance.
 
         Returns:

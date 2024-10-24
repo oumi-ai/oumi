@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import sky
 import sky.data
@@ -24,7 +24,7 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
-def _get_sky_storage_mounts_from_job(job: JobConfig) -> Dict[str, sky.data.Storage]:
+def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, sky.data.Storage]:
     """Returns the sky.StorageMount objects from the JobConfig."""
     sky_mounts = {}
     for k, v in job.storage_mounts.items():
@@ -116,7 +116,7 @@ class SkyClient:
             done=False,
         )
 
-    def status(self) -> List[Dict[str, Any]]:
+    def status(self) -> list[dict[str, Any]]:
         """Gets a list of cluster statuses.
 
         Returns:
@@ -124,7 +124,7 @@ class SkyClient:
         """
         return sky.status()
 
-    def queue(self, cluster_name: str) -> List[dict]:
+    def queue(self, cluster_name: str) -> list[dict]:
         """Gets the job queue of a cluster.
 
         Args:

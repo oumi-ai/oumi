@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict
+from typing import Any
 
 import lm_eval
 import torch
@@ -172,7 +172,7 @@ def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
 def save_evaluation_results(
     output_dir: str,
     benchmark_name: str,
-    metric_dict: Dict[str, Any],
+    metric_dict: dict[str, Any],
 ) -> None:
     """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
     output_path = Path(output_dir)

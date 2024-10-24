@@ -1,7 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 import requests
@@ -195,7 +195,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
     def _prepare_simple_model(
         self, conversation: Conversation
-    ) -> Tuple[Image.Image, str]:
+    ) -> tuple[Image.Image, str]:
         """Prepares the images and prompt for a simple model.
 
         Simple models only use the last image and text turn in the conversation. They
@@ -219,7 +219,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
     def _prepare_instruct_model(
         self, conversation: Conversation
-    ) -> Tuple[List[Image.Image], str]:
+    ) -> tuple[list[Image.Image], str]:
         """Prepares the images and prompt for an instruct model.
 
         Instruct models use the chat template to generate the prompt, and can include
