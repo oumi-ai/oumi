@@ -1,7 +1,7 @@
 import contextlib
 import inspect
 from importlib.util import find_spec
-from typing import List
+from typing import Set
 from unittest.mock import patch
 
 import pytest
@@ -34,16 +34,6 @@ SUPPORTED_INFERENCE_ENGINES = [
     GoogleVertexInferenceEngine,
 ]
 
-# Mock model params for testing
-MODEL_PARAMS = ModelParams(model_name="gpt2", tokenizer_pad_token="<|endoftext|>")
-
-# Sample conversation for testing
-SAMPLE_CONVERSATION = Conversation(
-    messages=[
-        Message(role=Role.USER, content="Hello, how are you?"),
-    ]
-)
-
 
 @pytest.fixture
 def sample_conversation():
@@ -65,11 +55,6 @@ def generation_params_fields():
     return set(inspect.signature(GenerationParams).parameters.keys())
 
 
-@pytest.fixture
-def sample_conversations() -> List[Conversation]:
-    return [SAMPLE_CONVERSATION]
-
-
 def _should_skip_engine(engine_class) -> bool:
     return (engine_class == VLLMInferenceEngine and vllm_import_failed) or (
         engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed
@@ -82,8 +67,8 @@ def _mock_engine(engine_class):
         mock_ctx = patch("vllm.LLM")
     elif engine_class == LlamaCppInferenceEngine:
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
-    elif issubclass(engine_class, RemoteInferenceEngine):
-        mock_ctx = patch("aiohttp.ClientSession")
+    # elif issubclass(engine_class, RemoteInferenceEngine):
+    #     mock_ctx = patch("aiohttp.ClientSession")
     else:
         mock_ctx = contextlib.nullcontext()
 
@@ -110,16 +95,18 @@ def test_generation_params_validation():
     "engine_class",
     SUPPORTED_INFERENCE_ENGINES,
 )
-def test_generation_params_used_in_inference(engine_class, sample_conversations):
+def test_generation_params_used_in_inference(
+    engine_class, sample_conversation, model_params
+):
     if _should_skip_engine(engine_class):
         pytest.skip(f"{engine_class.__name__} is not available")
 
     mock_ctx = _mock_engine(engine_class)
 
     with patch.object(
-        engine_class, "_infer", return_value=sample_conversations
+        engine_class, "_infer", return_value=[sample_conversation]
     ) as mock_infer, mock_ctx:
-        engine = engine_class(MODEL_PARAMS)
+        engine = engine_class(model_params)
 
         generation_params = GenerationParams(
             max_new_tokens=100,
@@ -134,13 +121,13 @@ def test_generation_params_used_in_inference(engine_class, sample_conversations)
             remote_params=RemoteParams(api_url="<placeholder>"),
         )
         inference_config = InferenceConfig(
-            model=MODEL_PARAMS, generation=generation_params
+            model=model_params, generation=generation_params
         )
 
-        result = engine.infer_online(sample_conversations, inference_config)
+        result = engine.infer_online([sample_conversation], inference_config)
 
         # Check that the result is as expected
-        assert result == sample_conversations
+        assert result == [sample_conversation]
 
         # Check that _infer was called with the correct parameters
         mock_infer.assert_called_once()
@@ -161,7 +148,7 @@ def test_generation_params_used_in_inference(engine_class, sample_conversations)
     SUPPORTED_INFERENCE_ENGINES,
 )
 def test_generation_params_defaults_used_in_inference(
-    engine_class, sample_conversations
+    engine_class, sample_conversation, model_params
 ):
     if _should_skip_engine(engine_class):
         pytest.skip(f"{engine_class.__name__} is not available")
@@ -169,20 +156,20 @@ def test_generation_params_defaults_used_in_inference(
     mock_ctx = _mock_engine(engine_class)
 
     with patch.object(
-        engine_class, "_infer", return_value=sample_conversations
+        engine_class, "_infer", return_value=[sample_conversation]
     ) as mock_infer, mock_ctx:
-        engine = engine_class(MODEL_PARAMS)
+        engine = engine_class(model_params)
 
         generation_params = GenerationParams(
             remote_params=RemoteParams(api_url="<placeholder>")
         )
         inference_config = InferenceConfig(
-            model=MODEL_PARAMS, generation=generation_params
+            model=model_params, generation=generation_params
         )
 
-        result = engine.infer_online(sample_conversations, inference_config)
+        result = engine.infer_online([sample_conversation], inference_config)
 
-        assert result == sample_conversations
+        assert result == [sample_conversation]
 
         mock_infer.assert_called_once()
         called_params = mock_infer.call_args[0][1].generation
@@ -224,6 +211,8 @@ def test_supported_params_exist_in_config(
     [
         (AnthropicInferenceEngine, "min_p", 0.1),
         (AnthropicInferenceEngine, "frequency_penalty", 0.5),
+        (GoogleVertexInferenceEngine, "frequency_penalty", 0.5),
+        (GoogleVertexInferenceEngine, "presence_penalty", 0.5),
         (VLLMInferenceEngine, "logit_bias", {1: 1.0}),
         (LlamaCppInferenceEngine, "remote_params", RemoteParams(api_url="test")),
     ],
@@ -245,6 +234,7 @@ def test_unsupported_params_warning(
         }
         if issubclass(engine_class, RemoteInferenceEngine):
             params_dict["remote_params"] = RemoteParams(api_url="test")
+
         generation_params = GenerationParams(**params_dict)
         inference_config = InferenceConfig(
             model=model_params, generation=generation_params
@@ -299,4 +289,75 @@ def test_no_warning_for_default_values(
             record.levelname == "WARNING"
             and f"{engine_class.__name__} does not support {param}" in record.message
             for record in caplog.records
+        )
+
+
+@pytest.mark.parametrize(
+    "engine_class",
+    SUPPORTED_INFERENCE_ENGINES,
+)
+def test_supported_params_are_accessed(engine_class, model_params, sample_conversation):
+    """Test that all supported parameters are actually accessed during inference."""
+    mock_ctx = _mock_engine(engine_class)
+
+    class AccessTrackingGenerationParams(GenerationParams):
+        """A version of GenerationParams that tracks which parameters are accessed."""
+
+        _accessed_params: Set[str]
+
+        def __init__(self, **kwargs):
+            self._accessed_params: Set[str] = set()
+            super().__init__(**kwargs)
+
+        def __getattribute__(self, name):
+            # No need to track access to private attributes or methods
+            if not name.startswith("_"):
+                # Use object.__getattribute__ to avoid infinite recursion
+                accessed_params = object.__getattribute__(self, "_accessed_params")
+                accessed_params.add(name)
+            return object.__getattribute__(self, name)
+
+        @property
+        def accessed_params(self):
+            return self._accessed_params
+
+        def clear(self):
+            self._accessed_params.clear()
+
+    with mock_ctx:
+        engine = engine_class(model_params)
+
+        # Create config with tracking
+        tracked_params = AccessTrackingGenerationParams(
+            remote_params=RemoteParams(api_url="test")
+        )
+        tracked_params.clear()
+
+        inference_config = InferenceConfig(
+            model=model_params, generation=tracked_params
+        )
+
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine._convert_conversation_to_api_input(
+                sample_conversation, tracked_params
+            )
+
+            engine._get_request_headers(tracked_params.remote_params)
+        elif engine_class == LlamaCppInferenceEngine:
+            with patch.object(engine, "_llm") as mock_llm:
+                mock_llm.create_chat_completion.return_value = {
+                    "choices": [{"message": {"content": "test"}}]
+                }
+
+                engine.infer([sample_conversation], inference_config)
+        else:
+            # Run inference
+            engine.infer([sample_conversation], inference_config)
+
+        # Get params that were supported but never accessed
+        unused_params = engine.get_supported_params() - tracked_params.accessed_params
+
+        assert not unused_params, (
+            f"{engine_class.__name__} claims to support these parameters "
+            f"but never accessed them: {unused_params}"
         )
