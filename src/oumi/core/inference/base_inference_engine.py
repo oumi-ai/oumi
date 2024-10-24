@@ -4,7 +4,7 @@ from typing import List, Optional, Set
 
 import jsonlines
 
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
