@@ -6,7 +6,6 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.utils.logging import logger
 from oumi.utils.torch_utils import convert_to_list_of_tensors
 
 _PIXEL_VALUES_KEY = "pixel_values"
@@ -83,7 +82,6 @@ class VisionLanguageCollatorWithPadding:
 
         # For other inputs, let's verify they present in all examples and stack them.
         if len(other_input_names) > 0:
-            logger.warning(f"Unknown input names: {other_input_names}")
             other_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
             for item in batch:
                 for input_name in other_input_names:
