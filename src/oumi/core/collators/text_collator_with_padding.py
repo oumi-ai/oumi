@@ -165,9 +165,22 @@ class TextCollatorWithPadding:
             if labels_on:
                 collation_inputs[_LABELS_KEY].append(item[_LABELS_KEY])
 
-            if self._max_length is not None and self._truncation:
-                for key in collation_inputs:
-                    collation_inputs[key] = collation_inputs[key][0 : self._max_length]
+            if self._max_length is not None:
+                if self._truncation:
+                    for key in collation_inputs:
+                        collation_inputs[key] = [
+                            item[0 : self._max_length] for item in collation_inputs[key]
+                        ]
+                else:
+                    for key in collation_inputs:
+                        seq_len = len(collation_inputs[key])
+                        if seq_len > self._max_length:
+                            raise ValueError(
+                                "Maximum sequence length exceeded. "
+                                "You should probably activate truncation. "
+                                f"'{key}' length: ({seq_len}). "
+                                f"Maximum model length: ({self._max_length})"
+                            )
 
         # Update global (dataset) maximum lengths, and log a warning
         # about truncation if needed.
