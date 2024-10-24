@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 
 from oumi.builders import build_tokenizer
@@ -7,6 +9,7 @@ from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
+from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
@@ -52,6 +55,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else:
                 tensor_parallel_size = 1
 
+        vllm_kwargs = {}
         self._lora_request = None
         if model_params.adapter_model:
             # ID should be unique for this adapter, but isn't enforced by vLLM.
@@ -61,6 +65,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 lora_path=model_params.adapter_model,
             )
             logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
+            lora_rank = get_lora_rank(Path(model_params.adapter_model))
+            vllm_kwargs["max_lora_rank"] = lora_rank
+            logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
@@ -75,6 +82,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
+            **vllm_kwargs,
         )
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
