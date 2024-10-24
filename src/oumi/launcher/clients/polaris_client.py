@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import pexpect
 
@@ -173,7 +173,7 @@ class PolarisClient:
             raise RuntimeError("Failed to refresh Polaris credentials.")
 
     @staticmethod
-    def get_active_users() -> List[str]:
+    def get_active_users() -> list[str]:
         """Gets the list of users with an open SSH tunnel to Polaris.
 
         Returns:
@@ -194,7 +194,7 @@ class PolarisClient:
         return list(users)
 
     @retry_auth
-    def run_commands(self, commands: List[str]) -> PolarisResponse:
+    def run_commands(self, commands: list[str]) -> PolarisResponse:
         """Runs the provided commands in a single SSH command.
 
         Args:
@@ -254,7 +254,7 @@ class PolarisClient:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
         return self._get_short_job_id(result.stdout.strip())
 
-    def list_jobs(self, queue: SupportedQueues) -> List[JobStatus]:
+    def list_jobs(self, queue: SupportedQueues) -> list[JobStatus]:
         """Lists a list of job statuses for the given queue.
 
         Returns:

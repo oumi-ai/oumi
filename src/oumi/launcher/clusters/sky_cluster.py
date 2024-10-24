@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -55,7 +55,7 @@ class SkyCluster(BaseCluster):
                 return job
         return None
 
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         return [
             self._convert_sky_job_to_status(job)

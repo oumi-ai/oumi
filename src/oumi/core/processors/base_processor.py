@@ -1,5 +1,5 @@
 import abc
-from typing import List, Optional
+from typing import Optional
 
 import PIL.Image
 import transformers
@@ -64,9 +64,9 @@ class BaseProcessor(abc.ABC):
     def __call__(
         self,
         *,
-        text: List[str],
+        text: list[str],
         padding: bool,
-        images: Optional[List[PIL.Image.Image]] = None,
+        images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
@@ -84,7 +84,7 @@ class BaseProcessor(abc.ABC):
 
     @abc.abstractmethod
     def apply_chat_template(
-        self, conversation: List[Message], add_generation_prompt: bool = False
+        self, conversation: list[Message], add_generation_prompt: bool = False
     ) -> str:
         """Applies a chat template.
 

@@ -2,7 +2,7 @@ import copy
 import functools
 import random
 import string
-from typing import Final, List, NamedTuple, Optional
+from typing import Final, NamedTuple, Optional
 
 import pytest
 
@@ -23,7 +23,7 @@ class ChatTemplateTestSpec(NamedTuple):
 
 class TestConversationTuple(NamedTuple):
     convo: Conversation
-    unique_text_pieces: List[str]
+    unique_text_pieces: list[str]
 
 
 _ALL_TEST_CHARS: Final[str] = string.ascii_uppercase + string.digits
@@ -55,7 +55,7 @@ def create_test_conversation(
     )
 
 
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
+@functools.cache  # same as @cache added in Python 3.9
 def creat_test_tokenizer(model_name: str, chat_template_name: str) -> BaseTokenizer:
     tokenizer_pad_token = None
     if model_name == "openai-community/gpt2":
@@ -69,7 +69,7 @@ def creat_test_tokenizer(model_name: str, chat_template_name: str) -> BaseTokeni
     )
 
 
-_ALL_CHAT_TEMPLATE_TESTS: Final[List[ChatTemplateTestSpec]] = [
+_ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
     ChatTemplateTestSpec(
         chat_template_name="chat_ml", model_name="openai-community/gpt2"
     ),
@@ -96,7 +96,7 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[List[ChatTemplateTestSpec]] = [
 ]
 
 
-def _generate_all_test_specs() -> List[ChatTemplateTestSpec]:
+def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
     result = copy.deepcopy(_ALL_CHAT_TEMPLATE_TESTS)
 
     # Backfill with templates for which there is no explicit test defined yet.

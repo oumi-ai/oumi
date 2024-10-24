@@ -1,5 +1,4 @@
 import functools
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -13,8 +12,8 @@ from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
-def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
+@functools.cache  # same as @cache added in Python 3.9
+def create_test_tokenizer() -> tuple[BaseTokenizer, int]:
     tokenizer = build_tokenizer(
         ModelParams(
             model_name="openai-community/gpt2",

@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing.pool import ThreadPool
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 import oumi.launcher as launcher
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -37,7 +37,7 @@ class _LaunchArgs:
     cluster: Optional[str] = None
 
     # Additional arguments to pass to the job.
-    additional_args: List[str] = field(default_factory=list)
+    additional_args: list[str] = field(default_factory=list)
 
     # The cloud to use for the specific action.
     cloud: Optional[str] = None

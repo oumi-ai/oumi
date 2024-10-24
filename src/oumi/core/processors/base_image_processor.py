@@ -1,5 +1,5 @@
 import abc
-from typing import List, Optional
+from typing import Optional
 
 import PIL.Image
 import transformers
@@ -12,7 +12,7 @@ class BaseImageProcessor(abc.ABC):
     def __call__(
         self,
         *,
-        images: List[PIL.Image.Image],
+        images: list[PIL.Image.Image],
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchFeature:
         """Extracts image features.

@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Optional
 
 import PIL.Image
 import transformers
@@ -22,7 +22,7 @@ class DefaultImageProcessor(BaseImageProcessor):
     def __call__(
         self,
         *,
-        images: List[PIL.Image.Image],
+        images: list[PIL.Image.Image],
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchFeature:
         """Extracts image features.

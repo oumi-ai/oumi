@@ -1,18 +1,17 @@
 import csv
-from typing import List
 
 import pandas as pd
 
 PARQUET_EXTENSION = ".parquet"
 
 
-def save_infer_prob(output_filepath: str, probabilities: List[List[List[float]]]):
+def save_infer_prob(output_filepath: str, probabilities: list[list[list[float]]]):
     """Save batched probabilities into a parquet file."""
     df_probs = pd.DataFrame(probabilities)
     df_probs.to_parquet(f"{output_filepath}{PARQUET_EXTENSION}")
 
 
-def load_infer_prob(input_filepath: str) -> List[List[List[float]]]:
+def load_infer_prob(input_filepath: str) -> list[list[list[float]]]:
     """Retrieve batched probabilities from a parquet file."""
     probs_count_in_first_batch = None
 
@@ -71,14 +70,14 @@ def load_infer_prob(input_filepath: str) -> List[List[List[float]]]:
 #
 
 
-def save_infer_prob_csv(output_filepath: str, probabilities: List[List[List[float]]]):
+def save_infer_prob_csv(output_filepath: str, probabilities: list[list[list[float]]]):
     """Save batched probabilities into a csv file."""
     with open(output_filepath, "w") as write_obj:
         csv_writer = csv.writer(write_obj)
         csv_writer.writerows(probabilities)
 
 
-def load_infer_prob_csv(input_filepath: str) -> List[List[List[float]]]:
+def load_infer_prob_csv(input_filepath: str) -> list[list[list[float]]]:
     """Retrieve batched probabilities from a csv file."""
     probs_count_in_first_batch = None
     try:
@@ -109,7 +108,7 @@ def load_infer_prob_csv(input_filepath: str) -> List[List[List[float]]]:
         raise FileNotFoundError(f"{load_infer_prob}: Path {input_filepath} not found!")
 
 
-def str_to_float_list(input: str) -> List[float]:
+def str_to_float_list(input: str) -> list[float]:
     """Convert an `str` representing a list of `floats` to an actual list of `floats`.
 
     Example: input: `[1.1, 2.2, 3.3]` => output: [1.1, 2.2, 3.3]

@@ -1,6 +1,6 @@
 """This module defines the MLPEncoder class, which is a simple text encoder."""
 
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -34,7 +34,7 @@ class MLPEncoder(BaseModel):
         input_ids: torch.LongTensor,
         labels: Optional[torch.LongTensor] = None,
         **kwargs,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass of the MLP model.
 
         Args:

@@ -1,4 +1,4 @@
-from typing import Dict, Union, cast
+from typing import Union, cast
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ class ArgillaDollyDataset(BaseSftDataset):
         super().__init__(**kwargs)
 
     @override
-    def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object.
 
         Args:
@@ -56,7 +56,7 @@ class ArgillaDollyDataset(BaseSftDataset):
         return Conversation(messages=messages)
 
     @staticmethod
-    def _get_field_value(example: Union[Dict, pd.Series], field: str) -> str:
+    def _get_field_value(example: Union[dict, pd.Series], field: str) -> str:
         """Helper method to get the value from a field.
 
         Args:

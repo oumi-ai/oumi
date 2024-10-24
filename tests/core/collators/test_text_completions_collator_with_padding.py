@@ -1,5 +1,4 @@
 import functools
-from typing import Tuple
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -21,8 +20,8 @@ def mock_tokenizer():
     return mock
 
 
-@functools.lru_cache(maxsize=None)  # same as @cache added in Python 3.9
-def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
+@functools.cache  # same as @cache added in Python 3.9
+def create_test_tokenizer() -> tuple[BaseTokenizer, int]:
     tokenizer = build_tokenizer(
         ModelParams(
             model_name="openai-community/gpt2",

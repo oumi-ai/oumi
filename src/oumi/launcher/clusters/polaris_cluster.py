@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -23,7 +23,7 @@ def _format_date(date: datetime) -> str:
     return date.strftime("%d%m%Y_%H%M%S%f")
 
 
-def _last_pbs_line(script: List[str]) -> int:
+def _last_pbs_line(script: list[str]) -> int:
     """Finds the last PBS instruction line in the script.
 
     Args:
@@ -39,7 +39,7 @@ def _last_pbs_line(script: List[str]) -> int:
     )
 
 
-def _get_logging_directories(script: str) -> List[str]:
+def _get_logging_directories(script: str) -> list[str]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#PBS -o`, `#PBS -e`,
@@ -188,7 +188,7 @@ class PolarisCluster(BaseCluster):
                 return job
         return None
 
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         jobs = self._client.list_jobs(self._queue)
         for job in jobs:

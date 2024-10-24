@@ -1,6 +1,6 @@
 import warnings
 from pprint import pformat
-from typing import Callable, Type, cast
+from typing import Callable, cast
 
 import transformers
 import trl
@@ -29,7 +29,7 @@ def build_trainer(trainer_type: TrainerType) -> Callable[..., BaseTrainer]:
     """
 
     def _create_hf_builder_fn(
-        cls: Type[transformers.Trainer],
+        cls: type[transformers.Trainer],
     ) -> Callable[..., BaseTrainer]:
         def _init_hf_trainer(*args, **kwargs) -> BaseTrainer:
             training_args = kwargs.pop("args", None)

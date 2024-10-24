@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from omegaconf import MISSING
 
@@ -9,7 +9,7 @@ from oumi.core.configs.params.data_params import DatasetSplitParams
 
 @dataclass
 class LMHarnessParams(BaseParams):
-    tasks: List[str] = MISSING
+    tasks: list[str] = MISSING
     """The LM Harness tasks to evaluate.
 
     A list of all tasks is available at
