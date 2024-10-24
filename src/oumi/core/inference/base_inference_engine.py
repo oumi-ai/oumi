@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
 import jsonlines
 
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
@@ -35,6 +35,8 @@ class BaseInferenceEngine(ABC):
                 "Only one of input or inference_config.input_path should be "
                 "provided."
             )
+
+        self._check_unsupported_params(inference_config.generation)
 
         if input is not None:
             return self.infer_online(input, inference_config)
@@ -110,6 +112,40 @@ class BaseInferenceEngine(ABC):
             for conversation in conversations:
                 json_obj = conversation.to_dict()
                 writer.write(json_obj)
+
+    def _check_unsupported_params(self, generation_params: GenerationParams):
+        """Checks for unsupported parameters and logs warnings.
+
+        If a parameter is not supported, and a non-default value is provided,
+        a warning is logged.
+        """
+        supported_params = self.get_supported_params()
+        default_generation_params = GenerationParams()
+
+        for param_name, value in generation_params:
+            if param_name not in supported_params:
+                is_non_default_value = (
+                    getattr(default_generation_params, param_name) != value
+                )
+
+                if is_non_default_value:
+                    logger.warning(
+                        f"{self.__class__.__name__} does not support {param_name}. "
+                        f"Received value: {param_name}={value}. "
+                        "This parameter will be ignored."
+                    )
+
+    @abstractmethod
+    def get_supported_params(self) -> Set[str]:
+        """Returns a set of supported generation parameters for this engine.
+
+        Override this method in derived classes to specify which parameters
+        are supported.
+
+        Returns:
+            Set[str]: A set of supported parameter names.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def infer_online(
