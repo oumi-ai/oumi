@@ -126,18 +126,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             min_p=generation_params.min_p,
         )
 
-        if generation_params.logit_bias:
-            logger.warning(
-                "VLLMInferenceEngine does not support logit_bias."
-                " This parameter will be ignored."
-            )
-
-        if generation_params.batch_size > 1:
-            logger.info(
-                "VLLMInferenceEngine performs continuous batching under the hood. "
-                "This parameter for static batching will be ignored."
-            )
-
         vllm_conversations = []
         non_skipped_conversations = []
         for conversation in input:
@@ -231,4 +219,5 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "stop_strings",
             "temperature",
             "top_p",
+            "stop_token_ids",
         }

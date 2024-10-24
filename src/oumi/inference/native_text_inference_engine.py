@@ -319,7 +319,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> Set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "batch_size",
+            "exclude_prompt_from_response",
             "frequency_penalty",
+            "logit_bias",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
