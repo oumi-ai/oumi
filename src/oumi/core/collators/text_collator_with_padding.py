@@ -117,7 +117,7 @@ class TextCollatorWithPadding:
                     if isinstance(values_list[0], (np.ndarray, list)):
                         values_list = [torch.from_numpy(item) for item in values_list]
 
-                x = pad_sequence(values_list)
+                x = pad_sequence(values_list, batch_first=True)
                 result[key] = x
 
         return result

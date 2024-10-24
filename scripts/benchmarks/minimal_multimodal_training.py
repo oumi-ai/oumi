@@ -165,7 +165,6 @@ def test_multimodal_trainer(
     #
     model_params = ModelParams(
         model_name=model_name.value,
-        model_max_length=256,
         torch_dtype_str="bfloat16",
         trust_remote_code=True,
         chat_template=_get_chat_template(model_name),
