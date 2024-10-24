@@ -84,7 +84,7 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
-gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
+gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]
@@ -101,7 +101,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 # CI targets
-ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs,optional]"]
 ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
 # Optional dependencies
