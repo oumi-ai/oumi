@@ -101,6 +101,7 @@ def test_train_pack():
                     ],
                     stream=True,
                     pack=True,
+                    use_async_dataset=True,
                 ),
             ),
             model=ModelParams(

@@ -29,6 +29,7 @@ def _get_default_config(output_temp_dir):
                 ],
                 stream=True,
                 pack=True,
+                use_async_dataset=True,
             ),
         ),
         model=ModelParams(
