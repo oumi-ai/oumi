@@ -1,3 +1,3 @@
-# LLaVA 1.5 7B
+# Llama 3.2-Vision Instruct 11B
 
-Configs for LLaVA 1.5 7B model. See https://huggingface.co/llava-hf/llava-1.5-7b-hf.
+Configs for Llama 3.2-Vision Instruct 11B model. See https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct
