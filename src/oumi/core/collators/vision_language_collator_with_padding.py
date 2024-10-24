@@ -1,10 +1,12 @@
-from typing import Any, Dict, Optional
+import collections
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.logging import logger
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -29,7 +31,7 @@ class VisionLanguageCollatorWithPadding:
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
         """
-        self._text_collator = TextCollatorWithPadding(
+        self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=truncation,
@@ -47,6 +49,10 @@ class VisionLanguageCollatorWithPadding:
         """
         # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
+        known_input_names: Set[str] = set(collated_batch.keys()).union(
+            {_PIXEL_VALUES_KEY}
+        )
+        other_input_names: Set[str] = set()
 
         images = []
         for item in batch:
@@ -60,11 +66,51 @@ class VisionLanguageCollatorWithPadding:
                 )
             images.append(item[_PIXEL_VALUES_KEY])
 
+            for key in item:
+                if (
+                    key
+                    and (key not in known_input_names)
+                    and (key not in other_input_names)
+                ):
+                    other_input_names.add(key)
+
         # Collate batch images.
         pixel_values = self.collate_images(images)
 
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
+
+        if len(other_input_names) > 0:
+            logger.warning(f"Unknown input names: {other_input_names}")
+            other_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
+            for item in batch:
+                for input_name in other_input_names:
+                    if input_name not in item:
+                        raise ValueError(
+                            f"Item doesn't contain '{input_name}' key. "
+                            f"Available keys: {item.keys()}"
+                        )
+                    other_inputs[input_name].append(item[input_name])
+
+            for input_name, values_list in other_inputs.items():
+                logger.info(f"{input_name}: {len(values_list)} elements")
+
+                if isinstance(values_list[0], np.ndarray):
+                    values_list = [torch.from_numpy(item) for item in values_list]
+                    shapes_list = [item.shape for item in values_list]
+                    logger.info(f"'{input_name}': {shapes_list}")
+
+                if isinstance(values_list[0], torch.Tensor):
+                    collated_value = torch.stack(values_list)
+                elif isinstance(values_list[0], np.ndarray):
+                    collated_value = torch.stack(
+                        [torch.from_numpy(item) for item in values_list]
+                    )
+                else:
+                    raise ValueError(
+                        f"'{input_name}': Unsupported type: {type(values_list[0])}"
+                    )
+                collated_batch[input_name] = collated_value
 
         return collated_batch
 

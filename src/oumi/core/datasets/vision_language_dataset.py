@@ -1,7 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, Final, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import requests
@@ -24,6 +24,28 @@ class _SpecialTokens(NamedTuple):
     image_token: Optional[str]
     image_token_id: Optional[int]
     label_ignore_index: Optional[int]
+
+
+class InputFeatureSpec(NamedTuple):
+    feature_name: str
+    required: bool
+
+
+_INPUT_FEATURES_LIST: Final[List[InputFeatureSpec]] = [
+    InputFeatureSpec(feature_name="input_ids", required=True),
+    InputFeatureSpec(feature_name="pixel_values", required=True),
+    InputFeatureSpec(feature_name="attention_mask", required=True),
+    InputFeatureSpec(feature_name="labels", required=True),
+    # Llama 3.2 Vision
+    InputFeatureSpec(feature_name="aspect_ratio_ids", required=False),
+    InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
+    InputFeatureSpec(feature_name="cross_attention_mask", required=False),
+    # Qwen2 VL
+    InputFeatureSpec(feature_name="image_grid_thw", required=False),
+]
+_INPUT_FEATURES_DICT: Final[Dict[str, InputFeatureSpec]] = {
+    spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
+}
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -165,8 +187,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for feature_name in ("input_ids", "pixel_values", "attention_mask", "labels"):
+        for feature_name, feature_spec in _INPUT_FEATURES_DICT.items():
+            if (not feature_spec.required) and (feature_name not in inputs):
+                continue
             x = inputs[feature_name]
+
             if isinstance(x, (torch.Tensor, np.ndarray, list)):
                 inputs[feature_name] = x[0]
             else:

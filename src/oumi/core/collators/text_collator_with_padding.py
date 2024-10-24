@@ -8,6 +8,7 @@ from oumi.utils.logging import logger
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
+_CROSS_ATTENTION_MASK_KEY = "cross_attention_mask"
 _LABELS_KEY = "labels"
 
 
