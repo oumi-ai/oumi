@@ -88,7 +88,14 @@ def _get_model_type(model: nn.Module) -> Optional[str]:
 
 
 def _patch_model_for_liger_kernel(model: nn.Module) -> None:
-    """Patches the model for Liger Kernel."""
+    """Patches the model for Liger Kernel.
+
+    The list of support models can be found here:
+    https://github.com/linkedin/Liger-Kernel/blob/99599091373f178e8ad6a69ecb1b32351d1d5c1f/src/liger_kernel/transformers/monkey_patch.py#L700
+
+    If the model is not supported, liger kernel patching will not be applied,
+    and a warning will be logged.
+    """
     if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
