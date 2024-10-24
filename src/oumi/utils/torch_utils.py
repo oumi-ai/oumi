@@ -275,8 +275,8 @@ def pad_sequences_right_side(
         padding_value: value for padded elements. Default: 0.
 
     Returns:
-        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
-        L is the longest length (`max(values[i])`)
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(sequences[i])`)
     """
     if len(sequences) == 0:
         raise ValueError("Empty list is not allowed.")
@@ -298,21 +298,21 @@ def pad_sequences_left_side(
         padding_value: value for padded elements. Default: 0.
 
     Returns:
-        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
-        L is the longest length (`max(values[i])`)
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(sequences[i])`)
     """
     if len(sequences) == 0:
         raise ValueError("Empty list is not allowed.")
     tensor_sequences = convert_to_list_of_tensors(sequences)
 
-    # FIXME Start using `torch.nn.utils.rnn.pad_sequence(padding_size="left")``
+    # FIXME OPE-644 Start using `torch.nn.utils.rnn.pad_sequence(padding_size="left")`
     # after we migrate to torch >=2.5.*.
 
     # For now, do this to achieve left side padding:
     # 1. Reverse all input sequences.
     # 2. Right pad.
     # 3. Unreverse all sequences in right-padded result.
-    # Note that torch.flip() copies tensors, so there is a performance cost.
+    # Note that torch.flip() copies tensors, so there is performance cost.
 
     tensor_sequences = [torch.flip(s, dims=(0,)) for s in tensor_sequences]
     result = _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
@@ -331,8 +331,8 @@ def pad_sequences(
         padding_side: side to apply padding to. Valid values:  'right', 'left'.
 
     Returns:
-        A tensor with shape (B, L, ...), where B is a batch size (`len(values)`),
-        L is the longest length (`max(values[i])`)
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(sequences[i])`)
     """
     if not padding_side or padding_side == "right":
         return pad_sequences_right_side(sequences, padding_value=padding_value)
