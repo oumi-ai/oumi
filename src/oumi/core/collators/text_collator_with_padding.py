@@ -95,13 +95,14 @@ class TextCollatorWithPadding:
     def _collate_simple(
         self,
         inputs_dict: Dict[str, List[Any]],
+        *,
         batch_max_length: int,
-        padding_values: Dict[str, int],
+        padding_value_overrides: Dict[str, int],
     ) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
         try:
             for key, sequences_list in inputs_dict.items():
-                padding_value = padding_values.get(key, 0)
+                padding_value = padding_value_overrides.get(key, 0)
                 result[key] = pad_sequences(
                     sequences_list,
                     padding_side=self._padding_side,
@@ -192,16 +193,18 @@ class TextCollatorWithPadding:
 
         # Collate batch prompts.
         if use_simple_collation:
-            padding_values_dict = {}
-            if self._special_tokens.label_ignore_index is not None:
-                padding_values_dict[_LABELS_KEY] = (
-                    self._special_tokens.label_ignore_index
-                )
-
+            pad_token_id = self._special_tokens.pad_token_id
             collated_text_inputs = self._collate_simple(
                 collation_inputs,
                 batch_max_length=batch_max_input_ids_length,
-                padding_values=padding_values_dict,
+                padding_value_overrides={
+                    _INPUT_IDS_KEY: pad_token_id,
+                    _LABELS_KEY: (
+                        self._special_tokens.label_ignore_index
+                        if self._special_tokens.label_ignore_index is not None
+                        else pad_token_id
+                    ),
+                },
             )
         else:
             collated_text_inputs = self._collate_using_transformers(
