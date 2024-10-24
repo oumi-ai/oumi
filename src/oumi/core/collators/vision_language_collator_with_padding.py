@@ -1,5 +1,5 @@
 import collections
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ class VisionLanguageCollatorWithPadding:
             label_ignore_index=label_ignore_index,
         )
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.
 
         Args:
@@ -49,10 +49,10 @@ class VisionLanguageCollatorWithPadding:
         """
         # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
-        known_input_names: Set[str] = set(collated_batch.keys()).union(
+        known_input_names: set[str] = set(collated_batch.keys()).union(
             {_PIXEL_VALUES_KEY}
         )
-        other_input_names: Set[str] = set()
+        other_input_names: set[str] = set()
 
         images = []
         for item in batch:
@@ -82,7 +82,7 @@ class VisionLanguageCollatorWithPadding:
 
         # For other inputs, let's verify they present in all examples and stack them.
         if len(other_input_names) > 0:
-            other_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
+            other_inputs: dict[str, list[Any]] = collections.defaultdict(list)
             for item in batch:
                 for input_name in other_input_names:
                     if input_name not in item:

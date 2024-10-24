@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -63,7 +63,7 @@ class OumiXmlJudge(BaseJudge):
 
         return OumiJudgeInput(request=request, response=response)
 
-    def _transform_dict_input(self, raw_input: Dict[str, Any]) -> OumiJudgeInput:
+    def _transform_dict_input(self, raw_input: dict[str, Any]) -> OumiJudgeInput:
         return OumiJudgeInput(**raw_input)
 
     def _transform_model_output(self, model_output) -> Optional[OumiJudgeOutput]:

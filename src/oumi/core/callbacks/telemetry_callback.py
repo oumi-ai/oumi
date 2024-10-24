@@ -4,7 +4,7 @@ import copy
 import pathlib
 import sys
 from pprint import pformat
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import transformers
 import wandb
@@ -64,7 +64,7 @@ class TelemetryCallback(BaseTrainerCallback):
         self._world_process_zero_only = world_process_zero_only
         self._step: int = 0
 
-        self._last_metrics_dict: Optional[Dict[str, float]] = None
+        self._last_metrics_dict: Optional[dict[str, float]] = None
 
     def on_step_begin(
         self,

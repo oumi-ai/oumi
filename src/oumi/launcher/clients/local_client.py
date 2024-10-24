@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from subprocess import PIPE, Popen
 from threading import Lock, Thread
-from typing import List, Optional
+from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobStatus
@@ -178,7 +178,7 @@ class LocalClient:
             self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
 
-    def list_jobs(self) -> List[JobStatus]:
+    def list_jobs(self) -> list[JobStatus]:
         """Returns a list of job statuses."""
         with self._mutex:
             return [job.status for job in self._jobs.values()]

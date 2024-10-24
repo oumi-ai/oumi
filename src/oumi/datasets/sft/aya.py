@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Union
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ class AyaDataset(BaseSftDataset):
 
     default_dataset = "CohereForAI/aya_dataset"
 
-    def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
         question = example.get("inputs", "")
         answer = example.get("targets", "")

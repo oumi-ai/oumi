@@ -1,5 +1,5 @@
 import collections
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import torch
 import transformers
@@ -78,8 +78,8 @@ class TextCollatorWithPadding:
         self._max_previously_logged_labels_length: int = 0
 
     def _collate_using_transformers(
-        self, inputs: List[Any], batch_max_length: int
-    ) -> Dict[str, Any]:
+        self, inputs: list[Any], batch_max_length: int
+    ) -> dict[str, Any]:
         try:
             result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
         except ValueError:
@@ -94,12 +94,12 @@ class TextCollatorWithPadding:
 
     def _collate_simple(
         self,
-        inputs_dict: Dict[str, List[Any]],
+        inputs_dict: dict[str, list[Any]],
         *,
         batch_max_length: int,
-        padding_value_overrides: Dict[str, int],
-    ) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
+        padding_value_overrides: dict[str, int],
+    ) -> dict[str, Any]:
+        result: dict[str, Any] = {}
         try:
             for key, sequences_list in inputs_dict.items():
                 padding_value = padding_value_overrides.get(key, 0)
@@ -118,7 +118,7 @@ class TextCollatorWithPadding:
             raise
         return result
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:
@@ -127,7 +127,7 @@ class TextCollatorWithPadding:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        collation_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
+        collation_inputs: dict[str, list[Any]] = collections.defaultdict(list)
         labels_on = _LABELS_KEY in batch[0]
         attention_mask_on = _ATTENTION_MASK_KEY in batch[0]
         cross_attention_mask_on = _CROSS_ATTENTION_MASK_KEY in batch[0]

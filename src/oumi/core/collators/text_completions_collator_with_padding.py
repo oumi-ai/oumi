@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 import trl
 
@@ -27,11 +27,11 @@ class TextCompletionsCollatorWithPadding:
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
 
-    def _collate(self, inputs: List[Any]) -> Dict[str, Any]:
+    def _collate(self, inputs: list[Any]) -> dict[str, Any]:
         result = self._default_collator(inputs)
         return result
 
-    def __call__(self, batch) -> Dict[str, Any]:
+    def __call__(self, batch) -> dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:

@@ -1,6 +1,6 @@
 import base64
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pydantic
 from jinja2 import Template
@@ -144,10 +144,10 @@ class Conversation(pydantic.BaseModel):
     which may be useful for tracking or referencing conversations in a larger context.
     """
 
-    messages: List[Message]
+    messages: list[Message]
     """List of Message objects that make up the conversation."""
 
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     """Optional metadata associated with the conversation.
 
     This attribute allows for storing additional information about the conversation
@@ -193,7 +193,7 @@ class Conversation(pydantic.BaseModel):
         messages = self.filter_messages(role)
         return messages[-1] if len(messages) > 0 else None
 
-    def filter_messages(self, role: Optional[Role] = None) -> List[Message]:
+    def filter_messages(self, role: Optional[Role] = None) -> list[Message]:
         """Gets all messages in the conversation, optionally filtered by role.
 
         Args:

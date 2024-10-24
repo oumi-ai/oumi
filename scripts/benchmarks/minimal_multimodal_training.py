@@ -18,7 +18,7 @@ Working configs:
 
 from enum import Enum
 from pprint import pformat
-from typing import Dict, List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import torch
 import typer
@@ -64,12 +64,12 @@ class ModelName(str, Enum):
 
 class ModelInfo(NamedTuple):
     chat_template: str
-    freeze_layers: List[str]
+    freeze_layers: list[str]
 
 
 _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
-_MODELS_MAP: Dict[ModelName, ModelInfo] = {
+_MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
     ),
@@ -102,7 +102,7 @@ _MODELS_MAP: Dict[ModelName, ModelInfo] = {
 }
 
 
-def _get_freeze_layers(model_name: ModelName) -> List[str]:
+def _get_freeze_layers(model_name: ModelName) -> list[str]:
     result = []
     if model_name in _MODELS_MAP:
         result = _MODELS_MAP[model_name].freeze_layers

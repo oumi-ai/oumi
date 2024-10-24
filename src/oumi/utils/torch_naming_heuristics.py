@@ -4,7 +4,7 @@
 """
 
 import importlib
-from typing import Any, Dict, List, Type
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -42,7 +42,7 @@ def disable_dropout(hf_config: transformers.PretrainedConfig) -> None:
 
 def group_trainable_params(
     model: torch.nn.Module, weight_decay: float
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Groups trainable params by weight decay for optimization.
 
     As a rule of thumb, we generally want to weight decay all 2d matrices, i.e.
@@ -77,7 +77,7 @@ def group_trainable_params(
     ]
 
 
-def guess_transformer_layer_cls(model: nn.Module) -> Type[nn.Module]:
+def guess_transformer_layer_cls(model: nn.Module) -> type[nn.Module]:
     """Guess the transformer layer class based on the model architecture."""
     for module in model.modules():
         for layer_pattern in ["layer", "block", "transformerlayer"]:
@@ -91,7 +91,7 @@ def guess_transformer_layer_cls(model: nn.Module) -> Type[nn.Module]:
     )
 
 
-def get_module_class_from_name(class_name: str) -> Type[nn.Module]:
+def get_module_class_from_name(class_name: str) -> type[nn.Module]:
     """Get a module class from its string name."""
     module_name, class_name = class_name.rsplit(".", 1)
     module = importlib.import_module(module_name)

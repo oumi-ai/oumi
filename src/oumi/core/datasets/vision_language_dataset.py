@@ -1,7 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import Dict, Final, List, NamedTuple, Optional, Tuple, Union
+from typing import Final, NamedTuple, Optional, Union
 
 import numpy as np
 import requests
@@ -31,7 +31,7 @@ class InputFeatureSpec(NamedTuple):
     required: bool
 
 
-_INPUT_FEATURES_LIST: Final[List[InputFeatureSpec]] = [
+_INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(feature_name="input_ids", required=True),
     InputFeatureSpec(feature_name="pixel_values", required=True),
     InputFeatureSpec(feature_name="attention_mask", required=True),
@@ -43,7 +43,7 @@ _INPUT_FEATURES_LIST: Final[List[InputFeatureSpec]] = [
     # Qwen2 VL
     InputFeatureSpec(feature_name="image_grid_thw", required=False),
 ]
-_INPUT_FEATURES_DICT: Final[Dict[str, InputFeatureSpec]] = {
+_INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
     spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
 }
 
@@ -220,7 +220,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
     def _prepare_simple_model(
         self, conversation: Conversation
-    ) -> Tuple[Image.Image, str]:
+    ) -> tuple[Image.Image, str]:
         """Prepares the images and prompt for a simple model.
 
         Simple models only use the last image and text turn in the conversation. They
@@ -244,7 +244,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
     def _prepare_instruct_model(
         self, conversation: Conversation
-    ) -> Tuple[List[Image.Image], str]:
+    ) -> tuple[list[Image.Image], str]:
         """Prepares the images and prompt for an instruct model.
 
         Instruct models use the chat template to generate the prompt, and can include

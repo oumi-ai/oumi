@@ -87,9 +87,10 @@ def test_infer_online(inference_engine):
 
 @pytest.mark.skipif(llama_cpp_import_failed, reason="llama_cpp not available")
 def test_infer_from_file(inference_engine):
-    with patch.object(
-        inference_engine, "_read_conversations"
-    ) as mock_read, patch.object(inference_engine, "_infer") as mock_infer:
+    with (
+        patch.object(inference_engine, "_read_conversations") as mock_read,
+        patch.object(inference_engine, "_infer") as mock_infer,
+    ):
         mock_read.return_value = [
             Conversation(messages=[Message(content="Hello", role=Role.USER)])
         ]

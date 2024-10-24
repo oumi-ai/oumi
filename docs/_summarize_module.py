@@ -2,7 +2,7 @@ import importlib
 import inspect
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import typer
 
@@ -14,7 +14,7 @@ GITHUB_BASE_URL = "https://github.com/oumi-ai/oumi/blob/main"
 @app.command()
 def summarize_module(
     module_name: str = typer.Argument(..., help="The name of the module to inspect"),
-    filter_type: Optional[List[str]] = typer.Option(
+    filter_type: Optional[list[str]] = typer.Option(
         None, help="Filter for object types (class, method, attribute, function)"
     ),
     output_file: Optional[str] = typer.Option(

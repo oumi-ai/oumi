@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, List, NamedTuple, Optional, TypeVar, cast
+from typing import Any, NamedTuple, Optional, TypeVar, cast
 
 import numpy as np
 import torch
@@ -129,8 +129,8 @@ class ModelParameterCount(NamedTuple):
 
 
 def _get_parameter_names(
-    model: torch.nn.Module, forbidden_layer_types: List[Any]
-) -> List[str]:
+    model: torch.nn.Module, forbidden_layer_types: list[Any]
+) -> list[str]:
     """Returns the names of the model parameters that are not inside a forbidden layer.
 
     Borrowed from
@@ -234,7 +234,7 @@ def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
 T = TypeVar("T")
 
 
-def convert_to_list_of_tensors(values: List[T]) -> List[torch.Tensor]:
+def convert_to_list_of_tensors(values: list[T]) -> list[torch.Tensor]:
     """Converts a list of array-like objects into alist of torch tensors."""
     if len(values) == 0:
         return []
@@ -255,7 +255,7 @@ def convert_to_list_of_tensors(values: List[T]) -> List[torch.Tensor]:
 
 
 def _pad_sequences_impl(
-    sequences: List[torch.Tensor], *, padding_value: float = 0
+    sequences: list[torch.Tensor], *, padding_value: float = 0
 ) -> torch.Tensor:
     return torch.nn.utils.rnn.pad_sequence(
         sequences, batch_first=True, padding_value=padding_value
@@ -263,7 +263,7 @@ def _pad_sequences_impl(
 
 
 def pad_sequences_right_side(
-    sequences: List[T], *, padding_value: float = 0
+    sequences: list[T], *, padding_value: float = 0
 ) -> torch.Tensor:
     """Pads a list of variable-length tensors to a single tensor.
 
@@ -276,7 +276,7 @@ def pad_sequences_right_side(
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
-        L is the longest length (`max(sequences[i])`)
+        L is the longest length (`max(len(sequences[i]))`)
     """
     if len(sequences) == 0:
         raise ValueError("Empty list is not allowed.")
@@ -286,7 +286,7 @@ def pad_sequences_right_side(
 
 
 def pad_sequences_left_side(
-    sequences: List[T], *, padding_value: float = 0
+    sequences: list[T], *, padding_value: float = 0
 ) -> torch.Tensor:
     """Pads a list of variable-length tensors to a single tensor.
 
@@ -299,7 +299,7 @@ def pad_sequences_left_side(
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
-        L is the longest length (`max(sequences[i])`)
+        L is the longest length (`max(len(sequences[i]))`)
     """
     if len(sequences) == 0:
         raise ValueError("Empty list is not allowed.")
@@ -321,7 +321,7 @@ def pad_sequences_left_side(
 
 
 def pad_sequences(
-    sequences: List[T], *, padding_value: float = 0, padding_side: Optional[str] = None
+    sequences: list[T], *, padding_value: float = 0, padding_side: Optional[str] = None
 ) -> torch.Tensor:
     """Pads a list of variable-length tensors to a single tensor.
 
@@ -332,7 +332,7 @@ def pad_sequences(
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
-        L is the longest length (`max(sequences[i])`)
+        L is the longest length (`max(len(sequences[i]))`)
     """
     if not padding_side or padding_side == "right":
         return pad_sequences_right_side(sequences, padding_value=padding_value)
