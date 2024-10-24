@@ -76,7 +76,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
             gpu_memory_utilization=1.0,
-            enforce_eager=True,  # Recuce memory required otherwise for CUDA graphs
+            enforce_eager=True,  # Reduce memory required otherwise for CUDA graphs
         )
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
