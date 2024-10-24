@@ -75,12 +75,13 @@ class VisionLanguageCollatorWithPadding:
                 ):
                     other_input_names.add(key)
 
-        # Collate batch images.
+        # Collate images.
         pixel_values = self.collate_images(images)
 
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
 
+        # For other inputs, let's verify they present in all examples and stack them.
         if len(other_input_names) > 0:
             logger.warning(f"Unknown input names: {other_input_names}")
             other_inputs: Dict[str, List[Any]] = collections.defaultdict(list)
