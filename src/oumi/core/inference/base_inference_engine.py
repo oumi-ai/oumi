@@ -120,11 +120,12 @@ class BaseInferenceEngine(ABC):
         a warning is logged.
         """
         supported_params = self.get_supported_params()
+        default_generation_params = GenerationParams()
 
         for param_name, value in generation_params:
             if param_name not in supported_params:
                 is_non_default_value = (
-                    value is not None and value != 0 and value != {} and value != []
+                    getattr(default_generation_params, param_name) != value
                 )
 
                 if is_non_default_value:
