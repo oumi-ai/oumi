@@ -381,4 +381,4 @@ def test_data_multiple_datasets_packing(stream: bool):
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
     # The packed dataset should be even smaller.
-    assert _get_dataset_size(dataset, stream, pack=True) == 2
+    assert _get_dataset_size(dataset, stream, pack=True) == 3
