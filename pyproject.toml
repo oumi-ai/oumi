@@ -168,6 +168,8 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "D",      # Ignore docstring checks in Cambrian
     "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
     "W291",   # Ignore pycodestyle: warnings: Trailing whitespace
+    "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
+    "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
 
 [tool.ruff.lint.pydocstyle]
