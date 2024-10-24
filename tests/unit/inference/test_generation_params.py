@@ -62,11 +62,12 @@ def test_generation_params(engine_class, sample_conversations):
 
     # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
     # otherwise it will try to load a non-existent model
-    mock_ctx = (
-        patch("llama_cpp.Llama.from_pretrained")
-        if engine_class == LlamaCppInferenceEngine
-        else contextlib.nullcontext()
-    )
+    if engine_class == VLLMInferenceEngine:
+        mock_ctx = patch("vllm.LLM")
+    elif engine_class == LlamaCppInferenceEngine:
+        mock_ctx = patch("llama_cpp.Llama.from_pretrained")
+    else:
+        mock_ctx = contextlib.nullcontext()
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations
@@ -124,11 +125,12 @@ def test_generation_params_defaults(engine_class, sample_conversations):
 
     # We need to mock the Llama.from_pretrained call for LlamaCppInferenceEngine
     # otherwise it will try to load a non-existent model
-    mock_ctx = (
-        patch("llama_cpp.Llama.from_pretrained")
-        if engine_class == LlamaCppInferenceEngine
-        else contextlib.nullcontext()
-    )
+    if engine_class == VLLMInferenceEngine:
+        mock_ctx = patch("vllm.LLM")
+    elif engine_class == LlamaCppInferenceEngine:
+        mock_ctx = patch("llama_cpp.Llama.from_pretrained")
+    else:
+        mock_ctx = contextlib.nullcontext()
 
     with patch.object(
         engine_class, "_infer", return_value=sample_conversations

@@ -13,6 +13,7 @@ try:
     from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
         ChatCompletionMessageParam,
     )
+    from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
@@ -54,7 +55,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         self._lora_request = None
         if model_params.adapter_model:
             # ID should be unique for this adapter, but isn't enforced by vLLM.
-            self._lora_request = vllm.lora.request.LoRARequest(
+            self._lora_request = LoRARequest(
                 lora_name="oumi_lora_adapter",
                 lora_int_id=1,
                 lora_path=model_params.adapter_model,
@@ -138,12 +139,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
 
         vllm_conversations = []
+        non_skipped_conversations = []
         for conversation in input:
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
                 continue
             vllm_input = self._convert_conversation_to_vllm_input(conversation)
             vllm_conversations.append(vllm_input)
+            non_skipped_conversations.append(conversation)
+
+        if len(vllm_conversations) == 0:
+            return []
 
         enable_tqdm = len(vllm_conversations) >= 2
 
@@ -153,14 +159,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_conversations,
             sampling_params=sampling_params,
             lora_request=self._lora_request,
-            enable_tqdm=enable_tqdm,
+            use_tqdm=enable_tqdm,
         )
 
-        for chat_response in chat_responses:
+        for conversation, chat_response in zip(
+            non_skipped_conversations, chat_responses
+        ):
             new_messages = [
-                Message(content=message.outputs[0].text, role=Role.ASSISTANT)
-                for message in chat_response
-                if len(message.outputs) > 0
+                Message(content=message.text, role=Role.ASSISTANT)
+                for message in chat_response.outputs
+                if len(chat_response.outputs) > 0
             ]
             messages = [
                 *conversation.messages,
@@ -172,6 +180,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
+
             if inference_config.output_path:
                 self._save_conversation(
                     new_conversation,

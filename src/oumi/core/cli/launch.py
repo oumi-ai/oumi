@@ -2,6 +2,7 @@ import itertools
 import sys
 import time
 from multiprocessing.pool import Pool
+from pathlib import Path
 from typing import Callable, Optional
 
 import typer
@@ -10,7 +11,25 @@ from typing_extensions import Annotated
 import oumi.core.cli.cli_utils as cli_utils
 from oumi import launcher
 from oumi.core.launcher import BaseCluster, JobStatus
+from oumi.utils.git_utils import get_git_root_dir
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import is_dev_build
+
+
+def _get_working_dir(current: str) -> str:
+    """Prompts the user to select the working directory, if relevant."""
+    if not is_dev_build():
+        return current
+    oumi_root = get_git_root_dir()
+    if not oumi_root or oumi_root == Path(current).resolve():
+        return current
+    use_root = typer.confirm(
+        "You are using a dev build of oumi. "
+        f"Use oumi's root directory ({oumi_root}) as your working directory?",
+        abort=False,
+        default=True,
+    )
+    return str(oumi_root) if use_root else current
 
 
 def _print_spinner_and_sleep(
@@ -288,6 +307,7 @@ def run(
         config, extra_args, logger=logger
     )
     parsed_config.validate()
+    parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
     if not cluster:
         raise ValueError("No cluster specified for the `run` action.")
 
@@ -340,6 +360,7 @@ def up(
             print(f"Found an existing cluster: {target_cluster.name()}.")
             run(ctx, config, cluster, detach)
             return
+    parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
     # Start the job
     running_cluster, job_status = launcher.up(parsed_config, cluster)
     print(f"Job {job_status.id} queued on cluster {running_cluster.name()}.")

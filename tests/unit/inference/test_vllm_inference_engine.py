@@ -51,11 +51,18 @@ def mock_vllm():
         yield mvllm
 
 
+@pytest.fixture
+def mock_lora_request():
+    with patch("oumi.inference.vllm_inference_engine.LoRARequest") as mlo:
+        yield mlo
+
+
 def _get_default_model_params(use_lora: bool = False) -> ModelParams:
     return ModelParams(
         model_name="openai-community/gpt2",
         adapter_model="/path/to/adapter" if use_lora else None,
         trust_remote_code=True,
+        tokenizer_pad_token="<pad>",
     )
 
 
@@ -120,7 +127,7 @@ def test_infer_online(mock_vllm):
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
-def test_infer_online_lora(mock_vllm):
+def test_infer_online_lora(mock_vllm, mock_lora_request):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     mock_vllm_instance.chat.return_value = [
@@ -132,7 +139,8 @@ def test_infer_online_lora(mock_vllm):
         lora_int_id=1,
         lora_path="/path/to/adapter",
     )
-    mock_vllm.lora.request.LoRARequest.return_value = lora_request
+    mock_lora_request.return_value = lora_request
+
     engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
     conversation = Conversation(
         messages=[
@@ -164,7 +172,7 @@ def test_infer_online_lora(mock_vllm):
     result = engine.infer_online([conversation], _get_default_inference_config())
     assert expected_result == result
 
-    mock_vllm.lora.request.LoRARequest.assert_called_once_with(
+    mock_lora_request.assert_called_once_with(
         lora_name="oumi_lora_adapter",
         lora_int_id=1,
         lora_path="/path/to/adapter",
@@ -173,6 +181,7 @@ def test_infer_online_lora(mock_vllm):
         ANY,
         sampling_params=ANY,
         lora_request=lora_request,
+        use_tqdm=False,
     )
 
 
@@ -191,8 +200,10 @@ def test_infer_online_to_file(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     mock_vllm_instance.chat.side_effect = [
-        [_create_vllm_output(["The first time I saw"], "123")],
-        [_create_vllm_output(["The U.S."], "123")],
+        [
+            _create_vllm_output(["The first time I saw"], "123"),
+            _create_vllm_output(["The U.S."], "123"),
+        ]
     ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
         engine = VLLMInferenceEngine(_get_default_model_params())
@@ -332,8 +343,10 @@ def test_infer_from_file_to_file(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     mock_vllm_instance.chat.side_effect = [
-        [_create_vllm_output(["The first time I saw"], "123")],
-        [_create_vllm_output(["The U.S."], "123")],
+        [
+            _create_vllm_output(["The first time I saw"], "123"),
+            _create_vllm_output(["The U.S."], "123"),
+        ]
     ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
         engine = VLLMInferenceEngine(_get_default_model_params())
