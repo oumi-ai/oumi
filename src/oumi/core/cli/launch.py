@@ -2,6 +2,7 @@ import itertools
 import sys
 import time
 from multiprocessing.pool import Pool
+from pathlib import Path
 from typing import Callable, Optional
 
 import typer
@@ -20,7 +21,7 @@ def _get_working_dir(current: str) -> str:
     if not is_dev_build():
         return current
     oumi_root = get_git_root_dir()
-    if not oumi_root:
+    if not oumi_root or oumi_root == Path(current).resolve():
         return current
     use_root = typer.confirm(
         "You are using a dev build of oumi. "
@@ -28,7 +29,7 @@ def _get_working_dir(current: str) -> str:
         abort=False,
         default=True,
     )
-    return oumi_root if use_root else current
+    return str(oumi_root) if use_root else current
 
 
 def _print_spinner_and_sleep(

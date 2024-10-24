@@ -270,6 +270,50 @@ def test_launch_up_job_dev_no_confirm(
         mock_launcher.up.assert_called_once_with(job_config, None)
 
 
+def test_launch_up_job_dev_no_confirm_same_path(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm
+):
+    working_dir = "/foo/dir/"
+    mock_version.return_value = working_dir
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.working_dir = working_dir
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        _ = runner.invoke(
+            app,
+            [
+                "up",
+                "--config",
+                job_yaml_path,
+            ],
+        )
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
+        mock_launcher.up.assert_called_once_with(job_config, None)
+
+
 def test_launch_up_job_existing_cluster(
     app, mock_launcher, mock_pool, mock_version, mock_confirm
 ):
