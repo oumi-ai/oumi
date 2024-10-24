@@ -61,7 +61,9 @@ def test_success_with_labels_and_max_length():
 
     with pytest.raises(
         ValueError,
-        match="Unable to create tensor, you should probably activate truncation",
+        match=(
+            "Maximum sequence length exceeded. You should probably activate truncation"
+        ),
     ):
         TextCollatorWithPadding(tokenizer, max_length=2)(
             [
@@ -73,7 +75,9 @@ def test_success_with_labels_and_max_length():
 
     with pytest.raises(
         ValueError,
-        match="Unable to create tensor, you should probably activate truncation",
+        match=(
+            "Maximum sequence length exceeded. You should probably activate truncation"
+        ),
     ):
         TextCollatorWithPadding(tokenizer, max_length=2, truncation=False)(
             [
