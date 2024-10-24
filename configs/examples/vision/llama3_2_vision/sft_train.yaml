@@ -11,7 +11,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: False
+    experimental_use_torch_datapipes: True
     target_col: "text" # TODO: useless col, but required by the trainer
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -47,8 +47,8 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 6
-  gradient_accumulation_steps: 8
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
   max_steps: 20
 
   gradient_checkpointing_kwargs:
