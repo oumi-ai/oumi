@@ -1,5 +1,3 @@
-# Accelerate FSDP config for Llama models <8B in size.
-# Intended node: 4xA100-40GB GPUs
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: FSDP
