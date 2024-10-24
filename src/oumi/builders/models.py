@@ -97,7 +97,7 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     model_type = _get_model_type(model)
 
     if model_type is None:
-        raise ValueError(f"Unsupported model: {model}")
+        raise ValueError(f"Could not find model type for: {model}")
 
     liger_kernel.transformers._apply_liger_kernel(model_type)
 
