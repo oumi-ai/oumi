@@ -1,5 +1,5 @@
 import time
-from typing import Union
+from typing import List, Union
 
 import pandas as pd
 import torch
@@ -90,12 +90,8 @@ class DebugPretrainingDataset(BasePretrainingDataset):
 
         super().__init__(**kwargs)
 
-    def _load_data(self) -> pd.DataFrame:
-        return pd.DataFrame({"text": ["This is a test sentence."] * self.size})
-
-    def __len__(self):
-        """Return the size of the dataset."""
-        return self.size
+    def _load_data(self) -> List[dict]:
+        return [{"text": "This is a test document."} for _ in range(self.size)]
 
 
 @register_dataset("debug_sft")
