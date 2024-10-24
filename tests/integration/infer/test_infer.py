@@ -18,8 +18,6 @@ TEST_IMAGE_DIR: Final[Path] = (
 )
 
 
-@requires_cuda_initialized()
-@requires_gpus()
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(

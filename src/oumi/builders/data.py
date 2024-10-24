@@ -12,6 +12,7 @@ from oumi.core.configs import (
     MixtureStrategy,
     TrainingConfig,
 )
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -56,6 +57,10 @@ def build_dataset_mixture(
         # and becomes the default processign pipeline.
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
+    # Check if the underlying dataset is already packed, or if we need to pack it
+    # ourselves.
+    is_packed = _is_mixture_packed(dataset_split_params)
+
     datasets = [
         _sample_dataset(
             _load_dataset(
@@ -85,20 +90,21 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.use_async_dataset:
-            dataset = PretrainingAsyncTextDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
-        else:
-            dataset = ConstantLengthDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
+        if not is_packed:
+            if dataset_split_params.use_async_dataset:
+                dataset = PretrainingAsyncTextDataset(
+                    tokenizer,
+                    dataset,
+                    dataset_text_field=dataset_split_params.target_col,
+                    **dataset_kwargs,
+                )
+            else:
+                dataset = ConstantLengthDataset(
+                    tokenizer,
+                    dataset,
+                    dataset_text_field=dataset_split_params.target_col,
+                    **dataset_kwargs,
+                )
 
     return dataset
 
@@ -243,15 +249,6 @@ def _sample_dataset(
     return cast(DatasetType, oversampled_dataset)
 
 
-def _preprocess_dataset(
-    dataset: DatasetType,
-    dataset_params: DatasetParams,
-    tokenizer: Optional[BaseTokenizer],
-) -> DatasetType:
-    """Applies preprocessing to a dataset given an optional preprocessing function."""
-    return dataset
-
-
 def _build_iterable_dataset_sampler(
     dataset: datasets.IterableDataset, n: int
 ) -> Callable:
@@ -306,3 +303,22 @@ def _load_dataset(
             trust_remote_code=dataset_params.trust_remote_code,
             **dataset_params.dataset_kwargs,
         )
+
+
+def _is_mixture_packed(dataset_split_params: DatasetSplitParams) -> bool:
+    """Returns True if all datasets in the mixture are packed."""
+    if len(dataset_split_params.datasets) == 0:
+        return False
+
+    for dataset in dataset_split_params.datasets:
+        dataset_class = REGISTRY.get_dataset(
+            dataset.dataset_name, subset=dataset.subset
+        )
+
+        if dataset_class is None or not isinstance(
+            dataset_class, BasePretrainingDataset
+        ):
+            return False
+
+    # All datasets in mixture are packed.
+    return True
