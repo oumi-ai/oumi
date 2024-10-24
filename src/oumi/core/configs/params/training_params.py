@@ -238,17 +238,13 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
-    run_name: str = "default"
+    run_name: Optional[str] = None
     """A unique identifier for the current training run.
 
     This name is used to identify the run in logging outputs, saved model
     checkpoints, and experiment tracking tools like Weights & Biases or
     TensorBoard. It's particularly useful when running multiple experiments
     or when you want to easily distinguish between different training sessions.
-
-    If left as "default", a unique name will be generated based on the
-    current timestamp and other parameters. You can also set it to a custom
-    string to give your run a more meaningful or memorable name.
     """
 
     metrics_function: Optional[str] = None

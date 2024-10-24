@@ -13,6 +13,9 @@ from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.configs import TrainingParams
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
 from oumi.performance.telemetry import TelemetryTracker, TimerContext
+from oumi.utils.device_utils import (
+    log_nvidia_gpu_runtime_info,
+)
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import logger
 
@@ -141,6 +144,8 @@ class TelemetryCallback(BaseTrainerCallback):
         if self._permanently_disabled:
             return
         self._complete_previous_epoch_if_needed()
+
+        log_nvidia_gpu_runtime_info(log_prefix="On epoch end:")
 
     def on_log(
         self,

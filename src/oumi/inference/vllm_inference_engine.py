@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import torch
+
 from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
@@ -11,6 +13,7 @@ try:
     from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
         ChatCompletionMessageParam,
     )
+    from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
@@ -24,15 +27,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
-        tensor_parallel_size: int = 1,
+        tensor_parallel_size: int = -1,
         quantization: str | None = None,
-        enable_prefix_caching: bool = False,
+        enable_prefix_caching: bool = True,
     ):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
             tensor_parallel_size: The number of tensor parallel processes to use.
+                If set to -1, we will use all the available GPUs.
             quantization: The quantization method to use for inference.
             enable_prefix_caching: Whether to enable prefix caching.
         """
@@ -41,10 +45,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "vLLM is not installed. "
                 "Please install the GPU dependencies for this package."
             )
+
+        if tensor_parallel_size <= 0:
+            if torch.cuda.device_count() > 1:
+                tensor_parallel_size = torch.cuda.device_count()
+            else:
+                tensor_parallel_size = 1
+
         self._lora_request = None
         if model_params.adapter_model:
             # ID should be unique for this adapter, but isn't enforced by vLLM.
-            self._lora_request = vllm.lora.request.LoRARequest(
+            self._lora_request = LoRARequest(
                 lora_name="oumi_lora_adapter",
                 lora_int_id=1,
                 lora_path=model_params.adapter_model,
@@ -121,20 +132,43 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 " This parameter will be ignored."
             )
 
+        if generation_params.batch_size > 1:
+            logger.info(
+                "VLLMInferenceEngine performs continuous batching under the hood. "
+                "This parameter for static batching will be ignored."
+            )
+
+        vllm_conversations = []
+        non_skipped_conversations = []
         for conversation in input:
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
                 continue
             vllm_input = self._convert_conversation_to_vllm_input(conversation)
-            chat_response = self._llm.chat(
-                vllm_input,
-                sampling_params=sampling_params,
-                lora_request=self._lora_request,
-            )
+            vllm_conversations.append(vllm_input)
+            non_skipped_conversations.append(conversation)
+
+        if len(vllm_conversations) == 0:
+            return []
+
+        enable_tqdm = len(vllm_conversations) >= 2
+
+        # Note: vLLM performs continuous batching under the hood.
+        # We pass all the conversations and let vLLM handle the rest.
+        chat_responses = self._llm.chat(
+            vllm_conversations,
+            sampling_params=sampling_params,
+            lora_request=self._lora_request,
+            use_tqdm=enable_tqdm,
+        )
+
+        for conversation, chat_response in zip(
+            non_skipped_conversations, chat_responses
+        ):
             new_messages = [
-                Message(content=message.outputs[0].text, role=Role.ASSISTANT)
-                for message in chat_response
-                if len(message.outputs) > 0
+                Message(content=message.text, role=Role.ASSISTANT)
+                for message in chat_response.outputs
+                if len(chat_response.outputs) > 0
             ]
             messages = [
                 *conversation.messages,
@@ -146,6 +180,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
+
             if inference_config.output_path:
                 self._save_conversation(
                     new_conversation,

@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("HuggingFaceFW/fineweb-edu")
-class FineWebEduDataset(BasePretrainingIterableDataset):
+class FineWebEduDataset(BasePretrainingDataset):
     """FineWeb-Edu: A high-quality educational dataset filtered from web content.
 
     This dataset contains 1.3 trillion tokens of educational web pages filtered

@@ -39,7 +39,7 @@ dependencies = [
     "jsonlines",
     "lm-eval>=0.4.5,<0.5.0",
     "numpy",
-    "omegaconf",
+    "omegaconf>=2.3",
     "pandas",
     "peft",
     "pexpect",                    # Used by Polaris client
@@ -73,9 +73,6 @@ dev = [
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
-# TODO: train target will be removed in a future release
-# Leaving it empty for now, to avoid breaking changes
-train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
     "myst-nb",                 # Allows us to include ipython notebooks in the docs
@@ -87,7 +84,7 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
-gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
+gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]
@@ -103,18 +100,15 @@ gcp = [
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
-cambrian = [ # Consider merging into "train"
-    "timm==0.9.16",
-    "open_clip_torch",
-    "diffusers[torch]",
-    "einops==0.6.1",
-]
-optional = [
-    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
-]
-# TODO: Deprecated, will be removed in a future release
-all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+# CI targets
+ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
+# Optional dependencies
+optional = [
+    "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
+    "vllm>=0.6.3,<0.7.0",
+]
 quant = [
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
 ]
@@ -192,3 +186,10 @@ reportPrivateImportUsage = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--import-mode=prepend"]
+cambrian = [ # Consider merging into "train"
+    "timm==0.9.16",
+    "open_clip_torch",
+    "diffusers[torch]",
+    "einops==0.6.1",
+]
