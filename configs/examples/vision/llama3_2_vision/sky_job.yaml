@@ -1,4 +1,4 @@
-name: llava-7b-sft
+name: llama32v-11b-sft
 
 num_nodes: 1 # Set it to N for multi-node training.
 
@@ -18,9 +18,13 @@ workdir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on your local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.sft
+  OUMI_RUN_NAME: llama32v.11b.sft
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -30,7 +34,7 @@ setup: |
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   pip install hf_transfer
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -44,7 +48,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llava_7b/sft_train.yaml \
+      -c configs/examples/vision/llama3_2_vision/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

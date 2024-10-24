@@ -18,6 +18,10 @@ working_dir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on your local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama32v.11b.sft.trl
@@ -35,6 +39,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
+
+  pip install '.[gpu]'
 
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
