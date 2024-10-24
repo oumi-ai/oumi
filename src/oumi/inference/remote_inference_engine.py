@@ -324,7 +324,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "presence_penalty",
             "remote_params",
             "seed",
-            "stop",
+            "stop_strings",
             "temperature",
             "top_p",
         }

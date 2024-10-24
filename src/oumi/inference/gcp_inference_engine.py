@@ -96,7 +96,6 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "remote_params",
             "seed",
             "stop_strings",
-            "stop",
             "temperature",
             "top_p",
         }
