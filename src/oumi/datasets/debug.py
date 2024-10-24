@@ -91,7 +91,7 @@ class DebugPretrainingDataset(BasePretrainingDataset):
         super().__init__(**kwargs)
 
     def _load_data(self) -> List[dict]:
-        return [{"text": "This is a test document."} for _ in range(self.size)]
+        return [{"text": f"This is document number {idx}."} for idx in range(self.size)]
 
 
 @register_dataset("debug_sft")
@@ -123,8 +123,14 @@ class DebugSftDataset(BaseSftDataset):
     def _load_data(self) -> pd.DataFrame:
         return pd.DataFrame(
             {
-                "user_message": ["Hello, how are you?" for _ in range(self.size)],
-                "assistant_message": ["I'm fine, thank you!" for _ in range(self.size)],
+                "user_message": [
+                    f"Hello, how are you? (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "assistant_message": [
+                    f"I'm fine, thank you! (Document number {idx})"
+                    for idx in range(self.size)
+                ],
             }
         )
 
@@ -155,8 +161,16 @@ class DebugDpoDataset(BaseExperimentalDpoDataset):
     def _load_data(self) -> pd.DataFrame:
         return pd.DataFrame(
             {
-                "prompt": ["Hello, how are you?" for _ in range(self.size)],
-                "chosen": ["I'm fine, thank you!" for _ in range(self.size)],
-                "rejected": ["fine" for _ in range(self.size)],
+                "prompt": [
+                    f"Hello, how are you? (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "chosen": [
+                    f"I'm fine, thank you! (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "rejected": [
+                    f"fine (Document number {idx})" for idx in range(self.size)
+                ],
             }
         )
