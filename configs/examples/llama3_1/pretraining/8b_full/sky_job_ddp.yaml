@@ -56,7 +56,7 @@ run: |
       "training.compile=false" \
       "training.optimizer=adafactor" \
       "training.enable_gradient_checkpointing=true" \
-      "training.per_device_train_batch_size=4" \
+      "training.per_device_train_batch_size=2" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"
