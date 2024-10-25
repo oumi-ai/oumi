@@ -52,7 +52,7 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adafactor"
-  compile: True
+  compile: False
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
   seed: 123
