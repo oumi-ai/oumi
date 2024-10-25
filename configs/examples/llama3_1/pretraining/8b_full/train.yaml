@@ -19,7 +19,7 @@
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B"
   chat_template: "chat_ml"
-  model_max_length: 2048
+  model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: False
@@ -47,7 +47,6 @@ training:
   # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 16
-
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
