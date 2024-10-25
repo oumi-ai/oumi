@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from oumi.utils.io_utils import save_json
@@ -22,7 +20,7 @@ def test_get_lora_rank_fail_r_not_int(tmp_path):
         get_lora_rank(tmp_path)
 
 
-def test_get_lora_rank_successful():
-    adapter_config_path = Path("tests/testdata/adapter_config.json")
+def test_get_lora_rank_successful(root_testdata_dir):
+    adapter_config_path = root_testdata_dir / "adapter_config.json"
     adapter_dir = adapter_config_path.parent
     assert get_lora_rank(adapter_dir) == 64
