@@ -19,7 +19,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama70b.sft
+  OUMI_RUN_NAME: llama70b.full
   ACCELERATE_LOG_LEVEL: info
 
 setup: |
