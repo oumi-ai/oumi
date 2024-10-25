@@ -1,4 +1,4 @@
-# Accelerate FSDP config for Llama 3.1. 8B.
+# Accelerate FSDP config for Llama 3.2 Vision 11B.
 # Tested with single node with 4xA100-80GB GPUs.
 compute_environment: LOCAL_MACHINE
 debug: false
