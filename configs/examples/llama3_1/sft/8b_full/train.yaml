@@ -22,6 +22,7 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+
   trust_remote_code: True
 
 data:

@@ -54,6 +54,7 @@ run: |
       -c configs/examples/llama3_1/pretraining/8b_full/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.compile=false" \
+      "training.optimizer=adafactor" \
       "training.enable_gradient_checkpointing=true" \
       "training.per_device_train_batch_size=1" \
       "training.max_steps=20" \

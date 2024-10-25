@@ -1,5 +1,5 @@
-# Accelerate FSDP config for Llama 3.1. 8B.
-# Tested with single node with 4xA100-80GB GPUs.
+# Accelerate FSDP config for Llama 3.1 8B.
+# Tested with single node with 4xA100-40GB GPUs.
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: FSDP
