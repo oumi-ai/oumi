@@ -140,7 +140,8 @@ def test_infer_online_lora(mock_vllm, mock_lora_request):
     )
     mock_lora_request.return_value = lora_request
 
-    engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
+    with patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32):
+        engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
     conversation = Conversation(
         messages=[
             Message(
