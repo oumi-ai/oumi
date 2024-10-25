@@ -1,5 +1,6 @@
 import abc
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any, Optional
 
 import datasets
 from torch.utils.data import IterDataPipe
@@ -78,7 +79,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     # Abstract Methods
     #
     @abc.abstractmethod
-    def transform(self, sample: Any) -> Dict[str, Any]:
+    def transform(self, sample: Any) -> dict[str, Any]:
         """Preprocesses the inputs in the given sample.
 
         Args:

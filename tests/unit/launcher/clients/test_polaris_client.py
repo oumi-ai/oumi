@@ -1,7 +1,6 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List
 from unittest.mock import Mock, call, patch
 
 import pexpect
@@ -51,7 +50,7 @@ def _get_test_data(file_name: str) -> str:
         return f.read()
 
 
-def _run_commands_template(commands: List[str]) -> str:
+def _run_commands_template(commands: list[str]) -> str:
     user = "user"
     ctrl_path = "-S ~/.ssh/control-%h-%p-%r"
     ssh_cmd = f"ssh {ctrl_path} {user}@polaris.alcf.anl.gov " " << 'EOF'"

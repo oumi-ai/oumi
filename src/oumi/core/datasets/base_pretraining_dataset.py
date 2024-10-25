@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 import torch
 from typing_extensions import override
@@ -97,11 +97,11 @@ class BasePretrainingDataset(BaseIterableDataset):
                 yield self._create_training_sample(buffer)
 
     @override
-    def transform(self, sample: Any) -> List[int]:
+    def transform(self, sample: Any) -> list[int]:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(sample)
 
-    def tokenize(self, text: str) -> List[int]:
+    def tokenize(self, text: str) -> list[int]:
         """Tokenizes the given text.
 
         Should not apply any padding/truncation to allow for packing.
@@ -115,7 +115,7 @@ class BasePretrainingDataset(BaseIterableDataset):
             add_special_tokens=self._add_special_tokens,
         )
 
-    def _create_training_sample(self, tokens: list) -> Dict[str, torch.Tensor]:
+    def _create_training_sample(self, tokens: list) -> dict[str, torch.Tensor]:
         """Creates a training sample from the given tokens."""
         input_ids = torch.tensor(tokens)
         attention_mask = torch.ones_like(input_ids)

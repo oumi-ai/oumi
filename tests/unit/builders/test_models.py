@@ -109,9 +109,10 @@ def test_build_chat_template_removes_indentation_and_newlines():
         "Assistant: {{ message['content'] }}{% endif %}{{ eos_token }}{% endfor %}"
     )
 
-    with patch("oumi.builders.models.get_oumi_root_directory"), patch(
-        "oumi.builders.models.load_file"
-    ) as mock_load_file:
+    with (
+        patch("oumi.builders.models.get_oumi_root_directory"),
+        patch("oumi.builders.models.load_file") as mock_load_file,
+    ):
         mock_load_file.return_value = template_content
 
         result = build_chat_template("test_template")

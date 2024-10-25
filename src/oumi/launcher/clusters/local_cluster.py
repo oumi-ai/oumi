@@ -1,6 +1,6 @@
 import uuid
 from copy import deepcopy
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -72,7 +72,7 @@ class LocalCluster(BaseCluster):
                 return job
         return None
 
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         jobs = self._client.list_jobs()
         for job in jobs:

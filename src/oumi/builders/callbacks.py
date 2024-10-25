@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import torch
 
@@ -17,7 +17,7 @@ from oumi.utils.torch_utils import (
 
 def build_training_callbacks(
     config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
-) -> List[BaseTrainerCallback]:
+) -> list[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 
     This function creates a list of callback objects to be used during training.
@@ -39,7 +39,7 @@ def build_training_callbacks(
         - MFU logging is only supported on GPU and is skipped for PEFT models or
           training with non-packed datasets.
     """
-    result: List[BaseTrainerCallback] = []
+    result: list[BaseTrainerCallback] = []
     if not config.training.include_performance_metrics:
         return result
 

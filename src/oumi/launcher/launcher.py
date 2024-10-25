@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -36,7 +36,7 @@ class Launcher:
 
     def up(
         self, job: JobConfig, cluster_name: Optional[str], **kwargs
-    ) -> Tuple[BaseCluster, JobStatus]:
+    ) -> tuple[BaseCluster, JobStatus]:
         """Creates a new cluster and starts the specified job on it."""
         cloud = self.get_cloud(job)
         job_status = cloud.up_cluster(job, cluster_name, **kwargs)
@@ -77,7 +77,7 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         cluster.down()
 
-    def status(self) -> List[JobStatus]:
+    def status(self) -> list[JobStatus]:
         """Gets the status of all jobs across all clusters."""
         # Pick up any newly registered cloud builders.
         self._initialize_new_clouds()
@@ -87,7 +87,7 @@ class Launcher:
                 statuses.extend(cluster.get_jobs())
         return statuses
 
-    def which_clouds(self) -> List[str]:
+    def which_clouds(self) -> list[str]:
         """Gets the names of all clouds in the registry."""
         return [name for name, _ in REGISTRY.get_all(RegistryType.CLOUD).items()]
 

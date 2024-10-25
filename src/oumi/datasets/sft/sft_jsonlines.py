@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -61,7 +61,7 @@ class TextSftJsonLinesDataset(BaseSftDataset):
     def __init__(
         self,
         dataset_path: Optional[Union[str, Path]] = None,
-        data: Optional[List[Dict[str, Any]]] = None,
+        data: Optional[list[dict[str, Any]]] = None,
         format: Optional[str] = None,
         **kwargs,
     ):
