@@ -126,6 +126,7 @@ def test_infer_online(mock_vllm):
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+@patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32)
 def test_infer_online_lora(mock_vllm, mock_lora_request):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
