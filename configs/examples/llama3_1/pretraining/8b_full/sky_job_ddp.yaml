@@ -12,11 +12,11 @@
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3.1_8B_full_ddp
+  OUMI_RUN_NAME: llama3.1_8B_fft_ddp
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
-name: llama3.1_8B_full_ddp
+name: llama3.1_8B_fft_ddp
 
 resources:
   accelerators: {"A100": 4}
