@@ -50,7 +50,7 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/examples/llama3_1/sft/8b_full/accelerate .yaml \
+      --config_file configs/examples/llama3_1/sft/8b_full/accelerate.yaml \
       -m oumi.train \
       -c configs/examples/llama3_1/sft/8b_full/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
