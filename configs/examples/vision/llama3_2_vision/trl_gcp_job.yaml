@@ -1,0 +1,59 @@
+# Sample command:
+# oumi launch up --config configs/examples/vision/llama3_2_vision/trl_gcp_job.yaml --cluster my-oumi-cluster
+name: llama32v-11b-sft-trl-train
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:4"
+  # Allow Spot VM-s, which cost ~3X less.
+  use_spot: true
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+# Upload working directory to remote ~/sky_workdir.
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on your local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama32v.11b.sft.trl
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]'
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  pip install hf_transfer
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x  # Print "accelerate launch" command with expanded variables
+  accelerate launch \
+      --num_machines ${OUMI_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --num_processes ${OUMI_TOTAL_NUM_GPUS} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
+      --main_process_port 8007 \
+      --use_fsdp \
+      --config_file configs/examples/vision/llama3_2_vision/accelerate.yaml \
+      -m oumi.train \
+      -c configs/examples/vision/llama3_2_vision/sft_train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.enable_gradient_checkpointing=False" \
+      "training.output_dir='${OUMI_RUN_NAME}'"\
+      "training.logging_dir='${OUMI_RUN_NAME}/runs'"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

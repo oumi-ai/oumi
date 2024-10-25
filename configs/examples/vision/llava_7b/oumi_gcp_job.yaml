@@ -20,7 +20,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.sft.trl
+  OUMI_RUN_NAME: llava.7b.sft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
