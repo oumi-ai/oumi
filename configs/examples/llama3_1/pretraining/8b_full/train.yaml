@@ -1,0 +1,63 @@
+##############################################
+# Training Parameters : Full SFT of Llama3.1 #
+##############################################
+
+# We borrow some training parameters from:
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
+
+# However there also some key differences:
+# 1. We SFT the *base* Llama3.1 model
+# 2. We use an effective batch size of 128 utilizing gradient accumulation.
+#         128 = 2 * 16 * 4 = (per_device_batch_size) * (grad_accumulation) * (GPUS).
+# 3. We use a warmup ratio and a cosine lr scheduler and apply the chat-ml template to preprocess the alpaca dataset.
+
+# The above changes were inspired by the llama-recipes:
+# https://github.com/meta-llama/llama-recipes/tree/main/src/llama_recipes/configs
+# and, the original's authors alpaca training:
+# https://github.com/tatsu-lab/stanford_alpaca?tab=readme-ov-file#fine-tuning
+
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  chat_template: "chat_ml"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: False
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        subset: "sample-10BT"
+        split: "train"
+      # Polaris copy of the dataset:
+      # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
+      #   subset: "default"
+      #   split: "train"
+    stream: True
+    pack: True
+    target_col: "text"
+    use_async_dataset: True
+
+training:
+  trainer_type: TRL_SFT # or OUMI
+  save_steps: 500
+  # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 16
+
+  enable_gradient_checkpointing: False
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adafactor"
+  compile: True
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+  seed: 123
+  logging_steps: 10
+  log_model_summary: False
+  output_dir: "output/llama2b.pt"
+  include_performance_metrics: True
+  enable_wandb: True
