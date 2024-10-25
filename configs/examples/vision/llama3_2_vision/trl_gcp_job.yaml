@@ -40,9 +40,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  pip install '.[gpu]'
-
-  set -x  # Print "torchrun" command with expanded variables
+  set -x  # Print "accelerate launch" command with expanded variables
   accelerate launch \
       --num_machines ${OUMI_NUM_NODES} \
       --machine_rank ${SKYPILOT_NODE_RANK} \
