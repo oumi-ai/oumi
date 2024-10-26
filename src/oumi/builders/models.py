@@ -1,3 +1,4 @@
+import functools
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
@@ -289,15 +290,22 @@ def _get_transformers_model_class(config):
     return auto_model_class, model_kind
 
 
-def is_image_text_llm(model_params: ModelParams) -> bool:
-    """Determines whether the model is a basic image+text LLM."""
+@functools.cache
+def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name,
+        trust_remote_code=trust_remote_code,
         return_unused_kwargs=True,
     )
     _, model_kind = _get_transformers_model_class(hf_config)
     return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+
+
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    return _is_image_text_llm_impl(
+        model_params.model_name, model_params.trust_remote_code
+    )
 
 
 def build_cambrian_model(

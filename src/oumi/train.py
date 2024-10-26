@@ -20,6 +20,7 @@ from oumi.builders import (
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
+    is_image_text_llm,
 )
 from oumi.core.configs import (
     DatasetSplit,
@@ -237,7 +238,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
     processor: Optional[BaseProcessor] = None
-    if True:
+    if is_image_text_llm(config.model):
+        # Only create `processor`` for MLLM-s for now.
         processor = build_processor(
             config.model.model_name,
             tokenizer,
