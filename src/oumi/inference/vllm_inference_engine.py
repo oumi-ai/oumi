@@ -31,6 +31,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
         enable_prefix_caching: bool = True,
+        gpu_memory_utilization: float = 1.0,
+        enforce_eager: bool = True,
     ):
         """Initializes the inference Engine.
 
@@ -40,11 +42,22 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 If set to -1, we will use all the available GPUs.
             quantization: The quantization method to use for inference.
             enable_prefix_caching: Whether to enable prefix caching.
+            gpu_memory_utilization: The fraction of available GPU memory the model's
+                executor will use. It can range from 0 to 1. Defaults to 1.0, i.e.,
+                full (100%) memory utilization.
+            enforce_eager: Whether to enforce eager execution. Defaults to True.
+                If False, will use eager mode and CUDA graph in hybrid mode.
         """
         if not vllm:
             raise RuntimeError(
                 "vLLM is not installed. "
                 "Please install the GPU dependencies for this package."
+            )
+
+        if gpu_memory_utilization > 1.0 or gpu_memory_utilization <= 0:
+            raise ValueError(
+                "GPU memory utilization must be within (0, 1]. Got "
+                f"{gpu_memory_utilization}."
             )
 
         if tensor_parallel_size <= 0:
@@ -80,6 +93,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
+            gpu_memory_utilization=gpu_memory_utilization,
+            enforce_eager=enforce_eager,
             **vllm_kwargs,
         )
         # Ensure the tokenizer is set properly
