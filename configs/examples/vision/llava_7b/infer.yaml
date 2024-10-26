@@ -9,4 +9,4 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
-engine: "native"
+engine: NATIVE
