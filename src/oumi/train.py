@@ -239,7 +239,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     tokenizer = build_tokenizer(config.model)
     processor: Optional[BaseProcessor] = None
     if is_image_text_llm(config.model):
-        # Only create `processor`` for MLLM-s for now.
+        # Only create `processor` for MLLM-s for now.
         processor = build_processor(
             config.model.model_name,
             tokenizer,

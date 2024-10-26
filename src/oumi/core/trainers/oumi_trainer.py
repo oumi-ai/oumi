@@ -421,6 +421,10 @@ class Trainer(BaseTrainer):
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
 
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
+
     def save_state(self):
         """Saves the training state."""
         checkpoint_dir = Path(self.params.output_dir)

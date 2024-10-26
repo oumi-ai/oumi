@@ -59,6 +59,10 @@ class HuggingFaceTrainer(BaseTrainer):
             self._hf_trainer.save_model(output_dir)
             logger.info(f"Model has been saved at {output_dir}.")
 
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
+
     def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model's weights to the specified output directory.
 

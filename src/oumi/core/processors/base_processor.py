@@ -1,5 +1,6 @@
 import abc
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import PIL.Image
 import transformers
@@ -95,4 +96,9 @@ class BaseProcessor(abc.ABC):
         Returns:
             A text prompt, which includes all input messages formatted into a string.
         """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def save_config(self, output_dir: Union[Path, str]) -> None:
+        """Saves processor config to the directory."""
         raise NotImplementedError
