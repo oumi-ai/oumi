@@ -16,6 +16,7 @@ from oumi.builders import (
     build_metrics_function,
     build_model,
     build_peft_model,
+    build_processor,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -38,6 +39,7 @@ from oumi.core.distributed import (
     set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
@@ -234,6 +236,13 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
+    processor: Optional[BaseProcessor] = None
+    if True:
+        processor = build_processor(
+            config.model.model_name,
+            tokenizer,
+            trust_remote_code=config.model.trust_remote_code,
+        )
 
     # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft
@@ -265,7 +274,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type
+        config.training.trainer_type, processor
     )
 
     metrics_function = build_metrics_function(config.training)

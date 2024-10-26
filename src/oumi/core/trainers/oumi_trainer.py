@@ -35,6 +35,7 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.performance.telemetry import TelemetryTracker
@@ -57,6 +58,7 @@ class Trainer(BaseTrainer):
         self,
         model: torch.nn.Module,
         tokenizer: BaseTokenizer,
+        processor: Optional[BaseProcessor],
         args: TrainingParams,
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
@@ -71,6 +73,7 @@ class Trainer(BaseTrainer):
         self.collator_fn = data_collator
 
         self.tokenizer = tokenizer
+        self._processor = processor
         self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset

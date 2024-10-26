@@ -4,14 +4,18 @@ import transformers
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.distributed import is_world_process_zero
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
 
 class HuggingFaceTrainer(BaseTrainer):
-    def __init__(self, hf_trainer: transformers.Trainer):
+    def __init__(
+        self, hf_trainer: transformers.Trainer, processor: Optional[BaseProcessor]
+    ):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
+        self._processor = processor
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
