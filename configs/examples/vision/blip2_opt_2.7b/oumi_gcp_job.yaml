@@ -21,7 +21,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: blip2_opt_2.7b.sft
+  OUMI_RUN_NAME: blip2_opt_2.7b.sft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 

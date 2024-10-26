@@ -1,14 +1,6 @@
 # Eval config for Llama 1B Instruct.
 
 model:
-  # Vocab size: 128256
-  # Hidden size: 2048
-  # MLP intermediate size: 8192
-  # Num layers: 16
-  # Num attention heads: 32
-  # Num KV heads: 8
-  # Weight tying: True
-  # Model max length: 131072 (initially trained with 8192)
   model_name: "meta-llama/Llama-3.2-1B-Instruct"
   adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 131072

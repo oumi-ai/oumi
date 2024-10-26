@@ -1,21 +1,3 @@
-# Sample command:
-# accelerate launch \
-#   --num_machines ${OUMI_NUM_NODES} \
-#   --machine_rank ${SKYPILOT_NODE_RANK} \
-#   --num_processes $((${OUMI_NUM_NODES} * ${SKYPILOT_NUM_GPUS_PER_NODE})) \
-#   --main_process_ip ${OUMI_MASTER_ADDR} \
-#   --main_process_port 8007 \
-#   --multi-gpu \
-#   --config_file configs/examples/fineweb_ablation_pretraining/ddp/accelerate.yaml \
-#   -m oumi.train \
-#   -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-#   "training.output_dir=/tmp/train/" \
-#   "training.enable_wandb=false" \
-#   "training.enable_tensorboard=false" \
-#   "training.include_performance_metrics=true" \
-#   "training.max_steps=100" \
-#   "training.logging_steps=10"
-
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: MULTI_GPU

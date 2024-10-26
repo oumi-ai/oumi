@@ -1,5 +1,5 @@
 import argparse
-from typing import List, Optional
+from typing import Optional
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
@@ -112,11 +112,11 @@ def infer_interactive(
 
 def infer(
     config: InferenceConfig,
-    inputs: Optional[List[str]] = None,
+    inputs: Optional[list[str]] = None,
     inference_engine: Optional[BaseInferenceEngine] = None,
     *,
     input_image_bytes: Optional[bytes] = None,
-) -> List[Conversation]:
+) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:

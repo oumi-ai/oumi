@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Union
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ class ArgillaMagpieUltraDataset(BaseSftDataset):
 
     default_dataset = "argilla/magpie-ultra-v0.1"
 
-    def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
         instruction = example.get("instruction", "")
         response = example.get("response", "")
@@ -33,7 +33,7 @@ class MagpieProDataset(BaseSftDataset):
 
     default_dataset = "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"
 
-    def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
         conversation = example.get("conversations")
 

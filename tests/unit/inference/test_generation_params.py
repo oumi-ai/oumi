@@ -1,7 +1,6 @@
 import contextlib
 import inspect
 from importlib.util import find_spec
-from typing import Set
 from unittest import mock
 from unittest.mock import patch
 
@@ -109,9 +108,12 @@ def test_generation_params_used_in_inference(
 
     mock_ctx = _mock_engine(engine_class)
 
-    with patch.object(
-        engine_class, "_infer", return_value=[sample_conversation]
-    ) as mock_infer, mock_ctx:
+    with (
+        patch.object(
+            engine_class, "_infer", return_value=[sample_conversation]
+        ) as mock_infer,
+        mock_ctx,
+    ):
         engine = engine_class(model_params)
 
         generation_params = GenerationParams(
@@ -161,9 +163,12 @@ def test_generation_params_defaults_used_in_inference(
 
     mock_ctx = _mock_engine(engine_class)
 
-    with patch.object(
-        engine_class, "_infer", return_value=[sample_conversation]
-    ) as mock_infer, mock_ctx:
+    with (
+        patch.object(
+            engine_class, "_infer", return_value=[sample_conversation]
+        ) as mock_infer,
+        mock_ctx,
+    ):
         engine = engine_class(model_params)
 
         generation_params = GenerationParams(
@@ -228,8 +233,9 @@ def test_unsupported_params_warning(
 ):
     mock_ctx = _mock_engine(engine_class)
 
-    with mock_ctx, patch.object(
-        engine_class, "_infer", return_value=[sample_conversation]
+    with (
+        mock_ctx,
+        patch.object(engine_class, "_infer", return_value=[sample_conversation]),
     ):
         engine = engine_class(model_params)
 
@@ -272,8 +278,9 @@ def test_no_warning_for_default_values(
 ):
     mock_ctx = _mock_engine(engine_class)
 
-    with mock_ctx, patch.object(
-        engine_class, "_infer", return_value=[sample_conversation]
+    with (
+        mock_ctx,
+        patch.object(engine_class, "_infer", return_value=[sample_conversation]),
     ):
         engine = engine_class(model_params)
 
@@ -309,10 +316,10 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
     class AccessTrackingGenerationParams(GenerationParams):
         """A version of GenerationParams that tracks which parameters are accessed."""
 
-        _accessed_params: Set[str]
+        _accessed_params: set[str]
 
         def __init__(self, **kwargs):
-            self._accessed_params: Set[str] = set()
+            self._accessed_params: set[str] = set()
             super().__init__(**kwargs)
 
         def __getattribute__(self, name):

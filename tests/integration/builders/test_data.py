@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Union
 
 import datasets
 import pytest
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.parametrize("stream", [True, False])
 
 
 def _get_default_config(
-    datasets: List[DatasetParams],
+    datasets: list[DatasetParams],
     stream: bool,
     split: DatasetSplit,
     pack: bool = False,

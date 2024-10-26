@@ -3,14 +3,6 @@
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
 
 model:
-  # Vocab size: 128256
-  # Hidden size: 8192
-  # MLP intermediate size: 28672
-  # Num layers: 80
-  # Num attention heads: 64
-  # Num KV heads: 8
-  # Weight tying: False
-  # Model max length: 131072 (initially trained with 8192)
   model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"

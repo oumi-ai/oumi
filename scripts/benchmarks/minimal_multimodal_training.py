@@ -18,7 +18,7 @@ Working configs:
 
 from enum import Enum
 from pprint import pformat
-from typing import Dict, List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import torch
 import typer
@@ -54,29 +54,29 @@ from oumi.utils.torch_utils import (
 class ModelName(str, Enum):
     LLAVA = "llava-hf/llava-1.5-7b-hf"
     BLIP2 = "Salesforce/blip2-opt-2.7b"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
+    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    QWEN2 = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
-    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
 
 
 class ModelInfo(NamedTuple):
     chat_template: str
-    freeze_layers: List[str]
+    freeze_layers: list[str]
 
 
 _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
-_MODELS_MAP: Dict[ModelName, ModelInfo] = {
+_MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
     ),
     ModelName.LLAVA: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
     ),
-    ModelName.QWEN: ModelInfo(
+    ModelName.QWEN2: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
     ),
     ModelName.CHAMELEON: ModelInfo(
@@ -102,7 +102,7 @@ _MODELS_MAP: Dict[ModelName, ModelInfo] = {
 }
 
 
-def _get_freeze_layers(model_name: ModelName) -> List[str]:
+def _get_freeze_layers(model_name: ModelName) -> list[str]:
     result = []
     if model_name in _MODELS_MAP:
         result = _MODELS_MAP[model_name].freeze_layers
@@ -165,7 +165,7 @@ def test_multimodal_trainer(
     #
     model_params = ModelParams(
         model_name=model_name.value,
-        torch_dtype_str="float16",
+        torch_dtype_str="bfloat16",
         trust_remote_code=True,
         chat_template=_get_chat_template(model_name),
         freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp

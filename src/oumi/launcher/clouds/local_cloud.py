@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -54,7 +54,7 @@ class LocalCloud(BaseCloud):
                 return cluster
         return None
 
-    def list_clusters(self) -> List[BaseCluster]:
+    def list_clusters(self) -> list[BaseCluster]:
         """Lists the active clusters on this cloud."""
         return list(self._clusters.values())
 

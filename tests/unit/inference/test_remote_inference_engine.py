@@ -1,7 +1,6 @@
 import tempfile
 import time
 from pathlib import Path
-from typing import List
 
 import jsonlines
 import pytest
@@ -44,7 +43,7 @@ def _get_default_inference_config() -> InferenceConfig:
     )
 
 
-def _setup_input_conversations(filepath: str, conversations: List[Conversation]):
+def _setup_input_conversations(filepath: str, conversations: list[Conversation]):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     Path(filepath).touch()
     with jsonlines.open(filepath, mode="w") as writer:

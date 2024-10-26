@@ -27,8 +27,8 @@ containing two columns: source path and destination path.
 
 import csv
 import shutil
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import typer
 
@@ -38,7 +38,7 @@ app = typer.Typer()
 OUMI_ROOT: Path = Path(__file__).parent.parent
 
 
-def read_doc_links(doc_links_config: Path) -> Iterable[Tuple[str, str]]:
+def read_doc_links(doc_links_config: Path) -> Iterable[tuple[str, str]]:
     """Read the doc links config and yield source and destination paths.
 
     The doc links file should be a CSV file with '|' as the delimiter.
