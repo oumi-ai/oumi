@@ -15,16 +15,17 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -53,7 +54,7 @@ dependencies = [
     "transformers>=4.45.2,<4.46",
     "trl>=0.9.0",
     "typer",                      # Used by CLI
-    "typing_extensions",          # Backports of typing updates to python 3.8
+    "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb",                      # Optional, for logging to Weights and Biases
 ]
 
@@ -84,7 +85,7 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
-gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
+gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]
@@ -101,7 +102,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 # CI targets
-ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs,optional]"]
 ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
 # Optional dependencies
@@ -167,6 +168,8 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "D",      # Ignore docstring checks in Cambrian
     "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
     "W291",   # Ignore pycodestyle: warnings: Trailing whitespace
+    "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
+    "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -179,7 +182,7 @@ known-first-party = ["oumi"]
 include = ["src/oumi/**", "tests/**"]
 exclude = ["src/oumi/models/experimental/cambrian/**"]
 typeCheckingMode = "basic"
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 pythonPlatform = "All"                                 # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"

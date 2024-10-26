@@ -7,6 +7,7 @@ from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
+from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
@@ -52,6 +53,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else:
                 tensor_parallel_size = 1
 
+        vllm_kwargs = {}
         self._lora_request = None
         if model_params.adapter_model:
             # ID should be unique for this adapter, but isn't enforced by vLLM.
@@ -61,6 +63,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 lora_path=model_params.adapter_model,
             )
             logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
+            lora_rank = get_lora_rank(model_params.adapter_model)
+            vllm_kwargs["max_lora_rank"] = lora_rank
+            logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
@@ -75,6 +80,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
+            **vllm_kwargs,
         )
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
@@ -125,18 +131,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
         )
-
-        if generation_params.logit_bias:
-            logger.warning(
-                "VLLMInferenceEngine does not support logit_bias."
-                " This parameter will be ignored."
-            )
-
-        if generation_params.batch_size > 1:
-            logger.info(
-                "VLLMInferenceEngine performs continuous batching under the hood. "
-                "This parameter for static batching will be ignored."
-            )
 
         vllm_conversations = []
         non_skipped_conversations = []
@@ -220,3 +214,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "stop_strings",
+            "temperature",
+            "top_p",
+            "stop_token_ids",
+        }

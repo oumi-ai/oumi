@@ -133,9 +133,9 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "HuggingFaceH4/llava-instruct-mix-vsft"
+                "merve/vqav2-small"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python Debugger: Current File",

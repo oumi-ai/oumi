@@ -1,11 +1,10 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
 _ROLE_KEY: str = "role"
@@ -42,7 +41,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Gets the request headers for GCP."""
         if not remote_params:
             raise ValueError("Remote params are required for GCP inference.")
@@ -55,7 +54,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
         Documentation: https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/call-vertex-using-openai-library
@@ -82,33 +81,21 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
-            "min_p": generation_params.min_p,
         }
-
-        # Log warning for unsupported parameter
-        if generation_params.min_p > 0.0:
-            logger.warning(
-                "GCPInferenceEngine does not support min_p. "
-                f"Received value: min_p={generation_params.min_p}. "
-                "This parameter will be ignored."
-            )
-
-        if generation_params.frequency_penalty:
-            logger.warning(
-                "GCPInferenceEngine does not support frequency_penalty. "
-                f"Received value: "
-                f"frequency_penalty={generation_params.frequency_penalty}. "
-                "This parameter will be ignored."
-            )
-
-        if generation_params.presence_penalty:
-            logger.warning(
-                "GCPInferenceEngine does not support frequency_penalty. "
-                "Received value: "
-                f"presence_penalty={generation_params.presence_penalty}. "
-            )
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
         return api_input
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "logit_bias",
+            "max_new_tokens",
+            "remote_params",
+            "seed",
+            "stop_strings",
+            "temperature",
+            "top_p",
+        }

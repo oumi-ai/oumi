@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from pprint import pformat
-from typing import NamedTuple, Optional, Sequence
+from typing import NamedTuple, Optional
 
 from oumi.utils.logging import logger
 

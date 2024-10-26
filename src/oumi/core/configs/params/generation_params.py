@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -54,17 +54,17 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop_strings: Optional[List[str]] = None
+    stop_strings: Optional[list[str]] = None
     """List of sequences where the API will stop generating further tokens."""
 
-    stop_token_ids: Optional[List[int]] = None
+    stop_token_ids: Optional[list[int]] = None
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
 
-    logit_bias: Dict[Any, float] = field(default_factory=dict)
+    logit_bias: dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
     Keys are tokens (specified by their token ID in the tokenizer),

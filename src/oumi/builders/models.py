@@ -63,7 +63,7 @@ def build_model(
         )
 
     if model_params.enable_liger_kernel:
-        _patch_model_for_liger_kernel(model_params.model_name)
+        _patch_model_for_liger_kernel(model)
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
@@ -83,25 +83,30 @@ def build_model(
     return model
 
 
-def _patch_model_for_liger_kernel(model_name: str) -> None:
-    """Patches the model for Liger Kernel."""
+def _get_model_type(model: nn.Module) -> Optional[str]:
+    return getattr(model, "config", None) and getattr(model.config, "model_type", None)
+
+
+def _patch_model_for_liger_kernel(model: nn.Module) -> None:
+    """Patches the model for Liger Kernel.
+
+    The list of support models can be found here:
+    https://github.com/linkedin/Liger-Kernel/blob/99599091373f178e8ad6a69ecb1b32351d1d5c1f/src/liger_kernel/transformers/monkey_patch.py#L700
+
+    If the model is not supported, liger kernel patching will not be applied,
+    and a warning will be logged.
+    """
     if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
 
-    model_name_lower = model_name.lower()
+    model_type = _get_model_type(model)
 
-    if "llama" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_llama()
-    elif "mixtral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
-    elif "mistral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mistral()
-    elif "gemma" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_gemma()
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
+    if model_type is None:
+        raise ValueError(f"Could not find model type for: {model}")
+
+    liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
 def build_oumi_model(

@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import List
 from unittest.mock import ANY, Mock, patch
 
 import jsonlines
@@ -18,7 +17,7 @@ try:
         RequestOutput,
     )
 
-    def _create_vllm_output(responses: List[str], output_id: str) -> RequestOutput:
+    def _create_vllm_output(responses: list[str], output_id: str) -> RequestOutput:
         outputs = []
         for ind, response in enumerate(responses):
             outputs.append(
@@ -70,7 +69,7 @@ def _get_default_inference_config() -> InferenceConfig:
     return InferenceConfig(generation=GenerationParams(max_new_tokens=5))
 
 
-def _setup_input_conversations(filepath: str, conversations: List[Conversation]):
+def _setup_input_conversations(filepath: str, conversations: list[Conversation]):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     Path(filepath).touch()
     with jsonlines.open(filepath, mode="w") as writer:
@@ -141,7 +140,8 @@ def test_infer_online_lora(mock_vllm, mock_lora_request):
     )
     mock_lora_request.return_value = lora_request
 
-    engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
+    with patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32):
+        engine = VLLMInferenceEngine(_get_default_model_params(use_lora=True))
     conversation = Conversation(
         messages=[
             Message(

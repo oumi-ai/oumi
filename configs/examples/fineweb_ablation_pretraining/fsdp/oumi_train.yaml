@@ -1,17 +1,10 @@
 # Oumi FSDP pretraining (PT) config for Llama 2B.
 # This uses the Oumi trainer instead of HF Accelerate.
-# Compared to llama2b.pt.fsdp.trl.yaml, the main difference is this has FSDPParams,
+# Compared to trl_train.yaml, the main difference is this has FSDPParams,
 # and gradient checkpointing is enabled within this config as opposed to the
 # Accelerate config.
 
 model:
-  # Vocab size: 50272
-  # Hidden size: 2048
-  # MLP intermediate size: 8192
-  # Num layers: 24
-  # Num attention heads: 32
-  # Num KV heads: 32
-  # Weight tying: True
   model_name: "HuggingFaceFW/ablation-model-fineweb-v1"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"

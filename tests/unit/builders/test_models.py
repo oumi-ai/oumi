@@ -1,51 +1,76 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
+from torch import nn
 
 from oumi.builders.models import (
+    _get_model_type,
     _patch_model_for_liger_kernel,
     build_chat_template,
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
-from tests.markers import requires_gpus
 
 
 @pytest.fixture
 def mock_liger_kernel():
-    with patch("oumi.builders.models.liger_kernel.transformers") as mock:
+    with patch("oumi.builders.models.liger_kernel") as mock:
         yield mock
 
 
+def create_mock_model(model_type):
+    model = Mock(spec=nn.Module)
+    model.config = Mock()
+    model.config.model_type = model_type
+    return model
+
+
 @pytest.mark.parametrize(
-    "model_name, expected_function",
+    "model_type",
     [
-        ("meta-llama/Llama-2-7b-hf", "apply_liger_kernel_to_llama"),
-        ("meta-llama/Meta-Llama-3.1-70B", "apply_liger_kernel_to_llama"),
-        ("mistralai/Mistral-7B-v0.1", "apply_liger_kernel_to_mistral"),
-        ("google/gemma-7b", "apply_liger_kernel_to_gemma"),
-        ("mistralai/Mixtral-8x7B-v0.1", "apply_liger_kernel_to_mixtral"),
+        "llama",
+        "mixtral",
+        "mistral",
+        "gemma",
     ],
 )
-@requires_gpus()
-def test_patch_model_for_liger_kernel(mock_liger_kernel, model_name, expected_function):
-    model_params = ModelParams(model_name=model_name)
-    _patch_model_for_liger_kernel(model_params.model_name)
-    getattr(mock_liger_kernel, expected_function).assert_called_once()
+def test_patch_model_for_liger_kernel(mock_liger_kernel, model_type):
+    model = create_mock_model(model_type)
+
+    _patch_model_for_liger_kernel(model)
+
+    mock_liger_kernel.transformers._apply_liger_kernel.assert_called_once_with(
+        model_type
+    )
 
 
-@requires_gpus()
-def test_patch_model_for_liger_kernel_unsupported():
-    model_params = ModelParams(model_name="gpt2")
-    with pytest.raises(ValueError, match="Unsupported model: gpt2"):
-        _patch_model_for_liger_kernel(model_params.model_name)
+def test_patch_model_for_liger_kernel_no_config(mock_liger_kernel):
+    model = Mock(spec=nn.Module)
+    with pytest.raises(ValueError, match=f"Could not find model type for: {model}"):
+        _patch_model_for_liger_kernel(model)
 
 
 def test_patch_model_for_liger_kernel_import_error():
     with patch("oumi.builders.models.liger_kernel", None):
-        model_params = ModelParams(model_name="llama-7b")
+        model = create_mock_model("llama")
         with pytest.raises(ImportError, match="Liger Kernel not installed"):
-            _patch_model_for_liger_kernel(model_params.model_name)
+            _patch_model_for_liger_kernel(model)
+
+
+def test_get_model_type():
+    # Test with valid model
+    model = create_mock_model("llama")
+    assert _get_model_type(model) == "llama"
+
+    # Test with no config
+    model = Mock(spec=nn.Module)
+    assert _get_model_type(model) is None
+
+    # Test with config but no model_type
+    model = Mock(spec=nn.Module)
+    model.config = Mock()
+    model.config.model_type = None
+    assert _get_model_type(model) is None
 
 
 @pytest.mark.parametrize(
@@ -84,9 +109,10 @@ def test_build_chat_template_removes_indentation_and_newlines():
         "Assistant: {{ message['content'] }}{% endif %}{{ eos_token }}{% endfor %}"
     )
 
-    with patch("oumi.builders.models.get_oumi_root_directory"), patch(
-        "oumi.builders.models.load_file"
-    ) as mock_load_file:
+    with (
+        patch("oumi.builders.models.get_oumi_root_directory"),
+        patch("oumi.builders.models.load_file") as mock_load_file,
+    ):
         mock_load_file.return_value = template_content
 
         result = build_chat_template("test_template")

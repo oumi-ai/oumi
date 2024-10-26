@@ -1,8 +1,4 @@
-# Accelerate FSDP config for Llama 70B Lora/QLora.
-# Intended node: 4xA100-40GB GPUs
-# Referencing this config:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
-# The differences compared to llama70b.fsdp.yaml is:
+# The differences compared to configs/recipes/llama3_1/sft/70b_full/accelerate.yaml is:
 # - `fsdp_offload_params: false`
 # - `fsdp_state_dict_type: FULL_STATE_DICT`
 compute_environment: LOCAL_MACHINE

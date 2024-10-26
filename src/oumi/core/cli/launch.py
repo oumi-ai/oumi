@@ -3,10 +3,9 @@ import sys
 import time
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Annotated, Callable, Optional
 
 import typer
-from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
 from oumi import launcher

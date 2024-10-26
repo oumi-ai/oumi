@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional
+from typing import Optional
 
 import peft
 import PIL.Image
@@ -47,8 +47,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
     def _make_batches(
-        self, input: List[Conversation], batch_size: int
-    ) -> List[List[Conversation]]:
+        self, input: list[Conversation], batch_size: int
+    ) -> list[list[Conversation]]:
         """Splits the input into batches of the specified size.
 
         Args:
@@ -118,17 +118,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         )
 
     def _generate_batch_encoding_with_tokenizer(
-        self, text_prompts: List[str]
+        self, text_prompts: list[str]
     ) -> BatchEncoding:
         return self._tokenizer(text_prompts, return_tensors="pt", padding=True)
 
     def _generate_batch_encoding_with_processor(
-        self, text_prompts: List[str], conversations: List[Conversation]
+        self, text_prompts: list[str], conversations: list[Conversation]
     ) -> BatchEncoding:
         assert len(text_prompts) == len(conversations)
         assert self._processor is not None
 
-        pil_images: List[PIL.Image.Image] = []
+        pil_images: list[PIL.Image.Image] = []
         for i, conversation in enumerate(conversations):
             image_turns = [m for m in conversation.messages if m.is_image()]
             num_images = len(image_turns)
@@ -175,9 +175,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def _infer(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
         Args:
@@ -195,15 +195,15 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 "Inference does not work yet for pretrained PEFT models."
             )
         model_device = next(self._model.parameters()).device
-        batched_input: List[List[Conversation]] = self._make_batches(
+        batched_input: list[list[Conversation]] = self._make_batches(
             input, generation_params.batch_size
         )
         num_batches: int = len(batched_input)
-        input_batches: List[BatchEncoding] = [BatchEncoding()] * num_batches
+        input_batches: list[BatchEncoding] = [BatchEncoding()] * num_batches
 
         for batch_index in range(num_batches):
             batch = batched_input[batch_index]
-            text_prompts: List[str] = [
+            text_prompts: list[str] = [
                 self._apply_chat_template_impl(conversation) for conversation in batch
             ]
             if self._processor is None:
@@ -285,8 +285,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         return output_conversations
 
     def infer_online(
-        self, input: List[Conversation], inference_config: InferenceConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -300,7 +300,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence
@@ -315,3 +315,19 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "batch_size",
+            "exclude_prompt_from_response",
+            "frequency_penalty",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "stop_token_ids",
+            "temperature",
+            "top_p",
+        }
