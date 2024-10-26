@@ -260,6 +260,7 @@ def _get_transformers_model_class(config):
         tested_models = {
             "blip-2",
             "llava",
+            "mllama",
         }  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
