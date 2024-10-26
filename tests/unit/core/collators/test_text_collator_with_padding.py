@@ -16,9 +16,10 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 def create_test_tokenizer() -> Tuple[BaseTokenizer, int]:
     tokenizer = build_tokenizer(
         ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             torch_dtype_str="float16",
             trust_remote_code=False,
+            tokenizer_name="gpt2",
             tokenizer_pad_token="<|endoftext|>",
         )
     )

@@ -56,9 +56,10 @@ def _create_training_config() -> TrainingConfig:
             ),
         ),
         model=ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             model_max_length=1024,
             trust_remote_code=True,
+            tokenizer_name="gpt2",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.TRL_SFT,

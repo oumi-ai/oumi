@@ -23,8 +23,9 @@ runner = CliRunner()
 def _create_inference_config() -> InferenceConfig:
     return InferenceConfig(
         model=ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             trust_remote_code=True,
+            tokenizer_name="gpt2",
         ),
         generation=GenerationParams(
             max_new_tokens=5,

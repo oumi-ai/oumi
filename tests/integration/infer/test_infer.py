@@ -21,10 +21,11 @@ TEST_IMAGE_DIR: Final[Path] = (
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             trust_remote_code=True,
             chat_template="gpt2",
             tokenizer_pad_token="<|endoftext|>",
+            tokenizer_name="gpt2",
         ),
         generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
     )
@@ -77,10 +78,11 @@ def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
 def test_infer_basic_non_interactive(num_batches, batch_size):
     model_params = ModelParams(
-        model_name="openai-community/gpt2",
+        model_name="MlpEncoder",
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+        tokenizer_name="gpt2",
     )
     generation_params = GenerationParams(
         max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size

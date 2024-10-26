@@ -47,7 +47,12 @@ def sample_conversation():
 
 @pytest.fixture
 def model_params():
-    return ModelParams(model_name="gpt2", tokenizer_pad_token="<|endoftext|>")
+    return ModelParams(
+        model_name="MlpEncoder",
+        tokenizer_pad_token="<|endoftext|>",
+        tokenizer_name="gpt2",
+        load_pretrained_weights=False,
+    )
 
 
 @pytest.fixture

@@ -101,7 +101,7 @@ def base_config():
                 datasets=[DatasetParams(dataset_name="dummy", split="train")]
             )
         ),
-        model=ModelParams(model_name="gpt2", tokenizer_name="gpt2"),
+        model=ModelParams(model_name="MlpEncoder", tokenizer_name="gpt2"),
     )
 
 

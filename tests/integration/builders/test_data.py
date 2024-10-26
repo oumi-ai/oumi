@@ -44,9 +44,10 @@ def _get_default_config(
     base_config = TrainingConfig(
         data=DataParams(),
         model=ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             model_max_length=model_max_length,
             tokenizer_pad_token="<|endoftext|>",
+            tokenizer_name="gpt2",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.HF,

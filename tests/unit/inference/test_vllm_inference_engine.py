@@ -59,10 +59,11 @@ def mock_lora_request():
 
 def _get_default_model_params(use_lora: bool = False) -> ModelParams:
     return ModelParams(
-        model_name="openai-community/gpt2",
+        model_name="MlpEncoder",
         adapter_model="/path/to/adapter" if use_lora else None,
         trust_remote_code=True,
         tokenizer_pad_token="<pad>",
+        tokenizer_name="gpt2",
     )
 
 

@@ -37,10 +37,8 @@ def test_build_processor_empty_name(trust_remote_code, mock_tokenizer):
 def test_build_processor_basic_gpt2_success(mock_tokenizer):
     test_chat_template: Final[str] = build_chat_template(template_name="default")
 
-    model_params = ModelParams(model_name="openai-community/gpt2")
-    processor = build_processor(
-        model_params.model_name, mock_tokenizer, trust_remote_code=False
-    )
+    processor_name = "gpt2"
+    processor = build_processor(processor_name, mock_tokenizer, trust_remote_code=False)
     assert callable(processor)
 
     assert id(mock_tokenizer) == id(processor.tokenizer)

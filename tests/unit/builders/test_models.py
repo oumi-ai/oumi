@@ -123,7 +123,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
 @pytest.mark.parametrize(
     "model_name, expected_result",
     [
-        ("openai-community/gpt2", False),
+        ("gpt2", False),
         ("llava-hf/llava-1.5-7b-hf", True),
         ("Salesforce/blip2-opt-2.7b", True),
     ],
