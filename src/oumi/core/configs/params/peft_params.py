@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -38,7 +38,7 @@ class PeftParams(BaseParams):
     This helps prevent overfitting in the adaptation layers.
     """
 
-    lora_target_modules: Optional[List[str]] = field(
+    lora_target_modules: Optional[list[str]] = field(
         default=None,
         metadata={"help": "LoRA target modules."},
     )
@@ -48,7 +48,7 @@ class PeftParams(BaseParams):
     Specify module names to selectively apply LoRA to certain parts of the model.
     """
 
-    lora_modules_to_save: Optional[List[str]] = field(
+    lora_modules_to_save: Optional[list[str]] = field(
         default=None,
         metadata={"help": "Model layers to unfreeze and train."},
     )

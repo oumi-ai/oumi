@@ -113,7 +113,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
-        -c configs/oumi/llama2b.pt.yaml \
+        -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
@@ -130,7 +130,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         --master-addr=${OUMI_MASTER_ADDR} \
         --master-port=8007 \
         -m oumi.train \
-        -c configs/oumi/llama2b.pt.yaml \
+        -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
@@ -146,9 +146,9 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
         --main_process_ip ${OUMI_MASTER_ADDR} \
         --main_process_port 8007 \
         --use_deepspeed \
-        --config_file configs/accelerate/llama.deepspeed.yaml \
+        --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
         -m oumi.train \
-        -c configs/oumi/llama2b.pt.yaml \
+        -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
@@ -165,9 +165,9 @@ else       # FSDP
         --main_process_ip ${OUMI_MASTER_ADDR} \
         --main_process_port 8007 \
         --use_fsdp \
-        --config_file configs/accelerate/llama.fsdp.mixedprec.yaml \
+        --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
         -m oumi.train \
-        -c configs/oumi/llama2b.pt.fsdp.trl.yaml \
+        -c configs/examples/fineweb_ablation_pretraining/fsdp/trl_train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
         "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'"

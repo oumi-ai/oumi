@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -7,7 +7,6 @@ from oumi.core.configs.params.remote_params import RemoteParams
 
 @dataclass
 class GenerationParams(BaseParams):
-    # TODO: OPE-328 - Add more parameters to control text generation.
     max_new_tokens: int = 256
     """The maximum number of new tokens to generate.
 
@@ -24,12 +23,6 @@ class GenerationParams(BaseParams):
 
     exclude_prompt_from_response: bool = True
     """Whether to trim the model's response and remove the prepended prompt."""
-
-    input_filepath: Optional[str] = None
-    """Path to the input file containing prompts for text generation."""
-
-    output_filepath: Optional[str] = None
-    """Path where the generated text will be saved."""
 
     seed: Optional[int] = None
     """Seed to use for random number determinism.
@@ -61,17 +54,17 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop_strings: Optional[List[str]] = None
+    stop_strings: Optional[list[str]] = None
     """List of sequences where the API will stop generating further tokens."""
 
-    stop_token_ids: Optional[List[int]] = None
+    stop_token_ids: Optional[list[int]] = None
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
 
-    logit_bias: Dict[Any, float] = field(default_factory=dict)
+    logit_bias: dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
     Keys are tokens (specified by their token ID in the tokenizer),

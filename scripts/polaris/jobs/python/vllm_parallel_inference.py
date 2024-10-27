@@ -74,19 +74,19 @@ def main():
     SPAWN_RATE = int(os.environ["OUMI_VLLM_WORKERS_SPAWNED_PER_SECOND"])
     print(f"Num workers: {NUM_WORKERS}")
     JOB_NUMBER = os.environ["JOB_NUMBER"]
-    INPUT_FILEPATH = os.environ["OUMI_VLLM_INPUT_FILEPATH"]
-    OUTPUT_DIR = os.environ["OUMI_VLLM_OUTPUT_DIR"]
-    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+    INPUT_FILEPATH = Path(os.environ["OUMI_VLLM_INPUT_FILEPATH"])
+    OUTPUT_DIR = Path(os.environ["OUMI_VLLM_OUTPUT_DIR"])
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     TIMESTR = time.strftime("%Y%m%d_%H%M%S")
     OUTPUT_FILENAME = f"{JOB_NUMBER}_vllm_output_{TIMESTR}_{MODEL_NAME}.jsonl"
     METRIC_FILENAME = f"{JOB_NUMBER}_vllm_metrics_{TIMESTR}_{MODEL_NAME}.jsonl"
-    OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
-    METRIC_FILEPATH = os.path.join(OUTPUT_DIR, METRIC_FILENAME)
+    OUTPUT_FILEPATH = OUTPUT_DIR / OUTPUT_FILENAME
+    METRIC_FILEPATH = OUTPUT_DIR / METRIC_FILENAME
     REQUEST_RETRIES = 3
     print(f"Input file is {INPUT_FILEPATH}")
     print(f"Files will be output to {OUTPUT_DIR}")
 
-    if not os.path.isfile(INPUT_FILEPATH):
+    if not INPUT_FILEPATH.is_file():
         raise FileNotFoundError(f"Input file not found: {INPUT_FILEPATH}")
     json_objects = pd.read_json(INPUT_FILEPATH, lines=True)
     ALL_MESSAGES = json_objects["messages"].to_list()

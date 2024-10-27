@@ -1,6 +1,7 @@
 import argparse
 import gc
 import time
+from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Optional, Union
@@ -43,6 +44,7 @@ from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
 from oumi.utils.distributed_utils import is_using_accelerate_fsdp
+from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
@@ -52,8 +54,10 @@ from oumi.utils.torch_utils import (
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
+    log_peak_gpu_memory,
     log_versioning_info,
 )
+from oumi.utils.version_utils import is_dev_build
 
 _START_TIME = -1.0
 
@@ -166,6 +170,11 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
+        oumi_version = version("oumi")
+        logger.info(f"Oumi version: {oumi_version}")
+        if is_dev_build():
+            logger.info(f"Git revision hash: {get_git_revision_hash()}")
+            logger.info(f"Git tag: {get_git_tag()}")
 
 
 def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
@@ -330,6 +339,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Training is Complete.")
 
     log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
+    log_peak_gpu_memory()
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:

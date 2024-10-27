@@ -1,6 +1,6 @@
 import copy
-from pathlib import Path
-from typing import Callable, List, Optional, Sequence, TypeVar, Union, cast
+from collections.abc import Sequence
+from typing import Callable, Optional, TypeVar, Union, cast
 
 import datasets
 from trl.trainer import ConstantLengthDataset
@@ -18,32 +18,10 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.datasets.preference_tuning import trl_dpo_chat_preprocessor_fn
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
-
-
-def build_prompt_generation_fn(
-    function_name: str, tokenizer: BaseTokenizer
-) -> Callable:
-    """Builds a prompt generation function.
-
-    Args:
-        function_name (str): The name of the prompt generation function.
-        tokenizer: The tokenizer object used for tokenization.
-
-    Returns:
-        The prompt generation function corresponding to the given function_name.
-
-    Raises:
-        ValueError: If the function_name is unknown.
-    """
-    if function_name == "trl_dpo":
-        return trl_dpo_chat_preprocessor_fn(tokenizer)
-
-    raise ValueError(f"Unknown prompt generation function: {function_name}")
 
 
 def build_dataset_mixture(
@@ -80,18 +58,14 @@ def build_dataset_mixture(
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     datasets = [
-        _preprocess_dataset(
-            _sample_dataset(
-                _load_dataset(
-                    dataset_params=dataset_params,
-                    stream=dataset_split_params.stream,
-                    tokenizer=tokenizer,
-                ),
+        _sample_dataset(
+            _load_dataset(
                 dataset_params=dataset_params,
                 stream=dataset_split_params.stream,
+                tokenizer=tokenizer,
             ),
-            dataset_params,
-            tokenizer,
+            dataset_params=dataset_params,
+            stream=dataset_split_params.stream,
         )
         for dataset_params in dataset_split_params.datasets
     ]
@@ -196,7 +170,7 @@ def build_dataset(
 
 
 def _mix_datasets(
-    dataset_list: List[DatasetType],
+    dataset_list: list[DatasetType],
     mixture_proportions: Sequence[Optional[float]],
     mixture_strategy: str,
     seed: Optional[int],
@@ -207,7 +181,7 @@ def _mix_datasets(
         return datasets.concatenate_datasets(dataset_list)
     else:
         # All mixture_proportions are not None.
-        mixture_proportions = cast(List[float], mixture_proportions)
+        mixture_proportions = cast(list[float], mixture_proportions)
         # Interleave datasets using the specified proportions and mixture strategy.
         return datasets.interleave_datasets(
             dataset_list,
@@ -276,25 +250,7 @@ def _preprocess_dataset(
     tokenizer: Optional[BaseTokenizer],
 ) -> DatasetType:
     """Applies preprocessing to a dataset given an optional preprocessing function."""
-    if (
-        dataset_params.preprocessing_function_name is None
-        or REGISTRY.get_dataset(
-            dataset_params.dataset_name, subset=dataset_params.subset
-        )
-        is not None
-    ):
-        # Custom datasets handle pre-processing internally.
-        return dataset
-
-    if tokenizer is None:
-        raise ValueError(
-            "Tokenizer is required for preprocessing but was not provided."
-        )
-
-    preprocessing_fn = build_prompt_generation_fn(
-        dataset_params.preprocessing_function_name, tokenizer
-    )
-    return dataset.map(preprocessing_fn, **dataset_params.preprocessing_function_kwargs)
+    return dataset
 
 
 def _build_iterable_dataset_sampler(
@@ -341,9 +297,9 @@ def _load_dataset(
             )
             return dataset.to_hf()
 
-    dataset_name_or_path: Path = Path(dataset_params.dataset_name)
-    if is_cached_to_disk_hf_dataset(dataset_name_or_path):
-        return datasets.Dataset.load_from_disk(dataset_name_or_path)
+    dataset_path = dataset_params.dataset_path
+    if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
+        return datasets.Dataset.load_from_disk(dataset_path)
     else:
         return datasets.load_dataset(
             dataset_params.dataset_name,

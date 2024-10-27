@@ -1,15 +1,20 @@
 import asyncio
 import base64
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from oumi.core.async_utils import safe_asyncio_run
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -32,7 +37,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         self._model = model_params.model_name
 
-    def _get_content_for_message(self, message: Message) -> Dict[str, Any]:
+    def _get_content_for_message(self, message: Message) -> dict[str, Any]:
         """Returns the content for a message.
 
         Args:
@@ -41,7 +46,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: The content for the message.
         """
-        content: Dict[str, Any] = {
+        content: dict[str, Any] = {
             _TYPE_KEY: message.type.value,
         }
         b64_image = None if message.binary is None else base64.b64encode(message.binary)
@@ -69,7 +74,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
         Documentation: https://platform.openai.com/docs/api-reference/chat/create
@@ -98,16 +103,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
-            "min_p": generation_params.min_p,
         }
-
-        # Log warning for unsupported parameter
-        if generation_params.min_p > 0.0:
-            logger.warning(
-                "RemoteInferenceEngine does not support min_p. "
-                f"Received value: min_p={generation_params.min_p}. "
-                "This parameter will be ignored."
-            )
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
@@ -115,7 +111,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return api_input
 
     def _convert_api_output_to_conversation(
-        self, response: Dict[str, Any], original_conversation: Conversation
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an API response to a conversation.
 
@@ -154,7 +150,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         headers = {}
 
         if not remote_params:
@@ -167,7 +163,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _query_api(
         self,
         conversation: Conversation,
-        generation_params: GenerationParams,
+        inference_config: InferenceConfig,
         remote_params: RemoteParams,
         semaphore: asyncio.Semaphore,
         session: aiohttp.ClientSession,
@@ -176,7 +172,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             conversation: The conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
             remote_params: Parameters for running inference against a remote API.
             semaphore: Semaphore to limit concurrent requests.
             session: The aiohttp session to use for the request.
@@ -187,9 +183,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         assert remote_params.api_url
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params
+                conversation, inference_config.generation
             )
-            headers = self._get_request_headers(generation_params.remote_params)
+            headers = self._get_request_headers(
+                inference_config.generation.remote_params
+            )
             retries = 0
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
@@ -204,12 +202,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         result = self._convert_api_output_to_conversation(
                             response_json, conversation
                         )
-                        if generation_params.output_filepath:
+                        if inference_config.output_path:
                             # Write what we have so far to our scratch directory.
                             self._save_conversation(
                                 result,
                                 self._get_scratch_filepath(
-                                    generation_params.output_filepath
+                                    inference_config.output_path
                                 ),
                             )
                         await asyncio.sleep(remote_params.politeness_policy)
@@ -223,15 +221,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _infer(
         self,
-        input: List[Conversation],
-        generation_params: GenerationParams,
+        input: list[Conversation],
+        inference_config: InferenceConfig,
         remote_params: RemoteParams,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
             remote_params: Parameters for running inference against a remote API.
 
         Returns:
@@ -242,45 +240,47 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            return await asyncio.gather(
-                *[
-                    self._query_api(
-                        conversation,
-                        generation_params,
-                        remote_params,
-                        semaphore,
-                        session,
-                    )
-                    for conversation in input
-                ]
-            )
+            tasks = [
+                self._query_api(
+                    conversation,
+                    inference_config,
+                    remote_params,
+                    semaphore,
+                    session,
+                )
+                for conversation in input
+            ]
+
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
 
     def infer_online(
         self,
-        input: List[Conversation],
-        generation_params: GenerationParams,
-    ) -> List[Conversation]:
+        input: list[Conversation],
+        inference_config: InferenceConfig,
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
+        generation_params = inference_config.generation
         if not generation_params.remote_params:
             raise ValueError("Remote params must be provided in generation_params.")
         conversations = safe_asyncio_run(
-            self._infer(input, generation_params, generation_params.remote_params)
+            self._infer(input, inference_config, generation_params.remote_params)
         )
-        if generation_params.output_filepath:
-            self._save_conversations(conversations, generation_params.output_filepath)
+        if inference_config.output_path:
+            self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
     def infer_from_file(
-        self, input_filepath: str, generation_params: GenerationParams
-    ) -> List[Conversation]:
+        self, input_filepath: str, inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
@@ -289,17 +289,32 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             input_filepath: Path to the input file containing prompts for
                 generation.
-            generation_params: Parameters for generation during inference.
+            inference_config: Parameters for inference.
 
         Returns:
             List[Conversation]: Inference output.
         """
+        generation_params = inference_config.generation
         if not generation_params.remote_params:
             raise ValueError("Remote params must be provided in generation_params.")
         input = self._read_conversations(input_filepath)
         conversations = safe_asyncio_run(
-            self._infer(input, generation_params, generation_params.remote_params)
+            self._infer(input, inference_config, generation_params.remote_params)
         )
-        if generation_params.output_filepath:
-            self._save_conversations(conversations, generation_params.output_filepath)
+        if inference_config.output_path:
+            self._save_conversations(conversations, inference_config.output_path)
         return conversations
+
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "logit_bias",
+            "max_new_tokens",
+            "presence_penalty",
+            "remote_params",
+            "seed",
+            "stop_strings",
+            "temperature",
+            "top_p",
+        }

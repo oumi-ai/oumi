@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
 
 from oumi.core.configs import JobConfig
 
@@ -44,7 +43,7 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         raise NotImplementedError
 

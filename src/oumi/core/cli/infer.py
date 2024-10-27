@@ -1,47 +1,32 @@
-import io
 import os
-from typing import Optional
+from typing import Annotated, Optional
 
-import PIL.Image
 import typer
-from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
 from oumi import infer as oumi_infer
 from oumi import infer_interactive as oumi_infer_interactive
 from oumi.core.configs import InferenceConfig
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
-
-
-def _load_image_png_bytes(input_image_filepath: str) -> bytes:
-    try:
-        image_bin = PIL.Image.open(input_image_filepath).convert("RGB")
-
-        output = io.BytesIO()
-        image_bin.save(output, format="PNG")
-        return output.getvalue()
-    except Exception:
-        logger.error(f"Failed to load image from path: {input_image_filepath}")
-        raise
 
 
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ],
-    detach: Annotated[
+    ] = None,
+    interactive: Annotated[
         bool,
-        typer.Option("-d", "--detach", help="Do not run in an interactive session."),
+        typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
     image: Annotated[
         Optional[str],
         typer.Option(
-            "-i",
             "--image",
             help=(
                 "File path of an input image to be used with `image+text` VLLMs. "
@@ -52,10 +37,14 @@ def infer(
 ):
     """Run inference on a model.
 
+    If `input_filepath` is provided in the configuration file, inference will run on
+    those input examples. Otherwise, inference will run interactively with user-provided
+    inputs.
+
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        detach: Do not run in an interactive session.
+        interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -67,25 +56,25 @@ def infer(
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     input_image_png_bytes: Optional[bytes] = (
-        _load_image_png_bytes(image) if image else None
+        load_image_png_bytes_from_path(image) if image else None
     )
 
-    if not detach:
-        if parsed_config.generation.input_filepath:
+    if interactive:
+        if parsed_config.input_path:
             logger.warning(
-                "Interactive inference requested, skipping inference from "
-                "`input_filepath`."
+                "Interactive inference requested, skipping reading from "
+                "`input_path`."
             )
         return oumi_infer_interactive(
             parsed_config, input_image_bytes=input_image_png_bytes
         )
 
-    if parsed_config.generation.input_filepath is None:
-        raise ValueError("`input_filepath` must be provided for non-interactive mode.")
+    if parsed_config.input_path is None:
+        raise ValueError("One of `--interactive` or `input_path` must be provided.")
     generations = oumi_infer(parsed_config)
 
     # Don't print results if output_filepath is provided.
-    if parsed_config.generation.output_filepath:
+    if parsed_config.output_path:
         return
 
     for generation in generations:

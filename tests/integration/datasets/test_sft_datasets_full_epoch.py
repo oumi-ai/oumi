@@ -36,7 +36,7 @@ def dataset_fixture(request):
         pytest.fail(f"Dataset {dataset_name} not found in registry")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     return dataset_name, dataset_class(
-        dataset_name_or_path=dataset_name, split="train", tokenizer=tokenizer
+        dataset_name=dataset_name, split="train", tokenizer=tokenizer
     )
 
 

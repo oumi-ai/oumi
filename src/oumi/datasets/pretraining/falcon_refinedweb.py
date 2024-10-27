@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("tiiuae/falcon-refinedweb")
-class FalconRefinedWebDataset(BasePretrainingIterableDataset):
+class FalconRefinedWebDataset(BasePretrainingDataset):
     """A massive English web dataset built by TII for pretraining large language models.
 
     The Falcon RefinedWeb dataset is created through stringent filtering and

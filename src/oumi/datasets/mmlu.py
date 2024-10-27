@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from datasets import Dataset, DatasetDict, load_dataset
 
@@ -84,7 +84,7 @@ class MmluDataset:
 
     @classmethod
     def format_example(
-        cls, example: Dict[str, Any], include_answer: bool = True
+        cls, example: dict[str, Any], include_answer: bool = True
     ) -> str:
         """Formats an MMLU example."""
         prompt = example["question"]
@@ -112,11 +112,11 @@ class MmluDataset:
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
         self._dataset_dict: DatasetDict = load_dataset("cais/mmlu", subject)  # type: ignore
-        self._few_shot_dict: Dict[str, str] = dict()
+        self._few_shot_dict: dict[str, str] = dict()
         self._num_shots = num_shots if (num_shots is not None) else DEFAULT_NUM_SHOTS
 
     # Instance methods (private).
-    def _prompt_template(self, example: Dict[str, Any]) -> str:
+    def _prompt_template(self, example: dict[str, Any]) -> str:
         """Generates the prompt template for evaluations.
 
         This template is the "original" MMLU implementation by github.com/ollmer.
@@ -186,12 +186,12 @@ class MmluDataset:
 
     def _get_formatted_dataset(
         self, split: str, num_entries: Optional[int] = None
-    ) -> List[str]:
+    ) -> list[str]:
         dataset: Dataset = self._get_dataset(split=split, num_entries=num_entries)
-        dataset_formatted: List[str] = list(map(self._prompt_template, dataset))  # type: ignore
+        dataset_formatted: list[str] = list(map(self._prompt_template, dataset))  # type: ignore
         return dataset_formatted
 
-    def _get_labels(self, split: str, num_entries: Optional[int] = None) -> List[int]:
+    def _get_labels(self, split: str, num_entries: Optional[int] = None) -> list[int]:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             dataset = dataset.select(range(num_entries))
@@ -199,18 +199,18 @@ class MmluDataset:
 
     # Instance methods (global).
     # All these will potentially be required by the base `BaseMapDataset`.
-    def get_test_split(self, num_entries: Optional[int] = None) -> List[str]:
+    def get_test_split(self, num_entries: Optional[int] = None) -> list[str]:
         """Returns the test split of this dataset."""
         return self._get_formatted_dataset(split="test", num_entries=num_entries)
 
-    def get_validation_split(self, num_entries: Optional[int] = None) -> List[str]:
+    def get_validation_split(self, num_entries: Optional[int] = None) -> list[str]:
         """Returns the validation split of this dataset."""
         return self._get_formatted_dataset(split="validation", num_entries=num_entries)
 
-    def get_test_labels(self, num_entries: Optional[int] = None) -> List[int]:
+    def get_test_labels(self, num_entries: Optional[int] = None) -> list[int]:
         """Returns the labels of the test dataset."""
         return self._get_labels(split="test", num_entries=num_entries)
 
-    def get_validation_labels(self, num_entries: Optional[int] = None) -> List[int]:
+    def get_validation_labels(self, num_entries: Optional[int] = None) -> list[int]:
         """Returns the labels of the validation dataset."""
         return self._get_labels(split="validation", num_entries=num_entries)

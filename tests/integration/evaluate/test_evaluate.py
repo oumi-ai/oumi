@@ -2,9 +2,6 @@ import json
 import os
 import tempfile
 
-import pytest
-import torch
-
 from oumi import evaluate_lm_harness
 from oumi.core.configs import (
     EvaluationConfig,
@@ -12,11 +9,10 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.evaluate import SAVE_FILENAME_JSON
+from tests.markers import requires_gpus
 
 
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="Skip test if GPU is not available."
-)
+@requires_gpus()
 def test_evaluate_lm_harness():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")

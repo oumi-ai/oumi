@@ -1,17 +1,17 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_json, load_jsonlines
 
 
 @register_dataset("text_sft_jsonl")
-class TextSftJsonLinesDataset(BaseLMSftDataset):
+class TextSftJsonLinesDataset(BaseSftDataset):
     """TextSftJsonLinesDataset for loading SFT data in oumi and alpaca formats.
 
     This dataset class is designed to work with JSON Lines (.jsonl) or
@@ -61,7 +61,7 @@ class TextSftJsonLinesDataset(BaseLMSftDataset):
     def __init__(
         self,
         dataset_path: Optional[Union[str, Path]] = None,
-        data: Optional[List[Dict[str, Any]]] = None,
+        data: Optional[list[dict[str, Any]]] = None,
         format: Optional[str] = None,
         **kwargs,
     ):

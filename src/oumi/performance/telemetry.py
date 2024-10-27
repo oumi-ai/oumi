@@ -5,7 +5,7 @@ import time
 from contextlib import ContextDecorator
 from functools import wraps
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Optional, Set, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import numpy as np
 import pydantic
@@ -28,17 +28,17 @@ LOGGER = get_logger("oumi.telemetry")
 class TelemetryState(pydantic.BaseModel):
     start_time: float = pydantic.Field(default_factory=time.perf_counter)
     hostname: str = pydantic.Field(default_factory=socket.gethostname)
-    measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
+    measurements: dict[str, list[float]] = pydantic.Field(default_factory=dict)
     # TODO: OPE-226 - implement async timers
-    cuda_measurements: Dict[str, List[float]] = pydantic.Field(default_factory=dict)
-    gpu_memory: List[Dict[str, float]] = pydantic.Field(default_factory=list)
-    gpu_temperature: List[float] = pydantic.Field(default_factory=list)
+    cuda_measurements: dict[str, list[float]] = pydantic.Field(default_factory=dict)
+    gpu_memory: list[dict[str, float]] = pydantic.Field(default_factory=list)
+    gpu_temperature: list[float] = pydantic.Field(default_factory=list)
 
 
 class TimerContext(ContextDecorator):
     """A context manager and decorator for timing CPU code execution."""
 
-    def __init__(self, name: str, measurements: Optional[List[float]] = None):
+    def __init__(self, name: str, measurements: Optional[list[float]] = None):
         """Initializes a TimerContext object.
 
         Args:
@@ -74,7 +74,7 @@ class TimerContext(ContextDecorator):
 class CudaTimerContext(ContextDecorator):
     """A context manager and decorator for timing CUDA operations."""
 
-    def __init__(self, name: str, measurements: Optional[List[float]] = None):
+    def __init__(self, name: str, measurements: Optional[list[float]] = None):
         """Initializes a CudaTimerContext object.
 
         Args:
@@ -260,7 +260,7 @@ class TelemetryTracker:
     #
     # Summary
     #
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Returns a summary of the telemetry statistics.
 
         Returns:
@@ -297,7 +297,7 @@ class TelemetryTracker:
     def print_summary(self) -> None:
         """Prints a summary of the telemetry statistics."""
         summary = self.get_summary()
-        log_lines: List[str] = [
+        log_lines: list[str] = [
             f"Telemetry Summary ({summary[_SUMMARY_KEY_HOSTNAME]}):",
             f"Total time: {summary['total_time']:.2f} seconds",
         ]
@@ -329,7 +329,7 @@ class TelemetryTracker:
         # ranks aren't interleaved confusingly.
         LOGGER.info("\n".join(log_lines))
 
-    def get_summaries_from_all_ranks(self) -> List[Dict[str, Any]]:
+    def get_summaries_from_all_ranks(self) -> list[dict[str, Any]]:
         """Returns an array of telemetry summaries from all ranks.
 
         To work correctly in distributed environment, the method must be called
@@ -343,10 +343,10 @@ class TelemetryTracker:
 
     def compute_cross_rank_summaries(
         self,
-        rank_summaries: List[Dict[str, Any]],
+        rank_summaries: list[dict[str, Any]],
         *,
-        measurement_names: Union[Set[str], Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        measurement_names: Union[set[str], dict[str, Any]],
+    ) -> dict[str, Any]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
 
         For example, it can be used to compute distribution
@@ -388,8 +388,8 @@ class TelemetryTracker:
         result = {}
 
         def _aggregate_cross_rank_stats(
-            key: str, rank_summaries: List[Dict[str, Any]]
-        ) -> Optional[Dict[str, float]]:
+            key: str, rank_summaries: list[dict[str, Any]]
+        ) -> Optional[dict[str, float]]:
             measurements = []
             for rank_summary in rank_summaries:
                 if key in rank_summary and isinstance(rank_summary[key], (float, int)):
@@ -440,7 +440,7 @@ class TelemetryTracker:
         """Loads TelemetryState from state_dict."""
         self.state = TelemetryState.model_validate(state_dict, strict=True)
 
-    def get_state_dicts_from_all_ranks(self) -> List[dict]:
+    def get_state_dicts_from_all_ranks(self) -> list[dict]:
         """Returns an array of `state_dict`-s from all ranks.
 
         To work correctly in distributed environment, the method must be called
@@ -456,14 +456,14 @@ class TelemetryTracker:
     # Helper Methods
     #
     def _calculate_basic_stats(
-        self, measurements: List[float], include_index: bool = False
-    ) -> Dict[str, float]:
+        self, measurements: list[float], include_index: bool = False
+    ) -> dict[str, float]:
         count = len(measurements)
         # Use `defaultdict()` to make `_format_timer_stats_as_lines()` and
         # other functions usable even if `count` is zero, which can happen
         # for example for epochs timer if logging is called in the middle
         # of the first epoch.
-        stats: Dict[str, float] = collections.defaultdict(float)
+        stats: dict[str, float] = collections.defaultdict(float)
         stats["count"] = float(count)
         if count > 0:
             stats["mean"] = statistics.mean(measurements)
@@ -482,10 +482,10 @@ class TelemetryTracker:
         return stats
 
     def _calculate_timer_stats(
-        self, measurements: List[float], total_time: Optional[float] = None
-    ) -> Dict[str, float]:
+        self, measurements: list[float], total_time: Optional[float] = None
+    ) -> dict[str, float]:
         """Same as above but also computes `total` and `percentage`."""
-        stats: Dict[str, float] = self._calculate_basic_stats(measurements)
+        stats: dict[str, float] = self._calculate_basic_stats(measurements)
 
         count = len(measurements)
         if count > 0:
@@ -495,8 +495,8 @@ class TelemetryTracker:
         return stats
 
     def _format_timer_stats_as_lines(
-        self, name: str, stats: Dict[str, float], is_cuda: bool = False
-    ) -> List[str]:
+        self, name: str, stats: dict[str, float], is_cuda: bool = False
+    ) -> list[str]:
         return [
             f"\t{name}:",
             f"\t\tTotal: {stats['total']:.6f} seconds",
@@ -510,8 +510,8 @@ class TelemetryTracker:
         ]
 
     def _format_gpu_temperature_stats_as_lines(
-        self, stats: Dict[str, float]
-    ) -> List[str]:
+        self, stats: dict[str, float]
+    ) -> list[str]:
         return [
             "\tGPU temperature:",
             f"\t\tMean: {stats['mean']:.2f} C",

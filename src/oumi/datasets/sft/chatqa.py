@@ -4,13 +4,13 @@ import datasets
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("nvidia/ChatQA-Training-Data")
-class ChatqaDataset(BaseLMSftDataset):
+class ChatqaDataset(BaseSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
     default_subset = "sft"
 
@@ -141,7 +141,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
             raise ValueError("Only the `train` split is supported for this dataset.")
 
         dataset = datasets.load_dataset(
-            self.dataset_name_or_path, data_files={"train": filename}
+            self.dataset_name, data_files={"train": filename}
         )
         dataset = cast(datasets.DatasetDict, dataset)
         return cast(pd.DataFrame, dataset["train"].to_pandas())

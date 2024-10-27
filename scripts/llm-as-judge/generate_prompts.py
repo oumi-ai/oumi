@@ -98,7 +98,7 @@ def generate_judge_prompt(
     content = prompt_template[-1]["content"]
     content = content.replace("$user_input_request", row[request_col_name])
     content = content.replace("$ai_response", str(row[response_col_name]))
-    if not context_col_name or row.isnull()[context_col_name]:
+    if not context_col_name or row.isna()[context_col_name]:
         content = content.replace("\n\n$optional_context", "")
     else:
         content = content.replace("$optional_context", str(row[context_col_name]))

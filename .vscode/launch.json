@@ -2,16 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Oumi - Train",
+            "name": "Oumi - Train - SFT",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
             "args": [
                 "train",
                 "-c",
-                "configs/oumi/phi3.lora.yaml"
+                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
             ],
             "justMyCode": true
+        },
+        {
+            "name": "Oumi - Train - DPO",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "train",
+                "-c",
+                "configs/recipes/phi3/dpo/mac_train.yaml"
+            ],
+            "justMyCode": false
         },
         {
             "name": "Oumi - Judge",
@@ -41,7 +53,7 @@
                 "oumi",
                 "train",
                 "-c",
-                "configs/oumi/gpt2.pt.yaml"
+                "configs/recipes/gpt2/pretraining/train.yaml"
             ]
         },
         {
@@ -59,12 +71,12 @@
                 "4",
                 "--use_fsdp",
                 "--config_file",
-                "configs/accelerate/llama.fsdp.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/accelerate.yaml",
                 "-m",
                 "oumi",
                 "train",
                 "-c",
-                "configs/oumi/llama8b.sft.yaml",
+                "configs/recipes/llama3_1/sft/8b_full/train.yaml",
                 "training.max_steps=2",
                 "training.save_steps=1",
                 "training.save_final_model=true",
@@ -79,8 +91,9 @@
             "module": "oumi",
             "args": [
                 "infer",
+                "--interactive",
                 "-c",
-                "configs/oumi/inference/gpt2.yaml"
+                "configs/recipes/gpt2/inference/infer.yaml"
             ],
             "justMyCode": true
         },
@@ -92,7 +105,22 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/oumi/phi3.eval.lm_harness.yaml"
+                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Oumi - Experimental - Multimodal Inference",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "infer",
+                "--interactive",
+                "--image",
+                "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
+                "-c",
+                "configs/examples/vision/llava_7b/infer.yaml"
             ],
             "justMyCode": true
         },
@@ -105,9 +133,9 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "HuggingFaceH4/llava-instruct-mix-vsft"
+                "merve/vqav2-small"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python Debugger: Current File",

@@ -1,8 +1,5 @@
 import argparse
-import io
-from typing import List, Optional
-
-import PIL.Image
+from typing import Optional
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
@@ -14,6 +11,7 @@ from oumi.inference import (
     RemoteInferenceEngine,
     VLLMInferenceEngine,
 )
+from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
 
 
@@ -58,18 +56,6 @@ def parse_cli():
     return args.config, args.image, unknown
 
 
-def _load_image_png_bytes(input_image_filepath: str) -> bytes:
-    try:
-        image_bin = PIL.Image.open(input_image_filepath).convert("RGB")
-
-        output = io.BytesIO()
-        image_bin.save(output, format="PNG")
-        return output.getvalue()
-    except Exception:
-        logger.error(f"Failed to load image from path: {input_image_filepath}")
-        raise
-
-
 def main():
     """Main entry point for running inference using Oumi.
 
@@ -88,7 +74,9 @@ def main():
     config.validate()
 
     input_image_png_bytes: Optional[bytes] = (
-        _load_image_png_bytes(input_image_filepath) if input_image_filepath else None
+        load_image_png_bytes_from_path(input_image_filepath)
+        if input_image_filepath
+        else None
     )
 
     # Run inference
@@ -124,11 +112,11 @@ def infer_interactive(
 
 def infer(
     config: InferenceConfig,
-    inputs: Optional[List[str]] = None,
+    inputs: Optional[list[str]] = None,
     inference_engine: Optional[BaseInferenceEngine] = None,
     *,
     input_image_bytes: Optional[bytes] = None,
-) -> List[Conversation]:
+) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
     Args:
@@ -168,7 +156,7 @@ def infer(
         ]
     generations = inference_engine.infer(
         input=conversations,
-        generation_params=config.generation,
+        inference_config=config,
     )
     return generations
 

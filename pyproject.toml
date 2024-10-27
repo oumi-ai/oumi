@@ -15,16 +15,17 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -39,7 +40,7 @@ dependencies = [
     "jsonlines",
     "lm-eval>=0.4.5,<0.5.0",
     "numpy",
-    "omegaconf",
+    "omegaconf>=2.3",
     "pandas",
     "peft",
     "pexpect",                    # Used by Polaris client
@@ -53,7 +54,7 @@ dependencies = [
     "transformers>=4.45.2,<4.46",
     "trl>=0.9.0",
     "typer",                      # Used by CLI
-    "typing_extensions",          # Backports of typing updates to python 3.8
+    "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb",                      # Optional, for logging to Weights and Biases
 ]
 
@@ -73,9 +74,6 @@ dev = [
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
-# TODO: train target will be removed in a future release
-# Leaving it empty for now, to avoid breaking changes
-train = []
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
     "myst-nb",                 # Allows us to include ipython notebooks in the docs
@@ -87,7 +85,7 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 # Dependencies that require a GPU to install
-gpu = ["liger-kernel", "nvidia-ml-py", "vllm>=0.6.2,<0.7.0"]
+gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]
@@ -103,21 +101,18 @@ gcp = [
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
-cambrian = [ # Consider merging into "train"
-    "timm==0.9.16",
-    "open_clip_torch",
-    "diffusers[torch]",
-    "einops==0.6.1",
-]
-optional = [
-    "llama-cpp-python", # for local cpu/gpu inference. TODO: resolve install issues
-]
-# TODO: Deprecated, will be removed in a future release
-all = ["oumi[dev,train,azure,gcp,lambda,runpod,docs]"]
+# CI targets
+ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs,optional]"]
+ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
 
+# Optional dependencies
+optional = [
+    "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
+    "vllm>=0.6.3,<0.7.0",
+]
 quant = [
-    "bitsandbytes",     # Used for QLora, and PagedAdam implemenation
-]                       # TODO: consider augmenting with more quantization frameworks
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+]
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
@@ -131,25 +126,35 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "F",   # pyflakes: detect various errors
-    "E",   # pycodestyle: errors
-    "W",   # pycodestyle: warnings
-    "I",   # isort: check import order
-    "D",   # pydocstyle: check docstring style
-    "TID", # flake8-tidy-imports: check import tidiness
-    "NPY", # NumPy-specific rules
+    "ASYNC", # flake8-async: check for async/await syntax
+    "D",     # pydocstyle: check docstring style
+    "E",     # pycodestyle: errors
+    "F",     # pyflakes: detect various errors
+    "I",     # isort: check import order
+    "ICN",   # flake-8 import conventions,
+    "INT",   # flake8-gettext
+    "LOG",   # flake8-logging-format: check for logging format,
+    "NPY",   # NumPy-specific rules
+    "PD",    # pandas vet
+    "PTH",   # pathlib
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise, use raise statements instead of return statements
+    "TID",   # flake8-tidy-imports: check import tidiness
+    "UP",    # pyupgrade: check for Python syntax updates
+    "W",     # pycodestyle: warnings
 ]
 ignore = [
     "D100",   # Missing docstring in public module, temporary, OPE-326
     "D101",   # Missing docstring in public class, temporary, OPE-326
     "NPY002", # Replace legacy numpy aliases
+    "PTH123", # pathlib: `open()` should be replaced by `Path.open()`
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D"] # Ignore docstring checks in tests
+"tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
 "src/oumi/models/experimental/cambrian/**" = [
     "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
     "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated
@@ -163,6 +168,8 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "D",      # Ignore docstring checks in Cambrian
     "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
     "W291",   # Ignore pycodestyle: warnings: Trailing whitespace
+    "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
+    "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -175,10 +182,17 @@ known-first-party = ["oumi"]
 include = ["src/oumi/**", "tests/**"]
 exclude = ["src/oumi/models/experimental/cambrian/**"]
 typeCheckingMode = "basic"
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 pythonPlatform = "All"                                 # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--import-mode=prepend"]
+cambrian = [ # Consider merging into "train"
+    "timm==0.9.16",
+    "open_clip_torch",
+    "diffusers[torch]",
+    "einops==0.6.1",
+]

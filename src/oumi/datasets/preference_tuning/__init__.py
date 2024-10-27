@@ -1,9 +1,7 @@
 """Preference tuning datasets module."""
 
-from oumi.datasets.preference_tuning.trl_dpo_preprocessor import (
-    trl_dpo_chat_preprocessor_fn,
-)
+from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
 
 __all__ = [
-    "trl_dpo_chat_preprocessor_fn",
+    "OrpoDpoMix40kDataset",
 ]

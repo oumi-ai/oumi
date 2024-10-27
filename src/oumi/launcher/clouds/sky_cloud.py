@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, TypeVar
+from typing import Optional, TypeVar
 
 import sky
 
@@ -19,7 +19,7 @@ class SkyCloud(BaseCloud):
         self._cloud_name = cloud_name
         self._client = client
 
-    def _get_clusters_by_class(self, cloud_class: Type[T]) -> List[BaseCluster]:
+    def _get_clusters_by_class(self, cloud_class: type[T]) -> list[BaseCluster]:
         """Gets the appropriate clusters of type T."""
         return [
             SkyCluster(cluster["name"], self._client)
@@ -46,7 +46,7 @@ class SkyCloud(BaseCloud):
                 return cluster
         return None
 
-    def list_clusters(self) -> List[BaseCluster]:
+    def list_clusters(self) -> list[BaseCluster]:
         """Lists the active clusters on this cloud."""
         if self._cloud_name == SkyClient.SupportedClouds.GCP.value:
             return self._get_clusters_by_class(sky.clouds.GCP)

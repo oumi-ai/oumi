@@ -7,18 +7,20 @@
 
 deploy
 remote
-polaris
-```
-
-```{attention}
-Section under construction. Contributions welcome!
+skypilot
 ```
 
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
-```shell
-pip install 'oumi[cloud]'
-```
+For specific cloud providers:
+
+  ```bash
+  pip install oumi[aws]     # For Amazon Web Services
+  pip install oumi[azure]   # For Microsoft Azure
+  pip install oumi[gcp]     # For Google Cloud Platform
+  pip install oumi[lambda]  # For Lambda Cloud
+  pip install oumi[runpod]  # For RunPod
+  ```
 
 Then setup your cloud credentials:
 
@@ -49,7 +51,7 @@ You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), 
 To launch a job on the cloud, you can use the following command:
 
 ```shell
-sky launch -c oumi-cluster configs/skypilot/sky_gpt2.yaml
+sky launch -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
 ```
 
 To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
@@ -57,7 +59,7 @@ To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`
 Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
 
 ```shell
-sky exec -c oumi-cluster configs/skypilot/sky_gpt2.yaml
+sky exec -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
 ```
 
 If you made any code changes to the codebase (not including configs), you need to run

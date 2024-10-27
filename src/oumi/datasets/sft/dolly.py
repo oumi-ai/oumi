@@ -1,16 +1,16 @@
-from typing import Dict, Union, cast
+from typing import Union, cast
 
 import numpy as np
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("argilla/databricks-dolly-15k-curated-en")
-class ArgillaDollyDataset(BaseLMSftDataset):
+class ArgillaDollyDataset(BaseSftDataset):
     """Dataset class for the Databricks Dolly 15k curated dataset."""
 
     default_dataset = "argilla/databricks-dolly-15k-curated-en"
@@ -28,7 +28,7 @@ class ArgillaDollyDataset(BaseLMSftDataset):
         super().__init__(**kwargs)
 
     @override
-    def transform_conversation(self, example: Union[Dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object.
 
         Args:
@@ -56,7 +56,7 @@ class ArgillaDollyDataset(BaseLMSftDataset):
         return Conversation(messages=messages)
 
     @staticmethod
-    def _get_field_value(example: Union[Dict, pd.Series], field: str) -> str:
+    def _get_field_value(example: Union[dict, pd.Series], field: str) -> str:
         """Helper method to get the value from a field.
 
         Args:

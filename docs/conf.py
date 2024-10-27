@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
+    "sphinx_term.termynal",
 ]
 
 source_suffix = {
@@ -74,6 +75,8 @@ html_theme = "sphinx_book_theme"
 html_show_sourcelink = True
 html_show_sphinx = False
 html_title = "Oumi"
+html_favicon = "_static/logo/favicon.png"
+html_static_path = ["_static"]
 
 add_module_names = True
 
@@ -93,6 +96,15 @@ html_theme_options = {
     "use_issues_button": True,
     "use_repository_button": True,
     "use_source_button": True,
+    "logo": {
+        # Note: the light logo is intentionally used for the dark theme
+        "image_light": "_static/logo/oumi_logo_dark.png",
+        "image_dark": "_static/logo/oumi_logo_light.png",
+        "alt_text": "Oumi Documentation - Home",
+    },
+    "analytics": {
+        "google_analytics_id": "G-YZE0YFDLPT",
+    },
 }
 
 # see https://pygments.org/demo/ for options
@@ -105,6 +117,7 @@ intersphinx_mapping = {
     "transformers": ("https://huggingface.co/docs/transformers/main/en", None),
     "trl": ("https://huggingface.co/docs/trl/main/en", None),
     "datasets": ("https://huggingface.co/docs/datasets/main/en", None),
+    "bitsandbytes": ("https://huggingface.co/docs/bitsandbytes/main/en", None),
 }
 
 # Disable all reftypes for intersphinx
@@ -117,6 +130,7 @@ bibtex_encoding = "utf-8"
 myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
+    "fieldlist",  # Allows using rst-like field lists in markdown
 ]
 
 suppress_warnings = [

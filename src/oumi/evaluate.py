@@ -3,11 +3,13 @@ import json
 import os
 import time
 from copy import deepcopy
+from pathlib import Path
 from pprint import pformat
-from typing import Any, Dict
+from typing import Any
 
 import lm_eval
 import torch
+from lm_eval.loggers import WandbLogger
 
 from oumi.core.configs import EvaluationConfig, LMHarnessParams
 from oumi.core.distributed import is_world_process_zero
@@ -134,6 +136,14 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
             logger.info(
                 f"{benchmark_name}'s metric dictionary is {pformat(metric_dict)}"
             )
+        if config.enable_wandb:
+            project_name = os.environ.get("WANDB_PROJECT", "oumi")
+            logger.info(f"Logging to Weights and Biases project: '{project_name}'")
+            wandb_logger = WandbLogger(
+                project=project_name, name=config.run_name, job_type="eval"
+            )
+            wandb_logger.post_init(results)
+            wandb_logger.log_eval_result()
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
@@ -162,13 +172,14 @@ def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
 def save_evaluation_results(
     output_dir: str,
     benchmark_name: str,
-    metric_dict: Dict[str, Any],
+    metric_dict: dict[str, Any],
 ) -> None:
     """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     output_filename = SAVE_FILENAME_JSON.format(benchmark_name=benchmark_name)
-    output_path = os.path.join(output_dir, output_filename)
-    with open(output_path, mode="w", encoding="utf-8") as f:
+    output_file = output_path / output_filename
+    with output_file.open(mode="w", encoding="utf-8") as f:
         json.dump(metric_dict, f)
 
 

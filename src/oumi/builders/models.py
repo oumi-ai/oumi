@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
 
@@ -61,7 +62,7 @@ def build_model(
         )
 
     if model_params.enable_liger_kernel:
-        _patch_model_for_liger_kernel(model_params.model_name)
+        _patch_model_for_liger_kernel(model)
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
@@ -81,25 +82,30 @@ def build_model(
     return model
 
 
-def _patch_model_for_liger_kernel(model_name: str) -> None:
-    """Patches the model for Liger Kernel."""
+def _get_model_type(model: nn.Module) -> Optional[str]:
+    return getattr(model, "config", None) and getattr(model.config, "model_type", None)
+
+
+def _patch_model_for_liger_kernel(model: nn.Module) -> None:
+    """Patches the model for Liger Kernel.
+
+    The list of support models can be found here:
+    https://github.com/linkedin/Liger-Kernel/blob/99599091373f178e8ad6a69ecb1b32351d1d5c1f/src/liger_kernel/transformers/monkey_patch.py#L700
+
+    If the model is not supported, liger kernel patching will not be applied,
+    and a warning will be logged.
+    """
     if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
 
-    model_name_lower = model_name.lower()
+    model_type = _get_model_type(model)
 
-    if "llama" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_llama()
-    elif "mixtral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
-    elif "mistral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mistral()
-    elif "gemma" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_gemma()
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
+    if model_type is None:
+        raise ValueError(f"Could not find model type for: {model}")
+
+    liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
 def build_oumi_model(
@@ -125,6 +131,16 @@ def build_oumi_model(
     # Needed for MFUTrainerCallback
     model.dtype = dtype
     return model
+
+
+class _InternalModelKind(Enum):
+    """Private enum representing the supported types of models for internal use."""
+
+    DEFAULT = "default"
+    """Default/unknown model type."""
+
+    IMAGE_TEXT_LLM = "image_text_llm"
+    """Basic image+text LLM."""
 
 
 def build_huggingface_model(
@@ -178,7 +194,7 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class = _get_transformers_model_class(hf_config)
+    transformers_model_class, _ = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
@@ -217,6 +233,7 @@ def build_huggingface_model(
 def _get_transformers_model_class(config):
     # TODO: Remove this once we have a better way to identify the model class
     # Or we can just ask the user to specify the model class in the config
+    model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
     if config.model_type in (
         "blip-2",
         "blip",
@@ -234,6 +251,7 @@ def _get_transformers_model_class(config):
         tested_models = {
             "blip-2",
             "llava",
+            "mllama",
         }  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
@@ -244,6 +262,7 @@ def _get_transformers_model_class(config):
             )
 
         auto_model_class = transformers.AutoModelForVision2Seq
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     elif config.model_type in ("molmo"):
         tested_models = {}  # TODO: OPE-353, make sure we have all models supported
 
@@ -254,10 +273,23 @@ def _get_transformers_model_class(config):
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
         auto_model_class = transformers.AutoModelForCausalLM
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
+        model_kind = _InternalModelKind.DEFAULT
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
-    return auto_model_class
+    return auto_model_class, model_kind
+
+
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
+        return_unused_kwargs=True,
+    )
+    _, model_kind = _get_transformers_model_class(hf_config)
+    return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
 
 
 def build_cambrian_model(

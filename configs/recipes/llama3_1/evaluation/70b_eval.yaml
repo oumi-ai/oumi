@@ -1,0 +1,20 @@
+# Eval config for Llama 70B Instruct.
+
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 3  # 4 will OOM on a Polaris node
+lm_harness_params:
+  tasks:
+    - "m_mmlu_en"
+  num_fewshot: 5
+
+enable_wandb: True

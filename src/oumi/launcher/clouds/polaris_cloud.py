@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -80,7 +80,7 @@ class PolarisCloud(BaseCloud):
             )
         return self._clusters[name]
 
-    def initialize_clusters(self, user) -> List[BaseCluster]:
+    def initialize_clusters(self, user) -> list[BaseCluster]:
         """Initializes clusters for the specified user for all Polaris queues.
 
         Args:
@@ -129,7 +129,7 @@ class PolarisCloud(BaseCloud):
                 return cluster
         return None
 
-    def list_clusters(self) -> List[BaseCluster]:
+    def list_clusters(self) -> list[BaseCluster]:
         """Lists the active clusters on this cloud."""
         return list(self._clusters.values())
 

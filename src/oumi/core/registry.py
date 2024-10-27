@@ -1,6 +1,6 @@
 from collections import namedtuple
 from enum import Enum, auto
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional
 
 
 class RegistryType(Enum):
@@ -12,7 +12,18 @@ class RegistryType(Enum):
     JUDGE_CONFIG = auto()
 
 
-RegistryKey = namedtuple("RegistryKey", ["name", "registry_type"])
+class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
+    def __new__(cls, name: str, registry_type: RegistryType):
+        """Create a new RegistryKey instance.
+
+        Args:
+            name: The name of the registry key.
+            registry_type: The type of the registry.
+
+        Returns:
+            A new RegistryKey instance with lowercase name.
+        """
+        return super().__new__(cls, name.lower(), registry_type)
 
 
 class Registry:
@@ -101,7 +112,7 @@ class Registry:
     #
     # Magic methods
     #
-    def __getitem__(self, args: Tuple[str, RegistryType]) -> Callable:
+    def __getitem__(self, args: tuple[str, RegistryType]) -> Callable:
         """Gets a record by name and type."""
         if not isinstance(args, tuple) or len(args) != 2:
             raise ValueError(
