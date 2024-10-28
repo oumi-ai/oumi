@@ -12,7 +12,7 @@ data:
 training:
   optimizer: "adamw_torch"
   use_peft: true
-  output_dir: "output/phi3.sft"
+  output_dir: "output/phi3.fft"
   trainer_type: "TRL_SFT"
   per_device_train_batch_size: 2 # Each batch seems to be approx. 1.8GB
   gradient_accumulation_steps: 8

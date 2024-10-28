@@ -24,7 +24,7 @@ data:
 training:
   optimizer: "adafactor"
   use_peft: False
-  output_dir: "output/llama3.8b.aya.sft"
+  output_dir: "output/llama3.8b.aya.fft"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: true
   per_device_train_batch_size: 3 # Use bigger if you can.
