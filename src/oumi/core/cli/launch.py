@@ -72,15 +72,15 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     return status.done
 
 
-def _stop_worker(id: str, cloud: str, cluster: str) -> None:
-    """Stops a job."""
+def _cancel_worker(id: str, cloud: str, cluster: str) -> None:
+    """Cancels a job."""
     if not cluster:
         return
     if not id:
         return
     if not cloud:
         return
-    launcher.stop(id, cloud, cluster)
+    launcher.cancel(id, cloud, cluster)
 
 
 def _down_worker(cluster: str, cloud: Optional[str]):
@@ -151,81 +151,12 @@ def _poll_job(
         print(f"Job metadata: {final_status.metadata}")
 
 
-def status(
-    cloud: Annotated[
-        Optional[str], typer.Option(help="Filter results by this cloud.")
-    ] = None,
-    cluster: Annotated[
-        Optional[str],
-        typer.Option(help="Filter results by clusters matching this name."),
-    ] = None,
-    id: Annotated[
-        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
-    ] = None,
-) -> None:
-    """Prints the status of jobs launched from Oumi.
-
-    Optionally, the caller may specify a job id, cluster, or cloud to further filter
-    results.
-
-    Args:
-        cloud: Filter results by this cloud.
-        cluster: Filter results by clusters matching this name.
-        id: Filter results by jobs matching this job ID.
-    """
-    print("========================")
-    print("Job status:")
-    print("========================")
-    filtered_jobs = {}
-
-    for target_cloud in launcher.which_clouds():
-        cloud_obj = launcher.get_cloud(target_cloud)
-        # Ignore clouds not matching the filter criteria.
-        if cloud and target_cloud != cloud:
-            continue
-        filtered_jobs[cloud] = {}
-        for target_cluster in cloud_obj.list_clusters():
-            # Ignore clusters not matching the filter criteria.
-            if cluster and target_cluster.name() != cluster:
-                continue
-            filtered_jobs[cloud][target_cluster.name()] = []
-            for job in target_cluster.get_jobs():
-                # Ignore jobs not matching the filter criteria.
-                if id and job.id != id:
-                    continue
-                filtered_jobs[cloud][target_cluster.name()].append(job)
-    # Print the filtered jobs.
-    if not filtered_jobs.items():
-        print("No jobs found for the specified filter criteria: ")
-        if cloud:
-            print(f"Cloud: {cloud}")
-        if cluster:
-            print(f"Cluster: {cluster}")
-        if id:
-            print(f"Job ID: {id}")
-    for cloud, clusters in filtered_jobs.items():
-        print(f"Cloud: {cloud}")
-        if not clusters.items():
-            print("No matching clusters found.")
-        for cluster, jobs in clusters.items():
-            print(f"Cluster: {cluster}")
-            if not jobs:
-                print("No matching jobs found.")
-            for job in jobs:
-                print(f"Job: {job.id} Status: {job.status}")
+# ----------------------------
+# Launch CLI subcommands
+# ----------------------------
 
 
-def which() -> None:
-    """Prints the available clouds."""
-    clouds = launcher.which_clouds()
-    print("========================")
-    print("Available clouds:")
-    print("========================")
-    for cloud in clouds:
-        print(cloud)
-
-
-def stop(
+def cancel(
     cloud: Annotated[str, typer.Option(help="Filter results by this cloud.")],
     cluster: Annotated[
         str,
@@ -235,7 +166,7 @@ def stop(
         str, typer.Option(help="Filter results by jobs matching this job ID.")
     ],
 ) -> None:
-    """Stops a job.
+    """Cancels a job.
 
     Args:
         cloud: Filter results by this cloud.
@@ -243,7 +174,7 @@ def stop(
         id: Filter results by jobs matching this job ID.
     """
     _print_and_wait(
-        f"Stopping job {id}", _stop_worker, id=id, cloud=cloud, cluster=cluster
+        f"Canceling job {id}", _cancel_worker, id=id, cloud=cloud, cluster=cluster
     )
 
 
@@ -316,6 +247,70 @@ def run(
     _poll_job(job_status=job_status, detach=detach, cloud=parsed_config.resources.cloud)
 
 
+def status(
+    cloud: Annotated[
+        Optional[str], typer.Option(help="Filter results by this cloud.")
+    ] = None,
+    cluster: Annotated[
+        Optional[str],
+        typer.Option(help="Filter results by clusters matching this name."),
+    ] = None,
+    id: Annotated[
+        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
+    ] = None,
+) -> None:
+    """Prints the status of jobs launched from Oumi.
+
+    Optionally, the caller may specify a job id, cluster, or cloud to further filter
+    results.
+
+    Args:
+        cloud: Filter results by this cloud.
+        cluster: Filter results by clusters matching this name.
+        id: Filter results by jobs matching this job ID.
+    """
+    print("========================")
+    print("Job status:")
+    print("========================")
+    filtered_jobs = {}
+
+    for target_cloud in launcher.which_clouds():
+        cloud_obj = launcher.get_cloud(target_cloud)
+        # Ignore clouds not matching the filter criteria.
+        if cloud and target_cloud != cloud:
+            continue
+        filtered_jobs[cloud] = {}
+        for target_cluster in cloud_obj.list_clusters():
+            # Ignore clusters not matching the filter criteria.
+            if cluster and target_cluster.name() != cluster:
+                continue
+            filtered_jobs[cloud][target_cluster.name()] = []
+            for job in target_cluster.get_jobs():
+                # Ignore jobs not matching the filter criteria.
+                if id and job.id != id:
+                    continue
+                filtered_jobs[cloud][target_cluster.name()].append(job)
+    # Print the filtered jobs.
+    if not filtered_jobs.items():
+        print("No jobs found for the specified filter criteria: ")
+        if cloud:
+            print(f"Cloud: {cloud}")
+        if cluster:
+            print(f"Cluster: {cluster}")
+        if id:
+            print(f"Job ID: {id}")
+    for cloud, clusters in filtered_jobs.items():
+        print(f"Cloud: {cloud}")
+        if not clusters.items():
+            print("No matching clusters found.")
+        for cluster, jobs in clusters.items():
+            print(f"Cluster: {cluster}")
+            if not jobs:
+                print("No matching jobs found.")
+            for job in jobs:
+                print(f"Job: {job.id} Status: {job.status}")
+
+
 def up(
     ctx: typer.Context,
     config: Annotated[
@@ -370,3 +365,13 @@ def up(
         cloud=parsed_config.resources.cloud,
         running_cluster=running_cluster,
     )
+
+
+def which() -> None:
+    """Prints the available clouds."""
+    clouds = launcher.which_clouds()
+    print("========================")
+    print("Available clouds:")
+    print("========================")
+    for cloud in clouds:
+        print(cloud)
