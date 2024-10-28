@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import BitsAndBytesConfig
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
@@ -189,15 +188,7 @@ def build_huggingface_model(
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
-        # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=peft_params.q_lora_bits == 4,
-            load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype,
-            bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
-            bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
-            bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
-        )
+        quantization_config = peft_params.to_bits_and_bytes()
     else:
         quantization_config = None
 

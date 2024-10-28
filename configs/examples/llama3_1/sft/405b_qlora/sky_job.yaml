@@ -38,8 +38,7 @@ file_mounts:
 
 setup: |
   set -e
-  pip install -e '.[gpu,quant]'
-  pip install hf_transfer
+  pip install uv && uv pip install -e '.[gpu,quant]' hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download hugging-quants/Meta-Llama-3.1-405B-BNB-NF4-BF16
 
 run: |
