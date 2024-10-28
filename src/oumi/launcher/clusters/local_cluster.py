@@ -104,6 +104,10 @@ class LocalCluster(BaseCluster):
         status.cluster = self._name
         return status
 
+    def stop(self) -> None:
+        """Cancels all jobs, running or queued."""
+        self.down()
+
     def down(self) -> None:
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
