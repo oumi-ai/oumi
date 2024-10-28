@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset
-from oumi.core.cli.launch import down, status, cancel, up, which
+from oumi.core.cli.launch import cancel, down, status, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.main import get_app
 from oumi.core.cli.train import train
@@ -171,7 +171,16 @@ def test_main_status_registered(mock_status):
 def test_main_cancel_registered(mock_cancel):
     _ = runner.invoke(
         get_app(),
-        ["launch", "cancel", "--cloud", "gcp", "--cluster", "cluster", "--id", "foobar"],
+        [
+            "launch",
+            "cancel",
+            "--cloud",
+            "gcp",
+            "--cluster",
+            "cluster",
+            "--id",
+            "foobar",
+        ],
     )
     mock_cancel.assert_called_once()
 

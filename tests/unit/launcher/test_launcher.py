@@ -7,11 +7,11 @@ from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.launcher.launcher import (
     LAUNCHER,
     Launcher,
+    cancel,
     down,
     get_cloud,
     run,
     status,
-    cancel,
     up,
     which_clouds,
 )
