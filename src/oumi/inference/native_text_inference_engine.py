@@ -224,7 +224,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.temperature > 0,
+            do_sample=generation_params.do_sample,
             min_p=generation_params.min_p,
             include_stop_str_in_output=False,
             detokenize=True,
