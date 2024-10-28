@@ -28,22 +28,27 @@ class Launcher:
             self._clouds[cloud] = cloud_builder()
         return self._clouds[cloud]
 
+    def cancel(self, job_id: str, cloud_name: str, cluster_name: str) -> JobStatus:
+        """Cancels the specified job."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        return cluster.cancel_job(job_id)
+
+    def down(self, cloud_name: str, cluster_name: str) -> None:
+        """Turns down the specified cluster."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        cluster.down()
+
     def get_cloud(self, job_or_cloud: Union[JobConfig, str]) -> BaseCloud:
         """Gets the cloud instance for the specified job."""
         if isinstance(job_or_cloud, str):
             return self._get_cloud_by_name(job_or_cloud)
         return self._get_cloud_by_name(job_or_cloud.resources.cloud)
-
-    def up(
-        self, job: JobConfig, cluster_name: Optional[str], **kwargs
-    ) -> tuple[BaseCluster, JobStatus]:
-        """Creates a new cluster and starts the specified job on it."""
-        cloud = self.get_cloud(job)
-        job_status = cloud.up_cluster(job, cluster_name, **kwargs)
-        cluster = cloud.get_cluster(job_status.cluster)
-        if not cluster:
-            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
-        return (cluster, job_status)
 
     def run(self, job: JobConfig, cluster_name: str) -> JobStatus:
         """Runs the specified job on the specified cluster.
@@ -61,22 +66,6 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         return cluster.run_job(job)
 
-    def stop(self, job_id: str, cloud_name: str, cluster_name: str) -> JobStatus:
-        """Stops the specified job."""
-        cloud = self._get_cloud_by_name(cloud_name)
-        cluster = cloud.get_cluster(cluster_name)
-        if not cluster:
-            raise ValueError(f"Cluster {cluster_name} not found.")
-        return cluster.stop_job(job_id)
-
-    def down(self, cloud_name: str, cluster_name: str) -> None:
-        """Turns down the specified cluster."""
-        cloud = self._get_cloud_by_name(cloud_name)
-        cluster = cloud.get_cluster(cluster_name)
-        if not cluster:
-            raise ValueError(f"Cluster {cluster_name} not found.")
-        cluster.down()
-
     def status(self) -> list[JobStatus]:
         """Gets the status of all jobs across all clusters."""
         # Pick up any newly registered cloud builders.
@@ -87,6 +76,17 @@ class Launcher:
                 statuses.extend(cluster.get_jobs())
         return statuses
 
+    def up(
+        self, job: JobConfig, cluster_name: Optional[str], **kwargs
+    ) -> tuple[BaseCluster, JobStatus]:
+        """Creates a new cluster and starts the specified job on it."""
+        cloud = self.get_cloud(job)
+        job_status = cloud.up_cluster(job, cluster_name, **kwargs)
+        cluster = cloud.get_cluster(job_status.cluster)
+        if not cluster:
+            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
+        return (cluster, job_status)
+
     def which_clouds(self) -> list[str]:
         """Gets the names of all clouds in the registry."""
         return [name for name, _ in REGISTRY.get_all(RegistryType.CLOUD).items()]
@@ -94,6 +94,8 @@ class Launcher:
 
 LAUNCHER = Launcher()
 # Explicitly expose the public methods of the default Launcher instance.
+#: A convenience method for Launcher.cancel.
+cancel = LAUNCHER.cancel
 #: A convenience method for Launcher.down.
 down = LAUNCHER.down
 #: A convenience method for Launcher.get_cloud.
@@ -102,8 +104,6 @@ get_cloud = LAUNCHER.get_cloud
 run = LAUNCHER.run
 #: A convenience method for Launcher.status.
 status = LAUNCHER.status
-#: A convenience method for Launcher.stop.
-stop = LAUNCHER.stop
 #: A convenience method for Launcher.up.
 up = LAUNCHER.up
 #: A convenience method for Launcher.which_clouds.
