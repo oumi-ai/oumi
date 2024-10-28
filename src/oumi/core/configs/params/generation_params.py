@@ -113,7 +113,7 @@ class GenerationParams(BaseParams):
     do_sample: bool = False
     """Whether to use sampling for next-token generation. If False, uses greedy
     decoding.
-    Default is True."""
+    Default is False."""
 
     def __post_init__(self):
         """Validates generation-specific parameters."""
