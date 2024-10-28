@@ -4,14 +4,20 @@ import transformers
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.distributed import is_world_process_zero
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
 
 class HuggingFaceTrainer(BaseTrainer):
-    def __init__(self, hf_trainer: transformers.Trainer):
+    def __init__(
+        self,
+        hf_trainer: transformers.Trainer,
+        processor: Optional[BaseProcessor] = None,
+    ):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
+        self._processor = processor
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
@@ -54,6 +60,10 @@ class HuggingFaceTrainer(BaseTrainer):
             output_dir = config.training.output_dir
             self._hf_trainer.save_model(output_dir)
             logger.info(f"Model has been saved at {output_dir}.")
+
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
 
     def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model's weights to the specified output directory.
