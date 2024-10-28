@@ -231,6 +231,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             seed=generation_params.seed,
             stop_strings=generation_params.stop_strings,
             eos_token_id=generation_params.stop_token_ids,
+            num_beams=generation_params.num_beams,
+            use_cache=generation_params.use_cache,
+            output_logits=generation_params.output_logits,
+            output_scores=generation_params.output_scores,
         )
 
         # skip using a progress for single turns
