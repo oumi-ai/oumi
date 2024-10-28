@@ -61,6 +61,7 @@ training:
 peft:
   q_lora: True
   q_lora_bits: 4
+  bnb_4bit_compute_dtype: "bfloat16"
   bnb_4bit_quant_type: "nf4"
   lora_r: 16
   lora_alpha: 32
