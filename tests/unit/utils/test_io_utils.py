@@ -6,7 +6,7 @@ import pytest
 from oumi.utils.io_utils import get_oumi_root_directory, load_jsonlines, save_jsonlines
 
 
-@pytest.mark.parametrize("filename", ["train.py", "evaluate.py", "launch.py"])
+@pytest.mark.parametrize("filename", ["train.py", "evaluate.py", "infer.py", "judge.py"])
 def test_get_oumi_root_directory(filename):
     root_dir = get_oumi_root_directory()
     file_path = root_dir / filename
