@@ -11,7 +11,9 @@ from oumi.utils.logging import logger
 
 class HuggingFaceTrainer(BaseTrainer):
     def __init__(
-        self, hf_trainer: transformers.Trainer, processor: Optional[BaseProcessor]
+        self,
+        hf_trainer: transformers.Trainer,
+        processor: Optional[BaseProcessor] = None,
     ):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
