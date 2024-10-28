@@ -110,7 +110,7 @@ class GenerationParams(BaseParams):
     """Whether to return the scores from the model.
     Default is False."""
 
-    do_sample: bool = False
+    use_sampling: bool = False
     """Whether to use sampling for next-token generation. If False, uses greedy
     decoding.
     Default is False."""

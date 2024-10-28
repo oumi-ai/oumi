@@ -224,7 +224,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.do_sample,
+            do_sample=generation_params.use_sampling,
             min_p=generation_params.min_p,
             include_stop_str_in_output=False,
             detokenize=True,
@@ -233,8 +233,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             eos_token_id=generation_params.stop_token_ids,
             num_beams=generation_params.num_beams,
             use_cache=generation_params.use_cache,
-            output_logits=generation_params.output_logits,
-            output_scores=generation_params.output_scores,
         )
 
         # skip using a progress for single turns
@@ -332,4 +330,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "stop_token_ids",
             "temperature",
             "top_p",
+            "use_sampling",
+            "use_cache",
+            "num_beams",
         }
