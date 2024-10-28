@@ -84,7 +84,7 @@ class GenerationParams(BaseParams):
     """
 
     num_return_sequences: int = 1
-    """Controls the number of returned sequences for each input element in the batch.
+    """The number of returned sequences for each input element in the batch.
     Default is 1.
     """
 
