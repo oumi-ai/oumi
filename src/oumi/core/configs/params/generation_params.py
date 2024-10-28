@@ -83,10 +83,43 @@ class GenerationParams(BaseParams):
     Default is 0.0 (no minimum threshold).
     """
 
+    num_return_sequences: int = 1
+    """Controls the number of returned sequences for each input element in the batch.
+    Default is 1.
+    """
+
+    use_cache: bool = True
+    """Whether to use the model's internal cache (key/value attentions) to speed up
+    generation.
+    Default is True.
+    """
+
+    num_beams: int = 1
+    """Number of beams for beam search. 1 means no beam search. Larger number of beams
+    will make for a more thorough search for probable output token sequences, at
+    the cost of increased computation time.
+    Default is 1.
+    """
+
+    output_logits: bool = False
+    """Whether to return the logits from the model.
+    Default is False.
+    """
+
+    output_scores: bool = False
+    """Whether to return the scores from the model.
+    Default is False."""
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size < 1:
             raise ValueError("Batch size must be at least 1.")
+
+        if self.num_beams < 1:
+            raise ValueError("num_beams must be strictly larger than 0.")
+
+        if self.num_return_sequences < 1:
+            raise ValueError("num_return_sequences must be strictly larger than 0.")
 
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
