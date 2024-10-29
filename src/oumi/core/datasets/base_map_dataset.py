@@ -29,6 +29,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
+        stream: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -55,6 +56,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
+        self.stream = stream
 
     #
     # Main API
@@ -103,9 +105,15 @@ class BaseMapDataset(MapDataPipe, ABC):
 
     def to_hf(self) -> datasets.Dataset:
         """Converts the dataset to a Hugging Face dataset."""
-        return cast(
-            datasets.Dataset, datasets.Dataset.from_generator(self.as_generator)
-        )
+        if self.stream:
+            return cast(
+                datasets.Dataset,
+                datasets.IterableDataset.from_generator(self.as_generator),
+            )
+        else:
+            return cast(
+                datasets.Dataset, datasets.Dataset.from_generator(self.as_generator)
+            )
 
     #
     # Abstract Methods
