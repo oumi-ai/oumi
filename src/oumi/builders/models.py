@@ -1,3 +1,4 @@
+import functools
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
@@ -6,7 +7,6 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import BitsAndBytesConfig
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
@@ -188,15 +188,7 @@ def build_huggingface_model(
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
-        # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=peft_params.q_lora_bits == 4,
-            load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype,
-            bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
-            bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
-            bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
-        )
+        quantization_config = peft_params.to_bits_and_bytes()
     else:
         quantization_config = None
 
@@ -260,6 +252,7 @@ def _get_transformers_model_class(config):
         tested_models = {
             "blip-2",
             "llava",
+            "mllama",
         }  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
@@ -289,15 +282,22 @@ def _get_transformers_model_class(config):
     return auto_model_class, model_kind
 
 
-def is_image_text_llm(model_params: ModelParams) -> bool:
-    """Determines whether the model is a basic image+text LLM."""
+@functools.cache
+def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name,
+        trust_remote_code=trust_remote_code,
         return_unused_kwargs=True,
     )
     _, model_kind = _get_transformers_model_class(hf_config)
     return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+
+
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    return _is_image_text_llm_impl(
+        model_params.model_name, model_params.trust_remote_code
+    )
 
 
 def build_cambrian_model(

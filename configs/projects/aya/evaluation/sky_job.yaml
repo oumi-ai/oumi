@@ -16,7 +16,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-eval
-  OUMI_RUN_NAME: llama3.8b.aya.sft
+  OUMI_RUN_NAME: llama3.8b.aya.eval
 
 setup: |
   set -e
