@@ -20,16 +20,15 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.sft
+  OUMI_RUN_NAME: llava.7b.fft
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  pip install hf_transfer
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
 
 run: |

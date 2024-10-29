@@ -22,7 +22,7 @@ model:
 training:
   trainer_type: TRL_SFT
   learning_rate: 2.0e-05
-  output_dir: "output/llama8b.longctx.sft"
+  output_dir: "output/llama8b.longctx.fft"
 
   compile: True # Enabling compilation helps reduce required vram. Might cause issues with checkpointing depending on accelerate version.
   per_device_train_batch_size: 1 # Keeping low to maximize context length

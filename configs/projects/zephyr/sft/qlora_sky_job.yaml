@@ -29,7 +29,7 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   HF_TOKEN: null # forces the user to pass it
-  OUMI_RUN_NAME: "zephyr.7b.sft.qlora"
+  OUMI_RUN_NAME: "zephyr.7b.qlora"
 
 setup: |
   set -e
