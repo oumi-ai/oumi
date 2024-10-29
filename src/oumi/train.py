@@ -4,14 +4,13 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
-import oumi.core.constants as constants
 from oumi.builders import (
-    build_data_collator,
+    build_collator_from_config,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -22,7 +21,6 @@ from oumi.builders import (
 )
 from oumi.core.configs import (
     DatasetSplit,
-    DatasetSplitParams,
     TrainerType,
     TrainingConfig,
 )
@@ -58,8 +56,6 @@ from oumi.utils.torch_utils import (
     log_versioning_info,
 )
 from oumi.utils.version_utils import is_dev_build
-
-_START_TIME = -1.0
 
 
 def parse_cli():
@@ -177,20 +173,6 @@ def _log_training_info(config: TrainingConfig) -> None:
             logger.info(f"Git tag: {get_git_tag()}")
 
 
-def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
-    """Creates data collator if specified in config."""
-    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
-    if not train_split.collator_name:
-        return None
-
-    return build_data_collator(
-        collator_name=train_split.collator_name,
-        tokenizer=tokenizer,
-        max_length=config.model.model_max_length,
-        label_ignore_index=constants.LABEL_IGNORE_INDEX,
-    )
-
-
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     """Updates TrainingConfig using dynamic/runtime info."""
     if config.training.dataloader_num_workers == "auto":
@@ -203,9 +185,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         config.training.dataloader_num_workers = num_workers
 
     assert isinstance(config.training.dataloader_num_workers, int)
-
-    # FIXME OPE-229 Consider moving hardware capability validations
-    # from TrainingConfig `__post_init__` to this function.
     return config
 
 
@@ -235,7 +214,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
 
-    # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft
 
     # Build model.
@@ -270,10 +248,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
+    collator = build_collator_from_config(config, tokenizer)
+
     # Reclaim memory before training starts.
     gc.collect()
-
-    collator = _build_collator_if_needed(config, tokenizer)
+    torch.cuda.empty_cache()
 
     with torch_profile(
         config.training.profiler,
