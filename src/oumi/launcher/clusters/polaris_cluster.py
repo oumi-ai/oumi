@@ -195,8 +195,8 @@ class PolarisCluster(BaseCluster):
             job.cluster = self._name
         return jobs
 
-    def stop_job(self, job_id: str) -> JobStatus:
-        """Stops the specified job on this cluster."""
+    def cancel_job(self, job_id: str) -> JobStatus:
+        """Cancels the specified job on this cluster."""
         self._client.cancel(job_id, self._queue)
         job = self.get_job(job_id)
         if job is None:

@@ -85,6 +85,9 @@ class GenerationParams(BaseParams):
 
     def __post_init__(self):
         """Validates generation-specific parameters."""
+        if self.batch_size < 1:
+            raise ValueError("Batch size must be at least 1.")
+
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
 

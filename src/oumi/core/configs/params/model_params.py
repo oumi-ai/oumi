@@ -79,10 +79,10 @@ class ModelParams(BaseParams):
     """The data type to use for the model's parameters as a string.
 
     Valid options are:
-    - "float32" or "f32" for 32-bit floating point
-    - "float16" or "f16" for 16-bit floating point
+    - "float32" or "f32" or "float" for 32-bit floating point
+    - "float16" or "f16" or "half" for 16-bit floating point
     - "bfloat16" or "bf16" for brain floating point
-    - "float64" or "f64" for 64-bit floating point
+    - "float64" or "f64" or "double" for 64-bit floating point
 
     This string will be converted to the corresponding torch.dtype.
     Defaults to "float32" for full precision.

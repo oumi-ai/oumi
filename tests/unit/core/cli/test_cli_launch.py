@@ -7,7 +7,7 @@ import typer
 from typer.testing import CliRunner
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.launch import down, status, stop, up, which
+from oumi.core.cli.launch import cancel, down, status, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.configs import (
     DataParams,
@@ -50,7 +50,7 @@ def app():
         launcher_run
     )
     launch_app.command()(status)
-    launch_app.command()(stop)
+    launch_app.command()(cancel)
     launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
     launch_app.command()(which)
     yield launch_app
@@ -869,11 +869,11 @@ def test_launch_down_no_clusters(app, mock_launcher, mock_pool):
     mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
 
 
-def test_launch_stop_success(app, mock_launcher, mock_pool):
+def test_launch_cancel_success(app, mock_launcher, mock_pool):
     res = runner.invoke(
         app,
         [
-            "stop",
+            "cancel",
             "--cloud",
             "cloud",
             "--cluster",
@@ -883,8 +883,7 @@ def test_launch_stop_success(app, mock_launcher, mock_pool):
         ],
     )
     assert res.output == ""
-    mock_launcher.stop.assert_called_once()
-    # mock_launcher.stop.assert_called_once_with("job", "cloud", "cluster")
+    mock_launcher.cancel.assert_called_once()
 
 
 def test_launch_which_success(app, mock_launcher, mock_pool):
