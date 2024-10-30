@@ -36,14 +36,6 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         return cluster.cancel_job(job_id)
 
-    def stop(self, cloud_name: str, cluster_name: str) -> None:
-        """Stops the specified cluster."""
-        cloud = self._get_cloud_by_name(cloud_name)
-        cluster = cloud.get_cluster(cluster_name)
-        if not cluster:
-            raise ValueError(f"Cluster {cluster_name} not found.")
-        cluster.stop()
-
     def down(self, cloud_name: str, cluster_name: str) -> None:
         """Turns down the specified cluster."""
         cloud = self._get_cloud_by_name(cloud_name)
@@ -83,6 +75,14 @@ class Launcher:
             for cluster in cloud.list_clusters():
                 statuses.extend(cluster.get_jobs())
         return statuses
+
+    def stop(self, cloud_name: str, cluster_name: str) -> None:
+        """Stops the specified cluster."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        cluster.stop()
 
     def up(
         self, job: JobConfig, cluster_name: Optional[str], **kwargs

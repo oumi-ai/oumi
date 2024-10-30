@@ -23,6 +23,7 @@ from oumi.launcher.launcher import (
     get_cloud,
     run,
     status,
+    stop,
     up,
     which_clouds,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "StorageMount",
     "run",
     "status",
+    "stop",
     "up",
     "which_clouds",
 ]

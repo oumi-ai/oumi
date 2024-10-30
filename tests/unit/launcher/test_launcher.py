@@ -12,6 +12,7 @@ from oumi.launcher.launcher import (
     get_cloud,
     run,
     status,
+    stop,
     up,
     which_clouds,
 )
@@ -631,6 +632,39 @@ def test_launcher_status_inits_new_clouds(mock_registry):
     ]
 
 
+def test_launcher_stop_succeeds(mock_registry):
+    mock_cluster = Mock(spec=BaseCluster)
+    mock_cloud = Mock(spec=BaseCloud)
+
+    def _builder():
+        return mock_cloud
+
+    mock_registry.get_all.return_value = {
+        "cloud": _builder,
+    }
+    mock_cloud.get_cluster.return_value = mock_cluster
+    launcher = Launcher()
+    launcher.stop("cloud", "cluster")
+    mock_cloud.get_cluster.assert_called_once_with("cluster")
+    mock_cluster.stop.assert_called_once()
+
+
+def test_launcher_stop_fails(mock_registry):
+    with pytest.raises(ValueError) as exception_info:
+        mock_cloud = Mock(spec=BaseCloud)
+
+        def _builder():
+            return mock_cloud
+
+        mock_registry.get_all.return_value = {
+            "cloud": _builder,
+        }
+        mock_cloud.get_cluster.return_value = None
+        launcher = Launcher()
+        launcher.stop("cloud", "cluster")
+    assert "not found" in str(exception_info.value)
+
+
 def test_launcher_which_clouds_updates_over_time(mock_registry):
     sky_mock = Mock(spec=BaseCloud)
     polaris_mock = Mock(spec=BaseCloud)
@@ -671,5 +705,6 @@ def test_launcher_export_methods(mock_registry):
     assert LAUNCHER.cancel == cancel
     assert LAUNCHER.down == down
     assert LAUNCHER.status == status
+    assert LAUNCHER.stop == stop
     assert LAUNCHER.get_cloud == get_cloud
     assert LAUNCHER.which_clouds == which_clouds

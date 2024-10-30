@@ -445,3 +445,119 @@ def test_local_cluster_down(mock_local_client):
     )
     mock_local_client.list_jobs.assert_has_calls([call(), call(), call(), call()])
     # Nothing to assert, this method is a no-op.
+
+
+def test_local_cluster_stop(mock_local_client):
+    cluster = LocalCluster("name", mock_local_client)
+    mock_local_client.list_jobs.side_effect = [
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+    ]
+    cluster.stop()
+    mock_local_client.cancel.assert_has_calls(
+        [call("myjob"), call("job2"), call("final job")]
+    )
+    mock_local_client.list_jobs.assert_has_calls([call(), call(), call(), call()])
+    # Nothing to assert, this method is a no-op.

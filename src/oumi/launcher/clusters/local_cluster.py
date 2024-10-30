@@ -106,7 +106,8 @@ class LocalCluster(BaseCluster):
 
     def stop(self) -> None:
         """Cancels all jobs, running or queued."""
-        self.down()
+        for job in self.get_jobs():
+            self.cancel_job(job.id)
 
     def down(self) -> None:
         """Cancels all jobs, running or queued."""
