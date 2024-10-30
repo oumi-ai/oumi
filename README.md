@@ -55,7 +55,7 @@ For an overview of Oumi features and usage, check out the [user guide](https://o
    oumi train -c path/to/your/config.yaml
    ```
 
-   For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).
+   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
 
 ### Configurations
 
