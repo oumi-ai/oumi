@@ -7,11 +7,11 @@ from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.launcher.launcher import (
     LAUNCHER,
     Launcher,
+    cancel,
     down,
     get_cloud,
     run,
     status,
-    stop,
     up,
     which_clouds,
 )
@@ -295,7 +295,7 @@ def test_launcher_run_fails(mock_registry):
     assert "not found" in str(exception_info.value)
 
 
-def test_launcher_stop_succeeds(mock_registry):
+def test_launcher_cancel_succeeds(mock_registry):
     mock_cluster = Mock(spec=BaseCluster)
     mock_cloud = Mock(spec=BaseCloud)
 
@@ -309,20 +309,20 @@ def test_launcher_stop_succeeds(mock_registry):
         id="job_id",
         cluster="cluster",
         name="foo",
-        status="stopped",
+        status="canceled",
         metadata="bar",
         done=False,
     )
     mock_cloud.get_cluster.return_value = mock_cluster
-    mock_cluster.stop_job.return_value = expected_job_status
+    mock_cluster.cancel_job.return_value = expected_job_status
     launcher = Launcher()
-    result = launcher.stop("1", "cloud", "cluster")
+    result = launcher.cancel("1", "cloud", "cluster")
     mock_cloud.get_cluster.assert_called_once_with("cluster")
-    mock_cluster.stop_job.assert_called_once_with("1")
+    mock_cluster.cancel_job.assert_called_once_with("1")
     assert result == expected_job_status
 
 
-def test_launcher_stop_fails(mock_registry):
+def test_launcher_cancel_fails(mock_registry):
     with pytest.raises(ValueError) as exception_info:
         mock_cloud = Mock(spec=BaseCloud)
 
@@ -334,7 +334,7 @@ def test_launcher_stop_fails(mock_registry):
         }
         mock_cloud.get_cluster.return_value = None
         launcher = Launcher()
-        launcher.stop("1", "cloud", "cluster")
+        launcher.cancel("1", "cloud", "cluster")
     assert "not found" in str(exception_info.value)
 
 
@@ -668,7 +668,7 @@ def test_launcher_which_clouds_updates_over_time(mock_registry):
 def test_launcher_export_methods(mock_registry):
     assert LAUNCHER.up == up
     assert LAUNCHER.run == run
-    assert LAUNCHER.stop == stop
+    assert LAUNCHER.cancel == cancel
     assert LAUNCHER.down == down
     assert LAUNCHER.status == status
     assert LAUNCHER.get_cloud == get_cloud
