@@ -21,7 +21,7 @@ The Oumi Platform enables the end-to-end development of foundation and specializ
 
 ## Getting Started
 
-For an overview of the Oumi features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
+For an overview of the Oumi features and usage, checkout the [user guide](https://oumi.ai/docs/latest/user_guides/train/train.html) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
