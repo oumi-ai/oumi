@@ -9,6 +9,18 @@
 
 The Oumi Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
 
+<p align="center">
+   <b>Check out our docs!</b>
+   <br>
+   ↓↓↓↓↓↓
+   <br>
+   https://oumi.ai/docs
+   <br>
+   <b>Password:</b> c155c7d02520
+   <br>
+   ↑↑↑↑↑↑
+</p>
+
 ## Features
 
 - **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
