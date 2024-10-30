@@ -11,14 +11,7 @@ from oumi.utils.logging import logger
 
 
 class PackedSftDataset(BaseMapDataset):
-    """A dataset that packs samples from a base SFT dataset to maximize efficiency.
-
-    Args:
-        base_dataset (BaseSftDataset): The base SFT dataset to pack
-        max_seq_len (int): Maximum sequence length for each pack
-        show_progress (bool, optional): Whether to show progress bar.
-            Defaults to True.
-    """
+    """A dataset that packs samples from a base SFT dataset to maximize efficiency."""
 
     def __init__(
         self,
@@ -31,7 +24,25 @@ class PackedSftDataset(BaseMapDataset):
         enable_padding: bool = True,
         **kwargs,
     ):
-        """Initialize the PackedSftDataset."""
+        """Initialize the PackedSftDataset.
+
+        Args:
+            base_dataset: The base SFT dataset to pack samples from.
+            max_seq_len: Maximum sequence length for packed samples.
+            show_progress: Whether to show progress bar during packing.
+                Defaults to True.
+            split_samples: Whether to split samples that are longer than max_seq_len.
+                If False, samples longer than max_seq_len will be skipped.
+                Defaults to False.
+            concat_token_id: Token ID to use for concatenating samples.
+                If None, samples will be concatenated without a separator token.
+                Defaults to None.
+            pad_token_id: Token ID to use for padding.
+                Required if enable_padding is True. Defaults to None.
+            enable_padding: Whether to pad sequences to max_seq_len.
+                If True, pad_token_id must be provided. Defaults to True.
+            **kwargs: Additional arguments passed to BaseMapDataset.
+        """
         super().__init__(**kwargs, dataset_name=base_dataset.dataset_name)
 
         self.base_dataset = base_dataset
@@ -70,7 +81,7 @@ class PackedSftDataset(BaseMapDataset):
 
             if sample_len > self._max_seq_len and not self._split_samples:
                 # We can't split samples, and the sample is too long to fit in
-                # the buffer. There is no way to handle this sample
+                # the context window. There is no way to handle this sample
                 logger.warning(
                     f"Dataset sample is too long ({sample_len} > {self._max_seq_len}). "
                     "Please set `split_samples=True` or increase `max_seq_len`. "
@@ -78,21 +89,27 @@ class PackedSftDataset(BaseMapDataset):
                 )
                 continue
 
-            if self._get_potential_sample_len(buffer, sample) == self._max_seq_len:
+            if (
+                self._get_potential_sample_len(sample=sample, buffer=buffer)
+                == self._max_seq_len
+            ):
                 # Done with the current buffer, we need to create a new pack
-                self._append_sample_to_buffer(sample, buffer)
+                self._append_sample_to_buffer(sample=sample, buffer=buffer)
                 self._append_packed_sample_to_dataset(buffer)
                 buffer = self._get_empty_buffer()
                 continue
-            elif self._get_potential_sample_len(buffer, sample) < self._max_seq_len:
+            elif (
+                self._get_potential_sample_len(sample=sample, buffer=buffer)
+                < self._max_seq_len
+            ):
                 # We still have space in the buffer, so we add the sample to it
                 # and keep going
-                self._append_sample_to_buffer(sample, buffer)
+                self._append_sample_to_buffer(sample=sample, buffer=buffer)
                 continue
 
             # We don't have space in the buffer, so we need to create a new pack
             if self._split_samples:
-                self._append_sample_to_buffer(sample, buffer)
+                self._append_sample_to_buffer(sample=sample, buffer=buffer)
 
                 while self._get_sample_len(buffer) >= self._max_seq_len:
                     finished_sample, buffer = self._split_sample(
@@ -102,12 +119,12 @@ class PackedSftDataset(BaseMapDataset):
             else:
                 # We're not allow to split samples, but buffer + sample is too large
                 if self._get_sample_len(buffer) == 0:
-                    self._append_sample_to_buffer(sample, buffer)
+                    self._append_sample_to_buffer(sample=sample, buffer=buffer)
                     self._append_packed_sample_to_dataset(buffer)
                 else:
                     self._append_packed_sample_to_dataset(buffer)
                     buffer = self._get_empty_buffer()
-                    self._append_sample_to_buffer(sample, buffer)
+                    self._append_sample_to_buffer(sample=sample, buffer=buffer)
 
         # Handle remaining samples in buffer
         if self._get_sample_len(buffer) > 0:
@@ -224,7 +241,7 @@ class PackedSftDataset(BaseMapDataset):
         return len(buffer["input_ids"])
 
     def _get_potential_sample_len(
-        self, buffer: dict[str, list], sample: dict[str, list]
+        self, sample: dict[str, list], buffer: dict[str, list]
     ) -> int:
         """Get the length of the samples in the buffer."""
         buffer_len = self._get_sample_len(buffer)
