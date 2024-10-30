@@ -272,6 +272,10 @@ class PolarisCluster(BaseCluster):
             raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
 
+    def stop(self) -> None:
+        """This is a no-op for Polaris clusters."""
+        pass
+
     def down(self) -> None:
         """This is a no-op for Polaris clusters."""
         pass

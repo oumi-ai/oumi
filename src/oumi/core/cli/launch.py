@@ -112,6 +112,35 @@ def _down_worker(cluster: str, cloud: Optional[str]):
         )
 
 
+def _stop_worker(cluster: str, cloud: Optional[str]):
+    """Stops a cluster."""
+    if cloud:
+        target_cloud = launcher.get_cloud(cloud)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            target_cluster.stop()
+        else:
+            print(f"Cluster {cluster} not found.")
+        return
+    # Make a best effort to find a single cluster to stop without a cloud.
+    clusters = []
+    for name in launcher.which_clouds():
+        target_cloud = launcher.get_cloud(name)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            clusters.append(target_cluster)
+    if len(clusters) == 0:
+        print(f"Cluster {cluster} not found.")
+        return
+    if len(clusters) == 1:
+        clusters[0].stop()
+    else:
+        print(
+            f"Multiple clusters found with name {cluster}. "
+            "Specify a cloud to stop with `--cloud`."
+        )
+
+
 def _poll_job(
     job_status: JobStatus,
     detach: bool,
@@ -309,6 +338,29 @@ def status(
                 print("No matching jobs found.")
             for job in jobs:
                 print(f"Job: {job.id} Status: {job.status}")
+
+
+def stop(
+    cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If specified, only clusters on this cloud will be affected."
+        ),
+    ] = None,
+) -> None:
+    """Stops a cluster.
+
+    Args:
+        cluster: The cluster to stop.
+        cloud: If specified, only clusters on this cloud will be affected.
+    """
+    _print_and_wait(
+        f"Stopping cluster `{cluster}`",
+        _stop_worker,
+        cluster=cluster,
+        cloud=cloud,
+    )
 
 
 def up(

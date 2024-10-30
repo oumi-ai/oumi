@@ -238,3 +238,9 @@ def test_sky_cluster_down(mock_sky_client):
     cluster = SkyCluster("mycluster", mock_sky_client)
     cluster.down()
     mock_sky_client.down.assert_called_once_with("mycluster")
+
+
+def test_sky_cluster_stop(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    cluster.stop()
+    mock_sky_client.stop.assert_called_once_with("mycluster")

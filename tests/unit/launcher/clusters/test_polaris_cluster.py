@@ -879,3 +879,9 @@ def test_polaris_cluster_down(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
     cluster.down()
     # Nothing to assert, this method is a no-op.
+
+
+def test_polaris_cluster_stop(mock_datetime, mock_polaris_client):
+    cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
+    cluster.stop()
+    # Nothing to assert, this method is a no-op.

@@ -78,6 +78,10 @@ class SkyCluster(BaseCluster):
             raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
 
+    def stop(self) -> None:
+        """Stops the current cluster."""
+        self._client.stop(self.name())
+
     def down(self) -> None:
         """Tears down the current cluster."""
         self._client.down(self.name())

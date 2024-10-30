@@ -6,7 +6,7 @@ from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset, model
-from oumi.core.cli.launch import cancel, down, status, up, which
+from oumi.core.cli.launch import cancel, down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.train import train
 
@@ -48,6 +48,7 @@ def get_app() -> typer.Typer:
         name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Runs a job."
     )(launcher_run)
     launch_app.command(help="Prints the status of jobs launched from Oumi.")(status)
+    launch_app.command(help="Stops a cluster.")(stop)
     launch_app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
     )(up)
