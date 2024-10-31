@@ -7,6 +7,7 @@ from oumi.core.collators.text_completions_collator_with_padding import (
     TextCompletionsCollatorWithPadding,
 )
 from oumi.core.configs import ModelParams
+from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.tokenizers.utils import (
     _find_pattern_start,
@@ -169,7 +170,7 @@ def test_tokenize_user_only_turn(sft_dataset, gpt2_tokenizer):
         == len(result["labels"])
     )
     assert all(
-        label == -100 for label in result["labels"]
+        label == LABEL_IGNORE_INDEX for label in result["labels"]
     )  # All labels should be masked
 
 
@@ -201,7 +202,7 @@ def test_tokenize_assistant_only_turn_with_prefix(sft_dataset, gpt2_tokenizer):
     # Note: THIS IS WRONG, but is expected because of the implementation
     # Correct behavior: Assistant tokens should NOT be masked,
     # Current behavior: Everything is masked, because we don't have a user turn
-    assert all(label == -100 for label in result["labels"])
+    assert all(label == LABEL_IGNORE_INDEX for label in result["labels"])
 
 
 def test_tokenize_assistant_only_turn_with_template():
@@ -239,10 +240,12 @@ def test_tokenize_assistant_only_turn_with_template():
         == len(result["labels"])
     )
     assert all(
-        label == -100 for label in result["labels"][: -len(assistant_tokens)]
+        label == LABEL_IGNORE_INDEX
+        for label in result["labels"][: -len(assistant_tokens)]
     )  # System turn + assistant prefix should be masked
     assert all(
-        label != -100 for label in result["labels"][-len(assistant_tokens) :]
+        label != LABEL_IGNORE_INDEX
+        for label in result["labels"][-len(assistant_tokens) :]
     )  # "Hi there!" should NOT be masked
 
 
