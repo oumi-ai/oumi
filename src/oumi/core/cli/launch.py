@@ -53,9 +53,9 @@ def _print_and_wait(
     sleep_duration = 0.1
     if asynchronous:
         with Pool(processes=1) as worker_pool:
-            worker_result = worker_pool.apply_async(task, kwds=kwargs)
             task_done = False
             while not task_done:
+                worker_result = worker_pool.apply_async(task, kwds=kwargs)
                 while not worker_result.ready():
                     _print_spinner_and_sleep(message, spinner, sleep_duration)
                 worker_result.wait()
