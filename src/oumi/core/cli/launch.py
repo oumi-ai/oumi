@@ -58,12 +58,30 @@ def _print_and_wait(message: str, task: Callable, asynchronous=True, **kwargs) -
             # Call get() to reraise any exceptions that occurred in the worker.
             worker_result.get()
     else:
+        # Synchronous tasks should be atomic and not block for a significant amount
+        # of time. If a task is blocking, it should be run asynchronously.
         while not task(**kwargs):
             _print_spinner_and_sleep(message, spinner, sleep_duration)
 
 
+def _is_job_done_local(id: str, cloud: str, cluster: str) -> bool:
+    """Returns true IFF a job is no longer running.
+
+    This method is not blocking.
+    """
+    running_cloud = launcher.get_cloud(cloud)
+    running_cluster = running_cloud.get_cluster(cluster)
+    if not running_cluster:
+        return True
+    status = running_cluster.get_job(id)
+    return status.done
+
+
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
-    """Returns true IFF a job is no longer running."""
+    """Returns true IFF a job is no longer running.
+
+    This method is blocking, and will poll the job until completion.
+    """
     running_cloud = launcher.get_cloud(cloud)
     running_cluster = running_cloud.get_cluster(cluster)
     if not running_cluster:
@@ -168,8 +186,8 @@ def _poll_job(
     assert running_cluster
 
     _print_and_wait(
-        "Running job {job_status.id}",
-        _is_job_done,
+        f"Running job {job_status.id}",
+        _is_job_done_local if is_local else _is_job_done,
         asynchronous=not is_local,
         id=job_status.id,
         cloud=cloud,
