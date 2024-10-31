@@ -340,7 +340,7 @@ def status(
             print("No matching clusters found.")
             continue
         # Organize all jobs by cluster.
-        jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict()
+        jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict(list)
         for job in job_list:
             jobs_by_cluster[job.cluster].append(job)
         for target_cluster, jobs in jobs_by_cluster.items():
