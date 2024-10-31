@@ -981,3 +981,21 @@ def test_launch_which_success(app, mock_launcher, mock_pool):
         ],
     )
     mock_launcher.which_clouds.assert_called_once()
+
+
+def test_launch_status_success(app, mock_launcher, mock_pool):
+    _ = runner.invoke(
+        app,
+        [
+            "status",
+            "--cloud",
+            "cloud",
+            "--cluster",
+            "cluster",
+            "--id",
+            "job",
+        ],
+    )
+    mock_launcher.status.assert_has_calls(
+        [call(cloud="cloud", cluster="cluster", id="job")]
+    )

@@ -454,7 +454,77 @@ def test_launcher_status_multiple_clouds(mock_registry):
     custom_mock.list_clusters.return_value = []
     launcher = Launcher()
     statuses = launcher.status()
-    assert statuses == [
+    assert statuses == {
+        "custom": [],
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="2",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="sky2",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+        "polaris": [
+            JobStatus(
+                id="1",
+                cluster="polaris1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="polaris3",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+    }
+
+
+def test_launcher_status_filters_clusters(mock_registry):
+    sky_mock = Mock(spec=BaseCloud)
+    polaris_mock = Mock(spec=BaseCloud)
+    custom_mock = Mock(spec=BaseCloud)
+
+    def _sky_builder():
+        return sky_mock
+
+    def _polaris_builder():
+        return polaris_mock
+
+    def _custom_builder():
+        return custom_mock
+
+    mock_registry.get_all.return_value = {
+        "sky": _sky_builder,
+        "polaris": _polaris_builder,
+        "custom": _custom_builder,
+    }
+    mock_sky_cluster1 = Mock(spec=BaseCluster)
+    mock_sky_cluster1.name.return_value = "sky1"
+    mock_sky_cluster1.get_jobs.return_value = [
         JobStatus(
             id="1",
             cluster="sky1",
@@ -471,6 +541,10 @@ def test_launcher_status_multiple_clouds(mock_registry):
             metadata="bar",
             done=False,
         ),
+    ]
+    mock_sky_cluster2 = Mock(spec=BaseCluster)
+    mock_sky_cluster2.name.return_value = "sky2"
+    mock_sky_cluster2.get_jobs.return_value = [
         JobStatus(
             id="1",
             cluster="sky2",
@@ -479,6 +553,10 @@ def test_launcher_status_multiple_clouds(mock_registry):
             metadata="bar",
             done=False,
         ),
+    ]
+    mock_polaris_cluster1 = Mock(spec=BaseCluster)
+    mock_polaris_cluster1.name.return_value = "polaris1"
+    mock_polaris_cluster1.get_jobs.return_value = [
         JobStatus(
             id="1",
             cluster="polaris1",
@@ -487,6 +565,13 @@ def test_launcher_status_multiple_clouds(mock_registry):
             metadata="bar",
             done=False,
         ),
+    ]
+    mock_polaris_cluster2 = Mock(spec=BaseCluster)
+    mock_polaris_cluster2.name.return_value = "polaris2"
+    mock_polaris_cluster2.get_jobs.return_value = []
+    mock_polaris_cluster3 = Mock(spec=BaseCluster)
+    mock_polaris_cluster3.name.return_value = "polaris3"
+    mock_polaris_cluster3.get_jobs.return_value = [
         JobStatus(
             id="1",
             cluster="polaris3",
@@ -496,6 +581,373 @@ def test_launcher_status_multiple_clouds(mock_registry):
             done=False,
         ),
     ]
+    sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
+    polaris_mock.list_clusters.return_value = [
+        mock_polaris_cluster1,
+        mock_polaris_cluster2,
+        mock_polaris_cluster3,
+    ]
+    custom_mock.list_clusters.return_value = []
+    launcher = Launcher()
+    statuses = launcher.status(cluster="sky1")
+    assert statuses == {
+        "custom": [],
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="2",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+        "polaris": [],
+    }
+
+
+def test_launcher_status_filters_jobs(mock_registry):
+    sky_mock = Mock(spec=BaseCloud)
+    polaris_mock = Mock(spec=BaseCloud)
+    custom_mock = Mock(spec=BaseCloud)
+
+    def _sky_builder():
+        return sky_mock
+
+    def _polaris_builder():
+        return polaris_mock
+
+    def _custom_builder():
+        return custom_mock
+
+    mock_registry.get_all.return_value = {
+        "sky": _sky_builder,
+        "polaris": _polaris_builder,
+        "custom": _custom_builder,
+    }
+    mock_sky_cluster1 = Mock(spec=BaseCluster)
+    mock_sky_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="sky1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+        JobStatus(
+            id="2",
+            cluster="sky1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_sky_cluster2 = Mock(spec=BaseCluster)
+    mock_sky_cluster2.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="sky2",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster1 = Mock(spec=BaseCluster)
+    mock_polaris_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="polaris1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster2 = Mock(spec=BaseCluster)
+    mock_polaris_cluster2.get_jobs.return_value = []
+    mock_polaris_cluster3 = Mock(spec=BaseCluster)
+    mock_polaris_cluster3.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="polaris3",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
+    polaris_mock.list_clusters.return_value = [
+        mock_polaris_cluster1,
+        mock_polaris_cluster2,
+        mock_polaris_cluster3,
+    ]
+    custom_mock.list_clusters.return_value = []
+    launcher = Launcher()
+    statuses = launcher.status(id="1")
+    assert statuses == {
+        "custom": [],
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="sky2",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+        "polaris": [
+            JobStatus(
+                id="1",
+                cluster="polaris1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="polaris3",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+    }
+
+
+def test_launcher_status_filters_clouds(mock_registry):
+    sky_mock = Mock(spec=BaseCloud)
+    polaris_mock = Mock(spec=BaseCloud)
+    custom_mock = Mock(spec=BaseCloud)
+
+    def _sky_builder():
+        return sky_mock
+
+    def _polaris_builder():
+        return polaris_mock
+
+    def _custom_builder():
+        return custom_mock
+
+    mock_registry.get_all.return_value = {
+        "sky": _sky_builder,
+        "polaris": _polaris_builder,
+        "custom": _custom_builder,
+    }
+    mock_sky_cluster1 = Mock(spec=BaseCluster)
+    mock_sky_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="sky1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+        JobStatus(
+            id="2",
+            cluster="sky1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_sky_cluster2 = Mock(spec=BaseCluster)
+    mock_sky_cluster2.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="sky2",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster1 = Mock(spec=BaseCluster)
+    mock_polaris_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="polaris1",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster2 = Mock(spec=BaseCluster)
+    mock_polaris_cluster2.get_jobs.return_value = []
+    mock_polaris_cluster3 = Mock(spec=BaseCluster)
+    mock_polaris_cluster3.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="polaris3",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
+    polaris_mock.list_clusters.return_value = [
+        mock_polaris_cluster1,
+        mock_polaris_cluster2,
+        mock_polaris_cluster3,
+    ]
+    custom_mock.list_clusters.return_value = []
+    launcher = Launcher()
+    statuses = launcher.status(cloud="sky")
+    assert statuses == {
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="2",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="sky2",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+    }
+
+
+def test_launcher_status_all_filters(mock_registry):
+    sky_mock = Mock(spec=BaseCloud)
+    polaris_mock = Mock(spec=BaseCloud)
+    custom_mock = Mock(spec=BaseCloud)
+
+    def _sky_builder():
+        return sky_mock
+
+    def _polaris_builder():
+        return polaris_mock
+
+    def _custom_builder():
+        return custom_mock
+
+    mock_registry.get_all.return_value = {
+        "sky": _sky_builder,
+        "polaris": _polaris_builder,
+        "custom": _custom_builder,
+    }
+    mock_sky_cluster1 = Mock(spec=BaseCluster)
+    mock_sky_cluster1.name.return_value = "foo"
+    mock_sky_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="foo",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+        JobStatus(
+            id="2",
+            cluster="foo",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_sky_cluster2 = Mock(spec=BaseCluster)
+    mock_sky_cluster2.name.return_value = "sky2"
+    mock_sky_cluster2.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="sky2",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster1 = Mock(spec=BaseCluster)
+    mock_polaris_cluster1.name.return_value = "foo"
+    mock_polaris_cluster1.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="foo",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    mock_polaris_cluster2 = Mock(spec=BaseCluster)
+    mock_polaris_cluster2.name.return_value = "polaris2"
+    mock_polaris_cluster2.get_jobs.return_value = []
+    mock_polaris_cluster3 = Mock(spec=BaseCluster)
+    mock_polaris_cluster3.name.return_value = "polaris3"
+    mock_polaris_cluster3.get_jobs.return_value = [
+        JobStatus(
+            id="1",
+            cluster="polaris3",
+            name="foo",
+            status="running",
+            metadata="bar",
+            done=False,
+        ),
+    ]
+    sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
+    polaris_mock.list_clusters.return_value = [
+        mock_polaris_cluster1,
+        mock_polaris_cluster2,
+        mock_polaris_cluster3,
+    ]
+    custom_mock.list_clusters.return_value = []
+    launcher = Launcher()
+    statuses = launcher.status(cluster="foo", cloud="sky", id="1")
+    assert statuses == {
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="foo",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+    }
 
 
 def test_launcher_status_inits_new_clouds(mock_registry):
@@ -585,51 +1037,56 @@ def test_launcher_status_inits_new_clouds(mock_registry):
     launcher = Launcher()
     statuses = launcher.status()
     # On the first call, statuses should be empty.
-    assert statuses == []
+    assert statuses == {}
     # On the second call, we've registered new clouds that yield jobs.
     new_statuses = launcher.status()
-    assert new_statuses == [
-        JobStatus(
-            id="1",
-            cluster="sky1",
-            name="foo",
-            status="running",
-            metadata="bar",
-            done=False,
-        ),
-        JobStatus(
-            id="2",
-            cluster="sky1",
-            name="foo",
-            status="running",
-            metadata="bar",
-            done=False,
-        ),
-        JobStatus(
-            id="1",
-            cluster="sky2",
-            name="foo",
-            status="running",
-            metadata="bar",
-            done=False,
-        ),
-        JobStatus(
-            id="1",
-            cluster="polaris1",
-            name="foo",
-            status="running",
-            metadata="bar",
-            done=False,
-        ),
-        JobStatus(
-            id="1",
-            cluster="polaris3",
-            name="foo",
-            status="running",
-            metadata="bar",
-            done=False,
-        ),
-    ]
+    assert new_statuses == {
+        "custom": [],
+        "sky": [
+            JobStatus(
+                id="1",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="2",
+                cluster="sky1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="sky2",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+        "polaris": [
+            JobStatus(
+                id="1",
+                cluster="polaris1",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+            JobStatus(
+                id="1",
+                cluster="polaris3",
+                name="foo",
+                status="running",
+                metadata="bar",
+                done=False,
+            ),
+        ],
+    }
 
 
 def test_launcher_stop_succeeds(mock_registry):
