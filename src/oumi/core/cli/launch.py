@@ -1,6 +1,7 @@
 import itertools
 import sys
 import time
+from collections import defaultdict
 from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import Annotated, Callable, Optional
@@ -339,10 +340,8 @@ def status(
             print("No matching clusters found.")
             continue
         # Organize all jobs by cluster.
-        jobs_by_cluster: dict[str, list[JobStatus]] = {}
+        jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict()
         for job in job_list:
-            if job.cluster not in jobs_by_cluster:
-                jobs_by_cluster[job.cluster] = []
             jobs_by_cluster[job.cluster].append(job)
         for target_cluster, jobs in jobs_by_cluster.items():
             print(f"Cluster: {target_cluster}")
