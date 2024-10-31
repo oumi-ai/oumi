@@ -92,13 +92,13 @@ def test_tokenize_conversation(
 
 
 def test_tokenize_assistant_template(sft_dataset, gpt2_tokenizer):
-    enc = gpt2_tokenizer.encode(sft_dataset.response_template, add_special_tokens=False)
+    enc = gpt2_tokenizer.encode(_RESPONSE_PREFIX, add_special_tokens=False)
     dec = gpt2_tokenizer.decode(enc)
 
     assert sft_dataset.response_token_ids == gpt2_tokenizer.encode(
-        sft_dataset.response_template.strip(), add_special_tokens=False
+        _RESPONSE_PREFIX, add_special_tokens=False
     )
-    assert dec.strip() == sft_dataset.response_template.strip()
+    assert dec.strip() == sft_dataset._response_template
 
     turn = "Hello\nASSISTANT: Hi there!"
     enc = gpt2_tokenizer.encode(turn, add_special_tokens=False)

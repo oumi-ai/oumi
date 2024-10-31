@@ -48,77 +48,13 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._return_tensors = "pt" if return_tensors else None
 
         self._assistant_only = assistant_only
-        self.response_template = response_template
-        self.instruction_template = instruction_template
+        self._response_template = response_template
+        self._instruction_template = instruction_template
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
 
         self._data = self._load_data()
-
-    def _verify_assistant_only_compatibility(self) -> None:
-        if self._tokenizer is None:
-            raise ValueError(
-                "Tokenizer is required to enable tokenization "
-                "for training on assistant-only turns."
-            )
-
-        if self._tokenizer.chat_template is None:
-            raise ValueError(
-                "Tokenizer must have a chat template to enable "
-                "tokenization for training on assistant-only turns."
-            )
-
-        template: str = self._tokenizer.chat_template  # type: ignore
-
-        if re.search(r"\{\%-?\s*generation\s*-?\%\}", template):
-            logger.info(
-                "Tokenizer template contains `{% generation %}` keyword. "
-                "This is not compatible with completions-only training."
-            )
-
-            self._is_template_compatible_with_completions_only_training = True
-        else:
-            if (
-                self.response_template is None
-                or len(self.response_template.strip()) == 0
-            ):
-                raise ValueError(
-                    "Response template is required for completions-only training."
-                )
-            if self.response_template.strip() != self.response_template:
-                logger.warning(
-                    f"Response template '{self.response_template}' contains "
-                    "leading or trailing whitespaces. These will be ignored."
-                )
-
-                self.response_template = self.response_template.strip()
-
-            if (
-                self.instruction_template is None
-                or len(self.instruction_template.strip()) == 0
-            ):
-                raise ValueError(
-                    "Instruction template is required for completions-only training."
-                )
-
-            if self.instruction_template.strip() != self.instruction_template:
-                logger.warning(
-                    f"Instruction template '{self.instruction_template}' contains "
-                    "leading or trailing whitespaces. These will be ignored."
-                )
-
-                self.instruction_template = self.instruction_template.strip()
-
-            self.response_token_ids = self._tokenizer.encode(
-                self.response_template, add_special_tokens=False
-            )
-
-            self.instruction_token_ids = self._tokenizer.encode(
-                self.instruction_template, add_special_tokens=False
-            )
-
-            self._is_template_compatible_with_completions_only_training = False
 
     #
     # Properties
@@ -247,8 +183,8 @@ class BaseSftDataset(BaseMapDataset, ABC):
             return tokenize_for_completions_only_training_with_prefix(
                 tokenizer=self._tokenizer,
                 conversation=conversation,
-                response_template=cast(str, self.response_template),
-                instruction_template=cast(str, self.instruction_template),
+                response_template=cast(str, self._response_template),
+                instruction_template=cast(str, self._instruction_template),
                 response_token_ids=self.response_token_ids,
                 instruction_token_ids=self.instruction_token_ids,
             )
@@ -276,17 +212,66 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 self.text_col: results,
             }
 
-    # def _tokenize_for_completions_only_training_with_prefix(
-    #     self, sample: Union[dict, pd.Series, Conversation]
-    # ) -> dict:
-    #     if self._padding_free:
-    #         # remove padding, `attention_mask` and add `position_ids`
-    #         attn_mask = batch.pop("attention_mask")
-    #         batch["input_ids"] = batch["input_ids"][attn_mask.bool()].unsqueeze(0)
-    #         batch["position_ids"] = (
-    #             attn_mask.cumsum(1)[attn_mask.bool()].unsqueeze(0) - 1
-    #         )
-    #         batch["labels"] = batch["labels"][attn_mask.bool()].unsqueeze(0)
-    #         batch["labels"][batch["position_ids"] == 0] = self.ignore_index
+    def _verify_assistant_only_compatibility(self) -> None:
+        if self._tokenizer is None:
+            raise ValueError(
+                "Tokenizer is required to enable tokenization "
+                "for training on assistant-only turns."
+            )
 
-    #     return {k: v[0] for k, v in batch.items()}
+        if self._tokenizer.chat_template is None:
+            raise ValueError(
+                "Tokenizer must have a chat template to enable "
+                "tokenization for training on assistant-only turns."
+            )
+
+        template: str = self._tokenizer.chat_template  # type: ignore
+
+        if re.search(r"\{\%-?\s*generation\s*-?\%\}", template):
+            logger.info(
+                "Tokenizer template contains `{% generation %}` keyword. "
+                "This is not compatible with completions-only training."
+            )
+
+            self._is_template_compatible_with_completions_only_training = True
+        else:
+            if (
+                self._response_template is None
+                or len(self._response_template.strip()) == 0
+            ):
+                raise ValueError(
+                    "Response template is required for completions-only training."
+                )
+            if self._response_template.strip() != self._response_template:
+                logger.warning(
+                    f"Response template '{self._response_template}' contains "
+                    "leading or trailing whitespaces. These will be ignored."
+                )
+
+                self._response_template = self._response_template.strip()
+
+            if (
+                self._instruction_template is None
+                or len(self._instruction_template.strip()) == 0
+            ):
+                raise ValueError(
+                    "Instruction template is required for completions-only training."
+                )
+
+            if self._instruction_template.strip() != self._instruction_template:
+                logger.warning(
+                    f"Instruction template '{self._instruction_template}' contains "
+                    "leading or trailing whitespaces. These will be ignored."
+                )
+
+                self._instruction_template = self._instruction_template.strip()
+
+            self.response_token_ids = self._tokenizer.encode(
+                self._response_template, add_special_tokens=False
+            )
+
+            self.instruction_token_ids = self._tokenizer.encode(
+                self._instruction_template, add_special_tokens=False
+            )
+
+            self._is_template_compatible_with_completions_only_training = False
