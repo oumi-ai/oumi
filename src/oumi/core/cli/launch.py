@@ -88,6 +88,7 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
         return True
     status = running_cluster.get_job(id)
     while not status.done:
+        time.sleep(30)  # Poll every 30 seconds.
         status = running_cluster.get_job(id)
     return status.done
 
