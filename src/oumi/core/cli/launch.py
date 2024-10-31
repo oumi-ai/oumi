@@ -69,6 +69,8 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     if not running_cluster:
         return True
     status = running_cluster.get_job(id)
+    while not status.done:
+        status = running_cluster.get_job(id)
     return status.done
 
 
