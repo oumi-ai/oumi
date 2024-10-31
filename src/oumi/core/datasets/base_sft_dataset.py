@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
 
@@ -5,17 +6,16 @@ import pandas as pd
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
+from oumi.core.tokenizers.utils import (
+    tokenize_for_completions_only_training_with_prefix,
+    tokenize_for_completions_only_training_with_template,
+)
 from oumi.core.types.conversation import Conversation
+from oumi.utils.logging import logger
 
 
 class BaseSftDataset(BaseMapDataset, ABC):
-    """In-memory dataset for SFT data.
-
-    The SFT datasets are expected to be in the following format:
-    WIP.
-
-    The exected output is a tokenized prompt
-    """
+    """In-memory dataset for SFT data."""
 
     default_dataset = None
 
@@ -29,6 +29,9 @@ class BaseSftDataset(BaseMapDataset, ABC):
         task: Literal["sft", "generation", "auto"] = "auto",
         return_tensors: bool = False,
         text_col: str = "text",
+        assistant_only: bool = False,
+        response_template: Optional[str] = None,
+        instruction_template: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseSftDataset class."""
@@ -43,7 +46,58 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._text_col = text_col
         self._tokenizer = tokenizer
         self._return_tensors = "pt" if return_tensors else None
+
+        self._assistant_only = assistant_only
+        self.response_template = response_template
+        self.instruction_template = instruction_template
+
+        if self._assistant_only:
+            self._verify_assistant_only_compatibility()
+
         self._data = self._load_data()
+
+    def _verify_assistant_only_compatibility(self) -> None:
+        if self._tokenizer is None:
+            raise ValueError(
+                "Tokenizer is required to enable tokenization "
+                "for training on assistant-only turns."
+            )
+
+        if self._tokenizer.chat_template is None:
+            raise ValueError(
+                "Tokenizer must have a chat template to enable "
+                "tokenization for training on assistant-only turns."
+            )
+
+        template: str = self._tokenizer.chat_template  # type: ignore
+
+        if re.search(r"\{\%-?\s*generation\s*-?\%\}", template):
+            logger.info(
+                "Tokenizer template contains `{% generation %}` keyword. "
+                "This is not compatible with completions-only training."
+            )
+
+            self._is_template_compatible_with_completions_only_training = True
+        else:
+            if self.response_template is None:
+                raise ValueError(
+                    "Response template is required for completions-only training."
+                )
+
+            if self.instruction_template is None:
+                raise ValueError(
+                    "Instruction template is required for completions-only training."
+                )
+
+            self.response_token_ids = self._tokenizer.encode(
+                self.response_template, add_special_tokens=False
+            )
+
+            self.instruction_token_ids = self._tokenizer.encode(
+                self.instruction_template, add_special_tokens=False
+            )
+
+            self._is_template_compatible_with_completions_only_training = False
 
     #
     # Properties
@@ -63,6 +117,11 @@ class BaseSftDataset(BaseMapDataset, ABC):
         The generated prompt is often different for generation vs SFT tasks.
         """
         return self._task
+
+    @property
+    def assistant_only(self) -> bool:
+        """Gets whether the dataset is set to train only on assistant turns."""
+        return self._assistant_only
 
     #
     # Main API
@@ -116,13 +175,13 @@ class BaseSftDataset(BaseMapDataset, ABC):
 
     def tokenize(
         self,
-        samples: Union[dict, pd.Series, Conversation],
+        sample: Union[dict, pd.Series, Conversation],
         tokenize: bool = True,
     ) -> dict:
         """Applies the chat template carried by the tokenizer to the input example.
 
         Args:
-            samples (Dict): Mapping `messages` to a List containing the (ordered)
+            sample (Dict): Mapping `messages` to a List containing the (ordered)
                 messages exchanged within a single chat dialogue.
                 Each item of example["messages"] is a dict mapping the `content` of the
                 message and the `role` of the one relayed it.
@@ -140,8 +199,47 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
 
+        if isinstance(sample, Conversation):
+            conversation = sample
+        else:
+            if isinstance(sample, pd.Series):
+                sample = sample.to_dict()
+
+            if isinstance(sample, dict) and "messages" in sample:
+                conversation = Conversation.from_dict(sample)
+
+            else:
+                raise ValueError(
+                    "Input samples must be a Conversation or a dict with "
+                    "'messages' key."
+                )
+
+        if not self._assistant_only or not tokenize:
+            return self._tokenize(conversation, tokenize)
+
+        if self._is_template_compatible_with_completions_only_training:
+            return tokenize_for_completions_only_training_with_template(
+                tokenizer=self._tokenizer,
+                conversation=conversation,
+            )
+        else:
+            return tokenize_for_completions_only_training_with_prefix(
+                tokenizer=self._tokenizer,
+                conversation=conversation,
+                response_template=self.response_template,
+                instruction_template=self.instruction_template,
+                response_token_ids=self.response_token_ids,
+                instruction_token_ids=self.instruction_token_ids,
+            )
+
+    def _tokenize(
+        self, sample: Union[dict, pd.Series, Conversation], tokenize: bool = True
+    ) -> dict:
+        if self._tokenizer is None:
+            raise ValueError("Tokenizer is required for tokenization.")
+
         results = self._tokenizer.apply_chat_template(
-            samples,  # type: ignore
+            sample,  # type: ignore
             tokenize=tokenize,
             return_dict=tokenize,
             return_tensors=self._return_tensors,
@@ -156,3 +254,18 @@ class BaseSftDataset(BaseMapDataset, ABC):
             return {
                 self.text_col: results,
             }
+
+    # def _tokenize_for_completions_only_training_with_prefix(
+    #     self, sample: Union[dict, pd.Series, Conversation]
+    # ) -> dict:
+    #     if self._padding_free:
+    #         # remove padding, `attention_mask` and add `position_ids`
+    #         attn_mask = batch.pop("attention_mask")
+    #         batch["input_ids"] = batch["input_ids"][attn_mask.bool()].unsqueeze(0)
+    #         batch["position_ids"] = (
+    #             attn_mask.cumsum(1)[attn_mask.bool()].unsqueeze(0) - 1
+    #         )
+    #         batch["labels"] = batch["labels"][attn_mask.bool()].unsqueeze(0)
+    #         batch["labels"][batch["position_ids"] == 0] = self.ignore_index
+
+    #     return {k: v[0] for k, v in batch.items()}

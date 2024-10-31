@@ -143,6 +143,14 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Debug Unit Test",
+            "type": "debugpy",
+            "purpose": [
+                "debug-test"
+            ],
+            "justMyCode": false,
+        },
     ]
 }
