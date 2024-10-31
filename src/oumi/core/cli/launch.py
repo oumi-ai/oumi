@@ -79,7 +79,11 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
 
 
 def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
-    """Cancels a job."""
+    """Cancels a job.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Cancel has no intermediate states, so it always returns True.
+    """
     if not cluster:
         return True
     if not id:
@@ -91,7 +95,11 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
 
 
 def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
-    """Turns down a cluster."""
+    """Turns down a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Down has no intermediate states, so it always returns True.
+    """
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
@@ -121,7 +129,11 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
 
 
 def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
-    """Stops a cluster."""
+    """Stops a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Stop has no intermediate states, so it always returns True.
+    """
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
