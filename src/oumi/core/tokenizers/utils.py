@@ -25,7 +25,7 @@ def tokenize_for_completions_only_training_with_template(
     assistant_tokens_mask = results.pop("assistant_masks")
 
     results["labels"] = [
-        LABEL_IGNORE_INDEX if mask else token_id
+        token_id if mask else LABEL_IGNORE_INDEX
         for mask, token_id in zip(assistant_tokens_mask, results["input_ids"])
     ]
 

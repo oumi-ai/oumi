@@ -79,15 +79,36 @@ class BaseSftDataset(BaseMapDataset, ABC):
 
             self._is_template_compatible_with_completions_only_training = True
         else:
-            if self.response_template is None:
+            if (
+                self.response_template is None
+                or len(self.response_template.strip()) == 0
+            ):
                 raise ValueError(
                     "Response template is required for completions-only training."
                 )
+            if self.response_template.strip() != self.response_template:
+                logger.warning(
+                    f"Response template '{self.response_template}' contains "
+                    "leading or trailing whitespaces. These will be ignored."
+                )
 
-            if self.instruction_template is None:
+                self.response_template = self.response_template.strip()
+
+            if (
+                self.instruction_template is None
+                or len(self.instruction_template.strip()) == 0
+            ):
                 raise ValueError(
                     "Instruction template is required for completions-only training."
                 )
+
+            if self.instruction_template.strip() != self.instruction_template:
+                logger.warning(
+                    f"Instruction template '{self.instruction_template}' contains "
+                    "leading or trailing whitespaces. These will be ignored."
+                )
+
+                self.instruction_template = self.instruction_template.strip()
 
             self.response_token_ids = self._tokenizer.encode(
                 self.response_template, add_special_tokens=False
