@@ -247,8 +247,8 @@ class BaseSftDataset(BaseMapDataset, ABC):
             return tokenize_for_completions_only_training_with_prefix(
                 tokenizer=self._tokenizer,
                 conversation=conversation,
-                response_template=self.response_template,
-                instruction_template=self.instruction_template,
+                response_template=cast(str, self.response_template),
+                instruction_template=cast(str, self.instruction_template),
                 response_token_ids=self.response_token_ids,
                 instruction_token_ids=self.instruction_token_ids,
             )

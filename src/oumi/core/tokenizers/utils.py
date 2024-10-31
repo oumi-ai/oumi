@@ -1,35 +1,36 @@
-import warnings
-from typing import Optional, cast
+from typing import Optional
 
 import numpy as np
 import torch
+import transformers
 
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types import Conversation
+from oumi.utils.logging import logger
 
 
 def tokenize_for_completions_only_training_with_template(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for completions-only training with a template."""
-    results = tokenizer.apply_chat_template(
+    batch: transformers.BatchEncoding = tokenizer.apply_chat_template(
         conversation=conversation,  # type: ignore
         tokenize=True,
         return_dict=True,
         return_assistant_tokens_mask=True,
     )
 
-    # results = cast(dict, results)
+    data = batch.data
 
-    assistant_tokens_mask = results.pop("assistant_masks")
+    assistant_tokens_mask = data.pop("assistant_masks")
 
-    results["labels"] = [
+    data["labels"] = [
         token_id if mask else LABEL_IGNORE_INDEX
-        for mask, token_id in zip(assistant_tokens_mask, results["input_ids"])
+        for mask, token_id in zip(assistant_tokens_mask, data["input_ids"])
     ]
 
-    return results
+    return data
 
 
 def tokenize_for_completions_only_training_with_prefix(
@@ -41,83 +42,81 @@ def tokenize_for_completions_only_training_with_prefix(
     instruction_token_ids: list[int],
 ) -> dict:
     """Tokenize a conversation for completions-only training with a prefix."""
-    prompt = tokenizer.apply_chat_template(
+    prompt: str = tokenizer.apply_chat_template(
         conversation=conversation,  # type: ignore
         tokenize=False,
         return_dict=False,
         return_assistant_tokens_mask=False,
     )
-    examples = [prompt]
-    batch = tokenizer(examples, truncation=True, padding=False, return_tensors="pt")
+    tokenizer_batch: transformers.BatchEncoding = tokenizer(
+        prompt, truncation=True, padding=False, return_tensors="pt"
+    )
 
-    labels = batch["input_ids"].clone()
-    batch["labels"] = labels
+    batch = {k: v[0] for k, v in tokenizer_batch.data.items()}
+    batch["labels"] = batch["input_ids"].clone()
 
-    for i in range(len(examples)):
-        response_token_ids_idxs = []
-        human_token_ids_idxs = []
+    response_token_ids_idxs = []
+    human_token_ids_idxs = []
 
-        cond = np.atleast_1d(batch["labels"][i] == response_token_ids[0])
+    cond = np.atleast_1d(batch["labels"] == response_token_ids[0])
 
-        for assistant_idx in np.where(cond)[0]:
-            # find the indexes of the start of a response.
-            if (
-                response_token_ids
-                == batch["labels"][i][
-                    assistant_idx : assistant_idx + len(response_token_ids)
-                ].tolist()
-            ):
-                response_token_ids_idxs.append(assistant_idx + len(response_token_ids))
-
-        if len(response_token_ids_idxs) == 0:
-            warnings.warn(
-                f"Could not find response key `{response_template}` in the "
-                f'following instance: {tokenizer.decode(batch["input_ids"][i])} '
-                f"This instance will be ignored in loss calculation. "
-                f"Note, if this happens often, consider increasing the `max_seq_length`."
-            )
-            batch["labels"][i, :] = LABEL_IGNORE_INDEX
-
-        human_token_ids = instruction_token_ids
-        for human_idx in np.where(batch["labels"][i] == human_token_ids[0])[0]:
-            # find the indexes of the start of a human answer.
-            if (
-                human_token_ids
-                == batch["labels"][i][
-                    human_idx : human_idx + len(human_token_ids)
-                ].tolist()
-            ):
-                human_token_ids_idxs.append(human_idx)
-
-        if len(human_token_ids_idxs) == 0:
-            warnings.warn(
-                f"Could not find instruction key `{instruction_template}` in the "
-                f'following instance: {tokenizer.decode(batch["input_ids"][i])} '
-                f"This instance will be ignored in loss calculation. "
-                f"Note, if this happens often, consider increasing the `max_seq_length`."
-            )
-            batch["labels"][i, :] = LABEL_IGNORE_INDEX
-
+    for assistant_idx in np.where(cond)[0]:
+        # find the indexes of the start of a response.
         if (
-            len(human_token_ids_idxs) > 0
-            and len(response_token_ids_idxs) > 0
-            and human_token_ids_idxs[0] > response_token_ids_idxs[0]
+            response_token_ids
+            == batch["labels"][
+                assistant_idx : assistant_idx + len(response_token_ids)
+            ].tolist()
         ):
-            human_token_ids_idxs = [0] + human_token_ids_idxs
+            response_token_ids_idxs.append(assistant_idx + len(response_token_ids))
 
-        for idx, (start, end) in enumerate(
-            zip(human_token_ids_idxs, response_token_ids_idxs)
+    if len(response_token_ids_idxs) == 0:
+        logger.warning(
+            f"Could not find response key `{response_template}` in the "
+            f'following instance: {tokenizer.decode(batch["input_ids"])} '
+            f"This instance will be ignored in loss calculation. "
+            f"Note, if this happens often, consider increasing the `max_seq_length`."
+        )
+        batch["labels"][:] = LABEL_IGNORE_INDEX
+
+    human_token_ids = instruction_token_ids
+    for human_idx in np.where(batch["labels"] == human_token_ids[0])[0]:
+        # find the indexes of the start of a human answer.
+        if (
+            human_token_ids
+            == batch["labels"][human_idx : human_idx + len(human_token_ids)].tolist()
         ):
-            # Make pytorch loss function ignore all non response tokens
-            if idx != 0:
-                batch["labels"][i, start:end] = LABEL_IGNORE_INDEX
-            else:
-                batch["labels"][i, :end] = LABEL_IGNORE_INDEX
+            human_token_ids_idxs.append(human_idx)
 
-        if len(response_token_ids_idxs) < len(human_token_ids_idxs):
-            batch["labels"][i, human_token_ids_idxs[-1] :] = LABEL_IGNORE_INDEX
+    if len(human_token_ids_idxs) == 0:
+        logger.warn(
+            f"Could not find instruction key `{instruction_template}` in the "
+            f'following instance: {tokenizer.decode(batch["input_ids"])} '
+            f"This instance will be ignored in loss calculation. "
+            f"Note, if this happens often, consider increasing the `max_seq_length`."
+        )
+        batch["labels"][:] = LABEL_IGNORE_INDEX
 
-    return {k: v[0] for k, v in batch.items()}
+    if (
+        len(human_token_ids_idxs) > 0
+        and len(response_token_ids_idxs) > 0
+        and human_token_ids_idxs[0] > response_token_ids_idxs[0]
+    ):
+        human_token_ids_idxs = [0] + human_token_ids_idxs
+
+    for idx, (start, end) in enumerate(
+        zip(human_token_ids_idxs, response_token_ids_idxs)
+    ):
+        # Make pytorch loss function ignore all non response tokens
+        if idx != 0:
+            batch["labels"][start:end] = LABEL_IGNORE_INDEX
+        else:
+            batch["labels"][:end] = LABEL_IGNORE_INDEX
+
+    if len(response_token_ids_idxs) < len(human_token_ids_idxs):
+        batch["labels"][human_token_ids_idxs[-1] :] = LABEL_IGNORE_INDEX
+
+    return batch
 
 
 def _find_pattern_start(

@@ -10,8 +10,6 @@ from oumi.core.configs import ModelParams
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.tokenizers.utils import (
     _find_pattern_start,
-    tokenize_for_completions_only_training_with_prefix,
-    tokenize_for_completions_only_training_with_template,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 
