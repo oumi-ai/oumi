@@ -93,6 +93,8 @@ def test_tokenize_conversation(
 
 
 def test_tokenize_assistant_template(sft_dataset, gpt2_tokenizer):
+    assert not sft_dataset._is_template_compatible_with_completions_only_training
+
     enc = gpt2_tokenizer.encode(_RESPONSE_PREFIX, add_special_tokens=False)
     dec = gpt2_tokenizer.decode(enc)
 
@@ -153,6 +155,7 @@ def test_tokenize_empty_conversation(sft_dataset: TestBaseSftDataset):
 
 
 def test_tokenize_user_only_turn(sft_dataset, gpt2_tokenizer):
+    assert not sft_dataset._is_template_compatible_with_completions_only_training
     conversation = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello, oumi!"),
@@ -175,6 +178,8 @@ def test_tokenize_user_only_turn(sft_dataset, gpt2_tokenizer):
 
 
 def test_tokenize_assistant_only_turn_with_prefix(sft_dataset, gpt2_tokenizer):
+    assert not sft_dataset._is_template_compatible_with_completions_only_training
+
     conversation = Conversation(
         messages=[
             Message(role=Role.SYSTEM, content="You are a helpful assistant."),
@@ -219,6 +224,9 @@ def test_tokenize_assistant_only_turn_with_template():
         tokenizer=tokenizer,
         assistant_only=True,
     )
+
+    assert sft_dataset._is_template_compatible_with_completions_only_training
+
     conversation = Conversation(
         messages=[
             Message(role=Role.SYSTEM, content="You are a helpful assistant."),

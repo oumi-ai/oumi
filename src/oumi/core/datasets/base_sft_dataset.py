@@ -230,7 +230,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if re.search(r"\{\%-?\s*generation\s*-?\%\}", template):
             logger.info(
                 "Tokenizer template contains `{% generation %}` keyword. "
-                "This is not compatible with completions-only training."
+                "We will use it for completions-only training."
             )
 
             self._is_template_compatible_with_completions_only_training = True
