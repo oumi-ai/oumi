@@ -317,17 +317,17 @@ def status(
         # Ignore clouds not matching the filter criteria.
         if cloud and target_cloud != cloud:
             continue
-        filtered_jobs[cloud] = {}
+        filtered_jobs[target_cloud] = {}
         for target_cluster in cloud_obj.list_clusters():
             # Ignore clusters not matching the filter criteria.
             if cluster and target_cluster.name() != cluster:
                 continue
-            filtered_jobs[cloud][target_cluster.name()] = []
+            filtered_jobs[target_cloud][target_cluster.name()] = []
             for job in target_cluster.get_jobs():
                 # Ignore jobs not matching the filter criteria.
                 if id and job.id != id:
                     continue
-                filtered_jobs[cloud][target_cluster.name()].append(job)
+                filtered_jobs[target_cloud][target_cluster.name()].append(job)
     # Print the filtered jobs.
     if not filtered_jobs.items():
         print("No jobs found for the specified filter criteria: ")
@@ -337,12 +337,12 @@ def status(
             print(f"Cluster: {cluster}")
         if id:
             print(f"Job ID: {id}")
-    for cloud, clusters in filtered_jobs.items():
-        print(f"Cloud: {cloud}")
-        if not clusters.items():
+    for target_cloud, target_clusters in filtered_jobs.items():
+        print(f"Cloud: {target_cloud}")
+        if not target_clusters.items():
             print("No matching clusters found.")
-        for cluster, jobs in clusters.items():
-            print(f"Cluster: {cluster}")
+        for target_cluster, jobs in target_clusters.items():
+            print(f"Cluster: {target_cluster}")
             if not jobs:
                 print("No matching jobs found.")
             for job in jobs:
