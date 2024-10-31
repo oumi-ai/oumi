@@ -310,26 +310,10 @@ def status(
     print("========================")
     print("Job status:")
     print("========================")
-    filtered_jobs = {}
-
-    for target_cloud in launcher.which_clouds():
-        cloud_obj = launcher.get_cloud(target_cloud)
-        # Ignore clouds not matching the filter criteria.
-        if cloud and target_cloud != cloud:
-            continue
-        filtered_jobs[target_cloud] = {}
-        for target_cluster in cloud_obj.list_clusters():
-            # Ignore clusters not matching the filter criteria.
-            if cluster and target_cluster.name() != cluster:
-                continue
-            filtered_jobs[target_cloud][target_cluster.name()] = []
-            for job in target_cluster.get_jobs():
-                # Ignore jobs not matching the filter criteria.
-                if id and job.id != id:
-                    continue
-                filtered_jobs[target_cloud][target_cluster.name()].append(job)
+    filtered_jobs = launcher.status(cloud=cloud, cluster=cluster, id=id)
+    num_jobs = sum(len(cloud_jobs) for cloud_jobs in filtered_jobs.keys())
     # Print the filtered jobs.
-    if not filtered_jobs.items():
+    if num_jobs == 0:
         print("No jobs found for the specified filter criteria: ")
         if cloud:
             print(f"Cloud: {cloud}")
@@ -337,11 +321,18 @@ def status(
             print(f"Cluster: {cluster}")
         if id:
             print(f"Job ID: {id}")
-    for target_cloud, target_clusters in filtered_jobs.items():
+    for target_cloud, job_list in filtered_jobs.items():
         print(f"Cloud: {target_cloud}")
-        if not target_clusters.items():
+        if len(job_list) == 0:
             print("No matching clusters found.")
-        for target_cluster, jobs in target_clusters.items():
+            continue
+        # Organize all jobs by cluster.
+        jobs_by_cluster: dict[str, list[JobStatus]] = {}
+        for job in job_list:
+            if job.cluster not in jobs_by_cluster:
+                jobs_by_cluster[job.cluster] = []
+            jobs_by_cluster[job.cluster].append(job)
+        for target_cluster, jobs in jobs_by_cluster.items():
             print(f"Cluster: {target_cluster}")
             if not jobs:
                 print("No matching jobs found.")
