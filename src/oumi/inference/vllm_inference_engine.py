@@ -190,11 +190,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
             output_conversations.append(new_conversation)
 
-            if inference_config.output_path:
-                self._save_conversation(
-                    new_conversation,
-                    inference_config.output_path,
-                )
+        if inference_config.output_path:
+            self._save_conversations(
+                output_conversations,
+                inference_config.output_path,
+            )
         return output_conversations
 
     def infer_online(
