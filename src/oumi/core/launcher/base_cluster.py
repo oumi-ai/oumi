@@ -58,6 +58,11 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def stop(self) -> None:
+        """Stops the current cluster."""
+        raise NotImplementedError
+
+    @abstractmethod
     def down(self) -> None:
         """Tears down the current cluster."""
         raise NotImplementedError

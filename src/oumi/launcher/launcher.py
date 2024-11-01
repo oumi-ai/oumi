@@ -10,7 +10,7 @@ class Launcher:
 
     def __init__(self):
         """Initializes a new instance of the Launcher class."""
-        self._clouds = dict()
+        self._clouds: dict[str, BaseCloud] = dict()
         self._initialize_new_clouds()
 
     def _initialize_new_clouds(self) -> None:
@@ -66,15 +66,49 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         return cluster.run_job(job)
 
-    def status(self) -> list[JobStatus]:
-        """Gets the status of all jobs across all clusters."""
+    def status(
+        self,
+        cloud: Optional[str] = None,
+        cluster: Optional[str] = None,
+        id: Optional[str] = None,
+    ) -> dict[str, list[JobStatus]]:
+        """Gets the status of all jobs across all clusters.
+
+        Args:
+            cloud: If specified, filters all jobs to only those on the specified cloud.
+            cluster: If specified, filters all jobs to only those on the specified
+                cluster.
+            id: If specified, filters all jobs to only those with the specified ID.
+
+        Returns:
+            dict[str, list(JobStatus)]: The status of all jobs, indexed by cloud name.
+        """
         # Pick up any newly registered cloud builders.
         self._initialize_new_clouds()
-        statuses = []
-        for _, cloud in self._clouds.items():
-            for cluster in cloud.list_clusters():
-                statuses.extend(cluster.get_jobs())
+        statuses: dict[str, list[JobStatus]] = {}
+        for cloud_name, target_cloud in self._clouds.items():
+            # Ignore clouds not matching the filter criteria.
+            if cloud and cloud_name != cloud:
+                continue
+            statuses[cloud_name] = []
+            for target_cluster in target_cloud.list_clusters():
+                # Ignore clusters not matching the filter criteria.
+                if cluster and target_cluster.name() != cluster:
+                    continue
+                for job in target_cluster.get_jobs():
+                    # Ignore jobs not matching the filter criteria.
+                    if id and job.id != id:
+                        continue
+                    statuses[cloud_name].append(job)
         return statuses
+
+    def stop(self, cloud_name: str, cluster_name: str) -> None:
+        """Stops the specified cluster."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        cluster.stop()
 
     def up(
         self, job: JobConfig, cluster_name: Optional[str], **kwargs
@@ -104,6 +138,8 @@ get_cloud = LAUNCHER.get_cloud
 run = LAUNCHER.run
 #: A convenience method for Launcher.status.
 status = LAUNCHER.status
+#: A convenience method for Launcher.stop.
+stop = LAUNCHER.stop
 #: A convenience method for Launcher.up.
 up = LAUNCHER.up
 #: A convenience method for Launcher.which_clouds.

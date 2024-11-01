@@ -101,7 +101,7 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
             "handle": mock_gcp_handler,
         },
         {
-            "name": "down_cluster_name",
+            "name": "stop_cluster_name",
             "status": sky.ClusterStatus.STOPPED,
             "handle": mock_gcp_handler,
         },
@@ -275,7 +275,7 @@ def test_sky_cloud_list_clusters_gcp(mock_sky_client):
             "handle": mock_gcp_handler,
         },
         {
-            "name": "down_cluster_name",
+            "name": "stop_cluster_name",
             "status": sky.ClusterStatus.STOPPED,
             "handle": mock_gcp_handler,
         },

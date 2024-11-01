@@ -9,6 +9,18 @@
 
 The Oumi Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
 
+<p align="center">
+   <b>Check out our docs!</b>
+   <br>
+   ↓↓↓↓↓↓
+   <br>
+   https://oumi.ai/docs
+   <br>
+   <b>Password:</b> c155c7d02520
+   <br>
+   ↑↑↑↑↑↑
+</p>
+
 ## Features
 
 - **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
@@ -21,7 +33,7 @@ The Oumi Platform enables the end-to-end development of foundation and specializ
 
 ## Getting Started
 
-For an overview of the Oumi features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
+For an overview of Oumi features and usage, check out the [user guide](https://oumi.ai/docs/latest/user_guides/train/train.html) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
@@ -43,7 +55,7 @@ For an overview of the Oumi features and usage, checkout the [user guide](/USAGE
    oumi train -c path/to/your/config.yaml
    ```
 
-   For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).
+   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
 
 ### Configurations
 

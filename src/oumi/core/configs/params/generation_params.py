@@ -29,7 +29,7 @@ class GenerationParams(BaseParams):
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
 
-    temperature: float = 1.0
+    temperature: float = 0.0
     """Controls randomness in the output.
 
     Higher values (e.g., 1.0) make output more random, while lower values (e.g., 0.2)
