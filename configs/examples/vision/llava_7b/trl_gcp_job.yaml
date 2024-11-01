@@ -18,6 +18,11 @@ working_dir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
+storage_mounts:
+  /output_dir_gcs:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llava.7b.fft.trl
@@ -35,6 +40,8 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  ls -l /output_dir_gcs/
+
   set -x  # Print "torchrun" command with expanded variables
   torchrun \
       --nnodes=${OUMI_NUM_NODES} \
@@ -45,8 +52,11 @@ run: |
       -m oumi.train \
       -c configs/examples/vision/llava_7b/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=20" \
+      "training.max_steps=400" \
+      "training.output_dir='output/${OUMI_RUN_NAME}-400steps/'" \
       "training.save_steps=0" \
-      "training.save_final_model=false"
+      "training.save_final_model=true"
+
+  cp -R "output/${OUMI_RUN_NAME}-400steps/" "/output_dir_gcs/nikolai/runs/2024-11-01/${OUMI_RUN_NAME}-400steps/"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

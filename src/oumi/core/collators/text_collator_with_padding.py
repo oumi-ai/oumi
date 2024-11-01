@@ -1,8 +1,6 @@
 import collections
 from typing import Any, NamedTuple, Optional
 
-import transformers
-
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import create_ones_like, pad_sequences
@@ -50,15 +48,6 @@ class TextCollatorWithPadding:
         )
         self._truncation: bool = bool(truncation)
 
-        # TODO OPE-642 Remove dependency on `DataCollatorWithPadding`,
-        # and always use simple collation after more testing.
-        self._default_collator = transformers.DataCollatorWithPadding(
-            tokenizer=tokenizer,
-            max_length=self._max_length,
-            padding="longest",
-            return_tensors="pt",
-        )
-
         if not hasattr(tokenizer, "padding_side") or not tokenizer.padding_side:
             raise RuntimeError("Tokenizer doesn't define `padding_side`.")
         self._padding_side = str(tokenizer.padding_side)
@@ -73,21 +62,6 @@ class TextCollatorWithPadding:
 
         self._max_input_ids_length: int = 0
         self._max_previously_logged_input_ids_length: int = 0
-
-    def _collate_using_transformers(
-        self, inputs: list[Any], batch_max_length: int
-    ) -> dict[str, Any]:
-        try:
-            result = self._default_collator({_INPUT_IDS_KEY: inputs})  # type: ignore
-        except ValueError:
-            logger.error(
-                "Failed to collate using DataCollatorWithPadding! "
-                f"Batch maximum length: {batch_max_length}. "
-                f"Maximum allowed length: {self._max_length}. "
-                f"Truncation: {self._truncation}."
-            )
-            raise
-        return result
 
     def _collate_simple(
         self,

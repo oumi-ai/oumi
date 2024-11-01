@@ -4,6 +4,7 @@ import torch
 
 from oumi.utils.torch_utils import (
     convert_to_list_of_tensors,
+    create_ones_like,
     pad_sequences,
     pad_sequences_left_side,
     pad_sequences_right_side,
@@ -127,3 +128,137 @@ def test_pad_sequences_left_side(padding_value: int):
             test_sequences, padding_side="left", padding_value=padding_value
         ).numpy()
     )
+
+
+def test_create_ones_from_empty():
+    result = create_ones_like([])
+    assert isinstance(result, list) and len(result) == 0
+
+    result = create_ones_like(np.asarray([]))
+    assert isinstance(result, np.ndarray) and result.shape == (0,)
+
+    result = create_ones_like(torch.Tensor(np.asarray([])))
+    assert isinstance(result, torch.Tensor) and result.shape == (0,)
+
+
+def test_create_ones_from_none():
+    with pytest.raises(ValueError, match="Unsupported type"):
+        create_ones_like(None)
+
+
+def test_create_ones_from_primitive():
+    with pytest.raises(ValueError, match="Unsupported type"):
+        create_ones_like(1)
+    with pytest.raises(ValueError, match="Unsupported type"):
+        create_ones_like(2.0)
+    with pytest.raises(ValueError, match="Unsupported type"):
+        create_ones_like("zzz")
+
+
+def test_create_ones_like_inhomogeneous_shape():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "setting an array element with a sequence. "
+            "The requested array has an inhomogeneous shape after"
+        ),
+    ):
+        create_ones_like([2, 3, [4, 5]])
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "setting an array element with a sequence. "
+            "The requested array has an inhomogeneous shape after"
+        ),
+    ):
+        create_ones_like([2, 3, np.asarray([4, 5]), 6])
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "setting an array element with a sequence. "
+            "The requested array has an inhomogeneous shape after"
+        ),
+    ):
+        create_ones_like([2, torch.Tensor([4, 5]), 7])
+
+
+def test_create_ones_like_different_types():
+    with pytest.raises(
+        ValueError,
+        match=("Sequence contains elements of different types"),
+    ):
+        create_ones_like([[4, 5], 1])
+
+    with pytest.raises(
+        ValueError,
+        match=("Sequence contains elements of different types"),
+    ):
+        create_ones_like([[4, 5], np.asarray([6, 7])])
+
+    with pytest.raises(
+        ValueError,
+        match=("Sequence contains elements of different types"),
+    ):
+        create_ones_like([np.asarray([6, 7]), torch.Tensor([8, 9])])
+
+    with pytest.raises(
+        ValueError,
+        match=("Sequence contains elements of different types"),
+    ):
+        create_ones_like([torch.Tensor([8, 9]), [1, 2]])
+
+    with pytest.raises(
+        ValueError,
+        match=("Sequence contains elements of different types"),
+    ):
+        create_ones_like([torch.Tensor([8, 9]), "str"])
+
+
+def test_create_ones_like_success_list():
+    result = create_ones_like([2])
+    assert isinstance(result, list)
+    assert np.all(np.asarray(result) == [1])
+
+    result = create_ones_like([2, 3, 4])
+    assert isinstance(result, list)
+    assert np.all(np.asarray(result) == [1, 1, 1])
+
+    result = create_ones_like([[2, 3], [4, 5]])
+    assert isinstance(result, list)
+    assert np.all(np.asarray(result) == np.asarray([[1, 1], [1, 1]]))
+
+
+def test_create_ones_like_success_numpy():
+    result = create_ones_like(np.asarray([2]))
+    assert isinstance(result, np.ndarray)
+    assert np.all(result == [1])
+
+    result = create_ones_like(np.asarray([2, 3, 4]))
+    assert isinstance(result, np.ndarray)
+    assert np.all(np.asarray(result) == [1, 1, 1])
+
+    result = create_ones_like([np.asarray([2, 3]), np.asarray([4, 5, 6])])
+    assert isinstance(result, list)
+    assert isinstance(result[0], np.ndarray)
+    assert np.all(result[0] == np.asarray([1, 1]))
+    assert isinstance(result[1], np.ndarray)
+    assert np.all(result[1] == np.asarray([1, 1, 1]))
+
+
+def test_create_ones_like_success_tensor():
+    result = create_ones_like(torch.Tensor([2]))
+    assert isinstance(result, torch.Tensor)
+    assert np.all(result.numpy() == np.asarray([1]))
+
+    result = create_ones_like(torch.Tensor([2, 3, 4]))
+    assert isinstance(result, torch.Tensor)
+    assert np.all(result.numpy() == np.asarray([1, 1, 1]))
+
+    result = create_ones_like([torch.Tensor([2, 3]), torch.Tensor([4, 5, 6])])
+    assert isinstance(result, list)
+    assert isinstance(result[0], torch.Tensor)
+    assert np.all(result[0].numpy() == np.asarray([1, 1]))
+    assert isinstance(result[1], torch.Tensor)
+    assert np.all(result[1].numpy() == np.asarray([1, 1, 1]))
