@@ -63,6 +63,6 @@ def run():
     return app()
 
 
-if "sphinx-build" in sys.modules:
+if "sphinx" in sys.modules:
     # Create the CLI app when building the docs to auto-generate the CLI reference.
     app = get_app()
