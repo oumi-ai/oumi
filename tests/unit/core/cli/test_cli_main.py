@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset
-from oumi.core.cli.launch import down, status, stop, up, which
+from oumi.core.cli.launch import cancel, down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.main import get_app
 from oumi.core.cli.train import train
@@ -54,6 +54,13 @@ def mock_down():
 
 
 @pytest.fixture
+def mock_stop():
+    with patch("oumi.core.cli.main.stop") as m_stop:
+        _copy_command(m_stop, stop)
+        yield m_stop
+
+
+@pytest.fixture
 def mock_launcher_run():
     with patch("oumi.core.cli.main.launcher_run") as m_launcher_run:
         _copy_command(m_launcher_run, launcher_run)
@@ -68,10 +75,10 @@ def mock_status():
 
 
 @pytest.fixture
-def mock_stop():
-    with patch("oumi.core.cli.main.stop") as m_stop:
-        _copy_command(m_stop, stop)
-        yield m_stop
+def mock_cancel():
+    with patch("oumi.core.cli.main.cancel") as m_cancel:
+        _copy_command(m_cancel, cancel)
+        yield m_cancel
 
 
 @pytest.fixture
@@ -132,7 +139,7 @@ def test_main_evaluate_registered(mock_eval):
 
 def test_main_launch_registered():
     result = runner.invoke(get_app(), ["launch", "--help"])
-    for cmd in ["down", "run", "status", "stop", "up", "which"]:
+    for cmd in ["down", "stop", "run", "status", "cancel", "up", "which"]:
         assert cmd in result.output
 
 
@@ -141,6 +148,13 @@ def test_main_down_registered(mock_down):
         get_app(), ["launch", "down", "--cluster", "cluster", "--cloud", "gcp"]
     )
     mock_down.assert_called_once()
+
+
+def test_main_stop_registered(mock_stop):
+    _ = runner.invoke(
+        get_app(), ["launch", "stop", "--cluster", "cluster", "--cloud", "gcp"]
+    )
+    mock_stop.assert_called_once()
 
 
 def test_main_run_registered(mock_launcher_run):
@@ -168,12 +182,21 @@ def test_main_status_registered(mock_status):
     mock_status.assert_called_once()
 
 
-def test_main_stop_registered(mock_stop):
+def test_main_cancel_registered(mock_cancel):
     _ = runner.invoke(
         get_app(),
-        ["launch", "stop", "--cloud", "gcp", "--cluster", "cluster", "--id", "foobar"],
+        [
+            "launch",
+            "cancel",
+            "--cloud",
+            "gcp",
+            "--cluster",
+            "cluster",
+            "--id",
+            "foobar",
+        ],
     )
-    mock_stop.assert_called_once()
+    mock_cancel.assert_called_once()
 
 
 def test_main_up_registered(mock_up):

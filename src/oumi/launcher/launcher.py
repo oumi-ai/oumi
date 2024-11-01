@@ -10,7 +10,7 @@ class Launcher:
 
     def __init__(self):
         """Initializes a new instance of the Launcher class."""
-        self._clouds = dict()
+        self._clouds: dict[str, BaseCloud] = dict()
         self._initialize_new_clouds()
 
     def _initialize_new_clouds(self) -> None:
@@ -28,22 +28,27 @@ class Launcher:
             self._clouds[cloud] = cloud_builder()
         return self._clouds[cloud]
 
+    def cancel(self, job_id: str, cloud_name: str, cluster_name: str) -> JobStatus:
+        """Cancels the specified job."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        return cluster.cancel_job(job_id)
+
+    def down(self, cloud_name: str, cluster_name: str) -> None:
+        """Turns down the specified cluster."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        cluster.down()
+
     def get_cloud(self, job_or_cloud: Union[JobConfig, str]) -> BaseCloud:
         """Gets the cloud instance for the specified job."""
         if isinstance(job_or_cloud, str):
             return self._get_cloud_by_name(job_or_cloud)
         return self._get_cloud_by_name(job_or_cloud.resources.cloud)
-
-    def up(
-        self, job: JobConfig, cluster_name: Optional[str], **kwargs
-    ) -> tuple[BaseCluster, JobStatus]:
-        """Creates a new cluster and starts the specified job on it."""
-        cloud = self.get_cloud(job)
-        job_status = cloud.up_cluster(job, cluster_name, **kwargs)
-        cluster = cloud.get_cluster(job_status.cluster)
-        if not cluster:
-            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
-        return (cluster, job_status)
 
     def run(self, job: JobConfig, cluster_name: str) -> JobStatus:
         """Runs the specified job on the specified cluster.
@@ -61,31 +66,60 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         return cluster.run_job(job)
 
-    def stop(self, job_id: str, cloud_name: str, cluster_name: str) -> JobStatus:
-        """Stops the specified job."""
-        cloud = self._get_cloud_by_name(cloud_name)
-        cluster = cloud.get_cluster(cluster_name)
-        if not cluster:
-            raise ValueError(f"Cluster {cluster_name} not found.")
-        return cluster.stop_job(job_id)
+    def status(
+        self,
+        cloud: Optional[str] = None,
+        cluster: Optional[str] = None,
+        id: Optional[str] = None,
+    ) -> dict[str, list[JobStatus]]:
+        """Gets the status of all jobs across all clusters.
 
-    def down(self, cloud_name: str, cluster_name: str) -> None:
-        """Turns down the specified cluster."""
-        cloud = self._get_cloud_by_name(cloud_name)
-        cluster = cloud.get_cluster(cluster_name)
-        if not cluster:
-            raise ValueError(f"Cluster {cluster_name} not found.")
-        cluster.down()
+        Args:
+            cloud: If specified, filters all jobs to only those on the specified cloud.
+            cluster: If specified, filters all jobs to only those on the specified
+                cluster.
+            id: If specified, filters all jobs to only those with the specified ID.
 
-    def status(self) -> list[JobStatus]:
-        """Gets the status of all jobs across all clusters."""
+        Returns:
+            dict[str, list(JobStatus)]: The status of all jobs, indexed by cloud name.
+        """
         # Pick up any newly registered cloud builders.
         self._initialize_new_clouds()
-        statuses = []
-        for _, cloud in self._clouds.items():
-            for cluster in cloud.list_clusters():
-                statuses.extend(cluster.get_jobs())
+        statuses: dict[str, list[JobStatus]] = {}
+        for cloud_name, target_cloud in self._clouds.items():
+            # Ignore clouds not matching the filter criteria.
+            if cloud and cloud_name != cloud:
+                continue
+            statuses[cloud_name] = []
+            for target_cluster in target_cloud.list_clusters():
+                # Ignore clusters not matching the filter criteria.
+                if cluster and target_cluster.name() != cluster:
+                    continue
+                for job in target_cluster.get_jobs():
+                    # Ignore jobs not matching the filter criteria.
+                    if id and job.id != id:
+                        continue
+                    statuses[cloud_name].append(job)
         return statuses
+
+    def stop(self, cloud_name: str, cluster_name: str) -> None:
+        """Stops the specified cluster."""
+        cloud = self._get_cloud_by_name(cloud_name)
+        cluster = cloud.get_cluster(cluster_name)
+        if not cluster:
+            raise ValueError(f"Cluster {cluster_name} not found.")
+        cluster.stop()
+
+    def up(
+        self, job: JobConfig, cluster_name: Optional[str], **kwargs
+    ) -> tuple[BaseCluster, JobStatus]:
+        """Creates a new cluster and starts the specified job on it."""
+        cloud = self.get_cloud(job)
+        job_status = cloud.up_cluster(job, cluster_name, **kwargs)
+        cluster = cloud.get_cluster(job_status.cluster)
+        if not cluster:
+            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
+        return (cluster, job_status)
 
     def which_clouds(self) -> list[str]:
         """Gets the names of all clouds in the registry."""
@@ -94,6 +128,8 @@ class Launcher:
 
 LAUNCHER = Launcher()
 # Explicitly expose the public methods of the default Launcher instance.
+#: A convenience method for Launcher.cancel.
+cancel = LAUNCHER.cancel
 #: A convenience method for Launcher.down.
 down = LAUNCHER.down
 #: A convenience method for Launcher.get_cloud.

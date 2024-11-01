@@ -188,8 +188,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             object: A list of model responses of shape (num_batches, batch_size).
         """
         generation_params = inference_config.generation
-        if generation_params.batch_size < 1:
-            raise ValueError("Batch size must be greater than or equal to 1.")
         if isinstance(self._model, peft.PeftModel):
             raise NotImplementedError(
                 "Inference does not work yet for pretrained PEFT models."
