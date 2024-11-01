@@ -83,11 +83,6 @@ class GenerationParams(BaseParams):
     Default is 0.0 (no minimum threshold).
     """
 
-    num_return_sequences: int = 1
-    """The number of returned sequences for each input element in the batch.
-    Default is 1.
-    """
-
     use_cache: bool = True
     """Whether to use the model's internal cache (key/value attentions) to speed up
     generation.
@@ -101,15 +96,6 @@ class GenerationParams(BaseParams):
     Default is 1.
     """
 
-    output_logits: bool = False
-    """Whether to return the logits from the model.
-    Default is False.
-    """
-
-    output_scores: bool = False
-    """Whether to return the scores from the model.
-    Default is False."""
-
     use_sampling: bool = False
     """Whether to use sampling for next-token generation. If False, uses greedy
     decoding.
@@ -122,9 +108,6 @@ class GenerationParams(BaseParams):
 
         if self.num_beams < 1:
             raise ValueError("num_beams must be strictly larger than 0.")
-
-        if self.num_return_sequences < 1:
-            raise ValueError("num_return_sequences must be strictly larger than 0.")
 
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
