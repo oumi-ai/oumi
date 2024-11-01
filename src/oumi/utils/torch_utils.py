@@ -362,7 +362,7 @@ def create_ones_like(
         )
 
     if len(values) == 0:
-        return values
+        return cast(T, [])
 
     first_item = values[0]
     if isinstance(first_item, (int, float)):
