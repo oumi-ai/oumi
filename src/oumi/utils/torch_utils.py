@@ -349,7 +349,7 @@ def create_ones_like(
 ) -> T:
     """Converts an array-like object into an object of the same type filled with 1-s.
 
-    Supported nested lists, in which case all elements must be of the same type.
+    Supports nested lists, in which case all elements must be of the same type.
     """
     if isinstance(values, torch.Tensor):
         return torch.ones_like(values)
@@ -358,7 +358,7 @@ def create_ones_like(
     elif not isinstance(values, list):
         raise ValueError(
             f"Unsupported type: {type(values)}. "
-            "Must be numpy array, torch tensor, Python list, int or float."
+            "Must be numpy array, torch tensor, or Python list."
         )
 
     if len(values) == 0:
