@@ -1277,6 +1277,7 @@ def test_polaris_client_get_active_users(mock_subprocess):
         b"control-polaris.alcf.anl.gov-22-matthew\n"
         b"control-polaris.alcf.anl.gov-22-user1\n"
         b"control-polaris.alcf.anl.gov-22-user2\n"
+        b"control-polaris.alcf.anl.gov-22-user-with-dash-in-name\n"
     )
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
@@ -1287,7 +1288,7 @@ def test_polaris_client_get_active_users(mock_subprocess):
         shell=True,
         capture_output=True,
     )
-    assert set(active_users) == {"matthew", "user1", "user2"}
+    assert set(active_users) == {"matthew", "user1", "user2", "user-with-dash-in-name"}
 
 
 def test_polaris_client_get_active_users_empty(mock_subprocess):
