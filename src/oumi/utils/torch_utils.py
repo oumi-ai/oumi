@@ -342,3 +342,28 @@ def pad_sequences(
     raise ValueError(
         f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
     )
+
+
+def create_ones_like(values: T) -> T:
+    """Converts an array-like object into an object of the same type filled with 1-s."""
+    if isinstance(values, torch.Tensor):
+        return torch.ones_like(values)
+    elif isinstance(values, np.ndarray):
+        return np.ones_like(values)
+
+    if not isinstance(values, list):
+        raise ValueError(
+            f"Unsupported type: {type(values)}. "
+            "Must be numpy array, torch tensor, or Python list."
+        )
+
+    if len(values) == 0:
+        return values
+
+    first_item = values[0]
+    if isinstance(first_item, (list, torch.Tensor, np.ndarray)):
+        # Nested list
+        result = [create_ones_like(item) for item in values]
+    else:
+        result = [1] * len(values)
+    return cast(T, result)
