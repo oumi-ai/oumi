@@ -1,5 +1,6 @@
 import argparse
 import gc
+import os
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -216,6 +217,27 @@ def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
+    os.environ["ACCELERATE_MIXED_PRECISION"] = "bf16"
+    os.environ["ACCELERATE_DYNAMO_BACKEND"] = "NO"
+    os.environ["ACCELERATE_DYNAMO_MODE"] = "default"
+    os.environ["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
+    os.environ["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
+    os.environ["ACCELERATE_USE_FSDP"] = "true"
+    os.environ["FSDP_SHARDING_STRATEGY"] = "HYBRID_SHARD"
+    os.environ["FSDP_OFFLOAD_PARAMS"] = "false"
+    os.environ["FSDP_MIN_NUM_PARAMS"] = "100000000.0"
+    os.environ["FSDP_AUTO_WRAP_POLICY"] = "TRANSFORMER_BASED_WRAP"
+    os.environ["FSDP_TRANSFORMER_CLS_TO_WRAP"] = "LlamaDecoderLayer"
+    os.environ["FSDP_BACKWARD_PREFETCH"] = "BACKWARD_PRE"
+    os.environ["FSDP_STATE_DICT_TYPE"] = "FULL_STATE_DICT"
+    os.environ["FSDP_FORWARD_PREFETCH"] = "true"
+    os.environ["FSDP_USE_ORIG_PARAMS"] = "true"
+    os.environ["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
+    os.environ["FSDP_SYNC_MODULE_STATES"] = "true"
+    os.environ["FSDP_ACTIVATION_CHECKPOINTING"] = "true"
+    # logger.info("env vars potato")
+    # for name, value in os.environ.items():
+    #     logger.info(f"{name}: {value}")
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 

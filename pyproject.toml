@@ -33,7 +33,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "accelerate>=1.0.0",
     "aiohttp",                    # Used by infererence engine
     "aioresponses",               # User by inference engine tests
     "datasets",
