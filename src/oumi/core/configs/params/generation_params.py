@@ -83,10 +83,10 @@ class GenerationParams(BaseParams):
     Default is 0.0 (no minimum threshold).
     """
 
-    use_cache: bool = True
+    use_cache: bool = False
     """Whether to use the model's internal cache (key/value attentions) to speed up
     generation.
-    Default is True.
+    Default is False.
     """
 
     num_beams: int = 1
