@@ -4,23 +4,20 @@ from oumi.utils.str_utils import str_to_bool
 
 
 def is_using_accelerate() -> bool:
-    """Checks if the training is using Accelerate.
+    """Returns whether the current job was launched with the Accelerate launcher.
 
-    We do this by checking if the `ACCELERATE_DYNAMO_MODE` environment variable is set.
-    This variable should always be set by Accelerate.
-
-    Returns:
-        bool: True if Accelerate is being used, False otherwise.
+    We do this by checking if the `ACCELERATE_DYNAMO_*` environment variables are set.
+    These variables should always be set by Accelerate. We check for all of them in case
+    Accelerate changes the environment variables in the future.
     """
-    env_var = os.environ.get("ACCELERATE_DYNAMO_MODE", "false")
-    return str_to_bool(env_var)
+    return (
+        "ACCELERATE_DYNAMO_BACKEND" in os.environ
+        or "ACCELERATE_DYNAMO_MODE" in os.environ
+        or "ACCELERATE_DYNAMO_USE_FULLGRAPH" in os.environ
+        or "ACCELERATE_DYNAMO_USE_DYNAMIC" in os.environ
+    )
 
 
 def is_using_accelerate_fsdp() -> bool:
-    """Checks if the training is using Accelerate's FSDP implementation.
-
-    Returns:
-        bool: True if Accelerate's FSDP is being used, False otherwise.
-    """
-    env_var = os.environ.get("ACCELERATE_USE_FSDP", "false")
-    return str_to_bool(env_var)
+    """Returns whether the current job is requesting Accelerate FSDP training."""
+    return str_to_bool(os.environ.get("ACCELERATE_USE_FSDP", "false"))
