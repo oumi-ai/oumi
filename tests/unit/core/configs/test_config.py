@@ -13,6 +13,7 @@ from oumi.core.configs import (
     TrainingConfig,
 )
 from oumi.core.configs.params.training_params import TrainingParams
+from oumi.core.distributed import prepare_accelerate_fsdp_run
 
 
 def test_config_serialization():
@@ -58,7 +59,7 @@ def test_config_override():
 
 def test_get_accelerate_env_vars_default():
     config = TrainingConfig()
-    env_vars = config.get_accelerate_env_vars()
+    env_vars = prepare_accelerate_fsdp_run(config)
     assert env_vars == {
         "ACCELERATE_DYNAMO_BACKEND": "NO",
         "ACCELERATE_DYNAMO_MODE": "default",
@@ -97,7 +98,7 @@ def test_get_accelerate_env_vars():
         fsdp=fsdp_params, training=TrainingParams(enable_gradient_checkpointing=True)
     )
 
-    env_vars = config.get_accelerate_env_vars()
+    env_vars = prepare_accelerate_fsdp_run(config)
     assert env_vars == {
         "ACCELERATE_DYNAMO_BACKEND": "NO",
         "ACCELERATE_DYNAMO_MODE": "default",

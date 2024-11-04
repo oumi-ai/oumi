@@ -59,54 +59,6 @@ class TrainingConfig(BaseConfig):
     fsdp: FSDPParams = field(default_factory=FSDPParams)
     """Parameters for FSDP."""
 
-    def get_accelerate_env_vars(self) -> dict[str, str]:
-        """Gets environment variables for HF Accelerate.
-
-        `training.enable_gradient_checkpointing` needs to be disabled if setting these
-        environment variables, as FSDP gradient checkpointing is handled by Accelerate.
-
-        This mimics the environment variables set here:
-        https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/utils/launch.py#L260-L285
-        Note how they lowercase all boolean values, except for
-        `ACCELERATE_DYNAMO_USE_FULLGRAPH` and `ACCELERATE_DYNAMO_USE_DYNAMIC`, which we
-        also do. It's worth pointing out that `ACCELERATE_USE_FSDP` must be lowercase:
-        https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/accelerator.py#L341
-        """
-        env_vars = {}
-
-        # These environment variables are set by default in HF Accelerate.
-        env_vars["ACCELERATE_DYNAMO_BACKEND"] = "NO"
-        env_vars["ACCELERATE_DYNAMO_MODE"] = "default"
-        env_vars["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
-        env_vars["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
-
-        # We generally don't need these values to be configurable, and usually have
-        # them set to True.
-        env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
-        # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
-        env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
-
-        # These env vars are set based on FSDPParams.
-        env_vars["ACCELERATE_USE_FSDP"] = str(self.fsdp.enable_fsdp).lower()
-        env_vars["FSDP_SHARDING_STRATEGY"] = self.fsdp.sharding_strategy.value
-        env_vars["FSDP_OFFLOAD_PARAMS"] = str(self.fsdp.cpu_offload).lower()
-        if self.fsdp.mixed_precision:
-            env_vars["ACCELERATE_MIXED_PRECISION"] = self.fsdp.mixed_precision
-        env_vars["FSDP_BACKWARD_PREFETCH"] = self.fsdp.backward_prefetch.value
-        env_vars["FSDP_FORWARD_PREFETCH"] = str(self.fsdp.forward_prefetch).lower()
-        env_vars["FSDP_STATE_DICT_TYPE"] = self.fsdp.state_dict_type.value
-        env_vars["FSDP_AUTO_WRAP_POLICY"] = self.fsdp.auto_wrap_policy.value
-        env_vars["FSDP_MIN_NUM_PARAMS"] = str(self.fsdp.min_num_params)
-        if self.fsdp.transformer_layer_cls:
-            env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = self.fsdp.transformer_layer_cls
-        env_vars["FSDP_SYNC_MODULE_STATES"] = str(self.fsdp.sync_module_states).lower()
-
-        # This is set from TrainingParams.
-        env_vars["FSDP_ACTIVATION_CHECKPOINTING"] = str(
-            self.training.enable_gradient_checkpointing
-        ).lower()
-        return env_vars
-
     def __post_init__(self):
         """Verifies/populates params."""
         if self.model.compile:

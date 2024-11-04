@@ -1,6 +1,5 @@
 import argparse
 import gc
-import os
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -38,6 +37,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    prepare_accelerate_fsdp_run,
     set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
@@ -247,19 +247,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # In this case, we mimic an Accelerate run by setting the necessary environment
     # variables.
     # Note that training runs invoked from the Accelerate launcher won't be affected.
-    # For more information, see PR#803.
     if (
         not is_using_accelerate()
         and config.training.trainer_type != TrainerType.OUMI
         and config.fsdp.enable_fsdp
     ):
-        accelerate_env_vars = config.get_accelerate_env_vars()
-        for name, value in accelerate_env_vars.items():
-            os.environ[name] = value
-        # Disable our gradient checkpointing param, as Accelerate should handle it.
-        config.training.enable_gradient_checkpointing = False
-        logger.info("Set Accelerate environment variables for FSDP.")
-        logger.info(accelerate_env_vars)
+        accelerate_env_vars = prepare_accelerate_fsdp_run(config)
+        logger.info(
+            f"Set Accelerate environment variables for FSDP: {accelerate_env_vars}"
+        )
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
