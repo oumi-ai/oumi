@@ -217,9 +217,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
-    # logger.info("env vars potato")
-    # for name, value in os.environ.items():
-    #     logger.info(f"{name}: {value}")
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
@@ -240,13 +237,13 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
     # We support running FSDP Oumi training without being invoked from the Accelerate
-    # launcher. This is the case if:
+    # launcher. We detect this with the following:
     # 1. Accelerate's environment variables aren't set
     # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
     # 3. FSDP is enabled in the Oumi config
-    # In this case, we mimic an Accelerate run by setting the necessary environment
-    # variables.
-    # Note that training runs invoked from the Accelerate launcher won't be affected.
+    # In this case, we mimic an Accelerate launcher run by setting the necessary
+    # environment variables.
+    # Note that normal Accelerate launcher runs won't be affected.
     if (
         not is_using_accelerate()
         and config.training.trainer_type != TrainerType.OUMI

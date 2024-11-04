@@ -39,11 +39,11 @@ run: |
       --main_process_port 8007 \
       --use_fsdp \
       --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
-    -m oumi.train \
-    -c configs/examples/fineweb_ablation_pretraining/fsdp/trl_train.yaml \
-    "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-    "training.max_steps=20" \
-    "training.save_steps=0" \
-    "training.save_final_model=false"
+      -m oumi.train \
+      -c configs/examples/fineweb_ablation_pretraining/fsdp/trl_train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.max_steps=20" \
+      "training.save_steps=0" \
+      "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
