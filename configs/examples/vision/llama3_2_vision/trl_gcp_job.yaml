@@ -53,7 +53,7 @@ run: |
       -c configs/examples/vision/llama3_2_vision/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.enable_gradient_checkpointing=False" \
-      "training.output_dir='${OUMI_RUN_NAME}'"\
+      "training.output_dir='${OUMI_RUN_NAME}'" \
       "training.logging_dir='${OUMI_RUN_NAME}/runs'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

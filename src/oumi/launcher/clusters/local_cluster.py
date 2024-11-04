@@ -79,8 +79,8 @@ class LocalCluster(BaseCluster):
             job.cluster = self._name
         return jobs
 
-    def stop_job(self, job_id: str) -> JobStatus:
-        """Stops the specified job on this cluster."""
+    def cancel_job(self, job_id: str) -> JobStatus:
+        """Cancels the specified job on this cluster."""
         self._client.cancel(job_id)
         job = self.get_job(job_id)
         if job is None:
@@ -104,7 +104,12 @@ class LocalCluster(BaseCluster):
         status.cluster = self._name
         return status
 
+    def stop(self) -> None:
+        """Cancels all jobs, running or queued."""
+        for job in self.get_jobs():
+            self.cancel_job(job.id)
+
     def down(self) -> None:
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
-            self.stop_job(job.id)
+            self.cancel_job(job.id)

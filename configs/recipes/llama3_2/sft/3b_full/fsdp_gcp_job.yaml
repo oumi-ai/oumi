@@ -19,7 +19,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3b.sft.fsdp
+  OUMI_RUN_NAME: llama3b.fft.fsdp
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false

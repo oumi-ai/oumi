@@ -18,6 +18,7 @@ import oumi.launcher.clouds as clouds  # Ensure that the clouds are registered
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.launcher.launcher import (
     Launcher,
+    cancel,
     down,
     get_cloud,
     run,
@@ -32,6 +33,7 @@ logging.configure_dependency_warnings()
 
 
 __all__ = [
+    "cancel",
     "clouds",
     "down",
     "get_cloud",

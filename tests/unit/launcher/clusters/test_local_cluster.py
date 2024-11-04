@@ -213,7 +213,7 @@ def test_local_cluster_get_jobs_empty(mock_local_client):
     assert jobs == expected_jobs
 
 
-def test_local_cluster_stop_job(mock_local_client):
+def test_local_cluster_cancel_job(mock_local_client):
     cluster = LocalCluster("name", mock_local_client)
     mock_local_client.list_jobs.return_value = [
         JobStatus(
@@ -241,7 +241,7 @@ def test_local_cluster_stop_job(mock_local_client):
             done=False,
         ),
     ]
-    job_status = cluster.stop_job("job2")
+    job_status = cluster.cancel_job("job2")
     expected_status = JobStatus(
         id="job2",
         name="some",
@@ -256,7 +256,7 @@ def test_local_cluster_stop_job(mock_local_client):
     assert job_status == expected_status
 
 
-def test_local_cluster_stop_job_fails(mock_local_client):
+def test_local_cluster_cancel_job_fails(mock_local_client):
     cluster = LocalCluster("name", mock_local_client)
     mock_local_client.list_jobs.return_value = [
         JobStatus(
@@ -269,7 +269,7 @@ def test_local_cluster_stop_job_fails(mock_local_client):
         ),
     ]
     with pytest.raises(RuntimeError, match="Job myjobid not found."):
-        _ = cluster.stop_job("myjobid")
+        _ = cluster.cancel_job("myjobid")
 
 
 def test_local_cluster_run_job(mock_local_client):
@@ -440,6 +440,122 @@ def test_local_cluster_down(mock_local_client):
         ],
     ]
     cluster.down()
+    mock_local_client.cancel.assert_has_calls(
+        [call("myjob"), call("job2"), call("final job")]
+    )
+    mock_local_client.list_jobs.assert_has_calls([call(), call(), call(), call()])
+    # Nothing to assert, this method is a no-op.
+
+
+def test_local_cluster_stop(mock_local_client):
+    cluster = LocalCluster("name", mock_local_client)
+    mock_local_client.list_jobs.side_effect = [
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="running",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+        [
+            JobStatus(
+                id="myjob",
+                name="some name",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="job2",
+                name="some",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+            JobStatus(
+                id="final job",
+                name="name3",
+                status="CANCELED",
+                metadata="",
+                cluster="",
+                done=False,
+            ),
+        ],
+    ]
+    cluster.stop()
     mock_local_client.cancel.assert_has_calls(
         [call("myjob"), call("job2"), call("final job")]
     )

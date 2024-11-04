@@ -184,7 +184,7 @@ class PolarisClient:
         result = subprocess.run(command, shell=True, capture_output=True)
         if result.returncode != 0:
             return []
-        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-.*-(.*)"
+        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-[^-]*-(.*)"
         lines = result.stdout.decode("utf-8").strip().split("\n")
         users = set()
         for line in lines:

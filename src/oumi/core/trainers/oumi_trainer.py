@@ -35,6 +35,7 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.performance.telemetry import TelemetryTracker
@@ -59,6 +60,7 @@ class Trainer(BaseTrainer):
         tokenizer: BaseTokenizer,
         args: TrainingParams,
         train_dataset: Dataset,
+        processor: Optional[BaseProcessor] = None,
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[list[TrainerCallback]] = None,
         data_collator: Optional[Callable] = None,
@@ -71,6 +73,7 @@ class Trainer(BaseTrainer):
         self.collator_fn = data_collator
 
         self.tokenizer = tokenizer
+        self._processor = processor
         self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -417,6 +420,10 @@ class Trainer(BaseTrainer):
             model_path = output_dir / "model.safetensors"
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
+
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
 
     def save_state(self):
         """Saves the training state."""

@@ -108,11 +108,11 @@ So far we have been using the `train`, `evaluate`, and `infer` commands to run j
 To launch a distributed training job:
 
 ```bash
-oumi launch -c configs/recipes/smollm/launch/gcp_train.yaml
+oumi launch up -c configs/recipes/smollm/launch/gcp_train.yaml
 ```
 
 To launch an evaluation job:
 
 ```bash
-oumi launch -c configs/recipes/smollm/launch/gcp_evaluate.yaml
+oumi launch up -c configs/recipes/smollm/launch/gcp_evaluate.yaml
 ```

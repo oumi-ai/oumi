@@ -6,13 +6,6 @@ import pytest
 from oumi.utils.io_utils import get_oumi_root_directory, load_jsonlines, save_jsonlines
 
 
-@pytest.mark.parametrize("filename", ["train.py", "evaluate.py", "launch.py"])
-def test_get_oumi_root_directory(filename):
-    root_dir = get_oumi_root_directory()
-    file_path = root_dir / filename
-    assert file_path.exists(), f"{file_path} does not exist in the root directory."
-
-
 @pytest.fixture
 def sample_data():
     return [
@@ -20,6 +13,15 @@ def sample_data():
         {"name": "Pike Place Market", "founded": 1907},
         {"name": "Seattle Aquarium", "opened": 1977},
     ]
+
+
+@pytest.mark.parametrize(
+    "filename", ["train.py", "evaluate.py", "infer.py", "judge.py"]
+)
+def test_get_oumi_root_directory(filename):
+    root_dir = get_oumi_root_directory()
+    file_path = root_dir / filename
+    assert file_path.exists(), f"{file_path} does not exist in the root directory."
 
 
 def test_load_jsonlines_successful(tmp_path, sample_data):

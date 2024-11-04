@@ -1,12 +1,11 @@
-# Config to FSDP LoRA tune Llama 3.1 70B Instruct on 2 GCP nodes.
+# Config to FSDP LoRA tune Llama 3.1 70B Instruct.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/70b_lora/gcp_job.yaml --cluster llama70b-lora-fsdp
 name: llama70b-lora-fsdp
 
-num_nodes: 2
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100:8"
   use_spot: true
   disk_size: 1000 # Disk size in GBs
 
