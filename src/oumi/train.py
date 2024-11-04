@@ -247,7 +247,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # In this case, we mimic an Accelerate run by setting the necessary environment
     # variables.
     # Note that training runs invoked from the Accelerate launcher won't be affected.
-    # For more information, see PR #TODO.
+    # For more information, see PR#803.
     if (
         not is_using_accelerate()
         and config.training.trainer_type != TrainerType.OUMI

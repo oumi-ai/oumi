@@ -82,9 +82,9 @@ class TrainingConfig(BaseConfig):
 
         # We generally don't need these values to be configurable, and usually have
         # them set to True.
-        env_vars["FSDP_USE_ORIG_PARAMS"] = "True"
+        env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
         # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
-        env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "True"
+        env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 
         # These env vars are set based on FSDPParams.
         env_vars["ACCELERATE_USE_FSDP"] = str(self.fsdp.enable_fsdp).lower()
