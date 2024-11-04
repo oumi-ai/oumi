@@ -159,6 +159,14 @@ class SkyClient:
             raise RuntimeError("Failed to submit job.")
         return str(job_id)
 
+    def stop(self, cluster_name: str) -> None:
+        """Stops the target cluster.
+
+        Args:
+            cluster_name: The name of the cluster to stop.
+        """
+        sky.stop(cluster_name)
+
     def down(self, cluster_name: str) -> None:
         """Tears down the target cluster.
 

@@ -6,7 +6,7 @@ from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset, model
-from oumi.core.cli.launch import down, status, stop, up, which
+from oumi.core.cli.launch import cancel, down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.train import train
 
@@ -42,14 +42,17 @@ def get_app() -> typer.Typer:
     )
 
     launch_app = typer.Typer(pretty_exceptions_enable=False)
-    launch_app.command()(down)
-    launch_app.command(name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
-        launcher_run
-    )
-    launch_app.command()(status)
-    launch_app.command()(stop)
-    launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
-    launch_app.command()(which)
+    launch_app.command(help="Cancels a job.")(cancel)
+    launch_app.command(help="Turns down a cluster.")(down)
+    launch_app.command(
+        name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Runs a job."
+    )(launcher_run)
+    launch_app.command(help="Prints the status of jobs launched from Oumi.")(status)
+    launch_app.command(help="Stops a cluster.")(stop)
+    launch_app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
+    )(up)
+    launch_app.command(help="Prints the available clouds.")(which)
     app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
     return app
 
@@ -60,6 +63,6 @@ def run():
     return app()
 
 
-if "sphinx-build" in sys.modules:
+if "sphinx" in sys.modules:
     # Create the CLI app when building the docs to auto-generate the CLI reference.
     app = get_app()

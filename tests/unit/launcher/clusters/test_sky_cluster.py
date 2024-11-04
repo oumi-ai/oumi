@@ -161,7 +161,7 @@ def test_sky_cluster_get_jobs_empty(mock_sky_client):
     assert jobs == expected_jobs
 
 
-def test_sky_cluster_stop_job(mock_sky_client):
+def test_sky_cluster_cancel_job(mock_sky_client):
     cluster = SkyCluster("mycluster", mock_sky_client)
     mock_sky_client.queue.return_value = [
         {
@@ -170,7 +170,7 @@ def test_sky_cluster_stop_job(mock_sky_client):
             "status": "JobStatus.FAILED",
         }
     ]
-    job_status = cluster.stop_job("myjobid")
+    job_status = cluster.cancel_job("myjobid")
     expected_status = JobStatus(
         id="myjobid",
         name="some name",
@@ -183,7 +183,7 @@ def test_sky_cluster_stop_job(mock_sky_client):
     assert job_status == expected_status
 
 
-def test_sky_cluster_stop_job_fails(mock_sky_client):
+def test_sky_cluster_cancel_job_fails(mock_sky_client):
     cluster = SkyCluster("mycluster", mock_sky_client)
     mock_sky_client.queue.return_value = [
         {
@@ -193,7 +193,7 @@ def test_sky_cluster_stop_job_fails(mock_sky_client):
         }
     ]
     with pytest.raises(RuntimeError):
-        _ = cluster.stop_job("myjobid")
+        _ = cluster.cancel_job("myjobid")
 
 
 def test_sky_cluster_run_job(mock_sky_client):
@@ -238,3 +238,9 @@ def test_sky_cluster_down(mock_sky_client):
     cluster = SkyCluster("mycluster", mock_sky_client)
     cluster.down()
     mock_sky_client.down.assert_called_once_with("mycluster")
+
+
+def test_sky_cluster_stop(mock_sky_client):
+    cluster = SkyCluster("mycluster", mock_sky_client)
+    cluster.stop()
+    mock_sky_client.stop.assert_called_once_with("mycluster")

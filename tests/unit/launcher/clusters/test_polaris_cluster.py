@@ -247,7 +247,7 @@ def test_polaris_cluster_get_jobs_empty(mock_datetime, mock_polaris_client):
     assert jobs == expected_jobs
 
 
-def test_polaris_cluster_stop_job(mock_datetime, mock_polaris_client):
+def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("prod.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -275,7 +275,7 @@ def test_polaris_cluster_stop_job(mock_datetime, mock_polaris_client):
             done=False,
         ),
     ]
-    job_status = cluster.stop_job("job2")
+    job_status = cluster.cancel_job("job2")
     expected_status = JobStatus(
         id="job2",
         name="some",
@@ -291,7 +291,7 @@ def test_polaris_cluster_stop_job(mock_datetime, mock_polaris_client):
     assert job_status == expected_status
 
 
-def test_polaris_cluster_stop_job_fails(mock_datetime, mock_polaris_client):
+def test_polaris_cluster_cancel_job_fails(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("prod.name", mock_polaris_client)
     mock_polaris_client.list_jobs.return_value = [
         JobStatus(
@@ -304,7 +304,7 @@ def test_polaris_cluster_stop_job_fails(mock_datetime, mock_polaris_client):
         ),
     ]
     with pytest.raises(RuntimeError):
-        _ = cluster.stop_job("myjobid")
+        _ = cluster.cancel_job("myjobid")
 
 
 def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
@@ -878,4 +878,10 @@ def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
 def test_polaris_cluster_down(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
     cluster.down()
+    # Nothing to assert, this method is a no-op.
+
+
+def test_polaris_cluster_stop(mock_datetime, mock_polaris_client):
+    cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
+    cluster.stop()
     # Nothing to assert, this method is a no-op.

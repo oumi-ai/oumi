@@ -18,7 +18,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3.8b.aya.sft
+  OUMI_RUN_NAME: llama3.8b.aya.fft
   TOKENIZERS_PARALLELISM: true
 
 setup: |

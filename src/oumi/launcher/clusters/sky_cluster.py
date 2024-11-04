@@ -62,8 +62,8 @@ class SkyCluster(BaseCluster):
             for job in self._client.queue(self.name())
         ]
 
-    def stop_job(self, job_id: str) -> JobStatus:
-        """Stops the specified job on this cluster."""
+    def cancel_job(self, job_id: str) -> JobStatus:
+        """Cancels the specified job on this cluster."""
         self._client.cancel(self.name(), job_id)
         job = self.get_job(job_id)
         if job is None:
@@ -77,6 +77,10 @@ class SkyCluster(BaseCluster):
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
+
+    def stop(self) -> None:
+        """Stops the current cluster."""
+        self._client.stop(self.name())
 
     def down(self) -> None:
         """Tears down the current cluster."""

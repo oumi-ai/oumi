@@ -1,12 +1,11 @@
-# Config to FSDP full fine-tune Llama 3.1 70B Instruct on 4 GCP nodes.
+# Config to FSDP full fine-tune Llama 3.1 70B Instruct.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
 name: llama70b-sft-fsdp
 
-num_nodes: 4
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100-80GB:8"
   use_spot: true
   disk_size: 2000 # Disk size in GBs
 
@@ -20,7 +19,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama70b.sft.fsdp
+  OUMI_RUN_NAME: llama70b.fft.fsdp
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
