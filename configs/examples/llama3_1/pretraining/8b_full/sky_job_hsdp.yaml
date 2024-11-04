@@ -25,7 +25,7 @@ file_mounts:
 
 setup: |
   set -e
-  pip install -e '.[gpu]'
+  pip install uv && uv pip install -e '.[gpu]'
 
 run: |
   set -e  # Exit if any command failed.
