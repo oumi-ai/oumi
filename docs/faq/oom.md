@@ -224,7 +224,7 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
    config = TrainingConfig(
        fsdp=FSDPParams(
            enable_fsdp=True,
-           backward_prefetch=BackwardPrefetch.NONE,
+           backward_prefetch=BackwardPrefetch.NO_PREFETCH,
        ),
    )
    ```

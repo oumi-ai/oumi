@@ -54,5 +54,5 @@ fsdp:
   enable_fsdp: True
   sharding_strategy: "HYBRID_SHARD"
   mixed_precision: "bf16"
-  auto_wrap_policy: "TRANSFORMER_BASED"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "transformers.models.llama.modeling_llama.LlamaDecoderLayer"

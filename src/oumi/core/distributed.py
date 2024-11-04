@@ -282,7 +282,7 @@ def prepare_model_for_distributed(
     sharding_strategy = fsdp_params.sharding_strategy.to_torch()
 
     # Wrapping Policy
-    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED:
+    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED_WRAP:
         from oumi.utils.torch_naming_heuristics import (
             guess_transformer_layer_cls,
         )
@@ -308,7 +308,7 @@ def prepare_model_for_distributed(
             recurse=True,
             nonwrapped_numel=0,
         )
-    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED:
+    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED_WRAP:
         wrapping_policy = functools.partial(
             size_based_auto_wrap_policy,
             min_num_params=fsdp_params.min_num_params,

@@ -47,7 +47,7 @@ from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
-from oumi.utils.distributed_utils import is_using_accelerate_fsdp
+from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
@@ -217,24 +217,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
-    os.environ["ACCELERATE_MIXED_PRECISION"] = "bf16"
-    os.environ["ACCELERATE_DYNAMO_BACKEND"] = "NO"
-    os.environ["ACCELERATE_DYNAMO_MODE"] = "default"
-    os.environ["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
-    os.environ["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
-    os.environ["ACCELERATE_USE_FSDP"] = "true"
-    os.environ["FSDP_SHARDING_STRATEGY"] = "HYBRID_SHARD"
-    os.environ["FSDP_OFFLOAD_PARAMS"] = "false"
-    os.environ["FSDP_MIN_NUM_PARAMS"] = "100000000.0"
-    os.environ["FSDP_AUTO_WRAP_POLICY"] = "TRANSFORMER_BASED_WRAP"
-    os.environ["FSDP_TRANSFORMER_CLS_TO_WRAP"] = "LlamaDecoderLayer"
-    os.environ["FSDP_BACKWARD_PREFETCH"] = "BACKWARD_PRE"
-    os.environ["FSDP_STATE_DICT_TYPE"] = "FULL_STATE_DICT"
-    os.environ["FSDP_FORWARD_PREFETCH"] = "true"
-    os.environ["FSDP_USE_ORIG_PARAMS"] = "true"
-    os.environ["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
-    os.environ["FSDP_SYNC_MODULE_STATES"] = "true"
-    os.environ["FSDP_ACTIVATION_CHECKPOINTING"] = "true"
     # logger.info("env vars potato")
     # for name, value in os.environ.items():
     #     logger.info(f"{name}: {value}")
@@ -256,6 +238,28 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info(f"TrainingConfig: {pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
+
+    # We support running FSDP Oumi training without being invoked from the Accelerate
+    # launcher. This is the case if:
+    # 1. Accelerate's environment variables aren't set
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 3. FSDP is enabled in the Oumi config
+    # In this case, we mimic an Accelerate run by setting the necessary environment
+    # variables.
+    # Note that training runs invoked from the Accelerate launcher won't be affected.
+    # For more information, see PR #TODO.
+    if (
+        not is_using_accelerate()
+        and config.training.trainer_type != TrainerType.OUMI
+        and config.fsdp.enable_fsdp
+    ):
+        accelerate_env_vars = config.get_accelerate_env_vars()
+        for name, value in accelerate_env_vars.items():
+            os.environ[name] = value
+        # Disable our gradient checkpointing param, as Accelerate should handle it.
+        config.training.enable_gradient_checkpointing = False
+        logger.info("Set Accelerate environment variables for FSDP.")
+        logger.info(accelerate_env_vars)
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
