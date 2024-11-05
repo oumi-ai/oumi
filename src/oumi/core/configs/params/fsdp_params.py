@@ -8,7 +8,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 class ShardingStrategy(str, Enum):
-    """Enum representing the sharding strategies for FSDP.
+    """The sharding strategies for FullyShardedDataParallel (FSDP).
 
     See :external:class:`torch.distributed.fsdp.ShardingStrategy`
     for more details.
@@ -53,7 +53,11 @@ class ShardingStrategy(str, Enum):
 
 
 class StateDictType(str, Enum):
-    """Enum representing the supported state dict types for checkpointing."""
+    """The supported state dict types for FullyShardedDataParallel (FSDP).
+
+    This controls how the model's state dict will be saved during checkpointing, and
+    how it can be consumed afterwards.
+    """
 
     FULL_STATE_DICT = "FULL_STATE_DICT"
     """The state dict will be saved in a non-sharded, unflattened format.
@@ -90,7 +94,7 @@ class StateDictType(str, Enum):
 
 
 class BackwardPrefetch(str, Enum):
-    """Enum representing the backward prefetch options for FSDP."""
+    """The backward prefetch options for FullyShardedDataParallel (FSDP)."""
 
     BACKWARD_PRE = "BACKWARD_PRE"
     """Enables the most overlap but increases memory usage the most."""
@@ -115,7 +119,7 @@ class BackwardPrefetch(str, Enum):
 
 
 class AutoWrapPolicy(str, Enum):
-    """Enum representing the auto wrap policies for FSDP."""
+    """The auto wrap policies for FullyShardedDataParallel (FSDP)."""
 
     SIZE_BASED_WRAP = "SIZE_BASED_WRAP"
     """Wraps layers based on parameter count."""
