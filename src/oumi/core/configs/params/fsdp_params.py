@@ -8,7 +8,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 class ShardingStrategy(str, Enum):
-    """Enum representing the sharding strategies for FSDP.
+    """The sharding strategies for FullyShardedDataParallel (FSDP).
 
     See :external:class:`torch.distributed.fsdp.ShardingStrategy`
     for more details.
@@ -53,11 +53,29 @@ class ShardingStrategy(str, Enum):
 
 
 class StateDictType(str, Enum):
-    """Enum representing the supported state dict types for checkpointing."""
+    """The supported state dict types for FullyShardedDataParallel (FSDP).
+
+    This controls how the model's state dict will be saved during checkpointing, and
+    how it can be consumed afterwards.
+    """
 
     FULL_STATE_DICT = "FULL_STATE_DICT"
+    """The state dict will be saved in a non-sharded, unflattened format.
+
+    This is similar to checkpointing without FSDP.
+    """
+
     SHARDED_STATE_DICT = "SHARDED_STATE_DICT"
+    """The state dict will be saved in a sharded, unflattened format.
+
+    This can be used by other parallel schemes.
+    """
+
     LOCAL_STATE_DICT = "LOCAL_STATE_DICT"
+    """The state dict will be saved in a sharded, flattened format.
+
+    Since it's flattened, this can only be used by FSDP.
+    """
 
     def to_torch(self) -> torch_fsdp.StateDictType:
         """Converts to the corresponding torch.distributed.fsdp.StateDictType."""
@@ -76,7 +94,7 @@ class StateDictType(str, Enum):
 
 
 class BackwardPrefetch(str, Enum):
-    """Enum representing the backward prefetch options for FSDP."""
+    """The backward prefetch options for FullyShardedDataParallel (FSDP)."""
 
     BACKWARD_PRE = "BACKWARD_PRE"
     """Enables the most overlap but increases memory usage the most."""
@@ -84,7 +102,7 @@ class BackwardPrefetch(str, Enum):
     BACKWARD_POST = "BACKWARD_POST"
     """Enables less overlap but requires less memory usage."""
 
-    NONE = "NONE"
+    NO_PREFETCH = "NO_PREFETCH"
     """Disables backward prefetching altogether."""
 
     def to_torch(self) -> Optional[torch_fsdp.BackwardPrefetch]:
@@ -92,7 +110,7 @@ class BackwardPrefetch(str, Enum):
         map = {
             BackwardPrefetch.BACKWARD_PRE: torch_fsdp.BackwardPrefetch.BACKWARD_PRE,
             BackwardPrefetch.BACKWARD_POST: torch_fsdp.BackwardPrefetch.BACKWARD_POST,
-            BackwardPrefetch.NONE: None,
+            BackwardPrefetch.NO_PREFETCH: None,
         }
 
         if self not in map:
@@ -101,26 +119,21 @@ class BackwardPrefetch(str, Enum):
 
 
 class AutoWrapPolicy(str, Enum):
-    """Enum representing the auto wrap policies for FSDP."""
+    """The auto wrap policies for FullyShardedDataParallel (FSDP)."""
 
-    SIZE_BASED = "SIZE_BASED"
+    SIZE_BASED_WRAP = "SIZE_BASED_WRAP"
     """Wraps layers based on parameter count."""
 
-    TRANSFORMER_BASED = "TRANSFORMER_BASED"
+    TRANSFORMER_BASED_WRAP = "TRANSFORMER_BASED_WRAP"
     """Wraps layers based on the transformer block layer."""
 
-    NONE = "NONE"
+    NO_WRAP = "NO_WRAP"
     """No automatic wrapping is performed."""
 
 
 @dataclass
 class FSDPParams(BaseParams):
-    """Configuration options for FullyShardedDataParallel (FSDP).
-
-    Note:
-        This config is currently only used by the `OUMI` trainer. Support for other
-        trainers will be added in future releases.
-    """
+    """Configuration options for Pytorch's FullyShardedDataParallel (FSDP) training."""
 
     enable_fsdp: bool = False
     """If True, enables FullyShardedDataParallel training.
@@ -173,8 +186,8 @@ class FSDPParams(BaseParams):
         BACKWARD_POST: Enables less overlap but requires less memory
             usage. This prefetches the next set of parameters *after* the current
             set of parameters' gradient computation.
-        NONE: Disables backward prefetching altogether. This has no overlap and does not
-            increase memory usage. This may degrade throughput significantly.
+        NO_PREFETCH: Disables backward prefetching altogether. This has no overlap and
+            does not increase memory usage. This may degrade throughput significantly.
     """
 
     forward_prefetch: bool = False
@@ -183,7 +196,7 @@ class FSDPParams(BaseParams):
     state_dict_type: StateDictType = StateDictType.FULL_STATE_DICT
     """Specifies the type of state dict to use for checkpointing."""
 
-    auto_wrap_policy: AutoWrapPolicy = AutoWrapPolicy.SIZE_BASED
+    auto_wrap_policy: AutoWrapPolicy = AutoWrapPolicy.SIZE_BASED_WRAP
     """Policy for automatically wrapping layers in FSDP."""
 
     min_num_params: int = 100_000

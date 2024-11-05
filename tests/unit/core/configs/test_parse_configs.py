@@ -14,11 +14,6 @@ from oumi.core.configs import (
 from oumi.core.types import HardwareException
 
 
-def _is_config_file(path: str) -> bool:
-    """Verifies if the path is a yaml file."""
-    return os.path.isfile(path) and path.endswith(".yaml")
-
-
 def _backtrack_on_path(path, n):
     """Goes up n directories in the current path."""
     output_path = path
