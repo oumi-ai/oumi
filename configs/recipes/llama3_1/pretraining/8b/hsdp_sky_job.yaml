@@ -1,16 +1,10 @@
-envs:
-  WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3.1_8B_hsdp
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
-
 name: llama3.1_8B_hsdp
 
 resources:
   accelerators: {"A100": 4}
   use_spot: true
   disk_tier: "medium"
-  disk_size: 500  # in GB -> we can save the final locally.
+  disk_size: 500  # in GB -> we can save the final model locally.
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -22,6 +16,12 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on your local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama3.1_8B_hsdp
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
@@ -39,9 +39,9 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/recipes/llama3_1/pretraining/accelerate.yaml \
+      --config_file configs/recipes/llama3_1/pretraining/8b/accelerate.yaml \
       -m oumi.train \
-      -c configs/recipes/llama3_1/pretraining/train.yaml \
+      -c configs/recipes/llama3_1/pretraining/8b/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
