@@ -32,8 +32,8 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    per_device_train_batch_size: 8  # Decrease this value
-    gradient_accumulation_steps: 4  # Increase this value
+        per_device_train_batch_size: 8  # Decrease this value
+        gradient_accumulation_steps: 4  # Increase this value
     :::
     ::::
 
@@ -51,9 +51,9 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    enable_gradient_checkpointing: true
-    gradient_checkpointing_kwargs:
-        use_reentrant: false
+        enable_gradient_checkpointing: true
+        gradient_checkpointing_kwargs:
+            use_reentrant: false
     :::
     ::::
 
@@ -70,7 +70,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    optimizer: adamw_torch_fused
+        optimizer: adamw_torch_fused
     :::
     ::::
 
@@ -87,7 +87,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    mixed_precision_dtype: bf16  # or fp16
+        mixed_precision_dtype: bf16  # or fp16
     :::
     ::::
 
@@ -104,7 +104,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     model:
-    torch_dtype_str: bfloat16  # or float16
+        torch_dtype_str: bfloat16  # or float16
     :::
     ::::
 
@@ -121,7 +121,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    empty_device_cache_steps: 50  # Clear GPU cache every 50 steps
+        empty_device_cache_steps: 50  # Clear GPU cache every 50 steps
     :::
     ::::
 
@@ -138,7 +138,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
     :::{code-block} yaml
     training:
-    optimizer: paged_adamw_32bit
+        optimizer: paged_adamw_32bit
     :::
     ::::
 
@@ -161,7 +161,7 @@ Paged Adam requires `bitsandbytes` to be installed.
 
     :::{code-block} yaml
     model:
-    attn_implementation: sdpa  # or flash_attention2
+        attn_implementation: sdpa  # or flash_attention2
     :::
     ::::
 
@@ -178,7 +178,7 @@ Paged Adam requires `bitsandbytes` to be installed.
 
     :::{code-block} yaml
     training:
-    compile: true
+        compile: true
     :::
     ::::
 
@@ -197,7 +197,7 @@ Paged Adam requires `bitsandbytes` to be installed.
 
     :::{code-block} yaml
     model:
-    enable_liger_kernel: true
+        enable_liger_kernel: true
     :::
     ::::
 
@@ -214,7 +214,7 @@ Paged Adam requires `bitsandbytes` to be installed.
 
     :::{code-block} yaml
     model:
-    model_max_length: 2048  # Reduce sequence length
+        model_max_length: 2048  # Reduce sequence length
     :::
     ::::
 
@@ -231,10 +231,10 @@ Paged Adam requires `bitsandbytes` to be installed.
 
     :::{code-block} yaml
     model:
-    freeze_layers:
-        - layer.0
-        - layer.1
-        - layer.2
+        freeze_layers:
+            - layer.0
+            - layer.1
+            - layer.2
     :::
     ::::
 
@@ -278,11 +278,12 @@ model:
 
     :::{code-block} yaml
     training:
-    use_peft: true
+        use_peft: true
+
     peft:
-    lora_r: 16
-    lora_alpha: 32
-    lora_dropout: 0.05
+        lora_r: 16
+        lora_alpha: 32
+        lora_dropout: 0.05
     :::
     ::::
 
@@ -307,8 +308,8 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
 
     :::{code-block} yaml
     fsdp:
-    enable_fsdp: true
-    sharding_strategy: FULL_SHARD
+        enable_fsdp: true
+        sharding_strategy: FULL_SHARD
     :::
     ::::
 
@@ -326,8 +327,8 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
 
     :::{code-block} yaml
     fsdp:
-    enable_fsdp: true
-    cpu_offload: true
+        enable_fsdp: true
+        cpu_offload: true
     :::
     ::::
 
@@ -345,8 +346,8 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
 
     :::{code-block} yaml
     fsdp:
-    enable_fsdp: true
-    forward_prefetch: false
+        enable_fsdp: true
+        forward_prefetch: false
     :::
     ::::
 
@@ -364,8 +365,8 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
 
     :::{code-block} yaml
     fsdp:
-    enable_fsdp: true
-    backward_prefetch: NONE
+        enable_fsdp: true
+        backward_prefetch: NONE
     :::
     ::::
 
