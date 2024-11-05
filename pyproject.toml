@@ -83,6 +83,7 @@ docs = [
     "sphinx",                  # Used to build the docs
     "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
+    "sphinx-design",           # Allows us to include tabs in the docs
 ]
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
