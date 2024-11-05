@@ -18,7 +18,8 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
 1. Reduce batch size:
 
-   ```python
+::::{tab-set-code}
+:::{code-block} python
    from oumi.core.configs import TrainingConfig, TrainingParams
 
    config = TrainingConfig(
@@ -27,7 +28,14 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
            gradient_accumulation_steps=4,  # Increase this value
        ),
    )
-   ```
+:::
+
+:::{code-block} yaml
+   training:
+     per_device_train_batch_size: 8  # Decrease this value
+     gradient_accumulation_steps: 4  # Increase this value
+:::
+::::
 
 2. Enable gradient checkpointing:
 
