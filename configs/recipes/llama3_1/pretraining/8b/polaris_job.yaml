@@ -3,7 +3,7 @@
 # oumi launch up -c configs/recipes/llama3_1/pretraining/8b/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama8b-pretrain
 # NOTE: Replace with your username.
-user: your_username
+user: nikg # your_username
 
 num_nodes: 1  # Set it to N for multi-node training.
 resources:
@@ -17,9 +17,9 @@ working_dir: .
 # PBS directives.
 setup: |
   #PBS -l place=scatter
-  #PBS -l walltime=02:00:00
+  #PBS -l walltime=01:00:00
   #PBS -l filesystems=home:eagle
-  #PBS -A community_ai
+  #PBS -A alcf_training
   #PBS -o /eagle/community_ai/jobs/logs/
   #PBS -e /eagle/community_ai/jobs/logs/
 
@@ -33,7 +33,7 @@ run: |
   set -x  # Print "mpiexec" command with expanded variables
   mpiexec --verbose \
       --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-      ./scripts/polaris/jobs/llama_tune.sh -m pretrain -d fsdp -s 8b
+      ./scripts/polaris/jobs/llama_tune.sh -m pretrain -d fsdp -s 8b -t
 
   echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"
