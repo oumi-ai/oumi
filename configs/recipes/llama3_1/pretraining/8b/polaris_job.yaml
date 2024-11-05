@@ -1,6 +1,6 @@
 # Config for Llama 3.1 8B pre-training on 1 Polaris node.
 # Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+# oumi launch up -c configs/recipes/llama3_1/pretraining/8b/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama8b-pretrain
 # NOTE: Replace with your username.
 user: your_username
@@ -17,7 +17,7 @@ working_dir: .
 # PBS directives.
 setup: |
   #PBS -l place=scatter
-  #PBS -l walltime=01:00:00
+  #PBS -l walltime=02:00:00
   #PBS -l filesystems=home:eagle
   #PBS -A community_ai
   #PBS -o /eagle/community_ai/jobs/logs/
