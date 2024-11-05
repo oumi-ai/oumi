@@ -41,7 +41,7 @@ run: |
       --use_fsdp \
       --config_file configs/recipes/llama3_1/pretraining/8b/accelerate.yaml \
       -m oumi.train \
-      -c configs/recipes/llama3_1/pretraining/train.yaml \
+      -c configs/recipes/llama3_1/pretraining/8b/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

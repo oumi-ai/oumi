@@ -44,7 +44,7 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/recipes/llama3_1/pretraining/accelerate.yaml \
+      --config_file configs/recipes/llama3_1/pretraining/8b/accelerate.yaml \
       -m oumi.train \
       -c configs/recipes/llama3_1/pretraining/8b/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
