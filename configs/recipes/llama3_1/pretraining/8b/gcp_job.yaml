@@ -1,31 +1,36 @@
+# Config to HSDP (FSDP HYBRID_SHARD) pre-training of Llama 3.1 8B on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_1/pretraining/8b/gcp_job.yaml --cluster llama8b-pretrain-hsdp
 name: llama3.1_8B_hsdp
 
+num_nodes: 1
 resources:
-  accelerators: {"A100": 4}
+  cloud: gcp
+  accelerators: "A100:4"
   use_spot: true
-  disk_tier: "medium"
   disk_size: 500  # in GB -> we can save the final locally.
 
-# Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-
   # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on your local machine by running `huggingface-cli login`.
+  # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama3.1_8B_hsdp
   ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install uv && uv pip install -e '.[gpu]'
+  pip install uv && uv pip install -e '.[gpu]' hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -39,9 +44,9 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/recipes/llama3_1/pretraining/8b/accelerate.yaml \
+      --config_file configs/recipes/llama3_1/pretraining/accelerate.yaml \
       -m oumi.train \
-      -c configs/recipes/llama3_1/pretraining/train.yaml \
+      -c configs/recipes/llama3_1/pretraining/8b/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
