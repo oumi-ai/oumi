@@ -8,7 +8,7 @@ resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: true
-  disk_size: 500  # in GB -> we can save the final locally.
+  disk_size: 500  # in GB -> we can save the final model locally.
 
 working_dir: .
 

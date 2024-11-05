@@ -4,7 +4,7 @@ resources:
   accelerators: {"A100": 4}
   use_spot: true
   disk_tier: "medium"
-  disk_size: 500  # in GB -> we can save the final locally.
+  disk_size: 500  # in GB -> we can save the final model locally.
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
