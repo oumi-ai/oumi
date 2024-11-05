@@ -364,14 +364,8 @@ def prepare_model_for_distributed(
     return model
 
 
-def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
-    """Prepares our FSDP training job to run with the HuggingFace Accelerate library.
-
-    This function should be run if we didn't invoke the current training job from the
-    Accelerate launcher, but still want to use FSDP with Accelerate. The motivation for
-    this is to remove the need for the Accelerate config, centralize all config values
-    under the Oumi `TrainingConfig`, and make it easier to switch between HF and Oumi
-    trainers. For more information, see PR#803.
+def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
+    """Gets environment vars for FSDP Accelerate corresponding to Oumi training params.
 
     This mimics the environment variables set here:
     https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/utils/launch.py#L260-L285
@@ -380,14 +374,8 @@ def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
     also do. It's worth pointing out that `ACCELERATE_USE_FSDP` must be lowercase:
     https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/accelerator.py#L341
 
-    `training.enable_gradient_checkpointing` is also disabled, as FSDP gradient
-    checkpointing is handled by Accelerate.
-
-    Args:
-        config: The training configuration.
-
     Returns:
-        dict[str, str]: The environment variables set to prepare for Accelerate.
+        dict[str, str]: The environment variables and values to set for HF Accelerate.
     """
     env_vars = {}
     # These environment variables are set by default in HF Accelerate.
@@ -421,6 +409,28 @@ def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
     env_vars["FSDP_ACTIVATION_CHECKPOINTING"] = str(
         config.training.enable_gradient_checkpointing
     ).lower()
+    return env_vars
+
+
+def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
+    """Prepares our FSDP training job to run with the HuggingFace Accelerate library.
+
+    This function should be run if we didn't invoke the current training job from the
+    Accelerate launcher, but still want to use FSDP with Accelerate. The motivation for
+    this is to remove the need for the Accelerate config, centralize all config values
+    under the Oumi `TrainingConfig`, and make it easier to switch between HF and Oumi
+    trainers. For more information, see PR#803.
+
+    `training.enable_gradient_checkpointing` is also disabled, as FSDP gradient
+    checkpointing is handled by Accelerate.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        dict[str, str]: The environment variables set to prepare for Accelerate.
+    """
+    env_vars = get_accelerate_env_vars(config)
     # Disable Oumi's gradient checkpointing param, as Accelerate should handle it.
     config.training.enable_gradient_checkpointing = False
 
