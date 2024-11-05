@@ -13,15 +13,20 @@ from tests.markers import requires_gpus
 CONFIG_FOLDER_ROOT = get_oumi_root_directory().parent.parent.resolve() / "configs"
 
 
-def _get_output_dir(test_name: str) -> Path:
+def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if os.environ.get("OUMI_E2E_TESTS_OUTPUT_DIR"):
         output_base = Path(os.environ["OUMI_E2E_TESTS_OUTPUT_DIR"])
     else:
-        output_base = Path("/raid/e2e_tests")
+        output_base = tmp_path / "e2e_tests"
 
     return output_base / f"{timestamp}_{test_name}"
+
+
+def _is_file_not_empty(file_path: Path) -> bool:
+    """Check if a file is not empty."""
+    return file_path.stat().st_size > 0
 
 
 def _check_checkpoint_dir(dir_path: Path):
@@ -38,13 +43,33 @@ def _check_checkpoint_dir(dir_path: Path):
         "training_args.bin",
     ]
     for file in essential_files:
-        assert (dir_path / file).exists(), f"Missing {file} in {dir_path}"
-        assert (dir_path / file).stat().st_size > 0, f"Empty {file} in {dir_path}"
+        assert (dir_path / file).is_file(), f"Missing {file} in {dir_path}"
+        assert _is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
 
     # Verify config.json is valid JSON
     with open(dir_path / "config.json") as f:
         config = json.load(f)
         assert "model_type" in config, "Invalid model config"
+
+    # Verify generation config
+    with open(dir_path / "generation_config.json") as f:
+        gen_config = json.load(f)
+        assert isinstance(gen_config, dict), "Invalid generation config"
+
+    # Verify special tokens map
+    with open(dir_path / "special_tokens_map.json") as f:
+        tokens_map = json.load(f)
+        assert isinstance(tokens_map, dict), "Invalid special tokens map"
+
+    # Verify tokenizer config
+    with open(dir_path / "tokenizer_config.json") as f:
+        tok_config = json.load(f)
+        assert isinstance(tok_config, dict), "Invalid tokenizer config"
+
+    # Verify tokenizer
+    with open(dir_path / "tokenizer.json") as f:
+        tokenizer = json.load(f)
+        assert isinstance(tokenizer, dict), "Invalid tokenizer file"
 
     # Verify trainer state
     with open(dir_path / "trainer_state.json") as f:
@@ -55,10 +80,10 @@ def _check_checkpoint_dir(dir_path: Path):
 
 @requires_gpus(count=1)
 @pytest.mark.skip(reason="Skipping until the markers are configured")
-def test_train_llama_1b():
+def test_train_llama_1b(tmp_path: Path):
     test_name = "train_llama_1b"
 
-    output_dir = _get_output_dir(test_name)
+    output_dir = _get_output_dir(test_name, tmp_path=tmp_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -110,16 +135,16 @@ def test_train_llama_1b():
             checkpoint_files = ["optimizer.pt", "rng_state.pth", "scheduler.pt"]
             for file in checkpoint_files:
                 assert (checkpoint / file).exists(), f"Missing {file} in checkpoint"
-                assert (
+                assert _is_file_not_empty(
                     checkpoint / file
-                ).stat().st_size > 0, f"Empty {file} in checkpoint"
+                ), f"Empty {file} in checkpoint"
 
         # Check logs directory
         logs_dir = train_output_dir / "logs"
         assert logs_dir.exists(), "Logs directory not found"
         rank_logs = list(logs_dir.glob("rank_*.log"))
         assert len(rank_logs) > 0, "No rank logs found"
-        assert rank_logs[0].stat().st_size > 0, "Empty rank log file"
+        assert _is_file_not_empty(rank_logs[0]), "Empty rank log file"
 
         # Check telemetry directory
         telemetry_dir = train_output_dir / "telemetry"
@@ -136,7 +161,7 @@ def test_train_llama_1b():
         for file in telemetry_files:
             file_path = telemetry_dir / file
             assert file_path.exists(), f"Missing telemetry file: {file}"
-            assert file_path.stat().st_size > 0, f"Empty telemetry file: {file}"
+            assert _is_file_not_empty(file_path), f"Empty telemetry file: {file}"
 
         # Verify telemetry content
         with open(telemetry_dir / "training_config.yaml") as f:
