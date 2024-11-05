@@ -4,7 +4,7 @@ Oumi uses a structured data format for representing conversations and messages.
 
 This format is implemented using pydantic models, which provide type checking and data validation.
 
-Let's look at some examples of compatible JSONL datasets.
+Let's look at some examples of compatible datasets and how to work with them.
 
 ## JSONL Datasets
 
@@ -56,23 +56,16 @@ Oumi can work with JSONL (JSON Lines) datasets that follow the structure defined
 
 ## Python API
 
-### Role
+### Role and Type Enums
 
-The `Role` enum defines the possible roles for entities in a conversation:
+```python
+>>> from oumi.core.types.conversation import Role, Type
+>>> list(Role)  # Show all available roles
+[<Role.SYSTEM: 'system'>, <Role.USER: 'user'>, <Role.ASSISTANT: 'assistant'>, <Role.TOOL: 'tool'>]
+>>> list(Type)  # Show all available types
+[<Type.TEXT: 'text'>, <Type.IMAGE_PATH: 'image_path'>, <Type.IMAGE_URL: 'image_url'>, <Type.IMAGE_BINARY: 'image_binary'>]
 
-- `SYSTEM`: Represents a system message
-- `USER`: Represents a user message
-- `ASSISTANT`: Represents an assistant message
-- `TOOL`: Represents a tool message
-
-### Type
-
-The `Type` enum defines the possible types of message content:
-
-- `TEXT`: Represents a text message
-- `IMAGE_PATH`: Represents an image referenced by its file path
-- `IMAGE_URL`: Represents an image referenced by its URL
-- `IMAGE_BINARY`: Represents an image stored as binary data
+```
 
 ### Message
 
@@ -94,50 +87,79 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 - `messages`: List of `Message` objects that make up the conversation
 - `metadata`: Optional dictionary for storing additional information about the conversation
 
-## Usage
-
 ### Creating Messages
 
 ```python
-from oumi.core.types.turn import Message, Role, Type
+>>> from oumi.core.types.conversation import Message, Role, Type
+>>> # Create a simple text message
+>>> text_message = Message(content="Hello, world!", role=Role.USER)
+>>> text_message.content
+'Hello, world!'
+>>> text_message.role
+<Role.USER: 'user'>
 
-text_message = Message(content="Hello, world!", role=Role.USER)
-image_message = Message(binary=b"image_data", role=Role.USER, type=Type.IMAGE_BINARY)
+>>> # Create an image message
+>>> image_message = Message(binary=b"image_data", role=Role.USER, type=Type.IMAGE_BINARY)
+>>> image_message.type
+<Type.IMAGE_BINARY: 'image_binary'>
+
 ```
 
-### Creating Conversations
+### Creating and Working with Conversations
 
 ```python
-from oumi.core.types.turn import Conversation
+>>> from oumi.core.types.conversation import Conversation, Message, Role
+>>> # Create a conversation with multiple messages
+>>> conversation = Conversation(
+...     messages=[
+...         Message(content="Hi there!", role=Role.USER),
+...         Message(content="Hello! How can I help?", role=Role.ASSISTANT),
+...         Message(content="What's the weather?", role=Role.USER)
+...     ],
+...     metadata={"source": "customer_support"}
+... )
 
-conversation = Conversation(
-    messages=[text_message, image_message],
-    metadata={"source": "customer_support"}  # Add any metadata here
-)
+>>> # Get the first user message
+>>> first_user = conversation.first_message(role=Role.USER)
+>>> first_user.content
+'Hi there!'
+
+>>> # Get all assistant messages
+>>> assistant_msgs = conversation.filter_messages(role=Role.ASSISTANT)
+>>> len(assistant_msgs)
+1
+>>> assistant_msgs[0].content
+'Hello! How can I help?'
+
+>>> # Get the last message
+>>> last_msg = conversation.last_message()
+>>> last_msg.content
+"What's the weather?"
+
 ```
 
-### Working with Conversations
+### Serialization
 
 ```python
-# Get the first user message
-first_user_message = conversation.first_message(role=Role.USER)
+>>> from oumi.core.types.conversation import Conversation, Message, Role
+>>> # Serialize to JSON
+>>> conversation = Conversation(
+...     messages=[Message(content="Hello!", role=Role.USER)],
+...     metadata={"timestamp": "2024-01-01"}
+... )
+>>> json_data = conversation.to_json()
+>>> print(json_data)
+{"messages":[{"content":"Hello!","role":"user"}],"metadata":{"timestamp":"2024-01-01"}}
 
-# Get all assistant messages
-assistant_messages = conversation.filter_messages(role=Role.ASSISTANT)
+>>> # Deserialize from JSON
+>>> restored = Conversation.from_json(json_data)
+>>> restored.messages[0].content
+'Hello!'
+>>> restored.metadata["timestamp"]
+'2024-01-01'
 
-# Get the last message (any role)
-last_message = conversation.last_message()
 ```
 
 ## Data Validation
 
-The pydantic models automatically validate the data
-
-## Serialization
-
-These pydantic models can be easily serialized to and deserialized from JSON, making them suitable for storage and transmission:
-
-```python
-json_data = conversation.model_dump_json()
-restored_conversation = Conversation.model_validate_json(json_data)
-```
+The pydantic models automatically validate the data.
