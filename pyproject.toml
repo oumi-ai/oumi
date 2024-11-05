@@ -114,6 +114,12 @@ optional = [
 quant = [
     "bitsandbytes", # Used for QLora, and PagedAdam implemenation
 ]
+cambrian = [ # Consider merging into "train"
+    "timm==0.9.16",
+    "open_clip_torch",
+    "diffusers[torch]",
+    "einops==0.6.1",
+]
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
@@ -191,9 +197,3 @@ reportPrivateImportUsage = "none"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
-cambrian = [ # Consider merging into "train"
-    "timm==0.9.16",
-    "open_clip_torch",
-    "diffusers[torch]",
-    "einops==0.6.1",
-]
