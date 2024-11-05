@@ -435,6 +435,11 @@ def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
     config.training.enable_gradient_checkpointing = False
 
     for name, value in env_vars.items():
+        if name in os.environ:
+            logger.warning(
+                f"Environment variable `{name}` has existing value "
+                f"`{os.environ[name]}`, overriding to new value `{value}`."
+            )
         os.environ[name] = value
     return env_vars
 

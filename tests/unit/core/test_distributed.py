@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
@@ -414,3 +415,41 @@ def test_prepare_accelerate_fsdp_run():
         "FSDP_ACTIVATION_CHECKPOINTING": "true",
     }
     assert not config.training.enable_gradient_checkpointing
+
+
+def test_prepare_accelerate_fsdp_run_override():
+    # Clear all environment variables if set
+    expected_env_vars = {
+        "ACCELERATE_DYNAMO_BACKEND": "NO",
+        "ACCELERATE_DYNAMO_MODE": "default",
+        "ACCELERATE_DYNAMO_USE_FULLGRAPH": "False",
+        "ACCELERATE_DYNAMO_USE_DYNAMIC": "False",
+        "FSDP_USE_ORIG_PARAMS": "true",
+        "FSDP_CPU_RAM_EFFICIENT_LOADING": "true",
+        "ACCELERATE_USE_FSDP": "false",
+        "FSDP_SHARDING_STRATEGY": "FULL_SHARD",
+        "FSDP_OFFLOAD_PARAMS": "false",
+        "FSDP_BACKWARD_PREFETCH": "BACKWARD_PRE",
+        "FSDP_FORWARD_PREFETCH": "false",
+        "FSDP_STATE_DICT_TYPE": "FULL_STATE_DICT",
+        "FSDP_AUTO_WRAP_POLICY": "SIZE_BASED_WRAP",
+        "FSDP_MIN_NUM_PARAMS": "100000",
+        "FSDP_SYNC_MODULE_STATES": "true",
+        "FSDP_ACTIVATION_CHECKPOINTING": "false",
+    }
+    for env_var in expected_env_vars:
+        if env_var in os.environ:
+            del os.environ[env_var]
+
+    # Set env var to override
+    os.environ["ACCELERATE_DYNAMO_BACKEND"] = "EXISTING_VALUE"
+    config = TrainingConfig(training=TrainingParams())
+
+    # Assert that the env var was overridden and a warning was logged
+    with patch("logging.Logger.warning") as mock_warning:
+        env_vars = prepare_accelerate_fsdp_run(config)
+        mock_warning.assert_called_with(
+            "Environment variable `ACCELERATE_DYNAMO_BACKEND` has existing value "
+            "`EXISTING_VALUE`, overriding to new value `NO`."
+        )
+    assert env_vars == expected_env_vars
