@@ -182,7 +182,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
             OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/train.yaml"
             if [ "$TRAINING_MODE" == "pretrain" ]; then
                 ACCELERATE_CFG_FILE="configs/recipes/llama3_1/pretraining/accelerate.yaml"
-                OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/hsdp_sky_job.yaml"
+                OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/train.yaml"
             fi
 
             set -x # Print "accelerate" command with expanded variables
