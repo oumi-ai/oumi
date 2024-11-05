@@ -1,26 +1,10 @@
-####################################################################
-# Skypilot Launch Parameters : Q-LoRA SFT Training  of Llama3.1 8B #
-####################################################################
-#
-# Launches 4 A-100:40GB each, on GCP, via FSDP.
-#
-# Example command:
-# sky launch -r --cloud GCP -c llama3.1_8B_qlora_sft_fsdp \
-# configs/examples/llama3_1/sft/8b_qlora/fsdp_sky_job.yaml
-#
-####################################################################
-
-envs:
-  WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama3.1_8B_qlora_sft_fsdp
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
-
-name: llama3.1_8B_qlora_sft_fsdp
+name: llama3.1_8B_hsdp
 
 resources:
   accelerators: {"A100": 4}
   use_spot: true
+  disk_tier: "medium"
+  disk_size: 500  # in GB -> we can save the final model locally.
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .
@@ -33,9 +17,15 @@ file_mounts:
   # This is created on your local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama3.1_8B_hsdp
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+
 setup: |
   set -e
-  pip install -e '.[gpu,quant]'
+  pip install uv && uv pip install -e '.[gpu]'
 
 run: |
   set -e  # Exit if any command failed.
@@ -49,11 +39,12 @@ run: |
       --main_process_ip ${OUMI_MASTER_ADDR} \
       --main_process_port 8007 \
       --use_fsdp \
-      --config_file configs/examples/llama3_1/sft/8b_qlora/accelerate.yaml \
+      --config_file configs/recipes/llama3_1/pretraining/8b/accelerate.yaml \
       -m oumi.train \
-      -c configs/examples/llama3_1/sft/8b_qlora/train.yaml \
+      -c configs/recipes/llama3_1/pretraining/8b/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='${OUMI_RUN_NAME}'" \
-      "training.logging_dir='${OUMI_RUN_NAME}/runs'"
+      "training.max_steps=20" \
+      "training.save_steps=0" \
+      "training.save_final_model=false"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

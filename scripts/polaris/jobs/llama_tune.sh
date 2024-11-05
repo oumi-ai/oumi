@@ -28,13 +28,13 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("sft", "lora", "qlora")
+ALLOWED_TRAINING_MODES=("sft", "lora", "qlora", "pretrain")
 ALLOWED_DISTRIBUTION_MODES=("ddp", "fsdp")
 ALLOWED_MODEL_SIZES=("3b", "8b", "70b")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (sft/lora/qlora) -d (ddp/fsdp) -s (3b/8b/70b)"
+    echo "Usage: $0 -m (sft/lora/qlora/pretrain) -d (ddp/fsdp) -s (3b/8b/70b)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to lora."
     echo -e "\t-d The distribution mode: ${ALLOWED_DISTRIBUTION_MODES[@]}. Defaults to ddp."
     echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8b."
@@ -101,7 +101,9 @@ ${OUMI_TELEMETRY_PARAMS}"
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "3b" ]; then
-    if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 3B pretraining is currently not supported!"
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
             set -x # Print "torchrun" command with expanded variables
             torchrun \
@@ -142,9 +144,16 @@ if [ "$MODEL_SIZE" == "3b" ]; then
     fi
 elif [ "$MODEL_SIZE" == "8b" ]; then
     # Copy the model to our Polaris machine to avoiding downloading from HF.
-    rsync -av \
-        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
-        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        rsync -av \
+            /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B/ \
+            ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B
+    else
+        rsync -av \
+            /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
+            ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
+    fi
+
     if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
             set -x # Print "torchrun" command with expanded variables
@@ -169,6 +178,13 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora FSDP is currently not supported!"
         else # SFT
+            ACCELERATE_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/accelerate.yaml"
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/train.yaml"
+            if [ "$TRAINING_MODE" == "pretrain" ]; then
+                ACCELERATE_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/accelerate.yaml"
+                OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/train.yaml"
+            fi
+
             set -x # Print "accelerate" command with expanded variables
             accelerate launch \
                 --num_machines ${OUMI_NUM_NODES} \
@@ -177,18 +193,27 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --main_process_ip ${OUMI_MASTER_ADDR} \
                 --main_process_port 8007 \
                 --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
+                --config_file "${ACCELERATE_CFG_FILE}" \
                 -m oumi.train \
-                -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
+                -c "${OUMI_CFG_FILE}" \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
 else # 70B
     # Copy the model to our Polaris machine to avoid downloading from HF.
-    rsync -av \
-        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
-        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
-    if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        rsync -av \
+            /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B/ \
+            ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B
+    else
+        rsync -av \
+            /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
+            ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
+    fi
+
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 70B pretraining is currently not supported!"
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         echo "Llama 70B DDP is not possible!"
     else # FSDP
         if [ "$TRAINING_MODE" == "lora" ]; then
