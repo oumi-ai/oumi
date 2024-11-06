@@ -40,7 +40,7 @@ To start training a model:
 typeDelay: 40
 lineDelay: 700
 ---
-- value: oumi train -c configs/recipes/smollm/smollm-135m_fft.yaml
+- value: oumi train -c configs/recipes/smollm/sft/135m/train.yaml
   type: input
 - Loading configuration...
 - "Initializing model: SmolLM-135M"
