@@ -42,5 +42,5 @@ jobs:
 
     - name: Run tests
       run: |
-        cd ./tests/
+        cd ./tests/unit/
         pytest -s
