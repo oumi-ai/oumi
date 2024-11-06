@@ -25,7 +25,7 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
-
+  pip install '.[gpu]'
   if test ${OUMI_TOTAL_NUM_GPUS} -lt 2; then
     echo "Using FSDP with only 1 GPU may lead to errors. Multiple GPUs are expected."
   fi
