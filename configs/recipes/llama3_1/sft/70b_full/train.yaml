@@ -18,13 +18,13 @@ data:
     use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   save_steps: 200
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
@@ -41,3 +41,11 @@ training:
   output_dir: "output/llama70b.fft"
   include_performance_metrics: True
   enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  cpu_offload: True
+  forward_prefetch: True
+  state_dict_type: "SHARDED_STATE_DICT"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

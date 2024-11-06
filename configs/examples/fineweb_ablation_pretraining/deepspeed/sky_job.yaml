@@ -1,4 +1,4 @@
-name: llama2b-deepspeed
+name: fineweb-deepspeed
 
 num_nodes: 1 # Set it to N for multi-node training.
 
@@ -17,7 +17,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama2b.pt.deepspeed
+  OUMI_RUN_NAME: fineweb.pt.deepspeed
   ACCELERATE_LOG_LEVEL: info
 
 setup: |

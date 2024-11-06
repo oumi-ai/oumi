@@ -31,7 +31,7 @@ training:
 
   per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
-  enable_gradient_checkpointing: False # Enabled in accelerate.yaml
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
@@ -44,6 +44,13 @@ training:
   seed: 123
   logging_steps: 10
   log_model_summary: False
-  output_dir: "output/llama8b.pt"
+  output_dir: "output/fineweb.pt"
   include_performance_metrics: True
   enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

@@ -21,7 +21,7 @@ data:
     target_col: "text"
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   per_device_train_batch_size: 2
   max_steps: 10
 

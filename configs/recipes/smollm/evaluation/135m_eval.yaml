@@ -1,0 +1,20 @@
+# Eval config for SmolLM 135M Instruct.
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  adapter_model: null # Update for LoRA-tuned models.
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  batch_size: 4
+
+lm_harness_params:
+  tasks:
+    - "m_mmlu_en"
+  num_fewshot: 5
+
+enable_wandb: True
