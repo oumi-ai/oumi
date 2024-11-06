@@ -1,4 +1,4 @@
-name: llama2b-pt
+name: fineweb-pt
 # NOTE: Replace with your username.
 user: your_username
 num_nodes: 2
@@ -6,7 +6,7 @@ num_nodes: 2
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/llama2b_pt.
+# Upload working directory to /home/$USER/oumi_launcher/fineweb_pt.
 working_dir: .
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
@@ -27,10 +27,10 @@ run: |
 
   echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
 
-  set -x  # Print "mpiexec" command with expanded variables
+  set -x
   mpiexec --verbose \
       --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-      ./scripts/polaris/jobs/llama2b_pt_worker.sh -m fsdp
+      ./scripts/polaris/jobs/fineweb_pt_worker.sh -m fsdp
 
   echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"

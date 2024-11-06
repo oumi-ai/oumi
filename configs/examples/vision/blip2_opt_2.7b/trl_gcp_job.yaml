@@ -36,7 +36,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  set -x  # Print "torchrun" command with expanded variables
+  set -x
   torchrun \
       --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \

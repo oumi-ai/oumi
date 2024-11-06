@@ -367,7 +367,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -469,7 +469,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -570,7 +570,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -659,7 +659,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -750,7 +750,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -833,7 +833,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "uv pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu]'",
                 ]
             ),
             call(
@@ -878,4 +878,10 @@ def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
 def test_polaris_cluster_down(mock_datetime, mock_polaris_client):
     cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
     cluster.down()
+    # Nothing to assert, this method is a no-op.
+
+
+def test_polaris_cluster_stop(mock_datetime, mock_polaris_client):
+    cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
+    cluster.stop()
     # Nothing to assert, this method is a no-op.

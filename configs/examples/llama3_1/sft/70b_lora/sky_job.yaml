@@ -42,19 +42,17 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  set -x  # Print "accelerate launch" command with expanded variables
-  accelerate launch \
-      --num_machines ${OUMI_NUM_NODES} \
-      --machine_rank ${SKYPILOT_NODE_RANK} \
-      --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-      --main_process_ip ${OUMI_MASTER_ADDR} \
-      --main_process_port 8007 \
-      --use_fsdp \
-      --config_file configs/examples/llama3_1/sft/70b_lora/accelerate.yaml \
+  set -x
+  torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
       -m oumi.train \
       -c configs/examples/llama3_1/sft/70b_lora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='${OUMI_RUN_NAME}'"\
+      "training.output_dir='${OUMI_RUN_NAME}'" \
       "training.logging_dir='${OUMI_RUN_NAME}/runs'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
