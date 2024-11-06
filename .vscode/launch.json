@@ -9,7 +9,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
+                "configs/recipes/smollm/sft/135m/train.yaml"
             ],
             "justMyCode": true
         },
