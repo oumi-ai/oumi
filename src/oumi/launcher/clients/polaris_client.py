@@ -239,12 +239,8 @@ class PolarisClient:
             )
         except Exception:
             duration_str = self._compute_duration_debug_str(start_time)
-            logger.exception(f"Commands failed ({duration_str})! {new_cmd}")
-            return PolarisResponse(
-                stdout="",
-                stderr=f"Commands failed : {new_cmd}",
-                exit_code=1,
-            )
+            logger.exception(f"Command failed ({duration_str})! {new_cmd}")
+            raise
 
     def submit_job(
         self,
