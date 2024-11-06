@@ -40,7 +40,7 @@ To start training a model:
 typeDelay: 40
 lineDelay: 700
 ---
-- value: oumi train -c configs/recipes/smollm/smollm-135m_fft.yaml
+- value: oumi train -c configs/recipes/smollm/sft/135m/train.yaml
   type: input
 - Loading configuration...
 - "Initializing model: SmolLM-135M"
@@ -59,9 +59,9 @@ You can easily override any parameters:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
-  --training.num_train_epochs=5 \
-  --training.learning_rate=1e-4 \
-  --output_dir=output/smollm-135m-sft
+  --training.num_train_epochs 5 \
+  --training.learning_rate 1e-4 \
+  --output_dir output/smollm-135m-sft
 ```
 
 To run the same recipe on a different dataset, you can override the dataset name:
@@ -87,8 +87,8 @@ To evaluate a trained model:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
-  --model.model_name=output/smollm-135m-sft  # the path to our trained model \
-  --lm_harness_params.tasks=["mmlu", "hellaswag"]
+  --model.model_name output/smollm-135m-sft  # the path to our trained model \
+  --lm_harness_params.tasks ["mmlu", "hellaswag"]
 ```
 
 ## Inference
@@ -97,9 +97,10 @@ To run inference with a trained model:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-  --model.model_name=output/smollm-135m-sft \
-  --generation.max_new_tokens=100 \
-  --generation.temperature=0.7
+  --model.model_name output/smollm-135m-sft \
+  --generation.max_new_tokens 100 \
+  --generation.temperature 0.7 \
+  --interactive
 ```
 
 ## Launching Jobs
