@@ -11,7 +11,7 @@ data:
 training:
   optimizer: "adamw_torch"
   use_peft: true
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   output_dir: "output/phi3.lora"
 
 peft:

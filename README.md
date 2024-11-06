@@ -74,7 +74,7 @@ These configurations demonstrate how to setup and run full training for differen
 | ChatQA | SFT | [chatqa_stage1_train.yaml](/configs/examples/chatqa/chatqa_stage1_train.yaml) | GCP | ✨ Supported ✨ |
 | **Pre-training** | | | | |
 | GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/recipes/gpt2/pretraining/mac_train.yaml) | Mac (mps) | ✨ Supported ✨ |
-| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) | Polaris | ✨ Supported ✨ |
+| Llama2 2b | Pre-training | [fineweb.pt.yaml](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) | Polaris | ✨ Supported ✨ |
 
 ## Tutorials
 

@@ -23,12 +23,14 @@ data:
     use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT # or OUMI
+  trainer_type: "TRL_SFT"
   save_steps: 500
   per_device_train_batch_size: 14
   gradient_accumulation_steps: 19
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   compile: True
@@ -38,6 +40,14 @@ training:
 
   logging_steps: 10
   log_model_summary: False
-  output_dir: "output/llama2b.pt.fsdp"
+  output_dir: "output/fineweb.pt.fsdp"
   include_performance_metrics: True
   enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  mixed_precision: "bf16"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

@@ -30,24 +30,15 @@ run: |
     echo "Using FSDP with only 1 GPU may lead to errors. Multiple GPUs are expected."
   fi
 
-  set -x  # Print "accelerate launch" command with expanded variables
-  accelerate launch \
-      --num_machines ${OUMI_NUM_NODES} \
-      --machine_rank ${SKYPILOT_NODE_RANK} \
-      --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-      --main_process_ip ${OUMI_MASTER_ADDR} \
-      --main_process_port 8007 \
-      --use_fsdp \
-      --config_file configs/recipes/phi3/dpo/accelerate.yaml \
+  set -x
+  torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
       -m oumi.train \
-      -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir=train/" \
-      "training.enable_wandb=true" \
-      "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=4" \
-      "training.max_steps=10" \
-      "training.logging_steps=10"
+      -c configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

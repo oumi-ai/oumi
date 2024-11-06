@@ -20,7 +20,7 @@ model:
   enable_liger_kernel: True # Helps reduce required vram
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   learning_rate: 2.0e-05
   output_dir: "output/llama8b.longctx.fft"
 
