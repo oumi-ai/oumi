@@ -105,7 +105,7 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+                "configs/recipes/smollm/evaluation/135m_eval.yaml"
             ],
             "justMyCode": true
         },
