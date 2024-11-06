@@ -1,5 +1,4 @@
 import argparse
-import gc
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -95,7 +94,6 @@ def main() -> None:
     config.validate()
 
     limit_per_process_memory()
-    device_cleanup()
     set_random_seeds(config.training.seed)
 
     # Run training
@@ -281,7 +279,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     collator = build_collator_from_config(config, tokenizer)
 
     # Reclaim memory before training starts.
-    gc.collect()
+    device_cleanup()
 
     with torch_profile(
         config.training.profiler,
