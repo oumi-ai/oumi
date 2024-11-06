@@ -26,9 +26,15 @@ pip install oumi
 
 For the latest development version, you can install Oumi directly from the GitHub repository:
 
-```bash
+::::{tab-set-code}
+:::{code-block} SSH
+pip install git+ssh://git@github.com/oumi-ai/oumi.git
+:::
+
+:::{code-block} HTTP
 pip install git+https://github.com/oumi-ai/oumi.git
-```
+:::
+::::
 
 ### 3. Clone and Install
 
