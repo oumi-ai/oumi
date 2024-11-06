@@ -1,3 +1,4 @@
+import gc
 import os
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, cast
@@ -10,7 +11,10 @@ from oumi.utils.logging import logger
 
 
 def device_cleanup() -> None:
-    """Empties cuda cache, good to do before and after training for cleanup."""
+    """Empties gpu cache, good to do before and after training for cleanup."""
+    logger.debug("Running garbage collection.")
+    gc.collect()
+
     if torch.cuda.is_available():
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
@@ -21,6 +25,10 @@ def device_cleanup() -> None:
         torch.cuda.empty_cache()
 
         logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MiB")
+
+    elif torch.backends.mps.is_available():
+        logger.debug("Cleaning up MPS memory.")
+        torch.mps.empty_cache()
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:
