@@ -38,7 +38,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
+      -c configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

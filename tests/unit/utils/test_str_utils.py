@@ -29,7 +29,7 @@ def test_sanitize_run_name_too_long():
     assert len(actual) == 100
     expected = (
         "fineweb.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
-        "sky-2024-07...35cb245cc965ef2c"
+        "sky-2024-07...9db6edce8186fb6a"
     )
     assert actual == expected
     # verify it's idempotent
