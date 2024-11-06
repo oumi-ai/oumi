@@ -1,7 +1,6 @@
 name: "Pre-review Tests"
 
-on:
-  workflow_dispatch:
+on: [pull_request]
 
 jobs:
   static-checks:
