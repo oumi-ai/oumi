@@ -210,7 +210,7 @@ class PolarisClient:
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
         try:
-            logger.info(f"Running commands:\n{new_cmd}")
+            logger.debug(f"Running commands:\n{new_cmd}")
             child = subprocess.run(
                 new_cmd,
                 shell=True,
@@ -219,7 +219,7 @@ class PolarisClient:
             )
             duration_str = self._compute_duration_debug_str(start_time)
             if child.returncode == 0:
-                logger.info(f"Commands successfully finished! {duration_str}")
+                logger.debug(f"Commands successfully finished! {duration_str}")
             else:
                 logger.error(
                     f"Commands failed with code: {child.returncode}! {duration_str}"
