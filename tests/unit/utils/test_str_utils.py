@@ -21,14 +21,14 @@ def test_sanitize_run_name_below_invalid_chars():
 
 def test_sanitize_run_name_too_long():
     raw_long_run_name = (
-        "llama2b.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
+        "fineweb.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
         "sky-2024-07-22-16-26-33-541717_xrdaukar-4node4gpu-01-oumi-cluster"
     )
     actual = sanitize_run_name(raw_long_run_name)
     assert actual is not None
     assert len(actual) == 100
     expected = (
-        "llama2b.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
+        "fineweb.pt.FSDP.HYBRID_SHARD.4node.4xA10040GB.20steps.bs16.gas16.v907."
         "sky-2024-07...35cb245cc965ef2c"
     )
     assert actual == expected

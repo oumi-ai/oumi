@@ -32,7 +32,7 @@ data:
     seed: 123
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   num_train_epochs: 1
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
@@ -41,7 +41,7 @@ training:
   lr_scheduler_type: "cosine"
   optimizer: "adamw_8bit"
   weight_decay: 0.01
-  enable_gradient_checkpointing: False # TODO: Activated via FSDP - not clean.
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   seed: 123
@@ -74,3 +74,9 @@ peft:
     - "gate_proj" #
     - "down_proj" # Since (1) applies it to MLP.
     - "up_proj" #
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

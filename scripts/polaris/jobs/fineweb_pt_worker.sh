@@ -105,7 +105,7 @@ ${OUMI_TELEMETRY_PARAMS}"
 
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
-    set -x # Print "torchrun" command with expanded variables
+    set -x
     torchrun \
         --nnodes=${OUMI_NUM_NODES} \
         --node-rank=${POLARIS_NODE_RANK} \
@@ -116,12 +116,12 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
+        "training.run_name='polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
     export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
-    set -x # Print "torchrun" command with expanded variables
+    set -x
     echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
     torchrun \
         --nnodes=${OUMI_TOTAL_NUM_GPUS} \
@@ -133,11 +133,11 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
+        "training.run_name='polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64"
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
-    set -x                # Print "accelerate" command with expanded variables
+    set -x
     pip install deepspeed # Deepspeed is not installed by default
     accelerate launch \
         --num_machines ${OUMI_NUM_NODES} \
@@ -151,26 +151,24 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
+        "training.run_name='polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'" \
         "training.per_device_train_batch_size=4" \
         "training.gradient_accumulation_steps=64" \
         "model.torch_dtype_str=float32" \
         "training.mixed_precision_dtype=BF16"
-else       # FSDP
-    set -x # Print "accelerate" command with expanded variables
-    accelerate launch \
-        --num_machines ${OUMI_NUM_NODES} \
-        --machine_rank ${POLARIS_NODE_RANK} \
-        --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-        --main_process_ip ${OUMI_MASTER_ADDR} \
-        --main_process_port 8007 \
-        --use_fsdp \
-        --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
+else # FSDP
+    set -x
+    torchrun \
+        --nnodes=${OUMI_NUM_NODES} \
+        --node-rank=${SKYPILOT_NODE_RANK} \
+        --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+        --master-addr=${OUMI_MASTER_ADDR} \
+        --master-port=8007 \
         -m oumi.train \
-        -c configs/examples/fineweb_ablation_pretraining/fsdp/trl_train.yaml \
+        -c configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        "training.run_name='polaris.llama2b.${TRAINING_MODE}.${OUMI_JOBNUM}'"
+        "training.run_name='polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'"
 fi
 
 echo "${LOG_PREFIX} All done!"
