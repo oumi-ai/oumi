@@ -11,7 +11,7 @@ from oumi.utils.logging import logger
 
 
 def device_cleanup() -> None:
-    """Empties cuda cache, good to do before and after training for cleanup."""
+    """Empties gpu cache, good to do before and after training for cleanup."""
     logger.debug("Running garbage collection.")
     gc.collect()
 
