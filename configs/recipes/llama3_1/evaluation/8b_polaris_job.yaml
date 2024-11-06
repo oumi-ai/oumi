@@ -44,7 +44,7 @@ run: |
     echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
   fi
 
-  set -x # Enable command tracing.
+  set -x
   accelerate launch \
     -m oumi.evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \

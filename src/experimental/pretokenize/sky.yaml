@@ -52,7 +52,7 @@ run: |
   export DATASET_SPLIT="train"
   export OUTPUT_DATA="/dataset_parent_dir/datasets/coco_captions/"
 
-  set -x # Enable command tracing.
+  set -x
   mkdir -p "${OUTPUT_DATA}/${DATASET_SPLIT}"
   python3 ./src/experimental/pretokenize/process_dataset.py \
     --verbose \

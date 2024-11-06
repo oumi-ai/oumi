@@ -26,7 +26,7 @@ export SNAPSHOT=${SNAPSHOT_ARRAY[-1]}
 
 echo "Setting up vLLM inference with ${OUMI_NUM_NODES} node(s)..."
 
-set -x # Print command with expanded variables
+set -x
 
 # Start worker nodes
 mpiexec --verbose \

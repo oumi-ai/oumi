@@ -9,7 +9,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
+                "configs/recipes/smollm/sft/135m/train.yaml"
             ],
             "justMyCode": true
         },
@@ -93,7 +93,7 @@
                 "infer",
                 "--interactive",
                 "-c",
-                "configs/recipes/gpt2/inference/infer.yaml"
+                "configs/recipes/smollm/inference/135m_infer.yaml"
             ],
             "justMyCode": true
         },
@@ -105,7 +105,7 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+                "configs/recipes/smollm/evaluation/135m_eval.yaml"
             ],
             "justMyCode": true
         },

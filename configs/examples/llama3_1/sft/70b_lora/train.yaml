@@ -27,7 +27,7 @@ data:
     seed: 123
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   num_train_epochs: 1
   per_device_train_batch_size: 2
   learning_rate: 3.0e-4
@@ -35,7 +35,7 @@ training:
   lr_scheduler_type: "cosine"
   optimizer: "adamw_torch_fused"
   weight_decay: 0.01
-  enable_gradient_checkpointing: False # TODO: Activated via FSDP - not clean.
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   seed: 123
@@ -60,3 +60,9 @@ peft:
     - "q_proj"
     - "k_proj"
     - "v_proj"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

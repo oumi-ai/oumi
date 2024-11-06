@@ -105,7 +105,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
         echo "Llama 3B pretraining is currently not supported!"
     elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "torchrun" command with expanded variables
+            set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
@@ -116,7 +116,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 -c configs/recipes/llama3_2/sft/3b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
-            set -x # Print "torchrun" command with expanded variables
+            set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
@@ -127,7 +127,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         else # SFT
-            set -x # Print "torchrun" command with expanded variables
+            set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
                 --node-rank=${POLARIS_NODE_RANK} \
@@ -156,7 +156,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
 
     if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "torchrun" command with expanded variables
+            set -x
             # DDP training with torchrun
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
@@ -178,22 +178,18 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora FSDP is currently not supported!"
         else # SFT
-            ACCELERATE_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/accelerate.yaml"
             OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/train.yaml"
             if [ "$TRAINING_MODE" == "pretrain" ]; then
-                ACCELERATE_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/accelerate.yaml"
                 OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/train.yaml"
             fi
 
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file "${ACCELERATE_CFG_FILE}" \
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${SKYPILOT_NODE_RANK} \
+                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
                 -m oumi.train \
                 -c "${OUMI_CFG_FILE}" \
                 $SHARED_TRAINING_PARAMS
@@ -217,30 +213,26 @@ else # 70B
         echo "Llama 70B DDP is not possible!"
     else # FSDP
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/70b_lora/accelerate.yaml \
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${SKYPILOT_NODE_RANK} \
+                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
                 -m oumi.train \
                 -c configs/recipes/llama3_1/sft/70b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 70B QLora is currently not supported!"
         else # SFT
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/70b_full/accelerate.yaml \
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${SKYPILOT_NODE_RANK} \
+                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
                 -m oumi.train \
                 -c configs/recipes/llama3_1/sft/70b_full/train.yaml \
                 $SHARED_TRAINING_PARAMS
