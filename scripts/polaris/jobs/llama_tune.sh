@@ -186,8 +186,8 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
             set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${SKYPILOT_NODE_RANK} \
-                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
@@ -216,8 +216,8 @@ else # 70B
             set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${SKYPILOT_NODE_RANK} \
-                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
@@ -229,8 +229,8 @@ else # 70B
             set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${SKYPILOT_NODE_RANK} \
-                --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
                 --master-addr=${OUMI_MASTER_ADDR} \
                 --master-port=8007 \
                 -m oumi.train \
