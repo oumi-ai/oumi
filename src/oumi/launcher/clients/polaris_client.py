@@ -1,6 +1,7 @@
 import functools
 import re
 import subprocess
+import time
 from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
@@ -184,7 +185,7 @@ class PolarisClient:
         result = subprocess.run(command, shell=True, capture_output=True)
         if result.returncode != 0:
             return []
-        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-.*-(.*)"
+        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-[^-]*-(.*)"
         lines = result.stdout.decode("utf-8").strip().split("\n")
         users = set()
         for line in lines:
@@ -192,6 +193,10 @@ class PolarisClient:
             if match:
                 users.add(match.group(1))
         return list(users)
+
+    def _compute_duration_debug_str(self, start_time: float) -> str:
+        duration_sec = time.perf_counter() - start_time
+        return f"Duration: {duration_sec:.2f} sec"
 
     @retry_auth
     def run_commands(self, commands: list[str]) -> PolarisResponse:
@@ -203,24 +208,39 @@ class PolarisClient:
         ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
+        start_time: float = time.perf_counter()
         try:
+            logger.debug(f"Running commands:\n{new_cmd}")
             child = subprocess.run(
                 new_cmd,
                 shell=True,
                 capture_output=True,
                 timeout=180,  # time in seconds
             )
+            duration_str = self._compute_duration_debug_str(start_time)
+            if child.returncode == 0:
+                logger.debug(f"Commands successfully finished! {duration_str}")
+            else:
+                logger.error(
+                    f"Commands failed with code: {child.returncode}! {duration_str}"
+                )
             return PolarisResponse(
                 stdout=child.stdout.decode("utf-8"),
                 stderr=child.stderr.decode("utf-8"),
                 exit_code=child.returncode,
             )
         except subprocess.TimeoutExpired:
+            duration_str = self._compute_duration_debug_str(start_time)
+            logger.exception(f"Commands timed out ({duration_str})! {new_cmd}")
             return PolarisResponse(
                 stdout="",
                 stderr=f"Timeout while running command: {new_cmd}",
                 exit_code=1,
             )
+        except Exception:
+            duration_str = self._compute_duration_debug_str(start_time)
+            logger.exception(f"Command failed ({duration_str})! {new_cmd}")
+            raise
 
     def submit_job(
         self,

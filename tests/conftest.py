@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
 
 
@@ -21,3 +22,13 @@ def setup_logging():
     logger = get_logger("oumi")
     logger.propagate = True
     return logger
+
+
+@pytest.fixture
+def single_turn_conversation():
+    return Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+        ]
+    )

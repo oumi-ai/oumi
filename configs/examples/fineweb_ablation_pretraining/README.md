@@ -24,5 +24,5 @@ oumi launch up -c configs/examples/fineweb_ablation_pretraining/ddp/gcp_job.yaml
 
 For FSDP training:
 ```shell
-oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/trl_gcp_job.yaml --cluster fineweb-fsdp
+oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/gcp_job.yaml --cluster fineweb-fsdp
 ```

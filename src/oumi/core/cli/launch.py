@@ -1,6 +1,7 @@
 import itertools
 import sys
 import time
+from collections import defaultdict
 from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import Annotated, Callable, Optional
@@ -45,19 +46,25 @@ def _print_spinner_and_sleep(
     _ = sys.stdout.write("\033[K")
 
 
-def _print_and_wait(message: str, task: Callable, asynchronous=True, **kwargs) -> None:
+def _print_and_wait(
+    message: str, task: Callable[..., bool], asynchronous=True, **kwargs
+) -> None:
     """Prints a message with a loading spinner until the provided task is done."""
     spinner = itertools.cycle(["⠁", "⠈", "⠐", "⠠", "⢀", "⡀", "⠄", "⠂"])
     sleep_duration = 0.1
     if asynchronous:
         with Pool(processes=1) as worker_pool:
-            worker_result = worker_pool.apply_async(task, kwds=kwargs)
-            while not worker_result.ready():
-                _print_spinner_and_sleep(message, spinner, sleep_duration)
-            worker_result.wait()
-            # Call get() to reraise any exceptions that occurred in the worker.
-            worker_result.get()
+            task_done = False
+            while not task_done:
+                worker_result = worker_pool.apply_async(task, kwds=kwargs)
+                while not worker_result.ready():
+                    _print_spinner_and_sleep(message, spinner, sleep_duration)
+                worker_result.wait()
+                # Call get() to reraise any exceptions that occurred in the worker.
+                task_done = worker_result.get()
     else:
+        # Synchronous tasks should be atomic and not block for a significant amount
+        # of time. If a task is blocking, it should be run asynchronously.
         while not task(**kwargs):
             _print_spinner_and_sleep(message, spinner, sleep_duration)
 
@@ -72,19 +79,28 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     return status.done
 
 
-def _cancel_worker(id: str, cloud: str, cluster: str) -> None:
-    """Cancels a job."""
+def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
+    """Cancels a job.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Cancel has no intermediate states, so it always returns True.
+    """
     if not cluster:
-        return
+        return True
     if not id:
-        return
+        return True
     if not cloud:
-        return
+        return True
     launcher.cancel(id, cloud, cluster)
+    return True  # Always return true to indicate that the task is done.
 
 
-def _down_worker(cluster: str, cloud: Optional[str]):
-    """Turns down a cluster."""
+def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
+    """Turns down a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Down has no intermediate states, so it always returns True.
+    """
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
@@ -92,7 +108,7 @@ def _down_worker(cluster: str, cloud: Optional[str]):
             target_cluster.down()
         else:
             print(f"Cluster {cluster} not found.")
-        return
+        return True
     # Make a best effort to find a single cluster to turn down without a cloud.
     clusters = []
     for name in launcher.which_clouds():
@@ -102,7 +118,7 @@ def _down_worker(cluster: str, cloud: Optional[str]):
             clusters.append(target_cluster)
     if len(clusters) == 0:
         print(f"Cluster {cluster} not found.")
-        return
+        return True
     if len(clusters) == 1:
         clusters[0].down()
     else:
@@ -110,6 +126,41 @@ def _down_worker(cluster: str, cloud: Optional[str]):
             f"Multiple clusters found with name {cluster}. "
             "Specify a cloud to turn down with `--cloud`."
         )
+    return True  # Always return true to indicate that the task is done.
+
+
+def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
+    """Stops a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Stop has no intermediate states, so it always returns True.
+    """
+    if cloud:
+        target_cloud = launcher.get_cloud(cloud)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            target_cluster.stop()
+        else:
+            print(f"Cluster {cluster} not found.")
+        return True
+    # Make a best effort to find a single cluster to stop without a cloud.
+    clusters = []
+    for name in launcher.which_clouds():
+        target_cloud = launcher.get_cloud(name)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            clusters.append(target_cluster)
+    if len(clusters) == 0:
+        print(f"Cluster {cluster} not found.")
+        return True
+    if len(clusters) == 1:
+        clusters[0].stop()
+    else:
+        print(
+            f"Multiple clusters found with name {cluster}. "
+            "Specify a cloud to stop with `--cloud`."
+        )
+    return True  # Always return true to indicate that the task is done.
 
 
 def _poll_job(
@@ -137,7 +188,7 @@ def _poll_job(
     assert running_cluster
 
     _print_and_wait(
-        "Running job {job_status.id}",
+        f"Running job {job_status.id}",
         _is_job_done,
         asynchronous=not is_local,
         id=job_status.id,
@@ -272,26 +323,10 @@ def status(
     print("========================")
     print("Job status:")
     print("========================")
-    filtered_jobs = {}
-
-    for target_cloud in launcher.which_clouds():
-        cloud_obj = launcher.get_cloud(target_cloud)
-        # Ignore clouds not matching the filter criteria.
-        if cloud and target_cloud != cloud:
-            continue
-        filtered_jobs[cloud] = {}
-        for target_cluster in cloud_obj.list_clusters():
-            # Ignore clusters not matching the filter criteria.
-            if cluster and target_cluster.name() != cluster:
-                continue
-            filtered_jobs[cloud][target_cluster.name()] = []
-            for job in target_cluster.get_jobs():
-                # Ignore jobs not matching the filter criteria.
-                if id and job.id != id:
-                    continue
-                filtered_jobs[cloud][target_cluster.name()].append(job)
+    filtered_jobs = launcher.status(cloud=cloud, cluster=cluster, id=id)
+    num_jobs = sum(len(cloud_jobs) for cloud_jobs in filtered_jobs.keys())
     # Print the filtered jobs.
-    if not filtered_jobs.items():
+    if num_jobs == 0:
         print("No jobs found for the specified filter criteria: ")
         if cloud:
             print(f"Cloud: {cloud}")
@@ -299,16 +334,44 @@ def status(
             print(f"Cluster: {cluster}")
         if id:
             print(f"Job ID: {id}")
-    for cloud, clusters in filtered_jobs.items():
-        print(f"Cloud: {cloud}")
-        if not clusters.items():
+    for target_cloud, job_list in filtered_jobs.items():
+        print(f"Cloud: {target_cloud}")
+        if len(job_list) == 0:
             print("No matching clusters found.")
-        for cluster, jobs in clusters.items():
-            print(f"Cluster: {cluster}")
+            continue
+        # Organize all jobs by cluster.
+        jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict(list)
+        for job in job_list:
+            jobs_by_cluster[job.cluster].append(job)
+        for target_cluster, jobs in jobs_by_cluster.items():
+            print(f"Cluster: {target_cluster}")
             if not jobs:
                 print("No matching jobs found.")
             for job in jobs:
                 print(f"Job: {job.id} Status: {job.status}")
+
+
+def stop(
+    cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If specified, only clusters on this cloud will be affected."
+        ),
+    ] = None,
+) -> None:
+    """Stops a cluster.
+
+    Args:
+        cluster: The cluster to stop.
+        cloud: If specified, only clusters on this cloud will be affected.
+    """
+    _print_and_wait(
+        f"Stopping cluster `{cluster}`",
+        _stop_worker,
+        cluster=cluster,
+        cloud=cloud,
+    )
 
 
 def up(

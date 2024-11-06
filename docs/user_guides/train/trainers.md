@@ -34,7 +34,7 @@ Or, in your yaml config:
 
 ```yaml
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
 ```
 
 ### HuggingFace Trainers

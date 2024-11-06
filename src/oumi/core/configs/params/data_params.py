@@ -138,7 +138,8 @@ class DatasetSplitParams(BaseParams):
 
     Valid options are:
 
-        - "text_with_padding": Uses DataCollatorWithPadding for text data.
+        - "text_with_padding": Dynamically pads the inputs received to
+            the longest length.
         - "vision_language_with_padding": Uses VisionLanguageCollator
             for image+text multi-modal data.
 

@@ -37,6 +37,7 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    prepare_accelerate_fsdp_run,
     set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
@@ -46,7 +47,7 @@ from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
-from oumi.utils.distributed_utils import is_using_accelerate_fsdp
+from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
@@ -234,6 +235,24 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info(f"TrainingConfig: {pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
+
+    # We support running FSDP Oumi training without being invoked from the Accelerate
+    # launcher. We detect this with the following:
+    # 1. Accelerate's environment variables aren't set
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 3. FSDP is enabled in the Oumi config
+    # In this case, we mimic an Accelerate launcher run by setting the necessary
+    # environment variables.
+    # Note that normal Accelerate launcher runs won't be affected.
+    if (
+        not is_using_accelerate()
+        and config.training.trainer_type != TrainerType.OUMI
+        and config.fsdp.enable_fsdp
+    ):
+        accelerate_env_vars = prepare_accelerate_fsdp_run(config)
+        logger.info(
+            f"Set Accelerate environment variables for FSDP: {accelerate_env_vars}"
+        )
 
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)

@@ -40,7 +40,7 @@ To start training a model:
 typeDelay: 40
 lineDelay: 700
 ---
-- value: oumi train -c configs/recipes/smollm/smollm-135m_fft.yaml
+- value: oumi train -c configs/recipes/smollm/sft/135m/train.yaml
   type: input
 - Loading configuration...
 - "Initializing model: SmolLM-135M"
@@ -53,32 +53,32 @@ lineDelay: 700
 - "Saving model to output/smollm-135m-fft..."
 ```
 
-This uses the configuration in `configs/recipes/smollm/smollm-135m_fft.yaml`.
+This uses the configuration in `configs/recipes/smollm/sft/135m/train.yaml`.
 
 You can easily override any parameters:
 
 ```bash
-oumi train -c configs/recipes/smollm/fft/smollm-135m.yaml \
+oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
   --training.num_train_epochs=5 \
   --training.learning_rate=1e-4 \
-  --output_dir=output/smollm-135m-fft
+  --output_dir=output/smollm-135m-sft
 ```
 
 To run the same recipe on a different dataset, you can override the dataset name:
 
 ```bash
-oumi train -c configs/recipes/smollm/fft/smollm-135m.yaml \
+oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
   --data.train.datasets.0.dataset_name text_jsonl_dataset \
   --data.train.datasets.0.dataset_path "/path/to/local/dataset" \
-  --output_dir output/smollm-135m-fft-custom
+  --output_dir output/smollm-135m-sft-custom
 ```
 
 We can also run training on multiple GPUs. For example, to run on 4 GPUs:
 
 ```bash
 torchrun --nproc_per_node=4 oumi train \
-  -c configs/recipes/smollm/fft/smollm-135m.yaml \
-  --output_dir output/smollm-135m-fft-dist
+  -c configs/recipes/smollm/sft/135m/train.yaml \
+  --output_dir output/smollm-135m-sft-dist
 ```
 
 ## Evaluation
@@ -86,8 +86,8 @@ torchrun --nproc_per_node=4 oumi train \
 To evaluate a trained model:
 
 ```bash
-oumi evaluate -c configs/recipes/smollm/evaluation/smollm-135m.yaml \
-  --model.model_name=output/smollm-135m-fft  # the path to our trained model \
+oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
+  --model.model_name=output/smollm-135m-sft  # the path to our trained model \
   --lm_harness_params.tasks=["mmlu", "hellaswag"]
 ```
 
@@ -96,8 +96,8 @@ oumi evaluate -c configs/recipes/smollm/evaluation/smollm-135m.yaml \
 To run inference with a trained model:
 
 ```bash
-oumi infer -c configs/recipes/smollm/inference/smollm-135m.yaml \
-  --model.model_name=output/smollm-135m-fft \
+oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
+  --model.model_name=output/smollm-135m-sft \
   --generation.max_new_tokens=100 \
   --generation.temperature=0.7
 ```
@@ -108,11 +108,11 @@ So far we have been using the `train`, `evaluate`, and `infer` commands to run j
 To launch a distributed training job:
 
 ```bash
-oumi launch -c configs/recipes/smollm/launch/gcp_train.yaml
+oumi launch up -c configs/recipes/smollm/launch/gcp_train.yaml
 ```
 
 To launch an evaluation job:
 
 ```bash
-oumi launch -c configs/recipes/smollm/launch/gcp_evaluate.yaml
+oumi launch up -c configs/recipes/smollm/launch/gcp_evaluate.yaml
 ```
