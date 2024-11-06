@@ -1,6 +1,4 @@
-# SFT config for Llama 3.2 1B Instruct.
-# Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_2/1B_full.yaml
+# SFT config for SmolLM 135M Instruct.
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"

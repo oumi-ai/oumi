@@ -93,7 +93,7 @@
                 "infer",
                 "--interactive",
                 "-c",
-                "configs/recipes/gpt2/inference/infer.yaml"
+                "configs/recipes/smollm/inference/135m_infer.yaml"
             ],
             "justMyCode": true
         },
