@@ -282,7 +282,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Reclaim memory before training starts.
     gc.collect()
-    torch.cuda.empty_cache()
 
     with torch_profile(
         config.training.profiler,
