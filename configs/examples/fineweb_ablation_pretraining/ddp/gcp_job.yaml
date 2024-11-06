@@ -1,4 +1,4 @@
-name: llama2b-ddp
+name: fineweb-ddp
 
 resources:
   cloud: gcp
@@ -15,7 +15,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama2b.pt.ddp
+  OUMI_RUN_NAME: fineweb.pt.ddp
 
 setup: |
   set -e
@@ -25,7 +25,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  set -x  # Print "torchrun" command with expanded variables
+  set -x
   torchrun \
       --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \

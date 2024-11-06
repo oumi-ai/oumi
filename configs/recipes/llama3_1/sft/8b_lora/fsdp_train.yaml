@@ -1,14 +1,16 @@
-# SFT config for Llama 70B.
+# FSDP Lora config for Llama 8B.
 # Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_full.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_lora.yaml
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
-  model_max_length: 2048
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
+  # Enabling Liger slows down training.
+  enable_liger_kernel: False
 
 data:
   train:
@@ -19,17 +21,21 @@ data:
 
 training:
   trainer_type: "TRL_SFT"
-  save_steps: 200
+  use_peft: True
+  save_steps: 50
   num_train_epochs: 1
-  per_device_train_batch_size: 2
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 8
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 2.0e-05
+  learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
   compile: False
 
   dataloader_num_workers: "auto"
@@ -38,14 +44,22 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/llama70b.fft"
+  output_dir: "output/llama8b.lora"
   include_performance_metrics: True
   enable_wandb: True
 
+peft:
+  q_lora: False
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "v_proj"
+
 fsdp:
   enable_fsdp: True
-  cpu_offload: True
+  sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
-  state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"

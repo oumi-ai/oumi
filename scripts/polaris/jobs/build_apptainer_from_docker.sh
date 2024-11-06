@@ -27,7 +27,7 @@ module use /soft/spack/gcc/0.6.1/install/modulefiles/Core
 # Set up apptainer (docker-equivalent)
 module load apptainer
 
-set -x # Print commands
+set -x
 export APPTAINER_TMPDIR="/home/$USER/oumi/temp"
 apptainer -v build --fakeroot "${SHARED_DIR}/apptainer/vllm_vllm_openai_v0.5.4.sif" docker://vllm/vllm-openai:v0.5.4
 
