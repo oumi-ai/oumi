@@ -8,6 +8,7 @@ from oumi.core.collators.text_completions_collator_with_padding import (
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
+from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
@@ -92,3 +93,17 @@ def build_data_collator(
         )
 
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
+
+
+def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Callable]:
+    """Creates data collator if specified in config."""
+    train_split = config.data.get_split(DatasetSplit.TRAIN)
+    if not train_split.collator_name:
+        return None
+
+    return build_data_collator(
+        collator_name=train_split.collator_name,
+        tokenizer=tokenizer,
+        max_length=config.model.model_max_length,
+        label_ignore_index=constants.LABEL_IGNORE_INDEX,
+    )
