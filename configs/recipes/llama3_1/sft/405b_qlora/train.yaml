@@ -1,9 +1,9 @@
-# Lora config for Llama 70B.
+# QLora config for Llama 405B.
 # Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_lora.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/405B_qlora.yaml
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
+  model_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -22,8 +22,8 @@ training:
   use_peft: True
   save_steps: 200
   num_train_epochs: 1
-  per_device_train_batch_size: 2
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -40,12 +40,16 @@ training:
 
   logging_steps: 100
   log_model_summary: False
-  empty_device_cache_steps: 50
-  output_dir: "output/llama70b.lora"
+  empty_device_cache_steps: 1
+  output_dir: "output/llama405b.qlora"
   include_performance_metrics: True
   enable_wandb: True
 
 peft:
+  q_lora: True
+  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 16
   lora_alpha: 32
   lora_dropout: 0.0
@@ -53,9 +57,13 @@ peft:
     - "q_proj"
     - "k_proj"
     - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
 
 fsdp:
   enable_fsdp: True
-  forward_prefetch: True
+  forward_prefetch: True # TODO: disable?
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"
