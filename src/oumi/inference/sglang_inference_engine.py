@@ -71,8 +71,12 @@ class SGLangInferenceEngine(BaseInferenceEngine):
             **sgl_kwargs,
         )
 
+    def _convert_conversation_to_sgl_pipeline_impl(self, conversation: Conversation):
+        for message in conversation.messages:
+            pass
+
     @sgl.function
-    def _convert_conversation_to_sgl_input(self, conversation: Conversation):
+    def _convert_conversation_to_sgl_pipeline(self, conversation: Conversation):
         """Converts a conversation to a list of vllm input messages.
 
         Args:
