@@ -88,13 +88,6 @@ if "${ENABLE_OUMI_TELEMETRY}"; then
     echo "Oumi telemetry enabled!"
 fi
 
-# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
-PRETRAIN_DATASETS="data.train.datasets=
-- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
-  subset: \"default\"
-  split: \"train\"
-"
-
 # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
 export TOKENIZERS_PARALLELISM=false
 
@@ -106,7 +99,12 @@ training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINI
 ${OUMI_TELEMETRY_PARAMS}"
 
 if [ "$TRAINING_MODE" == "pretrain" ]; then
-    SHARED_TRAINING_PARAMS="${SHARED_TRAINING_PARAMS} ${PRETRAIN_DATASETS}"
+# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
+PRETRAIN_DATASETS="data.train.datasets=
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
+  subset: \"default\"
+  split: \"train\"
+"
 fi
 
 # For shorter debugging runs, set `training.max_steps`.
@@ -203,6 +201,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --master-port=8007 \
                 -m oumi.train \
                 -c "${OUMI_CFG_FILE}" \
+                "$PRETRAIN_DATASETS" \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
