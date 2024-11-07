@@ -61,7 +61,7 @@ You can easily override any parameters:
 oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
   --training.num_train_epochs 5 \
   --training.learning_rate 1e-4 \
-  --output_dir output/smollm-135m-sft
+  --training.output_dir output/smollm-135m-sft
 ```
 
 To run the same recipe on a different dataset, you can override the dataset name:
@@ -70,7 +70,7 @@ To run the same recipe on a different dataset, you can override the dataset name
 oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
   --data.train.datasets.0.dataset_name text_jsonl_dataset \
   --data.train.datasets.0.dataset_path "/path/to/local/dataset" \
-  --output_dir output/smollm-135m-sft-custom
+  --training.output_dir output/smollm-135m-sft-custom
 ```
 
 We can also run training on multiple GPUs. For example, to run on 4 GPUs:
@@ -78,7 +78,7 @@ We can also run training on multiple GPUs. For example, to run on 4 GPUs:
 ```bash
 torchrun --nproc_per_node=4 oumi train \
   -c configs/recipes/smollm/sft/135m/train.yaml \
-  --output_dir output/smollm-135m-sft-dist
+  --training.output_dir output/smollm-135m-sft-dist
 ```
 
 ## Evaluation
@@ -88,7 +88,7 @@ To evaluate a trained model:
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
   --model.model_name output/smollm-135m-sft  # the path to our trained model \
-  --lm_harness_params.tasks ["mmlu", "hellaswag"]
+  --lm_harness_params.tasks "[mmlu, hellaswag]"
 ```
 
 ## Inference
