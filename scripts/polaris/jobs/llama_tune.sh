@@ -98,6 +98,15 @@ SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING
 training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
+if [ "$TRAINING_MODE" == "pretrain" ]; then
+# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
+PRETRAIN_DATASETS="data.train.datasets=
+- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
+  subset: \"default\"
+  split: \"train\"
+"
+fi
+
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "3b" ]; then
@@ -192,6 +201,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --master-port=8007 \
                 -m oumi.train \
                 -c "${OUMI_CFG_FILE}" \
+                "$PRETRAIN_DATASETS" \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
