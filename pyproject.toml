@@ -71,6 +71,7 @@ dev = [
     "pyright",
     "pytest-cov", # Test coverage plugin for pytest
     "pytest",
+    "responses",
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]

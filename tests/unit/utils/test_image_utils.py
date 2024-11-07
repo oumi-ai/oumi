@@ -5,6 +5,7 @@ from pathlib import Path
 
 import PIL.Image
 import pytest
+import responses
 
 from oumi.core.types.conversation import Message, Role, Type
 from oumi.utils.image_utils import (
@@ -106,7 +107,7 @@ def test_load_image_bytes_to_message_noop_image_binary():
     assert output_message == saved_input_message
 
 
-def test_load_image_bytes_to_message_noop_image_path():
+def test_load_image_bytes_to_message_image_path():
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
     png_bytes = create_png_bytes_from_image(pil_image)
 
@@ -117,6 +118,26 @@ def test_load_image_bytes_to_message_noop_image_path():
 
         input_message = Message(
             role=Role.USER, type=Type.IMAGE_PATH, content=str(png_filename)
+        )
+
+        output_message = load_image_bytes_to_message(input_message)
+        assert id(output_message) != id(input_message)
+
+        expected_output_message = Message(
+            role=Role.USER, type=Type.IMAGE_BINARY, binary=png_bytes
+        )
+        assert output_message == expected_output_message
+
+
+def test_load_image_bytes_to_message_image_url():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+
+    with responses.RequestsMock() as m:
+        m.add(responses.GET, "http://oumi.ai/logo.png", body=png_bytes, stream=True)
+
+        input_message = Message(
+            role=Role.USER, type=Type.IMAGE_URL, content="http://oumi.ai/logo.png"
         )
 
         output_message = load_image_bytes_to_message(input_message)
