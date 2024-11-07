@@ -101,9 +101,9 @@ ${OUMI_TELEMETRY_PARAMS}"
 if [ "$TRAINING_MODE" == "pretrain" ]; then
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 PRETRAIN_DATASETS="data.train.datasets=
-- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
-  subset: \"default\"
-  split: \"train\"
+- dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
+  subset: 'default'
+  split: 'train'
 "
 fi
 
