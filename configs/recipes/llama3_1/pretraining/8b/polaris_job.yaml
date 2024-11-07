@@ -19,7 +19,7 @@ working_dir: .
 # PBS directives.
 setup: |
   #PBS -l place=scatter
-  #PBS -l walltime=02:00:00
+  #PBS -l walltime=01:00:00
   #PBS -l filesystems=home:eagle
   #PBS -A community_ai
   #PBS -o /eagle/community_ai/jobs/logs/
