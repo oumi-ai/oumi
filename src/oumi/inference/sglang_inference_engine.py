@@ -1,19 +1,51 @@
 from __future__ import annotations
 
+import functools
 import math
+from typing import Callable, NamedTuple
 
 import torch
+from typing_extensions import override
 
 from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
 
 try:
     import sglang as sgl  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
-    vllm = None
+    sgl = None
+
+
+class _SamplingParams(NamedTuple):
+    """It's a clone of `sglang.lang.ir.SglSamplingParams`.
+
+    Only includes a subset of parameters supported in oumi.
+    Unsupported params are left commented out for reference.
+    """
+
+    max_new_tokens: int = 128
+    # min_new_tokens: int = 0
+    stop: str | list[str] = ""
+    stop_token_ids: list[int] | None = None
+    temperature: float = 1.0
+    top_p: float = 1.0
+    # top_k: int = -1  # -1 means disable
+    min_p: float = 0.0
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
+    # ignore_eos: bool = False
+    # return_logprob: bool | None = None
+    # logprob_start_len: int | None = None
+    # top_logprobs_num: int | None = None
+    # return_text_in_logprobs: bool | None = None
+    # json_schema: str | None = None
+
+    # For constrained generation:
+    # dtype: str | None = None
+    # regex: str| None = None
 
 
 class SGLangInferenceEngine(BaseInferenceEngine):
@@ -75,23 +107,89 @@ class SGLangInferenceEngine(BaseInferenceEngine):
         for message in conversation.messages:
             pass
 
-    @sgl.function
-    def _convert_conversation_to_sgl_pipeline(self, conversation: Conversation):
-        """Converts a conversation to a list of vllm input messages.
+    def _run_sgl_pipeline(
+        self, conversations: list[Conversation], sampling_params: _SamplingParams
+    ):
+        """Builds and executes SGL pipeline.
 
         Args:
-            conversation: The conversation to convert.
+            conversations: The conversations to process.
+            sampling_params: Sampling parameters.
 
         Returns:
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
-        return [
-            {
-                "content": message.content or "",
-                "role": message.role,
-            }
-            for message in conversation.messages
-        ]
+        if sgl is None:
+            raise RuntimeError("SGLang (sgl) is not installed.")
+
+        @sgl.function
+        def _pipeline(s, messages: list[Message]):
+            if sgl is None:
+                raise RuntimeError("SGLang (sgl) is not installed.")
+            elif len(messages) == 0:
+                raise RuntimeError("Empty message list is not supported.")
+
+            for message in messages:
+                role_end_fn: Callable = sgl.user_end
+                if message.role == Role.USER:
+                    sgl.user_begin()
+                    role_end_fn = sgl.user_end
+                elif message.role == Role.ASSISTANT:
+                    sgl.assistant_begin()
+                    role_end_fn = sgl.assistant_end
+                elif message.role == Role.SYSTEM:
+                    sgl.system_begin()
+                    role_end_fn = sgl.system_end
+                else:
+                    raise ValueError(f"Unsupported role: {message.role}")
+
+                if message.type == Type.TEXT:
+                    s += message.content or ""
+                elif message.type == Type.IMAGE_PATH:
+                    image_path = message.content
+                    if not image_path:
+                        raise ValueError(f"Empty image path in message: {message.type}")
+                    s += sgl.image(image_path)  # type: ignore
+                elif message.type in (Type.IMAGE_BINARY, Type.IMAGE_URL):
+                    raise ValueError(
+                        f"Unsupported image type: {message.type}. "
+                        "Only `IMAGE_PATH` is supported by SGLang."
+                    )
+                else:
+                    raise ValueError(f"Unsupported message type: {message.type}")
+
+                role_end_fn()
+
+        _pipeline.run_batch(
+            [convo.messages for convo in conversations],
+            max_new_tokens=sampling_params.max_new_tokens,
+            stop=sampling_params.stop,
+            stop_token_ids=sampling_params.stop_token_ids,
+            temperature=sampling_params.temperature,
+            top_p=sampling_params.top_p,
+            min_p=sampling_params.min_p,
+            frequency_penalty=sampling_params.frequency_penalty,
+            presence_penalty=sampling_params.presence_penalty,
+            # System params
+            backend=self._sgl_runtime,
+            num_threads="auto",
+            progress_bar=(len(conversations) > 1),
+        )
+
+    def _create_sampling_params(
+        self, inference_config: InferenceConfig
+    ) -> _SamplingParams:
+        generation_params = inference_config.generation
+        return _SamplingParams(
+            max_new_tokens=generation_params.max_new_tokens,
+            temperature=generation_params.temperature,
+            top_p=generation_params.top_p,
+            min_p=generation_params.min_p,
+            frequency_penalty=generation_params.frequency_penalty,
+            presence_penalty=generation_params.presence_penalty,
+            stop=(generation_params.stop_strings or []),
+            stop_token_ids=generation_params.stop_token_ids,
+        )
 
     def _infer(
         self, input: list[Conversation], inference_config: InferenceConfig
@@ -107,34 +205,22 @@ class SGLangInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        # generation_params = inference_config.generation
-        output_conversations = []
-        # sampling_params = SamplingParams(
-        #    n=1,
-        #    max_tokens=generation_params.max_new_tokens,
-        #    temperature=generation_params.temperature,
-        #    top_p=generation_params.top_p,
-        #    frequency_penalty=generation_params.frequency_penalty,
-        #    presence_penalty=generation_params.presence_penalty,
-        #    stop=generation_params.stop_strings,
-        #    stop_token_ids=generation_params.stop_token_ids,
-        #    min_p=generation_params.min_p,
-        # )
-
-        vllm_conversations = []
-        non_skipped_conversations = []
+        sgl_conversations = []
         for conversation in input:
             if not conversation.messages:
-                logger.warning("Conversation must have at least one message.")
+                logger.warning(
+                    conversation.append_id_to_string(
+                        "Conversation must have at least one message."
+                    )
+                )
                 continue
-            vllm_input = None  # self._convert_conversation_to_vllm_input(conversation)
-            vllm_conversations.append(vllm_input)
-            non_skipped_conversations.append(conversation)
+            sgl_conversations.append(conversation)
 
-        if len(vllm_conversations) == 0:
+        if len(sgl_conversations) == 0:
             return []
 
-        # enable_tqdm = len(vllm_conversations) >= 2
+        sampling_params = self._create_sampling_params(inference_config)
+        self._run_sgl_pipeline(sgl_conversations, sampling_params)
 
         # Note: vLLM performs continuous batching under the hood.
         # We pass all the conversations and let vLLM handle the rest.
@@ -146,10 +232,10 @@ class SGLangInferenceEngine(BaseInferenceEngine):
         #    use_tqdm=enable_tqdm,
         # )
 
+        output_conversations = []
+
         if False:
-            for conversation, chat_response in zip(
-                non_skipped_conversations, chat_responses
-            ):
+            for conversation, chat_response in zip(sgl_conversations, chat_responses):
                 new_messages = [
                     Message(content=message.text, role=Role.ASSISTANT)
                     for message in chat_response.outputs
@@ -206,29 +292,8 @@ class SGLangInferenceEngine(BaseInferenceEngine):
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
+    @override
+    @functools.cache
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
-        # The params of `SglFunction.run()`:
-        return {
-            "max_new_tokens",
-            "stop",
-            "stop_token_ids",
-            "temperature",
-            "top_p",
-            "top_k",
-            "min_p",
-            "frequency_penalty",
-            "presence_penalty",
-            "ignore_eos",
-            # The following SGLang params are more esoteric
-            # and not enabled yet:
-            # - return_logprob
-            # - logprob_start_len
-            # - top_logprobs_num
-            # - return_text_in_logprobs
-            # SGLang also has the following system params,
-            # which shouldn't be configurable by `oumi` users:
-            # - stream
-            # - backend
-            # - use_thread
-        }
+        return set(_SamplingParams()._asdict().keys())
