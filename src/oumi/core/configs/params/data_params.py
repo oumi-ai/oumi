@@ -50,6 +50,8 @@ class DatasetParams(BaseParams):
     be loaded from the specified `dataset_path`.
     """
 
+    dataset_display_name: Optional[str] = None
+
     dataset_path: Optional[str] = None
     """The path to the dataset to load.
 

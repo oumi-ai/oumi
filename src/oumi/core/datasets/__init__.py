@@ -11,6 +11,7 @@ For more detailed information on each class, please refer to their respective
 documentation.
 """
 
+from oumi.core.datasets.base_classification_dataset import BaseClassificationDataset
 from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
@@ -23,6 +24,7 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 
 __all__ = [
+    "BaseClassificationDataset",
     "BaseExperimentalDpoDataset",
     "BaseIterableDataset",
     "BaseMapDataset",

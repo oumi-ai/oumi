@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 import torch
 
+from oumi.core.callbacks.aggregate_metric_callback import AggregateMetricCallback
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
@@ -16,7 +17,10 @@ from oumi.utils.torch_utils import (
 
 
 def build_training_callbacks(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
+    config: TrainingConfig,
+    model: torch.nn.Module,
+    profiler: Optional[Any],
+    num_eval_sets: int = 1,
 ) -> list[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 
@@ -98,6 +102,8 @@ def build_training_callbacks(
     result.append(
         NanInfDetectionCallback(metrics=["loss", "train/loss", " train_loss"])
     )
+
+    result.append(AggregateMetricCallback(num_datasets=num_eval_sets))
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(

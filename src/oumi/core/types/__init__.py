@@ -18,7 +18,8 @@ Note:
     components to ensure consistent error handling and type definitions.
 """
 
+from oumi.core.types.classification import Classification
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.exceptions import HardwareException
 
-__all__ = ["HardwareException", "Conversation", "Message", "Role"]
+__all__ = ["HardwareException", "Classification", "Conversation", "Message", "Role"]

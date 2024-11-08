@@ -1,5 +1,8 @@
 import collections
+from collections.abc import Iterable
 from typing import Any, NamedTuple, Optional
+
+import torch
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
@@ -74,6 +77,10 @@ class TextCollatorWithPadding:
         try:
             for key, sequences_list in inputs_dict.items():
                 padding_value = padding_value_overrides.get(key, 0)
+                if not isinstance(sequences_list[0], Iterable):
+                    result[key] = torch.tensor(sequences_list)
+                    continue
+
                 result[key] = pad_sequences(
                     sequences_list,
                     padding_side=self._padding_side,
@@ -133,6 +140,8 @@ class TextCollatorWithPadding:
             if self._max_length is not None:
                 if self._truncation:
                     for key in collation_inputs:
+                        if not isinstance(collation_inputs[key][0], Iterable):
+                            continue
                         collation_inputs[key] = [
                             item[0 : self._max_length] for item in collation_inputs[key]
                         ]
