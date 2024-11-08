@@ -16,6 +16,9 @@ class InferenceEngineType(str, Enum):
     VLLM = "VLLM"
     """The vLLM inference engine."""
 
+    SGLANG = "SGLANG"
+    """The SGLang inference engine."""
+
     LLAMACPP = "LLAMACPP"
     """The LlamaCPP inference engine."""
 
