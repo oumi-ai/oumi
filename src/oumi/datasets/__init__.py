@@ -20,7 +20,7 @@ Example:
     >>> dataset = AlpacaDataset()
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
-
+from oumi.datasets.classification.classification_jsonlines import TextClassificationJsonLinesDataset
 from oumi.datasets.debug import (
     DebugClassificationDataset,
     DebugPretrainingDataset,
@@ -82,6 +82,7 @@ __all__ = [
     "RedPajamaDataV2Dataset",
     "SlimPajamaDataset",
     "StarCoderDataset",
+    "TextClassificationJsonLinesDataset",
     "TextSftJsonLinesDataset",
     "TheStackDataset",
     "TinyStoriesDataset",

@@ -274,6 +274,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         peft_params=config.peft if use_peft else None,
         *kwargs,
     )
+    model.config.pad_token_id = tokenizer.pad_token_id
 
     if use_peft:
         logger.info("Building PEFT model...")
@@ -298,7 +299,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.trainer_type, processor
     )
 
-    metrics_function = build_metrics_function(config.training)
+    #metrics_function = build_metrics_function(config.training)
+    import numpy as np
+    from sklearn.metrics import balanced_accuracy_score
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
+        score = balanced_accuracy_score(labels, predictions)
+        return {'balanced_accuracy': score}
+    metrics_function = compute_metrics
 
     # Reclaim memory before training starts.
     gc.collect()
@@ -315,7 +324,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             if config.training.trainer_type == TrainerType.OUMI:
                 kwargs["fsdp_params"] = config.fsdp
 
-            callbacks = build_training_callbacks(config, model, profiler)
+            callbacks = build_training_callbacks(config, model, profiler, len(eval_dataset.keys()))
 
             trainer = create_trainer_fn(
                 model=model,

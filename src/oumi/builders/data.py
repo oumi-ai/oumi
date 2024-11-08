@@ -69,6 +69,12 @@ def build_dataset_mixture(
         )
         for dataset_params in dataset_split_params.datasets
     ]
+
+    if dataset_split != DatasetSplit.TRAIN:
+        dataset_dict = dict(zip([dp.dataset_display_name for dp in dataset_split_params.datasets], datasets))
+        return dataset_dict
+
+
     mixture_proportions = [
         dataset.mixture_proportion for dataset in dataset_split_params.datasets
     ]
@@ -286,6 +292,7 @@ def _load_dataset(
         dataset_class = REGISTRY.get_dataset(
             dataset_params.dataset_name, subset=dataset_params.subset
         )
+        print("dataset class", dataset_class, dataset_params.dataset_name)
 
         if dataset_class is not None:
             dataset = dataset_class(

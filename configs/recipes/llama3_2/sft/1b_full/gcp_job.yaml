@@ -1,0 +1,47 @@
+# Config to full fine-tune Llama 3.2 1B Instruct on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_2/sft/1b_full/gcp_job.yaml --cluster llama1b-sft
+name: llama1b-sft
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: true
+  disk_size: 200 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama1b.fft
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+  HF_TOKEN: "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"
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
+      -m oumi.train \
+      -c configs/recipes/llama3_2/sft/1b_full/train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

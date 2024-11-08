@@ -116,6 +116,7 @@ def build_oumi_model(
 ) -> nn.Module:
     """Builds a custom model from our Oumi registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+    print('model class', model_class)
     model = model_class(**model_params.model_kwargs)
 
     if model_params.load_pretrained_weights:
@@ -142,6 +143,9 @@ class _InternalModelKind(Enum):
 
     IMAGE_TEXT_LLM = "image_text_llm"
     """Basic image+text LLM."""
+
+    CLASSIFIER = "classifier"
+    """Sequence classifier."""
 
 
 def build_huggingface_model(
@@ -195,6 +199,9 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
+    hf_config.num_labels = 2
+    hf_config.id2label = {0: "UNSUPPORTED", 1: "SUPPORTED"}
+    hf_config.label2id = {"UNSUPPORTED":0, "SUPPORTED": 1}
     transformers_model_class, _ = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
@@ -278,6 +285,8 @@ def _get_transformers_model_class(config):
     else:
         auto_model_class = transformers.AutoModelForCausalLM
         model_kind = _InternalModelKind.DEFAULT
+    auto_model_class = transformers.AutoModelForSequenceClassification
+    model_kind = _InternalModelKind.CLASSIFIER
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
     return auto_model_class, model_kind
 
