@@ -34,8 +34,8 @@ classifiers = [
 
 dependencies = [
     "accelerate>=1.0.0",
-    "aiohttp",                    # Used by infererence engine
-    "aioresponses",               # User by inference engine tests
+    "aiohttp==3.10.9",            # Used by infererence engine
+    "aioresponses==0.7.6",        # User by inference engine tests
     "datasets",
     "jsonlines",
     "lm-eval>=0.4.5,<0.5.0",
@@ -71,6 +71,7 @@ dev = [
     "pyright",
     "pytest-cov", # Test coverage plugin for pytest
     "pytest",
+    "responses",
     "ruff",
     "torchfix",   # Tool for automatically fixing common PyTorch issues
 ]
