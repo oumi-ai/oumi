@@ -107,8 +107,14 @@ class SGLangInferenceEngine(BaseInferenceEngine):
             tp_size=tensor_parallel_size,
             # port=?
             # dp_size=
+            # chat_template=
+            device="cuda",
             **sgl_kwargs,
         )
+
+        self._generate_url: str = self._sgl_runtime.generate_url
+        if not self._generate_url:
+            raise RuntimeError("Empty `generate` URL!")
 
     def _convert_conversation_to_sgl_pipeline_impl(self, conversation: Conversation):
         for message in conversation.messages:
@@ -174,8 +180,8 @@ class SGLangInferenceEngine(BaseInferenceEngine):
 
                 role_end_fn()
 
-        _pipeline.run_batch(
-            [convo.messages for convo in conversations],
+        results = _pipeline.run_batch(
+            [{"messages": convo.messages} for convo in conversations],
             max_new_tokens=sampling_params.max_new_tokens,
             stop=sampling_params.stop,
             stop_token_ids=sampling_params.stop_token_ids,
@@ -189,6 +195,7 @@ class SGLangInferenceEngine(BaseInferenceEngine):
             num_threads="auto",
             progress_bar=(len(conversations) > 1),
         )
+        logger.info(f"run_batch results: {results}")
 
     def _create_sampling_params(
         self, inference_config: InferenceConfig
