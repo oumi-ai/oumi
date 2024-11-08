@@ -85,9 +85,9 @@ fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
 TRAIN_DATASETS="data.train.datasets=
-- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
-  subset: \"default\"
-  split: \"train\"
+- dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
+  subset: 'default'
+  split: 'train'
 "
 
 # Training params shared between the different training modes, and likely

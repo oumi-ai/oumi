@@ -20,6 +20,7 @@ Subpackages
    oumi.core.launcher
    oumi.core.models
    oumi.core.processors
+   oumi.core.registry
    oumi.core.tokenizers
    oumi.core.trainers
    oumi.core.types
