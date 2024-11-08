@@ -44,7 +44,7 @@ For an overview of Oumi features and usage, check out the [user guide](https://o
 1. Install Oumi:
 
    ```shell
-   pip install 'oumi[all]'
+   pip install 'oumi'
    ```
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
