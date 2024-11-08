@@ -1,4 +1,4 @@
-# Config to QLoRA tune Llama 3.1 405B Instruct on 4 Polaris nodes.
+# QLoRA tune Llama 3.1 405B Instruct config
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama405b-qlora
