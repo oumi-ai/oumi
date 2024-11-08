@@ -71,9 +71,13 @@ def build_dataset_mixture(
     ]
 
     if dataset_split != DatasetSplit.TRAIN:
-        dataset_dict = dict(zip([dp.dataset_display_name for dp in dataset_split_params.datasets], datasets))
+        dataset_dict = dict(
+            zip(
+                [dp.dataset_display_name for dp in dataset_split_params.datasets],
+                datasets,
+            )
+        )
         return dataset_dict
-
 
     mixture_proportions = [
         dataset.mixture_proportion for dataset in dataset_split_params.datasets

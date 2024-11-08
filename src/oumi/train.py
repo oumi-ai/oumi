@@ -13,7 +13,6 @@ import oumi.core.constants as constants
 from oumi.builders import (
     build_data_collator,
     build_dataset_mixture,
-    build_metrics_function,
     build_model,
     build_peft_model,
     build_processor,
@@ -299,14 +298,16 @@ def train(config: TrainingConfig, **kwargs) -> None:
         config.training.trainer_type, processor
     )
 
-    #metrics_function = build_metrics_function(config.training)
+    # metrics_function = build_metrics_function(config.training)
     import numpy as np
     from sklearn.metrics import balanced_accuracy_score
+
     def compute_metrics(eval_pred):
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
         score = balanced_accuracy_score(labels, predictions)
-        return {'balanced_accuracy': score}
+        return {"balanced_accuracy": score}
+
     metrics_function = compute_metrics
 
     # Reclaim memory before training starts.
@@ -324,7 +325,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
             if config.training.trainer_type == TrainerType.OUMI:
                 kwargs["fsdp_params"] = config.fsdp
 
-            callbacks = build_training_callbacks(config, model, profiler, len(eval_dataset.keys()))
+            callbacks = build_training_callbacks(
+                config, model, profiler, len(eval_dataset.keys())
+            )
 
             trainer = create_trainer_fn(
                 model=model,

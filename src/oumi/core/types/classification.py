@@ -1,9 +1,6 @@
-import base64
-from enum import Enum
-from typing import Any, Optional, Union
+from typing import Optional
 
 import pydantic
-from jinja2 import Template
 
 
 class Classification(pydantic.BaseModel):

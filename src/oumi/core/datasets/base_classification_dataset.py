@@ -1,15 +1,12 @@
-import re
 from abc import ABC, abstractmethod
-from typing import Literal, Optional, Union, cast
+from typing import Optional, Union, cast
 
 import pandas as pd
-
 import torch
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.classification import Classification
-from oumi.utils.logging import logger
 
 
 class BaseClassificationDataset(BaseMapDataset, ABC):
@@ -56,7 +53,7 @@ class BaseClassificationDataset(BaseMapDataset, ABC):
         The generated text will be stored in this column.
         """
         return self._text_col
-    
+
     @property
     def label_col(self) -> str:
         """Gets the text target column.
@@ -102,7 +99,9 @@ class BaseClassificationDataset(BaseMapDataset, ABC):
     # Abstract Methods
     #
     @abstractmethod
-    def transform_classification(self, example: Union[dict, pd.Series]) -> Classification:
+    def transform_classification(
+        self, example: Union[dict, pd.Series]
+    ) -> Classification:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
@@ -156,20 +155,18 @@ class BaseClassificationDataset(BaseMapDataset, ABC):
 
         return self._tokenize(classification, tokenize)
 
-    def _tokenize(
-        self, sample: Classification, tokenize: bool = True
-    ) -> dict:
+    def _tokenize(self, sample: Classification, tokenize: bool = True) -> dict:
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
-        
+
         if not tokenize:
             return {
                 self.text_col: sample.input,
                 self.label_col: sample.label,
             }
-        
-        results = self._tokenizer(sample.input,
-                                  return_tensors=self._return_tensors,
-                                  truncation=True)
+
+        results = self._tokenizer(
+            sample.input, return_tensors=self._return_tensors, truncation=True
+        )
         results[self.label_col] = torch.tensor([sample.label])
         return cast(dict, results)

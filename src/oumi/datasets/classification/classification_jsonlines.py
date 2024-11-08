@@ -132,7 +132,6 @@ class TextClassificationJsonLinesDataset(BaseClassificationDataset):
                 f"containing a list of message dictionaries. Error: {str(e)}"
             ) from e
 
-
     @override
     def _load_data(self) -> pd.DataFrame:
         # Data is already loaded in __init__

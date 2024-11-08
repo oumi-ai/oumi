@@ -1,8 +1,5 @@
 import collections
-from collections.abc import Iterable
 from typing import Any, NamedTuple, Optional
-
-import torch
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger

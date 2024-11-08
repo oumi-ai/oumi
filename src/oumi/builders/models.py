@@ -116,7 +116,7 @@ def build_oumi_model(
 ) -> nn.Module:
     """Builds a custom model from our Oumi registry."""
     model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-    print('model class', model_class)
+    print("model class", model_class)
     model = model_class(**model_params.model_kwargs)
 
     if model_params.load_pretrained_weights:
@@ -201,7 +201,7 @@ def build_huggingface_model(
     # the weights from scratch based on the params in the config and the model class.
     hf_config.num_labels = 2
     hf_config.id2label = {0: "UNSUPPORTED", 1: "SUPPORTED"}
-    hf_config.label2id = {"UNSUPPORTED":0, "SUPPORTED": 1}
+    hf_config.label2id = {"UNSUPPORTED": 0, "SUPPORTED": 1}
     transformers_model_class, _ = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:

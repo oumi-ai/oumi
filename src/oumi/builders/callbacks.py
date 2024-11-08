@@ -17,7 +17,10 @@ from oumi.utils.torch_utils import (
 
 
 def build_training_callbacks(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any], num_eval_sets: int = 1
+    config: TrainingConfig,
+    model: torch.nn.Module,
+    profiler: Optional[Any],
+    num_eval_sets: int = 1,
 ) -> list[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 
