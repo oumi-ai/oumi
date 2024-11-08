@@ -35,7 +35,7 @@ classifiers = [
 dependencies = [
     "accelerate>=1.0.0",
     "aiohttp",                    # Used by infererence engine
-    "aioresponses",               # User by inference engine tests
+    "aioresponses==0.7.6",        # User by inference engine tests
     "datasets",
     "jsonlines",
     "lm-eval>=0.4.5,<0.5.0",
