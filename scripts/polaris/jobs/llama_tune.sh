@@ -248,6 +248,8 @@ elif [ "$MODEL_SIZE" == "70b" ]; then
         fi
     fi
 else # 405B
+    # 405B can't fit in the user's `/home` directory, so use Eagle as our cache.`
+    export HF_HOME="/eagle/community_ai/.cache/huggingface"
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         echo "Llama 405B pretraining is currently not supported!"
     elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then

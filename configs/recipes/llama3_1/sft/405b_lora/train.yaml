@@ -9,6 +9,7 @@ model:
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
 
 data:
   train:
@@ -56,6 +57,6 @@ peft:
 
 fsdp:
   enable_fsdp: True
-  forward_prefetch: True # TODO: disable?
+  forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"
