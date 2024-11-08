@@ -66,8 +66,8 @@ class SGLangInferenceEngine(BaseInferenceEngine):
             dtype=model_params.torch_dtype_str,
             mem_fraction_static=gpu_memory_utilization,
             tp_size=tensor_parallel_size,
+            context_len=model_params.model_max_length,
             # port=?
-            # max_model_len=model_params.model_max_length,
             **sgl_kwargs,
         )
 
