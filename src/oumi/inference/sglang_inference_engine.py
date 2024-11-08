@@ -11,6 +11,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import base64encode_image_bytes
 from oumi.utils.logging import logger
 
 try:
@@ -70,7 +71,7 @@ class SGLangInferenceEngine(BaseInferenceEngine):
         if not sgl:
             raise RuntimeError("SGLang (sgl) is not installed.")
 
-        if (
+        if not (
             math.isfinite(gpu_memory_utilization)
             and gpu_memory_utilization > 0
             and gpu_memory_utilization <= 1.0
@@ -92,14 +93,20 @@ class SGLangInferenceEngine(BaseInferenceEngine):
             raise NotImplementedError("Adapter support is not implemented yet!")
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
+        if (
+            model_params.model_max_length is not None
+            and model_params.model_max_length > 0
+        ):
+            sgl_kwargs["context_length"] = int(model_params.model_max_length)
+
         self._sgl_runtime = sgl.Runtime(
-            model=model_params.model_name,
+            model_path=model_params.model_name,
             trust_remote_code=model_params.trust_remote_code,
             dtype=model_params.torch_dtype_str,
             mem_fraction_static=gpu_memory_utilization,
             tp_size=tensor_parallel_size,
-            context_len=model_params.model_max_length,
             # port=?
+            # dp_size=
             **sgl_kwargs,
         )
 
@@ -145,16 +152,23 @@ class SGLangInferenceEngine(BaseInferenceEngine):
 
                 if message.type == Type.TEXT:
                     s += message.content or ""
-                elif message.type == Type.IMAGE_PATH:
-                    image_path = message.content
-                    if not image_path:
-                        raise ValueError(f"Empty image path in message: {message.type}")
-                    s += sgl.image(image_path)  # type: ignore
-                elif message.type in (Type.IMAGE_BINARY, Type.IMAGE_URL):
-                    raise ValueError(
-                        f"Unsupported image type: {message.type}. "
-                        "Only `IMAGE_PATH` is supported by SGLang."
-                    )
+                elif message.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
+                    image_path_or_url = message.content
+                    if not image_path_or_url:
+                        friendly_type_name = (
+                            "image path"
+                            if message.type == Type.IMAGE_PATH
+                            else "image URL"
+                        )
+                        raise ValueError(
+                            f"Empty {friendly_type_name} in message: {message.type}"
+                        )
+                    s += sgl.image(image_path_or_url)  # type: ignore
+                elif message.type == Type.IMAGE_BINARY:
+                    if not message.binary:
+                        raise ValueError(f"No image bytes in message: {message.type}")
+                    base64_str = base64encode_image_bytes(message)
+                    s += sgl.image(base64_str)  # type: ignore
                 else:
                     raise ValueError(f"Unsupported message type: {message.type}")
 

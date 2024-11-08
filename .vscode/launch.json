@@ -122,7 +122,7 @@
                 "-c",
                 "configs/examples/vision/llava_7b/infer.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Training",

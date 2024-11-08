@@ -56,7 +56,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "Please install the GPU dependencies for this package."
             )
 
-        if (
+        if not (
             math.isfinite(gpu_memory_utilization)
             and gpu_memory_utilization > 0
             and gpu_memory_utilization <= 1.0

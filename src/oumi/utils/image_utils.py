@@ -1,3 +1,4 @@
+import base64
 import copy
 import io
 from pathlib import Path
@@ -129,3 +130,24 @@ def load_image_bytes_to_message(message: Message) -> Message:
         return message
 
     return message
+
+
+def base64encode_image_bytes(message: Message, *, add_mime_prefix: bool = True) -> str:
+    """Creates base-64 encoded image bytes as ASCII string value.
+
+    Args:
+        message: An input message with the `IMAGE_BINARY` type.
+        add_mime_prefix: Whether to add MIME prefix `data:image/png;base64,`
+
+    Returns:
+        String containing base64 encoded image bytes `<BASE64_VALUE>`.
+        If `add_mime_prefix` is True, then the following format is used:
+        `data:image/png;base64,<BASE64_VALUE>`.
+    """
+    if message.type != Type.IMAGE_BINARY:
+        raise ValueError(f"Message type is not IMAGE_BINARY: {message.type}")
+    elif not message.binary:
+        raise ValueError(f"No image bytes in message: {message.type}")
+
+    base64_str = base64.b64encode(message.binary).decode(encoding="utf8")
+    return ("data:image/png;base64," + base64_str) if add_mime_prefix else base64_str
