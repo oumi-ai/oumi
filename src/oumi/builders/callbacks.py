@@ -3,6 +3,7 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.callbacks.aggregate_metric_callback import AggregateMetricCallback
+from oumi.core.callbacks.autoclip_gradnorm_callback import AutoClipGradNormCallback
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
@@ -104,6 +105,7 @@ def build_training_callbacks(
     )
 
     result.append(AggregateMetricCallback(num_datasets=num_eval_sets))
+    result.append(AutoClipGradNormCallback())
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
