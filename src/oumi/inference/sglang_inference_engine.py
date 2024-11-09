@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import copy
 import functools
 import math
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 
 import torch
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import InferenceConfig, ModelParams, RemoteParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.image_utils import base64encode_image_bytes
@@ -55,6 +56,8 @@ class SGLangInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
+        *,
+        remote_params: RemoteParams | None = None,
         tensor_parallel_size: int = -1,
         gpu_memory_utilization: float = 1.0,
     ):
@@ -62,6 +65,7 @@ class SGLangInferenceEngine(BaseInferenceEngine):
 
         Args:
             model_params: The model parameters to use for inference.
+            remote_params: Remote endpoint params.
             tensor_parallel_size: The number of tensor parallel processes to use.
                 If set to -1, we will use all the available GPUs.
             gpu_memory_utilization: The fraction of available GPU memory the model's
@@ -88,33 +92,38 @@ class SGLangInferenceEngine(BaseInferenceEngine):
                 tensor_parallel_size = 1
 
         sgl_kwargs = {}
-        self._lora_request = None
         if model_params.adapter_model:
             raise NotImplementedError("Adapter support is not implemented yet!")
         self._tokenizer = build_tokenizer(model_params)
-        self._model_params = model_params
+        self._model_params = copy.deepcopy(model_params)
+        self._remote_params = (
+            copy.deepcopy(remote_params) if remote_params is not None else None
+        )
         if (
             model_params.model_max_length is not None
             and model_params.model_max_length > 0
         ):
             sgl_kwargs["context_length"] = int(model_params.model_max_length)
 
-        self._sgl_runtime = sgl.Runtime(
-            model_path=model_params.model_name,
-            trust_remote_code=model_params.trust_remote_code,
-            dtype=model_params.torch_dtype_str,
-            mem_fraction_static=gpu_memory_utilization,
-            tp_size=tensor_parallel_size,
-            # port=?
-            # dp_size=
-            # chat_template=
-            device="cuda",
-            **sgl_kwargs,
-        )
+        if remote_params is not None and remote_params.api_url:
+            self._sgl_runtime = None
+            self._sgl_engpoint = sgl.RuntimeEndpoint(remote_params.api_url)
+        else:
+            self._sgl_runtime = sgl.Runtime(
+                model_path=model_params.model_name,
+                trust_remote_code=model_params.trust_remote_code,
+                dtype=model_params.torch_dtype_str,
+                mem_fraction_static=gpu_memory_utilization,
+                tp_size=tensor_parallel_size,
+                # dp_size=
+                # chat_template=
+                device="cuda",
+                **sgl_kwargs,
+            )
+            self._sgl_engpoint = self._sgl_runtime.endpoint
 
-        self._generate_url: str = self._sgl_runtime.generate_url
-        if not self._generate_url:
-            raise RuntimeError("Empty `generate` URL!")
+        if self._sgl_engpoint is None:
+            raise RuntimeError(" SGLang endpoint is None!")
 
     def _convert_conversation_to_sgl_pipeline_impl(self, conversation: Conversation):
         for message in conversation.messages:
@@ -143,21 +152,11 @@ class SGLangInferenceEngine(BaseInferenceEngine):
                 raise RuntimeError("Empty message list is not supported.")
 
             for message in messages:
-                role_end_fn: Callable = sgl.user_end
-                if message.role == Role.USER:
-                    sgl.user_begin()
-                    role_end_fn = sgl.user_end
-                elif message.role == Role.ASSISTANT:
-                    sgl.assistant_begin()
-                    role_end_fn = sgl.assistant_end
-                elif message.role == Role.SYSTEM:
-                    sgl.system_begin()
-                    role_end_fn = sgl.system_end
-                else:
-                    raise ValueError(f"Unsupported role: {message.role}")
+                text_value: str | None = None
+                image_value: str | None = None
 
                 if message.type == Type.TEXT:
-                    s += message.content or ""
+                    text_value = message.content
                 elif message.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
                     image_path_or_url = message.content
                     if not image_path_or_url:
@@ -169,33 +168,79 @@ class SGLangInferenceEngine(BaseInferenceEngine):
                         raise ValueError(
                             f"Empty {friendly_type_name} in message: {message.type}"
                         )
-                    s += sgl.image(image_path_or_url)  # type: ignore
+                    image_value = image_path_or_url
                 elif message.type == Type.IMAGE_BINARY:
                     if not message.binary:
                         raise ValueError(f"No image bytes in message: {message.type}")
-                    base64_str = base64encode_image_bytes(message)
-                    s += sgl.image(base64_str)  # type: ignore
+                    image_value = base64encode_image_bytes(message)
+                    image_value = (
+                        "/home/user/oumi/tests/testdata/"
+                        "images/the_great_wave_off_kanagawa.jpg"
+                    )
                 else:
                     raise ValueError(f"Unsupported message type: {message.type}")
 
-                role_end_fn()
+                if message.role == Role.USER:
+                    if text_value is not None:
+                        s += sgl.user(text_value)  # type: ignore
+                    elif image_value is not None:
+                        s += sgl.user(sgl.image(image_value))  # type: ignore
+                elif message.role == Role.ASSISTANT:
+                    if text_value is not None:
+                        s += sgl.assistant(text_value)  # type: ignore
+                    elif image_value is not None:
+                        s += sgl.assistant(sgl.image(image_value))  # type: ignore
+                elif message.role == Role.SYSTEM:
+                    if text_value is not None:
+                        s += sgl.system(text_value)  # type: ignore
+                    elif image_value is not None:
+                        s += sgl.system(sgl.image(image_value))  # type: ignore
+                else:
+                    raise ValueError(f"Unsupported role: {message.role}")
 
-        results = _pipeline.run_batch(
-            [{"messages": convo.messages} for convo in conversations],
-            max_new_tokens=sampling_params.max_new_tokens,
-            stop=sampling_params.stop,
-            stop_token_ids=sampling_params.stop_token_ids,
-            temperature=sampling_params.temperature,
-            top_p=sampling_params.top_p,
-            min_p=sampling_params.min_p,
-            frequency_penalty=sampling_params.frequency_penalty,
-            presence_penalty=sampling_params.presence_penalty,
-            # System params
-            backend=self._sgl_runtime,
-            num_threads="auto",
-            progress_bar=(len(conversations) > 1),
-        )
-        logger.info(f"run_batch results: {results}")
+            s += sgl.assistant(sgl.gen("final"))
+
+        if False:
+            for convo in conversations:
+                result = _pipeline.run(
+                    convo.messages,
+                    max_new_tokens=sampling_params.max_new_tokens,
+                    stop=sampling_params.stop,
+                    stop_token_ids=sampling_params.stop_token_ids,
+                    temperature=sampling_params.temperature,
+                    top_p=sampling_params.top_p,
+                    min_p=sampling_params.min_p,
+                    frequency_penalty=sampling_params.frequency_penalty,
+                    presence_penalty=sampling_params.presence_penalty,
+                    # System params
+                    backend=self._sgl_engpoint,
+                    use_thread=True,
+                )
+                logger.info(f"run results: {result}")
+
+                text_response = result.text()
+                logger.info(f"run text responses: {text_response}")
+        else:
+            conversations = conversations * 2
+            results = _pipeline.run_batch(
+                [{"messages": convo.messages} for convo in conversations],
+                max_new_tokens=sampling_params.max_new_tokens,
+                stop=sampling_params.stop,
+                stop_token_ids=sampling_params.stop_token_ids,
+                temperature=sampling_params.temperature,
+                top_p=sampling_params.top_p,
+                min_p=sampling_params.min_p,
+                frequency_penalty=sampling_params.frequency_penalty,
+                presence_penalty=sampling_params.presence_penalty,
+                # System params
+                backend=self._sgl_engpoint,
+                num_threads="auto",
+                progress_bar=(len(conversations) > 1),
+            )
+            logger.info(f"run_batch results: {results}")
+
+            text_responses = [state.text() for state in results]
+            logger.info(f"run_batch text responses: {text_responses}")
 
     def _create_sampling_params(
         self, inference_config: InferenceConfig

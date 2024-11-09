@@ -28,7 +28,9 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     elif config.engine == InferenceEngineType.VLLM:
         return VLLMInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.SGLANG:
-        return SGLangInferenceEngine(config.model)
+        return SGLangInferenceEngine(
+            config.model, remote_params=config.generation.remote_params
+        )
     elif config.engine == InferenceEngineType.LLAMACPP:
         return LlamaCppInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.ANTHROPIC:
