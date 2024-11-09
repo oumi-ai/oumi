@@ -34,9 +34,20 @@ Subpackages
 {{ toctree(subpackages) }}
 {% endif %}
 
-{#-
-## Oumi change: we don't want to show submodules. Removing block.
-#}
+{%- if submodules and not subpackages and is_namespace %}
+Submodules
+----------
+{% if separatemodules %}
+{{ toctree(submodules) }}
+{% else %}
+{%- for submodule in submodules %}
+{% if show_headings %}
+{{- [submodule, "module"] | join(" ") | e | heading(2) }}
+{% endif %}
+{{ automodule(submodule, automodule_options) }}
+{% endfor %}
+{%- endif %}
+{%- endif %}
 
 {%- if not modulefirst and not is_namespace %}
 Module contents
