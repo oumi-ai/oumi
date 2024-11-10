@@ -15,7 +15,7 @@ from oumi.utils.image_utils import (
 def create_test_vision_language_engine() -> SGLangInferenceEngine:
     return SGLangInferenceEngine(
         model_params=ModelParams(
-            model_name="meta-llama/Llama-3.2-11B-Vision-Instruct",
+            model_name="llava-hf/llava-1.5-7b-hf",
             torch_dtype_str="bfloat16",
             model_max_length=1024,
             chat_template="llama3-instruct",
@@ -27,11 +27,12 @@ def create_test_vision_language_engine() -> SGLangInferenceEngine:
 def create_test_text_only_engine() -> SGLangInferenceEngine:
     return SGLangInferenceEngine(
         model_params=ModelParams(
-            model_name="meta-llama/Llama-3.2-1B-Instruct",
+            model_name="openai-community/gpt2",
             torch_dtype_str="bfloat16",
             model_max_length=1024,
             chat_template="llama3-instruct",
             trust_remote_code=True,
+            tokenizer_pad_token="<|endoftext|>",
         )
     )
 
@@ -46,7 +47,7 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
     _generate_all_engines(),
 )
 def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
-    is_vision_language: bool = "vision" in engine._model.lower()
+    is_vision_language: bool = "llava" in engine._model.lower()
 
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
     png_bytes = create_png_bytes_from_image(pil_image)
@@ -82,7 +83,8 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
     expected_prompt = (
         "\n\n".join(
             [
-                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>",
+                engine._tokenizer.bos_token
+                + "<|start_header_id|>system<|end_header_id|>",
                 "System message<|eot_id|><|start_header_id|>user<|end_header_id|>",
             ]
             + (
