@@ -88,12 +88,7 @@ docs = [
     "sphinx-design",           # Allows us to include tabs in the docs
 ]
 # Dependencies that require a GPU to install
-gpu = [
-    "liger-kernel>=0.3.1",
-    "nvidia-ml-py",
-    "vllm>=0.6.3,<0.7.0",
-    "sglang[srt]",
-]
+gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
 # Targets for supportedcloud providers
 aws = ["skypilot[aws]"]

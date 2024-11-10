@@ -1,6 +1,5 @@
 model:
-  model_name: "liuhaotian/llava-v1.5-7b" # "llava-hf/llava-1.5-7b-hf"
-  tokenizer_name: "llava-hf/llava-1.5-7b-hf"
+  model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
   chat_template: "llava"
@@ -10,4 +9,4 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
-engine: SGLANG # NATIVE
+engine: NATIVE
