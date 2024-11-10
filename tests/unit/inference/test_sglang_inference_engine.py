@@ -4,15 +4,23 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
+from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 
 
 @pytest.fixture
-def anthropic_engine():
-    return AnthropicInferenceEngine(model_params=ModelParams(model_name="claude-3"))
+def sglang_vision_language_engine():
+    return SGLangInferenceEngine(
+        model_params=ModelParams(
+            model_name="meta-llama/Llama-3.2-11B-Vision-Instruct",
+            torch_dtype_str="bfloat16",
+            model_max_length=1024,
+            chat_template="llama3-instruct",
+            trust_remote_code=True,
+        )
+    )
 
 
-def test_convert_conversation_to_api_input(anthropic_engine):
+def test_convert_conversation_to_api_input(sglang_vision_language_engine):
     conversation = Conversation(
         messages=[
             Message(content="System message", role=Role.SYSTEM),
@@ -22,7 +30,7 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     )
     generation_params = GenerationParams(max_new_tokens=100)
 
-    result = anthropic_engine._convert_conversation_to_api_input(
+    result = sglang_vision_language_engine._convert_conversation_to_api_input(
         conversation, generation_params
     )
 
@@ -36,7 +44,7 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     assert result["max_tokens"] == 100
 
 
-def test_convert_api_output_to_conversation(anthropic_engine):
+def test_convert_api_output_to_conversation(sglang_vision_language_engine):
     original_conversation = Conversation(
         messages=[
             Message(content="User message", role=Role.USER),
@@ -44,9 +52,9 @@ def test_convert_api_output_to_conversation(anthropic_engine):
         metadata={"key": "value"},
         conversation_id="test_id",
     )
-    api_response = {"content": [{"text": "Assistant response"}]}
+    api_response = {"text": "Assistant response"}
 
-    result = anthropic_engine._convert_api_output_to_conversation(
+    result = sglang_vision_language_engine._convert_api_output_to_conversation(
         api_response, original_conversation
     )
 
@@ -59,16 +67,14 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.conversation_id == "test_id"
 
 
-def test_get_request_headers(anthropic_engine):
+def test_get_request_headers(sglang_vision_language_engine):
     remote_params = RemoteParams(api_key="test_api_key", api_url="<placeholder>")
 
     with patch.object(
-        AnthropicInferenceEngine,
+        SGLangInferenceEngine,
         "_get_api_key",
         return_value="test_api_key",
     ):
-        result = anthropic_engine._get_request_headers(remote_params)
+        result = sglang_vision_language_engine._get_request_headers(remote_params)
 
     assert result["Content-Type"] == "application/json"
-    assert result["anthropic-version"] == AnthropicInferenceEngine.anthropic_version
-    assert result["X-API-Key"] == "test_api_key"
