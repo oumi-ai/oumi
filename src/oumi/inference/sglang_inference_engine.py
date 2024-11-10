@@ -7,7 +7,6 @@ from typing import Any, NamedTuple
 from typing_extensions import override
 
 from oumi.builders import (
-    build_model,
     build_processor,
     build_tokenizer,
     is_image_text_llm,
@@ -56,26 +55,27 @@ class _SamplingParams(NamedTuple):
 class SGLangInferenceEngine(RemoteInferenceEngine):
     """Engine for running vllm inference locally."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(self, model_params: ModelParams, **kwargs):
         """Initializes the SGL inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            kwargs: Other keyword arguments.
         """
         self._model_params = copy.deepcopy(model_params)
-        self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: BaseProcessor | None = None
         if is_image_text_llm(self._model_params):
-            # Only enable Processor for LLAVA for now
+            # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
             )
 
-        # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
-        self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
+        # TODO Launch a local SGLLang server if requested.
+
+        super().__init__(model_params=model_params, **kwargs)
 
     def _create_sampling_params(
         self, generation_params: GenerationParams
@@ -201,4 +201,6 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     @functools.cache
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
-        return set(_SamplingParams()._asdict().keys())
+        return set(_SamplingParams()._asdict().keys()).union(
+            {"batch_size", "remote_params"}
+        )

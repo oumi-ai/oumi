@@ -9,6 +9,6 @@ generation:
   max_new_tokens: 32
   batch_size: 1
   remote_params:
-    api_url: "http://127.0.0.1:30000"
+    api_url: "http://127.0.0.1:30000/generate"
 
 engine: SGLANG # NATIVE
