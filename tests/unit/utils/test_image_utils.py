@@ -9,6 +9,7 @@ import responses
 
 from oumi.core.types.conversation import Message, Role, Type
 from oumi.utils.image_utils import (
+    base64encode_image_bytes,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
     load_image_bytes_to_message,
@@ -147,3 +148,27 @@ def test_load_image_bytes_to_message_image_url():
             role=Role.USER, type=Type.IMAGE_BINARY, binary=png_bytes
         )
         assert output_message == expected_output_message
+
+
+def test_base64encode_image_bytes():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+
+    base64_str = base64encode_image_bytes(
+        Message(role=Role.USER, type=Type.IMAGE_BINARY, binary=png_bytes)
+    )
+    assert base64_str
+    assert base64_str.startswith("data:image/png;base64,iVBOR")
+    assert len(base64_str) >= ((4 * len(png_bytes)) / 3) + len("data:image/png;base64,")
+    assert len(base64_str) <= ((4 * len(png_bytes) + 2) / 3) + len(
+        "data:image/png;base64,"
+    )
+
+
+def test_base64encode_image_bytes_invalid_arguments():
+    with pytest.raises(ValueError, match="Message type is not IMAGE_BINARY"):
+        base64encode_image_bytes(Message(role=Role.USER, content="hello"))
+    with pytest.raises(ValueError, match="No image bytes in message"):
+        base64encode_image_bytes(
+            Message(role=Role.USER, type=Type.IMAGE_BINARY, content="hi")
+        )
