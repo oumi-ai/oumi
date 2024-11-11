@@ -34,6 +34,7 @@ def infer(
             ),
         ),
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Run inference on a model.
 
@@ -46,6 +47,7 @@ def infer(
         config: Path to the configuration file for inference.
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
+        level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(

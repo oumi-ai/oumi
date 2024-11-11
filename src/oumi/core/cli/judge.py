@@ -52,6 +52,7 @@ def dataset(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a dataset."""
     if not dataset_name:
@@ -99,6 +100,7 @@ def conversations(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a list of conversations."""
     # Load the judge config
@@ -142,6 +144,7 @@ def model(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge the outputs of a model on a dataset."""
     # Load the judge config

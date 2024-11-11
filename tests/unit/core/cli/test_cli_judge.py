@@ -1,3 +1,4 @@
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -11,6 +12,7 @@ from oumi.core.cli.judge import conversations, dataset, model
 from oumi.core.types import Conversation, Message
 from oumi.core.types.conversation import Role
 from oumi.utils.io_utils import save_jsonlines
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -62,6 +64,54 @@ def test_judge_dataset_runs(app, mock_registry, mock_judge_dataset):
     mock_judge_dataset.assert_called_once()
 
     assert result.exit_code == 0, f"CLI command failed with: {result.exception}"
+
+
+def test_judge_logging_levels(
+    app, mock_registry, mock_judge_dataset, mock_judge_conversations
+):
+    config = "oumi/v1_xml_unit_test"
+    _ = runner.invoke(
+        app,
+        [
+            "dataset",
+            "--config",
+            config,
+            "--dataset-name",
+            "debug_sft",
+            "--log-level",
+            "DEBUG",
+        ],
+    )
+    assert logger.level == logging.DEBUG
+
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        input_file = str(Path(output_temp_dir) / "input.jsonl")
+
+        conversation = Conversation(
+            messages=[
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.ASSISTANT, content="Hello"),
+            ]
+        )
+
+        save_jsonlines(
+            input_file,
+            [conversation.to_dict()],
+        )
+
+        _ = runner.invoke(
+            app,
+            [
+                "conversations",
+                "--config",
+                config,
+                "--input-file",
+                input_file,
+                "-log",
+                "INFO",
+            ],
+        )
+        assert logger.level == logging.INFO
 
 
 def test_judge_dataset_with_output_file(app, mock_registry, mock_judge_dataset):
