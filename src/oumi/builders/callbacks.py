@@ -105,7 +105,6 @@ def build_training_callbacks(
     )
 
     result.append(AggregateMetricCallback(num_datasets=num_eval_sets))
-    result.append(AutoClipGradNormCallback())
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
