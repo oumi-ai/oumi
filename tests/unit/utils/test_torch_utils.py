@@ -5,6 +5,7 @@ import torch
 from oumi.utils.torch_utils import (
     convert_to_list_of_tensors,
     create_ones_like,
+    get_torch_dtype,
     pad_sequences,
     pad_sequences_left_side,
     pad_sequences_right_side,
@@ -262,3 +263,30 @@ def test_create_ones_like_success_tensor():
     assert np.all(result[0].numpy() == np.asarray([1, 1]))
     assert isinstance(result[1], torch.Tensor)
     assert np.all(result[1].numpy() == np.asarray([1, 1, 1]))
+
+
+@pytest.mark.parametrize(
+    "dtype_str, expected_dtype",
+    [
+        ("f64", torch.float64),
+        ("float64", torch.float64),
+        ("double", torch.float64),
+        ("f32", torch.float32),
+        ("float32", torch.float32),
+        ("float", torch.float32),
+        ("bf16", torch.bfloat16),
+        ("bfloat16", torch.bfloat16),
+        ("f16", torch.float16),
+        ("float16", torch.float16),
+        ("half", torch.float16),
+        ("uint8", torch.uint8),
+    ],
+)
+def test_get_torch_dtype(dtype_str, expected_dtype):
+    result = get_torch_dtype(dtype_str)
+    assert result == expected_dtype
+
+
+def test_get_torch_dtype_invalid():
+    with pytest.raises(ValueError, match="Unsupported torch dtype: invalid_dtype"):
+        get_torch_dtype("invalid_dtype")
