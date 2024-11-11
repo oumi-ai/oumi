@@ -46,6 +46,7 @@ dependencies = [
     "pexpect",                    # Used by Polaris client
     "pillow",                     # Used by image datasets
     "pydantic>=2",
+    "responses",
     "skypilot",                   # Used by launcher
     "tensorboard",                # Optional, for monitoring training
     "torch>=2.4.0,<2.5.0",
