@@ -13,7 +13,7 @@ working_dir: .
 
 setup: |
   #PBS -l place=scatter
-  #PBS -l walltime=01:00:00
+  #PBS -l walltime=00:20:00
   #PBS -l filesystems=home:eagle
   #PBS -A community_ai
   #PBS -o /eagle/community_ai/jobs/logs/

@@ -1,6 +1,6 @@
 # Config to FSDP QLoRA tune Llama 3.1 405B Instruct.
 # Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
+# oumi launch up -c configs/examples/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
 name: llama405b-qlora-fsdp
 
 resources:
@@ -35,7 +35,7 @@ setup: |
   pip install uv && uv pip install '.[gpu,quant]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download hugging-quants/Meta-Llama-3.1-405B-BNB-NF4-BF16
 
 run: |
   set -e  # Exit if any command failed.
@@ -51,9 +51,9 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
+      -c configs/examples/llama3_1/sft/405b_qlora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "model.model_name=/home/gcpuser/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1" \
-      "peft.bnb_4bit_quant_storage=bfloat16"
+      "training.output_dir='${OUMI_RUN_NAME}'"\
+      "training.logging_dir='${OUMI_RUN_NAME}/runs'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

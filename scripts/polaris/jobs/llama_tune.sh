@@ -259,7 +259,11 @@ elif [ "$MODEL_SIZE" == "70b" ]; then
     fi
 else # 405B
     # 405B can't fit in the user's `/home` directory, so use Eagle as our cache.`
-    export HF_HOME="/eagle/community_ai/.cache/huggingface"
+    mkdir -p /tmp/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/
+    cp /eagle/community_ai/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/* /tmp/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/
+    cp /home/wizeng/.cache/huggingface/token /tmp/hf_cache/huggingface/token
+    export HF_HOME="/tmp/hf_cache/huggingface"
+    # export HF_HOME="/eagle/community_ai/hf_cache/huggingface"
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         echo "Llama 405B pretraining is currently not supported!"
     elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then

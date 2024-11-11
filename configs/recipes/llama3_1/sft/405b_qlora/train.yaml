@@ -21,16 +21,16 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 200
+  save_steps: 1
   num_train_epochs: 1
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 2
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "paged_adamw_8bit"
+  optimizer: "sgd"
   learning_rate: 3.0e-04
   warmup_steps: 100
   weight_decay: 0.01
@@ -46,21 +46,21 @@ training:
   include_performance_metrics: True
   enable_wandb: True
 
-peft:
-  q_lora: True
-  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
-  bnb_4bit_quant_type: "nf4"
-  bnb_4bit_compute_dtype: "bfloat16"
-  lora_r: 16
-  lora_alpha: 32
-  lora_dropout: 0.0
-  lora_target_modules:
-    - "q_proj"
-    - "v_proj"
-    - "o_proj"
-    - "gate_proj"
-    - "up_proj"
-    - "down_proj"
+# peft:
+#   # q_lora: True
+#   # # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
+#   # bnb_4bit_quant_type: "nf4"
+#   # bnb_4bit_compute_dtype: "bfloat16"
+#   lora_r: 16
+#   lora_alpha: 32
+#   lora_dropout: 0.0
+#   lora_target_modules:
+#     - "q_proj"
+#     - "v_proj"
+#     - "o_proj"
+#     - "gate_proj"
+#     - "up_proj"
+#     - "down_proj"
 
 fsdp:
   enable_fsdp: True
