@@ -16,6 +16,9 @@ class InferenceEngineType(str, Enum):
     VLLM = "VLLM"
     """The vLLM inference engine."""
 
+    SGLANG = "SGLANG"
+    """The SGLang inference engine."""
+
     LLAMACPP = "LLAMACPP"
     """The LlamaCPP inference engine."""
 
@@ -51,6 +54,7 @@ class InferenceConfig(BaseConfig):
 
         - NATIVE: Use the native inference engine via a local forward pass.
         - VLLM: Use the vLLM inference engine.
+        - SGLANG: Use the SGLang inference engine.
         - LLAMACPP: Use LlamaCPP inference engine.
         - REMOTE: Use the inference engine for APIs that implement the OpenAI Chat API
           interface.
