@@ -88,6 +88,7 @@ from oumi.core.configs.params.fsdp_params import (
     StateDictType,
 )
 from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
@@ -136,4 +137,5 @@ __all__ = [
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
+    "GuidedDecodingParams",
 ]

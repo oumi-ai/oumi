@@ -15,6 +15,7 @@ try:
         ChatCompletionMessageParam,
     )
     from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
+    from vllm.sampling_params import GuidedDecodingParams as VLLMGuidedDecodingParams
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
@@ -134,7 +135,22 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         generation_params = inference_config.generation
+
+        # Convert Oumi GuidedDecodingParams to vLLM GuidedDecodingParams if present
+        guided_decoding = None
         output_conversations = []
+
+        if generation_params.guided_decoding is not None:
+            guided_decoding = VLLMGuidedDecodingParams(
+                json=generation_params.guided_decoding.json,
+                regex=generation_params.guided_decoding.regex,
+                choice=generation_params.guided_decoding.choice,
+                grammar=generation_params.guided_decoding.grammar,
+                json_object=generation_params.guided_decoding.json_object,
+                backend=generation_params.guided_decoding.backend,
+                whitespace_pattern=generation_params.guided_decoding.whitespace_pattern,
+            )
+
         sampling_params = SamplingParams(
             n=1,
             max_tokens=generation_params.max_new_tokens,
@@ -145,6 +161,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
+            guided_decoding=guided_decoding,  # Add guided decoding support
         )
 
         vllm_conversations = []
