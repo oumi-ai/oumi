@@ -56,7 +56,6 @@ dependencies = [
     "trl>=0.9.0",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
-    "responses",
     "wandb",                      # Optional, for logging to Weights and Biases
 ]
 
