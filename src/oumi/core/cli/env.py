@@ -1,13 +1,9 @@
 import importlib.metadata
 import importlib.util
+import os
 import platform
-from typing import Optional
 
-
-def _format_cudnn_version(v: Optional[int]) -> str:
-    if v is None:
-        return ""
-    return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
+from oumi.utils.torch_utils import format_cudnn_version
 
 
 def _get_package_version(package_name: str, version_fallback: str) -> str:
@@ -27,9 +23,50 @@ def _get_package_version(package_name: str, version_fallback: str) -> str:
         return version_fallback
 
 
+def _get_padded_table(
+    kv: dict, key_title: str, value_title: str, padding: int = 5
+) -> str:
+    """Formats a key-value pair as a table with padding.
+
+    Args:
+        kv: The key-value pair to format.
+        key_title: The title for the key column.
+        value_title: The title for the value column.
+        padding: The padding to use.
+
+    Returns:
+        str: The formatted table.
+    """
+    max_length = max(len(key) for key in kv.keys())
+    formatted_kv = []
+    for key, value in kv.items():
+        k = "{0:{space}}".format(key, space=max_length + padding)
+        formatted_kv.append(k + value)
+    title_row = (
+        "{0:{space}}".format(key_title, space=max_length + padding) + value_title + "\n"
+    )
+    return title_row + "\n".join(formatted_kv)
+
+
 def env():
     """Prints information about the current environment."""
     version_fallback = "<not installed>"
+    env_var_fallback = "<not set>"
+
+    # All relevant environment vars.
+    env_vars = sorted(
+        [
+            "ACCELERATE_DYNAMO_BACKEND",
+            "ACCELERATE_DYNAMO_MODE",
+            "ACCELERATE_DYNAMO_USE_FULLGRAPH",
+            "ACCELERATE_DYNAMO_USE_DYNAMIC",
+            "ACCELERATE_USE_FSDP",
+            "LOCAL_RANK",
+            "LOCAL_WORLD_SIZE",
+            "RANK",
+            "WORLD_SIZE",
+        ]
+    )
 
     # All deps, excluding dev, docs, and gcp.
     core_packages = sorted(
@@ -71,19 +108,17 @@ def env():
         package: _get_package_version(package, version_fallback)
         for package in core_packages
     }
-    padding = 5
-    max_length = max(len(package) for package in package_versions.keys())
-    formatted_versions = []
-    for package, version in package_versions.items():
-        k = "{0:{space}}".format(package, space=max_length + padding)
-        formatted_versions.append(k + version)
+    env_values = {env_var: os.getenv(env_var, env_var_fallback) for env_var in env_vars}
     print("----------Oumi environment information:----------\n")
     print(f"Oumi version: {_get_package_version('oumi', version_fallback)}")
     print(f"Python version: {platform.python_version()}")
-    print(f"Platform: {platform.platform()}\n")
-    print("Installed dependencies:")
-    print("{0:{space}}".format("PACKAGE", space=max_length + padding) + "VERSION")
-    print("\n".join(formatted_versions))
+    print(f"Platform: {platform.platform()}")
+    print("\nInstalled dependencies:")
+    print(_get_padded_table(package_versions, "PACKAGE", "VERSION"))
+
+    if env_vars:
+        print("\nEnvironment variables:")
+        print(_get_padded_table(env_values, "VARIABLE", "VALUE"))
 
     if importlib.util.find_spec("torch") is not None:
         torch = importlib.import_module("torch")
@@ -94,6 +129,6 @@ def env():
             print(f"Number of GPUs: {torch.cuda.device_count()}")
             print(f"GPU type: {torch.cuda.get_device_name()}")
             print(
-                "CUDNN version: "
-                f"{_format_cudnn_version(torch.backends.cudnn.version())}"
+                "cuDNN version: "
+                f"{format_cudnn_version(torch.backends.cudnn.version())}"
             )
