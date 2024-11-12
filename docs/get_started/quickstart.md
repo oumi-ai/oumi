@@ -68,8 +68,7 @@ To run the same recipe on a different dataset, you can override the dataset name
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
-  --data.train.datasets.0.dataset_name text_jsonl_dataset \
-  --data.train.datasets.0.dataset_path "/path/to/local/dataset" \
+  --data.train.datasets "[{dataset_name: text_jsonl_dataset, dataset_path: /path/to/local/dataset}]" \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
