@@ -52,18 +52,16 @@ helpFunction() {
 copyModelToLocalScratch() {
     local MODEL_DIR="$1"
     local SNAPSHOT_NAME="$2"
-    local EAGLE_CACHE="/eagle/community_ai/hf_cache/huggingface/hub"
-    local LOCAL_CACHE="/local/scratch/hf_cache/huggingface/hub"
+    local EAGLE_CACHE="/eagle/community_ai/hf_cache/huggingface/hub/$MODEL_DIR/snapshots/$SNAPSHOT_NAME"
+    local LOCAL_CACHE="/local/scratch/hf_cache/huggingface/hub/$MODEL_DIR/snapshots/$SNAPSHOT_NAME"
 
-    echo "Copying model to /local/scratch..."
-    mkdir -p $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
+    echo "Copying model from $EAGLE_CACHE to $LOCAL_CACHE..."
+    mkdir -p $LOCAL_CACHE
     cp /eagle/community_ai/hf_cache/huggingface/token /local/scratch/hf_cache/huggingface/token
     local copy_start_time=$(date +%s)
     # We don't want to do a recursive copy because for Llama models, the original/
     # subdir in the snapshot contains redundant copies of the model weights.
-    cp \
-        $EAGLE_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/* \
-        $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
+    cp $EAGLE_CACHE/* $LOCAL_CACHE
     local copy_end_time=$(date +%s)
     echo "Copying complete! Elapsed Time: $(($copy_end_time-$copy_start_time)) seconds"
 
