@@ -35,7 +35,7 @@ training:
   learning_rate: 3.0e-4
   warmup_steps: 100
   lr_scheduler_type: "cosine"
-  optimizer: "paged_adamw_8bit"
+  optimizer: "adamw_8bit"
   weight_decay: 0.01
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -43,8 +43,7 @@ training:
   seed: 123
   ddp_find_unused_parameters: False
   use_peft: True
-  save_steps: 1
-  max_steps: 1
+  save_steps: 0
   save_epoch: True
   logging_steps: 50
   logging_first_step: True
@@ -67,9 +66,3 @@ peft:
     - "gate_proj" #
     - "down_proj" # Since (1) applies it to MLP.
     - "up_proj"   #
-
-fsdp:
-  enable_fsdp: True
-  forward_prefetch: True
-  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "LlamaDecoderLayer"

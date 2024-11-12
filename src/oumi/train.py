@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -208,6 +209,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     config = _finalize_training_config(config)
 
+    if "HF_HOME" in os.environ:
+        logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+    else:
+        logger.info("HF_HOME is not set.")
     if is_local_process_zero():
         logger.info(f"TrainingConfig: {pformat(config)}")
         if telemetry_dir and is_world_process_zero():

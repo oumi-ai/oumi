@@ -21,7 +21,7 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 200
+  save_steps: 20
   num_train_epochs: 1
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
@@ -30,7 +30,7 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "adamw_torch_fused"
+  optimizer: "sgd"
   learning_rate: 3.0e-04
   warmup_steps: 100
   weight_decay: 0.01

@@ -1,11 +1,11 @@
 # Llama 3.1 405B Instruct FFT config
 # Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
-name: llama405b-sft
+# oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster prod.$ALCF_USER --user $ALCF_USER
+name: llama405b-fft
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 10
+num_nodes: 12
 resources:
   cloud: polaris
 

@@ -45,3 +45,25 @@ Example command for 70B full fine-tuning on GCP:
 ```shell
 oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama3-1
 ```
+
+## 405B
+
+### Model Info
+
+| Attribute | Value |
+|--|--|
+| Vocab size | 128,256 |
+| Hidden size | 16,384 |
+| MLP intermediate size | 53,248 |
+| Num layers | 126 |
+| Num attention heads | 128 |
+| Num KV heads | 8 |
+| Weight tying | False |
+| Model max length | 131,072 (initially trained with 8192) |
+
+### Launch Command
+
+Example command for 405B QLora on Polaris:
+```shell
+oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+```
