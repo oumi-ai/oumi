@@ -229,6 +229,7 @@ torchrun \
     --master-port=8007 \
     -m oumi.train \
     -c "${OUMI_CFG_FILE}" \
+    $PRETRAIN_DATASETS \
     $SHARED_TRAINING_PARAMS \
     $ADDITIONAL_TRAINING_PARAMS
 
