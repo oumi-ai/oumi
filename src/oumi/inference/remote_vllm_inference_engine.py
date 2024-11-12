@@ -1,8 +1,8 @@
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, RemoteParams
+from oumi.core.configs import GenerationParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
@@ -12,24 +12,6 @@ _ROLE_KEY: str = "role"
 
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Remote vLLM."""
-
-    @override
-    def _get_api_key(self, remote_params: RemoteParams) -> str:
-        """Gets the authentication token for the remote LLM."""
-        return remote_params.api_key or ""
-
-    def _get_request_headers(
-        self, remote_params: Optional[RemoteParams]
-    ) -> dict[str, str]:
-        """Gets the request headers for the remote LLM."""
-        if not remote_params:
-            raise ValueError("Remote params are required for remote LLM inference.")
-
-        headers = {
-            "Authorization": f"Bearer {self._get_api_key(remote_params)}",
-            "Content-Type": "application/json",
-        }
-        return headers
 
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
@@ -42,6 +24,7 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "stop_strings",
             "temperature",
             "top_p",
+            "guided_decoding",
         }
 
     @override
@@ -77,6 +60,16 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
         }
+
+        if generation_params.guided_decoding:
+            if generation_params.guided_decoding.json:
+                api_input["guided_json"] = generation_params.guided_decoding.json
+
+            if generation_params.guided_decoding.regex is not None:
+                api_input["guided_regex"] = generation_params.guided_decoding.regex
+
+            if generation_params.guided_decoding.choice is not None:
+                api_input["guided_choice"] = generation_params.guided_decoding.choice
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings

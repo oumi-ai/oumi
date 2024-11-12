@@ -251,11 +251,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
             "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
-            "stop_token_ids",
         }
