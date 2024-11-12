@@ -41,6 +41,34 @@ helpFunction() {
     exit 1 # Exit script after printing help
 }
 
+# Copies the model weights from Eagle to the worker's local scratch directory.
+# This results in faster model loading than loading the weights from Eagle during
+# training.
+#
+# Args:
+#   $1: The model directory in the Eagle cache.
+#   $2: The snapshot name in the model directory.
+copyModelToLocalScratch() {
+    local MODEL_DIR="$1"
+    local SNAPSHOT_NAME="$2"
+    local EAGLE_CACHE="/eagle/community_ai/hf_cache/huggingface/hub"
+    local LOCAL_CACHE="/local/scratch/hf_cache/huggingface/hub"
+
+    echo "Copying model to /local/scratch..."
+    mkdir -p $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
+    cp /eagle/community_ai/hf_cache/huggingface/token /local/scratch/hf_cache/huggingface/token
+    local copy_start_time=$(date +%s)
+    # We don't want to do a recursive copy because for Llama models, the original/
+    # subdir in the snapshot contains redundant copies of the model weights.
+    cp \
+        $EAGLE_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/* \
+        $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
+    local copy_end_time=$(date +%s)
+    echo "Copying complete! Elapsed Time: $(($copy_end_time-$copy_start_time)) seconds"
+
+    export HF_HOME="/local/scratch/hf_cache/huggingface"
+}
+
 # Default values.
 TRAINING_MODE="lora"
 DISTRIBUTION_MODE="ddp"
@@ -149,6 +177,11 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
         fi
     fi
 elif [ "$MODEL_SIZE" == "70b" ]; then
+    # Copy 70B weights from Eagle to local scratch.
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-70B-Instruct" \
+        "945c8663693130f8be2ee66210e062158b2a9693"
+
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         echo "Llama 70B pretraining is currently not supported!"
         exit 1
@@ -167,22 +200,9 @@ elif [ "$MODEL_SIZE" == "70b" ]; then
 else # 405B
     # Copy 405B weights from Eagle to local scratch. This reduces the total time
     # needed to load the model from 3 hours to 15 min copy + 10 min loading.
-    EAGLE_CACHE="/eagle/community_ai/hf_cache/huggingface/hub"
-    LOCAL_CACHE="/local/scratch/hf_cache/huggingface/hub"
-    MODEL_DIR="models--meta-llama--Meta-Llama-3.1-405B-Instruct"
-    SNAPSHOT_NAME="be673f326cab4cd22ccfef76109faf68e41aa5f1"
-    echo "Copying model to /local/scratch..."
-    mkdir -p $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
-    cp /eagle/community_ai/hf_cache/huggingface/token /local/scratch/hf_cache/huggingface/token
-    copy_start_time=$(date +%s)
-    # We don't want to do a recursive copy because for Llama models, the original/
-    # subdir in the snapshot contains redundant copies of the model weights.
-    cp \
-        $EAGLE_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/* \
-        $LOCAL_CACHE/$MODEL_DIR/snapshots/$SNAPSHOT_NAME/
-    copy_end_time=$(date +%s)
-    echo "Copying complete! Elapsed Time: $(($copy_end_time-$copy_start_time)) seconds"
-    export HF_HOME="/local/scratch/hf_cache/huggingface"
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-405B-Instruct" \
+        "be673f326cab4cd22ccfef76109faf68e41aa5f1"
 
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         echo "Llama 405B pretraining is currently not supported!"
