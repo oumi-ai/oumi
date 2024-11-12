@@ -3,6 +3,7 @@ import sys
 import typer
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.core.cli.env import env
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset, model
@@ -18,6 +19,7 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",
     )(evaluate)
+    app.command()(env)
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
