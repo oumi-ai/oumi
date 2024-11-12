@@ -291,6 +291,7 @@ def _load_dataset(
             dataset = dataset_class(
                 split=dataset_params.split,
                 subset=dataset_params.subset,
+                dataset_path=dataset_params.dataset_path,
                 tokenizer=tokenizer,
                 trust_remote_code=dataset_params.trust_remote_code,
                 **dataset_params.dataset_kwargs,
