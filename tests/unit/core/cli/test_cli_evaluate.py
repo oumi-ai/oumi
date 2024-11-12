@@ -1,3 +1,4 @@
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import call, patch
@@ -13,6 +14,7 @@ from oumi.core.configs import (
     LMHarnessParams,
     ModelParams,
 )
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -77,3 +79,14 @@ def test_evaluate_with_overrides(app, mock_evaluate):
         if expected_config.lm_harness_params:
             expected_config.lm_harness_params.num_samples = 5
         mock_evaluate.assert_has_calls([call(expected_config)])
+
+
+def test_evaluate_logging_levels(app, mock_evaluate):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "eval.yaml")
+        config: EvaluationConfig = _create_eval_config()
+        config.to_yaml(yaml_path)
+        _ = runner.invoke(app, ["--config", yaml_path, "--log-level", "DEBUG"])
+        assert logger.level == logging.DEBUG
+        _ = runner.invoke(app, ["--config", yaml_path, "-log", "WARNING"])
+        assert logger.level == logging.WARNING
