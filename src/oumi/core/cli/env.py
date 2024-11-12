@@ -1,5 +1,6 @@
 import importlib.metadata
 import importlib.util
+import platform
 from typing import Optional
 
 
@@ -73,7 +74,9 @@ def env():
         formatted_versions.append(k + version)
     print("----------Oumi environment information:----------\n")
     print(f"Oumi version: {_get_package_version('oumi', version_fallback)}")
-    print("Installed dependencies:\n")
+    print(f"Python version: {platform.python_version()}")
+    print(f"Platform: {platform.platform()}\n")
+    print("Installed dependencies:")
     print("{0:{space}}".format("PACKAGE", space=max_length + padding) + "VERSION")
     print("\n".join(formatted_versions))
 
