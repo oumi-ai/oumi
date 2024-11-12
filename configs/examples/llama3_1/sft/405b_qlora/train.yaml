@@ -47,7 +47,7 @@ training:
     use_reentrant: False
   seed: 123
   use_peft: True
-  save_steps: 1
+  save_steps: 100
   logging_steps: 50
   logging_first_step: True
   log_model_summary: True

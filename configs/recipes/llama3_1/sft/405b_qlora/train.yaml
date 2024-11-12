@@ -4,13 +4,13 @@
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"
-  model_max_length: 2048
+  model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
   tokenizer_pad_token: "<|finetune_right_pad_id|>"
-  enable_liger_kernel: True # Helps reduce required VRAM
+  enable_liger_kernel: True
 
 data:
   train:
@@ -60,7 +60,6 @@ peft:
     - "q_proj"
     - "v_proj"
     - "o_proj"
-
 
 fsdp:
   enable_fsdp: True

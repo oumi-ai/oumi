@@ -5,7 +5,7 @@ name: llama405b-fft
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 12
+num_nodes: 20
 resources:
   cloud: polaris
 
