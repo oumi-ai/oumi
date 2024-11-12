@@ -18,16 +18,22 @@ class AggregateMetricCallback(BaseTrainerCallback):
     Should be compatible with all trainers that inherit from transformers.Trainer.
     """
 
-    def __init__(self, num_datasets, metric_name="balanced_accuracy"):
+    def __init__(self, num_datasets, metrics=["loss", "balanced_accuracy"]):
         """Initialize the MfuTrainerCallback.
 
         Args:
             metric_name: Name of the metric to aggregate
         """
         self._num_datasets = num_datasets
-        self._metric_name = metric_name
-        self._agg_metric_name = "eval_avg_" + self._metric_name
+        self._splits = ['eval', 'test']
+        self._metrics = metrics
         self._metric_values = {}
+        for s in self._splits:
+            for m in self._metrics:
+                self._metric_values[(m, s)] = []
+
+    def _get_agg_metric_name(self, metric_name: str, split='eval') -> str:
+        return f"{split}_avg_{metric_name}"
 
     def on_evaluate(
         self,
@@ -36,20 +42,25 @@ class AggregateMetricCallback(BaseTrainerCallback):
         control: Optional[transformers.TrainerControl] = None,
         **kwargs,
     ):
-        try:
-            log = state.log_history[-1]
-            for k in log:
-                if self._metric_name in k and "eval" in k:
-                    self._metric_values[k] = log[k]
-                    break
+        log = state.log_history[-1]
+        for s in self._splits:
+            for m in self._metrics:
+                for k in log:
+                    key = (m, s)
+                    if m in k and s in k:
+                        self._metric_values[key].append(log[k])
+                        break
 
-            if len(self._metric_values.keys()) == self._num_datasets:
-                mean = sum(self._metric_values.values()) / len(
-                    self._metric_values.values()
-                )
-                kwargs[_METRICS_KWARG][self._agg_metric_name] = mean
-        except:
-            return
+        for s in self._splits:
+            for m in self._metrics:
+                key = (m, s)
+                if len(self._metric_values[key]) == self._num_datasets:
+                    mean = sum(self._metric_values[key]) / len(self._metric_values[key])
+                    agg_metric_name = self._get_agg_metric_name(m, s)
+                    kwargs[_METRICS_KWARG][agg_metric_name] = mean
+                    logger.info(
+                        f"{agg_metric_name}: {mean}, {len(self._metric_values[key])}, {str(self._metric_values[key])}"
+                    )
 
     def on_log(
         self,
@@ -58,10 +69,11 @@ class AggregateMetricCallback(BaseTrainerCallback):
         control: Optional[transformers.TrainerControl] = None,
         **kwargs,
     ):
-        if len(self._metric_values.keys()) == self._num_datasets:
-            mean = sum(self._metric_values.values()) / len(self._metric_values.values())
-            kwargs[_LOGS_KWARG][self._agg_metric_name] = mean
-            logger.info(
-                f"{self._agg_metric_name}: {mean}, {len(self._metric_values.keys())}, {str(self._metric_values)}"
-            )
-            self._metric_values = {}
+        for s in self._splits:
+            for m in self._metrics:
+                key = (m, s)
+                if len(self._metric_values[key]) == self._num_datasets:
+                    mean = sum(self._metric_values[key]) / len(self._metric_values[key])
+                    agg_metric_name = self._get_agg_metric_name(m, s)
+                    kwargs[_LOGS_KWARG][agg_metric_name] = mean
+                    self._metric_values[key] = []
