@@ -43,7 +43,8 @@ helpFunction() {
 
 # Copies the model weights from Eagle to the worker's local scratch directory.
 # This results in faster model loading than loading the weights from Eagle during
-# training.
+# training. We then set the HF_HOME environment variable so that HF will read
+# from the local scratch directory.
 #
 # Args:
 #   $1: The model directory in the Eagle cache.
