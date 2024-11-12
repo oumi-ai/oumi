@@ -90,7 +90,7 @@ docs = [
 # Dependencies that require a GPU to install
 gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
 
-# Targets for supportedcloud providers
+# Targets for supported loud providers
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]
 gcp = [
