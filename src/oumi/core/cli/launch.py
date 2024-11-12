@@ -216,6 +216,7 @@ def cancel(
     id: Annotated[
         str, typer.Option(help="Filter results by jobs matching this job ID.")
     ],
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Cancels a job.
 
@@ -223,6 +224,7 @@ def cancel(
         cloud: Filter results by this cloud.
         cluster: Filter results by clusters matching this name.
         id: Filter results by jobs matching this job ID.
+        level: The logging level for the specified command.
     """
     _print_and_wait(
         f"Canceling job {id}", _cancel_worker, id=id, cloud=cloud, cluster=cluster
@@ -237,12 +239,14 @@ def down(
             help="If specified, only clusters on this cloud will be affected."
         ),
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Turns down a cluster.
 
     Args:
         cluster: The cluster to turn down.
         cloud: If specified, only clusters on this cloud will be affected.
+        level: The logging level for the specified command.
     """
     _print_and_wait(
         f"Turning down cluster `{cluster}`",
@@ -272,6 +276,7 @@ def run(
     detach: Annotated[
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Runs a job on the target cluster.
 
@@ -282,6 +287,7 @@ def run(
             cluster will be created. If unspecified, a new cluster will be created with
             a unique name.
         detach: Run the job in the background.
+        level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
@@ -309,6 +315,7 @@ def status(
     id: Annotated[
         Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Prints the status of jobs launched from Oumi.
 
@@ -319,6 +326,7 @@ def status(
         cloud: Filter results by this cloud.
         cluster: Filter results by clusters matching this name.
         id: Filter results by jobs matching this job ID.
+        level: The logging level for the specified command.
     """
     print("========================")
     print("Job status:")
@@ -359,12 +367,14 @@ def stop(
             help="If specified, only clusters on this cloud will be affected."
         ),
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Stops a cluster.
 
     Args:
         cluster: The cluster to stop.
         cloud: If specified, only clusters on this cloud will be affected.
+        level: The logging level for the specified command.
     """
     _print_and_wait(
         f"Stopping cluster `{cluster}`",
@@ -394,6 +404,7 @@ def up(
     detach: Annotated[
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Launches a job.
 
@@ -404,6 +415,7 @@ def up(
             cluster will be created. If unspecified, a new cluster will be created with
             a unique name.
         detach: Run the job in the background.
+        level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
@@ -430,7 +442,7 @@ def up(
     )
 
 
-def which() -> None:
+def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
     """Prints the available clouds."""
     clouds = launcher.which_clouds()
     print("========================")

@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from oumi.core.cli.cli_utils import (
     CONFIG_FLAGS,
     CONTEXT_ALLOW_EXTRA_ARGS,
+    LogLevel,
     parse_extra_cli_args,
 )
 
@@ -56,3 +57,10 @@ def test_parse_extra_cli_args_fails_for_odd_args(app):
     # Verify that results are in the proper dot format.
     result = runner.invoke(app, ["--config", "some/path", "--odd"])
     assert "Extra arguments must be in" in result.output.strip()
+
+
+def test_valid_log_levels():
+    # Verify that the log levels are valid.
+    expected_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+    supported_levels = set(LogLevel.__members__.keys())
+    assert expected_levels == supported_levels
