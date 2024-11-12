@@ -30,38 +30,43 @@ def _get_package_version(package_name: str, version_fallback: str) -> str:
 def env():
     """Prints information about the current environment."""
     version_fallback = "<not installed>"
-    core_packages = [
-        "accelerate",
-        "aiohttp",
-        "bitsandbytes",
-        "datasets",
-        "diffusers",
-        "einops",
-        "jsonlines",
-        "liger-kernel",
-        "lm-eval",
-        "numpy",
-        "nvidia-ml-py",
-        "omegaconf",
-        "open_clip_torch",
-        "pandas",
-        "peft",
-        "pexpect",
-        "pillow",
-        "pydantic",
-        "responses",
-        "skypilot",
-        "tensorboard",
-        "timm",
-        "torch",
-        "torchdata",
-        "tqdm",
-        "transformers",
-        "trl",
-        "typer",
-        "vllm",
-        "wandb",
-    ]
+
+    # All deps, excluding dev, docs, and gcp.
+    core_packages = sorted(
+        [
+            "accelerate",
+            "aiohttp",
+            "bitsandbytes",
+            "datasets",
+            "diffusers",
+            "einops",
+            "jsonlines",
+            "llama-cpp-python",
+            "liger-kernel",
+            "lm-eval",
+            "numpy",
+            "nvidia-ml-py",
+            "omegaconf",
+            "open_clip_torch",
+            "pandas",
+            "peft",
+            "pexpect",
+            "pillow",
+            "pydantic",
+            "responses",
+            "skypilot",
+            "tensorboard",
+            "timm",
+            "torch",
+            "torchdata",
+            "tqdm",
+            "transformers",
+            "trl",
+            "typer",
+            "vllm",
+            "wandb",
+        ]
+    )
     package_versions = {
         package: _get_package_version(package, version_fallback)
         for package in core_packages
