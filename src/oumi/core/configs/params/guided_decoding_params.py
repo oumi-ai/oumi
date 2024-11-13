@@ -6,7 +6,11 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclasses.dataclass
 class GuidedDecodingParams(BaseParams):
-    """Parameters for guided decoding."""
+    """Parameters for guided decoding.
+
+    The parameters are mutually exclusive. Only one of the parameters can be
+    specified at a time.
+    """
 
     # Should be Union[dict, BaseModel, str], but omegaconf does not like Union
     json: Optional[Any] = None
