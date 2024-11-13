@@ -167,6 +167,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             )
         else:
             images, prompt = self._prepare_instruct_model(conversation)
+            if images is not None:
+                for i in range(len(images)):
+                    images[i] = images[i].resize((256, 256))
 
             inputs = self._processor(
                 images=images,
