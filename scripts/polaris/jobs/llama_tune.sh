@@ -153,6 +153,16 @@ if [ "$MODEL_SIZE" == "3b" ]; then
         exit 1
     fi
 elif [ "$MODEL_SIZE" == "8b" ]; then
+    # Copy 8B weights from Eagle to local scratch.
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-8B" \
+        "8d10549bcf802355f2d6203a33ed27e81b15b9e5"
+    else
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-8B-Instruct" \
+        "0e9e39f249a16976918f6564b8830bc894c89659"
+    fi
     if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
             OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_lora/train.yaml"
@@ -220,6 +230,8 @@ else # 405B
     fi
 fi
 
+# The PRETRAIN_DATASETS line evaluates to an empty string if PRETRAIN_DATASETS is not
+# set, and the properly quoted value if set.
 set -x
 torchrun \
     --nnodes=${OUMI_NUM_NODES} \
@@ -229,7 +241,7 @@ torchrun \
     --master-port=8007 \
     -m oumi.train \
     -c "${OUMI_CFG_FILE}" \
-    $PRETRAIN_DATASETS \
+    ${PRETRAIN_DATASETS:+"$PRETRAIN_DATASETS"} \
     $SHARED_TRAINING_PARAMS \
     $ADDITIONAL_TRAINING_PARAMS
 
