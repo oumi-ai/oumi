@@ -1,9 +1,11 @@
+import dataclasses
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from oumi.core.configs.params.base_params import BaseParams
 
 
-class GuidedDecodingParams(BaseModel):
+@dataclasses.dataclass
+class GuidedDecodingParams(BaseParams):
     """Parameters for guided decoding."""
 
     # Should be Union[dict, BaseModel, str], but omegaconf does not like Union
@@ -27,3 +29,11 @@ class GuidedDecodingParams(BaseModel):
     Restricts model output to one of the provided choices. Useful for forcing
     the model to select from a predefined set of options.
     """
+
+    def __post_init__(self) -> None:
+        """Validate parameters."""
+        provided = sum(x is not None for x in [self.json, self.regex, self.choice])
+        if provided > 1:
+            raise ValueError(
+                "Only one of 'json', 'regex', or 'choice' can be specified"
+            )
