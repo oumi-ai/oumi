@@ -136,19 +136,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         generation_params = inference_config.generation
 
-        # Convert Oumi GuidedDecodingParams to vLLM GuidedDecodingParams if present
         guided_decoding = None
         output_conversations = []
 
         if generation_params.guided_decoding is not None:
-            guided_decoding = VLLMGuidedDecodingParams(
+            guided_decoding = VLLMGuidedDecodingParams.from_optional(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,
                 choice=generation_params.guided_decoding.choice,
-                grammar=generation_params.guided_decoding.grammar,
-                json_object=generation_params.guided_decoding.json_object,
-                backend=generation_params.guided_decoding.backend,
-                whitespace_pattern=generation_params.guided_decoding.whitespace_pattern,
             )
 
         sampling_params = SamplingParams(
@@ -161,7 +156,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            guided_decoding=guided_decoding,  # Add guided decoding support
+            guided_decoding=guided_decoding,
         )
 
         vllm_conversations = []
@@ -251,11 +246,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
             "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
-            "stop_token_ids",
         }
