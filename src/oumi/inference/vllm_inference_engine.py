@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import torch
+from typing_extensions import override
 
 from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
@@ -17,7 +18,9 @@ try:
         ChatCompletionMessageParam,
     )
     from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
-    from vllm.sampling_params import GuidedDecodingParams as VLLMGuidedDecodingParams
+    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+        GuidedDecodingParams as VLLMGuidedDecodingParams,
+    )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
@@ -215,6 +218,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
         return output_conversations
 
+    @override
     def infer_online(
         self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -229,6 +233,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -248,6 +253,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
