@@ -5,6 +5,7 @@ from oumi.inference import (
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
     RemoteInferenceEngine,
+    SGLangInferenceEngine,
     VLLMInferenceEngine,
 )
 
@@ -17,6 +18,8 @@ def build_inference_engine(
         return NativeTextInferenceEngine(model_params)
     elif engine_type == InferenceEngineType.VLLM:
         return VLLMInferenceEngine(model_params)
+    elif engine_type == InferenceEngineType.SGLANG:
+        return SGLangInferenceEngine(model_params)
     elif engine_type == InferenceEngineType.LLAMACPP:
         return LlamaCppInferenceEngine(model_params)
     elif engine_type == InferenceEngineType.ANTHROPIC:

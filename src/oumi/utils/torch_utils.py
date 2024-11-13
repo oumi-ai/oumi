@@ -220,6 +220,8 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         return torch.bfloat16
     elif torch_dtype_str in ["f16", "float16", "half"]:
         return torch.float16
+    elif torch_dtype_str in ["uint8"]:
+        return torch.uint8
     else:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
 

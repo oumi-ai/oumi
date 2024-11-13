@@ -9,6 +9,7 @@ from oumi.inference import (
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
     RemoteInferenceEngine,
+    SGLangInferenceEngine,
     VLLMInferenceEngine,
 )
 from oumi.utils.image_utils import load_image_png_bytes_from_path
@@ -26,6 +27,8 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         return NativeTextInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.VLLM:
         return VLLMInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.SGLANG:
+        return SGLangInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.LLAMACPP:
         return LlamaCppInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.ANTHROPIC:

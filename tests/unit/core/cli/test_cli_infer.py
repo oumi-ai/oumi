@@ -1,4 +1,5 @@
 import io
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import call, patch
@@ -16,6 +17,7 @@ from oumi.core.configs import (
     InferenceEngineType,
     ModelParams,
 )
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -146,3 +148,14 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
         expected_config.generation.max_new_tokens = 5
         expected_config.input_path = "some/path"
         mock_infer.assert_has_calls([call(expected_config)])
+
+
+def test_infer_logging_levels(app, mock_infer, mock_infer_interactive):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+        config: InferenceConfig = _create_inference_config()
+        config.to_yaml(yaml_path)
+        _ = runner.invoke(app, ["-i", "--config", yaml_path, "--log-level", "WARNING"])
+        assert logger.level == logging.WARNING
+        _ = runner.invoke(app, ["-i", "--config", yaml_path, "-log", "CRITICAL"])
+        assert logger.level == logging.CRITICAL

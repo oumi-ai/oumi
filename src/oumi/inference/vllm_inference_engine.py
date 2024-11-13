@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import torch
 
 from oumi.builders import build_tokenizer
@@ -55,7 +57,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "Please install the GPU dependencies for this package."
             )
 
-        if gpu_memory_utilization > 1.0 or gpu_memory_utilization <= 0:
+        if not (
+            math.isfinite(gpu_memory_utilization)
+            and gpu_memory_utilization > 0
+            and gpu_memory_utilization <= 1.0
+        ):
             raise ValueError(
                 "GPU memory utilization must be within (0, 1]. Got "
                 f"{gpu_memory_utilization}."
