@@ -45,3 +45,27 @@ Example command for 70B full fine-tuning on GCP:
 ```shell
 oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama3-1
 ```
+
+## 405B
+
+This model is **very** memory-intensive, so be prepared to increase the number of nodes or use memory-reducing parameters to avoid OOMs (see [our documentation page](https://oumi.ai/docs/latest/faq/oom.html) for some examples). Since multi-node training in GCP via Skypilot is very slow, it's recommended to do training in Polaris.
+
+### Model Info
+
+| Attribute | Value |
+|--|--|
+| Vocab size | 128,256 |
+| Hidden size | 16,384 |
+| MLP intermediate size | 53,248 |
+| Num layers | 126 |
+| Num attention heads | 128 |
+| Num KV heads | 8 |
+| Weight tying | False |
+| Model max length | 131,072 (initially trained with 8192) |
+
+### Launch Command
+
+Example command for 405B QLora on Polaris:
+```shell
+oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+```
