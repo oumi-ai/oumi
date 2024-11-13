@@ -42,6 +42,12 @@ except ModuleNotFoundError:
     vllm_import_failed = True
 
 
+@pytest.fixture
+def mock_sampling_params():
+    with patch("oumi.inference.vllm_inference_engine.SamplingParams") as mock:
+        yield mock
+
+
 #
 # Fixtures
 #
@@ -55,18 +61,6 @@ def mock_vllm():
 def mock_lora_request():
     with patch("oumi.inference.vllm_inference_engine.LoRARequest") as mlo:
         yield mlo
-
-
-@pytest.fixture
-def mock_sampling_params():
-    with patch("oumi.inference.vllm_inference_engine.SamplingParams") as mock:
-        yield mock
-
-
-@pytest.fixture
-def engine(mock_vllm):
-    model_params = ModelParams(model_name="test-model")
-    return VLLMInferenceEngine(model_params=model_params)
 
 
 def _get_default_model_params(use_lora: bool = False) -> ModelParams:
