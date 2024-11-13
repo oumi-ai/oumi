@@ -28,13 +28,13 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("sft", "lora", "qlora", "pretrain")
+ALLOWED_TRAINING_MODES=("fft", "lora", "qlora", "pretrain")
 ALLOWED_DISTRIBUTION_MODES=("ddp", "fsdp")
-ALLOWED_MODEL_SIZES=("3b", "8b", "70b")
+ALLOWED_MODEL_SIZES=("3b", "8b", "70b", "405b")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (sft/lora/qlora/pretrain) -d (ddp/fsdp) -s (3b/8b/70b)"
+    echo "Usage: $0 -m (fft/lora/qlora/pretrain) -d (ddp/fsdp) -s (3b/8b/70b/405b)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to lora."
     echo -e "\t-d The distribution mode: ${ALLOWED_DISTRIBUTION_MODES[@]}. Defaults to ddp."
     echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8b."
@@ -98,6 +98,15 @@ SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING
 training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
+if [ "$TRAINING_MODE" == "pretrain" ]; then
+# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
+PRETRAIN_DATASETS="data.train.datasets=
+- dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
+  subset: 'default'
+  split: 'train'
+"
+fi
+
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "3b" ]; then
@@ -126,7 +135,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
                 -m oumi.train \
                 -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
                 $SHARED_TRAINING_PARAMS
-        else # SFT
+        else # FFT
             set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
@@ -169,15 +178,15 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora DDP is currently not supported!"
-        else # SFT
-            echo "Llama 8B SFT DDP is currently not supported!"
+        else # FFT
+            echo "Llama 8B FFT DDP is currently not supported!"
         fi
     else # FSDP
         if [ "$TRAINING_MODE" == "lora" ]; then
             echo "Llama 8B Lora FSDP is currently not supported!"
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora FSDP is currently not supported!"
-        else # SFT
+        else # FFT
             OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/train.yaml"
             if [ "$TRAINING_MODE" == "pretrain" ]; then
                 OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/train.yaml"
@@ -192,10 +201,11 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
                 --master-port=8007 \
                 -m oumi.train \
                 -c "${OUMI_CFG_FILE}" \
+                "$PRETRAIN_DATASETS" \
                 $SHARED_TRAINING_PARAMS
         fi
     fi
-else # 70B
+elif [ "$MODEL_SIZE" == "70b" ]; then
     # Copy the model to our Polaris machine to avoid downloading from HF.
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         rsync -av \
@@ -224,8 +234,17 @@ else # 70B
                 -c configs/recipes/llama3_1/sft/70b_lora/train.yaml \
                 $SHARED_TRAINING_PARAMS
         elif [ "$TRAINING_MODE" == "qlora" ]; then
-            echo "Llama 70B QLora is currently not supported!"
-        else # SFT
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
+                -m oumi.train \
+                -c configs/recipes/llama3_1/sft/70b_qlora/train.yaml \
+                $SHARED_TRAINING_PARAMS
+        else # FFT
             set -x
             torchrun \
                 --nnodes=${OUMI_NUM_NODES} \
@@ -235,6 +254,49 @@ else # 70B
                 --master-port=8007 \
                 -m oumi.train \
                 -c configs/recipes/llama3_1/sft/70b_full/train.yaml \
+                $SHARED_TRAINING_PARAMS
+        fi
+    fi
+else # 405B
+    # 405B can't fit in the user's `/home` directory, so use Eagle as our cache.`
+    export HF_HOME="/eagle/community_ai/.cache/huggingface"
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 405B pretraining is currently not supported!"
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+        echo "Llama 405B DDP is not possible!"
+    else # FSDP
+        if [ "$TRAINING_MODE" == "lora" ]; then
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
+                -m oumi.train \
+                -c configs/recipes/llama3_1/sft/405b_lora/train.yaml \
+                $SHARED_TRAINING_PARAMS
+        elif [ "$TRAINING_MODE" == "qlora" ]; then
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
+                -m oumi.train \
+                -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
+                $SHARED_TRAINING_PARAMS
+        else # FFT
+            set -x
+            torchrun \
+                --nnodes=${OUMI_NUM_NODES} \
+                --node-rank=${POLARIS_NODE_RANK} \
+                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
+                --master-addr=${OUMI_MASTER_ADDR} \
+                --master-port=8007 \
+                -m oumi.train \
+                -c configs/recipes/llama3_1/sft/405b_full/train.yaml \
                 $SHARED_TRAINING_PARAMS
         fi
     fi

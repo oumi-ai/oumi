@@ -36,7 +36,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
         if is_image_text_llm(self._model_params):
-            # Only enable Processor for LLAVA for now
+            # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,

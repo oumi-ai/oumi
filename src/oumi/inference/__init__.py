@@ -8,6 +8,7 @@ from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "RemoteInferenceEngine",
+    "SGLangInferenceEngine",
     "VLLMInferenceEngine",
     "GoogleVertexInferenceEngine",
 ]

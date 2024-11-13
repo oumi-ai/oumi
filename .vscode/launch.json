@@ -120,9 +120,9 @@
                 "--image",
                 "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/examples/vision/llava_7b/infer.yaml"
+                "configs/examples/vision/llama3_2_vision/infer.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Training",

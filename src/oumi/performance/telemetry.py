@@ -241,15 +241,17 @@ class TelemetryTracker:
 
         device_rank_info: DeviceRankInfo = get_device_rank_info()
         temperature = get_nvidia_gpu_temperature(device_rank_info.local_rank)
-        # Log extra info when we see an increase in max temperature above 80C.
-        if temperature >= 80:
+        # Log extra info when we see an increase in max temperature above 78C.
+        if temperature >= 78:
             max_temperature = (
-                np.max(self.state.gpu_temperature) if self.state.gpu_temperature else 0
+                np.max(self.state.gpu_temperature)
+                if len(self.state.gpu_temperature) > 0
+                else 0
             )
             if temperature > max_temperature:
                 info = get_nvidia_gpu_runtime_info(device_rank_info.local_rank)
                 LOGGER.info(
-                    f"Highest temperature {max_temperature}C observed! "
+                    f"Highest temperature {temperature}C observed! "
                     f"{pformat(info)} | {pformat(device_rank_info)}"
                 )
 

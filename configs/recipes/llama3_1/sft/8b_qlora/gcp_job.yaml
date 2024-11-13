@@ -25,7 +25,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer bitsandbytes
+  pip install uv && uv pip install '.[gpu,quant]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct

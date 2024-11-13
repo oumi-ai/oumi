@@ -49,7 +49,6 @@ training:
   enable_wandb: True
 
 peft:
-  q_lora: False
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.0
