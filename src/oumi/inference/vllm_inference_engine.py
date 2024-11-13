@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import torch
 
 from oumi.builders import build_tokenizer
@@ -55,7 +57,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "Please install the GPU dependencies for this package."
             )
 
-        if gpu_memory_utilization > 1.0 or gpu_memory_utilization <= 0:
+        if not (
+            math.isfinite(gpu_memory_utilization)
+            and gpu_memory_utilization > 0
+            and gpu_memory_utilization <= 1.0
+        ):
             raise ValueError(
                 "GPU memory utilization must be within (0, 1]. Got "
                 f"{gpu_memory_utilization}."
@@ -136,19 +142,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         generation_params = inference_config.generation
 
-        # Convert Oumi GuidedDecodingParams to vLLM GuidedDecodingParams if present
         guided_decoding = None
         output_conversations = []
 
         if generation_params.guided_decoding is not None:
-            guided_decoding = VLLMGuidedDecodingParams(
+            guided_decoding = VLLMGuidedDecodingParams.from_optional(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,
                 choice=generation_params.guided_decoding.choice,
-                grammar=generation_params.guided_decoding.grammar,
-                json_object=generation_params.guided_decoding.json_object,
-                backend=generation_params.guided_decoding.backend,
-                whitespace_pattern=generation_params.guided_decoding.whitespace_pattern,
             )
 
         sampling_params = SamplingParams(
@@ -161,7 +162,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            guided_decoding=guided_decoding,  # Add guided decoding support
+            guided_decoding=guided_decoding,
         )
 
         vllm_conversations = []

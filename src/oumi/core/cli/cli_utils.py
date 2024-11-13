@@ -1,4 +1,10 @@
+import logging
+from enum import Enum
+from typing import Annotated, Optional
+
 import typer
+
+from oumi.utils.logging import logger
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
 CONFIG_FLAGS = ["--config", "-c"]
@@ -33,3 +39,40 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             f"Recieved: `{bad_args}`"
         )
     return args
+
+
+class LogLevel(str, Enum):
+    """The available logging levels."""
+
+    DEBUG = logging.getLevelName(logging.DEBUG)
+    INFO = logging.getLevelName(logging.INFO)
+    WARNING = logging.getLevelName(logging.WARNING)
+    ERROR = logging.getLevelName(logging.ERROR)
+    CRITICAL = logging.getLevelName(logging.CRITICAL)
+
+
+def set_log_level(level: Optional[LogLevel]):
+    """Sets the logging level for the current command.
+
+    Args:
+        level (Optional[LogLevel]): The log level to use.
+    """
+    if not level:
+        return
+    uppercase_level = level.upper()
+    logger.setLevel(uppercase_level)
+    print(f"Set log level to {uppercase_level}")
+
+
+LOG_LEVEL_TYPE = Annotated[
+    Optional[LogLevel],
+    typer.Option(
+        "--log-level",
+        "-log",
+        help="The logging level for the specified command.",
+        show_default=False,
+        show_choices=True,
+        case_sensitive=False,
+        callback=set_log_level,
+    ),
+]

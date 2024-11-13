@@ -24,6 +24,17 @@ def setup_logging():
     return logger
 
 
+@pytest.fixture(autouse=True)
+def retain_logging_level():
+    """Fixture to preserve the logging level between tests."""
+    logger = get_logger("oumi")
+    # Store the current log level
+    log_level = logger.level
+    yield
+    # Rehydrate the log level
+    logger.setLevel(log_level)
+
+
 @pytest.fixture
 def single_turn_conversation():
     return Conversation(

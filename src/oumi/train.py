@@ -359,6 +359,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     if is_distributed():
         cleanup_distributed()
+    logger.info(
+        "\n\n» We're always looking for feedback. "
+        "What's one thing we can improve? https://oumi.ai/feedback"
+    )
 
 
 if __name__ == "__main__":
