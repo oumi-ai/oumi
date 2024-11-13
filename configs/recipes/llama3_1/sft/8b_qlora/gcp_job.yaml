@@ -28,7 +28,7 @@ setup: |
   pip install uv && uv pip install '.[gpu,quant]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.
@@ -45,7 +45,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/recipes/llama3_1/sft/8b_qlora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "peft.bnb_4bit_quant_storage=bfloat16"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
