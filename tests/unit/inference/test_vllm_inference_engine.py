@@ -456,7 +456,6 @@ def test_guided_decoding_json(
 
 
 def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
-    """Test inference with regex guided decoding."""
     pattern = r"\d{3}-\d{2}-\d{4}"
 
     config = InferenceConfig(
@@ -488,3 +487,36 @@ def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
     call_kwargs = mock_sampling_params.call_args[1]
     assert "guided_decoding" in call_kwargs
     assert call_kwargs["guided_decoding"].regex == pattern
+
+
+def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
+    choices = ["option1", "option2"]
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+        ),
+        generation=GenerationParams(
+            guided_decoding=GuidedDecodingParams(choice=choices)
+        ),
+    )
+
+    conversation = Conversation(
+        messages=[Message(content="What is your favorite color?", role=Role.USER)]
+    )
+
+    # Mock the VLLM response
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    engine = VLLMInferenceEngine(config.model)
+
+    engine._llm = MagicMock()
+    engine._llm.chat.return_value = [MagicMock(outputs=[MagicMock(text="option1")])]
+
+    result = engine._infer([conversation], config)
+
+    # Verify SamplingParams was called with guided_decoding
+    assert result is not None
+    mock_sampling_params.assert_called_once()
+    call_kwargs = mock_sampling_params.call_args[1]
+    assert "guided_decoding" in call_kwargs
+    assert call_kwargs["guided_decoding"].choice == choices
