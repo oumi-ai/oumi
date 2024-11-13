@@ -13,6 +13,7 @@ _ROLE_KEY: str = "role"
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Remote vLLM."""
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
@@ -65,10 +66,10 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             if generation_params.guided_decoding.json:
                 api_input["guided_json"] = generation_params.guided_decoding.json
 
-            if generation_params.guided_decoding.regex is not None:
+            elif generation_params.guided_decoding.regex is not None:
                 api_input["guided_regex"] = generation_params.guided_decoding.regex
 
-            if generation_params.guided_decoding.choice is not None:
+            elif generation_params.guided_decoding.choice is not None:
                 api_input["guided_choice"] = generation_params.guided_decoding.choice
 
         if generation_params.stop_strings:
