@@ -142,15 +142,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         generation_params = inference_config.generation
 
-        guided_decoding = None
-        output_conversations = []
-
         if generation_params.guided_decoding is not None:
             guided_decoding = VLLMGuidedDecodingParams.from_optional(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,
                 choice=generation_params.guided_decoding.choice,
             )
+        else:
+            guided_decoding = None
 
         sampling_params = SamplingParams(
             n=1,
@@ -165,6 +164,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             guided_decoding=guided_decoding,
         )
 
+        output_conversations = []
         vllm_conversations = []
         non_skipped_conversations = []
         for conversation in input:

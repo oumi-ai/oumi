@@ -4,17 +4,7 @@ from pydantic import BaseModel
 
 
 class GuidedDecodingParams(BaseModel):
-    """Parameters for guided decoding.
-
-    Args:
-        json: JSON schema or Pydantic model to guide the output format.
-        regex: Regular expression pattern to guide the output format.
-        choice: List of allowed choices for the output.
-        grammar: Grammar specification to guide the output format.
-        json_object: Whether to force output to be a valid JSON object.
-        backend: Backend to use for guided decoding.
-        whitespace_pattern: Pattern for handling whitespace in the output.
-    """
+    """Parameters for guided decoding."""
 
     # Should be Union[dict, BaseModel, str], but omegaconf does not like Union
     json: Optional[Any] = None
