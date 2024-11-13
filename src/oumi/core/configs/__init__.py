@@ -116,6 +116,7 @@ __all__ = [
     "EvaluationFramework",
     "FSDPParams",
     "GenerationParams",
+    "GuidedDecodingParams",
     "InferenceConfig",
     "InferenceEngineType",
     "JobConfig",
@@ -137,5 +138,4 @@ __all__ = [
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
-    "GuidedDecodingParams",
 ]

@@ -1,25 +1,29 @@
-from typing import Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
 
 class GuidedDecodingParams(BaseModel):
-    """Parameters for guided decoding.
+    """Parameters for guided decoding."""
 
-    Args:
-        json: JSON schema or Pydantic model to guide the output format.
-        regex: Regular expression pattern to guide the output format.
-        choice: List of allowed choices for the output.
-        grammar: Grammar specification to guide the output format.
-        json_object: Whether to force output to be a valid JSON object.
-        backend: Backend to use for guided decoding.
-        whitespace_pattern: Pattern for handling whitespace in the output.
+    # Should be Union[dict, BaseModel, str], but omegaconf does not like Union
+    json: Optional[Any] = None
+    """JSON schema, Pydantic model, or string to guide the output format.
+
+    Can be a dict containing a JSON schema, a Pydantic model class, or a string
+    containing JSON schema. Used to enforce structured output from the model.
     """
 
-    json: Optional[Union[dict, BaseModel, str]] = None
     regex: Optional[str] = None
+    """Regular expression pattern to guide the output format.
+
+    Pattern that the model output must match. Can be used to enforce specific
+    text formats or patterns.
+    """
+
     choice: Optional[list[str]] = None
-    grammar: Optional[str] = None
-    json_object: Optional[bool] = None
-    backend: Optional[str] = None
-    whitespace_pattern: Optional[str] = None
+    """List of allowed choices for the output.
+
+    Restricts model output to one of the provided choices. Useful for forcing
+    the model to select from a predefined set of options.
+    """
