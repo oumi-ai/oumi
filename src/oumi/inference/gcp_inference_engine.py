@@ -39,6 +39,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         credentials.refresh(Request())  # type: ignore
         return credentials.token  # type: ignore
 
+    @override
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
     ) -> dict[str, str]:
@@ -52,6 +53,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         }
         return headers
 
+    @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
     ) -> dict[str, Any]:
@@ -88,6 +90,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
         return api_input
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {

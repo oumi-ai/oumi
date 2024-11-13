@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import aiohttp
 from tqdm.asyncio import tqdm
+from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
@@ -254,6 +255,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             disable_tqdm = len(tasks) < 2
             return await tqdm.gather(*tasks, disable=disable_tqdm)
 
+    @override
     def infer_online(
         self,
         input: list[Conversation],
@@ -278,6 +280,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -305,6 +308,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {

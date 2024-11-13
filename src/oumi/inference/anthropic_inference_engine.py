@@ -117,6 +117,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "X-API-Key": self._get_api_key(remote_params) or "",
         }
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {

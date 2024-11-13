@@ -7,6 +7,7 @@ import torch
 import transformers
 from tqdm import tqdm
 from transformers import BatchEncoding
+from typing_extensions import override
 
 from oumi.builders import (
     build_model,
@@ -284,6 +285,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         return output_conversations
 
+    @override
     def infer_online(
         self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -298,6 +300,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -316,6 +319,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
