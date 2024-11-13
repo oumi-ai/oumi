@@ -192,8 +192,12 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 continue
             x = inputs[feature_name]
 
-            if isinstance(x, (torch.Tensor, np.ndarray, list)):
-                inputs[feature_name] = x[0]
+            if isinstance(x, (torch.Tensor, np.ndarray)):
+                drop_first_dim = x.shape[0] == 1
+                inputs[feature_name] = x[0] if drop_first_dim else x
+            elif isinstance(x, list):
+                drop_first_dim = len(x) == 1
+                inputs[feature_name] = x[0] if drop_first_dim else x
             else:
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
