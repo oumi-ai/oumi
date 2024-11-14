@@ -17,7 +17,7 @@ data:
 training:
   trainer_type: TRL_SFT
   save_steps: 100
-  num_train_epochs: 1
+  max_steps: 10
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 4
 
@@ -37,4 +37,3 @@ training:
   empty_device_cache_steps: 50
   output_dir: "output/smollm135m.fft"
   include_performance_metrics: True
-  enable_wandb: True

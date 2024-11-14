@@ -1,4 +1,4 @@
-# Inference config for SmolLM 135M Instruct.
+# Eval config for SmolLM 135M Instruct.
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -10,5 +10,10 @@ model:
   trust_remote_code: True
 
 generation:
-  max_new_tokens: 100
   batch_size: 4
+
+lm_harness_params:
+  tasks:
+    - "hellaswag"
+  num_samples: 40
+  num_fewshot: 5
