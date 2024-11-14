@@ -150,12 +150,16 @@ def test_load_image_bytes_to_message_image_url():
         assert output_message == expected_output_message
 
 
-def test_base64encode_image_bytes():
+@pytest.mark.parametrize(
+    "message_type",
+    [Type.IMAGE_BINARY, Type.IMAGE_PATH, Type.IMAGE_URL],
+)
+def test_base64encode_image_bytes(message_type: Type):
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
     png_bytes = create_png_bytes_from_image(pil_image)
 
     base64_str = base64encode_image_bytes(
-        Message(role=Role.USER, type=Type.IMAGE_BINARY, binary=png_bytes)
+        Message(role=Role.USER, type=message_type, binary=png_bytes)
     )
     assert base64_str
     assert base64_str.startswith("data:image/png;base64,iVBOR")
@@ -166,7 +170,7 @@ def test_base64encode_image_bytes():
 
 
 def test_base64encode_image_bytes_invalid_arguments():
-    with pytest.raises(ValueError, match="Message type is not IMAGE_BINARY"):
+    with pytest.raises(ValueError, match="Message type is not an image"):
         base64encode_image_bytes(Message(role=Role.USER, content="hello"))
     with pytest.raises(ValueError, match="No image bytes in message"):
         base64encode_image_bytes(
