@@ -207,8 +207,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params:
             return headers
 
-        if remote_params.api_key is not None:
-            headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
         return headers
 
     async def _query_api(
