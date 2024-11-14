@@ -4,6 +4,7 @@ import os
 from typing import Any, Optional
 
 import aiohttp
+import pydantic
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
@@ -108,6 +109,29 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
+
+        if generation_params.guided_decoding:
+            json_schema = generation_params.guided_decoding.json
+
+            if json_schema is not None:
+                schema_name = (
+                    json_schema.__name__
+                    if isinstance(json_schema, pydantic.BaseModel)
+                    else "Response"  # Use a generic name if no schema is provided.
+                )
+
+                api_input["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": json_schema,
+                    },
+                }
+            else:
+                raise ValueError(
+                    "Only JSON schema guided decoding is supported, got '%s'",
+                    generation_params.guided_decoding,
+                )
 
         return api_input
 
@@ -214,6 +238,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         return result
                     else:
                         retries += 1
+                        print(response_json)
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries."
@@ -312,6 +337,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "logit_bias",
             "max_new_tokens",
             "presence_penalty",
