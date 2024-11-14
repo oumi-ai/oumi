@@ -38,7 +38,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         self._model = model_params.model_name
 
-    def _get_content_for_message(self, message: Message) -> dict[str, Any]:
+    @staticmethod
+    def _get_content_for_message(message: Message) -> dict[str, Any]:
         """Returns the content for a message.
 
         Args:
@@ -68,8 +69,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             _IMAGE_URL_KEY: {message.content or ""},
         }
 
+    @staticmethod
     def _get_list_of_message_json_dicts(
-        self,
         messages: list[Message],
         *,
         group_adjacent_same_role_turns: bool,
@@ -111,7 +112,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 # Set "content" to be a list of dictionaries for more complex cases.
                 content_list = []
                 while idx < end_idx:
-                    content_list.append(self._get_content_for_message(messages[idx]))
+                    content_list.append(
+                        RemoteInferenceEngine._get_content_for_message(messages[idx])
+                    )
                     idx += 1
                 item[_CONTENT_KEY] = content_list
 

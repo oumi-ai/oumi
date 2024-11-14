@@ -1,8 +1,10 @@
 import tempfile
 import time
 from pathlib import Path
+from typing import Final
 
 import jsonlines
+import PIL.Image
 import pytest
 from aioresponses import CallbackResult, aioresponses
 
@@ -14,8 +16,16 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
+from oumi.utils.image_utils import (
+    base64encode_image_bytes,
+    create_png_bytes_from_image,
+)
+from oumi.utils.io_utils import get_oumi_root_directory
 
-_TARGET_SERVER: str = "http://fakeurl"
+_TARGET_SERVER: Final[str] = "http://fakeurl"
+_TEST_IMAGE_DIR: Final[Path] = (
+    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
+)
 
 
 #
@@ -52,6 +62,43 @@ def _setup_input_conversations(filepath: str, conversations: list[Conversation])
     # Add some empty lines into the file
     with open(filepath, "a") as f:
         f.write("\n\n\n")
+
+
+def create_test_text_only_conversation():
+    return Conversation(
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
+            Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
+            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+        ]
+    )
+
+
+def create_test_multimodal_text_image_conversation():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+    return Conversation(
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
+            Message(binary=png_bytes, role=Role.USER, type=Type.IMAGE_BINARY),
+            Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            Message(content="there", role=Role.USER, type=Type.TEXT),
+            Message(content="Greetings!", role=Role.ASSISTANT, type=Type.TEXT),
+            Message(
+                binary=png_bytes,
+                content="http://oumi.ai/test.png",
+                role=Role.ASSISTANT,
+                type=Type.IMAGE_URL,
+            ),
+            Message(content="Describe this image", role=Role.USER, type=Type.TEXT),
+            Message(
+                content=str(_TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"),
+                role=Role.USER,
+                type=Type.IMAGE_PATH,
+            ),
+        ]
+    )
 
 
 #
@@ -734,3 +781,53 @@ def test_infer_from_file_to_file():
                 for line in f:
                     parsed_conversations.append(Conversation.from_json(line))
                 assert expected_result == parsed_conversations
+
+
+def test_get_list_of_message_json_dicts_multimodal():
+    conversation = create_test_multimodal_text_image_conversation()
+    assert len(conversation.messages) == 8
+    assert conversation[1].type == Type.IMAGE_BINARY and conversation[1].binary
+    expected_base64_str = base64encode_image_bytes(
+        conversation[1], add_mime_prefix=True
+    )
+    assert expected_base64_str.startswith("data:image/png;base64,")
+
+    result = RemoteInferenceEngine._get_list_of_message_json_dicts(
+        conversation.messages, group_adjacent_same_role_turns=True
+    )
+
+    assert len(result) == 4
+    assert [m["role"] for m in result] == ["system", "user", "assistant", "user"]
+
+    assert result[0] == {"role": "system", "content": "You are an assistant!"}
+
+    assert result[1]["role"] == "user"
+    assert isinstance(result[1]["content"], list) and len(result[1]["content"]) == 3
+    assert all([isinstance(item, dict) for item in result[1]["content"]])
+    assert result[1]["content"][0] == {
+        "type": "image_url",
+        "image_url": {"url": expected_base64_str},
+    }
+    assert result[1]["content"][1] == {"type": "text", "text": "Hello"}
+    assert result[1]["content"][2] == {"type": "text", "text": "there"}
+
+    assert result[2]["role"] == "assistant"
+    assert isinstance(result[2]["content"], list) and len(result[2]["content"]) == 2
+    assert all([isinstance(item, dict) for item in result[2]["content"]])
+    assert result[2]["content"][0] == {"type": "text", "text": "Greetings!"}
+    assert result[2]["content"][1] == {
+        "type": "image_url",
+        "image_url": {"url": expected_base64_str},
+    }
+
+    assert result[3]["role"] == "user"
+    assert isinstance(result[3]["content"], list) and len(result[3]["content"]) == 2
+    assert all([isinstance(item, dict) for item in result[3]["content"]])
+    assert result[3]["content"][0] == {"type": "text", "text": "Describe this image"}
+    tsunami_base64_image_str = result[3]["content"][1]["image_url"]["url"]
+    assert isinstance(tsunami_base64_image_str, str)
+    assert tsunami_base64_image_str.startswith("data:image/png;base64,")
+    assert result[3]["content"][1] == {
+        "type": "image_url",
+        "image_url": {"url": tsunami_base64_image_str},
+    }

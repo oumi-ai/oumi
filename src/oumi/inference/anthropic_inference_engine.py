@@ -73,7 +73,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         # See https://docs.anthropic.com/claude/reference/messages_post
         body = {
             "model": self._model,
-            "messages": self._get_list_of_message_json_dicts(
+            "messages": RemoteInferenceEngine._get_list_of_message_json_dicts(
                 messages, group_adjacent_same_role_turns=True
             ),
             "max_tokens": generation_params.max_new_tokens,
