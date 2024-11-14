@@ -76,7 +76,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _get_list_of_message_json_dicts(
         self,
         messages: list[Message],
-        group_adjacent_same_role_turns: bool = False,
+        *,
+        group_adjacent_same_role_turns: bool,
     ) -> list[dict[str, Any]]:
         """Returns a list of JSON dictionaries representing messages.
 
@@ -103,16 +104,23 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 ):
                     end_idx += 1
 
-            content_list = []
             item: dict[str, Any] = {
                 _ROLE_KEY: messages[idx].role.value,
-                _CONTENT_KEY: content_list,
             }
-            while idx < end_idx:
-                content_list.append(self._get_content_for_message(messages[idx]))
-                idx += 1
+            group_size = end_idx - idx
+            if group_size == 1 and messages[idx].is_text():
+                # Set "content" to a primitive string value, which is the common
+                # convention for text-only models.
+                item[_CONTENT_KEY] = messages[idx].content
+            else:
+                # Set "content" to be a list of dictionaries for more complex cases.
+                content_list = []
+                while idx < end_idx:
+                    content_list.append(self._get_content_for_message(messages[idx]))
+                    idx += 1
+                item[_CONTENT_KEY] = content_list
 
-            assert idx == end_idx
+            idx = end_idx
             result.append(item)
 
         return result

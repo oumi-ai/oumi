@@ -45,7 +45,9 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
         """
         api_input = {
             "model": self._model,
-            "messages": self._get_list_of_message_json_dicts(conversation.messages),
+            "messages": self._get_list_of_message_json_dicts(
+                conversation.messages, group_adjacent_same_role_turns=True
+            ),
             # "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
