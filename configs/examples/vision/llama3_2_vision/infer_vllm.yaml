@@ -13,4 +13,4 @@ generation:
     # For details, see https://platform.openai.com/docs/api-reference/chat/create
     api_url: "http://localhost:30000/v1/chat/completions"
 
-engine: VLLM
+engine: REMOTE_VLLM

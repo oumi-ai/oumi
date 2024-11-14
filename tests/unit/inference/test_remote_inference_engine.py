@@ -77,9 +77,22 @@ def create_test_text_only_conversation():
     )
 
 
-def create_test_multimodal_text_image_conversation():
+def create_test_png_image_bytes() -> bytes:
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
-    png_bytes = create_png_bytes_from_image(pil_image)
+    return create_png_bytes_from_image(pil_image)
+
+
+def create_test_png_image_base64_str() -> str:
+    return base64encode_image_bytes(
+        Message(
+            role=Role.USER, binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY
+        ),
+        add_mime_prefix=True,
+    )
+
+
+def create_test_multimodal_text_image_conversation():
+    png_bytes = create_test_png_image_bytes()
     return Conversation(
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
@@ -785,13 +798,10 @@ def test_infer_from_file_to_file():
                 assert expected_result == parsed_conversations
 
 
-def test_get_list_of_message_json_dicts_multimodal():
+def test_get_list_of_message_json_dicts_multimodal_with_grouping():
     conversation = create_test_multimodal_text_image_conversation()
     assert len(conversation.messages) == 8
-    assert conversation[1].type == Type.IMAGE_BINARY and conversation[1].binary
-    expected_base64_str = base64encode_image_bytes(
-        conversation[1], add_mime_prefix=True
-    )
+    expected_base64_str = create_test_png_image_base64_str()
     assert expected_base64_str.startswith("data:image/png;base64,")
 
     result = RemoteInferenceEngine._get_list_of_message_json_dicts(
@@ -833,6 +843,67 @@ def test_get_list_of_message_json_dicts_multimodal():
         "type": "image_url",
         "image_url": {"url": tsunami_base64_image_str},
     }
+
+
+@pytest.mark.parametrize(
+    "conversation,group_adjacent_same_role_turns",
+    [
+        (create_test_multimodal_text_image_conversation(), False),
+        (create_test_text_only_conversation(), False),
+        (create_test_text_only_conversation(), True),
+    ],
+)
+def test_get_list_of_message_json_dicts_multimodal_no_grouping(
+    conversation: Conversation, group_adjacent_same_role_turns: bool
+):
+    result = RemoteInferenceEngine._get_list_of_message_json_dicts(
+        conversation.messages,
+        group_adjacent_same_role_turns=group_adjacent_same_role_turns,
+    )
+
+    assert len(result) == len(conversation.messages)
+    assert [m["role"] for m in result] == [m.role for m in conversation.messages]
+
+    for i in range(len(result)):
+        json_dict = result[i]
+        message = conversation.messages[i]
+        debug_info = f"Index: {i} JSON: {json_dict} Message: {message}"
+        if len(debug_info) > 1024:
+            debug_info = debug_info[:1024] + " ..."
+
+        assert "role" in json_dict, debug_info
+        assert message.role == json_dict["role"], debug_info
+        if message.is_text():
+            assert message.content == json_dict["content"], debug_info
+        else:
+            assert message.is_image(), debug_info
+            assert "content" in json_dict, debug_info
+            assert isinstance(json_dict["content"], list), debug_info
+            assert len(json_dict["content"]) == 1, debug_info
+            assert isinstance(json_dict["content"][0], dict), debug_info
+            assert "type" in json_dict["content"][0], debug_info
+            assert json_dict["content"][0]["type"] == "image_url", debug_info
+            assert "image_url" in json_dict["content"][0], debug_info
+            assert "url" in json_dict["content"][0]["image_url"], debug_info
+
+            if message.binary:
+                expected_base64_bytes_str = base64encode_image_bytes(
+                    message, add_mime_prefix=True
+                )
+                assert len(expected_base64_bytes_str) == len(
+                    json_dict["content"][0]["image_url"]["url"]
+                )
+                assert json_dict["content"][0]["image_url"] == {
+                    "url": expected_base64_bytes_str
+                }, debug_info
+            elif message.type == Type.IMAGE_URL:
+                assert json_dict["content"][0]["image_url"] == {
+                    "url": message.content
+                }, debug_info
+            elif message.type == Type.IMAGE_PATH:
+                assert json_dict["content"][0]["image_url"]["url"].startswith(
+                    "data:image/png;base64,"
+                ), debug_info
 
 
 def test_get_request_headers_no_remote_params():

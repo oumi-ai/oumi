@@ -27,10 +27,9 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     elif config.engine == InferenceEngineType.NATIVE:
         return NativeTextInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.VLLM:
-        if config.generation.remote_params is not None:
-            return RemoteVLLMInferenceEngine(config.model)
-        else:
-            return VLLMInferenceEngine(config.model)
+        return VLLMInferenceEngine(config.model)
+    elif config.engine == InferenceEngineType.REMOTE_VLLM:
+        return RemoteVLLMInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.SGLANG:
         return SGLangInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.LLAMACPP:
