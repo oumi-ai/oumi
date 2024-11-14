@@ -1,6 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Final, NamedTuple, Optional, Union
 
 import numpy as np
@@ -16,6 +17,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import get_first_dim_len
 
 
 class _SpecialTokens(NamedTuple):
@@ -26,9 +28,19 @@ class _SpecialTokens(NamedTuple):
     label_ignore_index: Optional[int]
 
 
+class _FirstDimAction(Enum):
+    """Enum representing how to handle the first feature dimension."""
+
+    DROP = "drop"
+    """The first dimension is commonly dummy (length: 1) and can be dropped."""
+
+    KEEP = "keep"
+
+
 class InputFeatureSpec(NamedTuple):
     feature_name: str
     required: bool
+    first_dim_action: _FirstDimAction = _FirstDimAction.DROP
 
 
 _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
@@ -41,7 +53,12 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
     InputFeatureSpec(feature_name="cross_attention_mask", required=False),
     # Qwen2 VL
-    InputFeatureSpec(feature_name="image_grid_thw", required=False),
+    InputFeatureSpec(
+        feature_name="image_grid_thw",
+        required=False,
+        # The fist dimension in Qwen2-VL model is non-dummy and must be preserved.
+        first_dim_action=_FirstDimAction.KEEP,
+    ),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
     spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
@@ -194,17 +211,21 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             if (not feature_spec.required) and (feature_name not in inputs):
                 continue
             x = inputs[feature_name]
+            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
+                raise ValueError
 
-            if isinstance(x, (torch.Tensor, np.ndarray)):
-                drop_first_dim = x.shape[0] == 1
-                inputs[feature_name] = x[0] if drop_first_dim else x
-            elif isinstance(x, list):
-                drop_first_dim = len(x) == 1
-                inputs[feature_name] = x[0] if drop_first_dim else x
+            if feature_spec.first_dim_action == _FirstDimAction.DROP:
+                first_dim_len = get_first_dim_len(x)
+                if first_dim_len > 1:
+                    logger.warning(
+                        "The first dimension is non-dummy and dropped. "
+                        f"Feature: '{feature_name}'. Length: {first_dim_len}). "
+                        "It may lead to data-loss, and to tensor shape errors."
+                    )
+                inputs[feature_name] = x[0]
             else:
-                raise ValueError(
-                    f"Unexpected type of the feature '{feature_name}': {type(x)}"
-                )
+                assert feature_spec.first_dim_action == _FirstDimAction.KEEP
+                inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
