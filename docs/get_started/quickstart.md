@@ -53,7 +53,13 @@ lineDelay: 700
 - "Saving model to output/smollm-135m-fft..."
 ```
 
-This uses the configuration in `configs/recipes/smollm/sft/135m/train.yaml`.
+This uses the configuration in `configs/recipes/smollm/sft/135m/train.yaml`:
+
+````{dropdown} configs/recipes/smollm/sft/135m/train.yaml
+```{literalinclude} ../../configs/recipes/smollm/sft/135m/train.yaml
+:language: yaml
+```
+````
 
 You can easily override any parameters:
 
@@ -84,6 +90,12 @@ torchrun --nproc_per_node=4 oumi train \
 
 To evaluate a trained model:
 
+````{dropdown} configs/recipes/smollm/evaluation/135m_eval.yaml
+```{literalinclude} ../../configs/recipes/smollm/evaluation/135m_eval.yaml
+:language: yaml
+```
+````
+
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
   --model.model_name output/smollm-135m-sft  # the path to our trained model \
@@ -93,6 +105,12 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
 ## Inference
 
 To run inference with a trained model:
+
+````{dropdown} configs/recipes/smollm/inference/135m_infer.yaml
+```{literalinclude} ../../configs/recipes/smollm/inference/135m_infer.yaml
+:language: yaml
+```
+````
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
@@ -107,12 +125,24 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
 So far we have been using the `train`, `evaluate`, and `infer` commands to run jobs locally.
 To launch a distributed training job:
 
+````{dropdown} configs/recipes/smollm/launch/135m_gcp_train.yaml
+```{literalinclude} ../../configs/recipes/smollm/launch/135m_gcp_train.yaml
+:language: yaml
+```
+````
+
 ```bash
-oumi launch up -c configs/recipes/smollm/launch/gcp_train.yaml
+oumi launch up -c configs/recipes/smollm/launch/135m_gcp_train.yaml
 ```
 
 To launch an evaluation job:
 
+````{dropdown} configs/recipes/smollm/launch/135m_gcp_evaluate.yaml
+```{literalinclude} ../../configs/recipes/smollm/launch/135m_gcp_evaluate.yaml
+:language: yaml
+```
+````
+
 ```bash
-oumi launch up -c configs/recipes/smollm/launch/gcp_evaluate.yaml
+oumi launch up -c configs/recipes/smollm/launch/135m_gcp_evaluate.yaml
 ```
