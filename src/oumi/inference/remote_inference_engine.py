@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import os
 from typing import Any, Optional
 
@@ -114,17 +115,32 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             json_schema = generation_params.guided_decoding.json
 
             if json_schema is not None:
-                schema_name = (
-                    json_schema.__name__
-                    if isinstance(json_schema, pydantic.BaseModel)
-                    else "Response"  # Use a generic name if no schema is provided.
-                )
+                if isinstance(json_schema, type) and issubclass(
+                    json_schema, pydantic.BaseModel
+                ):
+                    schema_name = json_schema.__name__
+                    schema_value = json_schema.model_json_schema()
+                elif isinstance(json_schema, dict):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    schema_value = json_schema
+                elif isinstance(json_schema, str):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    # Try to parse as JSON string
+                    schema_value = json.loads(json_schema)
+                else:
+                    raise ValueError(
+                        f"Got unsupported JSON schema type: {type(json_schema)}"
+                        "Please provide a Pydantic model or a JSON schema as a "
+                        "string or dict."
+                    )
 
                 api_input["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
                         "name": schema_name,
-                        "schema": json_schema,
+                        "schema": schema_value,
                     },
                 }
             else:

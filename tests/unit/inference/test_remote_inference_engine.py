@@ -1,3 +1,4 @@
+import json
 import tempfile
 import time
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 import jsonlines
 import pytest
 from aioresponses import CallbackResult, aioresponses
+from pydantic import BaseModel
 
 from oumi.core.configs import (
     GenerationParams,
@@ -12,6 +14,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
 
@@ -734,3 +737,222 @@ def test_infer_from_file_to_file():
                 for line in f:
                     parsed_conversations.append(Conversation.from_json(line))
                 assert expected_result == parsed_conversations
+
+
+def test_convert_conversation_to_api_input_with_json_schema():
+    """Test conversion with JSON schema guided decoding."""
+
+    class ResponseSchema(BaseModel):
+        answer: str
+        confidence: float
+
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=ResponseSchema),
+    )
+
+    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+
+    assert result["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ResponseSchema",
+            "schema": ResponseSchema.model_json_schema(),
+        },
+    }
+
+
+def test_convert_conversation_to_api_input_without_guided_decoding():
+    """Test conversion without guided decoding."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    generation_params = GenerationParams(max_new_tokens=5)
+    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+
+    assert "response_format" not in result
+
+
+def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
+    """Test conversion with invalid guided decoding raises error."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=None),
+    )
+
+    with pytest.raises(
+        ValueError, match="Only JSON schema guided decoding is supported"
+    ):
+        engine._convert_conversation_to_api_input(conversation, generation_params)
+
+
+def test_convert_conversation_to_api_input_with_dict_schema():
+    """Test conversion with JSON schema provided as a dictionary."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    schema_dict = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+        "required": ["answer", "confidence"],
+    }
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=schema_dict),
+    )
+
+    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+
+    assert result["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "Response",  # Generic name for dict schema
+            "schema": schema_dict,
+        },
+    }
+
+
+def test_convert_conversation_to_api_input_with_json_string_schema():
+    """Test conversion with JSON schema provided as a JSON string."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    schema_str = """{
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"}
+        },
+        "required": ["answer", "confidence"]
+    }"""
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=schema_str),
+    )
+
+    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+
+    assert result["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "Response",  # Generic name for string schema
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "answer": {"type": "string"},
+                    "confidence": {"type": "number"},
+                },
+                "required": ["answer", "confidence"],
+            },
+        },
+    }
+
+
+def test_convert_conversation_to_api_input_with_invalid_json_string():
+    """Test conversion with invalid JSON string raises error."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    invalid_schema_str = "{invalid json string}"
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=invalid_schema_str),
+    )
+
+    with pytest.raises(json.JSONDecodeError):
+        engine._convert_conversation_to_api_input(conversation, generation_params)
+
+
+def test_convert_conversation_to_api_input_with_unsupported_schema_type():
+    """Test conversion with unsupported schema type raises error."""
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                content="Hello world!",
+                role=Role.USER,
+            ),
+        ],
+        metadata={},
+        conversation_id="123",
+    )
+
+    # Using an integer as an invalid schema type
+    invalid_schema = 42
+
+    generation_params = GenerationParams(
+        max_new_tokens=5,
+        guided_decoding=GuidedDecodingParams(json=invalid_schema),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Got unsupported JSON schema type",
+    ):
+        engine._convert_conversation_to_api_input(conversation, generation_params)
