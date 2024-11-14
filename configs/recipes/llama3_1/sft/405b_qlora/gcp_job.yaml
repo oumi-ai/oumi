@@ -33,9 +33,12 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install '.[gpu,quant]' hf_transfer
-  # Install model from HF Hub. This tool increases download speed compared to
-  # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct
+  # Recommended: Copy the model from our cache in GCS
+  # mkdir -p ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
+  # gsutil -m cp -n gs://oumi-dev-us-central1/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/*  ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
+
+  # NOT RECOMMENDED: Download the model from HF (takes over an hour)
+  # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.
@@ -52,7 +55,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "peft.bnb_4bit_quant_storage=bfloat16"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

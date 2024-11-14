@@ -1,10 +1,13 @@
 import asyncio
 import base64
+import json
 import os
 from typing import Any, Optional
 
 import aiohttp
+import pydantic
 from tqdm.asyncio import tqdm
+from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
@@ -108,6 +111,44 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
+        if generation_params.guided_decoding:
+            json_schema = generation_params.guided_decoding.json
+
+            if json_schema is not None:
+                if isinstance(json_schema, type) and issubclass(
+                    json_schema, pydantic.BaseModel
+                ):
+                    schema_name = json_schema.__name__
+                    schema_value = json_schema.model_json_schema()
+                elif isinstance(json_schema, dict):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    schema_value = json_schema
+                elif isinstance(json_schema, str):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    # Try to parse as JSON string
+                    schema_value = json.loads(json_schema)
+                else:
+                    raise ValueError(
+                        f"Got unsupported JSON schema type: {type(json_schema)}"
+                        "Please provide a Pydantic model or a JSON schema as a "
+                        "string or dict."
+                    )
+
+                api_input["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": schema_value,
+                    },
+                }
+            else:
+                raise ValueError(
+                    "Only JSON schema guided decoding is supported, got '%s'",
+                    generation_params.guided_decoding,
+                )
+
         return api_input
 
     def _convert_api_output_to_conversation(
@@ -156,8 +197,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params:
             return headers
 
-        if remote_params.api_key is not None:
-            headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
         return headers
 
     async def _query_api(
@@ -254,6 +294,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             disable_tqdm = len(tasks) < 2
             return await tqdm.gather(*tasks, disable=disable_tqdm)
 
+    @override
     def infer_online(
         self,
         input: list[Conversation],
@@ -278,6 +319,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -305,10 +347,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "logit_bias",
             "max_new_tokens",
             "presence_penalty",

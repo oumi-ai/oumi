@@ -42,7 +42,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/recipes/llama3_2/sft/3b_qlora/fsdp_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "peft.bnb_4bit_quant_storage=bfloat16"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

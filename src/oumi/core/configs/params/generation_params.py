@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.remote_params import RemoteParams
 
 
@@ -100,6 +101,9 @@ class GenerationParams(BaseParams):
     """Whether to use sampling for next-token generation. If False, uses greedy
     decoding.
     Default is False."""
+
+    guided_decoding: Optional[GuidedDecodingParams] = None
+    """Parameters for guided decoding."""
 
     def __post_init__(self):
         """Validates generation-specific parameters."""
