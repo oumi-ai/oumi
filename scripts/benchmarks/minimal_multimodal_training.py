@@ -142,7 +142,7 @@ def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
-    max_steps: int = 200,
+    max_steps: int = 20,
     optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
