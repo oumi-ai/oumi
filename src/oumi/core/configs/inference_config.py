@@ -17,7 +17,7 @@ class InferenceEngineType(str, Enum):
     """The vLLM inference engine started locally by oumi using vLLM library."""
 
     REMOTE_VLLM = "VLLM"
-    """The external vLLM inference engine running remotely."""
+    """The external vLLM inference engine."""
 
     SGLANG = "SGLANG"
     """The SGLang inference engine."""
@@ -57,7 +57,7 @@ class InferenceConfig(BaseConfig):
 
         - NATIVE: Use the native inference engine via a local forward pass.
         - VLLM: Use the vLLM inference engine started locally by oumi.
-        - REMOTE_VLLM: Use the vLLM inference engine running remotely.
+        - REMOTE_VLLM: Use the external vLLM inference engine.
         - SGLANG: Use the SGLang inference engine.
         - LLAMACPP: Use LlamaCPP inference engine.
         - REMOTE: Use the inference engine for APIs that implement the OpenAI Chat API
