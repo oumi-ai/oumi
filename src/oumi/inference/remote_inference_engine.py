@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import os
 from typing import Any, Optional
 
@@ -16,6 +15,7 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import base64encode_image_bytes, load_image_bytes_to_message
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -47,31 +47,26 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: The content for the message.
         """
-        content: dict[str, Any] = {
-            _TYPE_KEY: message.type.value,
-        }
-        b64_image = None if message.binary is None else base64.b64encode(message.binary)
-
         if message.type == Type.TEXT:
-            content[_TEXT_KEY] = message.content or ""
-        elif message.type == Type.IMAGE_URL:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_PATH:
-            if message.content and not b64_image:
-                with open(message.content, "rb") as image_file:
-                    b64_image = base64.b64encode(image_file.read())
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_BINARY:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        else:
+            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (message.content or "")}
+        elif not message.is_image():
             raise ValueError(f"Unsupported message type: {message.type}")
-        return content
+
+        if not message.binary and message.type != Type.IMAGE_URL:
+            message = load_image_bytes_to_message(message)
+
+        if message.binary:
+            b64_image = base64encode_image_bytes(message, add_mime_prefix=True)
+            return {
+                _TYPE_KEY: Type.IMAGE_URL.value,
+                _IMAGE_URL_KEY: {_URL_KEY: b64_image},
+            }
+
+        assert message.type == Type.IMAGE_URL
+        return {
+            _TYPE_KEY: Type.IMAGE_URL.value,
+            _IMAGE_URL_KEY: {message.content or ""},
+        }
 
     def _get_list_of_message_json_dicts(
         self,
