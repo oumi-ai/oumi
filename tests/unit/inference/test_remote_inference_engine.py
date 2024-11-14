@@ -1,7 +1,9 @@
 import json
+import os
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import jsonlines
 import pytest
@@ -956,3 +958,36 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
         match="Got unsupported JSON schema type",
     ):
         engine._convert_conversation_to_api_input(conversation, generation_params)
+
+
+def test_get_request_headers_no_remote_params():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    headers = engine._get_request_headers(None)
+    assert headers == {}
+
+
+def test_get_request_headers_with_api_key():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+    remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="test-key")
+    headers = engine._get_request_headers(remote_params)
+    assert headers == {"Authorization": "Bearer test-key"}
+
+
+def test_get_request_headers_with_env_var():
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "env-test-key"}):
+        engine = RemoteInferenceEngine(_get_default_model_params())
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER, api_key_env_varname="OPENAI_API_KEY"
+        )
+        headers = engine._get_request_headers(remote_params)
+        assert headers == {"Authorization": "Bearer env-test-key"}
+
+
+def test_get_request_headers_missing_env_var():
+    with patch.dict(os.environ, {}, clear=True):
+        engine = RemoteInferenceEngine(_get_default_model_params())
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER, api_key_env_varname="NONEXISTENT_API_KEY"
+        )
+        headers = engine._get_request_headers(remote_params)
+        assert headers == {"Authorization": "Bearer None"}
