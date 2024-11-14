@@ -73,6 +73,50 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError(f"Unsupported message type: {message.type}")
         return content
 
+    def _get_list_of_message_json_dicts(
+        self,
+        messages: list[Message],
+        group_adjacent_same_role_turns: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Returns a list of JSON dictionaries representing messages.
+
+        Loads image bytes and encodes them as base64.
+
+        Args:
+            messages: The input messages.
+            group_adjacent_same_role_turns: Whether to pack adjacent messages
+                from the same role into a single element in output list.
+                This is useful for multimodal conversations to join adjacent image
+                and text turns.
+
+        Returns:
+            list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
+        """
+        num_messages = len(messages)
+        result = []
+        idx = 0
+        while idx < num_messages:
+            end_idx = idx + 1
+            if group_adjacent_same_role_turns:
+                while end_idx < num_messages and (
+                    messages[idx].role == messages[end_idx].role
+                ):
+                    end_idx += 1
+
+            content_list = []
+            item: dict[str, Any] = {
+                _ROLE_KEY: messages[idx].role.value,
+                _CONTENT_KEY: content_list,
+            }
+            while idx < end_idx:
+                content_list.append(self._get_content_for_message(messages[idx]))
+                idx += 1
+
+            assert idx == end_idx
+            result.append(item)
+
+        return result
+
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
     ) -> dict[str, Any]:
