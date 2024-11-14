@@ -5,6 +5,7 @@ import torch
 from oumi.utils.torch_utils import (
     convert_to_list_of_tensors,
     create_ones_like,
+    get_first_dim_len,
     get_torch_dtype,
     pad_sequences,
     pad_sequences_left_side,
@@ -290,3 +291,39 @@ def test_get_torch_dtype(dtype_str, expected_dtype):
 def test_get_torch_dtype_invalid():
     with pytest.raises(ValueError, match="Unsupported torch dtype: invalid_dtype"):
         get_torch_dtype("invalid_dtype")
+
+
+def test_get_first_dim_len_list():
+    assert get_first_dim_len([]) == 0
+    assert get_first_dim_len([1]) == 1
+    assert get_first_dim_len([1, 2, 3]) == 3
+    assert get_first_dim_len([1, [[6, 9], 7], "abc"]) == 3
+    assert get_first_dim_len([[[6, 9], 7], "abc"]) == 2
+
+
+def test_get_first_dim_len_numpy_array():
+    assert get_first_dim_len(np.asarray([])) == 0
+    assert get_first_dim_len(np.asarray([1])) == 1
+    assert get_first_dim_len(np.asarray([1, 2, 3])) == 3
+    assert get_first_dim_len(np.asarray([[1, 2, 3]])) == 1
+    assert get_first_dim_len(np.asarray([[1, 2, 3], [1, 2, 3]])) == 2
+    assert get_first_dim_len(np.asarray([["a1", "a2", "a3"], ["x1", "x2", "x3"]])) == 2
+
+
+def test_get_first_dim_len_torch_tensor():
+    assert get_first_dim_len(torch.from_numpy(np.asarray([]))) == 0
+    assert get_first_dim_len(torch.from_numpy(np.asarray([1]))) == 1
+    assert get_first_dim_len(torch.from_numpy(np.asarray([1, 2, 3]))) == 3
+    assert get_first_dim_len(torch.from_numpy(np.asarray([[1, 2, 3]]))) == 1
+    assert get_first_dim_len(torch.from_numpy(np.asarray([[1, 2, 3], [1, 2, 3]]))) == 2
+
+
+def test_get_first_dim_len_bad_input_type():
+    with pytest.raises(ValueError, match="Unsupported type"):
+        get_first_dim_len("hello")
+    with pytest.raises(ValueError, match="Unsupported type"):
+        get_first_dim_len(123)
+    with pytest.raises(ValueError, match="Unsupported type"):
+        get_first_dim_len(float(123))
+    with pytest.raises(ValueError, match="Unsupported type"):
+        get_first_dim_len(test_get_first_dim_len_bad_input_type)
