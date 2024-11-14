@@ -18,21 +18,25 @@ class AggregateMetricCallback(BaseTrainerCallback):
     Should be compatible with all trainers that inherit from transformers.Trainer.
     """
 
-    def __init__(self, num_datasets, metrics=["loss", "balanced_accuracy"]):
+    def __init__(
+        self,
+        num_datasets,
+        metrics=["loss", "balanced_accuracy", "f1_score", "pr_auc", "roc_auc"],
+    ):
         """Initialize the MfuTrainerCallback.
 
         Args:
             metric_name: Name of the metric to aggregate
         """
         self._num_datasets = num_datasets
-        self._splits = ['eval', 'test']
+        self._splits = ["eval", "test"]
         self._metrics = metrics
         self._metric_values = {}
         for s in self._splits:
             for m in self._metrics:
                 self._metric_values[(m, s)] = []
 
-    def _get_agg_metric_name(self, metric_name: str, split='eval') -> str:
+    def _get_agg_metric_name(self, metric_name: str, split="eval") -> str:
         return f"{split}_avg_{metric_name}"
 
     def on_evaluate(

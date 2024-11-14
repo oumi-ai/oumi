@@ -11,7 +11,7 @@ fsdp_config:
   fsdp_forward_prefetch: true
   fsdp_limit_all_gathers: true
   fsdp_offload_params: false
-  fsdp_sharding_strategy: HYBRID_SHARD
+  fsdp_sharding_strategy: FULL_SHARD
   fsdp_state_dict_type: FULL_STATE_DICT
   fsdp_sync_module_states: true
   fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
@@ -19,7 +19,7 @@ fsdp_config:
 machine_rank: 0
 main_training_function: main
 num_machines: 1
-num_processes: 4
+num_processes: 8
 rdzv_backend: static
 same_network: true
 tpu_env: []

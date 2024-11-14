@@ -300,13 +300,34 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # metrics_function = build_metrics_function(config.training)
     import numpy as np
-    from sklearn.metrics import balanced_accuracy_score
+    from sklearn.metrics import (
+        auc,
+        average_precision_score,
+        balanced_accuracy_score,
+        f1_score,
+        roc_curve,
+    )
 
     def compute_metrics(eval_pred):
         predictions, labels = eval_pred
-        predictions = np.argmax(predictions, axis=1)
-        score = balanced_accuracy_score(labels, predictions)
-        return {"balanced_accuracy": score}
+        if isinstance(predictions, tuple):
+            predictions = predictions[0]  # T5 outputs tuples
+        soft_max = (
+            np.exp(predictions) / np.sum(np.exp(predictions), axis=1)[:, np.newaxis]
+        )
+        positive_preds = [p[1] for p in soft_max]
+        arg_max = np.argmax(soft_max, axis=1)
+        bacc = balanced_accuracy_score(labels, arg_max)
+        f1 = f1_score(labels, arg_max)
+        fpr, tpr, _ = roc_curve(labels, positive_preds, pos_label=1)
+        roc_auc = auc(fpr, tpr)
+        pr_auc = average_precision_score(labels, positive_preds, pos_label=1)
+        return {
+            "balanced_accuracy": bacc,
+            "f1_score": f1,
+            "pr_auc": pr_auc,
+            "roc_auc": roc_auc,
+        }
 
     metrics_function = compute_metrics
 

@@ -200,8 +200,8 @@ def build_huggingface_model(
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
     hf_config.num_labels = 2
-    hf_config.id2label = {0: "UNSUPPORTED", 1: "SUPPORTED"}
-    hf_config.label2id = {"UNSUPPORTED": 0, "SUPPORTED": 1}
+    hf_config.id2label = {0: "SUPPORTED", 1: "UNSUPPORTED"}
+    hf_config.label2id = {"SUPPORTED": 0, "UNSUPPORTED": 1}
     transformers_model_class, _ = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
