@@ -184,7 +184,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             )
         else:
             images, prompt = self._prepare_instruct_model(conversation)
-            if images is not None:
+            if False and images is not None:
                 for i in range(len(images)):
                     images[i] = images[i].resize((256, 256))
 
@@ -211,8 +211,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             if (not feature_spec.required) and (feature_name not in inputs):
                 continue
             x = inputs[feature_name]
+
             if not isinstance(x, (list, torch.Tensor, np.ndarray)):
-                raise ValueError
+                raise ValueError(
+                    f"Unexpected type of the feature '{feature_name}': {type(x)}"
+                )
 
             if feature_spec.first_dim_action == _FirstDimAction.DROP:
                 first_dim_len = get_first_dim_len(x)
