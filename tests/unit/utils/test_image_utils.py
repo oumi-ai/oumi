@@ -176,3 +176,11 @@ def test_base64encode_image_bytes_invalid_arguments():
         base64encode_image_bytes(
             Message(role=Role.USER, type=Type.IMAGE_BINARY, content="hi")
         )
+    with pytest.raises(ValueError, match="No image bytes in message"):
+        base64encode_image_bytes(
+            Message(role=Role.USER, type=Type.IMAGE_PATH, content="hi")
+        )
+    with pytest.raises(ValueError, match="No image bytes in message"):
+        base64encode_image_bytes(
+            Message(role=Role.USER, type=Type.IMAGE_URL, content="hi")
+        )
