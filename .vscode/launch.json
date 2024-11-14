@@ -131,7 +131,7 @@
             "program": "scripts/benchmarks/minimal_multimodal_training.py",
             "args": [
                 "--model-name",
-                "Qwen/Qwen2-VL-2B-Instruct",
+                "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
                 "merve/vqav2-small"
             ],
