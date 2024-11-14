@@ -31,8 +31,11 @@ class _SpecialTokens(NamedTuple):
 class _FirstDimAction(Enum):
     """Enum representing how to handle the first feature dimension."""
 
-    DROP = "drop"
+    DROP_ALWAYS = "drop_always"
     """The first dimension is commonly dummy (length: 1) and can be dropped."""
+
+    DROP_IF_DUMMY = "drop_if_dummy"
+    """Drop the first dimension if it's dummy (length: 1)."""
 
     KEEP = "keep"
 
@@ -40,12 +43,16 @@ class _FirstDimAction(Enum):
 class InputFeatureSpec(NamedTuple):
     feature_name: str
     required: bool
-    first_dim_action: _FirstDimAction = _FirstDimAction.DROP
+    first_dim_action: _FirstDimAction = _FirstDimAction.DROP_ALWAYS
 
 
 _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(feature_name="input_ids", required=True),
-    InputFeatureSpec(feature_name="pixel_values", required=True),
+    InputFeatureSpec(
+        feature_name="pixel_values",
+        required=True,
+        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
+    ),
     InputFeatureSpec(feature_name="attention_mask", required=True),
     InputFeatureSpec(feature_name="labels", required=True),
     # Llama 3.2 Vision
@@ -56,8 +63,6 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(
         feature_name="image_grid_thw",
         required=False,
-        # The fist dimension in Qwen2-VL model is non-dummy and must be preserved.
-        first_dim_action=_FirstDimAction.KEEP,
     ),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
@@ -217,15 +222,26 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
 
-            if feature_spec.first_dim_action == _FirstDimAction.DROP:
+            first_dim_action = feature_spec.first_dim_action
+            if first_dim_action in (
+                _FirstDimAction.DROP_ALWAYS,
+                _FirstDimAction.DROP_IF_DUMMY,
+            ):
                 first_dim_len = get_first_dim_len(x)
-                if first_dim_len > 1:
+                drop_first_dim = (
+                    first_dim_action == _FirstDimAction.DROP_ALWAYS
+                    or first_dim_len <= 1
+                )
+                if first_dim_len > 1 and drop_first_dim:
                     logger.warning(
                         "The first dimension is non-dummy and dropped. "
                         f"Feature: '{feature_name}'. Length: {first_dim_len}). "
                         "It may lead to data-loss, and to tensor shape errors."
                     )
-                inputs[feature_name] = x[0]
+                if drop_first_dim:
+                    inputs[feature_name] = x[0]
+                else:
+                    inputs[feature_name] = x
             else:
                 assert feature_spec.first_dim_action == _FirstDimAction.KEEP
                 inputs[feature_name] = x

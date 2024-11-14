@@ -55,7 +55,7 @@ class ModelName(str, Enum):
     LLAVA = "llava-hf/llava-1.5-7b-hf"
     BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
-    QWEN2 = "Qwen/Qwen2-VL-2B-Instruct"
+    QWEN2_VL = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
@@ -76,7 +76,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.LLAVA: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
     ),
-    ModelName.QWEN2: ModelInfo(
+    ModelName.QWEN2_VL: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
     ),
     ModelName.CHAMELEON: ModelInfo(
@@ -156,6 +156,13 @@ def test_multimodal_trainer(
         init_distributed()
     else:
         print("Not initializing distributed process group")
+
+    if model_name == ModelName.QWEN2_VL and batch_size != 1:
+        print(
+            f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
+            "The model only supports bs=1 because of variable-size image encodings."
+        )
+        batch_size = 1
 
     if not split:
         split = _get_default_dataset_split(dataset_name)
