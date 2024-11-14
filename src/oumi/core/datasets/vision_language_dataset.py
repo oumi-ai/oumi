@@ -32,12 +32,13 @@ class _FirstDimAction(Enum):
     """Enum representing how to handle the first feature dimension."""
 
     DROP_ALWAYS = "drop_always"
-    """The first dimension is commonly dummy (length: 1) and can be dropped."""
+    """The first dimension is commonly dummy (length: 1) and must be dropped."""
 
     DROP_IF_DUMMY = "drop_if_dummy"
-    """Drop the first dimension if it's dummy (length: 1)."""
+    """Drop the first dimension only if it's dummy (length: 1)."""
 
     KEEP = "keep"
+    """Always preserve the first dimension."""
 
 
 class InputFeatureSpec(NamedTuple):
