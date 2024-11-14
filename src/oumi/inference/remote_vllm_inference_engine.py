@@ -70,5 +70,7 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
+        if generation_params.stop_token_ids:
+            api_input["stop_token_ids"] = generation_params.stop_token_ids
 
         return api_input
