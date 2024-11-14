@@ -86,8 +86,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             messages: The input messages.
             group_adjacent_same_role_turns: Whether to pack adjacent messages
                 from the same role into a single element in output list.
-                This is useful for multimodal conversations to join adjacent image
-                and text turns.
+                For multimodal conversations, adjacent image and text turns from
+                the same role must be grouped together.
 
         Returns:
             list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
