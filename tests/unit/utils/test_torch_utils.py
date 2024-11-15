@@ -320,6 +320,8 @@ def test_get_first_dim_len_torch_tensor():
 
 def test_get_first_dim_len_bad_input_type():
     with pytest.raises(ValueError, match="Unsupported type"):
+        get_first_dim_len(None)
+    with pytest.raises(ValueError, match="Unsupported type"):
         get_first_dim_len("hello")
     with pytest.raises(ValueError, match="Unsupported type"):
         get_first_dim_len(123)
