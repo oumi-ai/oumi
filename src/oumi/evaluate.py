@@ -141,6 +141,8 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         lm_harness_args.update(_create_extra_lm_harness_args_for_vlm(config.model))
     else:
         lm_harness_model = "hf"
+        # False is the default value for `simple_evaluate()`
+        # TODO Should it be set to True?
         apply_chat_template = False
 
     logger.info("Strating evaluation...")
