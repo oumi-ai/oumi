@@ -19,7 +19,7 @@ generation:
 lm_harness_params:
   tasks:
     - "mmmu_val_math"
-  num_fewshot: 5
-  num_samples: 100
+  # num_fewshot: 5
+  num_samples: 20
 
 enable_wandb: True
