@@ -105,9 +105,9 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/smollm/evaluation/135m_eval.yaml"
+                "configs/examples/vision/llama3_2_vision/eval.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Inference",
