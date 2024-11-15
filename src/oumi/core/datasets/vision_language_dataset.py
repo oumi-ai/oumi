@@ -32,7 +32,11 @@ class _FirstDimAction(Enum):
     """Enum representing how to handle the first feature dimension."""
 
     DROP_ALWAYS = "drop_always"
-    """The first dimension is commonly dummy (length: 1) and must be dropped."""
+    """The first dimension is commonly dummy (length: 1) and must be dropped.
+
+    In effect, this operation is applied: `x = x[0, ...]`, which reduces
+    `x`'s rank by 1 (e.g., 3D->2D), and discards the following elements: `x[1:, ...]`.
+    """
 
     DROP_IF_DUMMY = "drop_if_dummy"
     """Drop the first dimension only if it's dummy (length: 1)."""
