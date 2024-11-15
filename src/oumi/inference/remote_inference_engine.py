@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 import os
 from typing import Any, Optional
@@ -18,6 +17,7 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.utils.image_utils import base64encode_image_bytes, load_image_bytes_to_message
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -40,7 +40,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         self._model = model_params.model_name
 
-    def _get_content_for_message(self, message: Message) -> dict[str, Any]:
+    @staticmethod
+    def _get_content_for_message(message: Message) -> dict[str, Any]:
         """Returns the content for a message.
 
         Args:
@@ -49,31 +50,82 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: The content for the message.
         """
-        content: dict[str, Any] = {
-            _TYPE_KEY: message.type.value,
-        }
-        b64_image = None if message.binary is None else base64.b64encode(message.binary)
-
         if message.type == Type.TEXT:
-            content[_TEXT_KEY] = message.content or ""
-        elif message.type == Type.IMAGE_URL:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_PATH:
-            if message.content and not b64_image:
-                with open(message.content, "rb") as image_file:
-                    b64_image = base64.b64encode(image_file.read())
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_BINARY:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        else:
+            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (message.content or "")}
+        elif not message.is_image():
             raise ValueError(f"Unsupported message type: {message.type}")
-        return content
+
+        if not message.binary and message.type != Type.IMAGE_URL:
+            message = load_image_bytes_to_message(message)
+
+        if message.binary:
+            b64_image = base64encode_image_bytes(message, add_mime_prefix=True)
+            return {
+                _TYPE_KEY: Type.IMAGE_URL.value,
+                _IMAGE_URL_KEY: {_URL_KEY: b64_image},
+            }
+
+        assert (
+            message.type == Type.IMAGE_URL
+        ), f"Unexpected message type: {message.type}. Must be a code bug."
+        return {
+            _TYPE_KEY: Type.IMAGE_URL.value,
+            _IMAGE_URL_KEY: {message.content or ""},
+        }
+
+    @staticmethod
+    def _get_list_of_message_json_dicts(
+        messages: list[Message],
+        *,
+        group_adjacent_same_role_turns: bool,
+    ) -> list[dict[str, Any]]:
+        """Returns a list of JSON dictionaries representing messages.
+
+        Loads image bytes and encodes them as base64.
+
+        Args:
+            messages: The input messages.
+            group_adjacent_same_role_turns: Whether to pack adjacent messages
+                from the same role into a single element in output list.
+                For multimodal conversations, adjacent image and text turns from
+                the same role must be grouped together.
+
+        Returns:
+            list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
+        """
+        num_messages = len(messages)
+        result = []
+        idx = 0
+        while idx < num_messages:
+            end_idx = idx + 1
+            if group_adjacent_same_role_turns:
+                while end_idx < num_messages and (
+                    messages[idx].role == messages[end_idx].role
+                ):
+                    end_idx += 1
+
+            item: dict[str, Any] = {
+                _ROLE_KEY: messages[idx].role.value,
+            }
+            group_size = end_idx - idx
+            if group_size == 1 and messages[idx].is_text():
+                # Set "content" to a primitive string value, which is the common
+                # convention for text-only models.
+                item[_CONTENT_KEY] = messages[idx].content
+            else:
+                # Set "content" to be a list of dictionaries for more complex cases.
+                content_list = []
+                while idx < end_idx:
+                    content_list.append(
+                        RemoteInferenceEngine._get_content_for_message(messages[idx])
+                    )
+                    idx += 1
+                item[_CONTENT_KEY] = content_list
+
+            idx = end_idx
+            result.append(item)
+
+        return result
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
