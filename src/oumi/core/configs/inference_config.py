@@ -16,7 +16,7 @@ class InferenceEngineType(str, Enum):
     VLLM = "VLLM"
     """The vLLM inference engine started locally by oumi using vLLM library."""
 
-    REMOTE_VLLM = "VLLM"
+    REMOTE_VLLM = "REMOTE_VLLM"
     """The external vLLM inference engine."""
 
     SGLANG = "SGLANG"
