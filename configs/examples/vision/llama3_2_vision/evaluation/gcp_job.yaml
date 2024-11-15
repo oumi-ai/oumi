@@ -1,12 +1,13 @@
-# Config to eval Llama 3.1 8B Instruct on GCP.
+# Config to eval Llama 3.2 Vision 11B Instruct on GCP.
 # Example command:
-# oumi launch up -c configs/recipes/llama3_1/evaluation/8b_gcp_job.yaml --cluster llama8b-eval
-name: llama8b-eval
+# oumi launch up -c configs/examples/vision/llama3_2_vision/evaluation/gcp_job.yaml --cluster xrdaukar-1node4gpu-01-lema-cluster # llama32v-11b-eval
+name: llama32v-11b-eval
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: true
+  disk_size: 500 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .
@@ -19,19 +20,19 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
-  # NOTE: For SFT, update this to point to your model checkpoint.
-  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
+  # NOTE: For tuned models, update this to point to your model checkpoint.
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.2-11B-Vision-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
   WANDB_PROJECT: oumi-eval
-  OUMI_RUN_NAME: llama8b.eval
+  OUMI_RUN_NAME: llama32v.11b.eval
 
 setup: |
   set -e
   pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.
@@ -46,11 +47,17 @@ run: |
   if test -n "$LORA_ADAPTER_DIR"; then
     echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
   fi
+  pip install '.[gpu]'
+  pip list
 
   set -x
   accelerate launch \
+    --num_processes=${OUMI_TOTAL_NUM_GPUS} \
+    --num_machines=${OUMI_NUM_NODES} \
+    --mixed_precision="no" \
+    --dynamo_backend="no" \
     -m oumi.evaluate \
-    -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
+    -c configs/examples/vision/llama3_2_vision/evaluation/eval.yaml \
     "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"

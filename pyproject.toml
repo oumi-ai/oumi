@@ -38,7 +38,7 @@ dependencies = [
     "aioresponses==0.7.6",        # User by inference engine tests
     "datasets",
     "jsonlines",
-    "lm-eval>=0.4.5,<0.5.0",
+    "lm-eval[wandb]>=0.4.5,<0.5.0",
     "numpy",
     "omegaconf>=2.3",
     "pandas",
@@ -56,7 +56,7 @@ dependencies = [
     "trl>=0.9.0",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
-    "wandb",                      # Optional, for logging to Weights and Biases
+    "wandb==0.18.6",              # Optional, for logging to Weights and Biases
 ]
 
 [project.urls]
