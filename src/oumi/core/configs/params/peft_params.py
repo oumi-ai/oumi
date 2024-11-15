@@ -26,7 +26,7 @@ class PeftParams(BaseParams):
     )
     """The scaling factor for the LoRA update.
 
-    This value is typically set equal to `lora_r` for stable training.
+    This value is typically set equal to `lora_r` or 2*`lora_r` for stable training.
     """
 
     lora_dropout: float = field(

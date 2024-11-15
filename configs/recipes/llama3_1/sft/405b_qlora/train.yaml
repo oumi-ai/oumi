@@ -10,7 +10,7 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
   tokenizer_pad_token: "<|finetune_right_pad_id|>"
-  enable_liger_kernel: True
+  # enable_liger_kernel: True
 
 data:
   train:
@@ -63,6 +63,6 @@ peft:
 
 fsdp:
   enable_fsdp: True
-  forward_prefetch: True
+  # forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"

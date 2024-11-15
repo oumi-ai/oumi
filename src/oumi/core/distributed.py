@@ -386,7 +386,7 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
 
     # We generally don't need these values to be configurable, and usually have
     # them set to True.
-    env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
+    env_vars["FSDP_USE_ORIG_PARAMS"] = "false"
     # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
     env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 
