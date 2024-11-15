@@ -53,7 +53,7 @@ class _SamplingParams(NamedTuple):
 
 
 class SGLangInferenceEngine(RemoteInferenceEngine):
-    """Engine for running SGLang inference locally."""
+    """Engine for running SGLang inference."""
 
     def __init__(self, model_params: ModelParams, **kwargs):
         """Initializes the SGL inference Engine.

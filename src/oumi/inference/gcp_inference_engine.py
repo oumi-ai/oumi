@@ -70,13 +70,9 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         """
         api_input = {
             "model": self._model,
-            "messages": [
-                {
-                    _CONTENT_KEY: [self._get_content_for_message(message)],
-                    _ROLE_KEY: message.role.value,
-                }
-                for message in conversation.messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                conversation.messages, group_adjacent_same_role_turns=True
+            ),
             "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
