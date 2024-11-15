@@ -65,7 +65,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 _IMAGE_URL_KEY: {_URL_KEY: b64_image},
             }
 
-        assert message.type == Type.IMAGE_URL
+        assert (
+            message.type == Type.IMAGE_URL
+        ), f"Unexpected message type: {message.type}. Must be a code bug."
         return {
             _TYPE_KEY: Type.IMAGE_URL.value,
             _IMAGE_URL_KEY: {message.content or ""},
