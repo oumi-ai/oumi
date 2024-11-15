@@ -218,20 +218,26 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 )
 
             first_dim_action = feature_spec.first_dim_action
+
             if first_dim_action in (
                 _FirstDimAction.DROP_ALWAYS,
                 _FirstDimAction.DROP_IF_DUMMY,
             ):
                 first_dim_len = get_first_dim_len(x)
+                if first_dim_len <= 0:
+                    raise ValueError(
+                        f"Empty first dimension for the feature '{feature_name}'."
+                    )
                 drop_first_dim = (
                     first_dim_action == _FirstDimAction.DROP_ALWAYS
                     or first_dim_len <= 1
                 )
                 if first_dim_len > 1 and drop_first_dim:
                     logger.warning(
-                        "The first dimension is non-dummy and dropped. "
+                        "The first dimension is non-dummy. "
                         f"Feature: '{feature_name}'. Length: {first_dim_len}). "
-                        "It may lead to data-loss, and to tensor shape errors."
+                        "Only the first element is kept, others are dropped, "
+                        "which may lead to data loss, and to tensor shape errors."
                     )
                 if drop_first_dim:
                     inputs[feature_name] = x[0]
