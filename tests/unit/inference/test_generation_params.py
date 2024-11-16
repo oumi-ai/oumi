@@ -19,6 +19,8 @@ from oumi.inference import (
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
     RemoteInferenceEngine,
+    RemoteVLLMInferenceEngine,
+    SGLangInferenceEngine,
     VLLMInferenceEngine,
 )
 
@@ -30,7 +32,9 @@ SUPPORTED_INFERENCE_ENGINES = [
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
+    SGLangInferenceEngine,
     VLLMInferenceEngine,
+    RemoteVLLMInferenceEngine,
     GoogleVertexInferenceEngine,
 ]
 
