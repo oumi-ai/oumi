@@ -78,7 +78,7 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 3.0e-05 #3.0e-04 #3.0e-04 #2.0e-06
   lr_scheduler_type: "cosine"
-  warmup_steps: 28
+  warmup_steps: 24
   weight_decay: 0.02
   compile: False
   max_grad_norm: 10
