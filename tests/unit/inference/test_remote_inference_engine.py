@@ -192,11 +192,11 @@ def test_infer_no_remote_params():
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
     )
     with pytest.raises(
-        ValueError, match="Remote params must be provided in generation_params."
+        ValueError, match="Remote params must be provided in inference config"
     ):
         engine.infer_online([], InferenceConfig())
     with pytest.raises(
-        ValueError, match="Remote params must be provided in generation_params."
+        ValueError, match="Remote params must be provided in inference config"
     ):
         engine.infer_from_file("path", InferenceConfig())
 
