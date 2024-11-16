@@ -113,7 +113,11 @@ def test_generation_params_used_in_inference(
         ) as mock_infer,
         mock_ctx,
     ):
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="<placeholder>")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         generation_params = GenerationParams(
             max_new_tokens=100,
@@ -129,7 +133,7 @@ def test_generation_params_used_in_inference(
         inference_config = InferenceConfig(
             model=model_params,
             generation=generation_params,
-            remote_params=RemoteParams(api_url="<placeholder>"),
+            remote_params=remote_params,
         )
 
         result = engine.infer_online([sample_conversation], inference_config)
@@ -169,13 +173,17 @@ def test_generation_params_defaults_used_in_inference(
         ) as mock_infer,
         mock_ctx,
     ):
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="<placeholder>")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         generation_params = GenerationParams()
         inference_config = InferenceConfig(
             model=model_params,
             generation=generation_params,
-            remote_params=RemoteParams(api_url="<placeholder>"),
+            remote_params=remote_params,
         )
 
         result = engine.infer_online([sample_conversation], inference_config)
