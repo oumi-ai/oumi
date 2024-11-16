@@ -28,16 +28,28 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         return NativeTextInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.VLLM:
         return VLLMInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.REMOTE_VLLM:
-        return RemoteVLLMInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.SGLANG:
-        return SGLangInferenceEngine(config.model)
     elif config.engine == InferenceEngineType.LLAMACPP:
         return LlamaCppInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.ANTHROPIC:
-        return AnthropicInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.REMOTE:
-        return RemoteInferenceEngine(config.model)
+    elif config.engine in (
+        InferenceEngineType.REMOTE_VLLM,
+        InferenceEngineType.SGLANG,
+        InferenceEngineType.ANTHROPIC,
+        InferenceEngineType.REMOTE,
+    ):
+        if config.remote_params is None:
+            raise ValueError(
+                "remote_params must be configured "
+                f"for the '{config.engine}' inference engine in inference config."
+            )
+        if config.engine == InferenceEngineType.REMOTE_VLLM:
+            return RemoteVLLMInferenceEngine(config.model, config.remote_params)
+        elif config.engine == InferenceEngineType.SGLANG:
+            return SGLangInferenceEngine(config.model, config.remote_params)
+        elif config.engine == InferenceEngineType.ANTHROPIC:
+            return AnthropicInferenceEngine(config.model, config.remote_params)
+        else:
+            assert config.engine == InferenceEngineType.REMOTE
+            return RemoteInferenceEngine(config.model, config.remote_params)
     else:
         logger.warning(
             f"Unsupported inference engine: {config.engine}. "

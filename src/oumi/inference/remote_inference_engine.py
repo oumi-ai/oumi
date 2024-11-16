@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import os
 from typing import Any, Optional
@@ -32,13 +33,15 @@ _URL_KEY: str = "url"
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(self, model_params: ModelParams, remote_params: RemoteParams):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            remote_params: Remote server params.
         """
         self._model = model_params.model_name
+        self._remote_params = copy.deepcopy(remote_params)
 
     @staticmethod
     def _get_content_for_message(message: Message) -> dict[str, Any]:

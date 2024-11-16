@@ -55,11 +55,14 @@ class _SamplingParams(NamedTuple):
 class SGLangInferenceEngine(RemoteInferenceEngine):
     """Engine for running SGLang inference."""
 
-    def __init__(self, model_params: ModelParams, **kwargs):
+    def __init__(
+        self, model_params: ModelParams, remote_params: RemoteParams, **kwargs
+    ):
         """Initializes the SGL inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            remote_params: Remote server params.
             kwargs: Other keyword arguments.
         """
         self._model_params = copy.deepcopy(model_params)
@@ -75,7 +78,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
         # TODO Launch a local SGLLang server if requested.
 
-        super().__init__(model_params=model_params, **kwargs)
+        super().__init__(
+            model_params=model_params, remote_params=remote_params, **kwargs
+        )
 
     def _create_sampling_params(
         self, generation_params: GenerationParams

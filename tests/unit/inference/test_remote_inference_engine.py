@@ -138,7 +138,10 @@ def test_infer_online():
             ),
         )
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
         conversation = Conversation(
             messages=[
                 Message(
@@ -185,7 +188,9 @@ def test_infer_online():
 
 
 def test_infer_no_remote_params():
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     with pytest.raises(
         ValueError, match="Remote params must be provided in generation_params."
     ):
@@ -197,7 +202,9 @@ def test_infer_no_remote_params():
 
 
 def test_infer_online_empty():
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     expected_result = []
     result = engine.infer_online(
         [],
@@ -213,7 +220,10 @@ def test_infer_online_fails():
         m.post(_TARGET_SERVER, status=401)
         m.post(_TARGET_SERVER, status=501)
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
         conversation = Conversation(
             messages=[
                 Message(
@@ -253,7 +263,10 @@ def test_infer_online_recovers_from_retries():
             ),
         )
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
         conversation = Conversation(
             messages=[
                 Message(
@@ -338,7 +351,10 @@ def test_infer_online_multiple_requests():
     with aioresponses() as m:
         m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
         conversation1 = Conversation(
             messages=[
                 Message(
@@ -448,7 +464,10 @@ def test_infer_online_multiple_requests_politeness():
     with aioresponses() as m:
         m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        remote_params = RemoteParams(api_url=_TARGET_SERVER, politeness_policy=0.5)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        )
         conversation1 = Conversation(
             messages=[
                 Message(
@@ -506,7 +525,7 @@ def test_infer_online_multiple_requests_politeness():
             generation=GenerationParams(
                 max_new_tokens=5,
             ),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER, politeness_policy=0.5),
+            remote_params=remote_params,
         )
         result = engine.infer_online(
             [conversation1, conversation2],
@@ -567,7 +586,14 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
     with aioresponses() as m:
         m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            politeness_policy=0.5,
+            num_workers=2,
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        )
 
         conversation1 = Conversation(
             messages=[
@@ -626,11 +652,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             generation=GenerationParams(
                 max_new_tokens=5,
             ),
-            remote_params=RemoteParams(
-                api_url=_TARGET_SERVER,
-                politeness_policy=0.5,
-                num_workers=2,
-            ),
+            remote_params=remote_params,
         )
         result = engine.infer_online(
             [conversation1, conversation2],
@@ -645,7 +667,10 @@ def test_infer_from_file_empty():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
         _setup_input_conversations(str(input_path), [])
-        engine = RemoteInferenceEngine(_get_default_model_params())
+        remote_params = RemoteParams(api_url=_TARGET_SERVER, num_workers=2)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        )
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = InferenceConfig(
             input_path=str(input_path),
@@ -653,7 +678,7 @@ def test_infer_from_file_empty():
             generation=GenerationParams(
                 max_new_tokens=5,
             ),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
+            remote_params=remote_params,
         )
         result = engine.infer_online(
             [],
@@ -716,8 +741,10 @@ def test_infer_from_file_to_file():
 
         with aioresponses() as m:
             m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
-
-            engine = RemoteInferenceEngine(_get_default_model_params())
+            remote_params = RemoteParams(api_url=_TARGET_SERVER, num_workers=2)
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(), remote_params=remote_params
+            )
             conversation1 = Conversation(
                 messages=[
                     Message(
@@ -777,7 +804,7 @@ def test_infer_from_file_to_file():
                 generation=GenerationParams(
                     max_new_tokens=5,
                 ),
-                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
+                remote_params=remote_params,
             )
             result = engine.infer_online(
                 [conversation1, conversation2],
@@ -913,7 +940,9 @@ def test_convert_conversation_to_api_input_with_json_schema():
         answer: str
         confidence: float
 
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -943,7 +972,9 @@ def test_convert_conversation_to_api_input_with_json_schema():
 
 def test_convert_conversation_to_api_input_without_guided_decoding():
     """Test conversion without guided decoding."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -963,7 +994,9 @@ def test_convert_conversation_to_api_input_without_guided_decoding():
 
 def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
     """Test conversion with invalid guided decoding raises error."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -988,7 +1021,9 @@ def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
 
 def test_convert_conversation_to_api_input_with_dict_schema():
     """Test conversion with JSON schema provided as a dictionary."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -1027,7 +1062,9 @@ def test_convert_conversation_to_api_input_with_dict_schema():
 
 def test_convert_conversation_to_api_input_with_json_string_schema():
     """Test conversion with JSON schema provided as a JSON string."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -1073,7 +1110,9 @@ def test_convert_conversation_to_api_input_with_json_string_schema():
 
 def test_convert_conversation_to_api_input_with_invalid_json_string():
     """Test conversion with invalid JSON string raises error."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -1098,7 +1137,9 @@ def test_convert_conversation_to_api_input_with_invalid_json_string():
 
 def test_convert_conversation_to_api_input_with_unsupported_schema_type():
     """Test conversion with unsupported schema type raises error."""
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     conversation = Conversation(
         messages=[
             Message(
@@ -1126,23 +1167,30 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
 
 
 def test_get_request_headers_no_remote_params():
-    engine = RemoteInferenceEngine(_get_default_model_params())
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
     headers = engine._get_request_headers(None)
     assert headers == {}
 
 
 def test_get_request_headers_with_api_key():
-    engine = RemoteInferenceEngine(_get_default_model_params())
     remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="test-key")
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=remote_params
+    )
     headers = engine._get_request_headers(remote_params)
     assert headers == {"Authorization": "Bearer test-key"}
 
 
 def test_get_request_headers_with_env_var():
     with patch.dict(os.environ, {"OPENAI_API_KEY": "env-test-key"}):
-        engine = RemoteInferenceEngine(_get_default_model_params())
         remote_params = RemoteParams(
             api_url=_TARGET_SERVER, api_key_env_varname="OPENAI_API_KEY"
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
         assert headers == {"Authorization": "Bearer env-test-key"}
@@ -1150,9 +1198,12 @@ def test_get_request_headers_with_env_var():
 
 def test_get_request_headers_missing_env_var():
     with patch.dict(os.environ, {}, clear=True):
-        engine = RemoteInferenceEngine(_get_default_model_params())
         remote_params = RemoteParams(
             api_url=_TARGET_SERVER, api_key_env_varname="NONEXISTENT_API_KEY"
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
         assert headers == {"Authorization": "Bearer None"}
