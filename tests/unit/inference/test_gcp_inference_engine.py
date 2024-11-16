@@ -36,19 +36,19 @@ def remote_params():
 
 
 @pytest.fixture
-def generation_params(remote_params):
+def generation_params():
     return GenerationParams(
         max_new_tokens=100,
         temperature=0.7,
         top_p=0.9,
-        remote_params=remote_params,
     )
 
 
 @pytest.fixture
-def inference_config(generation_params):
+def inference_config(generation_params, remote_params):
     return InferenceConfig(
         generation=generation_params,
+        remote_params=remote_params,
     )
 
 

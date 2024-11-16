@@ -277,9 +277,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             api_input = self._convert_conversation_to_api_input(
                 conversation, inference_config.generation
             )
-            headers = self._get_request_headers(
-                inference_config.generation.remote_params
-            )
+            headers = self._get_request_headers(inference_config.remote_params)
             retries = 0
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
@@ -361,11 +359,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
-        if not generation_params.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference config.")
         conversations = safe_asyncio_run(
-            self._infer(input, inference_config, generation_params.remote_params)
+            self._infer(input, inference_config, inference_config.remote_params)
         )
         if inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
@@ -388,12 +385,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
-        if not generation_params.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference config.")
         input = self._read_conversations(input_filepath)
         conversations = safe_asyncio_run(
-            self._infer(input, inference_config, generation_params.remote_params)
+            self._infer(input, inference_config, inference_config.remote_params)
         )
         if inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)

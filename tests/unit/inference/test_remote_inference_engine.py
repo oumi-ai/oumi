@@ -51,9 +51,8 @@ def _get_default_model_params() -> ModelParams:
 
 def _get_default_inference_config() -> InferenceConfig:
     return InferenceConfig(
-        generation=GenerationParams(
-            max_new_tokens=5, remote_params=RemoteParams(api_url=_TARGET_SERVER)
-        )
+        generation=GenerationParams(max_new_tokens=5),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
 
 
@@ -506,10 +505,8 @@ def test_infer_online_multiple_requests_politeness():
         inference_config = InferenceConfig(
             generation=GenerationParams(
                 max_new_tokens=5,
-                remote_params=RemoteParams(
-                    api_url=_TARGET_SERVER, politeness_policy=0.5
-                ),
-            )
+            ),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, politeness_policy=0.5),
         )
         result = engine.infer_online(
             [conversation1, conversation2],
@@ -628,12 +625,12 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         inference_config = InferenceConfig(
             generation=GenerationParams(
                 max_new_tokens=5,
-                remote_params=RemoteParams(
-                    api_url=_TARGET_SERVER,
-                    politeness_policy=0.5,
-                    num_workers=2,
-                ),
-            )
+            ),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                politeness_policy=0.5,
+                num_workers=2,
+            ),
         )
         result = engine.infer_online(
             [conversation1, conversation2],
@@ -655,8 +652,8 @@ def test_infer_from_file_empty():
             output_path=str(output_path),
             generation=GenerationParams(
                 max_new_tokens=5,
-                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
             ),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
         )
         result = engine.infer_online(
             [],
@@ -779,8 +776,8 @@ def test_infer_from_file_to_file():
                 output_path=str(output_path),
                 generation=GenerationParams(
                     max_new_tokens=5,
-                    remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
                 ),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, num_workers=2),
             )
             result = engine.infer_online(
                 [conversation1, conversation2],

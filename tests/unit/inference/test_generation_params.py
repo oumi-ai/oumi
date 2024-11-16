@@ -121,10 +121,11 @@ def test_generation_params_used_in_inference(
             stop_token_ids=[128001, 128008, 128009],
             logit_bias={1: 1.0, 2: -1.0},
             min_p=0.05,
-            remote_params=RemoteParams(api_url="<placeholder>"),
         )
         inference_config = InferenceConfig(
-            model=model_params, generation=generation_params
+            model=model_params,
+            generation=generation_params,
+            remote_params=RemoteParams(api_url="<placeholder>"),
         )
 
         result = engine.infer_online([sample_conversation], inference_config)
@@ -166,11 +167,11 @@ def test_generation_params_defaults_used_in_inference(
     ):
         engine = engine_class(model_params)
 
-        generation_params = GenerationParams(
-            remote_params=RemoteParams(api_url="<placeholder>")
-        )
+        generation_params = GenerationParams()
         inference_config = InferenceConfig(
-            model=model_params, generation=generation_params
+            model=model_params,
+            generation=generation_params,
+            remote_params=RemoteParams(api_url="<placeholder>"),
         )
 
         result = engine.infer_online([sample_conversation], inference_config)
