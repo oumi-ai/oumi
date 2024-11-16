@@ -8,7 +8,7 @@ resources:
   accelerators: "A100-80GB:8"
   use_spot: true
   disk_size: 4000 # Disk size in GBs
-  # region: us-east4 # us-central1
+  region: us-central1
 
 working_dir: .
 
