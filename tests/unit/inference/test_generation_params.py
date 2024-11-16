@@ -212,7 +212,11 @@ def test_supported_params_exist_in_config(
     mock_ctx = _mock_engine(engine_class)
 
     with mock_ctx:
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="<placeholder>")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         supported_params = engine.get_supported_params()
 
@@ -245,7 +249,11 @@ def test_unsupported_params_warning(
         mock_ctx,
         patch.object(engine_class, "_infer", return_value=[sample_conversation]),
     ):
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="test")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         # Create generation params with the unsupported parameter
         params_dict = {
@@ -258,7 +266,7 @@ def test_unsupported_params_warning(
             model=model_params, generation=generation_params
         )
         if issubclass(engine_class, RemoteInferenceEngine):
-            inference_config.remote_params = RemoteParams(api_url="test")
+            inference_config.remote_params = remote_params
 
         # Call infer which should trigger the warning
         engine.infer([sample_conversation], inference_config)
@@ -290,7 +298,11 @@ def test_no_warning_for_default_values(
         mock_ctx,
         patch.object(engine_class, "_infer", return_value=[sample_conversation]),
     ):
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="test")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         params_dict = {
             "max_new_tokens": 100,  # Add a supported param
@@ -302,7 +314,7 @@ def test_no_warning_for_default_values(
             model=model_params, generation=generation_params
         )
         if issubclass(engine_class, RemoteInferenceEngine):
-            inference_config.remote_params = RemoteParams(api_url="test")
+            inference_config.remote_params = remote_params
 
         engine.infer([sample_conversation], inference_config)
 
@@ -347,7 +359,11 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
             self._accessed_params.clear()
 
     with mock_ctx, mock.patch.object(engine_class, "_check_unsupported_params"):
-        engine = engine_class(model_params)
+        remote_params = RemoteParams(api_url="test")
+        if issubclass(engine_class, RemoteInferenceEngine):
+            engine = engine_class(model_params, remote_params)
+        else:
+            engine = engine_class(model_params)
 
         # Create config with tracking
         tracked_params = AccessTrackingGenerationParams()
@@ -358,7 +374,7 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         )
 
         if issubclass(engine_class, RemoteInferenceEngine):
-            inference_config.remote_params = RemoteParams(api_url="test")
+            inference_config.remote_params = remote_params
 
             # To avoid running inference, we just call the method that converts
             # the conversation to the API input. This should access most of the
