@@ -237,7 +237,7 @@ def test_supported_params_exist_in_config(
         (GoogleVertexInferenceEngine, "frequency_penalty", 0.5),
         (GoogleVertexInferenceEngine, "presence_penalty", 0.5),
         (VLLMInferenceEngine, "logit_bias", {1: 1.0}),
-        (LlamaCppInferenceEngine, "remote_params", RemoteParams(api_url="test")),
+        (LlamaCppInferenceEngine, "num_beams", 8),
     ],
 )
 def test_unsupported_params_warning(
@@ -286,7 +286,7 @@ def test_unsupported_params_warning(
         (AnthropicInferenceEngine, "min_p", 0.0),
         (AnthropicInferenceEngine, "frequency_penalty", 0.0),
         (VLLMInferenceEngine, "logit_bias", {}),
-        (LlamaCppInferenceEngine, "remote_params", None),
+        (LlamaCppInferenceEngine, "num_beams", 1),
     ],
 )
 def test_no_warning_for_default_values(
