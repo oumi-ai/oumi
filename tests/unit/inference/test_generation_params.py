@@ -240,13 +240,13 @@ def test_unsupported_params_warning(
             "max_new_tokens": 100,  # Add a supported param
             unsupported_param: value,
         }
-        if issubclass(engine_class, RemoteInferenceEngine):
-            params_dict["remote_params"] = RemoteParams(api_url="test")
 
         generation_params = GenerationParams(**params_dict)
         inference_config = InferenceConfig(
             model=model_params, generation=generation_params
         )
+        if issubclass(engine_class, RemoteInferenceEngine):
+            inference_config.remote_params = RemoteParams(api_url="test")
 
         # Call infer which should trigger the warning
         engine.infer([sample_conversation], inference_config)
@@ -284,12 +284,13 @@ def test_no_warning_for_default_values(
             "max_new_tokens": 100,  # Add a supported param
             param: default_value,
         }
-        if issubclass(engine_class, RemoteInferenceEngine):
-            params_dict["remote_params"] = RemoteParams(api_url="test")
+
         generation_params = GenerationParams(**params_dict)
         inference_config = InferenceConfig(
             model=model_params, generation=generation_params
         )
+        if issubclass(engine_class, RemoteInferenceEngine):
+            inference_config.remote_params = RemoteParams(api_url="test")
 
         engine.infer([sample_conversation], inference_config)
 
@@ -337,9 +338,7 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         engine = engine_class(model_params)
 
         # Create config with tracking
-        tracked_params = AccessTrackingGenerationParams(
-            remote_params=RemoteParams(api_url="test")
-        )
+        tracked_params = AccessTrackingGenerationParams()
         tracked_params.clear()
 
         inference_config = InferenceConfig(
@@ -347,15 +346,14 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         )
 
         if issubclass(engine_class, RemoteInferenceEngine):
+            inference_config.remote_params = RemoteParams(api_url="test")
+
             # To avoid running inference, we just call the method that converts
             # the conversation to the API input. This should access most of the
             # parameters.
             engine._convert_conversation_to_api_input(
                 sample_conversation, tracked_params
             )
-            # Manually access the remote params since it's used elsewhere
-            # in the engine.
-            tracked_params.remote_params
         elif engine_class == LlamaCppInferenceEngine:
             with patch.object(engine, "_llm") as mock_llm:
                 mock_llm.create_chat_completion.return_value = {
