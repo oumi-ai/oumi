@@ -8,7 +8,7 @@ resources:
   accelerators: "A100-80GB:8"
   use_spot: true
   disk_size: 4000 # Disk size in GBs
-  region: us-central1
+  # region: us-east4 # us-central1
 
 working_dir: .
 
@@ -29,6 +29,8 @@ envs:
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128" # xrdaukar-1node8gpu-80gb-03-lema-cluster
 
 setup: |
   set -e
@@ -43,6 +45,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
+
+  pip install '.[gpu,quant]'
 
   set -x
   # Must use a float type for quantized data storage. See:
