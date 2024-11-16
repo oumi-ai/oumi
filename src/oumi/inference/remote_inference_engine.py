@@ -404,7 +404,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "logit_bias",
             "max_new_tokens",
             "presence_penalty",
-            "remote_params",
             "seed",
             "stop_strings",
             "temperature",
