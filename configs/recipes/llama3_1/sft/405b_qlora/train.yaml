@@ -22,9 +22,9 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 500
+  save_steps: 300
   num_train_epochs: 1
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 4
   gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True
