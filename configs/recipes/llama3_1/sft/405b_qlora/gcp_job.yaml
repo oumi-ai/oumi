@@ -47,11 +47,6 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
-
-  pip install '.[gpu,quant]'
-
-  set -x
   # Must use a float type for quantized data storage. See:
   # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
   torchrun \
@@ -62,7 +57,6 @@ run: |
       --master-port=8007 \
       -m oumi.train \
       -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=100"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
