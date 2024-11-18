@@ -92,7 +92,6 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return {
             "logit_bias",
             "max_new_tokens",
-            "remote_params",
             "seed",
             "stop_strings",
             "temperature",

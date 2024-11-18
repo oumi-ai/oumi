@@ -45,11 +45,11 @@ def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
         ),
         generation=GenerationParams(
             max_new_tokens=1024,
-            remote_params=RemoteParams(
-                api_url="https://api.anthropic.com/v1/messages",
-                api_key_env_varname="ANTHROPIC_API_KEY",
-                max_retries=3,
-            ),
+        ),
+        remote_params=RemoteParams(
+            api_url="https://api.anthropic.com/v1/messages",
+            api_key_env_varname="ANTHROPIC_API_KEY",
+            max_retries=3,
         ),
     )
     return config
@@ -118,11 +118,11 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
         generation=GenerationParams(
             max_new_tokens=1024,
             temperature=0.0,
-            remote_params=RemoteParams(
-                api_url="https://api.openai.com/v1/chat/completions",
-                api_key_env_varname="OPENAI_API_KEY",
-                max_retries=3,
-            ),
+        ),
+        remote_params=RemoteParams(
+            api_url="https://api.openai.com/v1/chat/completions",
+            api_key_env_varname="OPENAI_API_KEY",
+            max_retries=3,
         ),
     )
     return config

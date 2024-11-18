@@ -8,9 +8,10 @@ model:
 generation:
   max_new_tokens: 32
   batch_size: 1
-  remote_params:
-    # This address is just an example (it's what you may get when you start vllm sever locally).
-    # For details, see https://platform.openai.com/docs/api-reference/chat/create
-    api_url: "http://localhost:30000/v1/chat/completions"
+
+remote_params:
+  # This address is just an example (it's what you may get when you start vllm sever locally).
+  # For details, see https://platform.openai.com/docs/api-reference/chat/create
+  api_url: "http://localhost:30000/v1/chat/completions"
 
 engine: REMOTE_VLLM

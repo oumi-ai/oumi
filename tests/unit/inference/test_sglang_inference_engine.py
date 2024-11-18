@@ -12,6 +12,10 @@ from oumi.utils.image_utils import (
 )
 
 
+def create_test_remote_params():
+    return RemoteParams(api_key="test_api_key", api_url="<placeholder>")
+
+
 def create_test_vision_language_engine() -> SGLangInferenceEngine:
     return SGLangInferenceEngine(
         model_params=ModelParams(
@@ -20,7 +24,8 @@ def create_test_vision_language_engine() -> SGLangInferenceEngine:
             model_max_length=1024,
             chat_template="llama3-instruct",
             trust_remote_code=True,
-        )
+        ),
+        remote_params=create_test_remote_params(),
     )
 
 
@@ -33,7 +38,8 @@ def create_test_text_only_engine() -> SGLangInferenceEngine:
             chat_template="llama3-instruct",
             trust_remote_code=True,
             tokenizer_pad_token="<|endoftext|>",
-        )
+        ),
+        remote_params=create_test_remote_params(),
     )
 
 
@@ -172,13 +178,11 @@ def test_get_request_headers(engine):
 def test_get_supported_params(engine):
     assert engine.get_supported_params() == set(
         {
-            "batch_size",
             "frequency_penalty",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
-            "remote_params",
-            "stop",
+            "stop_strings",
             "stop_token_ids",
             "temperature",
             "top_p",

@@ -55,11 +55,14 @@ class _SamplingParams(NamedTuple):
 class SGLangInferenceEngine(RemoteInferenceEngine):
     """Engine for running SGLang inference."""
 
-    def __init__(self, model_params: ModelParams, **kwargs):
+    def __init__(
+        self, model_params: ModelParams, remote_params: RemoteParams, **kwargs
+    ):
         """Initializes the SGL inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            remote_params: Remote server params.
             kwargs: Other keyword arguments.
         """
         self._model_params = copy.deepcopy(model_params)
@@ -75,7 +78,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
         # TODO Launch a local SGLLang server if requested.
 
-        super().__init__(model_params=model_params, **kwargs)
+        super().__init__(
+            model_params=model_params, remote_params=remote_params, **kwargs
+        )
 
     def _create_sampling_params(
         self, generation_params: GenerationParams
@@ -201,6 +206,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     @functools.cache
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
-        return set(_SamplingParams()._asdict().keys()).union(
-            {"batch_size", "remote_params"}
-        )
+        result = set(_SamplingParams()._asdict().keys())
+        # Replace "stop" with "stop_strings"
+        result.remove("stop")
+        result.add("stop_strings")
+        return result
