@@ -22,9 +22,9 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 20
+  save_steps: 100
   num_train_epochs: 1
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 4
   gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True
@@ -40,7 +40,7 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  logging_steps: 100
+  logging_steps: 10
   log_model_summary: False
   empty_device_cache_steps: 1
   output_dir: "output/llama405b.qlora"
