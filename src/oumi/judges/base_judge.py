@@ -97,7 +97,9 @@ class BaseJudge(ABC):
             self.inference_engine = inference_engine
         else:
             logger.debug("Initializing inference engine.")
-            self.inference_engine = build_inference_engine(config.engine, config.model)
+            self.inference_engine = build_inference_engine(
+                config.engine, config.model, config.remote_params
+            )
 
     def judge(
         self,
@@ -224,10 +226,17 @@ class BaseJudge(ABC):
         model_name = config.model.model_name.lower()
         if "gguf" in model_name:
             return LlamaCppInferenceEngine(config.model)
-        elif "claude" in model_name:
-            return AnthropicInferenceEngine(config.model)
         else:
-            return RemoteInferenceEngine(config.model)
+            if config.remote_params is None:
+                raise ValueError("remote_params must be provided in inference config.")
+            if "claude" in model_name:
+                return AnthropicInferenceEngine(
+                    config.model, remote_params=config.remote_params
+                )
+            else:
+                return RemoteInferenceEngine(
+                    config.model, remote_params=config.remote_params
+                )
 
     @abstractmethod
     def _transform_conversation_input(self, conversation: Conversation) -> Message:
