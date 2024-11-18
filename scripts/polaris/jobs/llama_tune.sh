@@ -213,6 +213,9 @@ else # 405B
         "models--meta-llama--Meta-Llama-3.1-405B-Instruct" \
         "be673f326cab4cd22ccfef76109faf68e41aa5f1"
 
+    # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+    PYTORCH_CUDA_ALLOC_CONF="garbage_collection_threshold:0.8,max_split_size_mb:128"
+
     if [ "$TRAINING_MODE" == "pretrain" ]; then
         echo "Llama 405B pretraining is currently not supported!"
         exit 1
