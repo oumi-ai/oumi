@@ -118,7 +118,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         """Returns a set of supported generation parameters for this engine."""
         return {
             "max_new_tokens",
-            "remote_params",
             "stop_strings",
             "temperature",
             "top_p",

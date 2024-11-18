@@ -5,6 +5,7 @@ from typing import Optional
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.configs.params.remote_params import RemoteParams
 
 
 class InferenceEngineType(str, Enum):
@@ -66,3 +67,6 @@ class InferenceConfig(BaseConfig):
 
     If not specified, the "NATIVE" engine will be used.
     """
+
+    remote_params: Optional[RemoteParams] = None
+    """Parameters for running inference against a remote API."""
