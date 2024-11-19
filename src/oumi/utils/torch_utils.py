@@ -399,3 +399,16 @@ def create_ones_like(
             result.append(create_ones_like(item))
 
     return cast(T, result)
+
+
+def get_first_dim_len(x: Any) -> int:
+    """Returns length of the first dimension."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return int(x.shape[0])
+    elif isinstance(x, list):
+        return len(x)
+
+    raise ValueError(
+        f"Unsupported type: {type(x)}. "
+        "Must be numpy array, torch tensor, or Python list."
+    )

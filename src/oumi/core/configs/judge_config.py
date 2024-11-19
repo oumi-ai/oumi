@@ -9,6 +9,7 @@ from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 
 
@@ -149,3 +150,6 @@ class JudgeConfig(BaseConfig):
 
     engine: InferenceEngineType = field(default=InferenceEngineType.NATIVE)
     """The inference engine to use for generation."""
+
+    remote_params: Optional[RemoteParams] = None
+    """Parameters for running inference against a remote API."""

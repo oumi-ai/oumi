@@ -7,6 +7,6 @@ lm_harness_params:
     - "huggingface_leaderboard_v1"
 
 generation:
-  batch_size: 0  # This will let LM HARNESS decide.
+  batch_size: 1
 
 enable_wandb: True

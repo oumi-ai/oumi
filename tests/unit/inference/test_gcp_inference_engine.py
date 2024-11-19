@@ -17,14 +17,7 @@ from oumi.utils.image_utils import (
 )
 
 
-@pytest.fixture
-def gcp_engine():
-    model_params = ModelParams(model_name="gcp-model")
-    return GoogleVertexInferenceEngine(model_params)
-
-
-@pytest.fixture
-def remote_params():
+def create_test_remote_params():
     return RemoteParams(
         api_url="https://example.com/api",
         api_key="path/to/service_account.json",
@@ -36,19 +29,32 @@ def remote_params():
 
 
 @pytest.fixture
-def generation_params(remote_params):
-    return GenerationParams(
-        max_new_tokens=100,
-        temperature=0.7,
-        top_p=0.9,
-        remote_params=remote_params,
+def gcp_engine():
+    model_params = ModelParams(model_name="gcp-model")
+    return GoogleVertexInferenceEngine(
+        model_params, remote_params=create_test_remote_params()
     )
 
 
 @pytest.fixture
-def inference_config(generation_params):
+def remote_params():
+    return create_test_remote_params()
+
+
+@pytest.fixture
+def generation_params():
+    return GenerationParams(
+        max_new_tokens=100,
+        temperature=0.7,
+        top_p=0.9,
+    )
+
+
+@pytest.fixture
+def inference_config(generation_params, remote_params):
     return InferenceConfig(
         generation=generation_params,
+        remote_params=remote_params,
     )
 
 

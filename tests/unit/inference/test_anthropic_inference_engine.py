@@ -9,7 +9,10 @@ from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 
 @pytest.fixture
 def anthropic_engine():
-    return AnthropicInferenceEngine(model_params=ModelParams(model_name="claude-3"))
+    return AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-3"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
 
 
 def test_convert_conversation_to_api_input(anthropic_engine):
