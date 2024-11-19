@@ -86,6 +86,7 @@ def evaluate(config: EvaluationConfig) -> None:
 def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str, Any]:
     # For details, see:
     # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
+    # FIXME OPE-355 To remove `max_images=1` limit
     result = {"max_images": 1, "interleave": True, "convert_img_format": True}
 
     tokenizer = build_tokenizer(model_params)
