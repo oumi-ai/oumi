@@ -12,9 +12,9 @@ generation:
 
 lm_harness_params:
   tasks:
-    - "mmmu_val"
+    # - "mmmu_val"
     # To enable individual sub-tasks, uncomment the entries of interest below:
-    # - "mmmu_val_accounting"
+    - "mmmu_val_accounting"
     # - "mmmu_val_agriculture"
     # - "mmmu_val_architecture_and_engineering"
     # - "mmmu_val_art"
