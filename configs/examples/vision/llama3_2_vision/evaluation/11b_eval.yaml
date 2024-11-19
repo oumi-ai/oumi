@@ -45,6 +45,6 @@ lm_harness_params:
     # - "mmmu_val_public_health"
     # - "mmmu_val_sociology"
   # num_fewshot: 5
-  # num_samples: 20
+  num_samples: 20
 
 enable_wandb: True

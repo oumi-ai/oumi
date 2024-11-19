@@ -47,8 +47,6 @@ run: |
   if test -n "$LORA_ADAPTER_DIR"; then
     echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
   fi
-  pip install '.[gpu]'
-  pip list
 
   set -x
   accelerate launch \

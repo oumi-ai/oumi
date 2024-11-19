@@ -105,7 +105,7 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/examples/vision/llama3_2_vision/evaluation/eval.yaml"
+                "configs/recipes/smollm/evaluation/135m_eval.yaml"
             ],
             "justMyCode": false
         },
@@ -120,7 +120,7 @@
                 "--image",
                 "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/examples/vision/llama3_2_vision/inference/infer.yaml"
+                "configs/examples/vision/llama3_2_vision/inference/11b_infer.yaml"
             ],
             "justMyCode": false
         },
