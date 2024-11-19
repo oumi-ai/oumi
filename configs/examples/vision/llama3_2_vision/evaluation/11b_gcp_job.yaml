@@ -57,7 +57,7 @@ run: |
     --mixed_precision="no" \
     --dynamo_backend="no" \
     -m oumi.evaluate \
-    -c configs/examples/vision/llama3_2_vision/evaluation/eval.yaml \
+    -c configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml \
     "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
