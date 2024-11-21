@@ -146,7 +146,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
         # TODO Should it be set to True?
         apply_chat_template = False
 
-    logger.info("Strating evaluation...")
+    logger.info("Starting evaluation...")
     logger.info(f"\tLM Harness args:\n{pformat(lm_harness_args)}")
     results = lm_eval.simple_evaluate(
         model=lm_harness_model,
