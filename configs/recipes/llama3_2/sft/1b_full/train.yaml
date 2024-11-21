@@ -33,7 +33,7 @@ data:
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/AggreFactXSum_test_558.jsonl"}
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "medias"
-        dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/ClaimVerify_test_1088.jsonl"}
+        dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/TofuEvalMediaS_test_726.jsonl"}
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "meetb"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/TofuEvalMeetB_test_772.jsonl"}
