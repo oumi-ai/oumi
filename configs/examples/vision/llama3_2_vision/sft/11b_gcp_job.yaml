@@ -1,5 +1,5 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/llama3_2_vision/gcp_job.yaml --cluster llama3-2-vision
+# oumi launch up --config configs/examples/vision/llama3_2_vision/sft/11b_gcp_job.yaml --cluster llama3-2-vision
 name: llama32v-11b-sft-train
 
 resources:
@@ -47,7 +47,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llama3_2_vision/sft_train.yaml \
+      -c configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.output_dir='${OUMI_RUN_NAME}'" \
       "training.logging_dir='${OUMI_RUN_NAME}/runs'"

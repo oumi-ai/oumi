@@ -11,7 +11,8 @@ import lm_eval
 import torch
 from lm_eval.loggers import WandbLogger
 
-from oumi.core.configs import EvaluationConfig, LMHarnessParams
+from oumi.builders import build_processor, build_tokenizer, is_image_text_llm
+from oumi.core.configs import EvaluationConfig, LMHarnessParams, ModelParams
 from oumi.core.distributed import is_world_process_zero
 from oumi.evaluation.huggingface_leaderboard import (
     BENCHMARK_CONFIGS,
@@ -82,6 +83,27 @@ def evaluate(config: EvaluationConfig) -> None:
         raise ValueError("An evaluation framework must be specified.")
 
 
+def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str, Any]:
+    # For details, see:
+    # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
+    # FIXME OPE-355 To remove `max_images=1` limit
+    result = {"max_images": 1, "interleave": True, "convert_img_format": True}
+
+    tokenizer = build_tokenizer(model_params)
+    processor = build_processor(
+        model_params.model_name,
+        tokenizer,
+        trust_remote_code=model_params.trust_remote_code,
+    )
+    image_token = processor.image_token
+    if image_token:
+        result["image_string"] = image_token
+    image_token_id = processor.image_token_id
+    if image_token_id:
+        result["image_token_id"] = image_token_id
+    return result
+
+
 def evaluate_lm_harness(config: EvaluationConfig) -> None:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
@@ -109,15 +131,33 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     assert config.lm_harness_params is not None
     batch_size = config.generation.batch_size if config.generation.batch_size else None
     start_time = time.time()
+
+    lm_harness_args = config.model.to_lm_harness()
+
+    if is_image_text_llm(config.model):
+        # Multimodal support is currently restricted to
+        # the ['hf-multimodal', 'vllm-vlm'] model types.
+        lm_harness_model = "hf-multimodal"
+        apply_chat_template = True
+        lm_harness_args.update(_create_extra_lm_harness_args_for_vlm(config.model))
+    else:
+        lm_harness_model = "hf"
+        # False is the default value for `simple_evaluate()`
+        # TODO Should it be set to True?
+        apply_chat_template = False
+
+    logger.info("Starting evaluation...")
+    logger.info(f"\tLM Harness args:\n{pformat(lm_harness_args)}")
     results = lm_eval.simple_evaluate(
-        model="hf",
-        model_args=config.model.to_lm_harness(),
+        model=lm_harness_model,
+        model_args=lm_harness_args,
         tasks=config.lm_harness_params.tasks,  # type: ignore
         num_fewshot=config.lm_harness_params.num_fewshot,
         batch_size=batch_size,
         device=device,
         limit=config.lm_harness_params.num_samples,
         log_samples=False,
+        apply_chat_template=apply_chat_template,
     )
     elapsed_time_sec = time.time() - start_time
 
