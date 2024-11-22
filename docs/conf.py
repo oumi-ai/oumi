@@ -27,6 +27,7 @@ extensions = [
     "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
     "sphinx_rtd_theme",
+    "sphinx_design",
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.duration",

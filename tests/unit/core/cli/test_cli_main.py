@@ -5,10 +5,11 @@ from unittest.mock import Mock, patch
 import pytest
 from typer.testing import CliRunner
 
+from oumi.core.cli.env import env
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset
-from oumi.core.cli.launch import cancel, down, status, up, which
+from oumi.core.cli.launch import cancel, down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.cli.main import get_app
 from oumi.core.cli.train import train
@@ -51,6 +52,13 @@ def mock_down():
     with patch("oumi.core.cli.main.down") as m_down:
         _copy_command(m_down, down)
         yield m_down
+
+
+@pytest.fixture
+def mock_stop():
+    with patch("oumi.core.cli.main.stop") as m_stop:
+        _copy_command(m_stop, stop)
+        yield m_stop
 
 
 @pytest.fixture
@@ -102,6 +110,13 @@ def mock_judge_conversations():
         yield m_conversations
 
 
+@pytest.fixture
+def mock_env():
+    with patch("oumi.core.cli.main.env") as m_env:
+        _copy_command(m_env, env)
+        yield m_env
+
+
 def test_main_train_registered(mock_train):
     _ = runner.invoke(
         get_app(), ["train", "--config", "some/path", "--allow_extra" "args"]
@@ -132,7 +147,7 @@ def test_main_evaluate_registered(mock_eval):
 
 def test_main_launch_registered():
     result = runner.invoke(get_app(), ["launch", "--help"])
-    for cmd in ["down", "run", "status", "cancel", "up", "which"]:
+    for cmd in ["down", "stop", "run", "status", "cancel", "up", "which"]:
         assert cmd in result.output
 
 
@@ -141,6 +156,13 @@ def test_main_down_registered(mock_down):
         get_app(), ["launch", "down", "--cluster", "cluster", "--cloud", "gcp"]
     )
     mock_down.assert_called_once()
+
+
+def test_main_stop_registered(mock_stop):
+    _ = runner.invoke(
+        get_app(), ["launch", "stop", "--cluster", "cluster", "--cloud", "gcp"]
+    )
+    mock_stop.assert_called_once()
 
 
 def test_main_run_registered(mock_launcher_run):
@@ -211,6 +233,11 @@ def test_main_judge_dataset_registered(mock_judge_dataset):
         ],
     )
     mock_judge_dataset.assert_called_once()
+
+
+def test_main_env_registered(mock_env):
+    _ = runner.invoke(get_app(), ["env"])
+    mock_env.assert_called_once()
 
 
 def test_main_judge_conversations_registered(mock_judge_conversations):

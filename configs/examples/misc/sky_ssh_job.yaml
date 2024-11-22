@@ -17,6 +17,7 @@ workdir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
   /output_dir_gcs:
     source: gs://oumi-dev-us-central1
     store: gcs

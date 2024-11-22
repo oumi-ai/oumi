@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
 
 
@@ -21,3 +22,24 @@ def setup_logging():
     logger = get_logger("oumi")
     logger.propagate = True
     return logger
+
+
+@pytest.fixture(autouse=True)
+def retain_logging_level():
+    """Fixture to preserve the logging level between tests."""
+    logger = get_logger("oumi")
+    # Store the current log level
+    log_level = logger.level
+    yield
+    # Rehydrate the log level
+    logger.setLevel(log_level)
+
+
+@pytest.fixture
+def single_turn_conversation():
+    return Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+        ]
+    )

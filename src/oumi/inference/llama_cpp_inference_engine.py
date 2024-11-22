@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import cast
 
 from tqdm.auto import tqdm
+from typing_extensions import override
 
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
@@ -197,6 +198,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 )
         return output_conversations
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
@@ -210,6 +212,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             "top_p",
         }
 
+    @override
     def infer_online(
         self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -224,6 +227,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:

@@ -9,7 +9,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
+                "configs/recipes/smollm/sft/135m/train.yaml"
             ],
             "justMyCode": true
         },
@@ -93,7 +93,7 @@
                 "infer",
                 "--interactive",
                 "-c",
-                "configs/recipes/gpt2/inference/infer.yaml"
+                "configs/recipes/smollm/inference/135m_infer.yaml"
             ],
             "justMyCode": true
         },
@@ -105,9 +105,9 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+                "configs/recipes/smollm/evaluation/135m_eval.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Inference",
@@ -120,9 +120,9 @@
                 "--image",
                 "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/examples/vision/llava_7b/infer.yaml"
+                "configs/examples/vision/llama3_2_vision/inference/11b_infer.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Training",

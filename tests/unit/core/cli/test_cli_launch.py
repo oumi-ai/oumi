@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import tempfile
 from unittest.mock import Mock, call, patch
@@ -7,7 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.launch import cancel, down, status, up, which
+from oumi.core.cli.launch import cancel, down, status, stop, up, which
 from oumi.core.cli.launch import run as launcher_run
 from oumi.core.configs import (
     DataParams,
@@ -20,6 +21,7 @@ from oumi.core.configs import (
 )
 from oumi.core.launcher import JobStatus
 from oumi.launcher import JobConfig, JobResources
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -50,6 +52,7 @@ def app():
         launcher_run
     )
     launch_app.command()(status)
+    launch_app.command()(stop)
     launch_app.command()(cancel)
     launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
     launch_app.command()(which)
@@ -178,9 +181,12 @@ def test_launch_up_job(app, mock_launcher, mock_pool, mock_version, mock_confirm
                 "up",
                 "--config",
                 job_yaml_path,
+                "--log-level",
+                "DEBUG",
             ],
         )
         mock_cluster.get_job.assert_has_calls([call("job_id")])
+        assert logger.level == logging.DEBUG
 
 
 def test_launch_up_job_dev_confirm(
@@ -523,6 +529,8 @@ def test_launch_run_job(app, mock_launcher, mock_pool, mock_version, mock_confir
                 job_yaml_path,
                 "--cluster",
                 "cluster_id",
+                "-log",
+                "CRITICAL",
             ],
         )
         mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
@@ -531,6 +539,7 @@ def test_launch_run_job(app, mock_launcher, mock_pool, mock_version, mock_confir
         mock_cloud.get_cluster.assert_has_calls(
             [call("cluster_id"), call("cluster_id")]
         )
+        assert logger.level == logging.CRITICAL
 
 
 def test_launch_run_job_dev_confirm(
@@ -796,11 +805,14 @@ def test_launch_down_with_cloud(app, mock_launcher, mock_pool):
             "cluster_id",
             "--cloud",
             "aws",
+            "--log-level",
+            "INFO",
         ],
     )
     mock_launcher.get_cloud.assert_called_once_with("aws")
     mock_cloud.get_cluster.assert_called_once_with("cluster_id")
     mock_cluster.down.assert_called_once()
+    assert logger.level == logging.INFO
 
 
 def test_launch_down_no_cloud(app, mock_launcher, mock_pool):
@@ -869,8 +881,97 @@ def test_launch_down_no_clusters(app, mock_launcher, mock_pool):
     mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
 
 
+def test_launch_stop_with_cloud(app, mock_launcher, mock_pool):
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    _ = runner.invoke(
+        app,
+        [
+            "stop",
+            "--cluster",
+            "cluster_id",
+            "--cloud",
+            "aws",
+            "--log-level",
+            "ERROR",
+        ],
+    )
+    mock_launcher.get_cloud.assert_called_once_with("aws")
+    mock_cloud.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster.stop.assert_called_once()
+    assert logger.level == logging.ERROR
+
+
+def test_launch_stop_no_cloud(app, mock_launcher, mock_pool):
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = None
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    _ = runner.invoke(
+        app,
+        [
+            "stop",
+            "--cluster",
+            "cluster_id",
+        ],
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster1.stop.assert_called_once()
+
+
+def test_launch_stop_multiple_clusters(app, mock_launcher, mock_pool):
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_cluster2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = mock_cluster2
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    _ = runner.invoke(
+        app,
+        [
+            "stop",
+            "--cluster",
+            "cluster_id",
+        ],
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+    mock_cluster1.stop.assert_not_called()
+    mock_cluster2.stop.assert_not_called()
+
+
+def test_launch_stop_no_clusters(app, mock_launcher, mock_pool):
+    mock_cloud1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = None
+    mock_cloud2.get_cluster.return_value = None
+    mock_launcher.which_clouds.return_value = ["aws", "foo"]
+    _ = runner.invoke(
+        app,
+        [
+            "stop",
+            "--cluster",
+            "cluster_id",
+        ],
+    )
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("foo")])
+    mock_cloud1.get_cluster.assert_called_once_with("cluster_id")
+    mock_cloud2.get_cluster.assert_called_once_with("cluster_id")
+
+
 def test_launch_cancel_success(app, mock_launcher, mock_pool):
-    res = runner.invoke(
+    _ = runner.invoke(
         app,
         [
             "cancel",
@@ -880,10 +981,12 @@ def test_launch_cancel_success(app, mock_launcher, mock_pool):
             "cluster",
             "--id",
             "job",
+            "--log-level",
+            "DEBUG",
         ],
     )
-    assert res.output == ""
     mock_launcher.cancel.assert_called_once()
+    assert logger.level == logging.DEBUG
 
 
 def test_launch_which_success(app, mock_launcher, mock_pool):
@@ -891,6 +994,30 @@ def test_launch_which_success(app, mock_launcher, mock_pool):
         app,
         [
             "which",
+            "-log",
+            "INFO",
         ],
     )
     mock_launcher.which_clouds.assert_called_once()
+    assert logger.level == logging.INFO
+
+
+def test_launch_status_success(app, mock_launcher, mock_pool):
+    _ = runner.invoke(
+        app,
+        [
+            "status",
+            "--cloud",
+            "cloud",
+            "--cluster",
+            "cluster",
+            "--id",
+            "job",
+            "-log",
+            "DEBUG",
+        ],
+    )
+    mock_launcher.status.assert_has_calls(
+        [call(cloud="cloud", cluster="cluster", id="job")]
+    )
+    assert logger.level == logging.DEBUG

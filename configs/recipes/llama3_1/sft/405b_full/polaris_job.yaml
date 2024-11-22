@@ -1,0 +1,35 @@
+# Llama 3.1 405B Instruct FFT config
+# Example command:
+# oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster prod.$ALCF_USER --user $ALCF_USER
+name: llama405b-fft
+# NOTE: Replace with your username.
+user: your_username
+
+num_nodes: 20
+resources:
+  cloud: polaris
+
+working_dir: .
+
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=02:00:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e
+  # Various setup for running on Polaris.
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+
+  echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
+
+  set -x
+  mpiexec --verbose \
+      --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+      ./scripts/polaris/jobs/llama_tune.sh -m fft -d fsdp -s 405b
+
+  echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo "Polaris job is all done!"

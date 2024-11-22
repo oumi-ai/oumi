@@ -139,9 +139,6 @@ class TrainingParams(BaseParams):
     backward pass, it recomputes these activations during the backward pass.
     This can make the training slower, but it can also significantly reduce memory
     usage.
-
-    For FSDP training via Accelerate, do not set this to true. Instead, set
-    `fsdp_config.fsdp_activation_checkpointing` to true in the accelerate yaml config.
     """
 
     gradient_checkpointing_kwargs: dict[str, Any] = field(default_factory=dict)

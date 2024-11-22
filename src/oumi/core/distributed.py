@@ -21,6 +21,7 @@ from torch.distributed.fsdp.wrap import (
 from torch.nn.parallel import DistributedDataParallel
 
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
+from oumi.core.configs.training_config import TrainingConfig
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import get_module_class_from_name
 
@@ -282,7 +283,7 @@ def prepare_model_for_distributed(
     sharding_strategy = fsdp_params.sharding_strategy.to_torch()
 
     # Wrapping Policy
-    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED:
+    if fsdp_params.auto_wrap_policy == AutoWrapPolicy.TRANSFORMER_BASED_WRAP:
         from oumi.utils.torch_naming_heuristics import (
             guess_transformer_layer_cls,
         )
@@ -308,7 +309,7 @@ def prepare_model_for_distributed(
             recurse=True,
             nonwrapped_numel=0,
         )
-    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED:
+    elif fsdp_params.auto_wrap_policy == AutoWrapPolicy.SIZE_BASED_WRAP:
         wrapping_policy = functools.partial(
             size_based_auto_wrap_policy,
             min_num_params=fsdp_params.min_num_params,
@@ -361,6 +362,86 @@ def prepare_model_for_distributed(
     )
 
     return model
+
+
+def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
+    """Gets environment vars for FSDP Accelerate corresponding to Oumi training params.
+
+    This mimics the environment variables set here:
+    https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/utils/launch.py#L260-L285
+    Note how they lowercase all boolean values, except for
+    `ACCELERATE_DYNAMO_USE_FULLGRAPH` and `ACCELERATE_DYNAMO_USE_DYNAMIC`, which we
+    also do. It's worth pointing out that `ACCELERATE_USE_FSDP` must be lowercase:
+    https://github.com/huggingface/accelerate/blob/bf4572b6ce0a534a9d73537485a0edf1d68144b8/src/accelerate/accelerator.py#L341
+
+    Returns:
+        dict[str, str]: The environment variables and values to set for HF Accelerate.
+    """
+    env_vars = {}
+    # These environment variables are set by default in HF Accelerate.
+    env_vars["ACCELERATE_DYNAMO_BACKEND"] = "NO"
+    env_vars["ACCELERATE_DYNAMO_MODE"] = "default"
+    env_vars["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
+    env_vars["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
+
+    # We generally don't need these values to be configurable, and usually have
+    # them set to True.
+    env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
+    # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
+    env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
+
+    # These env vars are set based on FSDPParams.
+    env_vars["ACCELERATE_USE_FSDP"] = str(config.fsdp.enable_fsdp).lower()
+    env_vars["FSDP_SHARDING_STRATEGY"] = config.fsdp.sharding_strategy.value
+    env_vars["FSDP_OFFLOAD_PARAMS"] = str(config.fsdp.cpu_offload).lower()
+    if config.fsdp.mixed_precision:
+        env_vars["ACCELERATE_MIXED_PRECISION"] = config.fsdp.mixed_precision
+    env_vars["FSDP_BACKWARD_PREFETCH"] = config.fsdp.backward_prefetch.value
+    env_vars["FSDP_FORWARD_PREFETCH"] = str(config.fsdp.forward_prefetch).lower()
+    env_vars["FSDP_STATE_DICT_TYPE"] = config.fsdp.state_dict_type.value
+    env_vars["FSDP_AUTO_WRAP_POLICY"] = config.fsdp.auto_wrap_policy.value
+    env_vars["FSDP_MIN_NUM_PARAMS"] = str(config.fsdp.min_num_params)
+    if config.fsdp.transformer_layer_cls:
+        env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = config.fsdp.transformer_layer_cls
+    env_vars["FSDP_SYNC_MODULE_STATES"] = str(config.fsdp.sync_module_states).lower()
+
+    # This is set from TrainingParams.
+    env_vars["FSDP_ACTIVATION_CHECKPOINTING"] = str(
+        config.training.enable_gradient_checkpointing
+    ).lower()
+    return env_vars
+
+
+def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
+    """Prepares our FSDP training job to run with the HuggingFace Accelerate library.
+
+    This function should be run if we didn't invoke the current training job from the
+    Accelerate launcher, but still want to use FSDP with Accelerate. The motivation for
+    this is to remove the need for the Accelerate config, centralize all config values
+    under the Oumi `TrainingConfig`, and make it easier to switch between HF and Oumi
+    trainers. For more information, see PR#803.
+
+    `training.enable_gradient_checkpointing` is also disabled, as FSDP gradient
+    checkpointing is handled by Accelerate.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        dict[str, str]: The environment variables set to prepare for Accelerate.
+    """
+    env_vars = get_accelerate_env_vars(config)
+    # Disable Oumi's gradient checkpointing param, as Accelerate should handle it.
+    config.training.enable_gradient_checkpointing = False
+
+    for name, value in env_vars.items():
+        if name in os.environ:
+            logger.warning(
+                f"Environment variable `{name}` has existing value "
+                f"`{os.environ[name]}`, overriding to new value `{value}`."
+            )
+        os.environ[name] = value
+    return env_vars
 
 
 def estimate_dataloader_num_workers(

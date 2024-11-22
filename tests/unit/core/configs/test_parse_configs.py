@@ -14,11 +14,6 @@ from oumi.core.configs import (
 from oumi.core.types import HardwareException
 
 
-def _is_config_file(path: str) -> bool:
-    """Verifies if the path is a yaml file."""
-    return os.path.isfile(path) and path.endswith(".yaml")
-
-
 def _backtrack_on_path(path, n):
     """Goes up n directories in the current path."""
     output_path = path
@@ -30,7 +25,7 @@ def _backtrack_on_path(path, n):
 def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str]:
     """Recursively returns all configs in the /configs/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
-    repo_root = _backtrack_on_path(path_to_current_file, 4)
+    repo_root = _backtrack_on_path(path_to_current_file, 5)
     yaml_pattern = os.path.join(repo_root, "configs", "**", "*.yaml")
     all_yaml_files = glob.glob(yaml_pattern, recursive=True)
     if exclude_yaml_suffixes:
@@ -41,6 +36,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str
                     exclude_files.append(file)
                     break
         all_yaml_files = [file for file in all_yaml_files if file not in exclude_files]
+    assert len(all_yaml_files) > 0, "No yaml files found to parse."
     return all_yaml_files
 
 

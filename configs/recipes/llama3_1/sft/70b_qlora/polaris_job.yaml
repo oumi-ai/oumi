@@ -1,0 +1,39 @@
+# Config to QLoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_1/sft/70b_qlora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+name: llama70b-qlora
+# NOTE: Replace with your username.
+user: your_username
+
+num_nodes: 2
+resources:
+  cloud: polaris
+
+# Upload working directory to /home/$USER/oumi_launcher/llama70b_qlora.
+working_dir: .
+
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=02:00:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e
+  # Various setup for running on Polaris.
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+
+  echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
+
+  set -x
+  mpiexec --verbose \
+      --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+      ./scripts/polaris/jobs/llama_tune.sh -m qlora -d fsdp -s 70b
+
+  echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo "Polaris job is all done!"

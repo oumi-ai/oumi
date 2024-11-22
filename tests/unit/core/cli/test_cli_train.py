@@ -1,3 +1,4 @@
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import call, patch
@@ -17,6 +18,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -96,11 +98,12 @@ def test_train_runs(
         train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
         config.to_yaml(train_yaml_path)
-        _ = runner.invoke(app, ["--config", train_yaml_path])
+        _ = runner.invoke(app, ["--config", train_yaml_path, "--log-level", "ERROR"])
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_train.assert_has_calls([call(config)])
         mock_set_random_seeds.assert_called_once()
+        assert logger.level == logging.ERROR
 
 
 def test_train_with_overrides(

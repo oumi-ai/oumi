@@ -1,0 +1,41 @@
+# Config for Llama 3.1 8B pre-training on 1 Polaris node.
+# Example command:
+# oumi launch up --cluster preemptable.$ALCF_USER --detach --user $ALCF_USER -c configs/recipes/llama3_1/pretraining/8b/polaris_job.yaml
+# Example command to run on 2 nodes:
+# oumi launch up --cluster debug-scaling.$ALCF_USER --detach --user $ALCF_USER -c configs/recipes/llama3_1/pretraining/8b/polaris_job.yaml --num_nodes 2
+name: llama8b-pretrain
+# NOTE: Replace with your username.
+user: your_username
+
+num_nodes: 1  # Set it to N for multi-node training.
+resources:
+  cloud: polaris
+
+# Upload working directory to /home/$USER/oumi_launcher/llama8b-pretrain
+working_dir: .
+
+# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
+# directives in the `setup` section. Additional commands can also be run here after the
+# PBS directives.
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=01:00:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e
+  # Various setup for running on Polaris.
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+
+  echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
+
+  set -x
+  mpiexec --verbose \
+      --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+      ./scripts/polaris/jobs/llama_tune.sh -m pretrain -d fsdp -s 8b -t
+
+  echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo "Polaris job is all done!"

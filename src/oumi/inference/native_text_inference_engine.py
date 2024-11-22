@@ -7,6 +7,7 @@ import torch
 import transformers
 from tqdm import tqdm
 from transformers import BatchEncoding
+from typing_extensions import override
 
 from oumi.builders import (
     build_model,
@@ -36,7 +37,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
         if is_image_text_llm(self._model_params):
-            # Only enable Processor for LLAVA for now
+            # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,
@@ -224,13 +225,15 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.temperature > 0,
+            do_sample=generation_params.use_sampling,
             min_p=generation_params.min_p,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
             stop_strings=generation_params.stop_strings,
             eos_token_id=generation_params.stop_token_ids,
+            num_beams=generation_params.num_beams,
+            use_cache=generation_params.use_cache,
         )
 
         # skip using a progress for single turns
@@ -282,6 +285,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         return output_conversations
 
+    @override
     def infer_online(
         self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -296,6 +300,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -314,6 +319,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
@@ -328,4 +334,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "stop_token_ids",
             "temperature",
             "top_p",
+            "use_sampling",
+            "use_cache",
+            "num_beams",
         }

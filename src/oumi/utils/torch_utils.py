@@ -1,3 +1,4 @@
+import gc
 import os
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, cast
@@ -10,7 +11,10 @@ from oumi.utils.logging import logger
 
 
 def device_cleanup() -> None:
-    """Empties cuda cache, good to do before and after training for cleanup."""
+    """Empties gpu cache, good to do before and after training for cleanup."""
+    logger.debug("Running garbage collection.")
+    gc.collect()
+
     if torch.cuda.is_available():
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
@@ -21,6 +25,10 @@ def device_cleanup() -> None:
         torch.cuda.empty_cache()
 
         logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MiB")
+
+    elif torch.backends.mps.is_available():
+        logger.debug("Cleaning up MPS memory.")
+        torch.mps.empty_cache()
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:
@@ -36,6 +44,20 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
+def format_cudnn_version(v: Optional[int]) -> str:
+    """Formats the cuDNN version number.
+
+    Args:
+        v: The cuDNN version number.
+
+    Returns:
+        A formatted string.
+    """
+    if v is None:
+        return ""
+    return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
+
+
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
@@ -43,15 +65,10 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
-    def _format_cudnn_version(v: Optional[int]) -> str:
-        if v is None:
-            return ""
-        return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
-
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
         f"CUDA version: {torch.version.cuda} "
-        f"CuDNN version: {_format_cudnn_version(torch.backends.cudnn.version())}"
+        f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 
 
@@ -212,6 +229,8 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         return torch.bfloat16
     elif torch_dtype_str in ["f16", "float16", "half"]:
         return torch.float16
+    elif torch_dtype_str in ["uint8"]:
+        return torch.uint8
     else:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
 
@@ -341,4 +360,55 @@ def pad_sequences(
 
     raise ValueError(
         f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
+    )
+
+
+def create_ones_like(
+    values: T,
+) -> T:
+    """Converts an array-like object into an object of the same type filled with 1-s.
+
+    Supports nested lists, in which case all elements must be of the same type.
+    """
+    if isinstance(values, torch.Tensor):
+        return torch.ones_like(values)
+    elif isinstance(values, np.ndarray):
+        return np.ones_like(values)
+    elif not isinstance(values, list):
+        raise ValueError(
+            f"Unsupported type: {type(values)}. "
+            "Must be numpy array, torch tensor, or Python list."
+        )
+
+    if len(values) == 0:
+        return cast(T, [])
+
+    first_item = values[0]
+    if isinstance(first_item, (int, float)):
+        result = list(np.ones_like(values))
+    else:
+        # Nested list
+        first_item_type = type(first_item)
+        result = []
+        for idx, item in enumerate(values):
+            if idx > 0 and not isinstance(item, first_item_type):
+                raise ValueError(
+                    "Sequence contains elements of different types: "
+                    f"{first_item_type} and {type(item)}."
+                )
+            result.append(create_ones_like(item))
+
+    return cast(T, result)
+
+
+def get_first_dim_len(x: Any) -> int:
+    """Returns length of the first dimension."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return int(x.shape[0])
+    elif isinstance(x, list):
+        return len(x)
+
+    raise ValueError(
+        f"Unsupported type: {type(x)}. "
+        "Must be numpy array, torch tensor, or Python list."
     )

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 import jsonlines
+from tqdm import tqdm
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.core.types.conversation import Conversation
@@ -109,7 +110,7 @@ class BaseInferenceEngine(ABC):
         # Make the directory if it doesn't exist.
         Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
         with jsonlines.open(output_filepath, mode="w") as writer:
-            for conversation in conversations:
+            for conversation in tqdm(conversations, desc="Saving conversations"):
                 json_obj = conversation.to_dict()
                 writer.write(json_obj)
 

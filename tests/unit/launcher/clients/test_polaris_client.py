@@ -1199,6 +1199,43 @@ def test_polaris_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth
         )
 
 
+def test_polaris_client_put_recursive_memory_error(mock_subprocess_no_init, mock_auth):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+        mock_success_run = Mock()
+        mock_success_run.stdout = b"out"
+        mock_success_run.stderr = b"err"
+        mock_success_run.returncode = 0
+        mock_run = Mock()
+        mock_subprocess_no_init.run.side_effect = [
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            mock_success_run,
+            MemoryError("OOM!"),
+        ]
+        mock_run.stdout = b"out"
+        mock_run.stderr = b"err"
+        mock_run.returncode = 1
+        with pytest.raises(MemoryError, match="OOM!"):
+            client = PolarisClient("user")
+            client.put_recursive(
+                output_temp_dir,
+                "destination",
+            )
+        mock_subprocess_no_init.run.assert_has_calls(
+            [
+                call(
+                    'rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete '
+                    f"{output_temp_dir} user@polaris.alcf.anl.gov:destination",
+                    shell=True,
+                    capture_output=True,
+                    timeout=300,
+                ),
+            ]
+        )
+
+
 def test_polaris_client_put_success(mock_subprocess, mock_auth):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
@@ -1270,6 +1307,42 @@ def test_polaris_client_put_failure(mock_subprocess, mock_auth):
     )
 
 
+def test_polaris_client_put_other_exception(mock_subprocess, mock_auth):
+    mock_success_run = Mock()
+    mock_success_run.stdout = b"out"
+    mock_success_run.stderr = b"err"
+    mock_success_run.returncode = 0
+    mock_subprocess.run.side_effect = [
+        mock_success_run,
+        mock_success_run,
+        ValueError("Dummy test exception!"),
+    ]
+    with pytest.raises(ValueError, match="Dummy test exception!"):
+        client = PolarisClient("user")
+        client.put(
+            file_contents="file contents",
+            destination="destination/file.txt",
+        )
+    mock_subprocess.run.assert_has_calls(
+        [
+            call(
+                _run_commands_template(
+                    [
+                        "mkdir -p destination",
+                        "touch destination/file.txt",
+                        'cat <<"SCRIPTFILETAG" > destination/file.txt',
+                        "file contents",
+                        "SCRIPTFILETAG",
+                    ]
+                ),
+                shell=True,
+                capture_output=True,
+                timeout=180,
+            ),
+        ]
+    )
+
+
 def test_polaris_client_get_active_users(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
@@ -1277,6 +1350,7 @@ def test_polaris_client_get_active_users(mock_subprocess):
         b"control-polaris.alcf.anl.gov-22-matthew\n"
         b"control-polaris.alcf.anl.gov-22-user1\n"
         b"control-polaris.alcf.anl.gov-22-user2\n"
+        b"control-polaris.alcf.anl.gov-22-user-with-dash-in-name\n"
     )
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
@@ -1287,7 +1361,7 @@ def test_polaris_client_get_active_users(mock_subprocess):
         shell=True,
         capture_output=True,
     )
-    assert set(active_users) == {"matthew", "user1", "user2"}
+    assert set(active_users) == {"matthew", "user1", "user2", "user-with-dash-in-name"}
 
 
 def test_polaris_client_get_active_users_empty(mock_subprocess):

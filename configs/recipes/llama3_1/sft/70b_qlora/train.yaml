@@ -19,19 +19,21 @@ data:
     use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   use_peft: True
   save_steps: 200
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 2.0e-05
+  learning_rate: 3.0e-04
+  warmup_steps: 100
+  weight_decay: 0.01
   compile: False
 
   dataloader_num_workers: "auto"
@@ -48,6 +50,7 @@ peft:
   q_lora: True
   # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
   bnb_4bit_quant_type: "nf4"
+  bnb_4bit_quant_storage: "bfloat16"
   bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 16
   lora_alpha: 32
@@ -60,3 +63,9 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

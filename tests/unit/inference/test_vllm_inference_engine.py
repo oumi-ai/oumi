@@ -1,11 +1,12 @@
 import tempfile
 from pathlib import Path
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 import jsonlines
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference import VLLMInferenceEngine
 
@@ -39,6 +40,12 @@ try:
         )
 except ModuleNotFoundError:
     vllm_import_failed = True
+
+
+@pytest.fixture
+def mock_sampling_params():
+    with patch("oumi.inference.vllm_inference_engine.SamplingParams") as mock:
+        yield mock
 
 
 #
@@ -415,3 +422,101 @@ def test_infer_from_file_to_file(mock_vllm):
             for line in f:
                 parsed_conversations.append(Conversation.from_json(line))
             assert expected_result == parsed_conversations
+
+
+def test_guided_decoding_json(
+    mock_vllm, single_turn_conversation, mock_sampling_params
+):
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+    }
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+        ),
+        generation=GenerationParams(guided_decoding=GuidedDecodingParams(json=schema)),
+    )
+
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    engine = VLLMInferenceEngine(config.model)
+
+    engine._llm.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+    result = engine._infer([single_turn_conversation], config)
+
+    # Verify SamplingParams was called with guided_decoding
+    assert result is not None
+    mock_sampling_params.assert_called_once()
+    call_kwargs = mock_sampling_params.call_args[1]
+    assert "guided_decoding" in call_kwargs
+    assert call_kwargs["guided_decoding"].json == schema
+
+
+def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
+    pattern = r"\d{3}-\d{2}-\d{4}"
+
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+        ),
+        generation=GenerationParams(
+            guided_decoding=GuidedDecodingParams(regex=pattern)
+        ),
+    )
+
+    conversation = Conversation(
+        messages=[Message(content="Is this a SSN?", role=Role.USER)]
+    )
+
+    # Mock the VLLM response
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    engine = VLLMInferenceEngine(config.model)
+
+    engine._llm = MagicMock()
+    engine._llm.chat.return_value = [MagicMock(outputs=[MagicMock(text="123-45-6789")])]
+
+    result = engine._infer([conversation], config)
+
+    # Verify SamplingParams was called with guided_decoding
+    assert result is not None
+    mock_sampling_params.assert_called_once()
+    call_kwargs = mock_sampling_params.call_args[1]
+    assert "guided_decoding" in call_kwargs
+    assert call_kwargs["guided_decoding"].regex == pattern
+
+
+def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
+    choices = ["option1", "option2"]
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+        ),
+        generation=GenerationParams(
+            guided_decoding=GuidedDecodingParams(choice=choices)
+        ),
+    )
+
+    conversation = Conversation(
+        messages=[Message(content="What is your favorite color?", role=Role.USER)]
+    )
+
+    # Mock the VLLM response
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    engine = VLLMInferenceEngine(config.model)
+
+    engine._llm = MagicMock()
+    engine._llm.chat.return_value = [MagicMock(outputs=[MagicMock(text="option1")])]
+
+    result = engine._infer([conversation], config)
+
+    # Verify SamplingParams was called with guided_decoding
+    assert result is not None
+    mock_sampling_params.assert_called_once()
+    call_kwargs = mock_sampling_params.call_args[1]
+    assert "guided_decoding" in call_kwargs
+    assert call_kwargs["guided_decoding"].choice == choices

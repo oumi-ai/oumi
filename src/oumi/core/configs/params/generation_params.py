@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 
 
 @dataclass
@@ -29,7 +29,7 @@ class GenerationParams(BaseParams):
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
 
-    temperature: float = 1.0
+    temperature: float = 0.0
     """Controls randomness in the output.
 
     Higher values (e.g., 1.0) make output more random, while lower values (e.g., 0.2)
@@ -61,9 +61,6 @@ class GenerationParams(BaseParams):
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
-    remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
-
     logit_bias: dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
@@ -83,10 +80,34 @@ class GenerationParams(BaseParams):
     Default is 0.0 (no minimum threshold).
     """
 
+    use_cache: bool = False
+    """Whether to use the model's internal cache (key/value attentions) to speed up
+    generation.
+    Default is False.
+    """
+
+    num_beams: int = 1
+    """Number of beams for beam search. 1 means no beam search. Larger number of beams
+    will make for a more thorough search for probable output token sequences, at
+    the cost of increased computation time.
+    Default is 1.
+    """
+
+    use_sampling: bool = False
+    """Whether to use sampling for next-token generation. If False, uses greedy
+    decoding.
+    Default is False."""
+
+    guided_decoding: Optional[GuidedDecodingParams] = None
+    """Parameters for guided decoding."""
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size < 1:
             raise ValueError("Batch size must be at least 1.")
+
+        if self.num_beams < 1:
+            raise ValueError("num_beams must be strictly larger than 0.")
 
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")

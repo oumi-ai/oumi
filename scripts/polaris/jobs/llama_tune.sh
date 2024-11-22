@@ -28,17 +28,44 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("sft", "lora", "qlora")
+ALLOWED_TRAINING_MODES=("fft", "lora", "qlora", "pretrain")
 ALLOWED_DISTRIBUTION_MODES=("ddp", "fsdp")
-ALLOWED_MODEL_SIZES=("3b", "8b", "70b")
+ALLOWED_MODEL_SIZES=("3b", "8b", "70b", "405b")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (sft/lora/qlora) -d (ddp/fsdp) -s (3b/8b/70b)"
+    echo "Usage: $0 -m (fft/lora/qlora/pretrain) -d (ddp/fsdp) -s (3b/8b/70b/405b)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}. Defaults to lora."
     echo -e "\t-d The distribution mode: ${ALLOWED_DISTRIBUTION_MODES[@]}. Defaults to ddp."
     echo -e "\t-s The model size: ${ALLOWED_MODEL_SIZES[@]}. Defaults to 8b."
     exit 1 # Exit script after printing help
+}
+
+# Copies the model weights from Eagle to the worker's local scratch directory.
+# This results in faster model loading than loading the weights from Eagle during
+# training. We then set the HF_HOME environment variable so that HF will read
+# from the local scratch directory.
+#
+# Args:
+#   $1: The model directory in the Eagle cache.
+#   $2: The snapshot name in the model directory.
+copyModelToLocalScratch() {
+    local MODEL_DIR="$1"
+    local SNAPSHOT_NAME="$2"
+    local EAGLE_CACHE="/eagle/community_ai/hf_cache/huggingface/hub/$MODEL_DIR/snapshots/$SNAPSHOT_NAME"
+    local LOCAL_CACHE="/local/scratch/hf_cache/huggingface/hub/$MODEL_DIR/snapshots/$SNAPSHOT_NAME"
+
+    echo "Copying model from $EAGLE_CACHE to $LOCAL_CACHE..."
+    mkdir -p $LOCAL_CACHE
+    cp /eagle/community_ai/hf_cache/huggingface/token /local/scratch/hf_cache/huggingface/token
+    local copy_start_time=$(date +%s)
+    # We don't want to do a recursive copy because for Llama models, the original/
+    # subdir in the snapshot contains redundant copies of the model weights.
+    cp $EAGLE_CACHE/* $LOCAL_CACHE
+    local copy_end_time=$(date +%s)
+    echo "Copying complete! Elapsed Time: $(($copy_end_time-$copy_start_time)) seconds"
+
+    export HF_HOME="/local/scratch/hf_cache/huggingface"
 }
 
 # Default values.
@@ -98,129 +125,127 @@ SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING
 training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
+if [ "$TRAINING_MODE" == "pretrain" ]; then
+# Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
+PRETRAIN_DATASETS="data.train.datasets=
+- dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
+  subset: 'default'
+  split: 'train'
+"
+fi
+
 # For shorter debugging runs, set `training.max_steps`.
 echo "${LOG_PREFIX} Starting training..."
 if [ "$MODEL_SIZE" == "3b" ]; then
-    if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 3B pretraining is currently not supported!"
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "torchrun" command with expanded variables
-            torchrun \
-                --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-                --master-addr=${OUMI_MASTER_ADDR} \
-                --master-port=8007 \
-                -m oumi.train \
-                -c configs/recipes/llama3_2/sft/3b_lora/train.yaml \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_2/sft/3b_lora/train.yaml"
         elif [ "$TRAINING_MODE" == "qlora" ]; then
-            set -x # Print "torchrun" command with expanded variables
-            torchrun \
-                --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-                --master-addr=${OUMI_MASTER_ADDR} \
-                --master-port=8007 \
-                -m oumi.train \
-                -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
-                $SHARED_TRAINING_PARAMS
-        else # SFT
-            set -x # Print "torchrun" command with expanded variables
-            torchrun \
-                --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-                --master-addr=${OUMI_MASTER_ADDR} \
-                --master-port=8007 \
-                -m oumi.train \
-                -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
-                "model.model_max_length=512" \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_2/sft/3b_qlora/train.yaml"
+        else # FFT
+            OUMI_CFG_FILE="configs/recipes/llama3_2/sft/3b_full/train.yaml"
+            ADDITIONAL_TRAINING_PARAMS="model.model_max_length=512"
         fi
     else # FSDP
         echo "Llama 3B FSDP is currently not supported!"
+        exit 1
     fi
 elif [ "$MODEL_SIZE" == "8b" ]; then
-    # Copy the model to our Polaris machine to avoiding downloading from HF.
-    rsync -av \
-        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct/ \
-        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-8B-Instruct
+    # Copy 8B weights from Eagle to local scratch.
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-8B" \
+        "8d10549bcf802355f2d6203a33ed27e81b15b9e5"
+    else
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-8B-Instruct" \
+        "0e9e39f249a16976918f6564b8830bc894c89659"
+    fi
     if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "torchrun" command with expanded variables
-            # DDP training with torchrun
-            torchrun \
-                --nnodes=${OUMI_NUM_NODES} \
-                --node-rank=${POLARIS_NODE_RANK} \
-                --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-                --master-addr=${OUMI_MASTER_ADDR} \
-                --master-port=8007 \
-                -m oumi.train \
-                -c configs/recipes/llama3_1/sft/8b_lora/train.yaml \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_lora/train.yaml"
         elif [ "$TRAINING_MODE" == "qlora" ]; then
             echo "Llama 8B QLora DDP is currently not supported!"
-        else # SFT
-            echo "Llama 8B SFT DDP is currently not supported!"
+            exit 1
+        else # FFT
+            echo "Llama 8B FFT DDP is currently not supported!"
+            exit 1
         fi
     else # FSDP
         if [ "$TRAINING_MODE" == "lora" ]; then
-            echo "Llama 8B Lora FSDP is currently not supported!"
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml"
         elif [ "$TRAINING_MODE" == "qlora" ]; then
-            echo "Llama 8B QLora FSDP is currently not supported!"
-        else # SFT
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
-                -m oumi.train \
-                -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_qlora/train.yaml"
+        else # FFT
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/8b_full/train.yaml"
+            if [ "$TRAINING_MODE" == "pretrain" ]; then
+                OUMI_CFG_FILE="configs/recipes/llama3_1/pretraining/8b/train.yaml"
+            fi
         fi
     fi
-else # 70B
-    # Copy the model to our Polaris machine to avoid downloading from HF.
-    rsync -av \
-        /eagle/community_ai/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct/ \
-        ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-70B-Instruct
-    if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+elif [ "$MODEL_SIZE" == "70b" ]; then
+    # Copy 70B weights from Eagle to local scratch.
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-70B-Instruct" \
+        "945c8663693130f8be2ee66210e062158b2a9693"
+
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 70B pretraining is currently not supported!"
+        exit 1
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
         echo "Llama 70B DDP is not possible!"
+        exit 1
     else # FSDP
         if [ "$TRAINING_MODE" == "lora" ]; then
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/70b_lora/accelerate.yaml \
-                -m oumi.train \
-                -c configs/recipes/llama3_1/sft/70b_lora/train.yaml \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/70b_lora/train.yaml"
         elif [ "$TRAINING_MODE" == "qlora" ]; then
-            echo "Llama 70B QLora is currently not supported!"
-        else # SFT
-            set -x # Print "accelerate" command with expanded variables
-            accelerate launch \
-                --num_machines ${OUMI_NUM_NODES} \
-                --machine_rank ${POLARIS_NODE_RANK} \
-                --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-                --main_process_ip ${OUMI_MASTER_ADDR} \
-                --main_process_port 8007 \
-                --use_fsdp \
-                --config_file configs/recipes/llama3_1/sft/70b_full/accelerate.yaml \
-                -m oumi.train \
-                -c configs/recipes/llama3_1/sft/70b_full/train.yaml \
-                $SHARED_TRAINING_PARAMS
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/70b_qlora/train.yaml"
+        else # FFT
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/70b_full/train.yaml"
+        fi
+    fi
+else # 405B
+    # Copy 405B weights from Eagle to local scratch. This reduces the total time
+    # needed to load the model from 3 hours to 15 min copy + 10 min loading.
+    copyModelToLocalScratch \
+        "models--meta-llama--Meta-Llama-3.1-405B-Instruct" \
+        "be673f326cab4cd22ccfef76109faf68e41aa5f1"
+
+    # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+    PYTORCH_CUDA_ALLOC_CONF="garbage_collection_threshold:0.8,max_split_size_mb:128"
+
+    if [ "$TRAINING_MODE" == "pretrain" ]; then
+        echo "Llama 405B pretraining is currently not supported!"
+        exit 1
+    elif [ "$DISTRIBUTION_MODE" == "ddp" ]; then
+        echo "Llama 405B DDP is not possible!"
+        exit 1
+    else # FSDP
+        if [ "$TRAINING_MODE" == "lora" ]; then
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/405b_lora/train.yaml"
+        elif [ "$TRAINING_MODE" == "qlora" ]; then
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/405b_qlora/train.yaml"
+        else # FFT
+            OUMI_CFG_FILE="configs/recipes/llama3_1/sft/405b_full/train.yaml"
         fi
     fi
 fi
+
+# The PRETRAIN_DATASETS line evaluates to an empty string if PRETRAIN_DATASETS is not
+# set, and the properly quoted value if set.
+set -x
+torchrun \
+    --nnodes=${OUMI_NUM_NODES} \
+    --node-rank=${POLARIS_NODE_RANK} \
+    --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
+    --master-addr=${OUMI_MASTER_ADDR} \
+    --master-port=8007 \
+    -m oumi.train \
+    -c "${OUMI_CFG_FILE}" \
+    ${PRETRAIN_DATASETS:+"$PRETRAIN_DATASETS"} \
+    $SHARED_TRAINING_PARAMS \
+    $ADDITIONAL_TRAINING_PARAMS
 
 echo "${LOG_PREFIX} All done!"

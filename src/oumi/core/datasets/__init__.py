@@ -16,6 +16,7 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
+from oumi.core.datasets.packed_sft_dataset import PackedSftDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -24,9 +25,10 @@ from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 __all__ = [
     "BaseExperimentalDpoDataset",
     "BaseIterableDataset",
-    "BaseSftDataset",
     "BaseMapDataset",
     "BasePretrainingDataset",
+    "BaseSftDataset",
+    "PackedSftDataset",
     "PretrainingAsyncTextDataset",
     "VisionLanguageSftDataset",
 ]

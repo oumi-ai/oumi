@@ -1,5 +1,7 @@
+import logging
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import typer
@@ -10,6 +12,7 @@ from oumi.core.cli.judge import conversations, dataset, model
 from oumi.core.types import Conversation, Message
 from oumi.core.types.conversation import Role
 from oumi.utils.io_utils import save_jsonlines
+from oumi.utils.logging import logger
 
 runner = CliRunner()
 
@@ -28,7 +31,25 @@ def app():
     yield judge_app
 
 
-def test_judge_dataset_runs(app):
+@pytest.fixture
+def mock_registry():
+    with patch("oumi.core.cli.judge.REGISTRY") as m_registry:
+        yield m_registry
+
+
+@pytest.fixture
+def mock_judge_dataset():
+    with patch("oumi.core.cli.judge.judge_dataset") as m_jd:
+        yield m_jd
+
+
+@pytest.fixture
+def mock_judge_conversations():
+    with patch("oumi.core.cli.judge.judge_conversations") as m_jc:
+        yield m_jc
+
+
+def test_judge_dataset_runs(app, mock_registry, mock_judge_dataset):
     config = "oumi/v1_xml_unit_test"
     result = runner.invoke(
         app,
@@ -40,11 +61,60 @@ def test_judge_dataset_runs(app):
             "debug_sft",
         ],
     )
+    mock_judge_dataset.assert_called_once()
 
     assert result.exit_code == 0, f"CLI command failed with: {result.exception}"
 
 
-def test_judge_dataset_with_output_file(app):
+def test_judge_logging_levels(
+    app, mock_registry, mock_judge_dataset, mock_judge_conversations
+):
+    config = "oumi/v1_xml_unit_test"
+    _ = runner.invoke(
+        app,
+        [
+            "dataset",
+            "--config",
+            config,
+            "--dataset-name",
+            "debug_sft",
+            "--log-level",
+            "DEBUG",
+        ],
+    )
+    assert logger.level == logging.DEBUG
+
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        input_file = str(Path(output_temp_dir) / "input.jsonl")
+
+        conversation = Conversation(
+            messages=[
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.ASSISTANT, content="Hello"),
+            ]
+        )
+
+        save_jsonlines(
+            input_file,
+            [conversation.to_dict()],
+        )
+
+        _ = runner.invoke(
+            app,
+            [
+                "conversations",
+                "--config",
+                config,
+                "--input-file",
+                input_file,
+                "-log",
+                "INFO",
+            ],
+        )
+        assert logger.level == logging.INFO
+
+
+def test_judge_dataset_with_output_file(app, mock_registry, mock_judge_dataset):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_file = str(Path(output_temp_dir) / "output.jsonl")
 
@@ -60,12 +130,12 @@ def test_judge_dataset_with_output_file(app):
                 output_file,
             ],
         )
-
+        mock_judge_dataset.assert_called_once()
         assert result.exit_code == 0
         assert Path(output_file).exists()
 
 
-def test_judge_conversations_runs(app):
+def test_judge_conversations_runs(app, mock_judge_conversations):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_file = str(Path(output_temp_dir) / "input.jsonl")
 
@@ -91,11 +161,11 @@ def test_judge_conversations_runs(app):
                 input_file,
             ],
         )
-
+        mock_judge_conversations.assert_called_once()
         assert result.exit_code == 0
 
 
-def test_judge_conversations_with_output_file(app):
+def test_judge_conversations_with_output_file(app, mock_judge_conversations):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_file = str(Path(output_temp_dir) / "input.jsonl")
         conversation = Conversation(
@@ -124,7 +194,7 @@ def test_judge_conversations_with_output_file(app):
                 output_file,
             ],
         )
-
+        mock_judge_conversations.assert_called_once()
         assert result.exit_code == 0
         assert Path(output_file).exists()
 

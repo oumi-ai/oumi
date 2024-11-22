@@ -21,14 +21,14 @@ def train(
             *cli_utils.CONFIG_FLAGS, help="Path to the configuration file for training."
         ),
     ],
-    verbose: Annotated[bool, typer.Option(help="Run with verbose logging.")] = False,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Train a model.
 
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for training.
-        verbose: Run with verbose logging.
+        level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(

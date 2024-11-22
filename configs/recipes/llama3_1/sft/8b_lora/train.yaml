@@ -20,7 +20,7 @@ data:
     use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   use_peft: True
   save_steps: 50
   num_train_epochs: 1
@@ -49,7 +49,6 @@ training:
   enable_wandb: True
 
 peft:
-  q_lora: False
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.0
