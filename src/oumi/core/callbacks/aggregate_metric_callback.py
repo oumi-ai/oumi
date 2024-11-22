@@ -34,7 +34,7 @@ class AggregateMetricCallback(BaseTrainerCallback):
         self._metric_values = {}
         for s in self._splits:
             for m in self._metrics:
-                self._metric_values[(m, s)] = []
+                self._metric_values[(m, s)] = {}
 
     def _get_agg_metric_name(self, metric_name: str, split="eval") -> str:
         return f"{split}_avg_{metric_name}"
@@ -52,18 +52,19 @@ class AggregateMetricCallback(BaseTrainerCallback):
                 for k in log:
                     key = (m, s)
                     if m in k and s in k:
-                        self._metric_values[key].append(log[k])
+                        self._metric_values[key][k] = log[k]
                         break
-
+ 
         for s in self._splits:
             for m in self._metrics:
                 key = (m, s)
-                if len(self._metric_values[key]) == self._num_datasets:
-                    mean = sum(self._metric_values[key]) / len(self._metric_values[key])
+                metric_values = list(self._metric_values[key].values())
+                if len(metric_values) == self._num_datasets:
+                    mean = sum(metric_values) / len(metric_values)
                     agg_metric_name = self._get_agg_metric_name(m, s)
                     kwargs[_METRICS_KWARG][agg_metric_name] = mean
                     logger.info(
-                        f"{agg_metric_name}: {mean}, {len(self._metric_values[key])}, {str(self._metric_values[key])}"
+                        f"{agg_metric_name}: {mean}, {len(metric_values)}, {str(self._metric_values[key])}"
                     )
 
     def on_log(
@@ -76,8 +77,9 @@ class AggregateMetricCallback(BaseTrainerCallback):
         for s in self._splits:
             for m in self._metrics:
                 key = (m, s)
-                if len(self._metric_values[key]) == self._num_datasets:
-                    mean = sum(self._metric_values[key]) / len(self._metric_values[key])
+                metric_values = list(self._metric_values[key].values())
+                if len(metric_values) == self._num_datasets:
+                    mean = sum(metric_values) / len(metric_values)
                     agg_metric_name = self._get_agg_metric_name(m, s)
                     kwargs[_LOGS_KWARG][agg_metric_name] = mean
-                    self._metric_values[key] = []
+                    self._metric_values[key] = {}
