@@ -1,5 +1,17 @@
 import torch
-from flash_attn.flash_attn_interface import _flash_attn_backward, _flash_attn_forward
+
+try:
+    from flash_attn.flash_attn_interface import (
+        _flash_attn_backward,
+        _flash_attn_forward,
+    )
+
+    _FLASH_ATTN_V2_INSTALLED = True
+except ImportError as e:
+    _FLASH_ATTN_V2_INSTALLED = False
+    raise ImportError(
+        "Please install Flash Attention: `pip install flash-attn --no-build-isolation`"
+    ) from e
 
 from oumi.models.layers.zigzag_utils import (
     RingComm,
@@ -23,13 +35,15 @@ def zigzag_ring_flash_attn_forward(
     """Zigzag ring flash attention forward."""
     assert causal, "zigzag ring is meaningless for causal=False"
     comm = RingComm(process_group)
+    world_size: int = int(comm.world_size)
+    assert world_size > 0, "Empty world!"
 
     block_seq_len = q.shape[1] // 2
     q1 = q[:, block_seq_len:]
 
     out = None
     lse = None
-    next_k, next_v = None, None
+    next_k, next_v = None, None  # type: ignore
 
     def forward(q, k, v, causal):
         """Zigzag ring flash attention forward."""
@@ -47,11 +61,12 @@ def zigzag_ring_flash_attn_forward(
                 "return_softmax": True and dropout_p > 0,
             }
         )
-        block_out, _, _, _, _, block_lse, _, _ = _flash_attn_forward(**params)
+        # block_out, _, _, _, _, block_lse, _, _ = _flash_attn_forward(**params)
+        block_out, block_lse, _, _ = _flash_attn_forward(**params)
         return block_out, block_lse
 
-    for step in range(comm.world_size):
-        if step + 1 != comm.world_size:
+    for step in range(world_size):
+        if step + 1 != world_size:
             next_k: torch.Tensor = comm.send_recv(k)
             next_v: torch.Tensor = comm.send_recv(v)
             comm.commit()
@@ -74,10 +89,13 @@ def zigzag_ring_flash_attn_forward(
                 slice_=(slice(None), slice(block_seq_len, None)),
             )
 
-        if step + 1 != comm.world_size:
+        if step + 1 != world_size:
             comm.wait()
             k = next_k
             v = next_v
+
+    assert out is not None, f"world_size: {world_size}"
+    assert lse is not None, f"world_size: {world_size}"
 
     out = out.to(q.dtype)
     lse = lse.squeeze(dim=-1).transpose(1, 2)
@@ -86,12 +104,12 @@ def zigzag_ring_flash_attn_forward(
 
 def zigzag_ring_flash_attn_backward(
     process_group,
-    dout,
-    q,
-    k,
-    v,
-    out,
-    softmax_lse,
+    dout: torch.Tensor,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    out: torch.Tensor,
+    softmax_lse: torch.Tensor,
     softmax_scale,
     dropout_p=0,
     causal=True,
@@ -102,7 +120,11 @@ def zigzag_ring_flash_attn_backward(
     """Zigzag ring flash attention backward."""
     assert causal, "zigzag ring is meaningless for causal=False"
     kv_comm = RingComm(process_group)
+    world_size: int = int(kv_comm.world_size)
+    assert world_size > 0, "Empty world!"
     d_kv_comm = RingComm(process_group)
+    assert world_size == int(d_kv_comm.world_size), "Inconsistent world sizes!"
+
     dq, dk, dv = None, None, None
     next_dk, next_dv = None, None
     next_k, next_v = None, None
@@ -145,8 +167,8 @@ def zigzag_ring_flash_attn_backward(
         )
         _flash_attn_backward(**params)
 
-    for step in range(kv_comm.world_size):
-        if step + 1 != kv_comm.world_size:
+    for step in range(world_size):
+        if step + 1 != world_size:
             next_k = kv_comm.send_recv(k)
             next_v = kv_comm.send_recv(v)
             kv_comm.commit()
@@ -157,6 +179,13 @@ def zigzag_ring_flash_attn_backward(
             dk = dk_buffer.to(torch.float32)
             dv = dv_buffer.to(torch.float32)
         else:
+            assert step > 0, f"step: {step}, world_size: {world_size}"
+            assert dq is not None, f"step: {step}, world_size: {world_size}"
+            assert dk is not None, f"step: {step}, world_size: {world_size}"
+            assert dv is not None, f"step: {step}, world_size: {world_size}"
+            assert next_dk is not None, f"step: {step}, world_size: {world_size}"
+            assert next_dv is not None, f"step: {step}, world_size: {world_size}"
+
             if step <= kv_comm.rank:
                 k0 = k[:, :block_seq_len]
                 v0 = v[:, :block_seq_len]
@@ -178,8 +207,10 @@ def zigzag_ring_flash_attn_backward(
                 dk += dk_buffer
                 dv += dv_buffer
 
-        if step + 1 != kv_comm.world_size:
+        if step + 1 != world_size:
             kv_comm.wait()
+            assert next_k is not None, f"step: {step}, world_size: {world_size}"
+            assert next_v is not None, f"step: {step}, world_size: {world_size}"
             k = next_k
             v = next_v
 
@@ -188,6 +219,10 @@ def zigzag_ring_flash_attn_backward(
         d_kv_comm.commit()
 
     d_kv_comm.wait()
+
+    assert dq is not None, f"step: {step}, world_size: {world_size}"
+    assert next_dk is not None, f"step: {step}, world_size: {world_size}"
+    assert next_dv is not None, f"step: {step}, world_size: {world_size}"
 
     return dq.to(q.dtype), next_dk.to(q.dtype), next_dv.to(q.dtype)
 

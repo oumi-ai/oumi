@@ -1,6 +1,6 @@
 import inspect
 from functools import cache
-from typing import Optional, Tuple
+from typing import Any, Optional
 
 import torch
 import torch.distributed as dist
@@ -10,12 +10,12 @@ __all__ = ["update_out_and_lse", "RingComm", "get_default_args"]
 
 
 @cache
-def get_default_args(func):
+def get_default_args(func) -> dict[str, Any]:
     """Get the default arguments of a function."""
     spec = inspect.getfullargspec(func)
     defaults = spec.defaults if spec.defaults is not None else ()
     padded_defaults = (None,) * (len(spec.args) - len(defaults)) + defaults
-    args = dict(zip(spec.args, padded_defaults))
+    args: dict[str, Any] = dict(zip(spec.args, padded_defaults))
     if "softcap" in args:
         args["softcap"] = 0.0
     return args
@@ -27,7 +27,7 @@ def _update_out_and_lse(
     lse: torch.Tensor,
     block_out: torch.Tensor,
     block_lse: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     block_out = block_out.to(torch.float32)
     block_lse = block_lse.transpose(-2, -1).unsqueeze(dim=-1)
 
@@ -47,13 +47,15 @@ def update_out_and_lse(
     block_out: torch.Tensor,
     block_lse: torch.Tensor,
     slice_=None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Update the output and log-sum-exp of the attention."""
     if out is None:
         if slice_ is not None:
             raise RuntimeError("first update_out_and_lse should not pass slice_ args")
         out = block_out.to(torch.float32)
         lse = block_lse.transpose(-2, -1).unsqueeze(dim=-1)
+    elif lse is None:
+        raise ValueError("`lse` can be None only if `out` is None")
     elif slice_ is not None:
         slice_out, slice_lse = out[slice_], lse[slice_]
         slice_out, slice_lse = _update_out_and_lse(

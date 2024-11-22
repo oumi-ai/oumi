@@ -1,8 +1,10 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 import torch.utils.checkpoint
-import transformers
+import transformers.cache_utils as transformers_cache_utils
+import transformers.modeling_flash_attention_utils as transformers_flash_attention_utils
+import transformers.models as transformers_models
 
 from oumi.models.layers.zigzag import zigzag_ring_flash_attn_func
 
@@ -86,23 +88,26 @@ def new_decoder_forward(
     hidden_states: torch.Tensor,
     attention_mask: Optional[torch.Tensor] = None,
     position_ids: Optional[torch.LongTensor] = None,
-    past_key_value: Optional[Tuple[torch.Tensor]] = None,
+    past_key_value: Optional[transformers_cache_utils.Cache] = None,
     output_attentions: Optional[bool] = False,
     use_cache: Optional[bool] = False,
     cache_position: Optional[torch.LongTensor] = None,
+    position_embeddings: Optional[
+        tuple[torch.Tensor, torch.Tensor]
+    ] = None,  # will become mandatory in v4.46
     **kwargs,
-) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+) -> tuple[torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]]:
     """New decoder forward."""
-    assert (
-        isinstance(
-            self.self_attn,
-            transformers.models.llama.modeling_llama.LlamaFlashAttention2,
-        )
-        or isinstance(
-            self.self_attn,
-            transformers.models.mistral.modeling_mistral.MistralFlashAttention2,
-        )
-    ), "Please toggle on the Flash Attention 2 implementation when using zigzag ring attention monkey patch."
+    assert isinstance(
+        self.self_attn,
+        transformers_models.llama.modeling_llama.LlamaFlashAttention2,
+    ) or isinstance(
+        self.self_attn,
+        transformers_models.mistral.modeling_mistral.MistralFlashAttention2,
+    ), (
+        "Please toggle on the Flash Attention 2 implementation "
+        "when using zigzag ring attention monkey patch."
+    )
 
     residual = hidden_states
 
@@ -126,6 +131,7 @@ def new_decoder_forward(
     hidden_states = self.post_attention_layernorm(hidden_states)
     hidden_states = self.mlp(hidden_states)
     hidden_states = residual + hidden_states
+    assert isinstance(hidden_states, torch.Tensor)
 
     outputs = (hidden_states,)
 
@@ -135,12 +141,14 @@ def new_decoder_forward(
     if use_cache:
         outputs += (present_key_value,)
 
-    return outputs
+    return outputs  # type: ignore
 
 
 def apply_zigzag_ring_attn_monkey_patch_llama():
     """Apply the zigzag ring attention monkey patch to llama."""
-    transformers.models.llama.modeling_llama.LlamaFlashAttention2._flash_attention_forward = new_flash_attn_forward
-    transformers.models.llama.modeling_llama.LlamaDecoderLayer.forward = (
+    transformers_flash_attention_utils._flash_attention_forward = new_flash_attn_forward
+    # (transformers_models.llama.modeling_llama.LlamaFlashAttention2.
+    #   _flash_attention_forward = new_flash_attn_forward)
+    transformers_models.llama.modeling_llama.LlamaDecoderLayer.forward = (
         new_decoder_forward
     )
