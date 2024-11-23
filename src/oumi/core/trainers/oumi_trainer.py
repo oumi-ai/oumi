@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import os
 import time
 from contextlib import contextmanager
@@ -42,6 +43,9 @@ from oumi.models.layers.ring_attention import (
     apply_zigzag_ring_attn_monkey_patch_llama as apply_ring_attention_monkey_patch,
 )
 from oumi.models.layers.ring_attention import (
+    is_zigzag_ring_flash_attn_available as is_ring_attention_available,
+)
+from oumi.models.layers.ring_attention import (
     prepare_zigzag_ring_attn_inputs as prepare_seq_parallel_inputs,
 )
 from oumi.performance.telemetry import TelemetryTracker
@@ -80,7 +84,7 @@ class Trainer(BaseTrainer):
 
         self.tokenizer = tokenizer
         self._processor = processor
-        self.params = args
+        self.params = copy.deepcopy(args)
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.max_norm = (
@@ -89,8 +93,11 @@ class Trainer(BaseTrainer):
 
         self.fsdp_params = fsdp_params or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
-
-        self.is_using_ring_attention = True
+        self.is_using_ring_attention = (
+            is_distributed()
+            and torch.cuda.is_available()
+            and is_ring_attention_available()
+        )
 
         self.params.validate()
 

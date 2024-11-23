@@ -1,23 +1,37 @@
+import importlib
+import importlib.util
+
 import torch
 
-try:
-    from flash_attn.flash_attn_interface import (
-        _flash_attn_backward,
-        _flash_attn_forward,
-    )
-
-    _FLASH_ATTN_V2_INSTALLED = True
-except ImportError as e:
+if importlib.util.find_spec("flash_attn") is None:
     _FLASH_ATTN_V2_INSTALLED = False
-    raise ImportError(
-        "Please install Flash Attention: `pip install flash-attn --no-build-isolation`"
-    ) from e
+else:
+    try:
+        from flash_attn.flash_attn_interface import (  # pyright: ignore[reportMissingImports]
+            _flash_attn_backward,
+            _flash_attn_forward,
+        )
+
+        _FLASH_ATTN_V2_INSTALLED = True
+    except ImportError as e:
+        _FLASH_ATTN_V2_INSTALLED = False
+        raise ImportError(
+            "Failed to import Flash Attention `_flash_attn_forward` and "
+            "`_flash_attn_backward` functions. Consider re-installing Flash Attention: "
+            "`pip install flash-attn --no-build-isolation`."
+        ) from e
+
 
 from oumi.models.layers.zigzag_utils import (
     RingComm,
     get_default_args,
     update_out_and_lse,
 )
+
+
+def is_zigzag_ring_flash_attn_available() -> bool:
+    """Indicates whether zigzag ring attention is available."""
+    return _FLASH_ATTN_V2_INSTALLED
 
 
 def zigzag_ring_flash_attn_forward(

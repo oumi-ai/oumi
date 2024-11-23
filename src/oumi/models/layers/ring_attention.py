@@ -6,7 +6,10 @@ import transformers.cache_utils as transformers_cache_utils
 import transformers.modeling_flash_attention_utils as transformers_flash_attention_utils
 import transformers.models as transformers_models
 
-from oumi.models.layers.zigzag import zigzag_ring_flash_attn_func
+from oumi.models.layers.zigzag import (
+    is_zigzag_ring_flash_attn_available,
+    zigzag_ring_flash_attn_func,
+)
 
 
 def extract_local(value, rank, world_size, device, dim=1):
@@ -146,6 +149,12 @@ def new_decoder_forward(
 
 def apply_zigzag_ring_attn_monkey_patch_llama():
     """Apply the zigzag ring attention monkey patch to llama."""
+    if not is_zigzag_ring_flash_attn_available():
+        raise RuntimeError(
+            "Ring attention is not available. "
+            "Install Flash Attention: `pip install flash-attn --no-build-isolation`."
+        )
+
     transformers_flash_attention_utils._flash_attention_forward = new_flash_attn_forward
     # (transformers_models.llama.modeling_llama.LlamaFlashAttention2.
     #   _flash_attention_forward = new_flash_attn_forward)
