@@ -35,7 +35,7 @@ def run_inference(
 
 def main():
     """Runs inference on new files in the input directory."""
-    parallelism = 1
+    parallelism = 8
     if len(sys.argv) > 1:
         parallelism = int(sys.argv[1])
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"

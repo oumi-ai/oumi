@@ -1,13 +1,14 @@
 # Inference config for Llama 8B Instruct.
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "/model_bucket/lema-balerion/training_runs/llama8b.fft.sky-2024-11-22-10-37-51-456219_jgreer_halloumi_6"
   adapter_model: null  # Update for LoRA-tuned models.
-  model_max_length: 2048
+  model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
 
 generation:
-  max_new_tokens: 2048
+  max_new_tokens: 8192
+  temperature: 0.0

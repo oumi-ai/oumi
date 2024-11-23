@@ -6,7 +6,7 @@ name: llama8b-sft
 num_nodes: 1
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100-80GB:8"
   use_spot: true
   disk_size: 2000 # Disk size in GBs
 
@@ -17,6 +17,11 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+storage_mounts:
+  /output_gcs_bucket:
+    source: gs://oumi-dev-us-central1 # GCS bucket to store output
+    store: gcs
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -37,14 +42,14 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
+  uv pip install --upgrade --no-deps --force-reinstall '.[gpu]'
+  accelerate launch \
+      --num_machines ${OUMI_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
       -m oumi.train \
       -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.output_dir='/output_gcs_bucket/lema-balerion/training_runs/${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
