@@ -13,13 +13,33 @@ If you don't have enough local compute resources, then the model must be hosted 
 
 For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
 
+```{note}
+Still unsure which engine to use? Try {py:obj}`~oumi.inference.VLLMInferenceEngine` to get started locally.
+```
+
 ## Loading an Engine
 
 Now that you've decided on the engine you'd like to use, you'll need to create a small config to instantiate your engine.
 
 All engines require a model, specified via {py:obj}`~oumi.core.configs.ModelParams`. Any engine calling an external API / service (such as Anthropic, Gemini, Open AI, or a self-hosted server) will also require {py:obj}`~oumi.core.configs.RemoteParams`.
 
-See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a local inference engine and {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
+See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a local inference engine.
+
+See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
+
+## Using the CLI
+
+The Oumi CLI provides a great interface for quickly running a model. Interactive mode
+lets you send text inputs directly from your terminal, which batch mode lets you submit
+a jsonl file of conversations for batch processing.
+
+To use the CLI you need an {py:obj}`~oumi.core.configs.InferenceConfig`. This config
+will specify which model and inference engine you're using, as well as any relevant
+inference-time variables.
+
+```{seealso}
+Check out our [Infer CLI definition](/cli/commands.md#oumi-infer) to see the full list of command line options.
+```
 
 ## Supported Engines
 
