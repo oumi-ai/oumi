@@ -18,6 +18,7 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
+        trust_remote_code: True
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
           limit: 1024
