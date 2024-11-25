@@ -31,7 +31,7 @@ See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an infe
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 
-vllmModelParams: ModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
+vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(vllmModelParams)
 input_conversation = [] #Add your inputs here
 inference_config = InferenceConfig()
