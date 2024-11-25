@@ -1,0 +1,31 @@
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "mlabonne/orpo-dpo-mix-40k"
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: true
+  output_dir: "output/phi3.dpo"
+  trainer_type: "TRL_DPO"
+  per_device_train_batch_size: 30 # Each batch seems to be approx. 1.8GB
+  gradient_accumulation_steps: 8
+
+  # Use for debugging purposes
+  # max_steps: 10
+
+peft:
+  q_lora: False
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

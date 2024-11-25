@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -20,10 +20,10 @@ def _format_date(date: datetime) -> str:
     Returns:
         The formatted date.
     """
-    return date.strftime("%d%m%Y_%H%M%S%f")
+    return date.strftime("%Y%m%d_%H%M%S%f")
 
 
-def _last_pbs_line(script: List[str]) -> int:
+def _last_pbs_line(script: list[str]) -> int:
     """Finds the last PBS instruction line in the script.
 
     Args:
@@ -39,7 +39,7 @@ def _last_pbs_line(script: List[str]) -> int:
     )
 
 
-def _get_logging_directories(script: str) -> List[str]:
+def _get_logging_directories(script: str) -> list[str]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#PBS -o`, `#PBS -e`,
@@ -188,15 +188,15 @@ class PolarisCluster(BaseCluster):
                 return job
         return None
 
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         jobs = self._client.list_jobs(self._queue)
         for job in jobs:
             job.cluster = self._name
         return jobs
 
-    def stop_job(self, job_id: str) -> JobStatus:
-        """Stops the specified job on this cluster."""
+    def cancel_job(self, job_id: str) -> JobStatus:
+        """Cancels the specified job on this cluster."""
         self._client.cancel(job_id, self._queue)
         job = self.get_job(job_id)
         if job is None:
@@ -242,7 +242,7 @@ class PolarisCluster(BaseCluster):
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "uv pip install -e '.[gpu]'",
+            "pip install -e '.[gpu,quant]'",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.
@@ -271,6 +271,10 @@ class PolarisCluster(BaseCluster):
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
+
+    def stop(self) -> None:
+        """This is a no-op for Polaris clusters."""
+        pass
 
     def down(self) -> None:
         """This is a no-op for Polaris clusters."""

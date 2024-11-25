@@ -68,7 +68,7 @@ from oumi.core.configs.evaluation_config import (
 )
 from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
-from oumi.core.configs.judge_config import JudgeConfig
+from oumi.core.configs.judge_config import JudgeAttribute, JudgeConfig
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -80,8 +80,15 @@ from oumi.core.configs.params.evaluation_params import (
     CustomEvaluationParams,
     LMHarnessParams,
 )
-from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.configs.params.fsdp_params import (
+    AutoWrapPolicy,
+    BackwardPrefetch,
+    FSDPParams,
+    ShardingStrategy,
+    StateDictType,
+)
 from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
@@ -97,6 +104,8 @@ from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
     "AsyncEvaluationConfig",
+    "AutoWrapPolicy",
+    "BackwardPrefetch",
     "BaseConfig",
     "CustomEvaluationParams",
     "DataParams",
@@ -107,10 +116,12 @@ __all__ = [
     "EvaluationFramework",
     "FSDPParams",
     "GenerationParams",
+    "GuidedDecodingParams",
     "InferenceConfig",
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
+    "JudgeAttribute",
     "JudgeConfig",
     "LMHarnessParams",
     "MixedPrecisionDtype",
@@ -120,6 +131,8 @@ __all__ = [
     "ProfilerParams",
     "RemoteParams",
     "SchedulerType",
+    "ShardingStrategy",
+    "StateDictType",
     "StorageMount",
     "TelemetryParams",
     "TrainerType",

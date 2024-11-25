@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("Salesforce/wikitext")
-class WikiTextDataset(BasePretrainingIterableDataset):
+class WikiTextDataset(BasePretrainingDataset):
     """WikiText language modeling dataset.
 
     The WikiText dataset is a collection of over 100 million tokens extracted from

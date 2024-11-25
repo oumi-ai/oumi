@@ -22,4 +22,4 @@ We have several tutorials divided into the following categories:
 
 ## Command Line Interface
 
-- [Usage](https://github.com/oumi-ai/oumi/blob/main/USAGE.md)
+- [Quickstart](./quickstart.md)

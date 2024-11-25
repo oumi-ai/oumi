@@ -1,6 +1,7 @@
+import gc
 import os
 from pathlib import Path
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TypeVar, cast
 
 import numpy as np
 import torch
@@ -10,7 +11,10 @@ from oumi.utils.logging import logger
 
 
 def device_cleanup() -> None:
-    """Empties cuda cache, good to do before and after training for cleanup."""
+    """Empties gpu cache, good to do before and after training for cleanup."""
+    logger.debug("Running garbage collection.")
+    gc.collect()
+
     if torch.cuda.is_available():
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
@@ -21,6 +25,10 @@ def device_cleanup() -> None:
         torch.cuda.empty_cache()
 
         logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MiB")
+
+    elif torch.backends.mps.is_available():
+        logger.debug("Cleaning up MPS memory.")
+        torch.mps.empty_cache()
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:
@@ -36,6 +44,20 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
+def format_cudnn_version(v: Optional[int]) -> str:
+    """Formats the cuDNN version number.
+
+    Args:
+        v: The cuDNN version number.
+
+    Returns:
+        A formatted string.
+    """
+    if v is None:
+        return ""
+    return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
+
+
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
@@ -43,15 +65,10 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
-    def _format_cudnn_version(v: Optional[int]) -> str:
-        if v is None:
-            return ""
-        return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
-
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
         f"CUDA version: {torch.version.cuda} "
-        f"CuDNN version: {_format_cudnn_version(torch.backends.cudnn.version())}"
+        f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 
 
@@ -90,6 +107,13 @@ def log_devices_info(filepath: Optional[Path] = None) -> None:
             f.write(all_text)
 
 
+def log_peak_gpu_memory():
+    """Log the peak GPU memory usage."""
+    if torch.cuda.is_available():
+        peak_memory = torch.cuda.max_memory_allocated() / 1024**3  # Convert to GB
+        logger.info(f"Peak GPU memory usage: {peak_memory:.2f} GB")
+
+
 def create_model_summary(model: Any) -> str:
     """Creates a model summary as a free-formed string."""
     lines = ["Model summary:", repr(model), ""]
@@ -122,8 +146,8 @@ class ModelParameterCount(NamedTuple):
 
 
 def _get_parameter_names(
-    model: torch.nn.Module, forbidden_layer_types: List[Any]
-) -> List[str]:
+    model: torch.nn.Module, forbidden_layer_types: list[Any]
+) -> list[str]:
     """Returns the names of the model parameters that are not inside a forbidden layer.
 
     Borrowed from
@@ -205,6 +229,8 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         return torch.bfloat16
     elif torch_dtype_str in ["f16", "float16", "half"]:
         return torch.float16
+    elif torch_dtype_str in ["uint8"]:
+        return torch.uint8
     else:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
 
@@ -222,3 +248,167 @@ def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
             logger.warning(
                 f"Failed to coerce module {name} to dtype {dtype}. Error: {e}"
             )
+
+
+T = TypeVar("T")
+
+
+def convert_to_list_of_tensors(values: list[T]) -> list[torch.Tensor]:
+    """Converts a list of array-like objects into alist of torch tensors."""
+    if len(values) == 0:
+        return []
+
+    first_item = values[0]
+    if isinstance(first_item, torch.Tensor):
+        return [cast(torch.Tensor, item) for item in values]
+
+    if isinstance(first_item, np.ndarray):
+        return [torch.from_numpy(item) for item in values]
+    elif isinstance(first_item, list):
+        return [torch.from_numpy(np.asarray(item)) for item in values]
+
+    raise ValueError(
+        f"Unsupported element type: {type(first_item)}. "
+        "Must be numpy array, torch tensor, or Python list."
+    )
+
+
+def _pad_sequences_impl(
+    sequences: list[torch.Tensor], *, padding_value: float = 0
+) -> torch.Tensor:
+    return torch.nn.utils.rnn.pad_sequence(
+        sequences, batch_first=True, padding_value=padding_value
+    )
+
+
+def pad_sequences_right_side(
+    sequences: list[T], *, padding_value: float = 0
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Appends `padding_value` to the right side of each sequence
+    to expand to the longest length.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(len(sequences[i]))`)
+    """
+    if len(sequences) == 0:
+        raise ValueError("Empty list is not allowed.")
+    tensor_sequences = convert_to_list_of_tensors(sequences)
+
+    return _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
+
+
+def pad_sequences_left_side(
+    sequences: list[T], *, padding_value: float = 0
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Prepends `padding_value` to the left side of each sequence
+    to expand to the longest length.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(len(sequences[i]))`)
+    """
+    if len(sequences) == 0:
+        raise ValueError("Empty list is not allowed.")
+    tensor_sequences = convert_to_list_of_tensors(sequences)
+
+    # FIXME OPE-644 Start using `torch.nn.utils.rnn.pad_sequence(padding_size="left")`
+    # after we migrate to torch >=2.5.*.
+
+    # For now, do this to achieve left side padding:
+    # 1. Reverse all input sequences.
+    # 2. Right pad.
+    # 3. Unreverse all sequences in right-padded result.
+    # Note that torch.flip() copies tensors, so there is performance cost.
+
+    tensor_sequences = [torch.flip(s, dims=(0,)) for s in tensor_sequences]
+    result = _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
+    result = torch.flip(result, dims=(1,))
+    return result
+
+
+def pad_sequences(
+    sequences: list[T], *, padding_value: float = 0, padding_side: Optional[str] = None
+) -> torch.Tensor:
+    """Pads a list of variable-length tensors to a single tensor.
+
+    Args:
+        sequences: list of variable length sequences.
+        padding_value: value for padded elements. Default: 0.
+        padding_side: side to apply padding to. Valid values:  'right', 'left'.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(len(sequences[i]))`)
+    """
+    if not padding_side or padding_side == "right":
+        return pad_sequences_right_side(sequences, padding_value=padding_value)
+    elif padding_side == "left":
+        return pad_sequences_left_side(sequences, padding_value=padding_value)
+
+    raise ValueError(
+        f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
+    )
+
+
+def create_ones_like(
+    values: T,
+) -> T:
+    """Converts an array-like object into an object of the same type filled with 1-s.
+
+    Supports nested lists, in which case all elements must be of the same type.
+    """
+    if isinstance(values, torch.Tensor):
+        return torch.ones_like(values)
+    elif isinstance(values, np.ndarray):
+        return np.ones_like(values)
+    elif not isinstance(values, list):
+        raise ValueError(
+            f"Unsupported type: {type(values)}. "
+            "Must be numpy array, torch tensor, or Python list."
+        )
+
+    if len(values) == 0:
+        return cast(T, [])
+
+    first_item = values[0]
+    if isinstance(first_item, (int, float)):
+        result = list(np.ones_like(values))
+    else:
+        # Nested list
+        first_item_type = type(first_item)
+        result = []
+        for idx, item in enumerate(values):
+            if idx > 0 and not isinstance(item, first_item_type):
+                raise ValueError(
+                    "Sequence contains elements of different types: "
+                    f"{first_item_type} and {type(item)}."
+                )
+            result.append(create_ones_like(item))
+
+    return cast(T, result)
+
+
+def get_first_dim_len(x: Any) -> int:
+    """Returns length of the first dimension."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return int(x.shape[0])
+    elif isinstance(x, list):
+        return len(x)
+
+    raise ValueError(
+        f"Unsupported type: {type(x)}. "
+        "Must be numpy array, torch tensor, or Python list."
+    )

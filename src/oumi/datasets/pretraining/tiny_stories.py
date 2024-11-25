@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("roneneldan/TinyStories")
-class TinyStoriesDataset(BasePretrainingIterableDataset):
+class TinyStoriesDataset(BasePretrainingDataset):
     """TinyStoriesDataset class for loading and processing the TinyStories dataset.
 
     This dataset contains synthetically generated short stories with a small

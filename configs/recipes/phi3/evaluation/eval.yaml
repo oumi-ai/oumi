@@ -1,0 +1,12 @@
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  trust_remote_code: True
+
+lm_harness_params:
+  tasks:
+    - "huggingface_leaderboard_v1"
+
+generation:
+  batch_size: 1
+
+enable_wandb: True

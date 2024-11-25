@@ -1,3 +1,5 @@
+import functools
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
 
@@ -5,11 +7,11 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import BitsAndBytesConfig
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.core.tokenizers import get_default_special_tokens
 from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
@@ -61,7 +63,7 @@ def build_model(
         )
 
     if model_params.enable_liger_kernel:
-        _patch_model_for_liger_kernel(model_params.model_name)
+        _patch_model_for_liger_kernel(model)
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
@@ -81,25 +83,30 @@ def build_model(
     return model
 
 
-def _patch_model_for_liger_kernel(model_name: str) -> None:
-    """Patches the model for Liger Kernel."""
+def _get_model_type(model: nn.Module) -> Optional[str]:
+    return getattr(model, "config", None) and getattr(model.config, "model_type", None)
+
+
+def _patch_model_for_liger_kernel(model: nn.Module) -> None:
+    """Patches the model for Liger Kernel.
+
+    The list of support models can be found here:
+    https://github.com/linkedin/Liger-Kernel/blob/99599091373f178e8ad6a69ecb1b32351d1d5c1f/src/liger_kernel/transformers/monkey_patch.py#L700
+
+    If the model is not supported, liger kernel patching will not be applied,
+    and a warning will be logged.
+    """
     if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
 
-    model_name_lower = model_name.lower()
+    model_type = _get_model_type(model)
 
-    if "llama" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_llama()
-    elif "mixtral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
-    elif "mistral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mistral()
-    elif "gemma" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_gemma()
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
+    if model_type is None:
+        raise ValueError(f"Could not find model type for: {model}")
+
+    liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
 def build_oumi_model(
@@ -125,6 +132,16 @@ def build_oumi_model(
     # Needed for MFUTrainerCallback
     model.dtype = dtype
     return model
+
+
+class _InternalModelKind(Enum):
+    """Private enum representing the supported types of models for internal use."""
+
+    DEFAULT = "default"
+    """Default/unknown model type."""
+
+    IMAGE_TEXT_LLM = "image_text_llm"
+    """Basic image+text LLM."""
 
 
 def build_huggingface_model(
@@ -171,22 +188,14 @@ def build_huggingface_model(
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
-        # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=peft_params.q_lora_bits == 4,
-            load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype,
-            bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
-            bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
-            bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
-        )
+        quantization_config = peft_params.to_bits_and_bytes()
     else:
         quantization_config = None
 
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class = _get_transformers_model_class(hf_config)
+    transformers_model_class, _ = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
@@ -225,6 +234,7 @@ def build_huggingface_model(
 def _get_transformers_model_class(config):
     # TODO: Remove this once we have a better way to identify the model class
     # Or we can just ask the user to specify the model class in the config
+    model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
     if config.model_type in (
         "blip-2",
         "blip",
@@ -234,6 +244,7 @@ def _get_transformers_model_class(config):
         "idefics3",
         "instructblip",
         "llava",
+        "mllama",
         "paligemma",
         "qwen2_vl",
         "vipllava",
@@ -241,7 +252,20 @@ def _get_transformers_model_class(config):
         tested_models = {
             "blip-2",
             "llava",
+            "mllama",
         }  # TODO: OPE-353, make sure we have all models supported
+
+        if config.model_type not in tested_models:
+            logger.warning(
+                f"Model type {config.model_type} not tested. "
+                "Using AutoModelForVision2Seq as the model class."
+                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
+            )
+
+        auto_model_class = transformers.AutoModelForVision2Seq
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
+    elif config.model_type in ("molmo"):
+        tested_models = {}  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
             logger.warning(
@@ -249,12 +273,31 @@ def _get_transformers_model_class(config):
                 "Using AutoModelForCausalLM as the model class."
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
-
-        auto_model_class = transformers.AutoModelForVision2Seq
+        auto_model_class = transformers.AutoModelForCausalLM
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
+        model_kind = _InternalModelKind.DEFAULT
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
-    return auto_model_class
+    return auto_model_class, model_kind
+
+
+@functools.cache
+def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
+    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        return_unused_kwargs=True,
+    )
+    _, model_kind = _get_transformers_model_class(hf_config)
+    return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+
+
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    return _is_image_text_llm_impl(
+        model_params.model_name, model_params.trust_remote_code
+    )
 
 
 def build_cambrian_model(
@@ -332,13 +375,12 @@ def build_cambrian_model(
 
 
 def build_tokenizer(
-    model_params: ModelParams, **kwargs
+    model_params: ModelParams,
 ) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
         model_params (ModelParams): The model parameters.
-        **kwargs: Additional keyword arguments for tokenizer loading.
 
     Returns:
         tokenizer: The tokenizer object built from the configuration.
@@ -354,14 +396,28 @@ def build_tokenizer(
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
-        **kwargs,
+        **model_params.tokenizer_kwargs,
     )
 
-    if tokenizer.pad_token is None:
-        # Set pad token to eos token if not already set
-        # Older models may not have pad token set
-        logger.warning("<pad> token not found: setting <pad> with <eos>.")
-        tokenizer.pad_token = tokenizer.eos_token
+    if model_params.tokenizer_pad_token:
+        tokenizer.add_special_tokens(
+            special_tokens_dict={"pad_token": model_params.tokenizer_pad_token}
+        )
+
+    # Ensure that the tokenizer has a pad token set.
+    if (tokenizer.pad_token is None) and (tokenizer.pad_token_id is None):
+        default_pad_token = get_default_special_tokens(tokenizer).pad_token
+        if default_pad_token:
+            logger.warning(f"Undefined pad token. Setting it to `{default_pad_token}`.")
+            tokenizer.add_special_tokens(
+                special_tokens_dict={"pad_token": default_pad_token}
+            )
+        else:
+            raise ValueError(
+                "Tokenizer does not have a pad token. This is expected for older "
+                "models, but you need to set it manually in your model config as: "
+                "tokenizer_kwargs={'pad_token': 'user_defined_pad_token'}"
+            )
 
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length

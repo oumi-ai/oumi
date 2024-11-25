@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict
+from typing import Callable
 
 import torch
 import torch.nn as nn
@@ -20,7 +20,7 @@ class BaseModel(nn.Module, ABC):
         super().__init__()
 
     @abstractmethod
-    def forward(self, **kwargs) -> Dict[str, torch.Tensor]:
+    def forward(self, **kwargs) -> dict[str, torch.Tensor]:
         """Performs the forward pass of the model.
 
         Optionally computes the loss if the necessary keyword arguments are provided.

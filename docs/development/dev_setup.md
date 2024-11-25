@@ -1,9 +1,5 @@
 # Development Setup
 
-```{attention}
-Section under construction. Contributions welcome!
-```
-
 ## 1. Install Miniconda
 
    <https://docs.anaconda.com/free/miniconda/miniconda-install/>
@@ -96,12 +92,12 @@ Section under construction. Contributions welcome!
 ## 4. [optional] Add an Oumi shortcut in your environment {.zshrc or .bashrc}
 
    ```shell
-   alias oumi="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
+   alias oumi-conda="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
    ```
 
    Ensure that this works with:
 
    ```shell
    source ~/{.zshrc or .bashrc}
-   oumi
+   oumi-conda
    ```

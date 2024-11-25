@@ -4,7 +4,7 @@ import pytest
 from transformers import AutoTokenizer
 
 from oumi.core.registry import REGISTRY
-from oumi.core.types.turn import Conversation, Message
+from oumi.core.types.conversation import Conversation, Message
 
 
 def is_content_empty_expected(dataset_name, conversation_idx, message_idx):
@@ -36,7 +36,7 @@ def dataset_fixture(request):
         pytest.fail(f"Dataset {dataset_name} not found in registry")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     return dataset_name, dataset_class(
-        dataset_name_or_path=dataset_name, split="train", tokenizer=tokenizer
+        dataset_name=dataset_name, split="train", tokenizer=tokenizer
     )
 
 

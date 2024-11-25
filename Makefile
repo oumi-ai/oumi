@@ -14,7 +14,7 @@ DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
 # Sphinx documentation variables
-SPHINXOPTS    ?=
+SPHINXOPTS    ?= -v
 SPHINXBUILD   ?= sphinx-build
 DOCS_SOURCEDIR     = $(DOCS_DIR)
 DOCS_BUILDDIR      = $(DOCS_DIR)/_build
@@ -132,11 +132,11 @@ coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
 skyssh:
-	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
+	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
 	ssh "${USERNAME}-dev"
 
 skycode:
-	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/skypilot/sky_ssh.yaml
+	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
 docs:

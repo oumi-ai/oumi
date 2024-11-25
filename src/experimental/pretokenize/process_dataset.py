@@ -3,14 +3,11 @@ import functools
 import os
 import pathlib
 import time
+from collections.abc import Iterator
 from typing import (
     Any,
-    Dict,
-    Iterator,
-    List,
     NamedTuple,
     Optional,
-    Tuple,
     TypeVar,
     Union,
     cast,
@@ -32,7 +29,7 @@ DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
 
 def _list_input_files(
-    input_paths: List[str],
+    input_paths: list[str],
     input_format: str,
 ) -> Iterator[pathlib.Path]:
     for path_str in input_paths:
@@ -46,10 +43,10 @@ def _list_input_files(
 def _tokenize_examples(
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
     target_col: str,
-    examples: Dict[str, Any],
-) -> Dict[str, Any]:
+    examples: dict[str, Any],
+) -> dict[str, Any]:
     batch = tokenizer(examples[target_col])
-    token_ids: List[List[int]] = batch.input_ids
+    token_ids: list[list[int]] = batch.input_ids
     result = examples.copy()
     result[_TOKEN_IDS_COLUMN_NAME] = token_ids
     return result
@@ -192,7 +189,7 @@ class ParsedArgs(NamedTuple):
     dataset_subset: str
     dataset_split: str
     trust_remote_code: bool
-    input_paths: List[str]
+    input_paths: list[str]
     input_format: str
     target_col: str
     output_dir: str
@@ -203,7 +200,7 @@ class ParsedArgs(NamedTuple):
     skip_tokenize: bool
 
 
-def parse_cli() -> Tuple[ParsedArgs, List[str]]:
+def parse_cli() -> tuple[ParsedArgs, list[str]]:
     """Parses command line arguments and returns the configuration filename."""
     parser = argparse.ArgumentParser()
     parser.add_argument(

@@ -4,7 +4,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -35,6 +35,7 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.performance.telemetry import TelemetryTracker
@@ -59,8 +60,9 @@ class Trainer(BaseTrainer):
         tokenizer: BaseTokenizer,
         args: TrainingParams,
         train_dataset: Dataset,
+        processor: Optional[BaseProcessor] = None,
         eval_dataset: Optional[Dataset] = None,
-        callbacks: Optional[List[TrainerCallback]] = None,
+        callbacks: Optional[list[TrainerCallback]] = None,
         data_collator: Optional[Callable] = None,
         fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
@@ -71,6 +73,7 @@ class Trainer(BaseTrainer):
         self.collator_fn = data_collator
 
         self.tokenizer = tokenizer
+        self._processor = processor
         self.params = args
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -217,9 +220,10 @@ class Trainer(BaseTrainer):
 
     @contextmanager
     def _telemetry_block(self, name: str):
-        with torch.profiler.record_function(
-            name
-        ) as record_function_context, self.telemetry.timer(name) as timer_context:
+        with (
+            torch.profiler.record_function(name) as record_function_context,
+            self.telemetry.timer(name) as timer_context,
+        ):
             yield (record_function_context, timer_context)
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
@@ -377,7 +381,7 @@ class Trainer(BaseTrainer):
     # Evaluation
     #
     @torch.no_grad()
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         """Evaluates the model on the evaluation dataset."""
         if self.eval_dataloader is None:
             raise ValueError("No evaluation dataloader provided.")
@@ -416,6 +420,10 @@ class Trainer(BaseTrainer):
             model_path = output_dir / "model.safetensors"
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
+
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
 
     def save_state(self):
         """Saves the training state."""
@@ -537,7 +545,7 @@ class Trainer(BaseTrainer):
             return
         logger.info(message)
 
-    def log_metrics(self, metrics: Dict[str, Any], step: int) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: int) -> None:
         """Logs metrics to wandb and tensorboard."""
         # Log to console and log file
         if not is_world_process_zero():
@@ -565,7 +573,9 @@ class Trainer(BaseTrainer):
         if self.params.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")
             self.log(f"Logging to Weights and Biases project: '{project_name}'")
-            run = wandb.init(project=project_name, name=self.params.run_name)
+            run = wandb.init(
+                project=project_name, name=self.params.run_name, job_type="train"
+            )
             self.log(f"View wandb run {run.id} at: {run.get_url()}")
             wandb.watch(self.model)
 
@@ -666,8 +676,8 @@ class Trainer(BaseTrainer):
     # Handle callbacks
     #
     def _process_callbacks(
-        self, event: str, logs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, event: str, logs: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.

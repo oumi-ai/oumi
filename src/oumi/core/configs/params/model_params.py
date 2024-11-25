@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from omegaconf import MISSING
 from transformers.utils import is_flash_attn_2_available
@@ -31,6 +31,20 @@ class ModelParams(BaseParams):
     If None, the tokenizer associated with `model_name` will be used.
     Specify this if you want to use a different tokenizer than the default
     for the model.
+    """
+
+    tokenizer_pad_token: Optional[str] = None
+    """The padding token used by the tokenizer.
+
+    If this is set, it will override the default padding token of the tokenizer and the
+    padding token optionally defined in the `tokenizer_kwargs`.
+    """
+
+    tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the tokenizer's constructor.
+
+    This allows for passing any tokenizer-specific parameters that are not
+    covered by other fields in ModelParams.
     """
 
     model_max_length: Optional[int] = None
@@ -65,10 +79,10 @@ class ModelParams(BaseParams):
     """The data type to use for the model's parameters as a string.
 
     Valid options are:
-    - "float32" or "f32" for 32-bit floating point
-    - "float16" or "f16" for 16-bit floating point
+    - "float32" or "f32" or "float" for 32-bit floating point
+    - "float16" or "f16" or "half" for 16-bit floating point
     - "bfloat16" or "bf16" for brain floating point
-    - "float64" or "f64" for 64-bit floating point
+    - "float64" or "f64" or "double" for 64-bit floating point
 
     This string will be converted to the corresponding torch.dtype.
     Defaults to "float32" for full precision.
@@ -114,7 +128,7 @@ class ModelParams(BaseParams):
         especially for large models that don't fit on a single GPU.
     """
 
-    model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    model_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the model's constructor.
 
     This allows for passing any model-specific parameters that are not
@@ -145,7 +159,7 @@ class ModelParams(BaseParams):
     https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#multi-gpu-evaluation-with-hugging-face-accelerate
     """
 
-    freeze_layers: List[str] = field(default_factory=list)
+    freeze_layers: list[str] = field(default_factory=list)
     """A list of layer names to freeze during training.
 
     These layers will have their parameters set to not require gradients,
@@ -154,7 +168,7 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def to_lm_harness(self) -> Dict[str, Any]:
+    def to_lm_harness(self) -> dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,

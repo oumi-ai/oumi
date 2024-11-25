@@ -9,6 +9,18 @@
 
 The Oumi Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
 
+<p align="center">
+   <b>Check out our docs!</b>
+   <br>
+   ↓↓↓↓↓↓
+   <br>
+   https://oumi.ai/docs
+   <br>
+   <b>Password:</b> c155c7d02520
+   <br>
+   ↑↑↑↑↑↑
+</p>
+
 ## Features
 
 - **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
@@ -21,7 +33,7 @@ The Oumi Platform enables the end-to-end development of foundation and specializ
 
 ## Getting Started
 
-For an overview of the Oumi features and usage, checkout the [user guide](/USAGE.md) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
+For an overview of Oumi features and usage, check out the [user guide](https://oumi.ai/docs/latest/user_guides/train/train.html) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
 
 ### Quickstart
 
@@ -32,7 +44,7 @@ For an overview of the Oumi features and usage, checkout the [user guide](/USAGE
 1. Install Oumi:
 
    ```shell
-   pip install 'oumi[all]'
+   pip install 'oumi'
    ```
 
 2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
@@ -43,7 +55,7 @@ For an overview of the Oumi features and usage, checkout the [user guide](/USAGE
    oumi train -c path/to/your/config.yaml
    ```
 
-   For more advanced training options, see [cloud training guide](/docs/CLOUD_TRAINING.md) and [distributed training](/docs/DISTRIBUTED_TRAINING.md).
+   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
 
 ### Configurations
 
@@ -52,17 +64,17 @@ These configurations demonstrate how to setup and run full training for differen
 | Model | Type | Configuration | Cluster | Status |
 |-------|------|---------------|---------|--------|
 | **Llama Instruction Finetuning** | | | | |
-| Llama3.1 8b | LoRA | [llama8b_lora.yaml](/configs/oumi/jobs/polaris/llama8b_lora.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 8b | SFT | [llama8b_sft.yaml](/configs/oumi/jobs/polaris/llama8b_sft.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | LoRA | [llama70b_lora.yaml](/configs/oumi/jobs/polaris/llama70b_lora.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | SFT | [llama70b_sft.yaml](/configs/oumi/jobs/polaris/llama70b_sft.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 8b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 8b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
+| Llama3.1 70b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
 | **Example Models** | | | | |
-| Aya | SFT | [llama3.8b.aya.sft.yaml](/configs/oumi/llama3.8b.aya.sft.yaml) | GCP | ✨ Supported ✨ |
-| Zephyr |QLoRA | [zephyr.7b.qlora.yaml](/configs/oumi/zephyr.7b/sft/qlora.yaml) | GCP | ✨ Supported ✨ |
-| ChatQA | SFT | [chatqa.stage1.yaml](/configs/oumi/chatqa/chatqa.stage1.yaml) | GCP | ✨ Supported ✨ |
+| Aya | SFT | [train.yaml](configs/projects/aya/sft/train.yaml) | GCP | ✨ Supported ✨ |
+| Zephyr |QLoRA | [qlora_train.yaml](/configs/projects/zephyr/sft/qlora_train.yaml) | GCP | ✨ Supported ✨ |
+| ChatQA | SFT | [chatqa_stage1_train.yaml](/configs/projects/chatqa/sft/chatqa_stage1_train.yaml) | GCP | ✨ Supported ✨ |
 | **Pre-training** | | | | |
-| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/oumi/gpt2.pt.mac.yaml) | Mac (mps) | ✨ Supported ✨ |
-| Llama2 2b | Pre-training | [llama2b.pt.yaml](/configs/oumi/llama2b.pt.yaml) | Polaris | ✨ Supported ✨ |
+| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/recipes/gpt2/pretraining/mac_train.yaml) | Mac (mps) | ✨ Supported ✨ |
+| Llama2 2b | Pre-training | [fineweb.pt.yaml](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) | Polaris | ✨ Supported ✨ |
 
 ## Tutorials
 

@@ -6,7 +6,7 @@ from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.turn import Conversation
+from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_jsonlines
 
 
@@ -94,4 +94,4 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         messages = example[self._data_column]
-        return Conversation.model_validate(messages)
+        return Conversation.from_dict(messages)

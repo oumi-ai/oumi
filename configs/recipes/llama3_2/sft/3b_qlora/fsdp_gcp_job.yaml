@@ -1,0 +1,47 @@
+# Config to FSDP QLoRA tune Llama 3.2 3B Instruct on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_2/sft/3b_qlora/fsdp_gcp_job.yaml --cluster llama3b-qlora-fsdp
+name: llama3b-qlora-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: true
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama3b.qlora.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu,quant]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
+      -m oumi.train \
+      -c configs/recipes/llama3_2/sft/3b_qlora/fsdp_train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

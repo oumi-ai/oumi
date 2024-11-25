@@ -1,7 +1,7 @@
 """A callback to detect NaN/INF metric values."""
 
 import copy
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import transformers
@@ -22,7 +22,7 @@ class NanInfDetectionCallback(BaseTrainerCallback):
 
     def __init__(
         self,
-        metrics: List[str],
+        metrics: list[str],
     ):
         """Initializes the NanInfDetectionCallback.
 

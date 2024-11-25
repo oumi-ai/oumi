@@ -1,9 +1,15 @@
 import time
+from typing import Union
 
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
+from typing_extensions import override
 
+from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.registry import register_dataset
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("debug_classfication")
@@ -101,3 +107,71 @@ class DebugPretrainingDataset(Dataset):
         if self.preprocessing_time_ms > 0:
             time.sleep(self.preprocessing_time_ms * 1000)
         return {"input_ids": self.data[idx], "labels": self.data[idx]}
+
+
+@register_dataset("debug_sft")
+class DebugSftDataset(BaseSftDataset):
+    default_dataset = "debug_sft"
+
+    def __init__(
+        self,
+        dataset_size: int = 5,
+        **kwargs,
+    ):
+        """Initializes a DebugSftDataset."""
+        self.size = dataset_size
+
+        super().__init__(**kwargs)
+
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+        """Transforms the example into a Conversation object."""
+        return Conversation(
+            messages=[
+                Message(role=Role.USER, content=example.get("user_message", "")),
+                Message(
+                    role=Role.ASSISTANT, content=example.get("assistant_message", "")
+                ),
+            ]
+        )
+
+    @override
+    def _load_data(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "user_message": ["Hello, how are you?" for _ in range(self.size)],
+                "assistant_message": ["I'm fine, thank you!" for _ in range(self.size)],
+            }
+        )
+
+
+@register_dataset("debug_dpo")
+class DebugDpoDataset(BaseExperimentalDpoDataset):
+    default_dataset = "debug_dpo"
+
+    def __init__(
+        self,
+        dataset_size: int = 5,
+        **kwargs,
+    ):
+        """Initializes a DebugSftDataset."""
+        self.size = dataset_size
+
+        super().__init__(**kwargs)
+
+    def transform_preference(self, sample: dict) -> dict:
+        """Transforms the sample into a preference dict."""
+        return {
+            "prompt": sample["prompt"],
+            "chosen": sample["chosen"],
+            "rejected": sample["rejected"],
+        }
+
+    @override
+    def _load_data(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "prompt": ["Hello, how are you?" for _ in range(self.size)],
+                "chosen": ["I'm fine, thank you!" for _ in range(self.size)],
+                "rejected": ["fine" for _ in range(self.size)],
+            }
+        )

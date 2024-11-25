@@ -46,10 +46,10 @@ class Projector(nn.Module):
         self.build_net()
 
     def build_net(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def _forward(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Args:

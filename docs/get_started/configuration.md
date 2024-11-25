@@ -1,9 +1,5 @@
 # Configuration
 
-```{attention}
-Section under construction. Contributions welcome!
-```
-
 ## 1. Configuration
 
 Oumi uses YAML configuration files to specify model and training parameters. Create a file named `config.yaml` with your desired settings. Here's a basic example:
@@ -35,8 +31,6 @@ Each section in the configuration file controls different aspects of the trainin
 - `data`: Defines the datasets for training and validation
 - `training`: Sets training hyperparameters and output locations
 
-For more advanced use cases and examples of other configuration options, see the [Configuration](https://github.com/oumi-ai/oumi/tree/main/configs/oumi) directory.
-
 ## 2. Model Selection
 
 Oumi supports various model architectures. To use a different model, simply change the `model_name` in your configuration:
@@ -59,12 +53,12 @@ The choice of model depends on your specific task and computational resources.
 Oumi handles most data preprocessing automatically. However, for custom datasets or specific requirements, you can implement your own preprocessing logic. Here's an example of how to preprocess data for a text classification task:
 
 ```python
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.turn import Conversation, Message, Role
 
 @register_dataset("my_text_classification_dataset")
-class MyTextClassificationDataset(BaseLMSftDataset):
+class MyTextClassificationDataset(BaseSftDataset):
     def transform_conversation(self, raw_example):
         text = raw_example['text']
         label = raw_example['label']

@@ -1,26 +1,27 @@
 import argparse
-import gc
 import time
+from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
-    build_data_collator,
+    build_collator_from_config,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
     build_peft_model,
+    build_processor,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
+    is_image_text_llm,
 )
 from oumi.core.configs import (
     DatasetSplit,
-    DatasetSplitParams,
     TrainerType,
     TrainingConfig,
 )
@@ -33,15 +34,18 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
+    prepare_accelerate_fsdp_run,
     set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
-from oumi.utils.distributed_utils import is_using_accelerate_fsdp
+from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
+from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
@@ -51,10 +55,10 @@ from oumi.utils.torch_utils import (
     limit_per_process_memory,
     log_devices_info,
     log_model_summary,
+    log_peak_gpu_memory,
     log_versioning_info,
 )
-
-_START_TIME = -1.0
+from oumi.utils.version_utils import is_dev_build
 
 
 def parse_cli():
@@ -90,7 +94,6 @@ def main() -> None:
     config.validate()
 
     limit_per_process_memory()
-    device_cleanup()
     set_random_seeds(config.training.seed)
 
     # Run training
@@ -165,20 +168,11 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-
-
-def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
-    """Creates data collator if specified in config."""
-    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
-    if not train_split.collator_name:
-        return None
-
-    return build_data_collator(
-        collator_name=train_split.collator_name,
-        tokenizer=tokenizer,
-        max_length=config.model.model_max_length,
-        label_ignore_index=-100,
-    )
+        oumi_version = version("oumi")
+        logger.info(f"Oumi version: {oumi_version}")
+        if is_dev_build():
+            logger.info(f"Git revision hash: {get_git_revision_hash()}")
+            logger.info(f"Git tag: {get_git_tag()}")
 
 
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
@@ -193,9 +187,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         config.training.dataloader_num_workers = num_workers
 
     assert isinstance(config.training.dataloader_num_workers, int)
-
-    # FIXME OPE-229 Consider moving hardware capability validations
-    # from TrainingConfig `__post_init__` to this function.
     return config
 
 
@@ -222,10 +213,35 @@ def train(config: TrainingConfig, **kwargs) -> None:
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
+    # We support running FSDP Oumi training without being invoked from the Accelerate
+    # launcher. We detect this with the following:
+    # 1. Accelerate's environment variables aren't set
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 3. FSDP is enabled in the Oumi config
+    # In this case, we mimic an Accelerate launcher run by setting the necessary
+    # environment variables.
+    # Note that normal Accelerate launcher runs won't be affected.
+    if (
+        not is_using_accelerate()
+        and config.training.trainer_type != TrainerType.OUMI
+        and config.fsdp.enable_fsdp
+    ):
+        accelerate_env_vars = prepare_accelerate_fsdp_run(config)
+        logger.info(
+            f"Set Accelerate environment variables for FSDP: {accelerate_env_vars}"
+        )
+
     # Initialize model and tokenizer.
     tokenizer = build_tokenizer(config.model)
+    processor: Optional[BaseProcessor] = None
+    if is_image_text_llm(config.model):
+        # Only create `processor` for MLLM-s for now.
+        processor = build_processor(
+            config.model.model_name,
+            tokenizer,
+            trust_remote_code=config.model.trust_remote_code,
+        )
 
-    # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft
 
     # Build model.
@@ -255,15 +271,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type
+        config.training.trainer_type, processor
     )
 
     metrics_function = build_metrics_function(config.training)
 
-    # Reclaim memory before training starts.
-    gc.collect()
+    collator = build_collator_from_config(config, tokenizer)
 
-    collator = _build_collator_if_needed(config, tokenizer)
+    # Reclaim memory before training starts.
+    device_cleanup()
 
     with torch_profile(
         config.training.profiler,
@@ -329,6 +345,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     logger.info("Training is Complete.")
 
     log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Training:")
+    log_peak_gpu_memory()
 
     # Save final checkpoint & training state.
     if config.training.save_final_model:
@@ -342,6 +359,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     if is_distributed():
         cleanup_distributed()
+    logger.info(
+        "\n\n» We're always looking for feedback. "
+        "What's one thing we can improve? https://oumi.ai/feedback"
+    )
 
 
 if __name__ == "__main__":

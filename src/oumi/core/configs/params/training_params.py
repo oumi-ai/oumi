@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import transformers
 import trl
@@ -139,12 +139,9 @@ class TrainingParams(BaseParams):
     backward pass, it recomputes these activations during the backward pass.
     This can make the training slower, but it can also significantly reduce memory
     usage.
-
-    For FSDP training via Accelerate, do not set this to true. Instead, set
-    `fsdp_config.fsdp_activation_checkpointing` to true in the accelerate yaml config.
     """
 
-    gradient_checkpointing_kwargs: Dict[str, Any] = field(default_factory=dict)
+    gradient_checkpointing_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for gradient checkpointing.
 
     The `use_reentrant` parameter is required and is recommended to be set to False.
@@ -176,10 +173,11 @@ class TrainingParams(BaseParams):
     gradient_accumulation_steps: int = 1
     """Number of update steps to accumulate before performing a backward/update pass.
 
-    This technique allows for effectively larger batch sizes without increasing
-    memory usage. The gradients from multiple forward passes are accumulated
-    before performing a single optimization step. Setting this to >1 can increase
-    memory usage for training setups wihout existing gradient accumulation buffers
+    This technique allows for effectively larger batch sizes and is especially
+    useful when such batch sizes would not fit in memory. This is achieved by
+    accumulating gradients from multiple forward passes before performing
+    a single optimization step. Setting this to >1 can increase however
+    memory usage for training setups without existing gradient accumulation buffers
     (ex. 1-GPU training).
     """
 
@@ -237,17 +235,13 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
-    run_name: str = "default"
+    run_name: Optional[str] = None
     """A unique identifier for the current training run.
 
     This name is used to identify the run in logging outputs, saved model
     checkpoints, and experiment tracking tools like Weights & Biases or
     TensorBoard. It's particularly useful when running multiple experiments
     or when you want to easily distinguish between different training sessions.
-
-    If left as "default", a unique name will be generated based on the
-    current timestamp and other parameters. You can also set it to a custom
-    string to give your run a more meaningful or memorable name.
     """
 
     metrics_function: Optional[str] = None
@@ -353,7 +347,7 @@ class TrainingParams(BaseParams):
     See `src/oumi/builders/lr_schedules.py` for more details on each scheduler.
     """
 
-    lr_scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
+    lr_scheduler_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the learning rate scheduler.
 
     These arguments can be used to fine-tune the behavior of the chosen scheduler.
@@ -516,7 +510,7 @@ class TrainingParams(BaseParams):
     Defaults to 1.0. When set to 0.0 or None gradient clipping will not be applied.
     """
 
-    trainer_kwargs: Dict[str, Any] = field(default_factory=dict)
+    trainer_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the Trainer.
 
     This allows for customization of the Trainer beyond the standard parameters
@@ -647,7 +641,7 @@ class TrainingParams(BaseParams):
         assert isinstance(result, transformers.TrainingArguments)
         return result
 
-    def _get_hf_report_to(self) -> List[str]:
+    def _get_hf_report_to(self) -> list[str]:
         """Gets the list of reporting tools enabled for the current instance.
 
         Returns:

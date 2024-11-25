@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("togethercomputer/RedPajama-Data-V2")
-class RedPajamaDataV2Dataset(BasePretrainingIterableDataset):
+class RedPajamaDataV2Dataset(BasePretrainingDataset):
     """RedPajama V2 Dataset for training large language models.
 
     This dataset includes over 100B text documents from 84 CommonCrawl snapshots,
