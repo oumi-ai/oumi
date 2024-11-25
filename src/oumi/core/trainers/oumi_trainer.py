@@ -43,9 +43,6 @@ from oumi.models.layers.ring_attention import (
     apply_zigzag_ring_attn_monkey_patch_llama as apply_ring_attention_monkey_patch,
 )
 from oumi.models.layers.ring_attention import (
-    is_zigzag_ring_flash_attn_available as is_ring_attention_available,
-)
-from oumi.models.layers.ring_attention import (
     prepare_zigzag_ring_attn_inputs as prepare_seq_parallel_inputs,
 )
 from oumi.performance.telemetry import TelemetryTracker
@@ -93,11 +90,11 @@ class Trainer(BaseTrainer):
 
         self.fsdp_params = fsdp_params or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
-        self.is_using_ring_attention = (
-            is_distributed()
-            and torch.cuda.is_available()
-            and is_ring_attention_available()
-        )
+        # TODO OPE-333 Define a param to enable ring attention + check pre-conditions:
+        # 1. Flash Attention (`is_ring_attention_available()`),
+        # 2. CUDA and distributed multi-GPU training (otherwise, pointless).
+        # 3. Supported model type.
+        self.is_using_ring_attention = False
 
         self.params.validate()
 
