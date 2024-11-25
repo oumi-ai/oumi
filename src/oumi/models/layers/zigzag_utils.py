@@ -8,6 +8,9 @@ import torch.nn.functional as F
 
 __all__ = ["update_out_and_lse", "RingComm", "get_default_args"]
 
+# Derived from
+# zhuzilin/ring-flash-attention/ring_flash_attn/utils.py
+
 
 @cache
 def get_default_args(func) -> dict[str, Any]:

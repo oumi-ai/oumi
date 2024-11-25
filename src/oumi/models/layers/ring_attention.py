@@ -11,6 +11,9 @@ from oumi.models.layers.zigzag import (
     zigzag_ring_flash_attn_func,
 )
 
+# Derived from:
+# jzhang38/EasyContext/easy_context/zigzag_ring_attn/prepare_inputs.py
+
 
 def extract_local(value, rank, world_size, device, dim=1):
     """Extract the local value from the global value."""
@@ -155,6 +158,7 @@ def apply_zigzag_ring_attn_monkey_patch_llama():
             "Install Flash Attention: `pip install flash-attn --no-build-isolation`."
         )
 
+    # See also https://github.com/zhuzilin/ring-flash-attention/blob/6f1c6f7a6b40ec87cf1a80c3858c3c74b6c415c0/ring_flash_attn/adapters/hf_adapter.py#L167
     transformers_flash_attention_utils._flash_attention_forward = new_flash_attn_forward
     # (transformers_models.llama.modeling_llama.LlamaFlashAttention2.
     #   _flash_attention_forward = new_flash_attn_forward)

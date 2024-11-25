@@ -34,6 +34,9 @@ def is_zigzag_ring_flash_attn_available() -> bool:
     return _FLASH_ATTN_V2_INSTALLED
 
 
+# Derived from
+# jzhang38/EasyContext/easy_context/zigzag_ring_attn/monkey_patch.py
+# zhuzilin/ring-flash-attention/ring_flash_attn/zigzag_ring_flash_attn.py
 def zigzag_ring_flash_attn_forward(
     process_group,
     q: torch.Tensor,
