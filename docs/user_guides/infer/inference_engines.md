@@ -27,6 +27,17 @@ See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a loca
 
 See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
 
+```python
+from oumi.inference import VLLMInferenceEngine
+from oumi.core.configs import InferenceConfig, ModelParams
+
+vllmModelParams: ModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
+engine = VLLMInferenceEngine(vllmModelParams)
+input_conversation = [] #Add your inputs here
+inference_config = InferenceConfig()
+outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+```
+
 ## Using the CLI
 
 The Oumi CLI provides a great interface for quickly running a model. Interactive mode
