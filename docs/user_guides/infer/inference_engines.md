@@ -7,7 +7,7 @@ Inference Engines are simple tools for running inference on models in Oumi. This
 
 Our engines are broken into two categories: local inference vs remote inference. But how do you decide between the two?
 
-Generally, the answer is simple: if you can enough resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
+Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
 
 If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the Open AI Chat API format (including Open AI's native API).
 
@@ -31,7 +31,7 @@ See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an infe
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 
-vllmModelParams: ModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
+vllmModelParams: ModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(vllmModelParams)
 input_conversation = [] #Add your inputs here
 inference_config = InferenceConfig()
