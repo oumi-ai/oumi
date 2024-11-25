@@ -94,11 +94,14 @@ Ensure the selected inference engine supports the specific quantization method u
 For models that support multi-modal inputs (e.g., text and images):
 
 ```python
-from oumi.core.inference import VLLMInferenceEngine
+from oumi.inference import VLLMInferenceEngine
+from oumi.core.configs import InferenceConfig, ModelParams
 
-engine = VLLMInferenceEngine(model_name="llava-hf/llava-1.5-7b-hf")
-output = engine.generate()
-print(output)
+vllmModelParams: ModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
+engine = VLLMInferenceEngine(vllmModelParams)
+input_conversation = [] #Add your inputs here
+inference_config = InferenceConfig()
+outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
 ```
 
 ### Distributed Inference
