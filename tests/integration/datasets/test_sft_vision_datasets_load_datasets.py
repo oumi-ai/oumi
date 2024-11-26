@@ -58,7 +58,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             extra_dataset_features=["image_sizes"],
             chat_template="phi3-instruct",
             trust_remote_code=True,
-            max_rows=1024,
+            max_rows=32,
         )
     ]
 
