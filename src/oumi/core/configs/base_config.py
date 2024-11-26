@@ -2,7 +2,9 @@ import dataclasses
 import logging
 import re
 from collections.abc import Iterator
-from typing import Any, Optional, TypeVar, cast
+from io import StringIO
+from pathlib import Path
+from typing import Any, Optional, TypeVar, Union, cast
 
 from omegaconf import OmegaConf
 
@@ -40,7 +42,7 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
 @dataclasses.dataclass
 class BaseConfig:
-    def to_yaml(self, config_path: str) -> None:
+    def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
         """Saves the configuration to a YAML file."""
         OmegaConf.save(config=self, f=config_path)
 
