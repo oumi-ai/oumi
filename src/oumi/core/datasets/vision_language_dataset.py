@@ -66,6 +66,8 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(feature_name="cross_attention_mask", required=False),
     # Qwen2 VL
     InputFeatureSpec(feature_name="image_grid_thw", required=False),
+    # Phi3 Vision
+    InputFeatureSpec(feature_name="image_sizes", required=False),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
     spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
