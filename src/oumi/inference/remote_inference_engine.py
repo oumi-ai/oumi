@@ -568,10 +568,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             str: The batch job ID
 
         Raises:
-            ValueError: If remote_params is not provided in generation_params
+            ValueError: If remote_params is not provided in inference_config
         """
         if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
+            raise ValueError("Remote params must be provided in inference_config.")
 
         return safe_asyncio_run(
             self._create_batch(
