@@ -16,6 +16,17 @@ from oumi.utils.logging import logger
 from oumi.utils.version_utils import is_dev_build
 
 
+def _clear_line() -> None:
+    """Clears the current line in the terminal."""
+    _ = sys.stdout.write("\r\033[K")
+
+
+def _clear_and_print(message: str) -> None:
+    """Clears the current line and prints a message."""
+    _clear_line()
+    print(message)
+
+
 def _get_working_dir(current: str) -> str:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
@@ -43,7 +54,7 @@ def _print_spinner_and_sleep(
     # animated instead of printing each iteration on a new line. \r (written above)
     # moves the cursor to the beginning of the line. \033[K deletes everything from the
     # cursor to the end of the line.
-    _ = sys.stdout.write("\033[K")
+    _clear_line()
 
 
 def _print_and_wait(
@@ -107,7 +118,7 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             target_cluster.down()
         else:
-            print(f"Cluster {cluster} not found.")
+            _clear_and_print(f"Cluster {cluster} not found.")
         return True
     # Make a best effort to find a single cluster to turn down without a cloud.
     clusters = []
@@ -117,12 +128,12 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             clusters.append(target_cluster)
     if len(clusters) == 0:
-        print(f"Cluster {cluster} not found.")
+        _clear_and_print(f"Cluster {cluster} not found.")
         return True
     if len(clusters) == 1:
         clusters[0].down()
     else:
-        print(
+        _clear_and_print(
             f"Multiple clusters found with name {cluster}. "
             "Specify a cloud to turn down with `--cloud`."
         )
@@ -141,7 +152,7 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             target_cluster.stop()
         else:
-            print(f"Cluster {cluster} not found.")
+            _clear_and_print(f"Cluster {cluster} not found.")
         return True
     # Make a best effort to find a single cluster to stop without a cloud.
     clusters = []
@@ -151,12 +162,12 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             clusters.append(target_cluster)
     if len(clusters) == 0:
-        print(f"Cluster {cluster} not found.")
+        _clear_and_print(f"Cluster {cluster} not found.")
         return True
     if len(clusters) == 1:
         clusters[0].stop()
     else:
-        print(
+        _clear_and_print(
             f"Multiple clusters found with name {cluster}. "
             "Specify a cloud to stop with `--cloud`."
         )

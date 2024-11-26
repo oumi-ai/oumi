@@ -136,7 +136,9 @@ def base64encode_image_bytes(message: Message, *, add_mime_prefix: bool = True) 
     """Creates base-64 encoded image bytes as ASCII string value.
 
     Args:
-        message: An input message with the `IMAGE_BINARY` type.
+        message: An input message of image type
+            (one of `IMAGE_BINARY`, `IMAGE_PATH, `IMAGE_URL`)
+            with the pre-populated `binary` field.
         add_mime_prefix: Whether to add MIME prefix `data:image/png;base64,`
 
     Returns:
@@ -144,8 +146,8 @@ def base64encode_image_bytes(message: Message, *, add_mime_prefix: bool = True) 
         If `add_mime_prefix` is True, then the following format is used:
         `data:image/png;base64,<BASE64_VALUE>`.
     """
-    if message.type != Type.IMAGE_BINARY:
-        raise ValueError(f"Message type is not IMAGE_BINARY: {message.type}")
+    if not message.is_image():
+        raise ValueError(f"Message type is not an image: {message.type}")
     elif not message.binary:
         raise ValueError(f"No image bytes in message: {message.type}")
 

@@ -1,11 +1,12 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/llava_7b/oumi_gcp_job.yaml --cluster my-oumi-cluster
-name: llava-7b-sft-oumi-train
+# oumi launch up --config configs/examples/vision/blip2_opt_2.7b/sft/2b_oumi_gcp_job.yaml --cluster my-oumi-cluster
+
+name: blip2-opt-2.7b-sft-oumi-train
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:4"
-  # Allow Spot VM-s, which cost ~3X less.
+  accelerators: "A100:4"
+  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
   disk_size: 500 # Disk size in GBs
 
@@ -20,7 +21,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.fft.oumi
+  OUMI_RUN_NAME: blip2_opt_2.7b.fft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -29,7 +30,7 @@ setup: |
   pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Salesforce/blip2-opt-2.7b
 
 run: |
   set -e  # Exit if any command failed.
@@ -43,7 +44,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llava_7b/sft_train.yaml \
+      -c configs/examples/vision/blip2_opt_2.7b/sft/2b_sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.trainer_type=OUMI" \
       "training.max_steps=20" \
