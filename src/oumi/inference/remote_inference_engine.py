@@ -70,7 +70,7 @@ class BatchInfo:
     failed_requests: int = 0
     endpoint: Optional[str] = None
     input_file_id: Optional[str] = None
-    completion_window: Optional[str] = None
+    batch_completion_window: Optional[str] = None
     output_file_id: Optional[str] = None
     error_file_id: Optional[str] = None
     error: Optional[str] = None
@@ -93,7 +93,7 @@ class BatchInfo:
             status=BatchStatus(response["status"]),
             endpoint=response.get("endpoint"),
             input_file_id=response.get("input_file_id"),
-            completion_window=response.get("completion_window"),
+            batch_completion_window=response.get("batch_completion_window"),
             output_file_id=response.get("output_file_id"),
             error_file_id=response.get("error_file_id"),
             error=response.get("error"),
@@ -756,7 +756,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 json={
                     "input_file_id": file_id,
                     "endpoint": _BATCH_ENDPOINT,
-                    "completion_window": remote_params.completion_window,
+                    "batch_completion_window": remote_params.batch_completion_window,
                 },
                 headers=headers,
             ) as response:
