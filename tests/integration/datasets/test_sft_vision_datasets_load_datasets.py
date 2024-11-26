@@ -46,8 +46,8 @@ class LoadDatasetInfo(NamedTuple):
 
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
-    # Special case datasets taht shoudl be excluded from default testing.
-    excluded_datasets = set({"coco_captions", "vision_language_jsonl"})
+    # Special case datasets that should be excluded from default testing.
+    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl"})
 
     all_dataset_names = set(_get_all_sft_vision_dataset_names())
     result = [
@@ -62,11 +62,11 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
         )
     ]
 
-    manually_configured_dataset_names = set(
-        {info.dataset_name for info in result}
-    ).union(excluded_datasets)
+    manually_configured_dataset_names = set({info.dataset_name for info in result})
     for dataset_name in all_dataset_names:
-        if dataset_name in manually_configured_dataset_names:
+        if (dataset_name in manually_configured_dataset_names) or (
+            dataset_name in _EXCLUDED_DATASETS
+        ):
             continue
         result.append(
             LoadDatasetInfo(
@@ -78,6 +78,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             )
         )
 
+    assert len(result) > 1
     for idx, info in enumerate(result):
         assert info.dataset_name, f"Index: {idx}"
         assert info.dataset_name in all_dataset_names, f"Index: {idx}"
