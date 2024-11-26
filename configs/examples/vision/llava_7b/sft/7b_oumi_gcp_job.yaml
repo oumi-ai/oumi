@@ -38,6 +38,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   pip install -U flash-attn --no-build-isolation
+  pip install -e '.'
 
   set -x
   torchrun \

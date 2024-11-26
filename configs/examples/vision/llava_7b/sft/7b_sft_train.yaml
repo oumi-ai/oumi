@@ -4,7 +4,7 @@ model:
   model_max_length: 1024
   trust_remote_code: True
   attn_implementation: "flash_attention_2" # "sdpa"
-  chat_template: "llama3-instruct" # "llava"
+  chat_template: "phi3-instruct" # "llama3-instruct" # "llava"
   freeze_layers:
     - "vision_tower"
 

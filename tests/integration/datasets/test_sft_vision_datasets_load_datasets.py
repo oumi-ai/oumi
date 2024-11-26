@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import Final, NamedTuple, Optional
 
 import datasets
 import pytest
@@ -18,6 +18,10 @@ from oumi.core.configs import (
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
+_DEFALT_DATASET_SPLIT: Final[str] = "test"
+_DEFAULT_MODEL_NAME: Final[str] = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+_DEFAULT_CHAT_TEMPLATE: Final[str] = "llama3-instruct"
+
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
     """List all SFT datasets in the registry."""
@@ -35,26 +39,48 @@ class LoadDatasetInfo(NamedTuple):
     model_name: str
     max_rows: int = 32
     extra_dataset_features: Optional[list[str]] = None
-    chat_template: str = "llama3-instruct"
-    dataset_split: str = "train"
+    chat_template: str = _DEFAULT_CHAT_TEMPLATE
+    dataset_split: str = _DEFALT_DATASET_SPLIT
     collator_name: str = "vision_language_with_padding"
     trust_remote_code: bool = False
 
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
-    names_set = set(_get_all_sft_vision_dataset_names())
+    # Special case datasets taht shoudl be excluded from default testing.
+    excluded_datasets = set({"coco_captions", "vision_language_jsonl"})
+
+    all_dataset_names = set(_get_all_sft_vision_dataset_names())
     result = [
         LoadDatasetInfo(
             dataset_name="merve/vqav2-small",
             model_name="microsoft/Phi-3-vision-128k-instruct",
             dataset_split="validation",
             extra_dataset_features=["image_sizes"],
+            chat_template="phi3-instruct",
             trust_remote_code=True,
+            max_rows=1024,
         )
     ]
+
+    manually_configured_dataset_names = set(
+        {info.dataset_name for info in result}
+    ).union(excluded_datasets)
+    for dataset_name in all_dataset_names:
+        if dataset_name in manually_configured_dataset_names:
+            continue
+        result.append(
+            LoadDatasetInfo(
+                dataset_name=dataset_name,
+                model_name=_DEFAULT_MODEL_NAME,
+                dataset_split=_DEFALT_DATASET_SPLIT,
+                chat_template=_DEFAULT_CHAT_TEMPLATE,
+                trust_remote_code=True,
+            )
+        )
+
     for idx, info in enumerate(result):
         assert info.dataset_name, f"Index: {idx}"
-        assert info.dataset_name in names_set, f"Index: {idx}"
+        assert info.dataset_name in all_dataset_names, f"Index: {idx}"
         assert info.model_name, f"Index: {idx}"
         assert info.chat_template, f"Index: {idx}"
         assert info.dataset_split, f"Index: {idx}"
@@ -65,6 +91,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
 
 @pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
 def test_build_dataset_mixture(info: LoadDatasetInfo):
+    debug_tag = f"Test: {info}"
     model_params = ModelParams(
         model_name=info.model_name,
         trust_remote_code=info.trust_remote_code,
@@ -96,17 +123,17 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
 
     assert isinstance(dataset, datasets.Dataset)
 
-    assert dataset.num_rows > 0
-    assert dataset.num_rows <= info.max_rows
+    assert dataset.num_rows > 0, debug_tag
+    assert dataset.num_rows <= info.max_rows, debug_tag
 
-    assert "input_ids" in dataset.features
-    assert "attention_mask" in dataset.features
-    assert "pixel_values" in dataset.features
-    assert "labels" in dataset.features
+    assert "input_ids" in dataset.features, debug_tag
+    assert "attention_mask" in dataset.features, debug_tag
+    assert "pixel_values" in dataset.features, debug_tag
+    assert "labels" in dataset.features, debug_tag
 
     if info.extra_dataset_features is not None and len(info.extra_dataset_features) > 0:
         for extra_feature in info.extra_dataset_features:
-            assert extra_feature in dataset.features
+            assert extra_feature in dataset.features, debug_tag
 
-    assert dataset[0] is not None
-    assert dataset[dataset.num_rows - 1] is not None
+    assert dataset[0] is not None, debug_tag
+    assert dataset[dataset.num_rows - 1] is not None, debug_tag
