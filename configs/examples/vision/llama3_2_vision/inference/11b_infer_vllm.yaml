@@ -1,0 +1,17 @@
+model:
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 1024
+  chat_template: "llama3-instruct"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 32
+  batch_size: 1
+
+remote_params:
+  # This address is just an example (it's what you may get when you start vllm sever locally).
+  # For details, see https://platform.openai.com/docs/api-reference/chat/create
+  api_url: "http://localhost:30000/v1/chat/completions"
+
+engine: REMOTE_VLLM

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import torch
+from typing_extensions import override
 
 from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
@@ -17,6 +18,9 @@ try:
         ChatCompletionMessageParam,
     )
     from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
+    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+        GuidedDecodingParams as VLLMGuidedDecodingParams,
+    )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
@@ -140,7 +144,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         generation_params = inference_config.generation
-        output_conversations = []
+
+        if generation_params.guided_decoding is not None:
+            guided_decoding = VLLMGuidedDecodingParams.from_optional(
+                json=generation_params.guided_decoding.json,
+                regex=generation_params.guided_decoding.regex,
+                choice=generation_params.guided_decoding.choice,
+            )
+        else:
+            guided_decoding = None
+
         sampling_params = SamplingParams(
             n=1,
             max_tokens=generation_params.max_new_tokens,
@@ -151,8 +164,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
+            guided_decoding=guided_decoding,
         )
 
+        output_conversations = []
         vllm_conversations = []
         non_skipped_conversations = []
         for conversation in input:
@@ -203,6 +218,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
         return output_conversations
 
+    @override
     def infer_online(
         self, input: list[Conversation], inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -217,6 +233,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
     ) -> list[Conversation]:
@@ -236,15 +253,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
             "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
-            "stop_token_ids",
         }

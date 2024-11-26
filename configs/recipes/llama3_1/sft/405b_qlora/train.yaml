@@ -4,7 +4,7 @@
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"
-  model_max_length: 1024
+  model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
@@ -22,16 +22,16 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 20
+  save_steps: 100
   num_train_epochs: 1
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 4
   gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "sgd"
+  optimizer: "adamw_torch_fused"
   learning_rate: 3.0e-04
   warmup_steps: 100
   weight_decay: 0.01
@@ -40,7 +40,7 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  logging_steps: 100
+  logging_steps: 10
   log_model_summary: False
   empty_device_cache_steps: 1
   output_dir: "output/llama405b.qlora"

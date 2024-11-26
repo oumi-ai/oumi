@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 from typer.testing import CliRunner
 
+from oumi.core.cli.env import env
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
 from oumi.core.cli.judge import conversations, dataset
@@ -107,6 +108,13 @@ def mock_judge_conversations():
     with patch("oumi.core.cli.main.conversations") as m_conversations:
         _copy_command(m_conversations, conversations)
         yield m_conversations
+
+
+@pytest.fixture
+def mock_env():
+    with patch("oumi.core.cli.main.env") as m_env:
+        _copy_command(m_env, env)
+        yield m_env
 
 
 def test_main_train_registered(mock_train):
@@ -225,6 +233,11 @@ def test_main_judge_dataset_registered(mock_judge_dataset):
         ],
     )
     mock_judge_dataset.assert_called_once()
+
+
+def test_main_env_registered(mock_env):
+    _ = runner.invoke(get_app(), ["env"])
+    mock_env.assert_called_once()
 
 
 def test_main_judge_conversations_registered(mock_judge_conversations):

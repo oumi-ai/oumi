@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 
 
 @dataclass
@@ -61,9 +61,6 @@ class GenerationParams(BaseParams):
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
-    remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
-
     logit_bias: dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
@@ -100,6 +97,9 @@ class GenerationParams(BaseParams):
     """Whether to use sampling for next-token generation. If False, uses greedy
     decoding.
     Default is False."""
+
+    guided_decoding: Optional[GuidedDecodingParams] = None
+    """Parameters for guided decoding."""
 
     def __post_init__(self):
         """Validates generation-specific parameters."""

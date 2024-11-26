@@ -39,6 +39,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         credentials.refresh(Request())  # type: ignore
         return credentials.token  # type: ignore
 
+    @override
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
     ) -> dict[str, str]:
@@ -52,6 +53,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         }
         return headers
 
+    @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
     ) -> dict[str, Any]:
@@ -68,13 +70,9 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         """
         api_input = {
             "model": self._model,
-            "messages": [
-                {
-                    _CONTENT_KEY: [self._get_content_for_message(message)],
-                    _ROLE_KEY: message.role.value,
-                }
-                for message in conversation.messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                conversation.messages, group_adjacent_same_role_turns=True
+            ),
             "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
@@ -88,12 +86,12 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
         return api_input
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "logit_bias",
             "max_new_tokens",
-            "remote_params",
             "seed",
             "stop_strings",
             "temperature",
