@@ -119,6 +119,19 @@ def create_test_multimodal_text_image_conversation():
     )
 
 
+class AsyncContextManagerMock:
+    """Mock for async context manager."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    async def read(self):
+        return b"test data"
+
+
 #
 # Tests
 #
@@ -1276,17 +1289,6 @@ async def test_upload_batch_file():
             }
         ]
 
-        # Create a mock async context manager
-        class AsyncContextManagerMock:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-            async def read(self):
-                return b"test data"
-
         # Patch aiofiles.open to return our async context manager
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
             file_id = await engine._upload_batch_file(
@@ -1323,18 +1325,6 @@ async def test_create_batch():
             ]
         )
 
-        # Create a mock async context manager
-        class AsyncContextManagerMock:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-            async def read(self):
-                return b"test data"
-
-        # Patch aiofiles.open to return our async context manager
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
             batch_id = await engine._create_batch(
                 [conversation],
@@ -1438,19 +1428,6 @@ async def test_get_batch_results():
         assert len(results) == 1
         assert results[0].messages[-1].content == "Hello there!"
         assert results[0].messages[-1].role == Role.ASSISTANT
-
-
-class AsyncContextManagerMock:
-    """Mock for async context manager."""
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    async def read(self):
-        return b"test data"
 
 
 def test_infer_batch():
