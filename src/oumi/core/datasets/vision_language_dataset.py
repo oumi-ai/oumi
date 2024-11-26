@@ -70,7 +70,7 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(
         feature_name="image_sizes",
         required=False,
-        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
+        first_dim_action=_FirstDimAction.KEEP,
     ),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
