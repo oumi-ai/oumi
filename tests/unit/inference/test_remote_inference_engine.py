@@ -1352,6 +1352,7 @@ async def test_get_batch_status():
             f"{_TARGET_SERVER}/batches/batch-123",
             status=200,
             payload={
+                "id": "batch-123",
                 "status": "completed",
                 "request_counts": {
                     "total": 10,
@@ -1367,7 +1368,7 @@ async def test_get_batch_status():
         )
 
         status = await engine._get_batch_status("batch-123", engine._remote_params)
-        assert status.batch_id == "batch-123"
+        assert status.id == "batch-123"
         assert status.status == BatchStatus.COMPLETED
         assert status.total_requests == 10
         assert status.completed_requests == 8
@@ -1493,6 +1494,7 @@ def test_get_batch_status_public():
             f"{_TARGET_SERVER}/batches/batch-123",
             status=200,
             payload={
+                "id": "batch-123",
                 "status": "in_progress",
                 "request_counts": {
                     "total": 10,
@@ -1508,7 +1510,7 @@ def test_get_batch_status_public():
         )
 
         status = engine.get_batch_status("batch-123", _get_default_inference_config())
-        assert status.batch_id == "batch-123"
+        assert status.id == "batch-123"
         assert status.status == BatchStatus.IN_PROGRESS
         assert status.total_requests == 10
         assert status.completed_requests == 5

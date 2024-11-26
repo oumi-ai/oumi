@@ -60,20 +60,6 @@ class BatchStatus(Enum):
 
 
 @dataclass
-class BatchStatusResponse:
-    """Response containing batch status information."""
-
-    batch_id: str
-    status: BatchStatus
-    total_requests: int
-    completed_requests: int
-    failed_requests: int
-    error: Optional[str] = None
-    output_file_id: Optional[str] = None
-    error_file_id: Optional[str] = None
-
-
-@dataclass
 class BatchInfo:
     """Information about a batch job."""
 
@@ -597,7 +583,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         inference_config: InferenceConfig,
-    ) -> BatchStatusResponse:
+    ) -> BatchInfo:
         """Gets the status of a batch inference job.
 
         Args:
@@ -605,7 +591,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             inference_config: Parameters for inference
 
         Returns:
-            BatchStatusResponse: Current status of the batch job
+            BatchInfo: Current status of the batch job
 
         Raises:
             ValueError: If remote_params is not provided in generation_params
@@ -785,7 +771,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         remote_params: RemoteParams,
-    ) -> BatchStatusResponse:
+    ) -> BatchInfo:
         """Gets the status of a batch job.
 
         Args:
@@ -793,7 +779,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params: Remote API parameters
 
         Returns:
-            BatchStatusResponse: Current status of the batch job
+            BatchInfo: Current status of the batch job
         """
         connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
@@ -807,17 +793,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         f"Failed to get batch status: {await response.text()}"
                     )
                 data = await response.json()
-
-                return BatchStatusResponse(
-                    batch_id=batch_id,
-                    status=BatchStatus(data["status"]),
-                    total_requests=data["request_counts"]["total"],
-                    completed_requests=data["request_counts"]["completed"],
-                    failed_requests=data["request_counts"]["failed"],
-                    error=data.get("error"),
-                    output_file_id=data.get("output_file_id"),
-                    error_file_id=data.get("error_file_id"),
-                )
+                return BatchInfo.from_api_response(data)
 
     async def _list_batches(
         self,
@@ -856,33 +832,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     )
                 data = await response.json()
 
-                batches = []
-                for batch_data in data["data"]:
-                    request_counts = batch_data.get("request_counts", {})
-                    batches.append(
-                        BatchInfo(
-                            id=batch_data["id"],
-                            endpoint=batch_data["endpoint"],
-                            status=batch_data["status"],
-                            input_file_id=batch_data["input_file_id"],
-                            completion_window=batch_data["completion_window"],
-                            output_file_id=batch_data.get("output_file_id"),
-                            error_file_id=batch_data.get("error_file_id"),
-                            created_at=batch_data.get("created_at"),
-                            in_progress_at=batch_data.get("in_progress_at"),
-                            expires_at=batch_data.get("expires_at"),
-                            finalizing_at=batch_data.get("finalizing_at"),
-                            completed_at=batch_data.get("completed_at"),
-                            failed_at=batch_data.get("failed_at"),
-                            expired_at=batch_data.get("expired_at"),
-                            cancelling_at=batch_data.get("cancelling_at"),
-                            cancelled_at=batch_data.get("cancelled_at"),
-                            total_requests=request_counts.get("total", 0),
-                            completed_requests=request_counts.get("completed", 0),
-                            failed_requests=request_counts.get("failed", 0),
-                            metadata=batch_data.get("metadata"),
-                        )
-                    )
+                batches = [
+                    BatchInfo.from_api_response(batch_data)
+                    for batch_data in data["data"]
+                ]
 
                 return BatchListResponse(
                     batches=batches,
@@ -911,24 +864,28 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             RuntimeError: If batch status is not completed or if there are errors
         """
         # Get batch status first
-        status = await self._get_batch_status(batch_id, remote_params)
+        batch_info = await self._get_batch_status(batch_id, remote_params)
 
-        if status.status != BatchStatus.COMPLETED:
-            raise RuntimeError(f"Batch is not completed. Status: {status.status}")
-
-        # Download error file if there are failed requests
-        if status.failed_requests > 0 and status.error_file_id:
-            error_content = await self._download_file(
-                status.error_file_id, remote_params
+        if not batch_info.is_terminal:
+            raise RuntimeError(
+                f"Batch is not in terminal state. Status: {batch_info.status}"
             )
-            raise RuntimeError(f"Batch has failed requests: {error_content}")
+
+        if batch_info.has_errors:
+            # Download error file if there are failed requests
+            if batch_info.error_file_id:
+                error_content = await self._download_file(
+                    batch_info.error_file_id, remote_params
+                )
+                raise RuntimeError(f"Batch has failed requests: {error_content}")
+            raise RuntimeError(f"Batch failed with error: {batch_info.error}")
 
         # Download results file
-        if not status.output_file_id:
+        if not batch_info.output_file_id:
             raise RuntimeError("No output file available")
 
         results_content = await self._download_file(
-            status.output_file_id, remote_params
+            batch_info.output_file_id, remote_params
         )
 
         # Parse results
