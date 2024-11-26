@@ -1,7 +1,7 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/blip2_opt_2.7b/oumi_gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/examples/vision/blip2_opt_2.7b/sft/2b_trl_gcp_job.yaml --cluster my-oumi-cluster
 
-name: blip2-opt-2.7b-sft-oumi-train
+name: blip2-opt-2.7b-sft-trl-train
 
 resources:
   cloud: gcp
@@ -21,7 +21,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: blip2_opt_2.7b.fft.oumi
+  OUMI_RUN_NAME: blip2_opt_2.7b.fft.trl
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -44,9 +44,8 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/blip2_opt_2.7b/sft_train.yaml \
+      -c configs/examples/vision/blip2_opt_2.7b/sft/2b_sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.trainer_type=OUMI" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"
