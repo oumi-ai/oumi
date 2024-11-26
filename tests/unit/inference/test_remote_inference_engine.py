@@ -1384,6 +1384,7 @@ async def test_get_batch_results():
             f"{_TARGET_SERVER}/batches/batch-123",
             status=200,
             payload={
+                "id": "batch-123",
                 "status": "completed",
                 "request_counts": {
                     "total": 1,
@@ -1525,6 +1526,7 @@ def test_get_batch_results_public():
             f"{_TARGET_SERVER}/batches/batch-123",
             status=200,
             payload={
+                "id": "batch-123",
                 "status": "completed",
                 "request_counts": {
                     "total": 1,
@@ -1644,7 +1646,7 @@ async def test_list_batches():
         assert len(response.batches) == 1
         batch = response.batches[0]
         assert batch.id == "batch_abc123"
-        assert batch.status == "completed"
+        assert batch.status == BatchStatus.COMPLETED
         assert batch.total_requests == 100
         assert batch.completed_requests == 95
         assert batch.failed_requests == 5
