@@ -57,6 +57,7 @@ dependencies = [
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb",                      # Optional, for logging to Weights and Biases
+    "aiofiles",                   # Used by remote inference engine
 ]
 
 [project.urls]

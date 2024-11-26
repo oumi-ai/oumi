@@ -2,9 +2,15 @@ import asyncio
 import base64
 import json
 import os
+import tempfile
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 
+import aiofiles
 import aiohttp
+import jsonlines
 import pydantic
 from tqdm.asyncio import tqdm
 from typing_extensions import override
@@ -27,6 +33,31 @@ _TEXT_KEY: str = "text"
 _IMAGE_URL_KEY: str = "image_url"
 _AUTHORIZATION_KEY: str = "Authorization"
 _URL_KEY: str = "url"
+_BATCH_PURPOSE = "batch"
+_BATCH_ENDPOINT = "/v1/chat/completions"
+
+
+class BatchStatus(Enum):
+    """Status of a batch inference job."""
+
+    VALIDATING = "validating"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class BatchStatusResponse:
+    """Response containing batch status information."""
+
+    batch_id: str
+    status: BatchStatus
+    total_requests: int
+    completed_requests: int
+    failed_requests: int
+    error: Optional[str] = None
 
 
 class RemoteInferenceEngine(BaseInferenceEngine):
@@ -254,6 +285,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         return result
                     else:
                         retries += 1
+                        print(response_json)
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries."
@@ -362,3 +394,266 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    def infer_batch(
+        self,
+        conversations: list[Conversation],
+        inference_config: InferenceConfig,
+    ) -> str:
+        """Creates a new batch inference job.
+
+        Args:
+            conversations: List of conversations to process in batch
+            inference_config: Parameters for inference
+
+        Returns:
+            str: The batch job ID
+
+        Raises:
+            ValueError: If remote_params is not provided in generation_params
+        """
+        generation_params = inference_config.generation
+        if not generation_params.remote_params:
+            raise ValueError("Remote params must be provided in generation_params.")
+
+        return safe_asyncio_run(
+            self._create_batch(
+                conversations, inference_config, generation_params.remote_params
+            )
+        )
+
+    def get_batch_status(
+        self,
+        batch_id: str,
+        inference_config: InferenceConfig,
+    ) -> BatchStatusResponse:
+        """Gets the status of a batch inference job.
+
+        Args:
+            batch_id: The batch job ID
+            inference_config: Parameters for inference
+
+        Returns:
+            BatchStatusResponse: Current status of the batch job
+
+        Raises:
+            ValueError: If remote_params is not provided in generation_params
+        """
+        generation_params = inference_config.generation
+        if not generation_params.remote_params:
+            raise ValueError("Remote params must be provided in generation_params.")
+
+        return safe_asyncio_run(
+            self._get_batch_status(batch_id, generation_params.remote_params)
+        )
+
+    def get_batch_results(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+        inference_config: InferenceConfig,
+    ) -> list[Conversation]:
+        """Gets the results of a completed batch job.
+
+        Args:
+            batch_id: The batch job ID
+            conversations: Original conversations used to create the batch
+            inference_config: Parameters for inference
+
+        Returns:
+            List[Conversation]: The processed conversations with responses
+
+        Raises:
+            ValueError: If remote_params is not provided in generation_params
+            RuntimeError: If the batch failed or has not completed
+        """
+        generation_params = inference_config.generation
+        if not generation_params.remote_params:
+            raise ValueError("Remote params must be provided in generation_params.")
+
+        return safe_asyncio_run(
+            self._get_batch_results_with_mapping(
+                batch_id, conversations, generation_params.remote_params
+            )
+        )
+
+    async def _upload_batch_file(
+        self,
+        batch_requests: list[dict],
+        remote_params: RemoteParams,
+    ) -> str:
+        """Uploads a JSONL file containing batch requests.
+
+        Args:
+            batch_requests: List of request objects to include in the batch
+            remote_params: Remote API parameters
+
+        Returns:
+            str: The uploaded file ID
+        """
+        # Create temporary JSONL file
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False
+        ) as tmp:
+            with jsonlines.Writer(tmp) as writer:
+                for request in batch_requests:
+                    writer.write(request)
+            tmp_path = tmp.name
+
+        try:
+            # Upload the file
+            connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                headers = self._get_request_headers(remote_params)
+
+                # Create form data with file
+                form = aiohttp.FormData()
+                async with aiofiles.open(tmp_path, "rb") as f:
+                    file_data = await f.read()
+                    form.add_field("file", file_data, filename="batch_requests.jsonl")
+                form.add_field("purpose", _BATCH_PURPOSE)
+
+                async with session.post(
+                    f"{remote_params.api_url}/files",
+                    data=form,
+                    headers=headers,
+                ) as response:
+                    if response.status != 200:
+                        raise RuntimeError(
+                            f"Failed to upload batch file: {await response.text()}"
+                        )
+                    data = await response.json()
+                    return data["id"]
+        finally:
+            # Clean up temporary file
+            Path(tmp_path).unlink()
+
+    async def _create_batch(
+        self,
+        conversations: list[Conversation],
+        inference_config: InferenceConfig,
+        remote_params: RemoteParams,
+    ) -> str:
+        """Creates a new batch job.
+
+        Args:
+            conversations: List of conversations to process in batch
+            inference_config: Inference configuration
+            remote_params: Remote API parameters
+
+        Returns:
+            str: The batch job ID
+        """
+        # Prepare batch requests
+        batch_requests = []
+        for i, conv in enumerate(conversations):
+            api_input = self._convert_conversation_to_api_input(
+                conv, inference_config.generation
+            )
+            batch_requests.append(
+                {
+                    "custom_id": f"request-{i}",
+                    "method": "POST",
+                    "url": _BATCH_ENDPOINT,
+                    "body": api_input,
+                }
+            )
+
+        # Upload batch file
+        file_id = await self._upload_batch_file(batch_requests, remote_params)
+
+        # Create batch
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+            async with session.post(
+                f"{remote_params.api_url}/batches",
+                json={
+                    "input_file_id": file_id,
+                    "endpoint": _BATCH_ENDPOINT,
+                    "completion_window": remote_params.completion_window,
+                },
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to create batch: {await response.text()}"
+                    )
+                data = await response.json()
+                return data["id"]
+
+    async def _get_batch_status(
+        self,
+        batch_id: str,
+        remote_params: RemoteParams,
+    ) -> BatchStatusResponse:
+        """Gets the status of a batch job.
+
+        Args:
+            batch_id: ID of the batch job
+            remote_params: Remote API parameters
+
+        Returns:
+            BatchStatusResponse: Current status of the batch job
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+            async with session.get(
+                f"{remote_params.api_url}/batches/{batch_id}",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to get batch status: {await response.text()}"
+                    )
+                data = await response.json()
+
+                return BatchStatusResponse(
+                    batch_id=batch_id,
+                    status=BatchStatus(data["status"]),
+                    total_requests=data["request_counts"]["total"],
+                    completed_requests=data["request_counts"]["completed"],
+                    failed_requests=data["request_counts"]["failed"],
+                    error=data.get("error"),
+                )
+
+    async def _get_batch_results_with_mapping(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+        remote_params: RemoteParams,
+    ) -> list[Conversation]:
+        """Gets the results of a completed batch job and maps them to conversations.
+
+        Args:
+            batch_id: ID of the batch job
+            conversations: Original conversations used to create the batch
+            remote_params: Remote API parameters
+
+        Returns:
+            List[Conversation]: The processed conversations with responses
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+            async with session.get(
+                f"{remote_params.api_url}/batches/{batch_id}/results",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to get batch results: {await response.text()}"
+                    )
+                data = await response.json()
+
+                # Map results back to conversations
+                processed_conversations = []
+                for conv, result in zip(conversations, data["results"]):
+                    if result.get("error"):
+                        raise RuntimeError(f"Batch request failed: {result['error']}")
+                    processed_conv = self._convert_api_output_to_conversation(
+                        result["response"]["body"], conv
+                    )
+                    processed_conversations.append(processed_conv)
+                return processed_conversations
