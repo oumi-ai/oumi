@@ -138,7 +138,10 @@ class DefaultProcessor(BaseProcessor):
             )
         else:
             result = self._worker_processor(
-                text=text, images=images, padding=padding, return_tensors=return_tensors
+                text=(text[0] if len(text) == 1 else text),
+                images=images,
+                padding=padding,
+                return_tensors=return_tensors,
             )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
