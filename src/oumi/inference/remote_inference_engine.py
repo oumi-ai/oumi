@@ -48,6 +48,16 @@ class BatchStatus(Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
+    @property
+    def is_terminal_status(self) -> bool:
+        """Return True if the status represents a terminal state."""
+        return self in {
+            BatchStatus.COMPLETED,
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        }
+
 
 @dataclass
 class BatchStatusResponse:
@@ -68,12 +78,16 @@ class BatchInfo:
     """Information about a batch job."""
 
     id: str
-    endpoint: str
-    status: str
-    input_file_id: str
-    completion_window: str
+    status: BatchStatus
+    total_requests: int = 0
+    completed_requests: int = 0
+    failed_requests: int = 0
+    endpoint: Optional[str] = None
+    input_file_id: Optional[str] = None
+    completion_window: Optional[str] = None
     output_file_id: Optional[str] = None
     error_file_id: Optional[str] = None
+    error: Optional[str] = None
     created_at: Optional[int] = None
     in_progress_at: Optional[int] = None
     expires_at: Optional[int] = None
@@ -83,10 +97,58 @@ class BatchInfo:
     expired_at: Optional[int] = None
     cancelling_at: Optional[int] = None
     cancelled_at: Optional[int] = None
-    total_requests: int = 0
-    completed_requests: int = 0
-    failed_requests: int = 0
     metadata: Optional[dict[str, Any]] = None
+
+    @classmethod
+    def from_api_response(cls, response: dict[str, Any]) -> "BatchInfo":
+        """Create BatchInfo from API response dictionary."""
+        return cls(
+            id=response["id"],
+            status=BatchStatus(response["status"]),
+            endpoint=response.get("endpoint"),
+            input_file_id=response.get("input_file_id"),
+            completion_window=response.get("completion_window"),
+            output_file_id=response.get("output_file_id"),
+            error_file_id=response.get("error_file_id"),
+            error=response.get("error"),
+            created_at=response.get("created_at"),
+            in_progress_at=response.get("in_progress_at"),
+            expires_at=response.get("expires_at"),
+            finalizing_at=response.get("finalizing_at"),
+            completed_at=response.get("completed_at"),
+            failed_at=response.get("failed_at"),
+            expired_at=response.get("expired_at"),
+            cancelling_at=response.get("cancelling_at"),
+            cancelled_at=response.get("cancelled_at"),
+            total_requests=response.get("request_counts", {}).get("total", 0),
+            completed_requests=response.get("request_counts", {}).get("completed", 0),
+            failed_requests=response.get("request_counts", {}).get("failed", 0),
+            metadata=response.get("metadata"),
+        )
+
+    @property
+    def is_terminal(self) -> bool:
+        """Return True if the batch is in a terminal state."""
+        return self.status in {
+            BatchStatus.COMPLETED,
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        }
+
+    @property
+    def completion_percentage(self) -> float:
+        """Return the percentage of completed requests."""
+        return (
+            (self.completed_requests / self.total_requests * 100)
+            if self.total_requests > 0
+            else 0.0
+        )
+
+    @property
+    def has_errors(self) -> bool:
+        """Return True if the batch has any errors."""
+        return bool(self.error) or self.failed_requests > 0
 
 
 @dataclass
