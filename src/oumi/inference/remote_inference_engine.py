@@ -59,6 +59,63 @@ class BatchStatusResponse:
     completed_requests: int
     failed_requests: int
     error: Optional[str] = None
+    output_file_id: Optional[str] = None
+    error_file_id: Optional[str] = None
+
+
+@dataclass
+class BatchInfo:
+    """Information about a batch job."""
+
+    id: str
+    endpoint: str
+    status: str
+    input_file_id: str
+    completion_window: str
+    output_file_id: Optional[str] = None
+    error_file_id: Optional[str] = None
+    created_at: Optional[int] = None
+    in_progress_at: Optional[int] = None
+    expires_at: Optional[int] = None
+    finalizing_at: Optional[int] = None
+    completed_at: Optional[int] = None
+    failed_at: Optional[int] = None
+    expired_at: Optional[int] = None
+    cancelling_at: Optional[int] = None
+    cancelled_at: Optional[int] = None
+    total_requests: int = 0
+    completed_requests: int = 0
+    failed_requests: int = 0
+    metadata: Optional[dict[str, Any]] = None
+
+
+@dataclass
+class BatchListResponse:
+    """Response from listing batch jobs."""
+
+    batches: list[BatchInfo]
+    first_id: Optional[str] = None
+    last_id: Optional[str] = None
+    has_more: bool = False
+
+
+@dataclass
+class FileInfo:
+    """Information about a file."""
+
+    id: str
+    filename: str
+    bytes: int
+    created_at: int
+    purpose: str
+
+
+@dataclass
+class FileListResponse:
+    """Response from listing files."""
+
+    files: list[FileInfo]
+    has_more: bool = False
 
 
 class RemoteInferenceEngine(BaseInferenceEngine):
@@ -445,6 +502,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "top_p",
         }
 
+    #
+    # Batch inference
+    #
     def infer_batch(
         self,
         conversations: list[Conversation],
@@ -493,6 +553,36 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         return safe_asyncio_run(
             self._get_batch_status(batch_id, inference_config.remote_params)
+        )
+
+    def list_batches(
+        self,
+        inference_config: InferenceConfig,
+        after: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> BatchListResponse:
+        """Lists batch jobs.
+
+        Args:
+            inference_config: Parameters for inference
+            after: Cursor for pagination (batch ID to start after)
+            limit: Maximum number of batches to return (1-100)
+
+        Returns:
+            BatchListResponse: List of batch jobs
+
+        Raises:
+            ValueError: If remote_params is not provided in inference_config
+        """
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference_config")
+
+        return safe_asyncio_run(
+            self._list_batches(
+                inference_config.remote_params,
+                after=after,
+                limit=limit,
+            )
         )
 
     def get_batch_results(
@@ -663,6 +753,80 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     completed_requests=data["request_counts"]["completed"],
                     failed_requests=data["request_counts"]["failed"],
                     error=data.get("error"),
+                    output_file_id=data.get("output_file_id"),
+                    error_file_id=data.get("error_file_id"),
+                )
+
+    async def _list_batches(
+        self,
+        remote_params: RemoteParams,
+        after: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> BatchListResponse:
+        """Lists batch jobs.
+
+        Args:
+            remote_params: Remote API parameters
+            after: Cursor for pagination (batch ID to start after)
+            limit: Maximum number of batches to return (1-100)
+
+        Returns:
+            BatchListResponse: List of batch jobs
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+
+            params = {}
+            if after:
+                params["after"] = after
+            if limit:
+                params["limit"] = str(limit)
+
+            async with session.get(
+                f"{remote_params.api_url}/batches",
+                headers=headers,
+                params=params,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to list batches: {await response.text()}"
+                    )
+                data = await response.json()
+
+                batches = []
+                for batch_data in data["data"]:
+                    request_counts = batch_data.get("request_counts", {})
+                    batches.append(
+                        BatchInfo(
+                            id=batch_data["id"],
+                            endpoint=batch_data["endpoint"],
+                            status=batch_data["status"],
+                            input_file_id=batch_data["input_file_id"],
+                            completion_window=batch_data["completion_window"],
+                            output_file_id=batch_data.get("output_file_id"),
+                            error_file_id=batch_data.get("error_file_id"),
+                            created_at=batch_data.get("created_at"),
+                            in_progress_at=batch_data.get("in_progress_at"),
+                            expires_at=batch_data.get("expires_at"),
+                            finalizing_at=batch_data.get("finalizing_at"),
+                            completed_at=batch_data.get("completed_at"),
+                            failed_at=batch_data.get("failed_at"),
+                            expired_at=batch_data.get("expired_at"),
+                            cancelling_at=batch_data.get("cancelling_at"),
+                            cancelled_at=batch_data.get("cancelled_at"),
+                            total_requests=request_counts.get("total", 0),
+                            completed_requests=request_counts.get("completed", 0),
+                            failed_requests=request_counts.get("failed", 0),
+                            metadata=batch_data.get("metadata"),
+                        )
+                    )
+
+                return BatchListResponse(
+                    batches=batches,
+                    first_id=data.get("first_id"),
+                    last_id=data.get("last_id"),
+                    has_more=data.get("has_more", False),
                 )
 
     async def _get_batch_results_with_mapping(
@@ -680,27 +844,240 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Returns:
             List[Conversation]: The processed conversations with responses
+
+        Raises:
+            RuntimeError: If batch status is not completed or if there are errors
+        """
+        # Get batch status first
+        status = await self._get_batch_status(batch_id, remote_params)
+
+        if status.status != BatchStatus.COMPLETED:
+            raise RuntimeError(f"Batch is not completed. Status: {status.status}")
+
+        # Download error file if there are failed requests
+        if status.failed_requests > 0 and status.error_file_id:
+            error_content = await self._download_file(
+                status.error_file_id, remote_params
+            )
+            raise RuntimeError(f"Batch has failed requests: {error_content}")
+
+        # Download results file
+        if not status.output_file_id:
+            raise RuntimeError("No output file available")
+
+        results_content = await self._download_file(
+            status.output_file_id, remote_params
+        )
+
+        # Parse results
+        processed_conversations = []
+        for line, conv in zip(results_content.splitlines(), conversations):
+            result = json.loads(line)
+            if result.get("error"):
+                raise RuntimeError(f"Batch request failed: {result['error']}")
+            processed_conv = self._convert_api_output_to_conversation(
+                result["response"]["body"], conv
+            )
+            processed_conversations.append(processed_conv)
+        return processed_conversations
+
+    #
+    # File operations
+    #
+    def list_files(
+        self,
+        inference_config: InferenceConfig,
+        purpose: Optional[str] = None,
+        limit: Optional[int] = None,
+        order: str = "desc",
+        after: Optional[str] = None,
+    ) -> FileListResponse:
+        """Lists files."""
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference_config")
+        return safe_asyncio_run(
+            self._list_files(
+                inference_config.remote_params,
+                purpose=purpose,
+                limit=limit,
+                order=order,
+                after=after,
+            )
+        )
+
+    def get_file(
+        self,
+        file_id: str,
+        inference_config: InferenceConfig,
+    ) -> FileInfo:
+        """Gets information about a file."""
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference_config")
+        return safe_asyncio_run(self._get_file(file_id, inference_config.remote_params))
+
+    def delete_file(
+        self,
+        file_id: str,
+        inference_config: InferenceConfig,
+    ) -> bool:
+        """Deletes a file."""
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference_config")
+        return safe_asyncio_run(
+            self._delete_file(file_id, inference_config.remote_params)
+        )
+
+    def get_file_content(
+        self,
+        file_id: str,
+        inference_config: InferenceConfig,
+    ) -> str:
+        """Gets a file's content."""
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference_config")
+        return safe_asyncio_run(
+            self._download_file(file_id, inference_config.remote_params)
+        )
+
+    async def _list_files(
+        self,
+        remote_params: RemoteParams,
+        purpose: Optional[str] = None,
+        limit: Optional[int] = None,
+        order: str = "desc",
+        after: Optional[str] = None,
+    ) -> FileListResponse:
+        """Lists files.
+
+        Args:
+            remote_params: Remote API parameters
+            purpose: Only return files with this purpose
+            limit: Maximum number of files to return (1-10000)
+            order: Sort order (asc or desc)
+            after: Cursor for pagination
+
+        Returns:
+            FileListResponse: List of files
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+
+            params = {"order": order}
+            if purpose:
+                params["purpose"] = purpose
+            if limit:
+                params["limit"] = str(limit)
+            if after:
+                params["after"] = after
+
+            async with session.get(
+                f"{remote_params.api_url}/files",
+                headers=headers,
+                params=params,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"Failed to list files: {await response.text()}")
+                data = await response.json()
+
+                files = [
+                    FileInfo(
+                        id=file["id"],
+                        filename=file["filename"],
+                        bytes=file["bytes"],
+                        created_at=file["created_at"],
+                        purpose=file["purpose"],
+                    )
+                    for file in data["data"]
+                ]
+
+                return FileListResponse(
+                    files=files, has_more=len(files) == limit if limit else False
+                )
+
+    async def _get_file(
+        self,
+        file_id: str,
+        remote_params: RemoteParams,
+    ) -> FileInfo:
+        """Gets information about a file.
+
+        Args:
+            file_id: ID of the file
+            remote_params: Remote API parameters
+
+        Returns:
+            FileInfo: File information
         """
         connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(remote_params)
             async with session.get(
-                f"{remote_params.api_url}/batches/{batch_id}/results",
+                f"{remote_params.api_url}/files/{file_id}",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"Failed to get file: {await response.text()}")
+                data = await response.json()
+                return FileInfo(
+                    id=data["id"],
+                    filename=data["filename"],
+                    bytes=data["bytes"],
+                    created_at=data["created_at"],
+                    purpose=data["purpose"],
+                )
+
+    async def _delete_file(
+        self,
+        file_id: str,
+        remote_params: RemoteParams,
+    ) -> bool:
+        """Deletes a file.
+
+        Args:
+            file_id: ID of the file to delete
+            remote_params: Remote API parameters
+
+        Returns:
+            bool: True if deletion was successful
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+            async with session.delete(
+                f"{remote_params.api_url}/files/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
                     raise RuntimeError(
-                        f"Failed to get batch results: {await response.text()}"
+                        f"Failed to delete file: {await response.text()}"
                     )
                 data = await response.json()
+                return data.get("deleted", False)
 
-                # Map results back to conversations
-                processed_conversations = []
-                for conv, result in zip(conversations, data["results"]):
-                    if result.get("error"):
-                        raise RuntimeError(f"Batch request failed: {result['error']}")
-                    processed_conv = self._convert_api_output_to_conversation(
-                        result["response"]["body"], conv
+    async def _download_file(
+        self,
+        file_id: str,
+        remote_params: RemoteParams,
+    ) -> str:
+        """Downloads a file's content.
+
+        Args:
+            file_id: ID of the file to download
+            remote_params: Remote API parameters
+
+        Returns:
+            str: The file content
+        """
+        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(remote_params)
+            async with session.get(
+                f"{remote_params.api_url}/files/{file_id}/content",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to download file: {await response.text()}"
                     )
-                    processed_conversations.append(processed_conv)
-                return processed_conversations
+                return await response.text()

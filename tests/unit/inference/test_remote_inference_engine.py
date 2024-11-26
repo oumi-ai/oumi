@@ -3,7 +3,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 from unittest.mock import patch
 
 import jsonlines
@@ -21,6 +21,7 @@ from oumi.core.configs import (
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference import RemoteInferenceEngine
+from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.image_utils import (
     base64encode_image_bytes,
     create_png_bytes_from_image,
@@ -305,23 +306,23 @@ def test_infer_online_multiple_requests():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
     response_by_conversation_id = {
-        "Hello world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+        "Hello world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
                             "content": "The first time I saw",
                         }
                     }
-                ],
-            ),
-        ),
-        "Goodbye world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+                ]
+            },
+        },
+        "Goodbye world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
@@ -329,23 +330,30 @@ def test_infer_online_multiple_requests():
                         }
                     }
                 ]
-            ),
-        ),
+            },
+        },
     }
 
-    def response_callback(url, **kwargs):
+    def response_callback(url: str, **kwargs: Any) -> CallbackResult:
+        """Callback for mocked API responses."""
         request = kwargs.get("json", {})
-        conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+        messages = request.get("messages", [])
+        if not messages:
+            raise ValueError("No messages in request")
+        content = messages[0].get("content", [])
+        if not content:
+            raise ValueError("No content in message")
+        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
+            # Extract status and payload from the response dict
             return CallbackResult(
-                status=response["status"],  # type: ignore
-                payload=response["payload"],  # type: ignore
+                status=response["status"], payload=response["payload"]
             )
 
         raise ValueError(
-            "Test error: Static response not found "
-            f"for conversation_id: {conversation_id}"
+            "Test error: Static response not found for "
+            f"conversation_id: {conversation_id}"
         )
 
     with aioresponses() as m:
@@ -418,23 +426,23 @@ def test_infer_online_multiple_requests_politeness():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
     response_by_conversation_id = {
-        "Hello world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+        "Hello world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
                             "content": "The first time I saw",
                         }
                     }
-                ],
-            ),
-        ),
-        "Goodbye world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+                ]
+            },
+        },
+        "Goodbye world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
@@ -442,23 +450,30 @@ def test_infer_online_multiple_requests_politeness():
                         }
                     }
                 ]
-            ),
-        ),
+            },
+        },
     }
 
-    def response_callback(url, **kwargs):
+    def response_callback(url: str, **kwargs: Any) -> CallbackResult:
+        """Callback for mocked API responses."""
         request = kwargs.get("json", {})
-        conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+        messages = request.get("messages", [])
+        if not messages:
+            raise ValueError("No messages in request")
+        content = messages[0].get("content", [])
+        if not content:
+            raise ValueError("No content in message")
+        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
+            # Extract status and payload from the response dict
             return CallbackResult(
-                status=response["status"],  # type: ignore
-                payload=response["payload"],  # type: ignore
+                status=response["status"], payload=response["payload"]
             )
 
         raise ValueError(
-            "Test error: Static response not found "
-            f"for conversation_id: {conversation_id}"
+            "Test error: Static response not found for "
+            f"conversation_id: {conversation_id}"
         )
 
     with aioresponses() as m:
@@ -540,23 +555,23 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
     response_by_conversation_id = {
-        "Hello world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+        "Hello world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
                             "content": "The first time I saw",
                         }
                     }
-                ],
-            ),
-        ),
-        "Goodbye world!": dict(
-            status=200,
-            payload=dict(
-                choices=[
+                ]
+            },
+        },
+        "Goodbye world!": {
+            "status": 200,
+            "payload": {
+                "choices": [
                     {
                         "message": {
                             "role": "assistant",
@@ -564,18 +579,25 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
                         }
                     }
                 ]
-            ),
-        ),
+            },
+        },
     }
 
-    def response_callback(url, **kwargs):
+    def response_callback(url: str, **kwargs: Any) -> CallbackResult:
+        """Callback for mocked API responses."""
         request = kwargs.get("json", {})
-        conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+        messages = request.get("messages", [])
+        if not messages:
+            raise ValueError("No messages in request")
+        content = messages[0].get("content", [])
+        if not content:
+            raise ValueError("No content in message")
+        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
+            # Extract status and payload from the response dict
             return CallbackResult(
-                status=response["status"],  # type: ignore
-                payload=response["payload"],  # type: ignore
+                status=response["status"], payload=response["payload"]
             )
 
         raise ValueError(
@@ -696,23 +718,23 @@ def test_infer_from_file_to_file():
         # Note: We use the first message's content as the key to avoid
         # stringifying the message object.
         response_by_conversation_id = {
-            "Hello world!": dict(
-                status=200,
-                payload=dict(
-                    choices=[
+            "Hello world!": {
+                "status": 200,
+                "payload": {
+                    "choices": [
                         {
                             "message": {
                                 "role": "assistant",
                                 "content": "The first time I saw",
                             }
                         }
-                    ],
-                ),
-            ),
-            "Goodbye world!": dict(
-                status=200,
-                payload=dict(
-                    choices=[
+                    ]
+                },
+            },
+            "Goodbye world!": {
+                "status": 200,
+                "payload": {
+                    "choices": [
                         {
                             "message": {
                                 "role": "assistant",
@@ -720,23 +742,30 @@ def test_infer_from_file_to_file():
                             }
                         }
                     ]
-                ),
-            ),
+                },
+            },
         }
 
-        def response_callback(url, **kwargs):
+        def response_callback(url: str, **kwargs: Any) -> CallbackResult:
+            """Callback for mocked API responses."""
             request = kwargs.get("json", {})
-            conversation_id = request.get("messages", [])[0]["content"][0]["text"]
+            messages = request.get("messages", [])
+            if not messages:
+                raise ValueError("No messages in request")
+            content = messages[0].get("content", [])
+            if not content:
+                raise ValueError("No content in message")
+            conversation_id = content[0].get("text")
 
             if response := response_by_conversation_id.get(conversation_id):
+                # Extract status and payload from the response dict
                 return CallbackResult(
-                    status=response["status"],  # type: ignore
-                    payload=response["payload"],  # type: ignore
+                    status=response["status"], payload=response["payload"]
                 )
 
             raise ValueError(
-                "Test error: Static response not found "
-                f"for conversation_id: {conversation_id}"
+                "Test error: Static response not found for "
+                f"conversation_id: {conversation_id}"
             )
 
         with aioresponses() as m:
@@ -863,10 +892,17 @@ def test_get_list_of_message_json_dicts_multimodal_with_grouping():
     assert isinstance(result[3]["content"], list) and len(result[3]["content"]) == 2
     assert all([isinstance(item, dict) for item in result[3]["content"]])
     assert result[3]["content"][0] == {"type": "text", "text": "Describe this image"}
-    tsunami_base64_image_str = result[3]["content"][1]["image_url"]["url"]
+    content = result[3]["content"][1]
+    assert isinstance(content, dict)
+    assert "image_url" in content
+    image_url = content["image_url"]
+    assert isinstance(image_url, dict)
+    assert "url" in image_url
+    tsunami_base64_image_str = image_url["url"]
+
     assert isinstance(tsunami_base64_image_str, str)
     assert tsunami_base64_image_str.startswith("data:image/png;base64,")
-    assert result[3]["content"][1] == {
+    assert content == {
         "type": "image_url",
         "image_url": {"url": tsunami_base64_image_str},
     }
@@ -914,23 +950,30 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
             assert "url" in json_dict["content"][0]["image_url"], debug_info
 
             if message.binary:
+                content = json_dict["content"][0]
+                assert isinstance(content, dict)
+                assert "image_url" in content
+                image_url = content["image_url"]
+                assert isinstance(image_url, dict)
+                assert "url" in image_url
+
                 expected_base64_bytes_str = base64encode_image_bytes(
                     message, add_mime_prefix=True
                 )
-                assert len(expected_base64_bytes_str) == len(
-                    json_dict["content"][0]["image_url"]["url"]
-                )
-                assert json_dict["content"][0]["image_url"] == {
-                    "url": expected_base64_bytes_str
-                }, debug_info
+                assert len(expected_base64_bytes_str) == len(image_url["url"])
+                assert image_url == {"url": expected_base64_bytes_str}, debug_info
             elif message.type == Type.IMAGE_URL:
                 assert json_dict["content"][0]["image_url"] == {
                     "url": message.content
                 }, debug_info
             elif message.type == Type.IMAGE_PATH:
-                assert json_dict["content"][0]["image_url"]["url"].startswith(
-                    "data:image/png;base64,"
-                ), debug_info
+                content = json_dict["content"][0]
+                assert isinstance(content, dict)
+                assert "image_url" in content
+                image_url = content["image_url"]
+                assert isinstance(image_url, dict)
+                assert "url" in image_url
+                assert image_url["url"].startswith("data:image/png;base64,"), debug_info
 
 
 def test_convert_conversation_to_api_input_with_json_schema():
@@ -1207,3 +1250,457 @@ def test_get_request_headers_missing_env_var():
         )
         headers = engine._get_request_headers(remote_params)
         assert headers == {"Authorization": "Bearer None"}
+
+
+@pytest.mark.asyncio
+async def test_upload_batch_file():
+    """Test uploading a batch file."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER}/files",
+            status=200,
+            payload={"id": "file-123"},
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        batch_requests = [
+            {
+                "custom_id": "request-1",
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {"messages": [{"role": "user", "content": "Hello"}]},
+            }
+        ]
+
+        # Create a mock async context manager
+        class AsyncContextManagerMock:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            async def read(self):
+                return b"test data"
+
+        # Patch aiofiles.open to return our async context manager
+        with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
+            file_id = await engine._upload_batch_file(
+                batch_requests, engine._remote_params
+            )
+            assert file_id == "file-123"
+
+
+@pytest.mark.asyncio
+async def test_create_batch():
+    """Test creating a batch job."""
+    with aioresponses() as m:
+        # Mock file upload
+        m.post(
+            f"{_TARGET_SERVER}/files",
+            status=200,
+            payload={"id": "file-123"},
+        )
+        # Mock batch creation
+        m.post(
+            f"{_TARGET_SERVER}/batches",
+            status=200,
+            payload={"id": "batch-456"},
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversation = Conversation(
+            messages=[
+                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            ]
+        )
+
+        # Create a mock async context manager
+        class AsyncContextManagerMock:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            async def read(self):
+                return b"test data"
+
+        # Patch aiofiles.open to return our async context manager
+        with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
+            batch_id = await engine._create_batch(
+                [conversation],
+                _get_default_inference_config(),
+                engine._remote_params,
+            )
+            assert batch_id == "batch-456"
+
+
+@pytest.mark.asyncio
+async def test_get_batch_status():
+    """Test getting batch status."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER}/batches/batch-123",
+            status=200,
+            payload={
+                "status": "completed",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 8,
+                    "failed": 1,
+                },
+            },
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        status = await engine._get_batch_status("batch-123", engine._remote_params)
+        assert status.batch_id == "batch-123"
+        assert status.status == BatchStatus.COMPLETED
+        assert status.total_requests == 10
+        assert status.completed_requests == 8
+        assert status.failed_requests == 1
+
+
+@pytest.mark.asyncio
+async def test_get_batch_results():
+    """Test getting batch results."""
+    with aioresponses() as m:
+        # Mock batch status request
+        m.get(
+            f"{_TARGET_SERVER}/batches/batch-123",
+            status=200,
+            payload={
+                "status": "completed",
+                "request_counts": {
+                    "total": 1,
+                    "completed": 1,
+                    "failed": 0,
+                },
+                "output_file_id": "file-output-123",
+            },
+        )
+
+        # Mock file content request
+        m.get(
+            f"{_TARGET_SERVER}/files/file-output-123/content",
+            status=200,
+            body=json.dumps(
+                {
+                    "custom_id": "request-1",
+                    "response": {
+                        "body": {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "Hello there!",
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                }
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversation = Conversation(
+            messages=[
+                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            ]
+        )
+
+        results = await engine._get_batch_results_with_mapping(
+            "batch-123",
+            [conversation],
+            engine._remote_params,
+        )
+
+        assert len(results) == 1
+        assert results[0].messages[-1].content == "Hello there!"
+        assert results[0].messages[-1].role == Role.ASSISTANT
+
+
+class AsyncContextManagerMock:
+    """Mock for async context manager."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    async def read(self):
+        return b"test data"
+
+
+def test_infer_batch():
+    """Test the public infer_batch method."""
+    with aioresponses() as m:
+        # Mock file upload
+        m.post(
+            f"{_TARGET_SERVER}/files",
+            status=200,
+            payload={"id": "file-123"},
+        )
+        # Mock batch creation
+        m.post(
+            f"{_TARGET_SERVER}/batches",
+            status=200,
+            payload={"id": "batch-456"},
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversation = Conversation(
+            messages=[
+                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            ]
+        )
+
+        # Use AsyncContextManagerMock instead of AsyncMock
+        with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
+            batch_id = engine.infer_batch(
+                [conversation], _get_default_inference_config()
+            )
+            assert batch_id == "batch-456"
+
+
+def test_get_batch_status_public():
+    """Test the public get_batch_status method."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER}/batches/batch-123",
+            status=200,
+            payload={
+                "status": "in_progress",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 5,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        status = engine.get_batch_status("batch-123", _get_default_inference_config())
+        assert status.batch_id == "batch-123"
+        assert status.status == BatchStatus.IN_PROGRESS
+        assert status.total_requests == 10
+        assert status.completed_requests == 5
+        assert status.failed_requests == 0
+
+
+def test_get_batch_results_public():
+    """Test the public get_batch_results method."""
+    with aioresponses() as m:
+        # Mock batch status request
+        m.get(
+            f"{_TARGET_SERVER}/batches/batch-123",
+            status=200,
+            payload={
+                "status": "completed",
+                "request_counts": {
+                    "total": 1,
+                    "completed": 1,
+                    "failed": 0,
+                },
+                "output_file_id": "file-output-123",
+            },
+        )
+
+        # Mock file content request
+        m.get(
+            f"{_TARGET_SERVER}/files/file-output-123/content",
+            status=200,
+            body=json.dumps(
+                {
+                    "custom_id": "request-1",
+                    "response": {
+                        "body": {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "Hello there!",
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                }
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversation = Conversation(
+            messages=[
+                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+            ]
+        )
+
+        results = engine.get_batch_results(
+            "batch-123",
+            [conversation],
+            _get_default_inference_config(),
+        )
+
+        assert len(results) == 1
+        assert results[0].messages[-1].content == "Hello there!"
+        assert results[0].messages[-1].role == Role.ASSISTANT
+
+
+def test_batch_methods_without_remote_params():
+    """Test batch methods fail properly without remote params."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+    conversation = Conversation(
+        messages=[
+            Message(content="Hello", role=Role.USER, type=Type.TEXT),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Remote params must be provided"):
+        engine.infer_batch([conversation], InferenceConfig())
+
+    with pytest.raises(ValueError, match="Remote params must be provided"):
+        engine.get_batch_status("batch-123", InferenceConfig())
+
+    with pytest.raises(ValueError, match="Remote params must be provided"):
+        engine.get_batch_results("batch-123", [conversation], InferenceConfig())
+
+
+@pytest.mark.asyncio
+async def test_list_batches():
+    """Test listing batch jobs."""
+    with aioresponses() as m:
+        # Mock with exact URL including query parameters
+        m.get(
+            f"{_TARGET_SERVER}/batches?limit=1",  # Include query params in URL
+            status=200,
+            payload={
+                "object": "list",
+                "data": [
+                    {
+                        "id": "batch_abc123",
+                        "object": "batch",
+                        "endpoint": "/v1/chat/completions",
+                        "input_file_id": "file-abc123",
+                        "completion_window": "24h",
+                        "status": "completed",
+                        "output_file_id": "file-cvaTdG",
+                        "error_file_id": "file-HOWS94",
+                        "created_at": 1711471533,
+                        "request_counts": {"total": 100, "completed": 95, "failed": 5},
+                        "metadata": {"batch_description": "Test batch"},
+                    }
+                ],
+                "first_id": "batch_abc123",
+                "last_id": "batch_abc123",
+                "has_more": False,
+            },
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        response = await engine._list_batches(engine._remote_params, limit=1)
+
+        assert len(response.batches) == 1
+        batch = response.batches[0]
+        assert batch.id == "batch_abc123"
+        assert batch.status == "completed"
+        assert batch.total_requests == 100
+        assert batch.completed_requests == 95
+        assert batch.failed_requests == 5
+        assert batch.metadata == {"batch_description": "Test batch"}
+        assert response.first_id == "batch_abc123"
+        assert response.last_id == "batch_abc123"
+        assert not response.has_more
+
+
+def test_list_batches_public():
+    """Test the public list_batches method."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER}/batches?limit=2",  # Include query params in URL
+            status=200,
+            payload={
+                "object": "list",
+                "data": [
+                    {
+                        "id": "batch_1",
+                        "endpoint": "/v1/chat/completions",
+                        "status": "completed",
+                        "input_file_id": "file-1",
+                        "completion_window": "24h",
+                    },
+                    {
+                        "id": "batch_2",
+                        "endpoint": "/v1/chat/completions",
+                        "status": "in_progress",
+                        "input_file_id": "file-2",
+                        "completion_window": "24h",
+                    },
+                ],
+                "first_id": "batch_1",
+                "last_id": "batch_2",
+                "has_more": True,
+            },
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        response = engine.list_batches(_get_default_inference_config(), limit=2)
+
+        assert len(response.batches) == 2
+        assert response.first_id == "batch_1"
+        assert response.last_id == "batch_2"
+        assert response.has_more
+
+
+def test_list_batches_without_remote_params():
+    """Test list_batches fails properly without remote params."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+    with pytest.raises(ValueError, match="Remote params must be provided"):
+        engine.list_batches(InferenceConfig())
