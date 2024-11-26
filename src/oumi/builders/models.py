@@ -1,3 +1,4 @@
+import functools
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
@@ -6,7 +7,6 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import BitsAndBytesConfig
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.distributed import get_device_rank_info
@@ -63,7 +63,7 @@ def build_model(
         )
 
     if model_params.enable_liger_kernel:
-        _patch_model_for_liger_kernel(model_params.model_name)
+        _patch_model_for_liger_kernel(model)
 
     for layer_name in model_params.freeze_layers:
         if hasattr(model, layer_name):
@@ -83,25 +83,30 @@ def build_model(
     return model
 
 
-def _patch_model_for_liger_kernel(model_name: str) -> None:
-    """Patches the model for Liger Kernel."""
+def _get_model_type(model: nn.Module) -> Optional[str]:
+    return getattr(model, "config", None) and getattr(model.config, "model_type", None)
+
+
+def _patch_model_for_liger_kernel(model: nn.Module) -> None:
+    """Patches the model for Liger Kernel.
+
+    The list of support models can be found here:
+    https://github.com/linkedin/Liger-Kernel/blob/99599091373f178e8ad6a69ecb1b32351d1d5c1f/src/liger_kernel/transformers/monkey_patch.py#L700
+
+    If the model is not supported, liger kernel patching will not be applied,
+    and a warning will be logged.
+    """
     if liger_kernel is None:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
 
-    model_name_lower = model_name.lower()
+    model_type = _get_model_type(model)
 
-    if "llama" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_llama()
-    elif "mixtral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mixtral()
-    elif "mistral" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_mistral()
-    elif "gemma" in model_name_lower:
-        liger_kernel.transformers.apply_liger_kernel_to_gemma()
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
+    if model_type is None:
+        raise ValueError(f"Could not find model type for: {model}")
+
+    liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
 def build_oumi_model(
@@ -183,15 +188,7 @@ def build_huggingface_model(
         del model_params.model_kwargs["disable_dropout"]
 
     if peft_params and peft_params.q_lora:
-        # TODO confirm bnb_4bit_compute_dtype must be model_params.torch_dtype always
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=peft_params.q_lora_bits == 4,
-            load_in_8bit=peft_params.q_lora_bits == 8,
-            bnb_4bit_compute_dtype=model_params.torch_dtype,
-            bnb_4bit_quant_type=peft_params.bnb_4bit_quant_type,
-            bnb_4bit_use_double_quant=peft_params.use_bnb_nested_quant,
-            bnb_4bit_quant_storage=peft_params.bnb_4bit_quant_storage,
-        )
+        quantization_config = peft_params.to_bits_and_bytes()
     else:
         quantization_config = None
 
@@ -255,6 +252,7 @@ def _get_transformers_model_class(config):
         tested_models = {
             "blip-2",
             "llava",
+            "mllama",
         }  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
@@ -284,15 +282,22 @@ def _get_transformers_model_class(config):
     return auto_model_class, model_kind
 
 
-def is_image_text_llm(model_params: ModelParams) -> bool:
-    """Determines whether the model is a basic image+text LLM."""
+@functools.cache
+def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name,
+        trust_remote_code=trust_remote_code,
         return_unused_kwargs=True,
     )
     _, model_kind = _get_transformers_model_class(hf_config)
     return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+
+
+def is_image_text_llm(model_params: ModelParams) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    return _is_image_text_llm_impl(
+        model_params.model_name, model_params.trust_remote_code
+    )
 
 
 def build_cambrian_model(

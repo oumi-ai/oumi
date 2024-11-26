@@ -1,6 +1,6 @@
 import uuid
 from copy import deepcopy
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -72,15 +72,15 @@ class LocalCluster(BaseCluster):
                 return job
         return None
 
-    def get_jobs(self) -> List[JobStatus]:
+    def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         jobs = self._client.list_jobs()
         for job in jobs:
             job.cluster = self._name
         return jobs
 
-    def stop_job(self, job_id: str) -> JobStatus:
-        """Stops the specified job on this cluster."""
+    def cancel_job(self, job_id: str) -> JobStatus:
+        """Cancels the specified job on this cluster."""
         self._client.cancel(job_id)
         job = self.get_job(job_id)
         if job is None:
@@ -104,7 +104,12 @@ class LocalCluster(BaseCluster):
         status.cluster = self._name
         return status
 
+    def stop(self) -> None:
+        """Cancels all jobs, running or queued."""
+        for job in self.get_jobs():
+            self.cancel_job(job.id)
+
     def down(self) -> None:
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
-            self.stop_job(job.id)
+            self.cancel_job(job.id)

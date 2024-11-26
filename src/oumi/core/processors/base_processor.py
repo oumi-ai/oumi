@@ -1,5 +1,6 @@
 import abc
-from typing import List, Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import PIL.Image
 import transformers
@@ -64,9 +65,9 @@ class BaseProcessor(abc.ABC):
     def __call__(
         self,
         *,
-        text: List[str],
+        text: list[str],
         padding: bool,
-        images: Optional[List[PIL.Image.Image]] = None,
+        images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
@@ -84,7 +85,7 @@ class BaseProcessor(abc.ABC):
 
     @abc.abstractmethod
     def apply_chat_template(
-        self, conversation: List[Message], add_generation_prompt: bool = False
+        self, conversation: list[Message], add_generation_prompt: bool = False
     ) -> str:
         """Applies a chat template.
 
@@ -95,4 +96,9 @@ class BaseProcessor(abc.ABC):
         Returns:
             A text prompt, which includes all input messages formatted into a string.
         """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def save_config(self, output_dir: Union[Path, str]) -> None:
+        """Saves processor config to the directory."""
         raise NotImplementedError

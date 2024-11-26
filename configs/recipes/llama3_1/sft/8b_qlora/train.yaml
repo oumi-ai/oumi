@@ -3,14 +3,6 @@
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_qlora_single_device.yaml
 
 model:
-  # Vocab size: 128256
-  # Hidden size: 4096
-  # MLP intermediate size: 14336
-  # Num layers: 32
-  # Num attention heads: 32
-  # Num KV heads: 8
-  # Weight tying: False
-  # Model max length: 131072 (initially trained with 8192)
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
@@ -28,14 +20,14 @@ data:
     use_async_dataset: True
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   use_peft: True
   save_steps: 50
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 32
 
-  enable_gradient_checkpointing: False
+  enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
@@ -60,6 +52,8 @@ peft:
   q_lora: True
   # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
   bnb_4bit_quant_type: "nf4"
+  bnb_4bit_quant_storage: "bfloat16"
+  bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.0
@@ -71,3 +65,10 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

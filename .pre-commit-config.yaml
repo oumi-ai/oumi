@@ -26,6 +26,7 @@ repos:
         args: [--fix=lf]
       - id: name-tests-test
         args: [--pytest-test-first]
+        exclude: ^tests/markers\.py$
       - id: no-commit-to-branch
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
@@ -51,7 +52,7 @@ repos:
     rev: v3.16.0
     hooks:
       - id: pyupgrade
-        args: [--py38-plus]
+        args: [--py39-plus]
         exclude: src/oumi/models/experimental/cambrian
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.16.1

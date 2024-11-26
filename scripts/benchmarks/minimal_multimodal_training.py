@@ -10,15 +10,15 @@ For multi-GPU training, use torchrun:
             --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
-    --model-name Salesforce/blip2-opt-2.7b --dataset-name coco_captions
+    --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
-    --model-name llava-hf/llava-1.5-7b-hf --dataset-name coco_captions --test-fsdp
+    --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 """
 
 from enum import Enum
 from pprint import pformat
-from typing import Dict, List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import torch
 import typer
@@ -52,31 +52,31 @@ from oumi.utils.torch_utils import (
 
 
 class ModelName(str, Enum):
-    BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAVA = "llava-hf/llava-1.5-7b-hf"
-    QWEN = "Qwen/Qwen2-VL-2B-Instruct"
+    BLIP2 = "Salesforce/blip2-opt-2.7b"
+    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    QWEN2_VL = "Qwen/Qwen2-VL-2B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
-    LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
 
 
 class ModelInfo(NamedTuple):
     chat_template: str
-    freeze_layers: List[str]
+    freeze_layers: list[str]
 
 
 _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
-_MODELS_MAP: Dict[ModelName, ModelInfo] = {
+_MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
     ),
     ModelName.LLAVA: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
     ),
-    ModelName.QWEN: ModelInfo(
+    ModelName.QWEN2_VL: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
     ),
     ModelName.CHAMELEON: ModelInfo(
@@ -102,7 +102,7 @@ _MODELS_MAP: Dict[ModelName, ModelInfo] = {
 }
 
 
-def _get_freeze_layers(model_name: ModelName) -> List[str]:
+def _get_freeze_layers(model_name: ModelName) -> list[str]:
     result = []
     if model_name in _MODELS_MAP:
         result = _MODELS_MAP[model_name].freeze_layers
@@ -123,15 +123,18 @@ def _get_chat_template(model_name: ModelName) -> str:
 
 
 class DatasetName(str, Enum):
-    COCO = "coco_captions"
-    FLICKR = "nlphuji/flickr30k"
+    MERVE_VQAV2_SMALL = "merve/vqav2-small"
     LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
+    FLICKR = "nlphuji/flickr30k"
+    COCO = "coco_captions"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     if dataset_name == DatasetName.FLICKR:
         # The dataset only has "test" split.
         return "test"
+    elif dataset_name == DatasetName.MERVE_VQAV2_SMALL:
+        return "validation"
     return "train"
 
 
@@ -140,6 +143,7 @@ def test_multimodal_trainer(
     dataset_name: DatasetName = DatasetName.COCO,
     batch_size: int = 2,
     max_steps: int = 20,
+    optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
     test_inference: bool = False,
@@ -153,6 +157,13 @@ def test_multimodal_trainer(
     else:
         print("Not initializing distributed process group")
 
+    if model_name == ModelName.QWEN2_VL and batch_size != 1:
+        print(
+            f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
+            "The model only supports bs=1 because of variable-size image encodings."
+        )
+        batch_size = 1
+
     if not split:
         split = _get_default_dataset_split(dataset_name)
 
@@ -161,7 +172,7 @@ def test_multimodal_trainer(
     #
     model_params = ModelParams(
         model_name=model_name.value,
-        torch_dtype_str="float16",
+        torch_dtype_str="bfloat16",
         trust_remote_code=True,
         chat_template=_get_chat_template(model_name),
         freeze_layers=_get_freeze_layers(model_name),  # TODO: fix freeze + fsdp
@@ -200,8 +211,11 @@ def test_multimodal_trainer(
         per_device_train_batch_size=batch_size,
         max_steps=max_steps,
         save_steps=0,
-        optimizer="sgd",
+        optimizer=(optimizer or "sgd"),
         learning_rate=2e-5,
+        warmup_steps=int(max(10, 0.2 * max_steps)),
+        max_grad_norm=10,
+        lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
         log_model_summary=False,
         logging_steps=logging_steps,

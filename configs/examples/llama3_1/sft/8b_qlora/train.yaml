@@ -28,7 +28,7 @@ data:
     seed: 123
 
 training:
-  trainer_type: TRL_SFT
+  trainer_type: "TRL_SFT"
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 4
@@ -54,10 +54,10 @@ training:
 peft:
   q_lora: True
   q_lora_bits: 4
-  # bnb_4bit_quant_type: "nf4" # TODO - try-this
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"
   lora_r: 8
   lora_alpha: 16
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "k_proj"
@@ -65,4 +65,4 @@ peft:
     - "o_proj"
     - "gate_proj" #
     - "down_proj" # Since (1) applies it to MLP.
-    - "up_proj" #
+    - "up_proj"   #

@@ -9,7 +9,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/recipes/llama3_2/sft/3b_lora/train.yaml"
+                "configs/recipes/smollm/sft/135m/train.yaml"
             ],
             "justMyCode": true
         },
@@ -93,22 +93,7 @@
                 "infer",
                 "--interactive",
                 "-c",
-                "configs/recipes/gpt2/inference/infer.yaml"
-            ],
-            "justMyCode": true
-        },
-        {
-            "name": "Oumi - Multimodal Inference",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-                "infer",
-                "--interactive",
-                "--image",
-                "tests/testdata/images/cambrian.png",
-                "-c",
-                "configs/examples/vision/llava_7b/infer.yaml"
+                "configs/recipes/smollm/inference/135m_infer.yaml"
             ],
             "justMyCode": true
         },
@@ -120,9 +105,24 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/llama3_2/evaluation/1b_eval.yaml"
+                "configs/recipes/smollm/evaluation/135m_eval.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
+        },
+        {
+            "name": "Oumi - Experimental - Multimodal Inference",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "infer",
+                "--interactive",
+                "--image",
+                "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
+                "-c",
+                "configs/examples/vision/llama3_2_vision/inference/11b_infer.yaml"
+            ],
+            "justMyCode": false
         },
         {
             "name": "Oumi - Experimental - Multimodal Training",
@@ -133,9 +133,9 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "HuggingFaceH4/llava-instruct-mix-vsft"
+                "merve/vqav2-small"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python Debugger: Current File",

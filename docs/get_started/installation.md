@@ -14,23 +14,21 @@ Before installing Oumi, ensure you have the following:
 
 You can install Oumi using one of the following methods:
 
-### 1. Install from PyPI (Recommended)
-
-To install the latest stable version of Oumi, run:
-
-```bash
-pip install oumi
-```
-
-### 2. Install from Source
+### 1. Install from Source (Recommended)
 
 For the latest development version, you can install Oumi directly from the GitHub repository:
 
-```bash
-pip install git+https://github.com/oumi-ai/oumi.git
-```
+::::{tab-set-code}
+:::{code-block} SSH
+pip install git+ssh://git@github.com/oumi-ai/oumi.git
+:::
 
-### 3. Clone and Install
+:::{code-block} HTTP
+pip install git+https://github.com/oumi-ai/oumi.git
+:::
+::::
+
+### 2. Clone and Install
 
 If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
 
@@ -41,6 +39,14 @@ pip install -e ".[dev]"
 ```
 
 The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
+
+### 3. Install from PyPI
+
+To install the latest stable version of Oumi, run:
+
+```bash
+pip install oumi
+```
 
 ## Optional Dependencies
 
@@ -72,12 +78,6 @@ Oumi has several optional features that require additional dependencies:
 
   ```bash
   pip install oumi[aws,azure,gcp]
-  ```
-
-- To install all optional dependencies:
-
-  ```bash
-  pip install oumi[all]
   ```
 
 ## Verifying the Installation

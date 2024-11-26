@@ -41,7 +41,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  set -x  # Print "accelerate launch" command with expanded variables
+  set -x
   torchrun \
       --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \
@@ -51,7 +51,7 @@ run: |
       -m oumi.train \
       -c configs/examples/llama3_1/sft/8b_qlora/train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='${OUMI_RUN_NAME}'"\
+      "training.output_dir='${OUMI_RUN_NAME}'" \
       "training.logging_dir='${OUMI_RUN_NAME}/runs'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

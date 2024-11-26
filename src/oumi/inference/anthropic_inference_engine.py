@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from typing_extensions import override
 
@@ -30,7 +30,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an Anthropic API input.
 
         This method transforms an Oumi Conversation object into a format
@@ -73,13 +73,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         # See https://docs.anthropic.com/claude/reference/messages_post
         body = {
             "model": self._model,
-            "messages": [
-                {
-                    _CONTENT_KEY: message.content,
-                    _ROLE_KEY: message.role.value,
-                }
-                for message in messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                messages, group_adjacent_same_role_turns=True
+            ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
@@ -91,33 +87,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
-        # Log warnings for unsupported parameters
-        if generation_params.frequency_penalty != 0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support frequency_penalty."
-                " This parameter will be ignored."
-            )
-        if generation_params.presence_penalty != 0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support presence_penalty."
-                " This parameter will be ignored."
-            )
-        if generation_params.logit_bias:
-            logger.warning(
-                "AnthropicInferenceEngine does not support logit_bias."
-                " This parameter will be ignored."
-            )
-        if generation_params.min_p != 0.0:
-            logger.warning(
-                "AnthropicInferenceEngine does not support min_p."
-                " This parameter will be ignored."
-            )
-
         return body
 
     @override
     def _convert_api_output_to_conversation(
-        self, response: Dict[str, Any], original_conversation: Conversation
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
         new_message = Message(
@@ -132,9 +106,19 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> Dict[str, str]:
+    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,
             "X-API-Key": self._get_api_key(remote_params) or "",
+        }
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "max_new_tokens",
+            "stop_strings",
+            "temperature",
+            "top_p",
         }

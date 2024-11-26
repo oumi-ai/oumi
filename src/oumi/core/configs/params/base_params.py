@@ -1,5 +1,6 @@
 import dataclasses
-from typing import Any, Iterator, Optional, Set, Tuple
+from collections.abc import Iterator
+from typing import Any, Optional
 
 
 @dataclasses.dataclass
@@ -30,7 +31,7 @@ class BaseParams:
         or other appropriate exception.
         """
 
-    def __iter__(self) -> Iterator[Tuple[str, Any]]:
+    def __iter__(self) -> Iterator[tuple[str, Any]]:
         """Returns an iterator over field names and values.
 
         Note: for an attribute to be a field, it must be declared in the
@@ -42,7 +43,7 @@ class BaseParams:
     #
     # Private methods
     #
-    def _validate(self, validated: Optional[Set[int]]) -> None:
+    def _validate(self, validated: Optional[set[int]]) -> None:
         """Recursively validates the parameters."""
         if validated is None:
             validated = set()

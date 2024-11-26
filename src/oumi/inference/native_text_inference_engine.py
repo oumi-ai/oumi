@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional
+from typing import Optional
 
 import peft
 import PIL.Image
@@ -7,6 +7,7 @@ import torch
 import transformers
 from tqdm import tqdm
 from transformers import BatchEncoding
+from typing_extensions import override
 
 from oumi.builders import (
     build_model,
@@ -36,7 +37,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
         if is_image_text_llm(self._model_params):
-            # Only enable Processor for LLAVA for now
+            # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,
@@ -47,8 +48,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
     def _make_batches(
-        self, input: List[Conversation], batch_size: int
-    ) -> List[List[Conversation]]:
+        self, input: list[Conversation], batch_size: int
+    ) -> list[list[Conversation]]:
         """Splits the input into batches of the specified size.
 
         Args:
@@ -118,17 +119,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         )
 
     def _generate_batch_encoding_with_tokenizer(
-        self, text_prompts: List[str]
+        self, text_prompts: list[str]
     ) -> BatchEncoding:
         return self._tokenizer(text_prompts, return_tensors="pt", padding=True)
 
     def _generate_batch_encoding_with_processor(
-        self, text_prompts: List[str], conversations: List[Conversation]
+        self, text_prompts: list[str], conversations: list[Conversation]
     ) -> BatchEncoding:
         assert len(text_prompts) == len(conversations)
         assert self._processor is not None
 
-        pil_images: List[PIL.Image.Image] = []
+        pil_images: list[PIL.Image.Image] = []
         for i, conversation in enumerate(conversations):
             image_turns = [m for m in conversation.messages if m.is_image()]
             num_images = len(image_turns)
@@ -175,9 +176,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def _infer(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
         Args:
@@ -188,22 +189,20 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             object: A list of model responses of shape (num_batches, batch_size).
         """
         generation_params = inference_config.generation
-        if generation_params.batch_size < 1:
-            raise ValueError("Batch size must be greater than or equal to 1.")
         if isinstance(self._model, peft.PeftModel):
             raise NotImplementedError(
                 "Inference does not work yet for pretrained PEFT models."
             )
         model_device = next(self._model.parameters()).device
-        batched_input: List[List[Conversation]] = self._make_batches(
+        batched_input: list[list[Conversation]] = self._make_batches(
             input, generation_params.batch_size
         )
         num_batches: int = len(batched_input)
-        input_batches: List[BatchEncoding] = [BatchEncoding()] * num_batches
+        input_batches: list[BatchEncoding] = [BatchEncoding()] * num_batches
 
         for batch_index in range(num_batches):
             batch = batched_input[batch_index]
-            text_prompts: List[str] = [
+            text_prompts: list[str] = [
                 self._apply_chat_template_impl(conversation) for conversation in batch
             ]
             if self._processor is None:
@@ -226,19 +225,26 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.temperature > 0,
+            do_sample=generation_params.use_sampling,
             min_p=generation_params.min_p,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
             stop_strings=generation_params.stop_strings,
             eos_token_id=generation_params.stop_token_ids,
+            num_beams=generation_params.num_beams,
+            use_cache=generation_params.use_cache,
         )
+
+        # skip using a progress for single turns
+        disable_tgdm = len(input) < 2
 
         # Generate model outputs (batch mode).
         output_conversations = []
         for batch_index in tqdm(
-            range(len(input_batches)), desc="Generating Model Responses"
+            range(len(input_batches)),
+            desc="Generating Model Responses",
+            disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
             output_batch = self._model.generate(
@@ -279,9 +285,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         return output_conversations
 
+    @override
     def infer_online(
-        self, input: List[Conversation], inference_config: InferenceConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -293,9 +300,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence
@@ -310,3 +318,23 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "batch_size",
+            "exclude_prompt_from_response",
+            "frequency_penalty",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "stop_token_ids",
+            "temperature",
+            "top_p",
+            "use_sampling",
+            "use_cache",
+            "num_beams",
+        }

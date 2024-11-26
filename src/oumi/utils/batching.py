@@ -1,9 +1,9 @@
-from typing import List, TypeVar
+from typing import TypeVar
 
 T = TypeVar("T")
 
 
-def batch(dataset: List[T], batch_size: int) -> List[List[T]]:
+def batch(dataset: list[T], batch_size: int) -> list[list[T]]:
     """Batches the provided dataset.
 
     Args:
@@ -21,6 +21,6 @@ def batch(dataset: List[T], batch_size: int) -> List[List[T]]:
     return batches
 
 
-def unbatch(dataset: List[List[T]]) -> List[T]:
+def unbatch(dataset: list[list[T]]) -> list[T]:
     """Unbatches (flatten) the provided dataset."""
     return [item for batch in dataset for item in batch]

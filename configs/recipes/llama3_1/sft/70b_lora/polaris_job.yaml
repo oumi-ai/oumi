@@ -1,4 +1,4 @@
-# Config to LoRA tune Llama 3.1 70B Instruct on 3 Polaris nodes.
+# Config to LoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/70b_lora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama70b-lora
@@ -30,7 +30,7 @@ run: |
 
   echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
 
-  set -x  # Print "mpiexec" command with expanded variables
+  set -x
   mpiexec --verbose \
       --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
       ./scripts/polaris/jobs/llama_tune.sh -m lora -d fsdp -s 70b

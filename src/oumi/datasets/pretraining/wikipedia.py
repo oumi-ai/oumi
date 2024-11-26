@@ -1,9 +1,9 @@
-from oumi.core.datasets import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("wikimedia/wikipedia")
-class WikipediaDataset(BasePretrainingIterableDataset):
+class WikipediaDataset(BasePretrainingDataset):
     """Dataset containing cleaned Wikipedia articles in multiple languages.
 
     This dataset is built from the Wikipedia dumps (https://dumps.wikimedia.org/)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Optional
 
 from omegaconf import MISSING
 
@@ -106,10 +106,10 @@ class JobConfig(BaseConfig):
     resources: JobResources = field(default_factory=JobResources)
     """The resources required for each node in the job."""
 
-    envs: Dict[str, str] = field(default_factory=dict)
+    envs: dict[str, str] = field(default_factory=dict)
     """The environment variables to set on the node."""
 
-    file_mounts: Dict[str, str] = field(default_factory=dict)
+    file_mounts: dict[str, str] = field(default_factory=dict)
     """File mounts to attach to the node.
 
     For mounting (copying) local directories, the key is the file path on the remote
@@ -117,7 +117,7 @@ class JobConfig(BaseConfig):
     The keys of `file_mounts` cannot be shared with `storage_mounts`.
     """
 
-    storage_mounts: Dict[str, StorageMount] = field(default_factory=dict)
+    storage_mounts: dict[str, StorageMount] = field(default_factory=dict)
     """Storage system mounts to attach to the node.
 
     For mounting remote storage solutions, the key is the file path on the remote

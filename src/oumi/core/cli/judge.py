@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, Optional
 
 import jsonlines
 import typer
-from typing_extensions import Annotated
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.cli import cli_utils
@@ -15,7 +14,7 @@ from oumi.judge import judge_conversations, judge_dataset
 from oumi.utils.io_utils import load_jsonlines
 
 
-def _load_judge_config(config: str, extra_args: List[str]) -> JudgeConfig:
+def _load_judge_config(config: str, extra_args: list[str]) -> JudgeConfig:
     judge_config_builder = REGISTRY.get_judge_config(config)
 
     if judge_config_builder:
@@ -53,6 +52,7 @@ def dataset(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a dataset."""
     if not dataset_name:
@@ -100,6 +100,7 @@ def conversations(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a list of conversations."""
     # Load the judge config
@@ -143,6 +144,7 @@ def model(
     output_file: Annotated[
         Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge the outputs of a model on a dataset."""
     # Load the judge config
@@ -169,7 +171,9 @@ def model(
 
     # Run inference
     inference_engine = build_inference_engine(
-        model_inference_config.engine, model_params=model_inference_config.model
+        model_inference_config.engine,
+        model_params=model_inference_config.model,
+        remote_params=model_inference_config.remote_params,
     )
 
     model_outputs = inference_engine.infer(

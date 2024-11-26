@@ -1,4 +1,5 @@
-from typing import Any, Callable, List, Optional
+from pathlib import Path
+from typing import Any, Callable, Optional, Union
 
 import PIL.Image
 import transformers
@@ -9,6 +10,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.processors.default_image_processor import DefaultImageProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
+from oumi.utils.logging import logger
 
 
 class DefaultProcessor(BaseProcessor):
@@ -114,9 +116,9 @@ class DefaultProcessor(BaseProcessor):
     def __call__(
         self,
         *,
-        text: List[str],
+        text: list[str],
         padding: bool,
-        images: Optional[List[PIL.Image.Image]] = None,
+        images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
@@ -153,7 +155,7 @@ class DefaultProcessor(BaseProcessor):
 
     @override
     def apply_chat_template(
-        self, conversation: List[Message], add_generation_prompt: bool = False
+        self, conversation: list[Message], add_generation_prompt: bool = False
     ) -> str:
         """Applies a chat template.
 
@@ -191,3 +193,20 @@ class DefaultProcessor(BaseProcessor):
                 f"Actual type: {type(result)}"
             )
         return result
+
+    @override
+    def save_config(self, output_dir: Union[Path, str]) -> None:
+        """Saves processor config to the directory."""
+        if not (
+            hasattr(self._worker_processor, "save_pretrained")
+            and self._worker_processor.save_pretrained is not None
+            and callable(self._worker_processor.save_pretrained)
+        ):
+            logger.warning(
+                "Don't know how to save processor config "
+                f"to output dir: {output_dir}. "
+                "Ignored the request!"
+            )
+            return
+
+        self._worker_processor.save_pretrained(str(output_dir))

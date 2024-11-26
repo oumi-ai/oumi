@@ -1,10 +1,11 @@
 import contextlib
+import copy
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -35,8 +36,15 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.models.layers.ring_attention import (
+    apply_zigzag_ring_attn_monkey_patch_llama as apply_ring_attention_monkey_patch,
+)
+from oumi.models.layers.ring_attention import (
+    prepare_zigzag_ring_attn_inputs as prepare_seq_parallel_inputs,
+)
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
@@ -59,8 +67,9 @@ class Trainer(BaseTrainer):
         tokenizer: BaseTokenizer,
         args: TrainingParams,
         train_dataset: Dataset,
+        processor: Optional[BaseProcessor] = None,
         eval_dataset: Optional[Dataset] = None,
-        callbacks: Optional[List[TrainerCallback]] = None,
+        callbacks: Optional[list[TrainerCallback]] = None,
         data_collator: Optional[Callable] = None,
         fsdp_params: Optional[FSDPParams] = None,
         **kwargs,
@@ -71,7 +80,8 @@ class Trainer(BaseTrainer):
         self.collator_fn = data_collator
 
         self.tokenizer = tokenizer
-        self.params = args
+        self._processor = processor
+        self.params = copy.deepcopy(args)
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.max_norm = (
@@ -80,6 +90,11 @@ class Trainer(BaseTrainer):
 
         self.fsdp_params = fsdp_params or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
+        # TODO OPE-333 Define a param to enable ring attention + check pre-conditions:
+        # 1. Flash Attention (`is_ring_attention_available()`),
+        # 2. CUDA and distributed multi-GPU training (otherwise, pointless).
+        # 3. Supported model type.
+        self.is_using_ring_attention = False
 
         self.params.validate()
 
@@ -135,6 +150,10 @@ class Trainer(BaseTrainer):
                     model,
                     fsdp_params=self.fsdp_params,
                 )
+                # Apply ring attention monkey patch if enabled
+                if self.is_using_ring_attention:
+                    apply_ring_attention_monkey_patch()
+
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
@@ -217,9 +236,10 @@ class Trainer(BaseTrainer):
 
     @contextmanager
     def _telemetry_block(self, name: str):
-        with torch.profiler.record_function(
-            name
-        ) as record_function_context, self.telemetry.timer(name) as timer_context:
+        with (
+            torch.profiler.record_function(name) as record_function_context,
+            self.telemetry.timer(name) as timer_context,
+        ):
             yield (record_function_context, timer_context)
 
     def _train_epoch(self, progress_bar: tqdm) -> None:
@@ -269,7 +289,7 @@ class Trainer(BaseTrainer):
                     self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
-                    if not self.is_using_fsdp:
+                    if not self.is_using_fsdp and not self.is_using_ring_attention:
                         batch = {
                             k: v.to(self.device, non_blocking=True)
                             for k, v in batch.items()
@@ -280,7 +300,20 @@ class Trainer(BaseTrainer):
                         end_of_global_step or stop_on_max_steps_limit
                     )
 
-                    outputs = self.model(**batch)
+                    if self.is_using_ring_attention:
+                        # Prepare inputs for ring attention
+                        prepared_inputs = prepare_seq_parallel_inputs(
+                            batch["input_ids"],
+                            batch.get("position_ids"),
+                            batch.get("labels"),
+                            get_device_rank_info().rank,
+                            get_device_rank_info().world_size,
+                            self.device,
+                        )
+                        outputs = self.model(**prepared_inputs)
+                    else:
+                        outputs = self.model(**batch)
+
                     loss = outputs["loss"] / gradient_accumulation_steps
 
                 with self._telemetry_block("loss backward"):
@@ -377,7 +410,7 @@ class Trainer(BaseTrainer):
     # Evaluation
     #
     @torch.no_grad()
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         """Evaluates the model on the evaluation dataset."""
         if self.eval_dataloader is None:
             raise ValueError("No evaluation dataloader provided.")
@@ -416,6 +449,10 @@ class Trainer(BaseTrainer):
             model_path = output_dir / "model.safetensors"
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
+
+            if self._processor is not None:
+                self._processor.save_config(output_dir)
+                logger.info(f"Processor config has been saved at {output_dir}.")
 
     def save_state(self):
         """Saves the training state."""
@@ -537,7 +574,7 @@ class Trainer(BaseTrainer):
             return
         logger.info(message)
 
-    def log_metrics(self, metrics: Dict[str, Any], step: int) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: int) -> None:
         """Logs metrics to wandb and tensorboard."""
         # Log to console and log file
         if not is_world_process_zero():
@@ -565,7 +602,9 @@ class Trainer(BaseTrainer):
         if self.params.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")
             self.log(f"Logging to Weights and Biases project: '{project_name}'")
-            run = wandb.init(project=project_name, name=self.params.run_name)
+            run = wandb.init(
+                project=project_name, name=self.params.run_name, job_type="train"
+            )
             self.log(f"View wandb run {run.id} at: {run.get_url()}")
             wandb.watch(self.model)
 
@@ -666,8 +705,8 @@ class Trainer(BaseTrainer):
     # Handle callbacks
     #
     def _process_callbacks(
-        self, event: str, logs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, event: str, logs: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """Process callbacks.
 
         Extremely hacky way to handle HF callbacks.

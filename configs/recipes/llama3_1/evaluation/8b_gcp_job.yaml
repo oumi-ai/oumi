@@ -23,14 +23,15 @@ envs:
   MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
   # NOTE: For LoRA, update this to point to your LoRA adapter.
   LORA_ADAPTER_DIR: ""
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: llama8b.eval
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
-  pip install hf_transfer
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.
@@ -46,10 +47,11 @@ run: |
     echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
   fi
 
-  set -x # Enable command tracing.
+  set -x
   accelerate launch \
     -m oumi.evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
+    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
     "model.model_name=${MODEL_CHECKPOINT_DIR}" \
     "model.adapter_model=${LORA_ADAPTER_DIR}"
 

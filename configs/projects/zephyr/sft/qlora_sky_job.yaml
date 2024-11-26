@@ -29,7 +29,7 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   HF_TOKEN: null # forces the user to pass it
-  OUMI_RUN_NAME: "zephyr.7b.sft.qlora"
+  OUMI_RUN_NAME: "zephyr.7b.qlora"
 
 setup: |
   set -e
@@ -39,7 +39,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  set -x  # Print "torchrun" command with expanded variables
+  set -x
   torchrun \
       --nnodes=${OUMI_NUM_NODES} \
       --node-rank=${SKYPILOT_NODE_RANK} \

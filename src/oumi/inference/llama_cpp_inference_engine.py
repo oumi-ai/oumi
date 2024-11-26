@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import Dict, List, cast
+from typing import cast
 
 from tqdm.auto import tqdm
+from typing_extensions import override
 
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
@@ -122,7 +123,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     def _convert_conversation_to_llama_input(
         self, conversation: Conversation
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages."""
         return [
             {
@@ -133,8 +134,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: List[Conversation], inference_config: InferenceConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
         Args:
@@ -197,9 +198,24 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 )
         return output_conversations
 
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "logit_bias",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "stop_strings",
+            "temperature",
+            "top_p",
+        }
+
+    @override
     def infer_online(
-        self, input: List[Conversation], inference_config: InferenceConfig
-    ) -> List[Conversation]:
+        self, input: list[Conversation], inference_config: InferenceConfig
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -211,9 +227,10 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         """
         return self._infer(input, inference_config)
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the existence

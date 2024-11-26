@@ -1,7 +1,8 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple, Optional, Tuple, Union
+from enum import Enum
+from typing import Final, NamedTuple, Optional, Union
 
 import numpy as np
 import requests
@@ -11,11 +12,12 @@ from typing_extensions import override
 
 import oumi.core.constants as constants
 from oumi.builders.processors import build_processor
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import get_first_dim_len
 
 
 class _SpecialTokens(NamedTuple):
@@ -26,10 +28,54 @@ class _SpecialTokens(NamedTuple):
     label_ignore_index: Optional[int]
 
 
-class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
+class _FirstDimAction(Enum):
+    """Enum representing how to handle the first feature dimension."""
+
+    DROP_ALWAYS = "drop_always"
+    """The first dimension is commonly dummy (length: 1) and must be dropped.
+
+    In effect, this operation is applied: `x = x[0, ...]`, which reduces
+    `x`'s rank by 1 (e.g., 3D->2D), and discards the following elements: `x[1:, ...]`.
+    """
+
+    DROP_IF_DUMMY = "drop_if_dummy"
+    """Drop the first dimension only if it's dummy (length: 1)."""
+
+    KEEP = "keep"
+    """Always preserve the first dimension."""
+
+
+class InputFeatureSpec(NamedTuple):
+    feature_name: str
+    required: bool
+    first_dim_action: _FirstDimAction = _FirstDimAction.DROP_ALWAYS
+
+
+_INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
+    InputFeatureSpec(feature_name="input_ids", required=True),
+    InputFeatureSpec(
+        feature_name="pixel_values",
+        required=True,
+        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
+    ),
+    InputFeatureSpec(feature_name="attention_mask", required=True),
+    InputFeatureSpec(feature_name="labels", required=True),
+    # Llama 3.2 Vision
+    InputFeatureSpec(feature_name="aspect_ratio_ids", required=False),
+    InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
+    InputFeatureSpec(feature_name="cross_attention_mask", required=False),
+    # Qwen2 VL
+    InputFeatureSpec(feature_name="image_grid_thw", required=False),
+]
+_INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
+    spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
+}
+
+
+class VisionLanguageSftDataset(BaseSftDataset, ABC):
     """Abstract dataset for vision-language models.
 
-    This class extends BaseLMSftDataset to provide functionality specific to
+    This class extends BaseSftDataset to provide functionality specific to
     vision-language tasks. It handles the processing of both image and text data.
 
     Note:
@@ -165,14 +211,45 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for feature_name in ("input_ids", "pixel_values", "attention_mask", "labels"):
+        for feature_name, feature_spec in _INPUT_FEATURES_DICT.items():
+            if (not feature_spec.required) and (feature_name not in inputs):
+                continue
             x = inputs[feature_name]
-            if isinstance(x, (torch.Tensor, np.ndarray, list)):
-                inputs[feature_name] = x[0]
-            else:
+
+            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
+
+            first_dim_action = feature_spec.first_dim_action
+
+            if first_dim_action in (
+                _FirstDimAction.DROP_ALWAYS,
+                _FirstDimAction.DROP_IF_DUMMY,
+            ):
+                first_dim_len = get_first_dim_len(x)
+                if first_dim_len <= 0:
+                    raise ValueError(
+                        f"Empty first dimension for the feature '{feature_name}'."
+                    )
+                drop_first_dim = (
+                    first_dim_action == _FirstDimAction.DROP_ALWAYS
+                    or first_dim_len <= 1
+                )
+                if first_dim_len > 1 and drop_first_dim:
+                    logger.warning(
+                        "The first dimension is non-dummy for "
+                        f"the feature: '{feature_name}' (Length: {first_dim_len}). "
+                        "Only the first element is kept, others are dropped, "
+                        "which may lead to data loss, and to tensor shape errors."
+                    )
+                if drop_first_dim:
+                    inputs[feature_name] = x[0]
+                else:
+                    inputs[feature_name] = x
+            else:
+                assert feature_spec.first_dim_action == _FirstDimAction.KEEP
+                inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
@@ -195,7 +272,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
     def _prepare_simple_model(
         self, conversation: Conversation
-    ) -> Tuple[Image.Image, str]:
+    ) -> tuple[Image.Image, str]:
         """Prepares the images and prompt for a simple model.
 
         Simple models only use the last image and text turn in the conversation. They
@@ -219,7 +296,7 @@ class VisionLanguageSftDataset(BaseLMSftDataset, ABC):
 
     def _prepare_instruct_model(
         self, conversation: Conversation
-    ) -> Tuple[List[Image.Image], str]:
+    ) -> tuple[list[Image.Image], str]:
         """Prepares the images and prompt for an instruct model.
 
         Instruct models use the chat template to generate the prompt, and can include

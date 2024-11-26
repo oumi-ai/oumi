@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from peft.utils.peft_types import TaskType
+from transformers import BitsAndBytesConfig
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -37,7 +38,7 @@ class PeftParams(BaseParams):
     This helps prevent overfitting in the adaptation layers.
     """
 
-    lora_target_modules: Optional[List[str]] = field(
+    lora_target_modules: Optional[list[str]] = field(
         default=None,
         metadata={"help": "LoRA target modules."},
     )
@@ -47,7 +48,7 @@ class PeftParams(BaseParams):
     Specify module names to selectively apply LoRA to certain parts of the model.
     """
 
-    lora_modules_to_save: Optional[List[str]] = field(
+    lora_modules_to_save: Optional[list[str]] = field(
         default=None,
         metadata={"help": "Model layers to unfreeze and train."},
     )
@@ -138,3 +139,37 @@ class PeftParams(BaseParams):
 
     Defaults to 'uint8' for efficient storage.
     """
+
+    bnb_4bit_compute_dtype: str = field(
+        default="float16",
+        metadata={"help": "The compute type of the quantized parameters."},
+    )
+    """Compute type of the quantized parameters.
+    It can be different than the input type, e.g., it can be set to a lower precision
+    for improved speed.
+
+    The string will be converted to the corresponding torch.dtype.
+
+    Valid string options are:
+    - "float32" for 32-bit floating point
+    - "float16" for 16-bit floating point
+    - "bfloat16" for brain floating point
+    - "float64" for 64-bit floating point
+
+    Defaults to "float16" for half precision.
+    """
+
+    def to_bits_and_bytes(self) -> BitsAndBytesConfig:
+        """Creates a configuration for quantized models via BitsAndBytes.
+
+        The resulting configuration uses the instantiated peft parameters.
+        """
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=self.q_lora_bits == 4,
+            load_in_8bit=self.q_lora_bits == 8,
+            bnb_4bit_compute_dtype=self.bnb_4bit_compute_dtype,
+            bnb_4bit_quant_type=self.bnb_4bit_quant_type,
+            bnb_4bit_use_double_quant=self.use_bnb_nested_quant,
+            bnb_4bit_quant_storage=self.bnb_4bit_quant_storage,
+        )
+        return quantization_config

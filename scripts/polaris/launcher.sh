@@ -96,17 +96,18 @@ ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $
   fi
   echo "Installing packages... -----------------------------------------"
   conda activate /home/$USER/miniconda3/envs/oumi
+
   if ! command -v uv >/dev/null 2>&1; then
       pip install -U uv
   fi
-  uv pip install -e '.[gpu]'
+  pip install -e '.[gpu]'
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Polaris won't create them.
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
 
-  set -x  # Print qsub command with expanded variables
+  set -x
   JOB_ID=$(qsub -l select=${POLARIS_NODES}:system=polaris -q ${POLARIS_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
   QSUB_RESULT=$?
   set +x  # Turn-off printing

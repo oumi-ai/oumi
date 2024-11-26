@@ -1,0 +1,62 @@
+# Config to FSDP QLoRA tune Llama 3.1 405B Instruct.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
+name: llama405b-qlora-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  use_spot: true
+  disk_size: 4000 # Disk size in GBs
+  region: us-central1
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+storage_mounts:
+  /gcs_dir:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama405b.qlora.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu,quant]' hf_transfer
+  # Recommended: Copy the model from our cache in GCS
+  # mkdir -p ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
+  # gsutil -m cp -n gs://oumi-dev-us-central1/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/*  ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
+
+  # NOT RECOMMENDED: Download the model from HF (takes over an hour)
+  # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  torchrun \
+      --nnodes=${OUMI_NUM_NODES} \
+      --node-rank=${SKYPILOT_NODE_RANK} \
+      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+      --master-addr=${OUMI_MASTER_ADDR} \
+      --master-port=8007 \
+      -m oumi.train \
+      -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

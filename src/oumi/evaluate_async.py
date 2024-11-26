@@ -3,7 +3,6 @@ import re
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import List
 
 from oumi.core.configs import AsyncEvaluationConfig
 from oumi.evaluate import evaluate
@@ -43,7 +42,7 @@ def main() -> None:
     evaluate_async(config)
 
 
-def _get_checkpoints(checkpoint_dir: Path) -> List[Path]:
+def _get_checkpoints(checkpoint_dir: Path) -> list[Path]:
     """Returns all checkpoints in the target directory."""
     # Modified from HF's transformers.trainer_utils.get_last_checkpoint().
     re_checkpoint = re.compile(r"^" + _PREFIX_CHECKPOINT_DIR + r"\-(\d+)$")

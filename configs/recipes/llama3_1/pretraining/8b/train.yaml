@@ -1,0 +1,55 @@
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  chat_template: "chat_ml"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: False
+  trust_remote_code: True
+  enable_liger_kernel: True # Helps reduce required VRAM
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        subset: "sample-10BT"
+        split: "train"
+      # Polaris copy of the dataset:
+      # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
+      #   subset: "default"
+      #   split: "train"
+    stream: True
+    pack: True
+    target_col: "text"
+    use_async_dataset: True
+
+training:
+  trainer_type: "TRL_SFT"
+  max_steps: 1000
+  save_steps: 500
+  save_final_model: True
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  empty_device_cache_steps: 1
+  compile: True
+  dataloader_main_process_only: False
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+  seed: 123
+  logging_steps: 10
+  log_model_summary: False
+  output_dir: "output/fineweb.pt"
+  include_performance_metrics: True
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

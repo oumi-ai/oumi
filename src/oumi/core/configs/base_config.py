@@ -1,7 +1,8 @@
 import dataclasses
 import logging
 import re
-from typing import Any, Iterator, List, Optional, Tuple, Type, TypeVar, cast
+from collections.abc import Iterator
+from typing import Any, Optional, TypeVar, cast
 
 from omegaconf import OmegaConf
 
@@ -12,7 +13,7 @@ T = TypeVar("T", bound="BaseConfig")
 _CLI_IGNORED_PREFIXES = ["--local-rank"]
 
 
-def _filter_ignored_args(arg_list: List[str]) -> List[str]:
+def _filter_ignored_args(arg_list: list[str]) -> list[str]:
     """Filters out ignored CLI arguments."""
     return [
         arg
@@ -44,7 +45,7 @@ class BaseConfig:
         OmegaConf.save(config=self, f=config_path)
 
     @classmethod
-    def from_yaml(cls: Type[T], config_path: str, ignore_interpolation=True) -> T:
+    def from_yaml(cls: type[T], config_path: str, ignore_interpolation=True) -> T:
         """Loads a configuration from a YAML file.
 
         Args:
@@ -68,9 +69,9 @@ class BaseConfig:
 
     @classmethod
     def from_yaml_and_arg_list(
-        cls: Type[T],
+        cls: type[T],
         config_path: Optional[str],
-        arg_list: List[str],
+        arg_list: list[str],
         logger: Optional[logging.Logger] = None,
         ignore_interpolation=True,
     ) -> T:
@@ -138,7 +139,7 @@ class BaseConfig:
         or other appropriate exception.
         """
 
-    def __iter__(self) -> Iterator[Tuple[str, Any]]:
+    def __iter__(self) -> Iterator[tuple[str, Any]]:
         """Returns an iterator over field names and values.
 
         Note: for an attribute to be a field, it must be declared in the

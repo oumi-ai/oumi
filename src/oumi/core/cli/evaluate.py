@@ -1,5 +1,6 @@
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 
 import oumi.core.cli.cli_utils as cli_utils
 from oumi import evaluate as oumi_evaluate
@@ -15,12 +16,14 @@ def evaluate(
             *cli_utils.CONFIG_FLAGS, help="Path to the configuration file for training."
         ),
     ],
+    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Evaluate a model.
 
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for evaluation.
+        level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     # Load configuration

@@ -1,9 +1,13 @@
 import asyncio
-import base64
+import copy
+import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import aiohttp
+import pydantic
+from tqdm.asyncio import tqdm
+from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
@@ -14,7 +18,7 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.utils.logging import logger
+from oumi.utils.image_utils import base64encode_image_bytes, load_image_bytes_to_message
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -29,15 +33,18 @@ _URL_KEY: str = "url"
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(self, model_params: ModelParams, remote_params: RemoteParams):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            remote_params: Remote server params.
         """
         self._model = model_params.model_name
+        self._remote_params = copy.deepcopy(remote_params)
 
-    def _get_content_for_message(self, message: Message) -> Dict[str, Any]:
+    @staticmethod
+    def _get_content_for_message(message: Message) -> dict[str, Any]:
         """Returns the content for a message.
 
         Args:
@@ -46,35 +53,86 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: The content for the message.
         """
-        content: Dict[str, Any] = {
-            _TYPE_KEY: message.type.value,
-        }
-        b64_image = None if message.binary is None else base64.b64encode(message.binary)
-
         if message.type == Type.TEXT:
-            content[_TEXT_KEY] = message.content or ""
-        elif message.type == Type.IMAGE_URL:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_PATH:
-            if message.content and not b64_image:
-                with open(message.content, "rb") as image_file:
-                    b64_image = base64.b64encode(image_file.read())
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        elif message.type == Type.IMAGE_BINARY:
-            content[_IMAGE_URL_KEY] = {
-                _URL_KEY: b64_image or message.content,
-            }
-        else:
+            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (message.content or "")}
+        elif not message.is_image():
             raise ValueError(f"Unsupported message type: {message.type}")
-        return content
+
+        if not message.binary and message.type != Type.IMAGE_URL:
+            message = load_image_bytes_to_message(message)
+
+        if message.binary:
+            b64_image = base64encode_image_bytes(message, add_mime_prefix=True)
+            return {
+                _TYPE_KEY: Type.IMAGE_URL.value,
+                _IMAGE_URL_KEY: {_URL_KEY: b64_image},
+            }
+
+        assert (
+            message.type == Type.IMAGE_URL
+        ), f"Unexpected message type: {message.type}. Must be a code bug."
+        return {
+            _TYPE_KEY: Type.IMAGE_URL.value,
+            _IMAGE_URL_KEY: {message.content or ""},
+        }
+
+    @staticmethod
+    def _get_list_of_message_json_dicts(
+        messages: list[Message],
+        *,
+        group_adjacent_same_role_turns: bool,
+    ) -> list[dict[str, Any]]:
+        """Returns a list of JSON dictionaries representing messages.
+
+        Loads image bytes and encodes them as base64.
+
+        Args:
+            messages: The input messages.
+            group_adjacent_same_role_turns: Whether to pack adjacent messages
+                from the same role into a single element in output list.
+                For multimodal conversations, adjacent image and text turns from
+                the same role must be grouped together.
+
+        Returns:
+            list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
+        """
+        num_messages = len(messages)
+        result = []
+        idx = 0
+        while idx < num_messages:
+            end_idx = idx + 1
+            if group_adjacent_same_role_turns:
+                while end_idx < num_messages and (
+                    messages[idx].role == messages[end_idx].role
+                ):
+                    end_idx += 1
+
+            item: dict[str, Any] = {
+                _ROLE_KEY: messages[idx].role.value,
+            }
+            group_size = end_idx - idx
+            if group_size == 1 and messages[idx].is_text():
+                # Set "content" to a primitive string value, which is the common
+                # convention for text-only models.
+                item[_CONTENT_KEY] = messages[idx].content
+            else:
+                # Set "content" to be a list of dictionaries for more complex cases.
+                content_list = []
+                while idx < end_idx:
+                    content_list.append(
+                        RemoteInferenceEngine._get_content_for_message(messages[idx])
+                    )
+                    idx += 1
+                item[_CONTENT_KEY] = content_list
+
+            idx = end_idx
+            result.append(item)
+
+        return result
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
         Documentation: https://platform.openai.com/docs/api-reference/chat/create
@@ -103,24 +161,53 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
-            "min_p": generation_params.min_p,
         }
-
-        # Log warning for unsupported parameter
-        if generation_params.min_p > 0.0:
-            logger.warning(
-                "RemoteInferenceEngine does not support min_p. "
-                f"Received value: min_p={generation_params.min_p}. "
-                "This parameter will be ignored."
-            )
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
+        if generation_params.guided_decoding:
+            json_schema = generation_params.guided_decoding.json
+
+            if json_schema is not None:
+                if isinstance(json_schema, type) and issubclass(
+                    json_schema, pydantic.BaseModel
+                ):
+                    schema_name = json_schema.__name__
+                    schema_value = json_schema.model_json_schema()
+                elif isinstance(json_schema, dict):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    schema_value = json_schema
+                elif isinstance(json_schema, str):
+                    # Use a generic name if no schema is provided.
+                    schema_name = "Response"
+                    # Try to parse as JSON string
+                    schema_value = json.loads(json_schema)
+                else:
+                    raise ValueError(
+                        f"Got unsupported JSON schema type: {type(json_schema)}"
+                        "Please provide a Pydantic model or a JSON schema as a "
+                        "string or dict."
+                    )
+
+                api_input["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": schema_value,
+                    },
+                }
+            else:
+                raise ValueError(
+                    "Only JSON schema guided decoding is supported, got '%s'",
+                    generation_params.guided_decoding,
+                )
+
         return api_input
 
     def _convert_api_output_to_conversation(
-        self, response: Dict[str, Any], original_conversation: Conversation
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an API response to a conversation.
 
@@ -159,14 +246,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _get_request_headers(
         self, remote_params: Optional[RemoteParams]
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         headers = {}
 
         if not remote_params:
             return headers
 
-        if remote_params.api_key is not None:
-            headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
         return headers
 
     async def _query_api(
@@ -194,9 +280,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             api_input = self._convert_conversation_to_api_input(
                 conversation, inference_config.generation
             )
-            headers = self._get_request_headers(
-                inference_config.generation.remote_params
-            )
+            headers = self._get_request_headers(inference_config.remote_params)
             retries = 0
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
@@ -230,10 +314,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _infer(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
         remote_params: RemoteParams,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
@@ -249,24 +333,26 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Control the number of concurrent tasks via a semaphore.
         semaphore = asyncio.BoundedSemaphore(remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            return await asyncio.gather(
-                *[
-                    self._query_api(
-                        conversation,
-                        inference_config,
-                        remote_params,
-                        semaphore,
-                        session,
-                    )
-                    for conversation in input
-                ]
-            )
+            tasks = [
+                self._query_api(
+                    conversation,
+                    inference_config,
+                    remote_params,
+                    semaphore,
+                    session,
+                )
+                for conversation in input
+            ]
 
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
+
+    @override
     def infer_online(
         self,
-        input: List[Conversation],
+        input: list[Conversation],
         inference_config: InferenceConfig,
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
@@ -276,19 +362,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
-        if not generation_params.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference config.")
         conversations = safe_asyncio_run(
-            self._infer(input, inference_config, generation_params.remote_params)
+            self._infer(input, inference_config, inference_config.remote_params)
         )
         if inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
+    @override
     def infer_from_file(
         self, input_filepath: str, inference_config: InferenceConfig
-    ) -> List[Conversation]:
+    ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
         This is a convenience method to prevent boilerplate from asserting the
@@ -302,13 +388,27 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
-        if not generation_params.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
+        if not inference_config.remote_params:
+            raise ValueError("Remote params must be provided in inference config.")
         input = self._read_conversations(input_filepath)
         conversations = safe_asyncio_run(
-            self._infer(input, inference_config, generation_params.remote_params)
+            self._infer(input, inference_config, inference_config.remote_params)
         )
         if inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "guided_decoding",
+            "logit_bias",
+            "max_new_tokens",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "temperature",
+            "top_p",
+        }

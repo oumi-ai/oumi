@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 from omegaconf import MISSING
 
@@ -71,7 +71,7 @@ class DatasetParams(BaseParams):
     This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
-    dataset_kwargs: Dict[str, Any] = field(default_factory=dict)
+    dataset_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments to pass to the dataset constructor.
 
     These arguments will be passed directly to the dataset constructor.
@@ -125,7 +125,7 @@ class DatasetParams(BaseParams):
 
 @dataclass
 class DatasetSplitParams(BaseParams):
-    datasets: List[DatasetParams] = field(default_factory=list)
+    datasets: list[DatasetParams] = field(default_factory=list)
     """The input datasets used for training.
 
     This will later be split into train, test, and validation.
@@ -137,9 +137,11 @@ class DatasetSplitParams(BaseParams):
     Data collator controls how to form a mini-batch from individual dataset elements.
 
     Valid options are:
-    - "text_with_padding": Uses DataCollatorWithPadding for text data.
-    - "vision_language_with_padding": Uses VisionLanguageCollator
-        for image+text multi-modal data.
+
+        - "text_with_padding": Dynamically pads the inputs received to
+            the longest length.
+        - "vision_language_with_padding": Uses VisionLanguageCollator
+            for image+text multi-modal data.
 
     If None, then a default collator will be assigned.
     """

@@ -1,18 +1,16 @@
-from typing import List
-
 import pytest
 from transformers import AutoTokenizer
 
-from oumi.core.datasets import BaseLMSftDataset
+from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 
-def _get_all_sft_datasets_private_key() -> List[str]:
+def _get_all_sft_datasets_private_key() -> list[str]:
     """List all SFT datasets in the registry."""
     datasets = []
     for key, value in REGISTRY._registry.items():
         if key.registry_type == RegistryType.DATASET and issubclass(
-            value, BaseLMSftDataset
+            value, BaseSftDataset
         ):
             datasets.append(key.name)
     return datasets

@@ -26,7 +26,7 @@ run: |
 
   echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
 
-  set -x  # Print "mpiexec" command with expanded variables
+  set -x
   mpiexec --verbose \
       --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
       ./scripts/polaris/jobs/llama_tune.sh -m qlora -d ddp -s 3b

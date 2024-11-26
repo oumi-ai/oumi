@@ -1,7 +1,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from tqdm.auto import tqdm
 from typing_extensions import Self
@@ -97,12 +97,14 @@ class BaseJudge(ABC):
             self.inference_engine = inference_engine
         else:
             logger.debug("Initializing inference engine.")
-            self.inference_engine = build_inference_engine(config.engine, config.model)
+            self.inference_engine = build_inference_engine(
+                config.engine, config.model, config.remote_params
+            )
 
     def judge(
         self,
-        raw_inputs: Union[List[Conversation], List[dict], List[Message]],
-    ) -> List[Dict[str, BaseJudgeOutput]]:
+        raw_inputs: Union[list[Conversation], list[dict], list[Message]],
+    ) -> list[dict[str, BaseJudgeOutput]]:
         """Judge the given conversations."""
         # Convert the raw user inputs into a list of JudgeInput classes
         # A JudgeInput is the unit of what needs to be judged, and could be a
@@ -197,7 +199,7 @@ class BaseJudge(ABC):
             },
         )
 
-    def _infer(self, conversations: List[Conversation]) -> List[Conversation]:
+    def _infer(self, conversations: list[Conversation]) -> list[Conversation]:
         """Judge a single attribute."""
         metadatas = [convo.metadata for convo in conversations]
 
@@ -224,17 +226,24 @@ class BaseJudge(ABC):
         model_name = config.model.model_name.lower()
         if "gguf" in model_name:
             return LlamaCppInferenceEngine(config.model)
-        elif "claude" in model_name:
-            return AnthropicInferenceEngine(config.model)
         else:
-            return RemoteInferenceEngine(config.model)
+            if config.remote_params is None:
+                raise ValueError("remote_params must be provided in inference config.")
+            if "claude" in model_name:
+                return AnthropicInferenceEngine(
+                    config.model, remote_params=config.remote_params
+                )
+            else:
+                return RemoteInferenceEngine(
+                    config.model, remote_params=config.remote_params
+                )
 
     @abstractmethod
     def _transform_conversation_input(self, conversation: Conversation) -> Message:
         raise NotImplementedError
 
     @abstractmethod
-    def _transform_dict_input(self, raw_input: Dict[str, Any]) -> Message:
+    def _transform_dict_input(self, raw_input: dict[str, Any]) -> Message:
         raise NotImplementedError
 
     @abstractmethod
