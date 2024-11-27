@@ -871,15 +871,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     #
     def list_files(
         self,
-        inference_config: InferenceConfig,
         purpose: Optional[str] = None,
         limit: Optional[int] = None,
         order: str = "desc",
         after: Optional[str] = None,
     ) -> FileListResponse:
         """Lists files."""
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in inference_config")
         return safe_asyncio_run(
             self._list_files(
                 purpose=purpose,
