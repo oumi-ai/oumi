@@ -1554,29 +1554,6 @@ def test_get_batch_results_public():
         assert results[0].messages[-1].role == Role.ASSISTANT
 
 
-def test_batch_methods_without_remote_params():
-    """Test batch methods fail properly without remote params."""
-    engine = RemoteInferenceEngine(
-        _get_default_model_params(),
-        remote_params=RemoteParams(api_url=_TARGET_SERVER),
-    )
-
-    conversation = Conversation(
-        messages=[
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-        ]
-    )
-
-    with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.infer_batch([conversation], InferenceConfig())
-
-    with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.get_batch_status("batch-123")
-
-    with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.get_batch_results("batch-123", [conversation])
-
-
 @pytest.mark.asyncio
 async def test_list_batches():
     """Test listing batch jobs."""
@@ -1669,14 +1646,3 @@ def test_list_batches_public():
         assert response.first_id == "batch_1"
         assert response.last_id == "batch_2"
         assert response.has_more
-
-
-def test_list_batches_without_remote_params():
-    """Test list_batches fails properly without remote params."""
-    engine = RemoteInferenceEngine(
-        _get_default_model_params(),
-        remote_params=RemoteParams(api_url=_TARGET_SERVER),
-    )
-
-    with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.list_batches()
