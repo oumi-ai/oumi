@@ -1291,9 +1291,7 @@ async def test_upload_batch_file():
 
         # Patch aiofiles.open to return our async context manager
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
-            file_id = await engine._upload_batch_file(
-                batch_requests, engine._remote_params
-            )
+            file_id = await engine._upload_batch_file(batch_requests)
             assert file_id == "file-123"
 
 
@@ -1329,7 +1327,6 @@ async def test_create_batch():
             batch_id = await engine._create_batch(
                 [conversation],
                 _get_default_inference_config(),
-                engine._remote_params,
             )
             assert batch_id == "batch-456"
 
@@ -1487,7 +1484,7 @@ def test_get_batch_status_public():
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
-        status = engine.get_batch_status("batch-123", _get_default_inference_config())
+        status = engine.get_batch_status("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.IN_PROGRESS
         assert status.total_requests == 10
@@ -1551,7 +1548,6 @@ def test_get_batch_results_public():
         results = engine.get_batch_results(
             "batch-123",
             [conversation],
-            _get_default_inference_config(),
         )
 
         assert len(results) == 1
@@ -1576,10 +1572,10 @@ def test_batch_methods_without_remote_params():
         engine.infer_batch([conversation], InferenceConfig())
 
     with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.get_batch_status("batch-123", InferenceConfig())
+        engine.get_batch_status("batch-123")
 
     with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.get_batch_results("batch-123", [conversation], InferenceConfig())
+        engine.get_batch_results("batch-123", [conversation])
 
 
 @pytest.mark.asyncio
@@ -1668,7 +1664,7 @@ def test_list_batches_public():
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
-        response = engine.list_batches(_get_default_inference_config(), limit=2)
+        response = engine.list_batches(limit=2)
 
         assert len(response.batches) == 2
         assert response.first_id == "batch_1"
@@ -1684,4 +1680,4 @@ def test_list_batches_without_remote_params():
     )
 
     with pytest.raises(ValueError, match="Remote params must be provided"):
-        engine.list_batches(InferenceConfig())
+        engine.list_batches()

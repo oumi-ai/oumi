@@ -433,7 +433,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         return result
                     else:
                         retries += 1
-                        print(response_json)
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries."
@@ -563,39 +562,24 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not inference_config.remote_params:
             raise ValueError("Remote params must be provided in inference_config.")
 
-        return safe_asyncio_run(
-            self._create_batch(
-                conversations, inference_config, inference_config.remote_params
-            )
-        )
+        return safe_asyncio_run(self._create_batch(conversations, inference_config))
 
     def get_batch_status(
         self,
         batch_id: str,
-        inference_config: InferenceConfig,
     ) -> BatchInfo:
         """Gets the status of a batch inference job.
 
         Args:
             batch_id: The batch job ID
-            inference_config: Parameters for inference
 
         Returns:
             BatchInfo: Current status of the batch job
-
-        Raises:
-            ValueError: If remote_params is not provided in generation_params
         """
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
-
-        return safe_asyncio_run(
-            self._get_batch_status(batch_id, inference_config.remote_params)
-        )
+        return safe_asyncio_run(self._get_batch_status(batch_id, self._remote_params))
 
     def list_batches(
         self,
-        inference_config: InferenceConfig,
         after: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> BatchListResponse:
@@ -608,16 +592,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Returns:
             BatchListResponse: List of batch jobs
-
-        Raises:
-            ValueError: If remote_params is not provided in inference_config
         """
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in inference_config")
-
         return safe_asyncio_run(
             self._list_batches(
-                inference_config.remote_params,
+                self._remote_params,
                 after=after,
                 limit=limit,
             )
@@ -627,41 +605,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-        inference_config: InferenceConfig,
     ) -> list[Conversation]:
         """Gets the results of a completed batch job.
 
         Args:
             batch_id: The batch job ID
             conversations: Original conversations used to create the batch
-            inference_config: Parameters for inference
 
         Returns:
             List[Conversation]: The processed conversations with responses
 
         Raises:
-            ValueError: If remote_params is not provided in generation_params
             RuntimeError: If the batch failed or has not completed
         """
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in generation_params.")
-
         return safe_asyncio_run(
             self._get_batch_results_with_mapping(
-                batch_id, conversations, inference_config.remote_params
+                batch_id, conversations, self._remote_params
             )
         )
 
     async def _upload_batch_file(
         self,
         batch_requests: list[dict],
-        remote_params: RemoteParams,
     ) -> str:
         """Uploads a JSONL file containing batch requests.
 
         Args:
             batch_requests: List of request objects to include in the batch
-            remote_params: Remote API parameters
 
         Returns:
             str: The uploaded file ID
@@ -677,9 +647,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         try:
             # Upload the file
-            connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+            connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
             async with aiohttp.ClientSession(connector=connector) as session:
-                headers = self._get_request_headers(remote_params)
+                headers = self._get_request_headers(self._remote_params)
 
                 # Create form data with file
                 form = aiohttp.FormData()
@@ -689,7 +659,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 form.add_field("purpose", _BATCH_PURPOSE)
 
                 async with session.post(
-                    f"{remote_params.api_url}/files",
+                    f"{self._remote_params.api_url}/files",
                     data=form,
                     headers=headers,
                 ) as response:
@@ -707,7 +677,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         conversations: list[Conversation],
         inference_config: InferenceConfig,
-        remote_params: RemoteParams,
     ) -> str:
         """Creates a new batch job.
 
@@ -735,18 +704,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
 
         # Upload batch file
-        file_id = await self._upload_batch_file(batch_requests, remote_params)
+        file_id = await self._upload_batch_file(batch_requests)
 
         # Create batch
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
             async with session.post(
-                f"{remote_params.api_url}/batches",
+                f"{self._remote_params.api_url}/batches",
                 json={
                     "input_file_id": file_id,
                     "endpoint": _BATCH_ENDPOINT,
-                    "batch_completion_window": remote_params.batch_completion_window,
+                    "batch_completion_window": (
+                        self._remote_params.batch_completion_window
+                    ),
                 },
                 headers=headers,
             ) as response:
