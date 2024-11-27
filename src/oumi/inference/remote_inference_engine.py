@@ -72,8 +72,8 @@ class BatchInfo:
     completed_at: Optional[datetime] = None
     failed_at: Optional[datetime] = None
     expired_at: Optional[datetime] = None
-    cancelling_at: Optional[datetime] = None
-    cancelled_at: Optional[datetime] = None
+    canceling_at: Optional[datetime] = None
+    canceled_at: Optional[datetime] = None
     metadata: Optional[dict[str, Any]] = None
 
     @staticmethod
@@ -114,8 +114,8 @@ class BatchInfo:
             completed_at=cls._convert_timestamp(response.get("completed_at")),
             failed_at=cls._convert_timestamp(response.get("failed_at")),
             expired_at=cls._convert_timestamp(response.get("expired_at")),
-            cancelling_at=cls._convert_timestamp(response.get("cancelling_at")),
-            cancelled_at=cls._convert_timestamp(response.get("cancelled_at")),
+            canceling_at=cls._convert_timestamp(response.get("cancelling_at")),
+            canceled_at=cls._convert_timestamp(response.get("cancelled_at")),
             total_requests=response.get("request_counts", {}).get("total", 0),
             completed_requests=response.get("request_counts", {}).get("completed", 0),
             failed_requests=response.get("request_counts", {}).get("failed", 0),
