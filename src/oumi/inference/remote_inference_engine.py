@@ -116,7 +116,7 @@ class BatchInfo:
     def completion_percentage(self) -> float:
         """Return the percentage of completed requests."""
         return (
-            (self.completed_requests / self.total_requests * 100)
+            (100 * self.completed_requests / self.total_requests)
             if self.total_requests > 0
             else 0.0
         )
