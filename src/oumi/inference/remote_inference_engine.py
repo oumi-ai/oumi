@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -64,20 +65,39 @@ class BatchInfo:
     output_file_id: Optional[str] = None
     error_file_id: Optional[str] = None
     error: Optional[str] = None
-    created_at: Optional[int] = None
-    in_progress_at: Optional[int] = None
-    expires_at: Optional[int] = None
-    finalizing_at: Optional[int] = None
-    completed_at: Optional[int] = None
-    failed_at: Optional[int] = None
-    expired_at: Optional[int] = None
-    cancelling_at: Optional[int] = None
-    cancelled_at: Optional[int] = None
+    created_at: Optional[datetime] = None
+    in_progress_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    finalizing_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    failed_at: Optional[datetime] = None
+    expired_at: Optional[datetime] = None
+    cancelling_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
     metadata: Optional[dict[str, Any]] = None
+
+    @staticmethod
+    def _convert_timestamp(timestamp: Optional[int]) -> Optional[datetime]:
+        """Convert Unix timestamp to datetime.
+
+        Args:
+            timestamp: Unix timestamp in seconds
+
+        Returns:
+            datetime: Converted datetime or None if timestamp is None
+        """
+        return datetime.fromtimestamp(timestamp) if timestamp is not None else None
 
     @classmethod
     def from_api_response(cls, response: dict[str, Any]) -> "BatchInfo":
-        """Create BatchInfo from API response dictionary."""
+        """Create BatchInfo from API response dictionary.
+
+        Args:
+            response: Raw API response dictionary
+
+        Returns:
+            BatchInfo: Parsed batch information
+        """
         return cls(
             id=response["id"],
             status=BatchStatus(response["status"]),
@@ -87,15 +107,15 @@ class BatchInfo:
             output_file_id=response.get("output_file_id"),
             error_file_id=response.get("error_file_id"),
             error=response.get("error"),
-            created_at=response.get("created_at"),
-            in_progress_at=response.get("in_progress_at"),
-            expires_at=response.get("expires_at"),
-            finalizing_at=response.get("finalizing_at"),
-            completed_at=response.get("completed_at"),
-            failed_at=response.get("failed_at"),
-            expired_at=response.get("expired_at"),
-            cancelling_at=response.get("cancelling_at"),
-            cancelled_at=response.get("cancelled_at"),
+            created_at=cls._convert_timestamp(response.get("created_at")),
+            in_progress_at=cls._convert_timestamp(response.get("in_progress_at")),
+            expires_at=cls._convert_timestamp(response.get("expires_at")),
+            finalizing_at=cls._convert_timestamp(response.get("finalizing_at")),
+            completed_at=cls._convert_timestamp(response.get("completed_at")),
+            failed_at=cls._convert_timestamp(response.get("failed_at")),
+            expired_at=cls._convert_timestamp(response.get("expired_at")),
+            cancelling_at=cls._convert_timestamp(response.get("cancelling_at")),
+            cancelled_at=cls._convert_timestamp(response.get("cancelled_at")),
             total_requests=response.get("request_counts", {}).get("total", 0),
             completed_requests=response.get("request_counts", {}).get("completed", 0),
             failed_requests=response.get("request_counts", {}).get("failed", 0),
