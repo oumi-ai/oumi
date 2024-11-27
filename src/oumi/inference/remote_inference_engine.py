@@ -48,16 +48,6 @@ class BatchStatus(Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
-    @property
-    def is_terminal_status(self) -> bool:
-        """Return True if the status represents a terminal state."""
-        return self in {
-            BatchStatus.COMPLETED,
-            BatchStatus.FAILED,
-            BatchStatus.EXPIRED,
-            BatchStatus.CANCELLED,
-        }
-
 
 @dataclass
 class BatchInfo:
@@ -115,12 +105,12 @@ class BatchInfo:
     @property
     def is_terminal(self) -> bool:
         """Return True if the batch is in a terminal state."""
-        return self.status in {
+        return self.status in (
             BatchStatus.COMPLETED,
             BatchStatus.FAILED,
             BatchStatus.EXPIRED,
             BatchStatus.CANCELLED,
-        }
+        )
 
     @property
     def completion_percentage(self) -> float:
