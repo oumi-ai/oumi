@@ -1326,7 +1326,7 @@ async def test_create_batch():
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
             batch_id = await engine._create_batch(
                 [conversation],
-                _get_default_inference_config(),
+                _get_default_inference_config().generation,
             )
             assert batch_id == "batch-456"
 
@@ -1354,7 +1354,7 @@ async def test_get_batch_status():
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
-        status = await engine._get_batch_status("batch-123", engine._remote_params)
+        status = await engine._get_batch_status("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.COMPLETED
         assert status.total_requests == 10
@@ -1419,7 +1419,6 @@ async def test_get_batch_results():
         results = await engine._get_batch_results_with_mapping(
             "batch-123",
             [conversation],
-            engine._remote_params,
         )
 
         assert len(results) == 1
@@ -1614,7 +1613,7 @@ async def test_list_batches():
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
-        response = await engine._list_batches(engine._remote_params, limit=1)
+        response = await engine._list_batches(limit=1)
 
         assert len(response.batches) == 1
         batch = response.batches[0]

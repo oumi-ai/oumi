@@ -582,7 +582,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not inference_config.remote_params:
             raise ValueError("Remote params must be provided in inference_config.")
 
-        return safe_asyncio_run(self._create_batch(conversations, inference_config))
+        return safe_asyncio_run(
+            self._create_batch(conversations, inference_config.generation)
+        )
 
     def get_batch_status(
         self,
@@ -596,7 +598,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        return safe_asyncio_run(self._get_batch_status(batch_id, self._remote_params))
+        return safe_asyncio_run(self._get_batch_status(batch_id))
 
     def list_batches(
         self,
@@ -606,7 +608,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """Lists batch jobs.
 
         Args:
-            inference_config: Parameters for inference
             after: Cursor for pagination (batch ID to start after)
             limit: Maximum number of batches to return (1-100)
 
@@ -615,7 +616,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         return safe_asyncio_run(
             self._list_batches(
-                self._remote_params,
                 after=after,
                 limit=limit,
             )
@@ -639,9 +639,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             RuntimeError: If the batch failed or has not completed
         """
         return safe_asyncio_run(
-            self._get_batch_results_with_mapping(
-                batch_id, conversations, self._remote_params
-            )
+            self._get_batch_results_with_mapping(batch_id, conversations)
         )
 
     async def _upload_batch_file(
@@ -696,14 +694,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _create_batch(
         self,
         conversations: list[Conversation],
-        inference_config: InferenceConfig,
+        generation_params: GenerationParams,
     ) -> str:
         """Creates a new batch job.
 
         Args:
             conversations: List of conversations to process in batch
-            inference_config: Inference configuration
-            remote_params: Remote API parameters
+            generation_params: Generation parameters
 
         Returns:
             str: The batch job ID
@@ -711,9 +708,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Prepare batch requests
         batch_requests = []
         for i, conv in enumerate(conversations):
-            api_input = self._convert_conversation_to_api_input(
-                conv, inference_config.generation
-            )
+            api_input = self._convert_conversation_to_api_input(conv, generation_params)
             batch_requests.append(
                 {
                     "custom_id": f"request-{i}",
@@ -751,22 +746,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _get_batch_status(
         self,
         batch_id: str,
-        remote_params: RemoteParams,
     ) -> BatchInfo:
         """Gets the status of a batch job.
 
         Args:
             batch_id: ID of the batch job
-            remote_params: Remote API parameters
 
         Returns:
             BatchInfo: Current status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{remote_params.api_url}/batches/{batch_id}",
+                f"{self._remote_params.api_url}/batches/{batch_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -778,23 +771,21 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _list_batches(
         self,
-        remote_params: RemoteParams,
         after: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> BatchListResponse:
         """Lists batch jobs.
 
         Args:
-            remote_params: Remote API parameters
             after: Cursor for pagination (batch ID to start after)
             limit: Maximum number of batches to return (1-100)
 
         Returns:
             BatchListResponse: List of batch jobs
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
 
             params = {}
             if after:
@@ -803,7 +794,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["limit"] = str(limit)
 
             async with session.get(
-                f"{remote_params.api_url}/batches",
+                f"{self._remote_params.api_url}/batches",
                 headers=headers,
                 params=params,
             ) as response:
@@ -829,14 +820,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-        remote_params: RemoteParams,
     ) -> list[Conversation]:
         """Gets the results of a completed batch job and maps them to conversations.
 
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
-            remote_params: Remote API parameters
 
         Returns:
             List[Conversation]: The processed conversations with responses
@@ -845,7 +834,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             RuntimeError: If batch status is not completed or if there are errors
         """
         # Get batch status first
-        batch_info = await self._get_batch_status(batch_id, remote_params)
+        batch_info = await self._get_batch_status(batch_id)
 
         if not batch_info.is_terminal:
             raise RuntimeError(
@@ -855,9 +844,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if batch_info.has_errors:
             # Download error file if there are failed requests
             if batch_info.error_file_id:
-                error_content = await self._download_file(
-                    batch_info.error_file_id, remote_params
-                )
+                error_content = await self._download_file(batch_info.error_file_id)
                 raise RuntimeError(f"Batch has failed requests: {error_content}")
             raise RuntimeError(f"Batch failed with error: {batch_info.error}")
 
@@ -865,9 +852,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not batch_info.output_file_id:
             raise RuntimeError("No output file available")
 
-        results_content = await self._download_file(
-            batch_info.output_file_id, remote_params
-        )
+        results_content = await self._download_file(batch_info.output_file_id)
 
         # Parse results
         processed_conversations = []
@@ -897,7 +882,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError("Remote params must be provided in inference_config")
         return safe_asyncio_run(
             self._list_files(
-                inference_config.remote_params,
                 purpose=purpose,
                 limit=limit,
                 order=order,
@@ -908,40 +892,26 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def get_file(
         self,
         file_id: str,
-        inference_config: InferenceConfig,
     ) -> FileInfo:
         """Gets information about a file."""
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in inference_config")
-        return safe_asyncio_run(self._get_file(file_id, inference_config.remote_params))
+        return safe_asyncio_run(self._get_file(file_id))
 
     def delete_file(
         self,
         file_id: str,
-        inference_config: InferenceConfig,
     ) -> bool:
         """Deletes a file."""
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in inference_config")
-        return safe_asyncio_run(
-            self._delete_file(file_id, inference_config.remote_params)
-        )
+        return safe_asyncio_run(self._delete_file(file_id))
 
     def get_file_content(
         self,
         file_id: str,
-        inference_config: InferenceConfig,
     ) -> str:
         """Gets a file's content."""
-        if not inference_config.remote_params:
-            raise ValueError("Remote params must be provided in inference_config")
-        return safe_asyncio_run(
-            self._download_file(file_id, inference_config.remote_params)
-        )
+        return safe_asyncio_run(self._download_file(file_id))
 
     async def _list_files(
         self,
-        remote_params: RemoteParams,
         purpose: Optional[str] = None,
         limit: Optional[int] = None,
         order: str = "desc",
@@ -950,7 +920,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """Lists files.
 
         Args:
-            remote_params: Remote API parameters
             purpose: Only return files with this purpose
             limit: Maximum number of files to return (1-10000)
             order: Sort order (asc or desc)
@@ -959,9 +928,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             FileListResponse: List of files
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
 
             params = {"order": order}
             if purpose:
@@ -972,7 +941,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["after"] = after
 
             async with session.get(
-                f"{remote_params.api_url}/files",
+                f"{self._remote_params.api_url}/files",
                 headers=headers,
                 params=params,
             ) as response:
@@ -998,7 +967,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _get_file(
         self,
         file_id: str,
-        remote_params: RemoteParams,
     ) -> FileInfo:
         """Gets information about a file.
 
@@ -1009,11 +977,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             FileInfo: File information
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{remote_params.api_url}/files/{file_id}",
+                f"{self._remote_params.api_url}/files/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -1030,7 +998,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _delete_file(
         self,
         file_id: str,
-        remote_params: RemoteParams,
     ) -> bool:
         """Deletes a file.
 
@@ -1041,11 +1008,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             bool: True if deletion was successful
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
             async with session.delete(
-                f"{remote_params.api_url}/files/{file_id}",
+                f"{self._remote_params.api_url}/files/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -1058,7 +1025,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _download_file(
         self,
         file_id: str,
-        remote_params: RemoteParams,
     ) -> str:
         """Downloads a file's content.
 
@@ -1069,11 +1035,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The file content
         """
-        connector = aiohttp.TCPConnector(limit=remote_params.num_workers)
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(remote_params)
+            headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{remote_params.api_url}/files/{file_id}/content",
+                f"{self._remote_params.api_url}/files/{file_id}/content",
                 headers=headers,
             ) as response:
                 if response.status != 200:
