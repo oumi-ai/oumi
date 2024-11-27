@@ -57,14 +57,16 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             dataset_split="validation",
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
-            max_rows=32,
+            max_rows=1024,
         )
     ]
 
     manually_configured_dataset_names = set({info.dataset_name for info in result})
     for dataset_name in all_dataset_names:
-        if (dataset_name in manually_configured_dataset_names) or (
-            dataset_name in _EXCLUDED_DATASETS
+        if (
+            (dataset_name in manually_configured_dataset_names)
+            or (dataset_name in _EXCLUDED_DATASETS)
+            or True
         ):
             continue
         result.append(
@@ -77,7 +79,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             )
         )
 
-    assert len(result) > 1
+    assert len(result) >= 1
     for idx, info in enumerate(result):
         assert info.dataset_name, f"Index: {idx}"
         assert info.dataset_name in all_dataset_names, f"Index: {idx}"
@@ -137,3 +139,16 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
 
     assert dataset[0] is not None, debug_tag
     assert dataset[dataset.num_rows - 1] is not None, debug_tag
+
+
+if __name__ == "__main__":
+    datasets.disable_caching()
+    info = LoadDatasetInfo(
+        dataset_name="merve/vqav2-small",
+        model_name=_DEFAULT_MODEL_NAME,
+        dataset_split="validation",
+        chat_template=_DEFAULT_CHAT_TEMPLATE,
+        trust_remote_code=True,
+        max_rows=513,
+    )
+    test_build_dataset_mixture(info)

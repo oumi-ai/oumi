@@ -1,10 +1,15 @@
 import gc
+import math
+import sys
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 import datasets
+import numpy as np
 import pandas as pd
+import torch
 from torch.utils.data import MapDataPipe
 
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
@@ -59,6 +64,21 @@ class BaseMapDataset(MapDataPipe, ABC):
     #
     # Main API
     #
+    @staticmethod
+    def _estimate_sizeof(sample: dict[str, Any]):
+        result = sys.getsizeof(sample)
+        for key, val in sample.items():
+            result += sys.getsizeof(key)
+            if isinstance(val, (np.ndarray, torch.Tensor)):
+                num_elems = math.prod(val.shape)
+                result += 4 * num_elems
+                logger.debug(
+                    f"\t{key}: shape={val.shape} numel={num_elems} type={val.dtype}"
+                )
+            else:
+                logger.debug(f"\t{key}: {type(val)}")
+        return result
+
     def __getitem__(self, idx: int) -> dict:
         """Gets the item at the specified index.
 
@@ -69,7 +89,14 @@ class BaseMapDataset(MapDataPipe, ABC):
             dict: The item at the specified index.
         """
         sample = self.raw(idx)
+        original_size = sample.nbytes
         processed = self.transform(sample)
+        transformed_size = self._estimate_sizeof(processed)
+        logger.debug(
+            f"Ratio: {float(transformed_size)} "
+            f"New size: {transformed_size} "
+            f"Old size: {original_size} "
+        )
         return processed
 
     def __len__(self) -> int:
@@ -101,11 +128,43 @@ class BaseMapDataset(MapDataPipe, ABC):
         for idx in range(len(self)):
             yield self[idx]
 
+    def as_sharded_generator(self, shards: list[tuple[int, int]]):
+        """Returns a generator for the dataset."""
+        for shard in shards:
+            for idx in range(shard[0], shard[1]):
+                yield self[idx]
+
     def to_hf(self) -> datasets.Dataset:
         """Converts the dataset to a Hugging Face dataset."""
-        return cast(
-            datasets.Dataset, datasets.Dataset.from_generator(self.as_generator)
+        num_proc = 8
+        total_examples = len(self)
+        starts: list[int] = list(range(0, total_examples, 32))
+        stops: list[int] = starts[1:] + [total_examples]
+        shards: list[tuple[int, int]] = list(zip(starts, stops))
+
+        _START_TIME = time.perf_counter()
+        logger.info("Starting generation...")
+        result = cast(
+            datasets.Dataset,
+            datasets.Dataset.from_generator(
+                self.as_sharded_generator,
+                gen_kwargs={"shards": shards},
+                # keep_in_memory=True,
+                num_proc=num_proc,
+            ),
         )
+
+        duration_sec = time.perf_counter() - _START_TIME
+        logger.info(
+            f"Finished generation (num_proc={num_proc})! Duration: {duration_sec} "
+            f"Speed: {total_examples/duration_sec} examples/s "
+            f"Columns: {result.column_names} "
+            f"Cache: {result.cache_files}"
+        )
+        # result.map(
+        #     lambda sample: self.__getitem__(int(sample["index"])), num_proc=num_proc
+        # )
+        return result
 
     #
     # Abstract Methods
@@ -181,6 +240,8 @@ class BaseMapDataset(MapDataPipe, ABC):
             name=self.dataset_subset,
             split=self.split,
             trust_remote_code=self.trust_remote_code,
+            num_proc=4,
+            download_mode=datasets.DownloadMode.REUSE_CACHE_IF_EXISTS,
         )
 
         if isinstance(
