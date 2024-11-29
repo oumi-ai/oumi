@@ -50,11 +50,12 @@
    conda install gh --channel conda-forge
    ```
 
-### 2.2 Authorize Github CLI (easier when using SSH protocol)
+### 2.2 Authorize Github CLI
 
    ```shell
    gh auth login
    ```
+It is recommended to select "SSH", when asked "What is your preferred protocol for Git operations on this host." 
 
 ### 2.3 Set your Github name and email
 
