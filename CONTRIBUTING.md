@@ -7,11 +7,10 @@ Possible contributions include:
 * New features and infrastructure improvements
 * Tuning datasets, new ones or existing ones adapted to the standardized Oumi format
 * Benchmarks, new ones or existing ones integrated to Oumi's evaluation library
-* Documentation and code readability improevements
+* Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
-* Knowledge sharing with other Oumi members in [Discord](https://discord.gg/S74NxTDh7v)
-* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC)
+* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
 
 If you are new to GitHub, read this [documentation](https://support.github.com/) to learn all you need.
 
@@ -113,3 +112,11 @@ To maintain proper copyright and license notices, please include the header at t
 // See the License for the specific language governing permissions and
 // limitations under the License.
 ```
+
+## Becoming a Code Reviewer or Maintainer
+Send an email to community@oumi.ai if you would like to become a code reviewer, maintainer or contribute in any other way!
+
+## Recognition
+Join the Oumi community to be part of defining a better future for open frontier AI. We will recognize top contributors periodically and feature all of them in Oumi's wall of fame.
+
+Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to community@oumi.ai including your name and full mailing address and we will mail it to you anywhere in the world.
