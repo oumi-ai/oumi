@@ -1,8 +1,19 @@
-# Contributing
+# Contributing to Oumi
 
-Thanks for considering contributing to Oumi! This is a community-first effort. We strongly believe that if we all work together, we can ensure a better, safer, and more open future for frontier AI.
+Oumi welcomes any contribution that helps make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
 
-We welcome contributions for new models, datasets, algorithms, incremental improvements, bug fixes and anything else that could make Oumi better for all of us!
+Possible contributions include:
+* Bug fixes, incremental improvements and tests, no matter how small
+* New features and infrastructure improvements
+* Tuning datasets, new ones or existing ones adapted to the standardized Oumi format
+* Benchmarks, new ones or existing ones integrated to Oumi's evaluation library
+* Documentation and code readability improevements
+* Code review of pull requests
+* Tutorials, blog posts, talks, and social media posts that promote Oumi
+* Knowledge sharing with other Oumi members in [Discord](https://discord.gg/S74NxTDh7v)
+* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC)
+
+If you are new to GitHub, read this [documentation](https://support.github.com/) to learn all you need.
 
 ## Prerequisites
 
@@ -83,5 +94,22 @@ To run pre-commit hooks manually, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure,
-and format your code.
+See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure, and format your code.
+
+## Copyright & License Headers
+To maintain proper copyright and license notices, please include the header at the top of each source code file.
+```
+// Copyright 2024 - Oumi Public Benefit Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
