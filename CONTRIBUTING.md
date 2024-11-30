@@ -1,11 +1,12 @@
 # Contributing
 
-Thanks for considering contributing to Oumi! We welcome contributions for new models,
-incremental improvements, datasets, and bug fixes!
+Thanks for considering contributing to Oumi! This is a community-first effort. We strongly believe that if we all work together, we can ensure a better, safer, and more open future for frontier AI.
+
+We welcome contributions for new models, datasets, algorithms, incremental improvements, bug fixes and anything else that could make Oumi better for all of us!
 
 ## Prerequisites
 
-To set up the development environment on your local machine, run the commands below.
+To set up the development environment on your local machine, clone the repository ("git clone https://github.com/oumi-ai/oumi") and run the following commands below inside the 'oumi' folder.
 
 1\. Install the dependencies needed for testing and linting the code:
 
@@ -30,24 +31,25 @@ pre-commit install
 
 To submit a contribution:
 
-1. Fork a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into
-your own account.
-
-2. Clone your fork locally, and add the Oumi repo as a remote repository:
+1. [Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo)
+a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account. See 
+[Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
+for detailed steps.
+3. Clone your fork locally, and add the Oumi repo as a remote repository:
 
     ```shell
-    git clone git@github.com:<github_id>/oumi-ai/oumi.git
-    cd ./oumi/
+    git clone git@github.com:<github_id>/oumi
+    cd oumi
     git remote add upstream https://github.com/oumi-ai/oumi.git
     ```
 
-3. Create a branch, and make your proposed changes.
+4. Create a branch, and make your proposed changes.
 
     ```shell
     git checkout -b my-username/my-awesome-new-feature
     ```
 
-4. When you are ready, submit a pull request into the Oumi repository!
+5. When you are ready, submit a pull request into the Oumi repository!
 
 ## Pull request (PR) guidelines
 
