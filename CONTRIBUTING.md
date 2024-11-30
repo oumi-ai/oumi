@@ -35,7 +35,7 @@ To submit a contribution:
 a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account. See 
 [Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
 for detailed steps.
-3. Clone your fork locally, and add the Oumi repo as a remote repository:
+2. Clone your fork locally, and add the Oumi repo as a remote repository:
 
     ```shell
     git clone git@github.com:<github_id>/oumi.git
@@ -43,13 +43,13 @@ for detailed steps.
     git remote add upstream https://github.com/oumi-ai/oumi.git
     ```
 
-4. Create a branch, and make your proposed changes.
+3. Create a branch, and make your proposed changes.
 
     ```shell
     git checkout -b my-username/my-awesome-new-feature
     ```
 
-5. When you are ready, submit a pull request into the Oumi repository!
+4. When you are ready, submit a pull request into the Oumi repository!
 
 ## Pull request (PR) guidelines
 
