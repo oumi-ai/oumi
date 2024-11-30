@@ -38,7 +38,7 @@ for detailed steps.
 3. Clone your fork locally, and add the Oumi repo as a remote repository:
 
     ```shell
-    git clone git@github.com:<github_id>/oumi
+    git clone git@github.com:<github_id>/oumi.git
     cd oumi
     git remote add upstream https://github.com/oumi-ai/oumi.git
     ```
