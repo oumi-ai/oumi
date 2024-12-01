@@ -1,9 +1,9 @@
 import gc
 import math
-import time
 from abc import ABC, abstractmethod
+from collections.abc import Generator, Iterable
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, NamedTuple, Optional, cast
 
 import datasets
 import pandas as pd
@@ -11,9 +11,17 @@ from torch.utils.data import MapDataPipe
 
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import (
-    estimate_sample_dict_size_in_bytes,
-)
+from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
+
+
+class _ShardIndexRange(NamedTuple):
+    start_index: int
+    end_index: int
+
+
+class _InferredFeatureMap(NamedTuple):
+    feature_map: datasets.Features
+    element_size_in_bytes: int
 
 
 class BaseMapDataset(MapDataPipe, ABC):
@@ -64,18 +72,6 @@ class BaseMapDataset(MapDataPipe, ABC):
     #
     # Main API
     #
-    def _estimate_max_element_size_bytes(self) -> int:
-        """Returns an estimate of max element size in bytes."""
-        total_examples = len(self)
-        if total_examples <= 0:
-            return 0
-        sample_elements: list[dict[str, Any]] = [self[0]]
-        if total_examples > 1:
-            sample_elements.append(self[total_examples - 1])
-        return max(
-            [estimate_sample_dict_size_in_bytes(elem) for elem in sample_elements]
-        )
-
     def __getitem__(self, idx: int) -> dict:
         """Gets the item at the specified index.
 
@@ -87,18 +83,6 @@ class BaseMapDataset(MapDataPipe, ABC):
         """
         sample = self.raw(idx)
         processed = self.transform(sample)
-        return processed
-
-    def _transform_for_hf_dataset(self, sample: pd.Series, idx: int) -> dict:
-        logger.info(f"self: {type(self)}")
-        logger.info(f"sample: {type(sample)}")
-        logger.info(f"idx: {type(idx)}")
-
-        logger.info(f"idx: {idx}")
-        # logger.info(f"sample: {sample}")
-        processed = self[idx]
-        processed["pixel_values"] = processed["pixel_values"].numpy()
-        logger.info(f"processed: {processed.keys()}")
         return processed
 
     def __len__(self) -> int:
@@ -125,162 +109,114 @@ class BaseMapDataset(MapDataPipe, ABC):
         """
         return self._data.iloc[idx]
 
-    def as_generator(self):
+    def as_generator(self) -> Generator[dict[str, Any], None, None]:
         """Returns a generator for the dataset."""
         for idx in range(len(self)):
             yield self[idx]
 
-    def as_sharded_generator(self, shards: list[tuple[int, int]]):
-        """Returns a generator for the dataset."""
+    def _as_sharded_generator(
+        self, shards: list[_ShardIndexRange]
+    ) -> Generator[dict[str, Any], None, None]:
+        """Returns a sharded generator for the dataset."""
         for shard in shards:
-            for idx in range(shard[0], shard[1]):
+            for idx in range(shard.start_index, shard.end_index):
                 yield self[idx]
+
+    def _detect_features_and_estimate_element_size_bytes(
+        self, samples_iter: Iterable[dict[str, Any]]
+    ) -> _InferredFeatureMap:
+        """Returns an estimate of max element size in bytes."""
+        samples_list = list(samples_iter)
+
+        def _dummy_generator():
+            yield from samples_list
+
+        sample_dataset = cast(
+            datasets.Dataset,
+            datasets.Dataset.from_generator(_dummy_generator),
+        )
+        if len(sample_dataset) <= 0:
+            raise ValueError("Empty sample dataset!")
+
+        max_elem_bytes = max(
+            [estimate_sample_dict_size_in_bytes(elem) for elem in samples_list]
+        )
+
+        features = sample_dataset.features.copy()
+        if "pixel_values" in samples_list[0]:
+            inferred_features = []
+            for elem in samples_list:
+                shape = tuple(get_shape_as_list(elem["pixel_values"]))
+                shape_dims = len(shape)
+                if shape_dims == 2:
+                    inferred_features.append(
+                        datasets.Array2D(dtype="float32", shape=shape)
+                    )
+                elif shape_dims == 3:
+                    inferred_features.append(
+                        datasets.Array3D(dtype="float32", shape=shape)
+                    )
+                elif shape_dims == 4:
+                    inferred_features.append(
+                        datasets.Array4D(dtype="float32", shape=shape)
+                    )
+                elif shape_dims == 5:
+                    inferred_features.append(
+                        datasets.Array5D(dtype="float32", shape=shape)
+                    )
+
+            for i in range(1, len(samples_list)):
+                if not (
+                    (
+                        type(inferred_features[i - 1]),
+                        inferred_features[i - 1].dtype,
+                        inferred_features[i - 1].shape,
+                    )
+                    == (
+                        type(inferred_features[i]),
+                        inferred_features[i].dtype,
+                        inferred_features[i].shape,
+                    )
+                ):
+                    raise ValueError(
+                        "The `pixel_values` feature has incompatible shapes: "
+                        f"{inferred_features[i - 1]} vs {inferred_features[i]}!"
+                    )
+            # Redefine the feature to be `ArrayXD`.
+            features["pixel_values"] = inferred_features[0]
+
+        return _InferredFeatureMap(
+            feature_map=features, element_size_in_bytes=max_elem_bytes
+        )
 
     def to_hf(self) -> datasets.Dataset:
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
 
         total_examples = len(self)
-
-        elem_size = self._estimate_max_element_size_bytes()
+        output_features: _InferredFeatureMap = (
+            self._detect_features_and_estimate_element_size_bytes(
+                self._as_sharded_generator(
+                    [_ShardIndexRange(start_index=0, end_index=5)]
+                )
+            )
+        )
         elements_per_shard: int = (
-            min(total_examples, _MAX_SHARD_SIZE // elem_size)
-            if elem_size > 0
+            min(
+                total_examples, _MAX_SHARD_SIZE // output_features.element_size_in_bytes
+            )
+            if output_features.element_size_in_bytes
             else total_examples
         )
         writer_batch_size = max(min(1000, elements_per_shard), 1)
 
         num_shards = int(math.ceil(float(total_examples) / elements_per_shard))
         logger.info(
-            f"num_shards={num_shards} examples={total_examples} elem_size={elem_size} "
+            f"features={output_features} examples={total_examples} "
             f"writer_batch_size={writer_batch_size} "
         )
 
-        if num_shards > 1 and False:
-            num_proc = 8
-            num_sub_datasets = int(math.ceil(float(num_shards) / num_proc))
-            sub_datasets: list[datasets.Dataset] = []
-            num_examples_per_sub_dataset = int(
-                math.ceil(float(total_examples) / num_sub_datasets)
-            )
-            for i in range(num_sub_datasets):
-                sub_dataset_begin_index = i * num_examples_per_sub_dataset
-                sub_dataset_end_index = min(
-                    total_examples, (i + 1) * num_examples_per_sub_dataset
-                )
-                sub_dataset_len = sub_dataset_end_index - sub_dataset_begin_index
-
-                starts: list[int] = list(
-                    range(
-                        sub_dataset_begin_index,
-                        sub_dataset_end_index,
-                        min(
-                            max(1, elements_per_shard // 4),
-                            num_examples_per_sub_dataset,
-                        ),
-                    )
-                )
-                stops: list[int] = starts[1:] + [sub_dataset_end_index]
-                shards: list[tuple[int, int]] = list(zip(starts, stops))
-
-                _START_TIME = time.perf_counter()
-                logger.info("Starting generation...")
-                sub_dataset = cast(
-                    datasets.Dataset,
-                    datasets.Dataset.from_generator(
-                        self.as_sharded_generator,
-                        gen_kwargs={"shards": shards},
-                        # keep_in_memory=True,
-                        num_proc=num_proc,
-                    ),
-                )
-
-                duration_sec = time.perf_counter() - _START_TIME
-                logger.info(
-                    f"Finished generation of subset {i+1} of {num_sub_datasets} ! "
-                    f"(num_proc={num_proc}) Duration: {duration_sec} sec. "
-                    f"Speed: {sub_dataset_len/duration_sec} examples/s "
-                    f"Columns: {sub_dataset.column_names} "
-                    f"Cache: {sub_dataset.cache_files} "
-                    f"shards: {shards} "
-                )
-                sub_datasets.append(sub_dataset)
-
-            logger.info(f"Concatenating {len(sub_datasets)} datasets...")
-            result = datasets.concatenate_datasets(sub_datasets)
-            assert isinstance(result, datasets.Dataset)
-            logger.info(
-                f"Concatenated {len(sub_datasets)} datasets with {len(result)} samples!"
-                f"Columns: {result.column_names} "
-                f"Cache: {result.cache_files} "
-                f"Result: {result}"
-            )
-            assert len(result) == total_examples
-
-            logger.info("Flattenting  indices...")
-            # result = result.flatten_indices(num_proc=num_proc)
-            logger.info(
-                "Flattened!"
-                f"Columns: {result.column_names} "
-                f"Cache: {result.cache_files} "
-                f"Result: {result}"
-            )
-            assert len(result) == total_examples
-            # datasets.Dataset.from_parquet()
-        elif num_shards > 1 and False:
-            result = datasets.Dataset.from_pandas(self._data)
-            old_columns = list(result.column_names)
-            result = result.map(
-                self._transform_for_hf_dataset,
-                with_indices=True,
-                keep_in_memory=False,
-                num_proc=4,
-                writer_batch_size=32,
-                remove_columns=old_columns,
-                features=datasets.Features(
-                    {
-                        "input_ids": datasets.Sequence(
-                            feature=datasets.Value(dtype="int32"), length=-1
-                        ),
-                        "attention_mask": datasets.Sequence(
-                            feature=datasets.Value(dtype="int8"), length=-1
-                        ),
-                        "aspect_ratio_ids": datasets.Sequence(
-                            feature=datasets.Value(dtype="int64"), length=-1
-                        ),
-                        "aspect_ratio_mask": datasets.Sequence(
-                            feature=datasets.Sequence(
-                                feature=datasets.Value(dtype="int64"), length=-1
-                            ),
-                            length=-1,
-                        ),
-                        "cross_attention_mask": datasets.Sequence(
-                            feature=datasets.Sequence(
-                                feature=datasets.Sequence(
-                                    feature=datasets.Value(dtype="int64"), length=-1
-                                ),
-                                length=-1,
-                            ),
-                            length=-1,
-                        ),
-                        "labels": datasets.Sequence(
-                            feature=datasets.Value(dtype="int64"), length=-1
-                        ),
-                        "pixel_values": datasets.Array5D(
-                            dtype="float32", shape=(1, 4, 3, 560, 560)
-                        ),
-                    }
-                ),
-            )
-            # result.save_to_disk()
-            # result.set_format(type="torch", columns=["pixel_values"])
-            logger.info(
-                "Flattened!"
-                f"Columns: {result.column_names} "
-                f"Cache: {result.cache_files} "
-                f"Result: {result}"
-            )
-        elif num_shards > 0:
+        if num_shards > 0:
             starts: list[int] = list(
                 range(
                     0,
@@ -289,7 +225,10 @@ class BaseMapDataset(MapDataPipe, ABC):
                 )
             )
             stops: list[int] = starts[1:] + [total_examples]
-            shards: list[tuple[int, int]] = list(zip(starts, stops))
+            shards: list[_ShardIndexRange] = [
+                _ShardIndexRange(start_index=item[0], end_index=item[1])
+                for item in zip(starts, stops)
+            ]
 
             result = cast(
                 datasets.Dataset,
@@ -298,40 +237,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                     gen_kwargs={"shards": shards},
                     # keep_in_memory=True,
                     num_proc=4,
-                    features=datasets.Features(
-                        {
-                            "input_ids": datasets.Sequence(
-                                feature=datasets.Value(dtype="int32"), length=-1
-                            ),
-                            "attention_mask": datasets.Sequence(
-                                feature=datasets.Value(dtype="int8"), length=-1
-                            ),
-                            "aspect_ratio_ids": datasets.Sequence(
-                                feature=datasets.Value(dtype="int64"), length=-1
-                            ),
-                            "aspect_ratio_mask": datasets.Sequence(
-                                feature=datasets.Sequence(
-                                    feature=datasets.Value(dtype="int64"), length=-1
-                                ),
-                                length=-1,
-                            ),
-                            "cross_attention_mask": datasets.Sequence(
-                                feature=datasets.Sequence(
-                                    feature=datasets.Sequence(
-                                        feature=datasets.Value(dtype="int64"), length=-1
-                                    ),
-                                    length=-1,
-                                ),
-                                length=-1,
-                            ),
-                            "labels": datasets.Sequence(
-                                feature=datasets.Value(dtype="int64"), length=-1
-                            ),
-                            "pixel_values": datasets.Array5D(
-                                dtype="float32", shape=(1, 4, 3, 560, 560)
-                            ),
-                        }
-                    ),
+                    features=output_features.feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )
@@ -340,40 +246,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 datasets.Dataset,
                 datasets.Dataset.from_generator(
                     self.as_generator,
-                    features=datasets.Features(
-                        {
-                            "input_ids": datasets.Sequence(
-                                feature=datasets.Value(dtype="int32"), length=-1
-                            ),
-                            "attention_mask": datasets.Sequence(
-                                feature=datasets.Value(dtype="int8"), length=-1
-                            ),
-                            "aspect_ratio_ids": datasets.Sequence(
-                                feature=datasets.Value(dtype="int64"), length=-1
-                            ),
-                            "aspect_ratio_mask": datasets.Sequence(
-                                feature=datasets.Sequence(
-                                    feature=datasets.Value(dtype="int64"), length=-1
-                                ),
-                                length=-1,
-                            ),
-                            "cross_attention_mask": datasets.Sequence(
-                                feature=datasets.Sequence(
-                                    feature=datasets.Sequence(
-                                        feature=datasets.Value(dtype="int64"), length=-1
-                                    ),
-                                    length=-1,
-                                ),
-                                length=-1,
-                            ),
-                            "labels": datasets.Sequence(
-                                feature=datasets.Value(dtype="int64"), length=-1
-                            ),
-                            "pixel_values": datasets.Array5D(
-                                dtype="float32", shape=(1, 4, 3, 560, 560)
-                            ),
-                        }
-                    ),
+                    features=output_features.feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )

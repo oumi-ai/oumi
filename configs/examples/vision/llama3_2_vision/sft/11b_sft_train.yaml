@@ -68,7 +68,7 @@ training:
   save_steps: 0
   # dataloader_main_proces_only: False
   dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  dataloader_prefetch_factor: 16
   include_performance_metrics: True
   log_model_summary: False
   enable_wandb: True

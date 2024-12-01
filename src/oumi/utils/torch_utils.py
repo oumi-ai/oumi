@@ -467,3 +467,11 @@ def get_first_dim_len(x: Any) -> int:
         f"Unsupported type: {type(x)}. "
         "Must be numpy array, torch tensor, or Python list."
     )
+
+
+def get_shape_as_list(x: Any) -> list[int]:
+    """Returns length of the first dimension."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return list(x.shape)
+
+    raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")
