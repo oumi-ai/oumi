@@ -1,5 +1,5 @@
 import gc
-import math
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from pathlib import Path
@@ -143,46 +143,46 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
 
         features = sample_dataset.features.copy()
+        # At this time, we care mostly about `pixel_values` as it's by far the largest
+        # feature (e.g., 15MB for Llama 3.2 Vision), which causes serialization errors
+        # for large datasets if saved in the default format, which is
+        # a nested sequence (of sequences (of sequences ...)).
+        # TODO: Tune feature types for other features for efficiency.
         if "pixel_values" in samples_list[0]:
             inferred_features = []
             for elem in samples_list:
                 shape = tuple(get_shape_as_list(elem["pixel_values"]))
                 shape_dims = len(shape)
                 if shape_dims == 2:
-                    inferred_features.append(
-                        datasets.Array2D(dtype="float32", shape=shape)
-                    )
+                    feature_def = datasets.Array2D(dtype="float32", shape=shape)
                 elif shape_dims == 3:
-                    inferred_features.append(
-                        datasets.Array3D(dtype="float32", shape=shape)
-                    )
+                    feature_def = datasets.Array3D(dtype="float32", shape=shape)
                 elif shape_dims == 4:
-                    inferred_features.append(
-                        datasets.Array4D(dtype="float32", shape=shape)
-                    )
+                    feature_def = datasets.Array4D(dtype="float32", shape=shape)
                 elif shape_dims == 5:
-                    inferred_features.append(
-                        datasets.Array5D(dtype="float32", shape=shape)
+                    feature_def = datasets.Array5D(dtype="float32", shape=shape)
+                else:
+                    raise ValueError(
+                        "The `pixel_values` feature has unsupported dimensionality "
+                        f"({shape_dims}D). Must be 2D...5D."
                     )
+                inferred_features.append(feature_def)
 
             for i in range(1, len(samples_list)):
-                if not (
-                    (
-                        type(inferred_features[i - 1]),
-                        inferred_features[i - 1].dtype,
-                        inferred_features[i - 1].shape,
-                    )
-                    == (
-                        type(inferred_features[i]),
-                        inferred_features[i].dtype,
-                        inferred_features[i].shape,
-                    )
+                if (
+                    type(inferred_features[i - 1]),
+                    inferred_features[i - 1].dtype,
+                    inferred_features[i - 1].shape,
+                ) != (
+                    type(inferred_features[i]),
+                    inferred_features[i].dtype,
+                    inferred_features[i].shape,
                 ):
                     raise ValueError(
                         "The `pixel_values` feature has incompatible shapes: "
                         f"{inferred_features[i - 1]} vs {inferred_features[i]}!"
                     )
-            # Redefine the feature to be `ArrayXD`.
+            # Re-define the feature to be `ArrayXD`.
             features["pixel_values"] = inferred_features[0]
 
         return _InferredFeatureMap(
@@ -193,6 +193,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
 
+        num_proc = os.cpu_count()
+        num_proc = max(1, num_proc if num_proc is not None else 1)
         total_examples = len(self)
         output_features: _InferredFeatureMap = (
             self._detect_features_and_estimate_element_size_bytes(
@@ -210,13 +212,14 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
         writer_batch_size = max(min(1000, elements_per_shard), 1)
 
-        num_shards = int(math.ceil(float(total_examples) / elements_per_shard))
-        logger.info(
+        logger.debug(
             f"features={output_features} examples={total_examples} "
             f"writer_batch_size={writer_batch_size} "
         )
 
-        if num_shards > 0:
+        if num_proc > 1 or (
+            output_features.element_size_in_bytes * total_examples > _MAX_SHARD_SIZE
+        ):
             starts: list[int] = list(
                 range(
                     0,
@@ -233,10 +236,10 @@ class BaseMapDataset(MapDataPipe, ABC):
             result = cast(
                 datasets.Dataset,
                 datasets.Dataset.from_generator(
-                    self.as_sharded_generator,
+                    self._as_sharded_generator,
                     gen_kwargs={"shards": shards},
-                    # keep_in_memory=True,
-                    num_proc=4,
+                    keep_in_memory=False,
+                    num_proc=(num_proc if num_proc > 1 else None),
                     features=output_features.feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
@@ -250,13 +253,9 @@ class BaseMapDataset(MapDataPipe, ABC):
                     writer_batch_size=writer_batch_size,
                 ),
             )
-            logger.info(f"Features: {result.features}")
-            logger.info(f"Dataset: {result}")
-            logger.info(f"Arrow schema: {result.features.arrow_schema}")
 
-        # result.map(
-        #     lambda sample: self.__getitem__(int(sample["index"])), num_proc=num_proc
-        # )
+        logger.debug(f"Dataset: {result}")
+        logger.debug(f"Arrow schema: {result.features.arrow_schema}")
         return result
 
     #

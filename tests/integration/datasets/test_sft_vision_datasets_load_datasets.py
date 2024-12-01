@@ -69,7 +69,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
         if (
             (dataset_name in manually_configured_dataset_names)
             or (dataset_name in _EXCLUDED_DATASETS)
-            or True
+            # or True
         ):
             continue
         result.append(
