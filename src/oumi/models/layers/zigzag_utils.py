@@ -67,7 +67,7 @@ def update_out_and_lse(
         out[slice_], lse[slice_] = slice_out, slice_lse
     else:
         out, lse = _update_out_and_lse(out, lse, block_out, block_lse)
-    return out, lse
+    return out, lse  # type: ignore
 
 
 @torch.jit.script

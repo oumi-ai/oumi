@@ -35,6 +35,12 @@ class RemoteParams(BaseParams):
     before making a subsequent request.
     """
 
+    batch_completion_window: Optional[str] = "24h"
+    """Time window for batch completion. Currently only '24h' is supported.
+
+    Only used for batch inference.
+    """
+
     def __post_init__(self):
         """Validate the remote parameters."""
         if not self.api_url:
