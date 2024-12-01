@@ -5,6 +5,8 @@ import torch
 from oumi.utils.torch_utils import (
     convert_to_list_of_tensors,
     create_ones_like,
+    estimate_sample_dict_size_in_bytes,
+    get_dtype_size_in_bytes,
     get_first_dim_len,
     get_torch_dtype,
     pad_sequences,
@@ -329,3 +331,107 @@ def test_get_first_dim_len_bad_input_type():
         get_first_dim_len(float(123))
     with pytest.raises(ValueError, match="Unsupported type"):
         get_first_dim_len(test_get_first_dim_len_bad_input_type)
+
+
+def test_get_dtype_size_in_bytes_str():
+    assert get_dtype_size_in_bytes("f64") == 8
+    assert get_dtype_size_in_bytes("float64") == 8
+    assert get_dtype_size_in_bytes("double") == 8
+    assert get_dtype_size_in_bytes("f32") == 4
+    assert get_dtype_size_in_bytes("float32") == 4
+    assert get_dtype_size_in_bytes("float") == 4
+    assert get_dtype_size_in_bytes("bf16") == 2
+    assert get_dtype_size_in_bytes("bfloat16") == 2
+    assert get_dtype_size_in_bytes("f16") == 2
+    assert get_dtype_size_in_bytes("float16") == 2
+    assert get_dtype_size_in_bytes("half") == 2
+    assert get_dtype_size_in_bytes("uint8") == 1
+
+
+def test_get_dtype_size_in_bytes_torch():
+    assert get_dtype_size_in_bytes(torch.float64) == 8
+    assert get_dtype_size_in_bytes(torch.float32) == 4
+    assert get_dtype_size_in_bytes(torch.float16) == 2
+    assert get_dtype_size_in_bytes(torch.uint8) == 1
+
+    assert get_dtype_size_in_bytes(torch.uint64) == 8
+    assert get_dtype_size_in_bytes(torch.int64) == 8
+    assert get_dtype_size_in_bytes(torch.uint32) == 4
+    assert get_dtype_size_in_bytes(torch.int32) == 4
+    assert get_dtype_size_in_bytes(torch.uint16) == 2
+    assert get_dtype_size_in_bytes(torch.int16) == 2
+    assert get_dtype_size_in_bytes(torch.uint8) == 1
+    assert get_dtype_size_in_bytes(torch.int8) == 1
+
+
+def test_get_dtype_size_in_bytes_numpy():
+    assert get_dtype_size_in_bytes(np.float64) == 8
+    assert get_dtype_size_in_bytes(torch.float32) == 4
+    assert get_dtype_size_in_bytes(torch.float16) == 2
+    assert get_dtype_size_in_bytes(torch.uint8) == 1
+
+    assert get_dtype_size_in_bytes(torch.uint64) == 8
+    assert get_dtype_size_in_bytes(torch.int64) == 8
+    assert get_dtype_size_in_bytes(torch.uint32) == 4
+    assert get_dtype_size_in_bytes(torch.int32) == 4
+    assert get_dtype_size_in_bytes(torch.uint16) == 2
+    assert get_dtype_size_in_bytes(torch.int16) == 2
+    assert get_dtype_size_in_bytes(torch.uint8) == 1
+    assert get_dtype_size_in_bytes(torch.int8) == 1
+
+
+def test_estimate_sample_dict_size_in_bytes():
+    assert estimate_sample_dict_size_in_bytes({"hi": [1] * 100}) == 402
+    assert estimate_sample_dict_size_in_bytes({"hi": [1] * 40, "bye": [1] * 60}) == 405
+    assert estimate_sample_dict_size_in_bytes({"hi": "there"}) == 7
+    assert estimate_sample_dict_size_in_bytes({"hi": ["there"]}) == 7
+
+    # Numpy
+    assert (
+        estimate_sample_dict_size_in_bytes(
+            {"foo": np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int64)}
+        )
+        == 3 + 6 * 8
+    )
+    assert (
+        estimate_sample_dict_size_in_bytes(
+            {"foo": np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int32)}
+        )
+        == 3 + 6 * 4
+    )
+
+    # Torch
+    assert (
+        estimate_sample_dict_size_in_bytes(
+            {
+                "foo": torch.from_numpy(
+                    np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int64)
+                )
+            }
+        )
+        == 3 + 6 * 8
+    )
+    assert (
+        estimate_sample_dict_size_in_bytes(
+            {
+                "foo": torch.from_numpy(
+                    np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int32)
+                )
+            }
+        )
+        == 3 + 6 * 4
+    )
+
+    # Mixed
+    assert (
+        estimate_sample_dict_size_in_bytes(
+            {
+                "torch": torch.from_numpy(
+                    np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int64)
+                ),
+                "numpy": np.asarray([[1, 2, 3], [1, 2, 3]], dtype=np.int32),
+                "list": [[1, 2, 3], [1, 2, 3]],
+            }
+        )
+        == 14 + 6 * 8 + 6 * 4 + 6 * 4
+    )

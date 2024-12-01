@@ -1,3 +1,4 @@
+import os
 from typing import Final, NamedTuple, Optional
 
 import datasets
@@ -38,6 +39,7 @@ class LoadDatasetInfo(NamedTuple):
     dataset_name: str
     model_name: str
     max_rows: int = 32
+    expected_rows: Optional[int] = 32
     extra_dataset_features: Optional[list[str]] = None
     chat_template: str = _DEFAULT_CHAT_TEMPLATE
     dataset_split: str = _DEFALT_DATASET_SPLIT
@@ -57,7 +59,8 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             dataset_split="validation",
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
-            max_rows=1024,
+            max_rows=4096,
+            expected_rows=4096,
         )
     ]
 
@@ -93,6 +96,8 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
 
 @pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
 def test_build_dataset_mixture(info: LoadDatasetInfo):
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     debug_tag = f"Test: {info}"
     model_params = ModelParams(
         model_name=info.model_name,
@@ -127,6 +132,9 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
 
     assert dataset.num_rows > 0, debug_tag
     assert dataset.num_rows <= info.max_rows, debug_tag
+
+    if info.expected_rows is not None:
+        assert dataset.num_rows == info.expected_rows, debug_tag
 
     assert "input_ids" in dataset.features, debug_tag
     assert "attention_mask" in dataset.features, debug_tag

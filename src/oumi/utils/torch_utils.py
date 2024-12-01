@@ -1,9 +1,11 @@
 import gc
+import math
 import os
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, TypeVar, cast
+from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
@@ -233,6 +235,59 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         return torch.uint8
     else:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
+
+
+def get_dtype_size_in_bytes(dtype: Union[str, torch.dtype, npt.DTypeLike]) -> int:
+    """Returns size of this dtype in bytes."""
+    if isinstance(dtype, torch.dtype):
+        return dtype.itemsize
+    elif isinstance(dtype, str):
+        if not dtype:
+            raise ValueError("Empty string is not a valid dtype")
+        try:
+            # Try to parse using non-standard names like "f64"
+            return get_torch_dtype(dtype).itemsize
+        except ValueError:
+            return np.dtype(dtype).itemsize
+
+    return np.dtype(dtype).itemsize
+
+
+def _estimate_item_size_in_bytes(item: Any) -> int:
+    if isinstance(item, (int, float)):
+        return 4
+    elif isinstance(item, (np.ndarray, torch.Tensor)):
+        num_elements = math.prod(item.shape)
+        return num_elements * get_dtype_size_in_bytes(item.dtype)
+    elif isinstance(item, list):
+        return _estimate_sample_list_size_in_bytes(item)
+    elif isinstance(item, (str, bytes)):
+        return len(item)
+
+    return 0
+
+
+def _estimate_sample_list_size_in_bytes(sample_list: list[Any]) -> int:
+    num_elements = len(sample_list)
+    if num_elements <= 0:
+        return 0
+    return sum(_estimate_item_size_in_bytes(item) for item in sample_list)
+
+
+def estimate_sample_dict_size_in_bytes(sample: dict[str, Any]) -> int:
+    """Estimates the approximate total number of bytes in a provided sample.
+
+    Training sample is expected to be a dictionary, where a value is a list,
+    tensor, or a numpy array.
+
+    The function works in best effort mode i.e., 100% accuaracy isn't guaranteed.
+    The implementation is slow, and shouldn't be called in performance-sensitive code.
+    """
+    result = 0
+    for key, val in sample.items():
+        result += len(key)
+        result += _estimate_item_size_in_bytes(val)
+    return result
 
 
 def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
