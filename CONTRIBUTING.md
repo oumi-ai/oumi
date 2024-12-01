@@ -12,6 +12,8 @@ Possible contributions include:
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
 * Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
 
+If you want to contribute but you are short of ideas or have any questions, just reach out (community@oumi.ai) and we can help.
+
 If you are new to GitHub, read this [documentation](https://support.github.com/) to learn all you need.
 
 ## Prerequisites
