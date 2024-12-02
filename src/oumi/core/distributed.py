@@ -392,14 +392,16 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     env_vars["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
     env_vars["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
 
+    # We haven't seen a need to make this configurable yet.
+    # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
+    env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
+
     env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
     # FSDP_USE_ORIG_PARAMS must be true for model compilation.
     if not config.training.compile:
         # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
         if config.training.use_peft and config.fsdp.enable_fsdp:
             env_vars["FSDP_USE_ORIG_PARAMS"] = "false"
-    # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
-    env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 
     # These env vars are set based on FSDPParams.
     env_vars["ACCELERATE_USE_FSDP"] = str(config.fsdp.enable_fsdp).lower()
