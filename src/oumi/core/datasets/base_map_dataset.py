@@ -299,9 +299,9 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         logger.info(
             f"Finished transforming dataset! "
-            f"Speed: {total_examples/duration_sec:.2f} samples/s "
-            f"Examples: {total_examples} "
-            f"Duration: {duration_sec:.1f}s "
+            f"Speed: {total_examples/duration_sec:.2f} examples/sec. "
+            f"Examples: {total_examples}. "
+            f"Duration: {duration_sec:.1f} sec"
         )
 
         result = cast(datasets.Dataset, result)

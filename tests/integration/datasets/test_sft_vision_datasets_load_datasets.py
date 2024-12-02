@@ -66,10 +66,8 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
 
     manually_configured_dataset_names = set({info.dataset_name for info in result})
     for dataset_name in all_dataset_names:
-        if (
-            (dataset_name in manually_configured_dataset_names)
-            or (dataset_name in _EXCLUDED_DATASETS)
-            # or True
+        if (dataset_name in manually_configured_dataset_names) or (
+            dataset_name in _EXCLUDED_DATASETS
         ):
             continue
         result.append(
