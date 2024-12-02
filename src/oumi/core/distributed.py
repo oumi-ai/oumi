@@ -253,14 +253,13 @@ def cleanup_distributed():
 #
 def prepare_model_for_distributed(
     model: torch.nn.Module,
-    config: Optional[TrainingConfig] = None,
+    config: TrainingConfig,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
     Args:
         model: The model to be wrapped.
-        use_fsdp: Whether to use FSDP for distributed training.
-        fsdp_params: Configuration options for FSDP. Defaults to None.
+        config: The training config.
 
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
@@ -268,6 +267,7 @@ def prepare_model_for_distributed(
     logger = logging.getLogger("oumi")
 
     device_rank_info = get_device_rank_info()
+    fsdp_params = config.fsdp
 
     if fsdp_params is None or not fsdp_params.enable_fsdp:
         logger.info("Using DistributedDataParallel (DDP) for distributed training.")
@@ -343,7 +343,13 @@ def prepare_model_for_distributed(
     # Backward Prefetch
     backward_prefetch = fsdp_params.backward_prefetch.to_torch()
 
-    use_orig_params = config.training.use_peft and config.fsdp.enable_fsdp
+    # Use Orig Params.
+    use_orig_params = True
+    # use_orig_params must be true for model compilation.
+    if not config.training.compile:
+        # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
+        if config.training.use_peft and config.fsdp.enable_fsdp:
+            use_orig_params = False
 
     model = FSDP(
         model,
@@ -355,9 +361,9 @@ def prepare_model_for_distributed(
         device_id=torch.cuda.current_device(),
         sync_module_states=fsdp_params.sync_module_states,
         forward_prefetch=fsdp_params.forward_prefetch,
+        use_orig_params=use_orig_params,
         # Leaving these to their default values for now
         # but we may want to make them configurable later
-        use_orig_params=True,  # This needs to be True for torch.compile to work
         limit_all_gathers=True,
         param_init_fn=None,
         ignored_modules=None,
@@ -386,10 +392,12 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     env_vars["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
     env_vars["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
 
-    # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts.
-    env_vars["FSDP_USE_ORIG_PARAMS"] = (
-        "true" if (config.training.use_peft and config.fsdp.enable_fsdp) else "false"
-    )
+    env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
+    # FSDP_USE_ORIG_PARAMS must be true for model compilation.
+    if not config.training.compile:
+        # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
+        if config.training.use_peft and config.fsdp.enable_fsdp:
+            env_vars["FSDP_USE_ORIG_PARAMS"] = "false"
     # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
     env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 

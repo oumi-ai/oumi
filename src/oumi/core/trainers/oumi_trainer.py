@@ -147,10 +147,7 @@ class Trainer(BaseTrainer):
         if is_distributed():
             # Wrap model for distributed training
             with self._telemetry_block("wrap model for distributed"):
-                model = prepare_model_for_distributed(
-                    model,
-                    fsdp_params=self.fsdp_params,
-                )
+                model = prepare_model_for_distributed(model, self.config)
                 # Apply ring attention monkey patch if enabled
                 if self.is_using_ring_attention:
                     apply_ring_attention_monkey_patch()
