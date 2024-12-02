@@ -3,7 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, cast
+from typing import Any, NamedTuple, Optional, Union, cast
 
 import datasets
 import pandas as pd
@@ -43,6 +43,7 @@ class BaseMapDataset(MapDataPipe, ABC):
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
     trust_remote_code: bool
+    num_proc_transform: Optional[Union[str, int]] = None
 
     def __init__(
         self,
@@ -52,6 +53,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
+        num_proc_transform: Optional[Union[str, int]] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -78,6 +80,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
+        self.num_proc_transform = num_proc_transform
 
     #
     # Main API
@@ -213,7 +216,17 @@ class BaseMapDataset(MapDataPipe, ABC):
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
 
-        num_proc = os.cpu_count()
+        num_proc = None
+        if self.num_proc_transform is not None:
+            if isinstance(self.num_proc_transform, int):
+                num_proc = self.num_proc_transform
+            elif self.num_proc_transform == "auto":
+                num_proc = os.cpu_count()
+
+        assert (
+            num_proc is None or num_proc > 0
+        ), f"num_proc_transform: {self.num_proc_transform}"
+
         num_proc = max(1, num_proc if num_proc is not None else 1)
         total_examples = len(self)
         output_features: _InferredFeatureMap = (
@@ -361,8 +374,6 @@ class BaseMapDataset(MapDataPipe, ABC):
             name=self.dataset_subset,
             split=self.split,
             trust_remote_code=self.trust_remote_code,
-            # num_proc=4,
-            # download_mode=datasets.DownloadMode.REUSE_CACHE_IF_EXISTS,
         )
 
         if isinstance(

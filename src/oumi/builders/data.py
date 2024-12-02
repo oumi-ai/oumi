@@ -288,13 +288,17 @@ def _load_dataset(
         )
 
         if dataset_class is not None:
+            dataset_kwargs = {**dataset_params.dataset_kwargs}
+            if dataset_params.num_proc_transform is not None:
+                dataset_kwargs["num_proc_transform"] = dataset_params.num_proc_transform
+
             dataset = dataset_class(
                 split=dataset_params.split,
                 subset=dataset_params.subset,
                 dataset_path=dataset_params.dataset_path,
                 tokenizer=tokenizer,
                 trust_remote_code=dataset_params.trust_remote_code,
-                **dataset_params.dataset_kwargs,
+                **dataset_kwargs,
             )
             return dataset.to_hf()
 
