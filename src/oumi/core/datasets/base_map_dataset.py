@@ -251,7 +251,7 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         logger.debug(
             f"features={output_features} examples={total_examples} "
-            f"writer_batch_size={writer_batch_size} "
+            f"writer_batch_size={writer_batch_size} num_proc={num_proc}"
         )
 
         # If feature map isn't "optimized" then ignore it to fallback
