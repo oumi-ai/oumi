@@ -5,7 +5,7 @@ name: llama405b-qlora
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 6
+num_nodes: 4
 resources:
   cloud: polaris
 
