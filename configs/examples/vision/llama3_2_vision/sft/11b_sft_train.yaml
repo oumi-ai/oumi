@@ -26,9 +26,10 @@ data:
         split: "train"
         shuffle: True
         seed: 42
+        num_proc_transform: "auto"
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-          # limit: 1024
+          limit: 2048
           return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
@@ -66,7 +67,6 @@ training:
 
   logging_steps: 5
   save_steps: 0
-  # dataloader_main_proces_only: False
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True

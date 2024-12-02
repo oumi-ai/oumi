@@ -3,7 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, cast
+from typing import Any, NamedTuple, Optional, Union, cast
 
 import datasets
 import pandas as pd
@@ -21,7 +21,17 @@ class _ShardIndexRange(NamedTuple):
 
 class _InferredFeatureMap(NamedTuple):
     feature_map: datasets.Features
+    """Inferred feature map."""
+
+    is_feature_map_optimized: bool
+    """Indicates whether the original feature map was optimized.
+
+    In optimized feature maps, large features use the inferred `ArrayXD` arrow
+    feature type (not `sequence`) which supports datasets with more elements.
+    """
+
     element_size_in_bytes: int
+    """Estimated element size in bytes."""
 
 
 class BaseMapDataset(MapDataPipe, ABC):
@@ -33,6 +43,7 @@ class BaseMapDataset(MapDataPipe, ABC):
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
     trust_remote_code: bool
+    num_proc_transform: Optional[Union[str, int]] = None
 
     def __init__(
         self,
@@ -42,6 +53,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
+        num_proc_transform: Optional[Union[str, int]] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -68,6 +80,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
+        self.num_proc_transform = num_proc_transform
 
     #
     # Main API
@@ -143,6 +156,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
 
         features = sample_dataset.features.copy()
+        is_feature_map_optimized: bool = False
+
         # At this time, we care mostly about `pixel_values` as it's by far the largest
         # feature (e.g., 15MB for Llama 3.2 Vision), which causes serialization errors
         # for large datasets if saved in the default format, which is
@@ -150,6 +165,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         # TODO: Tune feature types for other features for efficiency.
         if "pixel_values" in samples_list[0]:
             inferred_features = []
+            variable_shapes_detected: bool = False
             for elem in samples_list:
                 shape = tuple(get_shape_as_list(elem["pixel_values"]))
                 shape_dims = len(shape)
@@ -178,28 +194,45 @@ class BaseMapDataset(MapDataPipe, ABC):
                     inferred_features[i].dtype,
                     inferred_features[i].shape,
                 ):
-                    raise ValueError(
-                        "The `pixel_values` feature has incompatible shapes: "
+                    variable_shapes_detected = True
+                    logger.warning(
+                        f"The `pixel_values` feature has variable shapes: "
                         f"{inferred_features[i - 1]} vs {inferred_features[i]}!"
                     )
-            # Re-define the feature to be `ArrayXD`.
-            features["pixel_values"] = inferred_features[0]
+
+            if not variable_shapes_detected:
+                # Re-define the feature to be `ArrayXD`
+                # if all shapes are the same.
+                features["pixel_values"] = inferred_features[0]
+                is_feature_map_optimized = True
 
         return _InferredFeatureMap(
-            feature_map=features, element_size_in_bytes=max_elem_bytes
+            feature_map=features,
+            is_feature_map_optimized=is_feature_map_optimized,
+            element_size_in_bytes=max_elem_bytes,
         )
 
     def to_hf(self) -> datasets.Dataset:
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
 
-        num_proc = os.cpu_count()
+        num_proc = None
+        if self.num_proc_transform is not None:
+            if isinstance(self.num_proc_transform, int):
+                num_proc = self.num_proc_transform
+            elif self.num_proc_transform == "auto":
+                num_proc = os.cpu_count()
+
+        assert (
+            num_proc is None or num_proc > 0
+        ), f"num_proc_transform: {self.num_proc_transform}"
+
         num_proc = max(1, num_proc if num_proc is not None else 1)
         total_examples = len(self)
         output_features: _InferredFeatureMap = (
             self._detect_features_and_estimate_element_size_bytes(
                 self._as_sharded_generator(
-                    [_ShardIndexRange(start_index=0, end_index=5)]
+                    [_ShardIndexRange(start_index=0, end_index=min(5, total_examples))]
                 )
             )
         )
@@ -215,6 +248,14 @@ class BaseMapDataset(MapDataPipe, ABC):
         logger.debug(
             f"features={output_features} examples={total_examples} "
             f"writer_batch_size={writer_batch_size} "
+        )
+
+        # If feature map isn't optimized then ignore it to fallback
+        # to the default behavior in `from_generator()`.
+        feature_map = (
+            output_features.feature_map
+            if output_features.is_feature_map_optimized
+            else None
         )
 
         if num_proc > 1 or (
@@ -240,7 +281,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                     gen_kwargs={"shards": shards},
                     keep_in_memory=False,
                     num_proc=(num_proc if num_proc > 1 else None),
-                    features=output_features.feature_map,
+                    features=feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )
@@ -249,7 +290,8 @@ class BaseMapDataset(MapDataPipe, ABC):
                 datasets.Dataset,
                 datasets.Dataset.from_generator(
                     self.as_generator,
-                    features=output_features.feature_map,
+                    keep_in_memory=False,
+                    features=feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )
@@ -332,8 +374,6 @@ class BaseMapDataset(MapDataPipe, ABC):
             name=self.dataset_subset,
             split=self.split,
             trust_remote_code=self.trust_remote_code,
-            # num_proc=4,
-            # download_mode=datasets.DownloadMode.REUSE_CACHE_IF_EXISTS,
         )
 
         if isinstance(
