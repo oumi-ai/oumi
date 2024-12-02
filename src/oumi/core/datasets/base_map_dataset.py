@@ -21,7 +21,17 @@ class _ShardIndexRange(NamedTuple):
 
 class _InferredFeatureMap(NamedTuple):
     feature_map: datasets.Features
+    """Inferred feature map."""
+
+    is_feature_map_optimized: bool
+    """Indicates whether the original feature map was optimized.
+
+    In optimized feature maps, large features use the inferred `ArrayXD` arrow
+    feature type (not `sequence`) which supports datasets with more elements.
+    """
+
     element_size_in_bytes: int
+    """Estimated element size in bytes."""
 
 
 class BaseMapDataset(MapDataPipe, ABC):
@@ -143,6 +153,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
 
         features = sample_dataset.features.copy()
+        is_feature_map_optimized: bool = False
+
         # At this time, we care mostly about `pixel_values` as it's by far the largest
         # feature (e.g., 15MB for Llama 3.2 Vision), which causes serialization errors
         # for large datasets if saved in the default format, which is
@@ -150,6 +162,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         # TODO: Tune feature types for other features for efficiency.
         if "pixel_values" in samples_list[0]:
             inferred_features = []
+            variable_shapes_detected: bool = False
             for elem in samples_list:
                 shape = tuple(get_shape_as_list(elem["pixel_values"]))
                 shape_dims = len(shape)
@@ -178,15 +191,22 @@ class BaseMapDataset(MapDataPipe, ABC):
                     inferred_features[i].dtype,
                     inferred_features[i].shape,
                 ):
-                    raise ValueError(
-                        "The `pixel_values` feature has incompatible shapes: "
+                    variable_shapes_detected = True
+                    logger.warning(
+                        f"The `pixel_values` feature has variable shapes: "
                         f"{inferred_features[i - 1]} vs {inferred_features[i]}!"
                     )
-            # Re-define the feature to be `ArrayXD`.
-            features["pixel_values"] = inferred_features[0]
+
+            if not variable_shapes_detected:
+                # Re-define the feature to be `ArrayXD`
+                # if all shapes are the same.
+                features["pixel_values"] = inferred_features[0]
+                is_feature_map_optimized = True
 
         return _InferredFeatureMap(
-            feature_map=features, element_size_in_bytes=max_elem_bytes
+            feature_map=features,
+            is_feature_map_optimized=is_feature_map_optimized,
+            element_size_in_bytes=max_elem_bytes,
         )
 
     def to_hf(self) -> datasets.Dataset:
@@ -217,6 +237,14 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"writer_batch_size={writer_batch_size} "
         )
 
+        # If feature map isn't optimized then ignore it to fallback
+        # to the default behavior in `from_generator()`.
+        feature_map = (
+            output_features.feature_map
+            if output_features.is_feature_map_optimized
+            else None
+        )
+
         if num_proc > 1 or (
             output_features.element_size_in_bytes * total_examples > _MAX_SHARD_SIZE
         ):
@@ -240,7 +268,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                     gen_kwargs={"shards": shards},
                     keep_in_memory=False,
                     num_proc=(num_proc if num_proc > 1 else None),
-                    features=output_features.feature_map,
+                    features=feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )
@@ -249,7 +277,8 @@ class BaseMapDataset(MapDataPipe, ABC):
                 datasets.Dataset,
                 datasets.Dataset.from_generator(
                     self.as_generator,
-                    features=output_features.feature_map,
+                    keep_in_memory=False,
+                    features=feature_map,
                     writer_batch_size=writer_batch_size,
                 ),
             )
