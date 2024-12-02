@@ -232,7 +232,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         output_features: _InferredFeatureMap = (
             self._detect_features_and_estimate_element_size_bytes(
                 self._as_sharded_generator(
-                    [_ShardIndexRange(start_index=0, end_index=5)]
+                    [_ShardIndexRange(start_index=0, end_index=min(5, total_examples))]
                 )
             )
         )
