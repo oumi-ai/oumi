@@ -8,7 +8,7 @@ resources:
   accelerators: "A100:4"
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
   use_spot: true
-  disk_size: 500 # Disk size in GBs
+  disk_size: 1000 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
 

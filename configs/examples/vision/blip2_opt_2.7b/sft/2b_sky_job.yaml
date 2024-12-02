@@ -9,7 +9,7 @@ resources:
     - use_spot: false
 
   disk_tier: "medium"
-  disk_size: 500 # Disk size in GBs
+  disk_size: 1000 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
 workdir: .

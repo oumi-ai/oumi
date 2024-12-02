@@ -1,5 +1,6 @@
 import gc
 import os
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from pathlib import Path
@@ -262,6 +263,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             else None
         )
 
+        start_time = time.perf_counter()
         if num_proc > 1 or (
             output_features.element_size_in_bytes * total_examples > _MAX_SHARD_SIZE
         ):
@@ -278,27 +280,31 @@ class BaseMapDataset(MapDataPipe, ABC):
                 for item in zip(starts, stops)
             ]
 
-            result = cast(
-                datasets.Dataset,
-                datasets.Dataset.from_generator(
-                    self._as_sharded_generator,
-                    gen_kwargs={"shards": shards},
-                    keep_in_memory=False,
-                    num_proc=(num_proc if num_proc > 1 else None),
-                    features=feature_map,
-                    writer_batch_size=writer_batch_size,
-                ),
+            result = datasets.Dataset.from_generator(
+                self._as_sharded_generator,
+                gen_kwargs={"shards": shards},
+                keep_in_memory=False,
+                num_proc=(num_proc if num_proc > 1 else None),
+                features=feature_map,
+                writer_batch_size=writer_batch_size,
             )
         else:
-            result = cast(
-                datasets.Dataset,
-                datasets.Dataset.from_generator(
-                    self.as_generator,
-                    keep_in_memory=False,
-                    features=feature_map,
-                    writer_batch_size=writer_batch_size,
-                ),
+            result = datasets.Dataset.from_generator(
+                self.as_generator,
+                keep_in_memory=False,
+                features=feature_map,
+                writer_batch_size=writer_batch_size,
             )
+        duration_sec = time.perf_counter() - start_time
+
+        logger.info(
+            f"Finished transforming dataset! "
+            f"Speed: {total_examples/duration_sec:.2f} samples/s "
+            f"Examples: {total_examples} "
+            f"Duration: {duration_sec:.1f}s "
+        )
+
+        result = cast(datasets.Dataset, result)
 
         logger.debug(f"Dataset: {result}")
         logger.debug(f"Arrow schema: {result.features.arrow_schema}")
