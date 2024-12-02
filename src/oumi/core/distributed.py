@@ -20,7 +20,7 @@ from torch.distributed.fsdp.wrap import (
 )
 from torch.nn.parallel import DistributedDataParallel
 
-from oumi.core.configs.params.fsdp_params import AutoWrapPolicy, FSDPParams
+from oumi.core.configs.params.fsdp_params import AutoWrapPolicy
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import get_module_class_from_name
@@ -253,7 +253,7 @@ def cleanup_distributed():
 #
 def prepare_model_for_distributed(
     model: torch.nn.Module,
-    fsdp_params: Optional[FSDPParams] = None,
+    config: Optional[TrainingConfig] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
@@ -343,6 +343,8 @@ def prepare_model_for_distributed(
     # Backward Prefetch
     backward_prefetch = fsdp_params.backward_prefetch.to_torch()
 
+    use_orig_params = config.training.use_peft and config.fsdp.enable_fsdp
+
     model = FSDP(
         model,
         sharding_strategy=sharding_strategy,
@@ -384,9 +386,10 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     env_vars["ACCELERATE_DYNAMO_USE_FULLGRAPH"] = "False"
     env_vars["ACCELERATE_DYNAMO_USE_DYNAMIC"] = "False"
 
-    # We generally don't need these values to be configurable, and usually have
-    # them set to True.
-    env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
+    # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts.
+    env_vars["FSDP_USE_ORIG_PARAMS"] = (
+        "true" if (config.training.use_peft and config.fsdp.enable_fsdp) else "false"
+    )
     # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
     env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 
