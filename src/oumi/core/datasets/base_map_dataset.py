@@ -205,6 +205,10 @@ class BaseMapDataset(MapDataPipe, ABC):
                 # if all shapes are the same.
                 features["pixel_values"] = inferred_features[0]
                 is_feature_map_optimized = True
+                logger.info(
+                    "The `pixel_values` feature has this inferred type: "
+                    f"{inferred_features[0]}"
+                )
 
         return _InferredFeatureMap(
             feature_map=features,
@@ -250,7 +254,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"writer_batch_size={writer_batch_size} "
         )
 
-        # If feature map isn't optimized then ignore it to fallback
+        # If feature map isn't "optimized" then ignore it to fallback
         # to the default behavior in `from_generator()`.
         feature_map = (
             output_features.feature_map
