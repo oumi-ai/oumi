@@ -137,13 +137,12 @@ class DatasetParams(BaseParams):
                 raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
 
         if self.num_proc_transform is not None:
-            if isinstance(self.num_proc_transform, str) and not (
-                self.num_proc_transform == "auto"
-            ):
-                raise ValueError(
-                    f"Unknown value of num_proc_transform: {self.num_proc_transform}. "
-                    "Must be 'auto' if string."
-                )
+            if isinstance(self.num_proc_transform, str):
+                if not (self.num_proc_transform == "auto"):
+                    raise ValueError(
+                        "Unknown value of num_proc_transform: "
+                        f"{self.num_proc_transform}. Must be 'auto' if string."
+                    )
             elif (not isinstance(self.num_proc_transform, int)) or (
                 self.num_proc_transform <= 0
             ):

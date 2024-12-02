@@ -52,9 +52,6 @@ training:
   gradient_accumulation_steps: 8
   max_steps: 20
 
-  # trainer_kwargs:
-  #  dataset_num_proc: 16
-
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
