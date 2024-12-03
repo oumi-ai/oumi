@@ -6,6 +6,7 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.logging import logger
 from oumi.utils.torch_utils import convert_to_list_of_tensors
 
 _PIXEL_VALUES_KEY = "pixel_values"
@@ -96,6 +97,8 @@ class VisionLanguageCollatorWithPadding:
                 tensors_list = convert_to_list_of_tensors(values_list)
                 collated_value = torch.stack(tensors_list)
                 collated_batch[input_name] = collated_value
+                if input_name == "image_sizes":
+                    logger.info(f"image_sizes: {collated_value.shape}")
 
         return collated_batch
 

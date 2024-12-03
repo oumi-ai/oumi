@@ -70,7 +70,7 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(
         feature_name="image_sizes",
         required=False,
-        first_dim_action=_FirstDimAction.KEEP,
+        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
     ),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
@@ -234,6 +234,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 _FirstDimAction.DROP_IF_DUMMY,
             ):
                 first_dim_len = get_first_dim_len(x)
+                if feature_name == "image_sizes":
+                    logger.info(f"image_sizes: first_dim_len: {first_dim_len}")
                 if first_dim_len <= 0:
                     raise ValueError(
                         f"Empty first dimension for the feature '{feature_name}'."
