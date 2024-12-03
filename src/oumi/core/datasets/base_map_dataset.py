@@ -272,6 +272,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 elements_per_shard,
                 _MAX_SHARD_SIZE // output_features.element_size_in_bytes,
             )
+        # Clamp `writer_batch_size` to [1, 200/1000] range.
         writer_batch_size = max(
             1, min(elements_per_shard, 200 if output_features.multimodal else 1000)
         )
