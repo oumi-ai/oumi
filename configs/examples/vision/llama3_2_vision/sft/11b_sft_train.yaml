@@ -18,7 +18,7 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
-        num_proc_transform: "auto"
+        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
           limit: 4096
@@ -27,7 +27,7 @@ data:
       #   split: "train"
       #   shuffle: True
       #   seed: 42
-      #   num_proc_transform: "auto"
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
       #     limit: 4096
@@ -35,7 +35,7 @@ data:
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
-      #   num_proc_transform: "auto"
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
       #     limit: 100

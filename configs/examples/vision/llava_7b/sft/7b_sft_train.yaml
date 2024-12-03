@@ -18,7 +18,7 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
-        num_proc_transform: "auto"
+        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
           limit: 8192
