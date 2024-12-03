@@ -18,7 +18,7 @@ If you are new to GitHub, read this [documentation](https://support.github.com/)
 
 ## Prerequisites
 
-To set up the development environment on your local machine, clone the repository ("git clone https://github.com/oumi-ai/oumi") and run the following commands below inside the 'oumi' folder.
+To set up the development environment on your local machine, clone the repository (`git clone https://github.com/oumi-ai/oumi`) and run the following commands below inside the 'oumi' folder.
 
 1\. Install the dependencies needed for testing and linting the code:
 
