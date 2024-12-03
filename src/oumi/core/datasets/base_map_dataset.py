@@ -28,7 +28,7 @@ class _InferredFeatureMap(NamedTuple):
     """Indicates whether the original feature map was optimized.
 
     In optimized feature maps, large features use the inferred `ArrayXD` arrow
-    feature type (not `sequence`) which supports datasets with more elements.
+    column type (not `sequence`) which supports larger datasets with more elements.
     """
 
     element_size_in_bytes: int

@@ -122,7 +122,7 @@ class DatasetParams(BaseParams):
     Using multiple processes can speed-up processing
     e.g., for large or multi-modal datasets.
 
-    The parameter is only supported for Map datasets.
+    The parameter is only supported for Map (non-iterative) datasets.
     """
 
     def __post_init__(self):
