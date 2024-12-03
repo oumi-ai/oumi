@@ -1,4 +1,5 @@
 import gc
+import math
 import os
 import time
 from abc import ABC, abstractmethod
@@ -213,6 +214,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                     f"{inferred_features[0]}"
                 )
 
+        del sample_dataset
         return _InferredFeatureMap(
             feature_map=features,
             is_feature_map_optimized=is_feature_map_optimized,
@@ -220,6 +222,10 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
 
     def _compute_effective_transform_num_workers(self) -> int:
+        """Returns an effective number of dataset transform workers.
+
+        Guaranteed to be a positive integer (>= 1). 1 if no parallelism is used.
+        """
         num_proc = None
         if self.transform_num_workers is not None:
             if isinstance(self.transform_num_workers, int):
@@ -235,6 +241,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         ), f"transform_num_workers: {self.transform_num_workers}"
 
         num_proc = max(1, num_proc if num_proc is not None else 1)
+        assert num_proc >= 1
         return num_proc
 
     def to_hf(self) -> datasets.Dataset:
@@ -255,7 +262,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         )
         elements_per_shard: int = (
             min(
-                total_examples, _MAX_SHARD_SIZE // output_features.element_size_in_bytes
+                int(math.ceil(float(total_examples) / num_proc)),
+                _MAX_SHARD_SIZE // output_features.element_size_in_bytes,
             )
             if output_features.element_size_in_bytes
             else total_examples
