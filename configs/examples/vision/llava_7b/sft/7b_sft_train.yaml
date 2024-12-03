@@ -11,7 +11,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: False
+    experimental_use_torch_datapipes: True
     target_col: "text" # TODO: useless col, but required by the trainer
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -22,7 +22,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
-          limit: 4096
+          # limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
@@ -68,8 +68,8 @@ training:
 
   logging_steps: 5
   save_steps: 0
-  dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  dataloader_num_workers: 2 # "auto"
+  dataloader_prefetch_factor: 8
   include_performance_metrics: True
   log_model_summary: False
   enable_wandb: True

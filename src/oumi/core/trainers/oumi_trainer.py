@@ -246,10 +246,15 @@ class Trainer(BaseTrainer):
         """Trains the model for one epoch."""
         epoch_start_time = time.perf_counter()
 
+        torch.cuda.synchronize()
+
         self.model.train()
+        torch.cuda.synchronize()
         torch.cuda.empty_cache()
         self.optimizer.zero_grad(set_to_none=True)
         micro_step = 0
+
+        torch.cuda.synchronize()
 
         data_iter = iter(self.train_dataloader)
 
