@@ -322,13 +322,15 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"Finished transforming dataset ({dataset_type_name})! "
             f"Speed: {total_examples/duration_sec:.2f} examples/sec. "
             f"Examples: {total_examples}. "
-            f"Duration: {duration_sec:.1f} sec. (transform_num_workers: {num_proc})"
+            f"Duration: {duration_sec:.1f} sec. Transform workers: {num_proc}."
         )
 
         result = cast(datasets.Dataset, result)
 
-        logger.debug(f"Dataset: {result}")
-        logger.debug(f"Arrow schema: {result.features.arrow_schema}")
+        logger.debug(
+            f"{dataset_type_name}: {result}\n\n"
+            f"Arrow schema: {result.features.arrow_schema}"
+        )
         return result
 
     #
