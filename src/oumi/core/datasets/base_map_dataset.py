@@ -37,6 +37,9 @@ class _InferredFeatureMap(NamedTuple):
     element_size_in_bytes: int
     """Estimated element size in bytes."""
 
+    multimodal: bool
+    """whether the features are multimodal."""
+
 
 class BaseMapDataset(MapDataPipe, ABC):
     """Abstract base class for map datasets."""
@@ -162,12 +165,14 @@ class BaseMapDataset(MapDataPipe, ABC):
         features = sample_dataset.features.copy()
         is_feature_map_optimized: bool = False
 
+        is_multimodal: bool = False
         # At this time, we care mostly about `pixel_values` as it's by far the largest
         # feature (e.g., 15MB for Llama 3.2 Vision), which causes serialization errors
         # for large datasets if saved in the default format, which is
         # a nested sequence (of sequences (of sequences ...)).
         # TODO: Tune feature types for other features for efficiency.
         if "pixel_values" in samples_list[0]:
+            is_multimodal = True
             inferred_features = []
             variable_shapes_detected: bool = False
             for elem in samples_list:
@@ -219,6 +224,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             feature_map=features,
             is_feature_map_optimized=is_feature_map_optimized,
             element_size_in_bytes=max_elem_bytes,
+            multimodal=is_multimodal,
         )
 
     def _compute_effective_transform_num_workers(self) -> int:
@@ -260,15 +266,15 @@ class BaseMapDataset(MapDataPipe, ABC):
                 )
             )
         )
-        elements_per_shard: int = (
-            min(
-                int(math.ceil(float(total_examples) / num_proc)),
+        elements_per_shard: int = int(math.ceil(float(total_examples) / num_proc))
+        if output_features.element_size_in_bytes > 0:
+            elements_per_shard = min(
+                elements_per_shard,
                 _MAX_SHARD_SIZE // output_features.element_size_in_bytes,
             )
-            if output_features.element_size_in_bytes
-            else total_examples
+        writer_batch_size = max(
+            1, min(elements_per_shard, 200 if output_features.multimodal else 1000)
         )
-        writer_batch_size = max(min(1000, elements_per_shard), 1)
 
         logger.debug(
             f"{dataset_type_name}: features={output_features} "
