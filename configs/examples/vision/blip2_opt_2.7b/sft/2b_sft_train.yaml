@@ -17,7 +17,7 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
-        num_proc_transform: "auto"
+        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
           limit: 2048
