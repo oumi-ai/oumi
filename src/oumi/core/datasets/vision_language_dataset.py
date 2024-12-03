@@ -10,7 +10,6 @@ import torch
 from PIL import Image
 from typing_extensions import override
 
-import oumi.core.constants as constants
 from oumi.builders.processors import build_processor
 from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
@@ -67,11 +66,7 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     # Qwen2 VL
     InputFeatureSpec(feature_name="image_grid_thw", required=False),
     # Phi3 Vision
-    InputFeatureSpec(
-        feature_name="image_sizes",
-        required=False,
-        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
-    ),
+    InputFeatureSpec(feature_name="image_sizes", required=False),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
     spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
@@ -111,7 +106,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
-        label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
+        label_ignore_index: Optional[int] = None,  # constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
         **kwargs,

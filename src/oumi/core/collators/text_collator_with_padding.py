@@ -103,8 +103,6 @@ class TextCollatorWithPadding:
         attention_mask_on = _ATTENTION_MASK_KEY in batch[0]
         cross_attention_mask_on = _CROSS_ATTENTION_MASK_KEY in batch[0]
 
-        logger.info(f"batch[0]: {sorted(batch[0].keys())}")
-
         # Maximum sequence lengths in this batch.
         batch_max_input_ids_length: int = 0
 
@@ -186,8 +184,6 @@ class TextCollatorWithPadding:
         if labels_on:
             combined_batch[_LABELS_KEY] = collated_text_inputs[_LABELS_KEY]
 
-        logger.info(f"collated_text_inputs: {sorted(collated_text_inputs.keys())}")
-        logger.info(f"combined_batch: {sorted(combined_batch.keys())}")
         return combined_batch
 
     def _update_max_lengths_and_log(self, *, max_input_ids_length: int):

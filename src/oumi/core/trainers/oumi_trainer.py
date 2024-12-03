@@ -149,6 +149,7 @@ class Trainer(BaseTrainer):
                 model = prepare_model_for_distributed(
                     model,
                     fsdp_params=self.fsdp_params,
+                    ddp_find_unused_parameters=self.params.ddp_find_unused_parameters,
                 )
                 # Apply ring attention monkey patch if enabled
                 if self.is_using_ring_attention:

@@ -22,7 +22,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
-          # limit: 4096
+          limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
