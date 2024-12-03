@@ -80,7 +80,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             )
         )
 
-    assert len(result) >= 1
+    assert len(result) > 1
     for idx, info in enumerate(result):
         assert info.dataset_name, f"Index: {idx}"
         assert info.dataset_name in all_dataset_names, f"Index: {idx}"

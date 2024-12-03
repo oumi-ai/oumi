@@ -27,7 +27,7 @@ data:
       #  split: "train"
       #  shuffle: True
       #  seed: 42
-      #  num_proc_transform: 16 # "auto"
+      #  num_proc_transform: "auto"
       #  dataset_kwargs:
       #    processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
       #    limit: 4096
