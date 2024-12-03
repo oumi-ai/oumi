@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
-import numpy.typing as npt
+import numpy.typing
 import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
@@ -237,7 +237,9 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
 
 
-def get_dtype_size_in_bytes(dtype: Union[str, torch.dtype, npt.DTypeLike]) -> int:
+def get_dtype_size_in_bytes(
+    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],
+) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
         return dtype.itemsize
@@ -470,7 +472,7 @@ def get_first_dim_len(x: Any) -> int:
 
 
 def get_shape_as_list(x: Any) -> list[int]:
-    """Returns length of the first dimension."""
+    """Returns shape of an object (tensor or numpy array) as Python list."""
     if isinstance(x, (torch.Tensor, np.ndarray)):
         return list(x.shape)
 

@@ -289,8 +289,10 @@ def _load_dataset(
 
         if dataset_class is not None:
             dataset_kwargs = {**dataset_params.dataset_kwargs}
-            if dataset_params.num_proc_transform is not None:
-                dataset_kwargs["num_proc_transform"] = dataset_params.num_proc_transform
+            if dataset_params.transform_num_workers is not None:
+                dataset_kwargs["transform_num_workers"] = (
+                    dataset_params.transform_num_workers
+                )
 
             dataset = dataset_class(
                 split=dataset_params.split,

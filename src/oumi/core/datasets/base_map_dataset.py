@@ -15,7 +15,9 @@ from oumi.utils.logging import logger
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
 
-class _ShardIndexRange(NamedTuple):
+class _ExamplesIndicesRange(NamedTuple):
+    """A valid sub-range of example indices."""
+
     start_index: int
     end_index: int
 
@@ -44,7 +46,7 @@ class BaseMapDataset(MapDataPipe, ABC):
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
     trust_remote_code: bool
-    num_proc_transform: Optional[Union[str, int]] = None
+    transform_num_workers: Optional[Union[str, int]] = None
 
     def __init__(
         self,
@@ -54,7 +56,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         subset: Optional[str] = None,
         split: Optional[str] = None,
         trust_remote_code: bool = False,
-        num_proc_transform: Optional[Union[str, int]] = None,
+        transform_num_workers: Optional[Union[str, int]] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -81,7 +83,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.dataset_subset = subset or self.default_subset
         self.split = split
         self.trust_remote_code = trust_remote_code
-        self.num_proc_transform = num_proc_transform
+        self.transform_num_workers = transform_num_workers
 
     #
     # Main API
@@ -128,8 +130,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         for idx in range(len(self)):
             yield self[idx]
 
-    def _as_sharded_generator(
-        self, shards: list[_ShardIndexRange]
+    def _as_generator_over_shards(
+        self, shards: list[_ExamplesIndicesRange]
     ) -> Generator[dict[str, Any], None, None]:
         """Returns a sharded generator for the dataset."""
         for shard in shards:
@@ -217,16 +219,12 @@ class BaseMapDataset(MapDataPipe, ABC):
             element_size_in_bytes=max_elem_bytes,
         )
 
-    def to_hf(self) -> datasets.Dataset:
-        """Converts the dataset to a Hugging Face dataset."""
-        _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
-        dataset_type_name = self.__class__.__name__
-
+    def _compute_effective_transform_num_workers(self) -> int:
         num_proc = None
-        if self.num_proc_transform is not None:
-            if isinstance(self.num_proc_transform, int):
-                num_proc = self.num_proc_transform
-            elif self.num_proc_transform == "auto":
+        if self.transform_num_workers is not None:
+            if isinstance(self.transform_num_workers, int):
+                num_proc = self.transform_num_workers
+            elif self.transform_num_workers == "auto":
                 num_proc = os.cpu_count()
                 if num_proc is not None:
                     # Limit the max number of sub-processes.
@@ -234,14 +232,25 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         assert (
             num_proc is None or num_proc > 0
-        ), f"num_proc_transform: {self.num_proc_transform}"
+        ), f"transform_num_workers: {self.transform_num_workers}"
 
         num_proc = max(1, num_proc if num_proc is not None else 1)
+        return num_proc
+
+    def to_hf(self) -> datasets.Dataset:
+        """Converts the dataset to a Hugging Face dataset."""
+        _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
+        dataset_type_name = self.__class__.__name__
+        num_proc = self._compute_effective_transform_num_workers()
         total_examples = len(self)
         output_features: _InferredFeatureMap = (
             self._detect_features_and_estimate_element_size_bytes(
                 self._as_sharded_generator(
-                    [_ShardIndexRange(start_index=0, end_index=min(5, total_examples))]
+                    [
+                        _ExamplesIndicesRange(
+                            start_index=0, end_index=min(5, total_examples)
+                        )
+                    ]
                 )
             )
         )
@@ -280,13 +289,13 @@ class BaseMapDataset(MapDataPipe, ABC):
                 )
             )
             stops: list[int] = starts[1:] + [total_examples]
-            shards: list[_ShardIndexRange] = [
-                _ShardIndexRange(start_index=item[0], end_index=item[1])
+            shards: list[_ExamplesIndicesRange] = [
+                _ExamplesIndicesRange(start_index=item[0], end_index=item[1])
                 for item in zip(starts, stops)
             ]
 
             result = datasets.Dataset.from_generator(
-                self._as_sharded_generator,
+                self._as_generator_over_shards,
                 gen_kwargs={"shards": shards},
                 keep_in_memory=False,
                 num_proc=(num_proc if num_proc > 1 else None),
@@ -306,7 +315,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"Finished transforming dataset ({dataset_type_name})! "
             f"Speed: {total_examples/duration_sec:.2f} examples/sec. "
             f"Examples: {total_examples}. "
-            f"Duration: {duration_sec:.1f} sec. (num_proc_transform: {num_proc})"
+            f"Duration: {duration_sec:.1f} sec. (transform_num_workers: {num_proc})"
         )
 
         result = cast(datasets.Dataset, result)

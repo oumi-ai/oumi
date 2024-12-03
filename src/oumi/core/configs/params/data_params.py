@@ -111,7 +111,7 @@ class DatasetParams(BaseParams):
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the dataset."""
 
-    num_proc_transform: Optional[Union[str, int]] = None
+    transform_num_workers: Optional[Union[str, int]] = None
     """Number of subprocesses to use for dataset post-processing (`ds.transform()`).
 
     Multiprocessing is disabled by default (`None`).
@@ -122,7 +122,7 @@ class DatasetParams(BaseParams):
     Using multiple processes can speed-up processing
     e.g., for large or multi-modal datasets.
 
-    The parameter is only supported for Map (non-iterative) datasets.
+    The parameter is only supported for Map (non-iterable) datasets.
     """
 
     def __post_init__(self):
@@ -136,19 +136,19 @@ class DatasetParams(BaseParams):
             if self.mixture_proportion > 1:
                 raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
 
-        if self.num_proc_transform is not None:
-            if isinstance(self.num_proc_transform, str):
-                if not (self.num_proc_transform == "auto"):
+        if self.transform_num_workers is not None:
+            if isinstance(self.transform_num_workers, str):
+                if not (self.transform_num_workers == "auto"):
                     raise ValueError(
                         "Unknown value of num_proc_transform: "
-                        f"{self.num_proc_transform}. Must be 'auto' if string."
+                        f"{self.transform_num_workers}. Must be 'auto' if string."
                     )
-            elif (not isinstance(self.num_proc_transform, int)) or (
-                self.num_proc_transform <= 0
+            elif (not isinstance(self.transform_num_workers, int)) or (
+                self.transform_num_workers <= 0
             ):
                 raise ValueError(
                     "Non-positive value of num_proc_transform: "
-                    f"{self.num_proc_transform}."
+                    f"{self.transform_num_workers}."
                 )
 
 
