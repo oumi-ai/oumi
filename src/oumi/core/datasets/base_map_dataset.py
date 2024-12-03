@@ -149,7 +149,7 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         sample_dataset = cast(
             datasets.Dataset,
-            datasets.Dataset.from_generator(_dummy_generator),
+            datasets.Dataset.from_generator(_dummy_generator, keep_in_memory=True),
         )
         if len(sample_dataset) <= 0:
             raise ValueError("Empty sample dataset!")
