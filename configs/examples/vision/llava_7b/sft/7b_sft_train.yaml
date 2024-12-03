@@ -19,6 +19,7 @@ data:
         shuffle: True
         seed: 42
         trust_remote_code: True
+        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
           limit: 128
@@ -29,14 +30,14 @@ data:
       #   seed: 42
       #   dataset_kwargs:
       #     processor_name: "llava-hf/llava-1.5-7b-hf"
-      #     limit: 1024
+      #     limit: 8192
       #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
       #   dataset_kwargs:
       #     processor_name: "llava-hf/llava-1.5-7b-hf"
-      #     limit: 100
+      #     limit: 8192
       #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
