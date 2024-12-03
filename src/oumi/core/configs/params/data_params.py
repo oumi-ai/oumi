@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from omegaconf import MISSING
 
@@ -111,6 +111,20 @@ class DatasetParams(BaseParams):
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the dataset."""
 
+    transform_num_workers: Optional[Union[str, int]] = None
+    """Number of subprocesses to use for dataset post-processing (`ds.transform()`).
+
+    Multiprocessing is disabled by default (`None`).
+
+    You can also use the special value "auto" to let oumi automatically
+    select the number of subprocesses.
+
+    Using multiple processes can speed-up processing
+    e.g., for large or multi-modal datasets.
+
+    The parameter is only supported for Map (non-iterable) datasets.
+    """
+
     def __post_init__(self):
         """Verifies params."""
         if self.sample_count is not None:
@@ -121,6 +135,21 @@ class DatasetParams(BaseParams):
                 raise ValueError("`mixture_proportion` must be greater than 0.")
             if self.mixture_proportion > 1:
                 raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
+
+        if self.transform_num_workers is not None:
+            if isinstance(self.transform_num_workers, str):
+                if not (self.transform_num_workers == "auto"):
+                    raise ValueError(
+                        "Unknown value of transform_num_workers: "
+                        f"{self.transform_num_workers}. Must be 'auto' if string."
+                    )
+            elif (not isinstance(self.transform_num_workers, int)) or (
+                self.transform_num_workers <= 0
+            ):
+                raise ValueError(
+                    "Non-positive value of transform_num_workers: "
+                    f"{self.transform_num_workers}."
+                )
 
 
 @dataclass

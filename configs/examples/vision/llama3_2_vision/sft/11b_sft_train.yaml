@@ -18,21 +18,24 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
+        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-          limit: 2048
+          limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #     limit: 1024
+      #     limit: 4096
       #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
       #     limit: 100
@@ -67,7 +70,7 @@ training:
   logging_steps: 5
   save_steps: 0
   dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  dataloader_prefetch_factor: 16
   include_performance_metrics: True
   log_model_summary: False
   enable_wandb: True
