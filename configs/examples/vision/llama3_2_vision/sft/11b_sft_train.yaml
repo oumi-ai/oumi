@@ -23,15 +23,15 @@ data:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
           limit: 4096
           return_tensors: True
-      #- dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #  split: "train"
-      #  shuffle: True
-      #  seed: 42
-      #  num_proc_transform: "auto"
-      #  dataset_kwargs:
-      #    processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #    limit: 4096
-      #    return_tensors: True
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   num_proc_transform: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+      #     limit: 4096
+      #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
