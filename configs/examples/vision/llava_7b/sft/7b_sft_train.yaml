@@ -22,28 +22,28 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct" # "llava-hf/llava-1.5-7b-hf"
-          limit: 4096
+          limit: 8192
           return_tensors: True
-      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      # - dataset_name: "microsoft/Phi-3-vision-128k-instruct"
       #   split: "train"
       #   shuffle: True
       #   seed: 42
       #   dataset_kwargs:
-      #     processor_name: "llava-hf/llava-1.5-7b-hf"
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
       #     limit: 8192
       #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
       #   trust_remote_code: True
       #   dataset_kwargs:
-      #     processor_name: "llava-hf/llava-1.5-7b-hf"
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
       #     limit: 8192
       #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
       #   dataset_kwargs:
       #     data_column: "messages"
-      #     processor_name: "llava-hf/llava-1.5-7b-hf"
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
 
 training:
   output_dir: "output/vlm_finetuned"
@@ -68,7 +68,7 @@ training:
 
   logging_steps: 5
   save_steps: 0
-  dataloader_num_workers: 2 # "auto"
+  dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
   log_model_summary: False
