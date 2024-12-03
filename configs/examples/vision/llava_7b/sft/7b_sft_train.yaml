@@ -21,7 +21,7 @@ data:
         num_proc_transform: "auto"
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          limit: 2048
+          limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"

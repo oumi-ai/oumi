@@ -220,6 +220,7 @@ class BaseMapDataset(MapDataPipe, ABC):
     def to_hf(self) -> datasets.Dataset:
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
+        dataset_type_name = self.__class__.__name__
 
         num_proc = None
         if self.num_proc_transform is not None:
@@ -227,6 +228,9 @@ class BaseMapDataset(MapDataPipe, ABC):
                 num_proc = self.num_proc_transform
             elif self.num_proc_transform == "auto":
                 num_proc = os.cpu_count()
+                if num_proc is not None:
+                    # Limit the max number of sub-processes.
+                    num_proc = min(8, num_proc)
 
         assert (
             num_proc is None or num_proc > 0
@@ -251,7 +255,8 @@ class BaseMapDataset(MapDataPipe, ABC):
         writer_batch_size = max(min(1000, elements_per_shard), 1)
 
         logger.debug(
-            f"features={output_features} examples={total_examples} "
+            f"{dataset_type_name}: features={output_features} "
+            f"examples={total_examples} "
             f"writer_batch_size={writer_batch_size} num_proc={num_proc}"
         )
 
@@ -298,10 +303,10 @@ class BaseMapDataset(MapDataPipe, ABC):
         duration_sec = time.perf_counter() - start_time
 
         logger.info(
-            f"Finished transforming dataset! "
+            f"Finished transforming dataset ({dataset_type_name})! "
             f"Speed: {total_examples/duration_sec:.2f} examples/sec. "
             f"Examples: {total_examples}. "
-            f"Duration: {duration_sec:.1f} sec"
+            f"Duration: {duration_sec:.1f} sec. (num_proc_transform: {num_proc})"
         )
 
         result = cast(datasets.Dataset, result)
