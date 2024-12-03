@@ -245,11 +245,10 @@ class BaseMapDataset(MapDataPipe, ABC):
         total_examples = len(self)
         output_features: _InferredFeatureMap = (
             self._detect_features_and_estimate_element_size_bytes(
-                self._as_sharded_generator(
+                self._as_generator_over_shards(
                     [
-                        _ExamplesIndicesRange(
-                            start_index=0, end_index=min(5, total_examples)
-                        )
+                        _ExamplesIndicesRange(start_index=i, end_index=(i + 1))
+                        for i in range(0, total_examples, total_examples // 8)
                     ]
                 )
             )

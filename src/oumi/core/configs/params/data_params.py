@@ -140,14 +140,14 @@ class DatasetParams(BaseParams):
             if isinstance(self.transform_num_workers, str):
                 if not (self.transform_num_workers == "auto"):
                     raise ValueError(
-                        "Unknown value of num_proc_transform: "
+                        "Unknown value of transform_num_workers: "
                         f"{self.transform_num_workers}. Must be 'auto' if string."
                     )
             elif (not isinstance(self.transform_num_workers, int)) or (
                 self.transform_num_workers <= 0
             ):
                 raise ValueError(
-                    "Non-positive value of num_proc_transform: "
+                    "Non-positive value of transform_num_workers: "
                     f"{self.transform_num_workers}."
                 )
 
