@@ -248,7 +248,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 self._as_generator_over_shards(
                     [
                         _ExamplesIndicesRange(start_index=i, end_index=(i + 1))
-                        for i in range(0, total_examples, total_examples // 8)
+                        for i in range(0, total_examples, max(1, total_examples // 8))
                     ]
                 )
             )
