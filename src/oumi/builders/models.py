@@ -235,6 +235,7 @@ def _get_transformers_model_class(config):
     # TODO: Remove this once we have a better way to identify the model class
     # Or we can just ask the user to specify the model class in the config
     model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
+    logger.info(f"model_type: {config.model_type}")
     if config.model_type in (
         "blip-2",
         "blip",
@@ -246,6 +247,7 @@ def _get_transformers_model_class(config):
         "llava",
         "mllama",
         "paligemma",
+        "phi3_v",
         "qwen2_vl",
         "vipllava",
     ):
@@ -253,6 +255,7 @@ def _get_transformers_model_class(config):
             "blip-2",
             "llava",
             "mllama",
+            "phi3_v",
         }  # TODO: OPE-353, make sure we have all models supported
 
         if config.model_type not in tested_models:
