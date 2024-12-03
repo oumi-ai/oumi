@@ -3,8 +3,8 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 3072
   trust_remote_code: True
-  attn_implementation: "flash_attention_2" # "sdpa"
-  chat_template: "phi3-instruct" # "llama3-instruct" # "llava"
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
+  chat_template: "phi3-instruct"
   freeze_layers:
     - "model.vision_embed_tokens"
 
