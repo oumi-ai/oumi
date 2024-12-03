@@ -38,7 +38,7 @@ class _InferredFeatureMap(NamedTuple):
     """Estimated element size in bytes."""
 
     multimodal: bool
-    """whether the features are multimodal."""
+    """Whether the features are multimodal."""
 
 
 class BaseMapDataset(MapDataPipe, ABC):
