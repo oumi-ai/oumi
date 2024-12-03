@@ -383,7 +383,11 @@ def test_get_dtype_size_in_bytes_numpy():
 def test_estimate_sample_dict_size_in_bytes():
     assert estimate_sample_dict_size_in_bytes({"hi": [1] * 100}) == 402
     assert estimate_sample_dict_size_in_bytes({"hi": [1] * 40, "bye": [1] * 60}) == 405
+    assert estimate_sample_dict_size_in_bytes({"hi": "Wir müssen"}) == 13
+    assert estimate_sample_dict_size_in_bytes({"hi": "Мы должны"}) == 19
+    assert estimate_sample_dict_size_in_bytes({"Мы": "должны"}) == 16
     assert estimate_sample_dict_size_in_bytes({"hi": "there"}) == 7
+
     assert estimate_sample_dict_size_in_bytes({"hi": ["there"]}) == 7
 
     # Numpy

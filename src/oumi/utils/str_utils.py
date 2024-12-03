@@ -67,3 +67,10 @@ def str_to_bool(s: str) -> bool:
         return False
     else:
         raise ValueError(f"Cannot convert '{s}' to boolean.")
+
+
+def compute_utf8_len(s: str) -> int:
+    """Computes string length in UTF-8 bytes."""
+    # This is inefficient: allocates a temporary copy of string content.
+    # FIXME Can we do better?
+    return len(s.encode("utf-8"))

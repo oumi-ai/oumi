@@ -10,6 +10,7 @@ import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import compute_utf8_len
 
 
 def device_cleanup() -> None:
@@ -263,6 +264,8 @@ def _estimate_item_size_in_bytes(item: Any) -> int:
         return num_elements * get_dtype_size_in_bytes(item.dtype)
     elif isinstance(item, list):
         return _estimate_sample_list_size_in_bytes(item)
+    elif isinstance(item, str):
+        return compute_utf8_len(item)
     elif isinstance(item, (str, bytes)):
         return len(item)
 
@@ -287,7 +290,7 @@ def estimate_sample_dict_size_in_bytes(sample: dict[str, Any]) -> int:
     """
     result = 0
     for key, val in sample.items():
-        result += len(key)
+        result += compute_utf8_len(key)
         result += _estimate_item_size_in_bytes(val)
     return result
 
