@@ -16,6 +16,7 @@ from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout
+from oumi.utils.torch_utils import freeze_model_layers
 
 try:
     import liger_kernel.transformers  # type: ignore
@@ -65,14 +66,12 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
 
-    for layer_name in model_params.freeze_layers:
-        if hasattr(model, layer_name):
-            logger.info(f"Freezing layer '{layer_name}'...")
-
-            for param in getattr(model, layer_name).parameters():
-                param.requires_grad_(False)
-        else:
-            logger.warning(f"Layer '{layer_name}' not found in model.")
+    if len(model_params.freeze_layers) > 0:
+        num_frozen = freeze_model_layers(model, model_params.freeze_layers)
+        logger.warning(
+            f"Total {num_frozen} layer(s) frozen based on:\n"
+            f"{model_params.freeze_layers}."
+        )
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type

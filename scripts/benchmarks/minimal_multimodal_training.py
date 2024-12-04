@@ -33,6 +33,7 @@ from oumi.builders import (
 )
 from oumi.core.configs import (
     FSDPParams,
+    ModelLayer,
     ModelParams,
     TrainingParams,
 )
@@ -64,45 +65,51 @@ class ModelName(str, Enum):
 
 class ModelInfo(NamedTuple):
     chat_template: str
-    freeze_layers: list[str]
+    freeze_layers: list[ModelLayer]
 
 
 _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
 _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[ModelLayer(name="vision_model")],
     ),
     ModelName.LLAVA: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[ModelLayer(name="vision_tower")],
     ),
     ModelName.QWEN2_VL: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[ModelLayer(name="visual")],
     ),
     ModelName.CHAMELEON: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
-        freeze_layers=["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
+        freeze_layers=[ModelLayer(name="model", children=[ModelLayer(name="vqmodel")])],
     ),
     ModelName.PALIGEMMA: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=[ModelLayer(name="vision_tower")],
     ),
     ModelName.PHI3_VISION: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
         freeze_layers=[
-            "model.vision_embed_tokens"
-        ],  # FIXME Freeze nested layers OPE-505
+            ModelLayer(name="model", children=[ModelLayer(name="vision_embed_tokens")])
+        ],
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
-        chat_template="llama3-instruct", freeze_layers=["vision_model"]
+        chat_template="llama3-instruct", freeze_layers=[ModelLayer(name="vision_model")]
     ),
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
-        freeze_layers=["model.vision_backbone"],  # FIXME Freeze nested layers OPE-505
+        freeze_layers=[
+            ModelLayer(name="model", children=[ModelLayer(name="vision_backbone")])
+        ],
     ),
 }
 
 
-def _get_freeze_layers(model_name: ModelName) -> list[str]:
+def _get_freeze_layers(model_name: ModelName) -> list[ModelLayer]:
     result = []
     if model_name in _MODELS_MAP:
         result = _MODELS_MAP[model_name].freeze_layers
