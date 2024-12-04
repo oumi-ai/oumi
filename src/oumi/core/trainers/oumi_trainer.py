@@ -319,28 +319,6 @@ class Trainer(BaseTrainer):
                         )
                         outputs = self.model(**prepared_inputs)
                     else:
-                        labels = cast(torch.Tensor, batch["labels"])
-                        logger.info(f"labels: {labels}")
-                        # labels = torch.maximum(
-                        #    labels, torch.tensor(0, dtype=labels.dtype)
-                        # )
-                        X = labels.cpu().numpy()
-
-                        A = cast(torch.Tensor, batch["attention_mask"])
-
-                        violations = []
-                        for i in range(0, X.shape[0]):
-                            for j in range(0, X.shape[1]):
-                                val, attn = X[i, j], A[i, j]
-                                if val < 0:
-                                    violations.append(
-                                        f"val={val} attn={attn} (i,j)=({i},{j}) "
-                                        f"shape={X.shape} attn_shape={A.shape}"
-                                    )
-
-                        # assert len(violations) == 0, "\n".join(violations)
-
-                        batch["labels"] = labels
                         outputs = self.model(**batch)
 
                     loss = outputs["loss"] / gradient_accumulation_steps
