@@ -55,14 +55,23 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     result = [
         LoadDatasetInfo(
             dataset_name="merve/vqav2-small",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_split="validation",
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=64,
+        ),
+        LoadDatasetInfo(
+            dataset_name="merve/vqav2-small",
             model_name="microsoft/Phi-3-vision-128k-instruct",
             dataset_split="validation",
             extra_dataset_features=["image_sizes"],
             chat_template="phi3-instruct",
             trust_remote_code=True,
-            max_rows=64,
-            expected_rows=64,
-        )
+            max_rows=32,
+            expected_rows=32,
+        ),
     ]
 
     manually_configured_dataset_names = set({info.dataset_name for info in result})
