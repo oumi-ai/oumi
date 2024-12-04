@@ -1,6 +1,6 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/llava_7b/sft/7b_oumi_gcp_job.yaml --cluster my-oumi-cluster
-name: llava-7b-sft-oumi-train
+# oumi launch up --config configs/examples/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
+name: phi3-sft-oumi-train
 
 resources:
   cloud: gcp
@@ -20,7 +20,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.fft.oumi
+  OUMI_RUN_NAME: phi3.fft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -29,7 +29,7 @@ setup: |
   pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
 
   pip install -U flash-attn --no-build-isolation
 
@@ -48,7 +48,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llava_7b/sft/7b_sft_train.yaml \
+      -c configs/examples/vision/phi3/sft/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.trainer_type=OUMI" \
       "training.max_steps=20" \
