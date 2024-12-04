@@ -228,10 +228,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
-            if feature_name == "pixel_values" and isinstance(
-                x, (torch.Tensor, np.ndarray)
-            ):
-                logger.info(f"pixel_values: {x.shape}")
 
             first_dim_action = feature_spec.first_dim_action
 
