@@ -6,7 +6,7 @@ model:
   attn_implementation: "flash_attention_2" # The model requires Flash Attention!
   chat_template: "phi3-instruct"
   freeze_layers:
-    - "model.vision_embed_tokens"
+    - "model.vision_embed_tokens" # OPE-505 Nested layers support
 
 data:
   train:
