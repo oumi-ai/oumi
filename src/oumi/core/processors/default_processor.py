@@ -117,12 +117,14 @@ class DefaultProcessor(BaseProcessor):
                 f"Image token: '{token_str}' "
                 f"Actual type: {type(token_id)}"
             )
+        logger.info(f"image_token_id: {token_id}")
         return int(token_id)
 
     @property
     @override
     def label_ignore_index(self) -> Optional[int]:
         """Returns a label ignore index."""
+        logger.info(f"label_ignore_index: {self._label_ignore_index}")
         return self._label_ignore_index
 
     @override
