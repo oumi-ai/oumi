@@ -33,6 +33,7 @@ def build_processor(
         processor_name,
         trust_remote_code=trust_remote_code,
     )
+    # TODO OPE-701 Replace the special cases with a more general mechanism.
     if processor_name == "llava-hf/llava-1.5-7b-hf":
         worker_processor = create_processor_fn(
             patch_size=14, vision_feature_select_strategy="default"
