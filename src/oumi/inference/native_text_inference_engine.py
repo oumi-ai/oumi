@@ -1,7 +1,6 @@
 import copy
 from typing import Optional
 
-import peft
 import PIL.Image
 import torch
 import transformers
@@ -189,10 +188,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             object: A list of model responses of shape (num_batches, batch_size).
         """
         generation_params = inference_config.generation
-        if isinstance(self._model, peft.PeftModel):
-            raise NotImplementedError(
-                "Inference does not work yet for pretrained PEFT models."
-            )
         model_device = next(self._model.parameters()).device
         batched_input: list[list[Conversation]] = self._make_batches(
             input, generation_params.batch_size
