@@ -26,6 +26,9 @@ class _SpecialTokens(NamedTuple):
     image_token_id: Optional[int]
     label_ignore_index: Optional[int]
 
+    pad_token_id: int
+    """Token id of `PAD` token."""
+
 
 class _FirstDimAction(Enum):
     """Enum representing how to handle the first feature dimension."""
@@ -117,6 +120,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
+        elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
+            raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
 
         if processor is not None:
             if processor_name:
@@ -147,6 +152,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             label_ignore_index=(
                 self._processor.label_ignore_index if self._processor else None
             ),
+            pad_token_id=int(tokenizer.pad_token_id),
         )
 
         if limit is not None:
@@ -201,12 +207,26 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 padding=True,
             )
 
+        logger.info(
+            f"len(images)={len(images)} len(prompt)={len(prompt)}\n"
+            f"prompt='{prompt}'"
+        )
         # Clone `input_ids` as `labels`.
         input_ids = inputs["input_ids"]
         if isinstance(input_ids, torch.Tensor):
             inputs["labels"] = input_ids.clone()
+            x = input_ids[0]
+            logger.info(
+                f"Labels: {input_ids.cpu().shape} {input_ids.cpu()}\n"
+                f"input_ids[0, {x.shape[0]//2}]={x[x.shape[0]//2]}"
+            )
         else:
-            inputs["labels"] = copy.deepcopy(inputs["input_ids"])
+            assert isinstance(input_ids, list)
+            inputs["labels"] = copy.deepcopy(input_ids)
+            logger.info(
+                f"Labels: {len(input_ids)} {input_ids}\n"
+                f"input_ids[{len(input_ids)//2}]={input_ids[len(input_ids)//2]}"
+            )
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
@@ -268,6 +288,35 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 # Create numpy array, modify, and copy back.
                 labels = np.array(labels)
                 labels[labels == image_token_id] = label_ignore_index
+                inputs["labels"] = labels.tolist()
+        elif (self._special_tokens.label_ignore_index is None) or (
+            self._special_tokens.label_ignore_index >= 0
+        ):
+            # Some VLM-s may generate negative input_ids for image tokens.
+            # For example, Phi3-Vision generates `-N` input ids for
+            # "<|image_N|>" tokens. It can cause CUDA errors during loss
+            # computation as loss function may assume all labels are
+            # within the [0, num_classes) range.
+            # The code below attempts to sanitize labels by resetting all negative
+            # labels to `label_ignore_index` (if provided) or to PAD token index.
+            labels = inputs["labels"]
+            sanitized_label_target = int(
+                self._special_tokens.pad_token_id
+                if (self._special_tokens.label_ignore_index is None)
+                else self._special_tokens.label_ignore_index
+            )
+            assert sanitized_label_target >= 0
+            logger.info(f"sanitized_label_target={sanitized_label_target}")
+            if isinstance(labels, torch.Tensor):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            elif isinstance(labels, np.ndarray):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            else:
+                # Create numpy array, modify, and copy back.
+                labels = np.array(labels)
+                labels[labels < 0] = sanitized_label_target
                 inputs["labels"] = labels.tolist()
 
         return inputs.data

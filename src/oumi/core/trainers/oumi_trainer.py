@@ -243,13 +243,18 @@ class Trainer(BaseTrainer):
         ):
             yield (record_function_context, timer_context)
 
+    @staticmethod
+    def _cuda_sync_and_empty_cache() -> None:
+        if torch.cuda.is_available() and torch.cuda.is_initialized():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
         epoch_start_time = time.perf_counter()
 
         self.model.train()
-        torch.cuda.synchronize()
-        torch.cuda.empty_cache()
+        self._cuda_sync_and_empty_cache()
         self.optimizer.zero_grad(set_to_none=True)
         micro_step = 0
 
@@ -321,16 +326,19 @@ class Trainer(BaseTrainer):
                         # )
                         X = labels.cpu().numpy()
 
+                        A = cast(torch.Tensor, batch["attention_mask"])
+
                         violations = []
                         for i in range(0, X.shape[0]):
                             for j in range(0, X.shape[1]):
-                                val = X[i, j]
-                                if val < 0 or True:
+                                val, attn = X[i, j], A[i, j]
+                                if val < 0:
                                     violations.append(
-                                        f"val={val} (i,j)=({i},{j}) shape={X.shape}"
+                                        f"val={val} attn={attn} (i,j)=({i},{j}) "
+                                        f"shape={X.shape} attn_shape={A.shape}"
                                     )
 
-                        assert len(violations) == 0, "\n".join(violations)
+                        # assert len(violations) == 0, "\n".join(violations)
 
                         batch["labels"] = labels
                         outputs = self.model(**batch)
