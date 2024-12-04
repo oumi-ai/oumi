@@ -314,10 +314,12 @@ class Trainer(BaseTrainer):
                         )
                         outputs = self.model(**prepared_inputs)
                     else:
-                        # labels = batch["labels"]
-                        # labels = torch.maximum(labels,
-                        #       torch.tensor(0, dtype=labels.dtype))
-                        # batch["labels"] = labels
+                        labels = batch["labels"]
+                        logger.info(f"labels: {labels}")
+                        labels = torch.maximum(
+                            labels, torch.tensor(0, dtype=labels.dtype)
+                        )
+                        batch["labels"] = labels
                         outputs = self.model(**batch)
 
                     loss = outputs["loss"] / gradient_accumulation_steps
