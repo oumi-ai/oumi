@@ -314,11 +314,24 @@ class Trainer(BaseTrainer):
                         )
                         outputs = self.model(**prepared_inputs)
                     else:
-                        labels = batch["labels"]
+                        labels = cast(torch.Tensor, batch["labels"])
                         logger.info(f"labels: {labels}")
                         # labels = torch.maximum(
                         #    labels, torch.tensor(0, dtype=labels.dtype)
                         # )
+                        X = labels.cpu().numpy()
+
+                        violations = []
+                        for i in range(0, X.shape[0]):
+                            for j in range(0, X.shape[1]):
+                                val = X[i, j]
+                                if val < 0 or True:
+                                    violations.append(
+                                        f"val={val} (i,j)=({i},{j}) shape={X.shape}"
+                                    )
+
+                        assert len(violations) == 0, "\n".join(violations)
+
                         batch["labels"] = labels
                         outputs = self.model(**batch)
 
