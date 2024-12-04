@@ -316,9 +316,9 @@ class Trainer(BaseTrainer):
                     else:
                         labels = batch["labels"]
                         logger.info(f"labels: {labels}")
-                        labels = torch.maximum(
-                            labels, torch.tensor(0, dtype=labels.dtype)
-                        )
+                        # labels = torch.maximum(
+                        #    labels, torch.tensor(0, dtype=labels.dtype)
+                        # )
                         batch["labels"] = labels
                         outputs = self.model(**batch)
 
