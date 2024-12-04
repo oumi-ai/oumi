@@ -106,7 +106,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
-        label_ignore_index: Optional[int] = None,  # constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
         **kwargs,
@@ -145,7 +144,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             image_token_id=(
                 self._processor.image_token_id if self._processor else None
             ),
-            label_ignore_index=label_ignore_index,
+            label_ignore_index=(
+                self._processor.label_ignore_index if self._processor else None
+            ),
         )
 
         if limit is not None:

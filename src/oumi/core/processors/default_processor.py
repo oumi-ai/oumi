@@ -19,7 +19,13 @@ class DefaultProcessor(BaseProcessor):
     Validates that worker conforms to basic required invariants.
     """
 
-    def __init__(self, worker_processor: Any, tokenizer: BaseTokenizer):
+    def __init__(
+        self,
+        worker_processor: Any,
+        tokenizer: BaseTokenizer,
+        *,
+        label_ignore_index: Optional[int],
+    ):
         """Initializes the processor."""
         if worker_processor is None:
             raise ValueError("Worker processor must be provided!")
@@ -49,6 +55,7 @@ class DefaultProcessor(BaseProcessor):
             self._image_processor = DefaultImageProcessor(
                 self._worker_processor.image_processor
             )
+        self._label_ignore_index: Optional[int] = label_ignore_index
 
     @property
     @override
@@ -111,6 +118,12 @@ class DefaultProcessor(BaseProcessor):
                 f"Actual type: {type(token_id)}"
             )
         return int(token_id)
+
+    @property
+    @override
+    def label_ignore_index(self) -> Optional[int]:
+        """Returns a label ignore index."""
+        return self._label_ignore_index
 
     @override
     def __call__(
