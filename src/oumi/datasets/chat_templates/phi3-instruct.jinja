@@ -1,17 +1,13 @@
-{% set role_prefix = '<|start_header_id|>' %}
-{% set role_suffix = '<|end_header_id|>\n\n' %}
-{% set turn_suffix = '<|eot_id|>' %}
 {% set image_token = '<|image_1|>' %}
 
-{{ bos_token }}
 {% for message in messages %}
     {% if message['type'] == 'text' %}
-        {{ role_prefix + message['role'] + role_suffix + message['content'] | trim + turn_suffix }}
+        {{'<|' + message['role'] + '|>' + '\n' + message['content'] + '<|end|>\n' }}
     {% elif message['type'] in ('image_path','image_url','image_binary') %}
-        {{ role_prefix + message['role'] + role_suffix + image_token | trim + turn_suffix }}
+        {{'<|' + message['role'] + '|>' + '\n' + image_token + '<|end|>\n' }}
     {% endif %}
 {% endfor %}
 
-{% if add_generation_prompt %}
-    {{ role_prefix + 'assistant' + role_suffix }}
-{% endif %}
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}
+    {{- '<|assistant|>\n' -}}
+{% endif %}",
