@@ -230,8 +230,10 @@ def test_transform_instruct_model_using_image_path(
     test_dataset_image_path_no_label_ignore_index,
     mock_processor_no_label_ignore_index: Mock,
 ):
-    mock_processor.chat_template = "Template"
-    mock_processor.apply_chat_template = Mock(return_value="Processed template")
+    mock_processor_no_label_ignore_index.chat_template = "Template"
+    mock_processor_no_label_ignore_index.apply_chat_template = Mock(
+        return_value="Processed template"
+    )
 
     with patch.object(
         test_dataset_image_path_no_label_ignore_index, "_load_image"
