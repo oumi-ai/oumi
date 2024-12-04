@@ -299,6 +299,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             # within the [0, num_classes) range.
             # The code below attempts to sanitize labels by resetting all negative
             # labels to `label_ignore_index` (if provided) or to PAD token index.
+            #
+            # TODO OPE-701 Consider having a more general configuration per model type.
             labels = inputs["labels"]
             sanitized_label_target = int(
                 self._special_tokens.pad_token_id

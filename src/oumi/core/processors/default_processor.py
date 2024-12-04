@@ -107,7 +107,6 @@ class DefaultProcessor(BaseProcessor):
         """Returns an image token id."""
         token_str = self.image_token
         if not token_str:
-            logger.info(f"image_token: {token_str}")
             return None
 
         token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
@@ -118,7 +117,6 @@ class DefaultProcessor(BaseProcessor):
                 f"Image token: '{token_str}' "
                 f"Actual type: {type(token_id)}"
             )
-        logger.info(f"image_token_id: {token_id} {token_str}")
         return int(token_id)
 
     @property

@@ -128,10 +128,6 @@ class TextCollatorWithPadding:
                     item[_CROSS_ATTENTION_MASK_KEY]
                 )
             if labels_on:
-                logger.info(
-                    f"{_LABELS_KEY}: {len(item[_LABELS_KEY])}, "
-                    f"{item[_LABELS_KEY].numpy()}"
-                )
                 collation_inputs[_LABELS_KEY].append(item[_LABELS_KEY])
 
             if self._max_length is not None:
@@ -187,7 +183,6 @@ class TextCollatorWithPadding:
         # Add labels if present.
         if labels_on:
             combined_batch[_LABELS_KEY] = collated_text_inputs[_LABELS_KEY]
-            logger.info(f"combined_batch[_LABELS_KEY]: {combined_batch[_LABELS_KEY]}")
 
         return combined_batch
 
