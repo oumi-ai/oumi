@@ -207,26 +207,12 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 padding=True,
             )
 
-        logger.info(
-            f"len(images)={len(images)} len(prompt)={len(prompt)}\n"
-            f"prompt='{prompt}'"
-        )
         # Clone `input_ids` as `labels`.
         input_ids = inputs["input_ids"]
         if isinstance(input_ids, torch.Tensor):
             inputs["labels"] = input_ids.clone()
-            x = input_ids[0]
-            logger.info(
-                f"Labels: {input_ids.cpu().shape} {input_ids.cpu()}\n"
-                f"input_ids[0, {x.shape[0]//2}]={x[x.shape[0]//2]}"
-            )
         else:
-            assert isinstance(input_ids, list)
             inputs["labels"] = copy.deepcopy(input_ids)
-            logger.info(
-                f"Labels: {len(input_ids)} {input_ids}\n"
-                f"input_ids[{len(input_ids)//2}]={input_ids[len(input_ids)//2]}"
-            )
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
@@ -242,6 +228,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
+            if feature_name == "pixel_values" and isinstance(
+                x, (torch.Tensor, np.ndarray)
+            ):
+                logger.info(f"pixel_values: {x.shape}")
 
             first_dim_action = feature_spec.first_dim_action
 
@@ -308,7 +298,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 else self._special_tokens.label_ignore_index
             )
             assert sanitized_label_target >= 0
-            logger.info(f"sanitized_label_target={sanitized_label_target}")
             if isinstance(labels, torch.Tensor):
                 # Modify in-place
                 labels[labels < 0] = sanitized_label_target
