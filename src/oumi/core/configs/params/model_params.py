@@ -11,13 +11,6 @@ from oumi.utils.torch_utils import get_torch_dtype
 
 
 @dataclass
-class ModelLayer(BaseParams):
-    name: str = MISSING
-
-    children: list["ModelLayer"] = field(default_factory=list)
-
-
-@dataclass
 class ModelParams(BaseParams):
     model_name: str = MISSING
     """The name or path of the model to use.
@@ -166,7 +159,7 @@ class ModelParams(BaseParams):
     https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#multi-gpu-evaluation-with-hugging-face-accelerate
     """
 
-    freeze_layers: list[ModelLayer] = field(default_factory=list)
+    freeze_layers: list[str] = field(default_factory=list)
     """A list of layers to freeze during training.
 
     These layers will have their parameters set to not require gradients,

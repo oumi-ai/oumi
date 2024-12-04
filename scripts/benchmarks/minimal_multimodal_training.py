@@ -12,8 +12,12 @@ For multi-GPU training, use torchrun:
 Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
+    --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
+    --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
+
+
 """
 
 from enum import Enum

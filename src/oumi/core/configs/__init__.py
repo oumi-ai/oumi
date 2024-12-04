@@ -25,7 +25,6 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.data_params.DatasetSplitParams`
     - :class:`~oumi.core.configs.params.data_params.MixtureStrategy`
 - Model:
-    - :class:`~oumi.core.configs.params.model_params.ModelLayer`
     - :class:`~oumi.core.configs.params.model_params.ModelParams`
     - :class:`~oumi.core.configs.params.peft_params.PeftParams`
     - :class:`~oumi.core.configs.params.fsdp_params.FSDPParams`
@@ -90,7 +89,7 @@ from oumi.core.configs.params.fsdp_params import (
 )
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.configs.params.model_params import ModelLayer, ModelParams
+from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -127,7 +126,6 @@ __all__ = [
     "LMHarnessParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
-    "ModelLayer",
     "ModelParams",
     "PeftParams",
     "ProfilerParams",

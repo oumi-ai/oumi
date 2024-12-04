@@ -8,7 +8,6 @@ import numpy as np
 import numpy.typing
 import torch
 
-from oumi.core.configs import ModelLayer
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import compute_utf8_len
@@ -483,8 +482,14 @@ def get_shape_as_list(x: Any) -> list[int]:
     raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")
 
 
+class _FreezeModelLayer:
+    def __init__(self, name: str):
+        self.name: str = name
+        self.children: list[_FreezeModelLayer] = []
+
+
 def _freeze_model_layers_impl(
-    module: torch.nn.Module, freeze_layers: list[ModelLayer], parent_path: str
+    module: torch.nn.Module, freeze_layers: list[_FreezeModelLayer], parent_path: str
 ) -> int:
     result: int = 0
     for model_layer in freeze_layers:
@@ -509,9 +514,21 @@ def _freeze_model_layers_impl(
     return result
 
 
-def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[ModelLayer]) -> int:
+def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
     """Recursively freezes model layers.
 
     Returns the total number of layers successfully frozen.
     """
-    return _freeze_model_layers_impl(model, freeze_layers, "")
+    root: _FreezeModelLayer = _FreezeModelLayer(name="")
+
+    # Build a tree of nested layers.
+    for layer_name in freeze_layers:
+        layer: _FreezeModelLayer = root
+        for curr_part in layer_name.split("."):
+            next_layer = next((x for x in layer.children if x.name == curr_part), None)
+            if next_layer is None:
+                next_layer = _FreezeModelLayer(name=curr_part)
+                layer.children.append(next_layer)
+            layer = next_layer
+
+    return _freeze_model_layers_impl(model, root.children, "")
