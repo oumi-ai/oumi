@@ -470,8 +470,6 @@ def _create_test_neural_network() -> torch.nn.Module:
 
 
 def test_freeze_model_layers():
-    model = _create_test_neural_network()
-    print(model)
     assert freeze_model_layers(_create_test_neural_network(), []) == 0
     assert (
         freeze_model_layers(_create_test_neural_network(), ["linear_relu_stack"]) == 1
