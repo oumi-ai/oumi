@@ -17,7 +17,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-The Oumi Platform enables the end-to-end development of foundation and specialized models including data curation, data synthesis, pretraining, tuning, and evaluation.
+Oumi is a community-first, enterprise-grade platform for AI research and development. It enables foundation model research across pretraining, post training, evaluation, data curation, data synthesis and beyond. It also comes at high quality and level of support so that both researchers can rely on it as well as enterprises to build their products on it.
 
 <p align="center">
    <b>Check out our docs!</b>
