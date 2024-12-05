@@ -17,26 +17,7 @@ If you want to contribute but you are short of ideas or have any questions, just
 
 ## Prerequisites
 
-To set up the development environment on your local machine, clone the repository (`git clone https://github.com/oumi-ai/oumi.git`) and run the following commands below inside the 'oumi' folder.
-
-1. Install the dependencies needed for testing and linting the code:
-
-  ```bash
-  pip install -e '.[dev]'
-  ```
-
-  If you're using a machine with a GPU, you should also install the `gpu` dependencies:
-
-  ```bash
-  pip install -e '.[dev,gpu]'
-  ```
-
-2. Configure [pre-commit](https://pre-commit.com/), which automatically formats
-code before each commit:
-
-  ```bash
-  pre-commit install
-  ```
+To set up the development environment on your local machine, please follow the steps outlined in the [development setup documentation](https://oumi.ai/docs/latest/development/dev_setup.html).
 
 ## Submitting a Contribution
 
