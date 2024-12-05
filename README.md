@@ -127,13 +127,35 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 ## Documentation
 
-View our API documentation [here](https://oumi.ai/docs/latest/index.html).
-
-Reach out to <matthew@oumi.ai> if you have problems with access.
+See the [Oumi documentation](https://oumi.ai/docs) to learn more about all the platform's capabilities.
 
 ## Contributing
 
-Contributions are welcome! After all, this is a community-based effort. Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Did we mention that this is a community-first effort? All contributions are welcome!
+
+Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+
+If you want to contribute but you are short of ideas, please reach out (<contact@oumi.ai>)!
+
+## Acknowledgements
+
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community 🚀
+
+We would like to acknowledge and deeply thank the contributors of these projects!
+
+## Citation
+
+If you find Oumi useful in your research, please consider citing it using the following entry:
+
+```bibtex
+@software{oumi2024,
+  author = {Oumi Community},
+  title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
+  month = {November},
+  year = {2024},
+  url = {https://github.com/oumi-ai/oumi}
+}
+```
 
 ## License
 
