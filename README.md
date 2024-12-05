@@ -64,7 +64,7 @@ With just a couple commands you can install Oumi, train, infer, and evaluate. Al
 
 ```shell
 # Clone the repository
-git clone https://github.com/oumi-ai/oumi.git
+git clone git@github.com:oumi-ai/oumi.git
 cd oumi
 
 # Install the package (CPU & NPU only)
