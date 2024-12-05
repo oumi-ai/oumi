@@ -13,6 +13,14 @@ oumi.core.cli.cli\_utils module
    :undoc-members:
    :show-inheritance:
 
+oumi.core.cli.env module
+------------------------
+
+.. automodule:: oumi.core.cli.env
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.core.cli.evaluate module
 -----------------------------
 

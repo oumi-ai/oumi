@@ -78,7 +78,7 @@ oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-We can also run training on multiple GPUs. For example, to run on 4 GPUs:
+We can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
 
 ```bash
 torchrun --nproc_per_node=4 oumi train \

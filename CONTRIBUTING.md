@@ -1,4 +1,4 @@
-# Contributing to Oumi
+# Contributing
 
 Oumi welcomes any contribution that helps make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
 
@@ -13,40 +13,19 @@ Possible contributions include:
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
 * Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
 
-If you want to contribute but you are short of ideas or have any questions, just reach out (<community@oumi.ai>) and we can help.
-
-If you are new to GitHub, read this [documentation](https://support.github.com/) to learn all you need.
+If you want to contribute but you are short of ideas or have any questions, just reach out (<contact@oumi.ai>) and we can help.
 
 ## Prerequisites
 
-To set up the development environment on your local machine, clone the repository (`git clone https://github.com/oumi-ai/oumi.git`) and run the following commands below inside the 'oumi' folder.
-
-1\. Install the dependencies needed for testing and linting the code:
-
-```bash
-pip install -e '.[all]'
-```
-
-If you're using a machine with a GPU, you should also install the `gpu` dependencies:
-
-```bash
-pip install -e '.[all,gpu]'
-```
-
-2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats
-code before each commit:
-
-```bash
-pre-commit install
-```
+To set up the development environment on your local machine, please follow the steps outlined in the [development setup documentation](https://oumi.ai/docs/latest/development/dev_setup.html).
 
 ## Submitting a Contribution
 
 To submit a contribution:
 
 1. [Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo)
-a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account. See
-[Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
+a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account.
+See [Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
 for detailed steps.
 2. Clone your fork locally, and add the Oumi repo as a remote repository:
 
@@ -102,7 +81,7 @@ See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure, 
 
 To maintain proper copyright and license notices, please include the header at the top of each source code file.
 
-```
+```python
 // Copyright 2024 - Oumi Public Benefit Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -120,10 +99,10 @@ To maintain proper copyright and license notices, please include the header at t
 
 ## Becoming a Code Reviewer or Maintainer
 
-Send an email to <community@oumi.ai> if you would like to become a code reviewer, maintainer or contribute in any other way!
+Send an email to <contact@oumi.ai> if you would like to become a code reviewer, maintainer or contribute in any other way!
 
 ## Recognition
 
 Join the Oumi community to be part of defining a better future for open frontier AI. We will recognize top contributors periodically and feature all of them in Oumi's wall of fame.
 
-Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to <community@oumi.ai> including your name and full mailing address and we will mail it to you anywhere in the world.
+Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to <contact@oumi.ai> including your name and full mailing address and we will mail it to you anywhere in the world.
