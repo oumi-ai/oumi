@@ -33,17 +33,17 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 
 ## Features
 
-Oumi is designed to be fully flexible and yet easy to use:
+Oumi is designed to be fully flexible yet easy to use:
 
 - **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
 
-- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) and evaluation. Built for both research exploration and production deployment.
+- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) to evaluation. Built for both research exploration and production deployment.
 
 - **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
 
 - **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
 
-- **Unified Interface**: One consistent API for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
+- **Unified Interface**: One consistent interface for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
 
 - **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
 
