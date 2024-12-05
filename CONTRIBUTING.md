@@ -43,8 +43,8 @@ code before each commit:
 To submit a contribution:
 
 1. [Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo)
-a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account. See
-[Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
+a copy of the [Oumi](https://github.com/oumi-ai/oumi) repository into your own account.
+See [Forking a repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
 for detailed steps.
 2. Clone your fork locally, and add the Oumi repo as a remote repository:
 
@@ -100,7 +100,7 @@ See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure, 
 
 To maintain proper copyright and license notices, please include the header at the top of each source code file.
 
-```
+```python
 // Copyright 2024 - Oumi Public Benefit Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -118,10 +118,10 @@ To maintain proper copyright and license notices, please include the header at t
 
 ## Becoming a Code Reviewer or Maintainer
 
-Send an email to <community@oumi.ai> if you would like to become a code reviewer, maintainer or contribute in any other way!
+Send an email to <contact@oumi.ai> if you would like to become a code reviewer, maintainer or contribute in any other way!
 
 ## Recognition
 
 Join the Oumi community to be part of defining a better future for open frontier AI. We will recognize top contributors periodically and feature all of them in Oumi's wall of fame.
 
-Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to <community@oumi.ai> including your name and full mailing address and we will mail it to you anywhere in the world.
+Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to <contact@oumi.ai> including your name and full mailing address and we will mail it to you anywhere in the world.
