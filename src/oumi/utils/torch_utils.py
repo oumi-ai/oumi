@@ -483,8 +483,9 @@ def get_shape_as_list(x: Any) -> list[int]:
 
 
 class _FreezeModelLayer:
-    def __init__(self, name: str):
+    def __init__(self, name: str, freeze_it: bool):
         self.name: str = name
+        self.freeze_it: bool = freeze_it
         self.children: list[_FreezeModelLayer] = []
 
 
@@ -498,16 +499,15 @@ def _freeze_model_layers_impl(
         )
         if hasattr(module, model_layer.name):
             child_module = getattr(module, model_layer.name)
-            if len(model_layer.children) > 0:
-                result += _freeze_model_layers_impl(
-                    child_module, model_layer.children, full_layer_path
-                )
-            else:
+            if model_layer.freeze_it:
                 logger.info(f"Freezing layer '{full_layer_path}'...")
                 for param in child_module.parameters():
                     param.requires_grad_(False)
                 result += 1
-
+            elif len(model_layer.children) > 0:
+                result += _freeze_model_layers_impl(
+                    child_module, model_layer.children, full_layer_path
+                )
         else:
             logger.warning(f"Layer '{full_layer_path}' not found in model.")
 
@@ -515,16 +515,21 @@ def _freeze_model_layers_impl(
 
 
 def _group_freeze_model_layers(freeze_layers: list[str]) -> list[_FreezeModelLayer]:
-    dummy_root: _FreezeModelLayer = _FreezeModelLayer(name="")
+    dummy_root: _FreezeModelLayer = _FreezeModelLayer(name="", freeze_it=False)
 
     # Build a tree of nested layers.
     for layer_name in freeze_layers:
         layer: _FreezeModelLayer = dummy_root
-        for curr_part in layer_name.split("."):
+        all_parts = list(layer_name.split("."))
+        for idx, curr_part in enumerate(all_parts):
             next_layer = next((x for x in layer.children if x.name == curr_part), None)
+            # If it's the last part, let's freeze this layer.
+            freeze_it = idx + 1 >= len(all_parts)
             if next_layer is None:
-                next_layer = _FreezeModelLayer(name=curr_part)
+                next_layer = _FreezeModelLayer(name=curr_part, freeze_it=freeze_it)
                 layer.children.append(next_layer)
+            elif freeze_it:
+                next_layer.freeze_it = True
             layer = next_layer
     return dummy_root.children
 
