@@ -62,18 +62,33 @@ With just a couple commands you can install Oumi, train, infer, and evaluate. Al
 
 ### Installation
 
-1. Install Oumi:
+```shell
+# Clone the repository
+git clone https://github.com/oumi-ai/oumi.git
+cd oumi
 
-   ```shell
-   pip install 'oumi'
-   ```
+# Install the package (CPU & NPU only)
+pip install -e .  # For local development & testing
+
+# OR, with GPU support (Requires Nvidia or AMD GPU)
+pip install -e ".[gpu]"  # For GPU training
+```
 
 ### Usage
 
-1. Run training locally:
-
    ```shell
-   oumi train -c path/to/your/config.yaml
+   # Training
+   oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml
+
+   # Evaluation
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
+   --lm_harness_params.tasks "[m_mmlu_en]"
+
+   # Inference
+   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
+   --generation.max_new_tokens 40 \
+   --generation.temperature 0.7 \
+   --interactive
    ```
 
    For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
@@ -123,14 +138,3 @@ Contributions are welcome! After all, this is a community-based effort. Please c
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-
-## Troubleshooting
-
-1. Pre-commit hook errors with VS Code
-   - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
-   - To fix this, make sure to start your vscode instance after activating your conda environment.
-
-     ```shell
-     conda activate oumi
-     code .  # inside the Oumi directory
-     ```
