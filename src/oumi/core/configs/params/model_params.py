@@ -160,7 +160,7 @@ class ModelParams(BaseParams):
     """
 
     freeze_layers: list[str] = field(default_factory=list)
-    """A list of layers to freeze during training.
+    """A list of layer names to freeze during training.
 
     These layers will have their parameters set to not require gradients,
     effectively preventing them from being updated during the training process.
