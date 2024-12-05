@@ -95,7 +95,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["vision_tower"],
     ),
     ModelName.PHI3_VISION: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        chat_template="phi3-instruct",
         freeze_layers=["model.vision_embed_tokens"],
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
