@@ -3,7 +3,6 @@
 {% set turn_suffix = '<|eot_id|>' %}
 {% set image_token = '<|image|>' %}
 
-
 {{ bos_token }}
 {% for message in messages %}
     {% if message['type'] == 'text' %}

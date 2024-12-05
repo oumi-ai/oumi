@@ -101,9 +101,14 @@ def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Ca
     if not train_split.collator_name:
         return None
 
+    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
+    # TODO OPE-701 Replace with a more general mechanism.
+    if config.model.model_name == "microsoft/Phi-3-vision-128k-instruct":
+        label_ignore_index = None
+
     return build_data_collator(
         collator_name=train_split.collator_name,
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
-        label_ignore_index=constants.LABEL_IGNORE_INDEX,
+        label_ignore_index=label_ignore_index,
     )

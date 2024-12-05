@@ -61,6 +61,12 @@ class BaseProcessor(abc.ABC):
         """Returns an image token id."""
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def label_ignore_index(self) -> Optional[int]:
+        """Returns a label ignore index."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def __call__(
         self,

@@ -149,6 +149,7 @@ class Trainer(BaseTrainer):
                 model = prepare_model_for_distributed(
                     model,
                     fsdp_params=self.fsdp_params,
+                    ddp_find_unused_parameters=self.params.ddp_find_unused_parameters,
                 )
                 # Apply ring attention monkey patch if enabled
                 if self.is_using_ring_attention:
@@ -242,12 +243,18 @@ class Trainer(BaseTrainer):
         ):
             yield (record_function_context, timer_context)
 
+    @staticmethod
+    def _cuda_sync_and_empty_cache() -> None:
+        if torch.cuda.is_available() and torch.cuda.is_initialized():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
         epoch_start_time = time.perf_counter()
 
         self.model.train()
-        torch.cuda.empty_cache()
+        self._cuda_sync_and_empty_cache()
         self.optimizer.zero_grad(set_to_none=True)
         micro_step = 0
 

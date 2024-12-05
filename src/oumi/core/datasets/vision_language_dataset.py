@@ -10,7 +10,6 @@ import torch
 from PIL import Image
 from typing_extensions import override
 
-import oumi.core.constants as constants
 from oumi.builders.processors import build_processor
 from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
@@ -26,6 +25,9 @@ class _SpecialTokens(NamedTuple):
     image_token: Optional[str]
     image_token_id: Optional[int]
     label_ignore_index: Optional[int]
+
+    pad_token_id: int
+    """Token id of `PAD` token."""
 
 
 class _FirstDimAction(Enum):
@@ -66,6 +68,8 @@ _INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
     InputFeatureSpec(feature_name="cross_attention_mask", required=False),
     # Qwen2 VL
     InputFeatureSpec(feature_name="image_grid_thw", required=False),
+    # Phi3 Vision
+    InputFeatureSpec(feature_name="image_sizes", required=False),
 ]
 _INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
     spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
@@ -105,7 +109,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
-        label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
         **kwargs,
@@ -117,6 +120,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
             )
+        elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
+            raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
 
         if processor is not None:
             if processor_name:
@@ -144,7 +149,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             image_token_id=(
                 self._processor.image_token_id if self._processor else None
             ),
-            label_ignore_index=label_ignore_index,
+            label_ignore_index=(
+                self._processor.label_ignore_index if self._processor else None
+            ),
+            pad_token_id=int(tokenizer.pad_token_id),
         )
 
         if limit is not None:
@@ -204,7 +212,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         if isinstance(input_ids, torch.Tensor):
             inputs["labels"] = input_ids.clone()
         else:
-            inputs["labels"] = copy.deepcopy(inputs["input_ids"])
+            inputs["labels"] = copy.deepcopy(input_ids)
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
@@ -266,6 +274,36 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 # Create numpy array, modify, and copy back.
                 labels = np.array(labels)
                 labels[labels == image_token_id] = label_ignore_index
+                inputs["labels"] = labels.tolist()
+        elif (self._special_tokens.label_ignore_index is None) or (
+            self._special_tokens.label_ignore_index >= 0
+        ):
+            # Some VLM-s may generate negative input_ids for image tokens.
+            # For example, Phi3-Vision generates `-N` input ids for
+            # "<|image_N|>" tokens. It can cause CUDA errors during loss
+            # computation as loss function may assume all labels are
+            # within the [0, num_classes) range.
+            # The code below attempts to sanitize labels by resetting all negative
+            # labels to `label_ignore_index` (if provided) or to PAD token index.
+            #
+            # TODO OPE-701 Consider having a more general configuration per model type.
+            labels = inputs["labels"]
+            sanitized_label_target = int(
+                self._special_tokens.pad_token_id
+                if (self._special_tokens.label_ignore_index is None)
+                else self._special_tokens.label_ignore_index
+            )
+            assert sanitized_label_target >= 0
+            if isinstance(labels, torch.Tensor):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            elif isinstance(labels, np.ndarray):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            else:
+                # Create numpy array, modify, and copy back.
+                labels = np.array(labels)
+                labels[labels < 0] = sanitized_label_target
                 inputs["labels"] = labels.tolist()
 
         return inputs.data
