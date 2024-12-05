@@ -5,7 +5,7 @@
     </td>
     <td>
       <h1>Oumi: Open Universal Machine Intelligence</h1>
-      <p>E2E multimodal frontier AI Platform - Community-first & Enterprise-grade</p>
+      <p>E2E Foundation Model Research Platform - Community-first & Enterprise-grade</p>
     </td>
  </tr>
 </table>
