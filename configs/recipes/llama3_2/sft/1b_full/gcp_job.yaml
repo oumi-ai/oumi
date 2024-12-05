@@ -1,0 +1,55 @@
+# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml --cluster llama8b-sft
+name: llama1b-sft
+
+num_nodes: 1
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  use_spot: true
+  disk_size: 2000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+storage_mounts:
+  /output_gcs_bucket:
+    source: gs://oumi-dev-us-central1 # GCS bucket to store output
+    store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama1b.fft
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]' hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.2-1B-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  uv pip install --upgrade --no-deps --force-reinstall '.[gpu]'
+  accelerate launch \
+      --num_machines ${OUMI_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
+      -m oumi.train \
+      -c configs/recipes/llama3_2/sft/1b_full/train.yaml \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+      "training.output_dir='/output_gcs_bucket/lema-balerion/training_runs/${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

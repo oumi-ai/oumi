@@ -103,7 +103,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
             max_model_len=model_params.model_max_length,
-            gpu_memory_utilization=gpu_memory_utilization,
+            gpu_memory_utilization=0.95,
             enforce_eager=enforce_eager,
             **vllm_kwargs,
         )
@@ -165,6 +165,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
             guided_decoding=guided_decoding,
+            logprobs=5,
         )
 
         output_conversations = []
@@ -200,10 +201,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 for message in chat_response.outputs
                 if len(chat_response.outputs) > 0
             ]
+            logits = chat_response.outputs[-1].logprobs
             messages = [
                 *conversation.messages,
                 *new_messages,
             ]
+            if conversation.metadata is None:
+                conversation.metadata = {}
+            conversation.metadata["logits"] = logits
             new_conversation = Conversation(
                 messages=messages,
                 metadata=conversation.metadata,
