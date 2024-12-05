@@ -1,4 +1,4 @@
-# Contributing to Oumi
+# Contributing
 
 Oumi welcomes any contribution that helps make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
 
@@ -13,32 +13,30 @@ Possible contributions include:
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
 * Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
 
-If you want to contribute but you are short of ideas or have any questions, just reach out (<community@oumi.ai>) and we can help.
-
-If you are new to GitHub, read this [documentation](https://support.github.com/) to learn all you need.
+If you want to contribute but you are short of ideas or have any questions, just reach out (<contact@oumi.ai>) and we can help.
 
 ## Prerequisites
 
 To set up the development environment on your local machine, clone the repository (`git clone https://github.com/oumi-ai/oumi.git`) and run the following commands below inside the 'oumi' folder.
 
-1\. Install the dependencies needed for testing and linting the code:
+1. Install the dependencies needed for testing and linting the code:
 
-```bash
-pip install -e '.[all]'
-```
+  ```bash
+  pip install -e '.[dev]'
+  ```
 
-If you're using a machine with a GPU, you should also install the `gpu` dependencies:
+  If you're using a machine with a GPU, you should also install the `gpu` dependencies:
 
-```bash
-pip install -e '.[all,gpu]'
-```
+  ```bash
+  pip install -e '.[dev,gpu]'
+  ```
 
-2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats
+2. Configure [pre-commit](https://pre-commit.com/), which automatically formats
 code before each commit:
 
-```bash
-pre-commit install
-```
+  ```bash
+  pre-commit install
+  ```
 
 ## Submitting a Contribution
 
