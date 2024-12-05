@@ -3,7 +3,7 @@
 model:
   model_name: "/model_bucket/lema-balerion/training_runs/llama8b.fft.sky-2024-11-22-10-37-51-456219_jgreer_halloumi_6"
   adapter_model: null  # Update for LoRA-tuned models.
-  model_max_length: 131072
+  model_max_length: 34000
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True

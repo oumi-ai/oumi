@@ -17,7 +17,7 @@ data:
   train:
     datasets:
       - dataset_name: "text_sft_jsonl"
-        dataset_path: "/output_gcs_bucket/lema-balerion/datasets/minicheck/halloumi_minicheck_citation_sft_train_v1_35464.jsonl"
+        dataset_path: "/output_gcs_bucket/lema-balerion/datasets/minicheck/halloumi_minicheck_citation_sft_train_labelfirst_v1_35464.jsonl"
         #dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/halloumi_minicheck_citation_sft_train_v1_35464.jsonl"}
         shuffle: True
         seed: 42
