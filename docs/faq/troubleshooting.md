@@ -10,6 +10,16 @@ For more help, check the [Oumi GitHub Issues](https://github.com/oumi-ai/oumi/is
 
 ## Common Issues
 
+### Pre-commit hook errors with VS Code
+
+- When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
+- To fix this, make sure to start your vscode instance after activating your conda environment.
+
+     ```shell
+     conda activate oumi
+     code .  # inside the Oumi directory
+     ```
+
 ### Out of Memory (OOM)
 
 See {doc}`oom` and {doc}`gpu_sizing` for more information.
