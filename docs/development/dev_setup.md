@@ -55,7 +55,8 @@
    ```shell
    gh auth login
    ```
-It is recommended to select "SSH", when asked "What is your preferred protocol for Git operations on this host." 
+
+It is recommended to select "SSH", when asked "What is your preferred protocol for Git operations on this host."
 
 ### 2.3 Set your Github name and email
 
