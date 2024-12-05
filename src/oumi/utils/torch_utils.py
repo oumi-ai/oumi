@@ -480,3 +480,73 @@ def get_shape_as_list(x: Any) -> list[int]:
         return list(x.shape)
 
     raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")
+
+
+class _FreezeModelLayer:
+    def __init__(self, name: str, freeze_it: bool):
+        self.name: str = name
+        self.freeze_it: bool = freeze_it
+        self.children: list[_FreezeModelLayer] = []
+
+
+def _freeze_model_layers_impl(
+    module: torch.nn.Module, freeze_layers: list[_FreezeModelLayer], parent_path: str
+) -> int:
+    result: int = 0
+    for model_layer in freeze_layers:
+        full_layer_path = (
+            (parent_path + "." + model_layer.name) if parent_path else model_layer.name
+        )
+        if hasattr(module, model_layer.name):
+            child_module = getattr(module, model_layer.name)
+            if model_layer.freeze_it:
+                logger.info(f"Freezing layer '{full_layer_path}'...")
+                for param in child_module.parameters(recurse=True):
+                    param.requires_grad_(False)
+                result += 1
+            elif len(model_layer.children) > 0:
+                result += _freeze_model_layers_impl(
+                    child_module, model_layer.children, full_layer_path
+                )
+        else:
+            logger.warning(f"Layer '{full_layer_path}' not found in model.")
+
+    return result
+
+
+def _group_freeze_model_layers(freeze_layers: list[str]) -> list[_FreezeModelLayer]:
+    dummy_root: _FreezeModelLayer = _FreezeModelLayer(name="", freeze_it=False)
+
+    # Build a tree of nested layers.
+    for layer_name in freeze_layers:
+        layer: _FreezeModelLayer = dummy_root
+        all_parts = list(layer_name.split("."))
+        for idx, curr_part in enumerate(all_parts):
+            next_layer = next((x for x in layer.children if x.name == curr_part), None)
+            # If it's the last part, let's freeze this layer.
+            freeze_it = idx + 1 >= len(all_parts)
+            if next_layer is None:
+                next_layer = _FreezeModelLayer(name=curr_part, freeze_it=freeze_it)
+                layer.children.append(next_layer)
+            elif freeze_it:
+                next_layer.freeze_it = True
+            layer = next_layer
+    return dummy_root.children
+
+
+def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
+    """Recursively freezes model layers.
+
+    Args:
+        model: A model to freeze layers in.
+        freeze_layers: A list of layer names to freeze.
+            Nested layers can be specified using a dot ('.') separator.
+            For example, "visual.child.grandchild".
+            Layer names not found in the model are ignored.
+
+    Returns:
+        The total number of layers successfully frozen.
+    """
+    root_freeze_layers = _group_freeze_model_layers(freeze_layers)
+
+    return _freeze_model_layers_impl(model, root_freeze_layers, "")
