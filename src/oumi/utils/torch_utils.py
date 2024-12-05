@@ -514,21 +514,26 @@ def _freeze_model_layers_impl(
     return result
 
 
-def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
-    """Recursively freezes model layers.
-
-    Returns the total number of layers successfully frozen.
-    """
-    root: _FreezeModelLayer = _FreezeModelLayer(name="")
+def _group_freeze_model_layers(freeze_layers: list[str]) -> list[_FreezeModelLayer]:
+    dummy_root: _FreezeModelLayer = _FreezeModelLayer(name="")
 
     # Build a tree of nested layers.
     for layer_name in freeze_layers:
-        layer: _FreezeModelLayer = root
+        layer: _FreezeModelLayer = dummy_root
         for curr_part in layer_name.split("."):
             next_layer = next((x for x in layer.children if x.name == curr_part), None)
             if next_layer is None:
                 next_layer = _FreezeModelLayer(name=curr_part)
                 layer.children.append(next_layer)
             layer = next_layer
+    return dummy_root.children
 
-    return _freeze_model_layers_impl(model, root.children, "")
+
+def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
+    """Recursively freezes model layers.
+
+    Returns the total number of layers successfully frozen.
+    """
+    root_freeze_layers = _group_freeze_model_layers(freeze_layers)
+
+    return _freeze_model_layers_impl(model, root_freeze_layers, "")
