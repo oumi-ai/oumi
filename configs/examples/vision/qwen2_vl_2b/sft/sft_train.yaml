@@ -18,7 +18,6 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
-        # trust_remote_code: True
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
