@@ -501,7 +501,7 @@ def _freeze_model_layers_impl(
             child_module = getattr(module, model_layer.name)
             if model_layer.freeze_it:
                 logger.info(f"Freezing layer '{full_layer_path}'...")
-                for param in child_module.parameters():
+                for param in child_module.parameters(recurse=True):
                     param.requires_grad_(False)
                 result += 1
             elif len(model_layer.children) > 0:
