@@ -5,8 +5,8 @@ from typing import Any, NamedTuple, Optional
 from oumi.core.configs.base_config import BaseConfig
 
 
-class DatasetFirstDimAction(Enum):
-    """Enum representing how to handle the first feature dimension in dataset."""
+class InternalFeatureFirstDimAction(Enum):
+    """Enum representing how to handle the first feature dimension in datasets."""
 
     DROP_ALWAYS = "drop_always"
     """The first dimension is commonly dummy (length: 1) and must be dropped.
@@ -22,11 +22,14 @@ class DatasetFirstDimAction(Enum):
     """Always preserve the first dimension."""
 
 
-class DatasetInputFeatureSpec(NamedTuple):
-    feature_name: str
+class InternalFeatureSpec(NamedTuple):
+    name: str
+    required: bool = True
     variable_shape: bool = False
     """Whether image features can be of variable shape."""
-    first_dim_action: DatasetFirstDimAction = DatasetFirstDimAction.DROP_ALWAYS
+    first_dim_action: InternalFeatureFirstDimAction = (
+        InternalFeatureFirstDimAction.DROP_ALWAYS
+    )
 
 
 @dataclass
@@ -46,10 +49,10 @@ class InternalVisualModelConfig(BaseConfig):
     label_ignore_index: Optional[int] = None
     """Special label value to be excluded from loss computation."""
 
-    sanitize_nagative_labels: bool = False
+    sanitize_negative_labels: bool = False
     """Replace negative label values.
 
-    Some VLM-s can use negative input_ids for image tokens,
+    Some VLM processors can generate negative `input_ids` for image tokens,
     which can cause problems if used as label to compute loss.
     """
 
@@ -57,17 +60,24 @@ class InternalVisualModelConfig(BaseConfig):
     """Extra params to pass to processor constructor."""
 
 
+def _default_model_input_features_factory() -> dict[str, InternalFeatureSpec]:
+    result_list: list[InternalFeatureSpec] = [
+        InternalFeatureSpec(name="input_ids", required=True, variable_shape=True),
+        InternalFeatureSpec(name="attention_mask", required=False, variable_shape=True),
+        InternalFeatureSpec(name="input_ids", required=False, variable_shape=True),
+    ]
+    return {x.name: x for x in result_list}
+
+
 @dataclass
 class InternalModelConfig(BaseConfig):
     chat_template: str = "default"
     """Default chat template."""
 
-    dataset_input_features: dict[str, DatasetInputFeatureSpec] = field(
-        default_factory=dict
+    model_input_features: dict[str, InternalFeatureSpec] = field(
+        default_factory=_default_model_input_features_factory
     )
-    """Dataset input features specs."""
+    """Model input features specs."""
 
-    visual_config: InternalVisualModelConfig = field(
-        default_factory=InternalVisualModelConfig
-    )
+    visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""
