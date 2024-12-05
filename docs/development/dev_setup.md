@@ -64,8 +64,12 @@ It is recommended to select "SSH", when asked "What is your preferred protocol f
 
    ```shell
    git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@oumi.ai
+   git config --global user.email "YOUR_EMAIL"
    ```
+
+The name and email will be used to identify your contributions to the Oumi repository. To ensure that commits are attributed to you and appear in your contributions graph, use an email address that is connected to your account on GitHub, or the noreply email address provided to you in your email settings.
+
+You can find more instructions [here](hhttps://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address).
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
 
