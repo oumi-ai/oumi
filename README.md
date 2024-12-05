@@ -33,17 +33,17 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 
 ## Features
 
-Oumi is designed to be fully flexible and yet easy to use:
+Oumi is designed to be fully flexible yet easy to use:
 
 - **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
 
-- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) and evaluation. Built for both research exploration and production deployment.
+- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) to evaluation. Built for both research exploration and production deployment.
 
 - **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
 
 - **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
 
-- **Unified Interface**: One consistent API for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
+- **Unified Interface**: One consistent interface for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
 
 - **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
 
@@ -62,18 +62,33 @@ With just a couple commands you can install Oumi, train, infer, and evaluate. Al
 
 ### Installation
 
-1. Install Oumi:
+```shell
+# Clone the repository
+git clone git@github.com:oumi-ai/oumi.git
+cd oumi
 
-   ```shell
-   pip install 'oumi'
-   ```
+# Install the package (CPU & NPU only)
+pip install -e .  # For local development & testing
+
+# OR, with GPU support (Requires Nvidia or AMD GPU)
+pip install -e ".[gpu]"  # For GPU training
+```
 
 ### Usage
 
-1. Run training locally:
-
    ```shell
-   oumi train -c path/to/your/config.yaml
+   # Training
+   oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml
+
+   # Evaluation
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
+   --lm_harness_params.tasks "[m_mmlu_en]"
+
+   # Inference
+   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
+   --generation.max_new_tokens 40 \
+   --generation.temperature 0.7 \
+   --interactive
    ```
 
    For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
@@ -112,25 +127,36 @@ We provide several Jupyter notebooks to help you get started with Oumi. Here's a
 
 ## Documentation
 
-View our API documentation [here](https://oumi.ai/docs/latest/index.html).
-
-Reach out to <matthew@oumi.ai> if you have problems with access.
+See the [Oumi documentation](https://oumi.ai/docs) to learn more about all the platform's capabilities.
 
 ## Contributing
 
-Contributions are welcome! After all, this is a community-based effort. Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Did we mention that this is a community-first effort? All contributions are welcome!
+
+Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+
+If you want to contribute but you are short of ideas, please reach out (<contact@oumi.ai>)!
+
+## Acknowledgements
+
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community 🚀
+
+We would like to acknowledge and deeply thank the contributors of these projects!
+
+## Citation
+
+If you find Oumi useful in your research, please consider citing it using the following entry:
+
+```bibtex
+@software{oumi2024,
+  author = {Oumi Community},
+  title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
+  month = {November},
+  year = {2024},
+  url = {https://github.com/oumi-ai/oumi}
+}
+```
 
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-
-## Troubleshooting
-
-1. Pre-commit hook errors with VS Code
-   - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
-   - To fix this, make sure to start your vscode instance after activating your conda environment.
-
-     ```shell
-     conda activate oumi
-     code .  # inside the Oumi directory
-     ```
