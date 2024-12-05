@@ -1,4 +1,14 @@
-# Open Universal Machine Intelligence (Oumi)
+<table border="0">
+ <tr>
+    <td width="150">
+      <img src="docs/_static/logo/oumi_logo_dark.png" alt="Oumi Logo" width="150"/>
+    </td>
+    <td>
+      <h1>Oumi: Open Universal Machine Intelligence</h1>
+      <p>E2E multimodal frontier AI Platform - Community-first & Enterprise-grade</p>
+    </td>
+ </tr>
+</table>
 
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
