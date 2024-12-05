@@ -1,10 +1,10 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
-name: phi3-sft-oumi-train
+# oumi launch up --config configs/examples/vision/qwen2_vl_2b/sft/gcp_job.yaml --cluster xrdaukar-1node4gpu-02-lema-cluster   #  my-oumi-cluster
+name: qwen2-vl-sft-oumi-train
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:4"
+  accelerators: "A100:4"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
   disk_size: 1000 # Disk size in GBs
@@ -24,22 +24,24 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: phi3.fft.oumi
+  OUMI_RUN_NAME: qwen2-vl.fft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
 
 setup: |
   set -e
   pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
-
-  pip install -U flash-attn --no-build-isolation
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
+
+  pip install '.[gpu]'
 
   set -x
   torchrun \
@@ -49,9 +51,8 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/phi3/sft/sft_train.yaml \
+      -c configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.trainer_type=OUMI" \
       "training.max_steps=20" \
       "training.save_steps=0" \
       "training.save_final_model=false"

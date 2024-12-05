@@ -231,15 +231,17 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
-    # TODO: Remove this once we have a better way to identify the model class
-    # Or we can just ask the user to specify the model class in the config
     model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
     tested_models = {
         "blip-2",
         "llava",
         "mllama",
         "phi3_v",
+        "qwen2_vl",
     }  # TODO: OPE-353, make sure we have all models supported
+
+    # TODO: Remove this once we have a better way to identify the model class
+    # Or we can just ask the user to specify the model class in the config
     if config.model_type in (
         "blip-2",
         "blip",
