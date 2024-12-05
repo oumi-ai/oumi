@@ -17,7 +17,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training,  to data curation, synthesis and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 <p align="center">
    <b>Check out our docs!</b>
@@ -39,7 +39,7 @@ Oumi is designed to be fully flexible and yet easy to use:
 
 - **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) and evaluation. Built for both research exploration and production deployment.
 
-- **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters and beyond.
+- **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
 
 - **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
 
@@ -49,15 +49,18 @@ Oumi is designed to be fully flexible and yet easy to use:
 
 - **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
 
+We're just getting started on this journey, and we can't wait to build Oumi together! If there's a feature that you think is missing, let us know or join us in making it a reality:
+
+- [Request a feature](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md)
+- [Contribute](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md)
+
+For a full tour of what Oumi can do, dive into our [documentation](https://oumi.ai/docs).
+
 ## Getting Started
 
-For an overview of Oumi features and usage, check out the [user guide](https://oumi.ai/docs/latest/user_guides/train/train.html) and the [hands-on tour of the repository](/notebooks/Oumi%20-%20A%20Tour.ipynb).
+With just a couple commands you can install Oumi, train, infer, and evaluate. All it would take is something like the following:
 
-### Quickstart
-
-0. (Optional) Set up Git and Conda:
-
-   For new developers, we highly recommend that you follow the [installation guide](/docs/development/dev_setup.md) to help set up Git and a local conda environment.
+### Installation
 
 1. Install Oumi:
 
@@ -65,9 +68,9 @@ For an overview of Oumi features and usage, check out the [user guide](https://o
    pip install 'oumi'
    ```
 
-2. Set up your configuration file (example configs are provided in the [configs](/configs) directory).
+### Usage
 
-3. Run training locally:
+1. Run training locally:
 
    ```shell
    oumi train -c path/to/your/config.yaml
