@@ -1,4 +1,6 @@
-# Development Setup
+# Dev Environment Setup
+
+This guide will help you set up a development environment for contributing to Oumi. If you already have a working environment, you can skip to [Set up Oumi](#set-up-oumi).
 
 ## 1. Install Miniconda
 
