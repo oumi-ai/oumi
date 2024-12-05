@@ -69,7 +69,7 @@ def build_model(
     if len(model_params.freeze_layers) > 0:
         num_frozen = freeze_model_layers(model, model_params.freeze_layers)
         logger.warning(
-            f"{num_frozen} layer(s) frozen based on the config:\n"
+            f"{num_frozen} layer(s) frozen based on the config: "
             f"{model_params.freeze_layers}."
         )
 
