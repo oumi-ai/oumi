@@ -33,15 +33,21 @@ Oumi is a community-first, enterprise-grade platform for AI research and develop
 
 ## Features
 
-Oumi is designed to be fully flexible and yet still easy to use:
+Oumi is designed to be fully flexible and yet easy to use:
 
-- **Run Anywhere**: Train and evaluate models seamlessly across local environments, Jupyter notebooks, VS Code debugger, or remote clusters.
-- **Any Training**: Pretraining and comprehensive instruction fine-tuning capabilities, including FFT, LoRA, DPO, and more.
-- **Scalability**: Built-in support for multi-node distributed training using PyTorch's DistributedDataParallel (DDP) or Fully Sharded Data Parallel (FSDP). Inference support for Llama 405B and beyond.
-- **Reproducibility**: Flexible configuration system using YAML files and command-line arguments to allow for full recordability and reproducibility of experiments across training and evaluation.
-- **Unified e2e Interface**: Streamlined processes for data preprocessing, data synthesis, model training, and evaluation with open models. Supports even integration with OpenAI, Anthropic, Vertex and other enterprise APIs. All you need, ready to use.
-- **Customizable**: Easily extendable to incorporate new models, datasets, and evaluation metrics.
-- **Enterprise-grade**: Enterprise-grade: Thorough coverage with unit and integration tests so that both researchers can rely on Oumi for research as well as enterprises to build their products on it.
+- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
+
+- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) and evaluation. Built for both research exploration and production deployment.
+
+- **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters and beyond.
+
+- **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
+
+- **Unified Interface**: One consistent API for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
+
+- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
+
+- **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
 
 ## Getting Started
 
