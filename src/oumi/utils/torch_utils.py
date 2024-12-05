@@ -537,7 +537,15 @@ def _group_freeze_model_layers(freeze_layers: list[str]) -> list[_FreezeModelLay
 def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
     """Recursively freezes model layers.
 
-    Returns the total number of layers successfully frozen.
+    Args:
+        model: A model to freeze layers in.
+        freeze_layers: A list of layer names to freeze.
+            Nested layers can be specified using a dot ('.') separator.
+            For example, "visual.child.grandchild".
+            Layer names not found in the model are ignored.
+
+    Returns:
+        The total number of layers successfully frozen.
     """
     root_freeze_layers = _group_freeze_model_layers(freeze_layers)
 
