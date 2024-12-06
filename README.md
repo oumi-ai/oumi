@@ -93,37 +93,67 @@ pip install -e ".[gpu]"  # For GPU training
 
    For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
 
-### Configurations
+### Examples &  Recipes
 
-These configurations demonstrate how to setup and run full training for different model architectures using Oumi.
+Explore our growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
-| Model | Type | Configuration | Cluster | Status |
-|-------|------|---------------|---------|--------|
-| **Llama Instruction Finetuning** | | | | |
-| Llama3.1 8b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 8b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | LoRA | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_lora/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
-| Llama3.1 70b | SFT | [polaris_job.yaml](/configs/recipes/llama3_1/sft/70b_full/polaris_job.yaml) | Polaris | ✨ Supported ✨ |
-| **Example Models** | | | | |
-| Aya | SFT | [train.yaml](configs/projects/aya/sft/train.yaml) | GCP | ✨ Supported ✨ |
-| Zephyr |QLoRA | [qlora_train.yaml](/configs/projects/zephyr/sft/qlora_train.yaml) | GCP | ✨ Supported ✨ |
-| ChatQA | SFT | [chatqa_stage1_train.yaml](/configs/projects/chatqa/sft/chatqa_stage1_train.yaml) | GCP | ✨ Supported ✨ |
-| **Pre-training** | | | | |
-| GPT-2 | Pre-training | [gpt2.pt.mac.yaml](/configs/recipes/gpt2/pretraining/mac_train.yaml) | Mac (mps) | ✨ Supported ✨ |
-| Llama2 2b | Pre-training | [fineweb.pt.yaml](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) | Polaris | ✨ Supported ✨ |
+#### 🦙 Llama Family
 
-## Tutorials
+| Model | Example Configurations |
+|-------|------------------------|
+| Llama3.1 8b | [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
+| Llama3.1 70b | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
+| Llama3.1 405b | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
+| Llama3.2 3b | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
+| Llama3.2 Vision 11b | [SFT](/configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 
-We provide several Jupyter notebooks to help you get started with Oumi. Here's a list of available examples:
+#### 🎨 Vision Models
 
-| Notebook | Description |
+| Model | Example Configurations |
+|-------|------------------------|
+| Llama3.2 Vision 11b | [SFT](/configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
+| LLaVA 7b | [SFT](/configs/examples/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/examples/vision/llava_7b/inference/infer.yaml) |
+| Phi3 Vision | [SFT](/configs/examples/vision/phi3/sft/sft_train.yaml) |
+| Qwen2-VL 2b | [SFT](/configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml) |
+
+
+#### 🎯 Training Techniques
+
+| Model | Example Configurations |
+|-------|------------------------|
+| Llama3.1 8b | [FSDP Training](/configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml) • [Long Context](/configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml) |
+| Phi-3 | [DPO](/configs/recipes/phi3/dpo/train.yaml) • [DPO+FSDP](/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml) |
+| Fineweb | [DDP Pre-training](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) • [DeepSpeed](/configs/examples/fineweb_ablation_pretraining/deepspeed/train.yaml) • [FSDP](/configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml) |
+
+#### 🚀 Inference
+
+| Model | Example Configurations |
+|-------|------------------------|
+| Llama3.1 8b | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/8b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/8b_infer_sglang.yaml) |
+| Llama3.1 70b | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/70b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/70b_infer_sglang.yaml) |
+| Llama3.2 Vision 11b | [vLLM](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
+| GPT-2 | [Native](/configs/recipes/gpt2/inference/infer.yaml) |
+| Mistral | [Bulk Inference](/configs/examples/bulk_inference/mistral_small_infer.yaml) |
+
+## Example Notebooks
+
+Comprehensive tutorials and guides to help you master Oumi:
+
+| Tutorial | Description |
 |----------|-------------|
-| [A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | A comprehensive tour of the Oumi repository and its features |
-| [Finetuning Tutorial](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide on how to finetune models using Oumi |
-| [Tuning Llama](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | Detailed tutorial on tuning Llama models with Oumi |
-| [Multinode Inference on Polaris](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guides you through running inference with trained models |
-| [Datasets Tutorial](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Explains how to work with datasets in Oumi |
-| [Deploying a Job](/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb) | Instructions on how to deploy a training job using Oumi |
+| [🎯 Getting Started: A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | Comprehensive overview of Oumi's architecture and core capabilities |
+| **Model Training & Finetuning** |
+| [🔧 Model Finetuning Guide](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide to efficient model finetuning techniques |
+| [🦙 Advanced Llama Training](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | In-depth walkthrough of Llama model training and optimization |
+| **Deployment & Infrastructure** |
+| [🚀 Distributed Inference](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guide to scaling inference across multiple compute nodes |
+| [🔄 vLLM Inference Engine](/notebooks/Oumi%20-%20Using%20vLLM%20Engine%20for%20Inference.ipynb) | High-performance inference using vLLM |
+| [☁️ Remote Training](/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb) | Guide to running jobs on cloud platforms |
+| [🖥️ Custom Clusters](/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb) | Setting up and using custom compute clusters |
+| **Datasets & Evaluation** |
+| [📊 Dataset Management](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Best practices for dataset preparation and processing |
+| [⚖️ Custom Judge](/notebooks/Oumi%20-%20Custom%20Judge.ipynb) | Creating custom evaluation metrics and judges |
+| [📈 Oumi Judge](/notebooks/Oumi%20-%20Oumi%20Judge.ipynb) | Using Oumi's built-in evaluation framework |
 
 ## Documentation
 
@@ -139,9 +169,7 @@ If you want to contribute but you are short of ideas, please reach out (<contact
 
 ## Acknowledgements
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community 🚀
-
-We would like to acknowledge and deeply thank the contributors of these projects!
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🚀
 
 ## Citation
 
