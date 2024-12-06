@@ -1,8 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Final, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 import requests
@@ -11,7 +10,10 @@ from PIL import Image
 from typing_extensions import override
 
 from oumi.builders.processors import build_processor
-from oumi.core.configs.internal.internal_model_config import InternalModelConfig
+from oumi.core.configs.internal.internal_model_config import (
+    InternalFeatureFirstDimAction,
+    InternalModelConfig,
+)
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     get_default_vlm_model_config,
@@ -33,52 +35,6 @@ class _SpecialTokens(NamedTuple):
 
     pad_token_id: int
     """Token id of `PAD` token."""
-
-
-class _FirstDimAction(Enum):
-    """Enum representing how to handle the first feature dimension."""
-
-    DROP_ALWAYS = "drop_always"
-    """The first dimension is commonly dummy (length: 1) and must be dropped.
-
-    In effect, this operation is applied: `x = x[0, ...]`, which reduces
-    `x`'s rank by 1 (e.g., 3D->2D), and discards the following elements: `x[1:, ...]`.
-    """
-
-    DROP_IF_DUMMY = "drop_if_dummy"
-    """Drop the first dimension only if it's dummy (length: 1)."""
-
-    KEEP = "keep"
-    """Always preserve the first dimension."""
-
-
-class InputFeatureSpec(NamedTuple):
-    feature_name: str
-    required: bool
-    first_dim_action: _FirstDimAction = _FirstDimAction.DROP_ALWAYS
-
-
-_INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
-    InputFeatureSpec(feature_name="input_ids", required=True),
-    InputFeatureSpec(
-        feature_name="pixel_values",
-        required=True,
-        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
-    ),
-    InputFeatureSpec(feature_name="attention_mask", required=True),
-    InputFeatureSpec(feature_name="labels", required=True),
-    # Llama 3.2 Vision
-    InputFeatureSpec(feature_name="aspect_ratio_ids", required=False),
-    InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
-    InputFeatureSpec(feature_name="cross_attention_mask", required=False),
-    # Qwen2 VL
-    InputFeatureSpec(feature_name="image_grid_thw", required=False),
-    # Phi3 Vision
-    InputFeatureSpec(feature_name="image_sizes", required=False),
-]
-_INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
-    spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
-}
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -228,7 +184,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for feature_name, feature_spec in _INPUT_FEATURES_DICT.items():
+        for (
+            feature_name,
+            feature_spec,
+        ) in self._internal_model_config.model_input_features.items():
             if (not feature_spec.required) and (feature_name not in inputs):
                 continue
             x = inputs[feature_name]
@@ -241,8 +200,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             first_dim_action = feature_spec.first_dim_action
 
             if first_dim_action in (
-                _FirstDimAction.DROP_ALWAYS,
-                _FirstDimAction.DROP_IF_DUMMY,
+                InternalFeatureFirstDimAction.DROP_ALWAYS,
+                InternalFeatureFirstDimAction.DROP_IF_DUMMY,
             ):
                 first_dim_len = get_first_dim_len(x)
                 if first_dim_len <= 0:
@@ -250,7 +209,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                         f"Empty first dimension for the feature '{feature_name}'."
                     )
                 drop_first_dim = (
-                    first_dim_action == _FirstDimAction.DROP_ALWAYS
+                    first_dim_action == InternalFeatureFirstDimAction.DROP_ALWAYS
                     or first_dim_len <= 1
                 )
                 if first_dim_len > 1 and drop_first_dim:
@@ -265,7 +224,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 else:
                     inputs[feature_name] = x
             else:
-                assert feature_spec.first_dim_action == _FirstDimAction.KEEP
+                assert (
+                    feature_spec.first_dim_action == InternalFeatureFirstDimAction.KEEP
+                )
                 inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
