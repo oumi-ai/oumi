@@ -267,6 +267,23 @@ def _create_default_vlm_config(
     return config
 
 
+def _create_llava_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config()
+    config.chat_template = "llava"
+    assert config.visual_config is not None
+    config.visual_config.processor_kwargs.update(
+        {"patch_size": 14, "vision_feature_select_strategy": "default"}
+    )
+    return config
+
+
+def _create_blip2_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config()
+    assert config.visual_config is not None
+    config.visual_config.processor_kwargs.update({"num_query_tokens": 32})
+    return config
+
+
 def _create_mllama_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config()
     config.chat_template = "llama3-instruct"
@@ -289,7 +306,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=True)
-    # TODO Add qwen2-VL chat template
+    # TODO OPE-673 Add Qwen2-VL chat template
     config.model_input_features.update(
         {
             feature_name: InternalFeatureSpec(
@@ -340,7 +357,7 @@ def _get_all_vlms_map() -> (
             model_type="blip-2",
             model_class=default_vlm_class,
             tested=True,
-            config=copy.deepcopy(default_vlm_config),
+            config=_create_blip2_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="blip",
@@ -376,7 +393,7 @@ def _get_all_vlms_map() -> (
             model_type="llava",
             model_class=default_vlm_class,
             tested=True,
-            config=copy.deepcopy(default_vlm_config),
+            config=_create_llava_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="mllama",
