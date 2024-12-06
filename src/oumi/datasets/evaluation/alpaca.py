@@ -85,6 +85,6 @@ class AlpacaEvalDataset(BaseSftDataset):
             elif isinstance(example, dict):
                 metadata_fields = {str(key) for key in example.keys()}
             metadata_fields = metadata_fields - {"instruction", "input"}
-            metadata = {field: example[field] for field in metadata_fields}
+        metadata = {field: example[field] for field in metadata_fields}
 
         return Conversation(messages=messages, metadata=metadata)
