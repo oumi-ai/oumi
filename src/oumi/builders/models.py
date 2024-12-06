@@ -310,6 +310,7 @@ def _get_all_vlms_map() -> (
         if model_info.config is None:
             all_models_dict[model_type] = model_info.clone_with_new_config(base_config)
 
+    # Make it immutable.
     return types.MappingProxyType(all_models_dict)
 
 
