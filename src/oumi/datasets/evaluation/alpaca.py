@@ -59,6 +59,9 @@ class AlpacaEvalDataset(BaseSftDataset):
         Returns:
             dict: The input example converted to Alpaca dictionary format.
 
+        Note:
+            If `unused_entries_to_metadata` is set: all example's entries, other than
+            the expected ones (i.e., `input` and `instruction`), are saved as metadata.
         """
         messages = []
 

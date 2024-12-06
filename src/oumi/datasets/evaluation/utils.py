@@ -14,6 +14,12 @@ def conversation_to_alpaca_format(
     Converts an Oumi single-turn conversation to a dictionary with keys `instruction`
     and `output`. If the first message is a System Instruction, it is ignored. Any
     fields in the conversation's metadata are also retained as dict entries.
+
+    Alpaca format (see: https://huggingface.co/datasets/tatsu-lab/alpaca_eval):
+        {
+            "instruction": <`str` prompt/request to a Large Language Model (LLM)>,
+            "output": <`str` response by a Large Language Model (LLM)>,
+        }
     """
     # Ensure the number of messages is correct.
     if len(conversation.messages) not in (2, 3):
@@ -54,7 +60,7 @@ def conversation_to_alpaca_format(
     return conversations_dict
 
 
-def list_conversations_to_alpaca_format(
+def conversations_to_alpaca_format(
     list_conversations: list[Conversation],
     instruction_field_name: str = _DEFAULT_INSTRUCTION_FIELD_NAME,
     output_field_name: str = _DEFAULT_OUTPUT_FIELD_NAME,
