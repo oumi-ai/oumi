@@ -61,7 +61,7 @@ def conversation_to_alpaca_format(
 
 
 def conversations_to_alpaca_format(
-    list_conversations: list[Conversation],
+    conversations: list[Conversation],
     instruction_field_name: str = _DEFAULT_INSTRUCTION_FIELD_NAME,
     output_field_name: str = _DEFAULT_OUTPUT_FIELD_NAME,
 ) -> list[dict]:
@@ -72,5 +72,5 @@ def conversations_to_alpaca_format(
             instruction_field_name=instruction_field_name,
             output_field_name=output_field_name,
         )
-        for conversation in list_conversations
+        for conversation in conversations
     ]
