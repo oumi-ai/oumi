@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, NamedTuple, Optional
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.constants import LABEL_IGNORE_INDEX
 
 
 class InternalFeatureFirstDimAction(Enum):
@@ -55,7 +56,7 @@ class InternalVisualModelConfig(BaseConfig):
     supports_multiple_images: bool = False
     """Whether the visual language model supports multiple images in one prompt."""
 
-    label_ignore_index: Optional[int] = None
+    label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
     """Special label value to be excluded from loss computation."""
 
     sanitize_negative_labels: bool = False

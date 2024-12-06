@@ -16,6 +16,7 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
     InternalModelConfig,
+    InternalVisualModelConfig,
 )
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
@@ -241,16 +242,86 @@ def build_huggingface_model(
 class _ModelTypeInfo(NamedTuple):
     model_type: str
     model_class: type
+    config: InternalModelConfig
     tested: bool = False
-    config: Optional[InternalModelConfig] = None
 
-    def clone_with_new_config(self, config: InternalModelConfig) -> "_ModelTypeInfo":
-        return _ModelTypeInfo(
-            model_type=self.model_type,
-            model_class=self.model_class,
-            tested=self.tested,
-            config=copy.deepcopy(config),
-        )
+
+def _create_default_vlm_config(
+    pixel_values_variable_shape: bool = False,
+) -> InternalModelConfig:
+    config = InternalModelConfig()
+    config.chat_template = "llava"
+    config.model_input_features.update(
+        {
+            "pixel_values": InternalFeatureSpec(
+                name="pixel_values",
+                required=True,
+                variable_shape=pixel_values_variable_shape,
+                first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+            )
+        }
+    )
+    visual_config = InternalVisualModelConfig()
+    visual_config.variable_shape_image_features = pixel_values_variable_shape
+    config.visual_config = visual_config
+    return config
+
+
+def _create_mllama_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config()
+    config.chat_template = "llama3-instruct"
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+            )
+            for feature_name in (
+                "aspect_ratio_ids",
+                "aspect_ratio_mask",
+                "cross_attention_mask",
+            )
+        }
+    )
+    return config
+
+
+def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    # TODO Add qwen2-VL chat template
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+            )
+            for feature_name in ("image_grid_thw",)
+        }
+    )
+    return config
+
+
+def _create_phi3_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config.chat_template = "phi3-instruct"
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+            )
+            for feature_name in ("image_sizes",)
+        }
+    )
+    assert config.visual_config is not None
+    visual_config = config.visual_config
+    visual_config.supports_multiple_images = True
+    visual_config.label_ignore_index = None
+    visual_config.sanitize_negative_labels = True
+    return config
 
 
 @functools.cache
@@ -261,57 +332,89 @@ def _get_all_vlms_map() -> (
     ]
 ):
     """Creates a map of all supported VLMs with related configs."""
-    base_config = InternalModelConfig()
-    base_config.model_input_features.update(
-        {
-            "pixel_values": InternalFeatureSpec(
-                name="pixel_values",
-                required=True,
-                variable_shape=False,
-                first_dim_action=InternalFeatureFirstDimAction.DROP_ALWAYS,
-            )
-        }
-    )
+    default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
     default_vlm_class = transformers.AutoModelForVision2Seq
     all_models_list: list[_ModelTypeInfo] = [
-        _ModelTypeInfo(model_type="blip-2", model_class=default_vlm_class, tested=True),
-        _ModelTypeInfo(model_type="blip", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="chameleon", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="idefics", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="idefics2", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="idefics3", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="instructblip", model_class=default_vlm_class),
-        _ModelTypeInfo(model_type="llava", model_class=default_vlm_class, tested=True),
-        _ModelTypeInfo(model_type="mllama", model_class=default_vlm_class, tested=True),
-        _ModelTypeInfo(model_type="paligemma", model_class=default_vlm_class),
         _ModelTypeInfo(
-            model_type="qwen2_vl", model_class=default_vlm_class, tested=True
+            model_type="blip-2",
+            model_class=default_vlm_class,
+            tested=True,
+            config=copy.deepcopy(default_vlm_config),
         ),
-        _ModelTypeInfo(model_type="vipllava", model_class=default_vlm_class),
         _ModelTypeInfo(
-            model_type="molmo", model_class=transformers.AutoModelForCausalLM
+            model_type="blip",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="chameleon",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="idefics",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="idefics2",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="idefics3",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="instructblip",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="llava",
+            model_class=default_vlm_class,
+            tested=True,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="mllama",
+            model_class=default_vlm_class,
+            tested=True,
+            config=_create_mllama_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="paligemma",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen2_vl",
+            model_class=default_vlm_class,
+            tested=True,
+            config=_create_qwen2_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="vipllava",
+            model_class=default_vlm_class,
+            config=copy.deepcopy(default_vlm_config),
+        ),
+        _ModelTypeInfo(
+            model_type="molmo",
+            model_class=transformers.AutoModelForCausalLM,
+            config=copy.deepcopy(default_vlm_config),
         ),
         _ModelTypeInfo(
             model_type="phi3_v",
             model_class=transformers.AutoModelForCausalLM,
             tested=True,
+            config=_create_phi3_vlm_config(),
         ),
     ]
 
-    all_models_dict: dict[
-        str,
-        _ModelTypeInfo,
-    ] = {x.model_type: x for x in all_models_list}
-
-    # Set default model config for all model types w/o specialized config.
-    for model_type in list(sorted(all_models_dict.keys())):
-        model_info = all_models_dict[model_type]
-        if model_info.config is None:
-            all_models_dict[model_type] = model_info.clone_with_new_config(base_config)
-
     # Make it immutable.
-    return types.MappingProxyType(all_models_dict)
+    return types.MappingProxyType({x.model_type: x for x in all_models_list})
 
 
 def _get_transformers_model_class(config):
