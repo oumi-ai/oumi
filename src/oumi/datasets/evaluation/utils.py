@@ -1,13 +1,13 @@
 from oumi.core.types.conversation import Conversation, Role
 
-DEFAULT_INSTRUCTION_FIELD_NAME = "instruction"
-DEFAULT_OUTPUT_FIELD_NAME = "output"
+_DEFAULT_INSTRUCTION_FIELD_NAME = "instruction"
+_DEFAULT_OUTPUT_FIELD_NAME = "output"
 
 
 def conversation_to_alpaca_format(
     conversation: Conversation,
-    instruction_field_name: str = DEFAULT_INSTRUCTION_FIELD_NAME,
-    output_field_name: str = DEFAULT_OUTPUT_FIELD_NAME,
+    instruction_field_name: str = _DEFAULT_INSTRUCTION_FIELD_NAME,
+    output_field_name: str = _DEFAULT_OUTPUT_FIELD_NAME,
 ) -> dict:
     """Converts an Oumi `Conversation` to Alpaca format.
 
@@ -56,8 +56,8 @@ def conversation_to_alpaca_format(
 
 def list_conversations_to_alpaca_format(
     list_conversations: list[Conversation],
-    instruction_field_name: str = DEFAULT_INSTRUCTION_FIELD_NAME,
-    output_field_name: str = DEFAULT_OUTPUT_FIELD_NAME,
+    instruction_field_name: str = _DEFAULT_INSTRUCTION_FIELD_NAME,
+    output_field_name: str = _DEFAULT_OUTPUT_FIELD_NAME,
 ) -> list[dict]:
     """Converts a list of conversations to Alpaca format (list of dictionaries)."""
     return [
