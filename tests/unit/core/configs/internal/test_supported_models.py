@@ -11,11 +11,12 @@ from oumi.core.configs.params.model_params import ModelParams
 @pytest.mark.parametrize(
     "model_name, trust_remote_code",
     [
-        ("meta-llama/Llama-3.2-11B-Vision-Instruct", False),
         ("llava-hf/llava-1.5-7b-hf", False),
         ("microsoft/Phi-3-vision-128k-instruct", True),
         ("Qwen/Qwen2-VL-2B-Instruct", True),
         ("Salesforce/blip2-opt-2.7b", False),
+        # Access is restricted (gated repo):
+        # ("meta-llama/Llama-3.2-11B-Vision-Instruct", False),
     ],
 )
 def test_common_vlm_models(model_name: str, trust_remote_code):
