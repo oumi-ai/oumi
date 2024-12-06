@@ -107,6 +107,11 @@ class BaseSftDataset(BaseMapDataset, ABC):
         sample = self.raw(idx)
         return self.transform_conversation(sample)
 
+    def conversations(self) -> list[Conversation]:
+        """Returns a list of all conversations."""
+        indexes = range(len(self))
+        return [self.conversation(index) for index in indexes]
+
     #
     # Abstract Methods
     #

@@ -1,8 +1,6 @@
-"""Porting the Alpaca dataset with Oumi.
+"""Porting the Alpaca evaluation dataset to Oumi.
 
-For more info see:
-    (1) https://github.com/tatsu-lab/stanford_alpaca
-    (2) https://github.com/gururise/AlpacaDataCleaned
+For more info see: https://github.com/tatsu-lab/alpaca_eval
 """
 
 from typing import Union, cast
@@ -14,9 +12,8 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
-@register_dataset("yahma/alpaca-cleaned")
-@register_dataset("tatsu-lab/alpaca")
-class AlpacaDataset(BaseSftDataset):
+@register_dataset("tatsu-lab/alpaca_eval")
+class AlpacaEvalDataset(BaseSftDataset):
     system_prompt_with_context = (
         "Below is an instruction that describes a task, "
         "paired with an input that provides further context. "
@@ -28,16 +25,27 @@ class AlpacaDataset(BaseSftDataset):
         "Write a response that appropriately completes the request."
     )
 
-    default_dataset = "tatsu-lab/alpaca"
+    default_dataset = "tatsu-lab/alpaca_eval"
 
     def __init__(
         self,
         *,
-        include_system_prompt: bool = True,
+        include_system_prompt: bool = False,
+        unused_entries_to_metadata: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the AlpacaDataset class."""
+        """Initializes a new instance of the AlpacaDataset class.
+
+        Args:
+            include_system_prompt (bool): Whether to include a system prompt in the
+                conversation.
+            unused_entries_to_metadata (bool): Whether to save entries that were not
+                used in the conversation (entries other than `instruction`, `input`)
+                as metadata.
+            **kwargs: Additional keyword arguments.
+        """
         self.include_system_prompt = include_system_prompt
+        self.unused_entries_to_metadata = unused_entries_to_metadata
 
         super().__init__(**kwargs)
 
@@ -46,15 +54,18 @@ class AlpacaDataset(BaseSftDataset):
 
         Args:
             example (dict or Pandas Series): An example containing `input` (optional),
-                `instruction`, and `output` entries.
+                `instruction` entries.
 
         Returns:
             dict: The input example converted to Alpaca dictionary format.
 
+        Note:
+            If `unused_entries_to_metadata` is set: all example's entries, other than
+            the expected ones (i.e., `input` and `instruction`), are saved as metadata.
         """
         messages = []
 
-        # Use default Alpaca user prompt template
+        # Use default Alpaca user prompt template.
         if ("input" in example) and len(example["input"]) > 0:
             # This example has both an instruction and a user input.
             user_prompt = f"{example['instruction']}\n\n### Input:\n{example['input']}"
@@ -63,12 +74,19 @@ class AlpacaDataset(BaseSftDataset):
             user_prompt = cast(str, example["instruction"])
             system_prompt = self.system_prompt_without_context
 
-        model_output = cast(str, example["output"])
-
-        # Create message list
+        # Create message list.
         if self.include_system_prompt:
             messages.append(Message(role=Role.SYSTEM, content=system_prompt))
         messages.append(Message(role=Role.USER, content=user_prompt))
-        messages.append(Message(role=Role.ASSISTANT, content=model_output))
 
-        return Conversation(messages=messages)
+        # Retain entries (other than `instruction`, `input`) as metadata.
+        metadata_fields = set()
+        if self.unused_entries_to_metadata:
+            if isinstance(example, pd.Series):
+                metadata_fields = {str(i) for i in example.index}
+            elif isinstance(example, dict):
+                metadata_fields = {str(key) for key in example.keys()}
+            metadata_fields = metadata_fields - {"instruction", "input"}
+        metadata = {field: example[field] for field in metadata_fields}
+
+        return Conversation(messages=messages, metadata=metadata)
