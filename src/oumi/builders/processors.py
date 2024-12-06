@@ -3,6 +3,7 @@ from typing import Optional
 
 import transformers
 
+from oumi.builders.models import _find_internal_model_config_using_model_name
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.processors.default_processor import DefaultProcessor
@@ -27,22 +28,23 @@ def build_processor(
     if not processor_name:
         raise ValueError("Empty model name.")
 
+    model_config = _find_internal_model_config_using_model_name(
+        processor_name, trust_remote_code=trust_remote_code
+    )
+
     label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
+    processor_kwargs = {}
+    if model_config is not None:
+        label_ignore_index = model_config.label_ignore_index
+        processor_kwargs.update(model_config.processor_kwargs)
+
     create_processor_fn = functools.partial(
         transformers.AutoProcessor.from_pretrained,
         processor_name,
         trust_remote_code=trust_remote_code,
     )
-    # TODO OPE-701 Replace the special cases with a more general mechanism.
-    if processor_name == "llava-hf/llava-1.5-7b-hf":
-        worker_processor = create_processor_fn(
-            patch_size=14, vision_feature_select_strategy="default"
-        )
-    elif processor_name == "Salesforce/blip2-opt-2.7b":
-        worker_processor = create_processor_fn(num_query_tokens=32)
-    elif processor_name == "microsoft/Phi-3-vision-128k-instruct":
-        label_ignore_index = None
-        worker_processor = create_processor_fn()
+    if len(processor_kwargs) > 0:
+        worker_processor = create_processor_fn(**processor_kwargs)
     else:
         worker_processor = create_processor_fn()
 

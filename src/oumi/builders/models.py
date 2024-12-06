@@ -270,7 +270,7 @@ def _create_llava_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config()
     config.chat_template = "llava"
     assert config.visual_config is not None
-    config.visual_config.processor_kwargs.update(
+    config.processor_kwargs.update(
         {"patch_size": 14, "vision_feature_select_strategy": "default"}
     )
     return config
@@ -279,7 +279,7 @@ def _create_llava_vlm_config() -> InternalModelConfig:
 def _create_blip2_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config()
     assert config.visual_config is not None
-    config.visual_config.processor_kwargs.update({"num_query_tokens": 32})
+    config.processor_kwargs.update({"num_query_tokens": 32})
     return config
 
 
@@ -322,6 +322,8 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
 def _create_phi3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=True)
     config.chat_template = "phi3-instruct"
+    config.label_ignore_index = None
+    config.sanitize_negative_labels = True
     config.model_input_features.update(
         {
             feature_name: InternalFeatureSpec(
@@ -335,8 +337,6 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
     assert config.visual_config is not None
     visual_config = config.visual_config
     visual_config.supports_multiple_images = True
-    visual_config.label_ignore_index = None
-    visual_config.sanitize_negative_labels = True
     return config
 
 
@@ -450,8 +450,7 @@ def _get_transformers_model_class(config):
     return auto_model_class
 
 
-@functools.cache
-def find_internal_model_config_using_model_name(
+def _find_internal_model_config_using_model_name(
     model_name: str, trust_remote_code: bool
 ) -> Optional[InternalModelConfig]:
     """Finds an internal model config for supported models using model name.
@@ -468,7 +467,7 @@ def find_internal_model_config_using_model_name(
     return vlm_info.config if vlm_info is not None else None
 
 
-def find_internal_model_config(
+def _find_internal_model_config(
     model_params: ModelParams,
 ) -> Optional[InternalModelConfig]:
     """Finds an internal model config for supported models using `ModelParams`.
@@ -479,14 +478,16 @@ def find_internal_model_config(
     Returns:
         Model config, or `None` if model is not recognized.
     """
-    return find_internal_model_config_using_model_name(
+    return _find_internal_model_config_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
 
 
-@functools.cache
-def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
-    model_config = find_internal_model_config_using_model_name(
+def is_image_text_llm_using_model_name(
+    model_name: str, trust_remote_code: bool
+) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    model_config = _find_internal_model_config_using_model_name(
         model_name, trust_remote_code=trust_remote_code
     )
     return model_config is not None and model_config.visual_config is not None
@@ -494,7 +495,7 @@ def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
 
 def is_image_text_llm(model_params: ModelParams) -> bool:
     """Determines whether the model is a basic image+text LLM."""
-    return _is_image_text_llm_impl(
+    return is_image_text_llm_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
 

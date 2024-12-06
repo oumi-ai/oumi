@@ -56,20 +56,6 @@ class InternalVisualModelConfig(BaseConfig):
     supports_multiple_images: bool = False
     """Whether the visual language model supports multiple images in one prompt."""
 
-    label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
-    """Special label value to be excluded from loss computation."""
-
-    sanitize_negative_labels: bool = False
-    """Replace negative label values.
-
-    Some VLM processors can generate negative `input_ids` for image tokens,
-    which can cause problems if a negative integer is used as a label
-    to compute loss e.g., cross-entropy loss may expect [0, num_classes) range.
-    """
-
-    processor_kwargs: dict[str, Any] = field(default_factory=dict)
-    """Extra params to pass to processor constructor."""
-
 
 def _default_model_input_features_factory() -> dict[str, InternalFeatureSpec]:
     result_list: list[InternalFeatureSpec] = [
@@ -92,6 +78,20 @@ class InternalModelConfig(BaseConfig):
         default_factory=_default_model_input_features_factory
     )
     """Model input features specs."""
+
+    label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
+    """Special label value to be excluded from loss computation."""
+
+    sanitize_negative_labels: bool = False
+    """Replace negative label values.
+
+    Some VLM processors can generate negative `input_ids` for image tokens,
+    which can cause problems if a negative integer is used as a label
+    to compute loss e.g., cross-entropy loss may expect [0, num_classes) range.
+    """
+
+    processor_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Extra params to pass to processor constructor."""
 
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""
