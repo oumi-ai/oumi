@@ -1,7 +1,10 @@
+import copy
 import functools
+import types
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union, cast
+from typing import NamedTuple, Optional, Union, cast
 
 import torch
 import torch.nn as nn
@@ -9,7 +12,11 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from oumi.core.configs import ModelParams, PeftParams
-from oumi.core.configs.internal.internal_model_config import InternalModelConfig
+from oumi.core.configs.internal.internal_model_config import (
+    InternalFeatureFirstDimAction,
+    InternalFeatureSpec,
+    InternalModelConfig,
+)
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.tokenizers import get_default_special_tokens
@@ -231,61 +238,95 @@ def build_huggingface_model(
     return model
 
 
-def _build_image_text_llm_dict() -> (
-    dict[
+class _ModelTypeInfo(NamedTuple):
+    model_type: str
+    model_class: type
+    tested: bool = False
+    config: Optional[InternalModelConfig] = None
+
+    def clone_with_new_config(self, config: InternalModelConfig) -> "_ModelTypeInfo":
+        return _ModelTypeInfo(
+            model_type=self.model_type,
+            model_class=self.model_class,
+            tested=self.tested,
+            config=copy.deepcopy(config),
+        )
+
+
+@functools.cache
+def _get_all_vlms_map() -> (
+    Mapping[
         str,  # model type
-        InternalModelConfig,
+        _ModelTypeInfo,
     ]
 ):
-    models_list: list[InternalModelConfig] = []
+    """Creates a map of all supported VLMs with related configs."""
+    base_config = InternalModelConfig()
+    base_config.model_input_features.update(
+        {
+            "pixel_values": InternalFeatureSpec(
+                name="pixel_values",
+                required=True,
+                variable_shape=False,
+                first_dim_action=InternalFeatureFirstDimAction.DROP_ALWAYS,
+            )
+        }
+    )
 
-    return {x.model_type: x for x in models_list}
+    default_vlm_class = transformers.AutoModelForVision2Seq
+    all_models_list: list[_ModelTypeInfo] = [
+        _ModelTypeInfo(model_type="blip-2", model_class=default_vlm_class, tested=True),
+        _ModelTypeInfo(model_type="blip", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="chameleon", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="idefics", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="idefics2", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="idefics3", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="instructblip", model_class=default_vlm_class),
+        _ModelTypeInfo(model_type="llava", model_class=default_vlm_class, tested=True),
+        _ModelTypeInfo(model_type="mllama", model_class=default_vlm_class, tested=True),
+        _ModelTypeInfo(model_type="paligemma", model_class=default_vlm_class),
+        _ModelTypeInfo(
+            model_type="qwen2_vl", model_class=default_vlm_class, tested=True
+        ),
+        _ModelTypeInfo(model_type="vipllava", model_class=default_vlm_class),
+        _ModelTypeInfo(
+            model_type="molmo", model_class=transformers.AutoModelForCausalLM
+        ),
+        _ModelTypeInfo(
+            model_type="phi3_v",
+            model_class=transformers.AutoModelForCausalLM,
+            tested=True,
+        ),
+    ]
+
+    all_models_dict: dict[
+        str,
+        _ModelTypeInfo,
+    ] = {x.model_type: x for x in all_models_list}
+
+    # Set default model config for all model types w/o specialized config.
+    for model_type in list(sorted(all_models_dict.keys())):
+        model_info = all_models_dict[model_type]
+        if model_info.config is None:
+            all_models_dict[model_type] = model_info.clone_with_new_config(base_config)
+
+    return types.MappingProxyType(all_models_dict)
 
 
 def _get_transformers_model_class(config):
     model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
-    tested_models = {
-        "blip-2",
-        "llava",
-        "mllama",
-        "phi3_v",
-        "qwen2_vl",
-    }  # TODO: OPE-353, make sure we have all models supported
 
-    # TODO: Remove this once we have a better way to identify the model class
-    # Or we can just ask the user to specify the model class in the config
-    if config.model_type in (
-        "blip-2",
-        "blip",
-        "chameleon",
-        "idefics",
-        "idefics2",
-        "idefics3",
-        "instructblip",
-        "llava",
-        "mllama",
-        "paligemma",
-        "qwen2_vl",
-        "vipllava",
-    ):
-        if config.model_type not in tested_models:
+    vlm_info = _get_all_vlms_map().get(config.model_type, None)
+
+    if vlm_info is not None:
+        auto_model_class = vlm_info.model_class
+        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
+        if not vlm_info.tested:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
-                "Using AutoModelForVision2Seq as the model class."
+                f"Using {auto_model_class} as the model class. "
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
-
-        auto_model_class = transformers.AutoModelForVision2Seq
-        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
-    elif config.model_type in ("molmo", "phi3_v"):
-        if config.model_type not in tested_models:
-            logger.warning(
-                f"Model type {config.model_type} not tested. "
-                "Using AutoModelForCausalLM as the model class."
-                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
-            )
-        auto_model_class = transformers.AutoModelForCausalLM
-        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
         model_kind = _InternalModelKind.DEFAULT
