@@ -1,4 +1,4 @@
-"""Porting the Alpaca evaluation dataset with Oumi.
+"""Porting the Alpaca evaluation dataset to Oumi.
 
 For more info see: https://github.com/tatsu-lab/alpaca_eval
 """
