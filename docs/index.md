@@ -128,3 +128,29 @@ Oumi is designed to be fully flexible yet easy to use:
 - **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
 
 We're just getting started on this journey, and we can't wait to build Oumi together! If there's a feature that you think is missing, let us know or join us in making it a reality:
+
+## Getting Started
+
+If you're new to Oumi, we recommend starting with the following sections:
+
+1. [Installation](get_started/installation) - Install Oumi on your system.
+2. [Quickstart](get_started/quickstart) - Quickstart guide to get you up and running with training, evaluation and inference in no time.
+3. [Recipes](get_started/tutorials) - Tutorials and recipes to get you started with Oumi with various models, datasets and workflows.
+
+## API Reference
+
+For detailed information about the Oumi library, check out the [API Reference](api/oumi) section.
+
+This includes comprehensive documentation for all modules, classes, and functions in the Oumi library.
+
+## Contributing
+
+We welcome contributions! See our [Contributing Guide](development/contributing) for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
+
+## Need Help?
+
+If you encounter any issues or have questions, please don't hesitate to:
+
+1. Check our [FAQ section](faq/troubleshooting) for common questions and answers.
+2. Open an issue on our [GitHub Issues page](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests.
+3. Send us a message on [Discord](https://discord.gg/S74NxTDh7v) to chat with the team and other users.
