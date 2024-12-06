@@ -53,7 +53,8 @@ class InternalVisualModelConfig(BaseConfig):
     """Replace negative label values.
 
     Some VLM processors can generate negative `input_ids` for image tokens,
-    which can cause problems if used as label to compute loss.
+    which can cause problems if a negative integer is used as a label
+    to compute loss e.g., cross-entropy loss may expect [0, num_classes) range.
     """
 
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
