@@ -2,7 +2,6 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from enum import Enum
 from pathlib import Path
 from typing import NamedTuple, Optional, Union, cast
 
@@ -156,16 +155,6 @@ def build_oumi_model(
     return model
 
 
-class _InternalModelKind(Enum):
-    """Private enum representing the supported types of models for internal use."""
-
-    DEFAULT = "default"
-    """Default/unknown model type."""
-
-    IMAGE_TEXT_LLM = "image_text_llm"
-    """Basic image+text LLM."""
-
-
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -213,7 +202,7 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class, _ = _get_transformers_model_class(hf_config)
+    transformers_model_class = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
@@ -445,13 +434,10 @@ def _get_all_vlms_map() -> (
 
 
 def _get_transformers_model_class(config):
-    model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
-
     vlm_info = _get_all_vlms_map().get(config.model_type, None)
 
     if vlm_info is not None:
         auto_model_class = vlm_info.model_class
-        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
         if not vlm_info.tested:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
@@ -460,15 +446,23 @@ def _get_transformers_model_class(config):
             )
     else:
         auto_model_class = transformers.AutoModelForCausalLM
-        model_kind = _InternalModelKind.DEFAULT
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
-    return auto_model_class, model_kind
+    return auto_model_class
 
 
 @functools.cache
-def _find_internal_model_config_impl(
+def find_internal_model_config_using_model_name(
     model_name: str, trust_remote_code: bool
 ) -> Optional[InternalModelConfig]:
+    """Finds an internal model config for supported models using model name.
+
+    Args:
+        model_name: The model name.
+        trust_remote_code: Whether to trust external code associated with the model.
+
+    Returns:
+        Model config, or `None` if model is not recognized.
+    """
     hf_config = _find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
     vlm_info = _get_all_vlms_map().get(hf_config.model_type, None)
     return vlm_info.config if vlm_info is not None else None
@@ -477,21 +471,25 @@ def _find_internal_model_config_impl(
 def find_internal_model_config(
     model_params: ModelParams,
 ) -> Optional[InternalModelConfig]:
-    """Finds an internal model config for supported model types.
+    """Finds an internal model config for supported models using `ModelParams`.
+
+    Args:
+        model_params: The model parameters.
 
     Returns:
         Model config, or `None` if model is not recognized.
     """
-    return _find_internal_model_config_impl(
+    return find_internal_model_config_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
 
 
 @functools.cache
 def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
-    hf_config = _find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
-    _, model_kind = _get_transformers_model_class(hf_config)
-    return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+    model_config = find_internal_model_config_using_model_name(
+        model_name, trust_remote_code=trust_remote_code
+    )
+    return model_config is not None and model_config.visual_config is not None
 
 
 def is_image_text_llm(model_params: ModelParams) -> bool:
