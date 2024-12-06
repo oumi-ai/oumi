@@ -4,12 +4,12 @@ DEFAULT_INSTRUCTION_FIELD_NAME = "instruction"
 DEFAULT_OUTPUT_FIELD_NAME = "output"
 
 
-def conversation_to_openai_format(
+def conversation_to_alpaca_format(
     conversation: Conversation,
     instruction_field_name: str = DEFAULT_INSTRUCTION_FIELD_NAME,
     output_field_name: str = DEFAULT_OUTPUT_FIELD_NAME,
 ) -> dict:
-    """Converts an Oumi `Conversation` to Open AI format.
+    """Converts an Oumi `Conversation` to Alpaca format.
 
     Converts an Oumi single-turn conversation to a dictionary with keys `instruction`
     and `output`. If the first message is a System Instruction, it is ignored. Any
@@ -54,14 +54,14 @@ def conversation_to_openai_format(
     return conversations_dict
 
 
-def list_conversations_to_openai_format(
+def list_conversations_to_alpaca_format(
     list_conversations: list[Conversation],
     instruction_field_name: str = DEFAULT_INSTRUCTION_FIELD_NAME,
     output_field_name: str = DEFAULT_OUTPUT_FIELD_NAME,
 ) -> list[dict]:
-    """Converts a list of conversations to openai format (list of dictionaries)."""
+    """Converts a list of conversations to Alpaca format (list of dictionaries)."""
     return [
-        conversation_to_openai_format(
+        conversation_to_alpaca_format(
             conversation=conversation,
             instruction_field_name=instruction_field_name,
             output_field_name=output_field_name,
