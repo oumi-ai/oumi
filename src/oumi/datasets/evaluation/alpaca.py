@@ -74,9 +74,9 @@ class AlpacaEvalDataset(BaseSftDataset):
         # Retain other fields as metadata.
         metadata_fields = set()
         if isinstance(example, pd.Series):
-            metadata_fields = set([str(i) for i in example.index])
+            metadata_fields = {str(i) for i in example.index}
         elif isinstance(example, dict):
-            metadata_fields = set([str(key) for key in example.keys()])
+            metadata_fields = {str(key) for key in example.keys()}
         metadata_fields = metadata_fields - {"instruction", "input"}
         metadata = {field: example[field] for field in metadata_fields}
 
