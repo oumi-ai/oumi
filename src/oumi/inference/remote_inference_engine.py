@@ -428,6 +428,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             headers = self._get_request_headers(inference_config.remote_params)
             retries = 0
+            failure_reason = None
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
                 async with session.post(
@@ -452,10 +453,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
+                        failure_reason = (
+                            response_json.get("error").get("message")
+                            if response_json and response_json.get("error")
+                            else None
+                        )
                         retries += 1
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
-                f"Failed to query API after {remote_params.max_retries} retries."
+                f"Failed to query API after {remote_params.max_retries} retries. "
+                + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
     async def _infer(
