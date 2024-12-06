@@ -33,6 +33,20 @@ except ImportError:
     liger_kernel = None
 
 
+@functools.cache
+def _find_model_hf_config(model_name: str, *, trust_remote_code: bool):
+    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        return_unused_kwargs=True,
+    )
+    if unused_kwargs:
+        logger.warning(
+            f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
+        )
+    return hf_config
+
+
 def build_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -182,13 +196,9 @@ def build_huggingface_model(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
 
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
-        return_unused_kwargs=True,
+    hf_config = _find_model_hf_config(
+        model_params.model_name, trust_remote_code=model_params.trust_remote_code
     )
-    if unused_kwargs:
-        logger.warning(f"Unused kwargs found in config: {unused_kwargs}.")
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
@@ -459,11 +469,7 @@ def _get_transformers_model_class(config):
 def _find_internal_model_config_impl(
     model_name: str, trust_remote_code: bool
 ) -> Optional[InternalModelConfig]:
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_name,
-        trust_remote_code=trust_remote_code,
-        return_unused_kwargs=True,
-    )
+    hf_config = _find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
     vlm_info = _get_all_vlms_map().get(hf_config.model_type, None)
     return vlm_info.config if vlm_info is not None else None
 
@@ -483,11 +489,7 @@ def find_internal_model_config(
 
 @functools.cache
 def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_name,
-        trust_remote_code=trust_remote_code,
-        return_unused_kwargs=True,
-    )
+    hf_config = _find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
     _, model_kind = _get_transformers_model_class(hf_config)
     return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
 
