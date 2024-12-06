@@ -107,7 +107,7 @@ about/license
 about/citations
 ```
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 ## Features
 
@@ -127,7 +127,7 @@ Oumi is designed to be fully flexible yet easy to use:
 
 - **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
 
-We're just getting started on this journey, and we can't wait to build Oumi together! If there's a feature that you think is missing, let us know or join us in making it a reality:
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
 
 ## Getting Started
 
