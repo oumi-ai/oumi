@@ -219,7 +219,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         ), f"Unexpected message type: {message.type}. Must be a code bug."
         return {
             _TYPE_KEY: Type.IMAGE_URL.value,
-            _IMAGE_URL_KEY: {message.content or ""},
+            _IMAGE_URL_KEY: {_URL_KEY: message.content or ""},
         }
 
     @staticmethod

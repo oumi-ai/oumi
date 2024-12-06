@@ -960,7 +960,11 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
             assert "type" in json_dict["content"][0], debug_info
             assert json_dict["content"][0]["type"] == "image_url", debug_info
             assert "image_url" in json_dict["content"][0], debug_info
+            assert isinstance(json_dict["content"][0]["image_url"], dict), debug_info
             assert "url" in json_dict["content"][0]["image_url"], debug_info
+            assert isinstance(
+                json_dict["content"][0]["image_url"]["url"], str
+            ), debug_info
 
             if message.binary:
                 content = json_dict["content"][0]
