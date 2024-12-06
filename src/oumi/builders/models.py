@@ -237,9 +237,9 @@ def _build_image_text_llm_dict() -> (
         InternalModelConfig,
     ]
 ):
-    models_dict: dict[str, InternalModelConfig] = {}
+    models_list: list[InternalModelConfig] = []
 
-    return models_dict
+    return {x.model_type: x for x in models_list}
 
 
 def _get_transformers_model_class(config):

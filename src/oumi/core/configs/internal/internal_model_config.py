@@ -81,6 +81,9 @@ def _default_model_input_features_factory() -> dict[str, InternalFeatureSpec]:
 
 @dataclass
 class InternalModelConfig(BaseConfig):
+    model_type: str
+    """Model type."""
+
     chat_template: str = "default"
     """Default chat template."""
 
