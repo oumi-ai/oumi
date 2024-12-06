@@ -464,7 +464,8 @@ def _find_internal_model_config_impl(
         trust_remote_code=trust_remote_code,
         return_unused_kwargs=True,
     )
-    return None
+    vlm_info = _get_all_vlms_map().get(hf_config.model_type, None)
+    return vlm_info.config if vlm_info is not None else None
 
 
 def find_internal_model_config(
