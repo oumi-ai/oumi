@@ -217,7 +217,7 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
     trainable_params = params.trainable_params
     logger.info(
         f"Trainable params: {trainable_params} || All params: {all_params} "
-        f"|| Trainable%: {100 * trainable_params / all_params :.4f}"
+        f"|| Trainable%: {100 * trainable_params / all_params:.4f}"
     )
 
 
