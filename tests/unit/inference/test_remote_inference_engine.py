@@ -252,7 +252,48 @@ def test_infer_online_fails():
             metadata={"foo": "bar"},
             conversation_id="123",
         )
-        with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
+        with pytest.raises(
+            RuntimeError, match="Failed to query API after 3 retries. Reason: "
+        ):
+            _ = engine.infer_online(
+                [conversation],
+                _get_default_inference_config(),
+            )
+
+
+def test_infer_online_fails_with_message():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=401)
+        m.post(_TARGET_SERVER, status=401)
+        m.post(_TARGET_SERVER, status=401)
+        m.post(
+            _TARGET_SERVER,
+            status=501,
+            payload={"error": {"message": "Internal server error"}},
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    content="Hello world!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Hello again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to query API after 3 retries. Reason: Internal server error",
+        ):
             _ = engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),
