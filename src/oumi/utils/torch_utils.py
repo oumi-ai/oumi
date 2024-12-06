@@ -217,7 +217,7 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
     trainable_params = params.trainable_params
     logger.info(
         f"Trainable params: {trainable_params} || All params: {all_params} "
-        f"|| Trainable%: {100 * trainable_params / all_params :.4f}"
+        f"|| Trainable%: {100 * trainable_params / all_params:.4f}"
     )
 
 
@@ -239,7 +239,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, np.dtype],
+    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
