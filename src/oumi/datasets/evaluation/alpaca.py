@@ -31,10 +31,21 @@ class AlpacaEvalDataset(BaseSftDataset):
         self,
         *,
         include_system_prompt: bool = False,
+        unused_entries_to_metadata: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the AlpacaDataset class."""
+        """Initializes a new instance of the AlpacaDataset class.
+
+        Args:
+            include_system_prompt (bool): Whether to include a system prompt in the
+                conversation.
+            unused_entries_to_metadata (bool): Whether to save entries that were not
+                used in the conversation (entries other than `instruction`, `input`)
+                as metadata.
+            **kwargs: Additional keyword arguments.
+        """
         self.include_system_prompt = include_system_prompt
+        self.unused_entries_to_metadata = unused_entries_to_metadata
 
         super().__init__(**kwargs)
 
@@ -66,13 +77,14 @@ class AlpacaEvalDataset(BaseSftDataset):
             messages.append(Message(role=Role.SYSTEM, content=system_prompt))
         messages.append(Message(role=Role.USER, content=user_prompt))
 
-        # Retain other fields as metadata.
+        # Retain entries (other than `instruction`, `input`) as metadata.
         metadata_fields = set()
-        if isinstance(example, pd.Series):
-            metadata_fields = {str(i) for i in example.index}
-        elif isinstance(example, dict):
-            metadata_fields = {str(key) for key in example.keys()}
-        metadata_fields = metadata_fields - {"instruction", "input"}
-        metadata = {field: example[field] for field in metadata_fields}
+        if self.unused_entries_to_metadata:
+            if isinstance(example, pd.Series):
+                metadata_fields = {str(i) for i in example.index}
+            elif isinstance(example, dict):
+                metadata_fields = {str(key) for key in example.keys()}
+            metadata_fields = metadata_fields - {"instruction", "input"}
+            metadata = {field: example[field] for field in metadata_fields}
 
         return Conversation(messages=messages, metadata=metadata)
