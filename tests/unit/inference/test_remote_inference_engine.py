@@ -252,9 +252,7 @@ def test_infer_online_fails():
             metadata={"foo": "bar"},
             conversation_id="123",
         )
-        with pytest.raises(
-            RuntimeError, match="Failed to query API after 3 retries. Reason: "
-        ):
+        with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
             _ = engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),

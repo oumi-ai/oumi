@@ -462,7 +462,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries. "
-                f"Reason: {failure_reason if failure_reason else ''}"
+                + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
     async def _infer(
