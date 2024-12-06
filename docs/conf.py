@@ -132,6 +132,8 @@ myst_enable_extensions = [
     "colon_fence",  # Allows for directive blocks to be denoted by :::
     "tasklist",  # Enables GitHub-style task lists
     "fieldlist",  # Allows using rst-like field lists in markdown
+    "deflist",  # Allows using definition lists
+    "attrs_inline",  # Allows inline attributes
 ]
 
 suppress_warnings = [
