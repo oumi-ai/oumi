@@ -113,7 +113,7 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 |-------|------------------------|
 | Llama3.2 Vision 11b | [SFT](/configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 | LLaVA 7b | [SFT](/configs/examples/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/examples/vision/llava_7b/inference/infer.yaml) |
-| Phi3 Vision Instruct | [SFT](/configs/examples/vision/phi3/sft/sft_train.yaml) |
+| Phi3 Vision | [SFT](/configs/examples/vision/phi3/sft/sft_train.yaml) |
 | Qwen2-VL 2b | [SFT](/configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml) |
 
 
