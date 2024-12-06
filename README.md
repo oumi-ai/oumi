@@ -17,7 +17,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 <p align="center">
    <b>Check out our docs!</b>
@@ -49,10 +49,7 @@ Oumi is designed to be fully flexible yet easy to use:
 
 - **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
 
-We're just getting started on this journey, and we can't wait to build Oumi together! If there's a feature that you think is missing, let us know or join us in making it a reality:
-
-- [Request a feature](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md)
-- [Contribute](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md)
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
 
 For a full tour of what Oumi can do, dive into our [documentation](https://oumi.ai/docs).
 
@@ -115,7 +112,6 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 | LLaVA 7b | [SFT](/configs/examples/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/examples/vision/llava_7b/inference/infer.yaml) |
 | Phi3 Vision | [SFT](/configs/examples/vision/phi3/sft/sft_train.yaml) |
 | Qwen2-VL 2b | [SFT](/configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml) |
-
 
 #### 🎯 Training Techniques
 
