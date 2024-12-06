@@ -38,11 +38,6 @@ class AlpacaEvalDataset(BaseSftDataset):
 
         super().__init__(**kwargs)
 
-    def get_list_conversations(self) -> list[Conversation]:
-        """Convert the dataset to a list of `Conversation`s for inference."""
-        indexes = range(len(self))
-        return [self.conversation(index) for index in indexes]
-
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
