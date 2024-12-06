@@ -32,6 +32,7 @@ def build_processor(
         processor_name, trust_remote_code=trust_remote_code
     )
 
+    # Initialize model-specific params.
     label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
     processor_kwargs = {}
     if model_config is not None:
