@@ -9,6 +9,7 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.tokenizers import get_default_special_tokens
@@ -230,6 +231,17 @@ def build_huggingface_model(
     return model
 
 
+def _build_image_text_llm_dict() -> (
+    dict[
+        str,  # model type
+        InternalModelConfig,
+    ]
+):
+    models_dict: dict[str, InternalModelConfig] = {}
+
+    return models_dict
+
+
 def _get_transformers_model_class(config):
     # TODO: Remove this once we have a better way to identify the model class
     # Or we can just ask the user to specify the model class in the config
@@ -277,6 +289,31 @@ def _get_transformers_model_class(config):
         model_kind = _InternalModelKind.DEFAULT
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
     return auto_model_class, model_kind
+
+
+@functools.cache
+def _find_internal_model_config_impl(
+    model_name: str, trust_remote_code: bool
+) -> Optional[InternalModelConfig]:
+    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        return_unused_kwargs=True,
+    )
+    return None
+
+
+def find_internal_model_config(
+    model_params: ModelParams,
+) -> Optional[InternalModelConfig]:
+    """Finds an internal model config for supported model types.
+
+    Returns:
+        Model config, or `None` if model is not recognized.
+    """
+    return _find_internal_model_config_impl(
+        model_params.model_name, model_params.trust_remote_code
+    )
 
 
 @functools.cache
