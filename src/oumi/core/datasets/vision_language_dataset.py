@@ -11,6 +11,11 @@ from PIL import Image
 from typing_extensions import override
 
 from oumi.builders.processors import build_processor
+from oumi.core.configs.internal.internal_model_config import InternalModelConfig
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+    get_default_vlm_model_config,
+)
 from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -133,25 +138,29 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             processor = build_processor(
                 processor_name, tokenizer, trust_remote_code=trust_remote_code
             )
-
-        self._processor: Optional[BaseProcessor] = processor
-        if self._processor is not None:
-            if not callable(self._processor):
-                raise ValueError("Processor is not callable!")
-            self._image_processor = self._processor.image_processor
         else:
-            assert self._processor is None
-            self._tokenizer = None  # Reset base class's member variable.
-            self._image_processor = None
+            raise ValueError(
+                "At least one of processor or processor_name must provided."
+            )
+
+        assert processor is not None
+        if not callable(processor):
+            raise ValueError("Processor is not callable!")
+
+        self._processor: BaseProcessor = processor
+        self._image_processor = self._processor.image_processor
+
+        self._internal_model_config: InternalModelConfig = (
+            find_internal_model_config_using_model_name(
+                self._processor.processor_name, trust_remote_code=trust_remote_code
+            )
+            or get_default_vlm_model_config()
+        )
 
         self._special_tokens: _SpecialTokens = _SpecialTokens(
-            image_token=(self._processor.image_token if self._processor else None),
-            image_token_id=(
-                self._processor.image_token_id if self._processor else None
-            ),
-            label_ignore_index=(
-                self._processor.label_ignore_index if self._processor else None
-            ),
+            image_token=self._processor.image_token,
+            image_token_id=self._processor.image_token_id,
+            label_ignore_index=self._processor.label_ignore_index,
             pad_token_id=int(tokenizer.pad_token_id),
         )
 
@@ -275,8 +284,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 labels = np.array(labels)
                 labels[labels == image_token_id] = label_ignore_index
                 inputs["labels"] = labels.tolist()
-        elif (self._special_tokens.label_ignore_index is None) or (
-            self._special_tokens.label_ignore_index >= 0
+        elif (
+            self._internal_model_config is not None
+            and self._internal_model_config.sanitize_negative_labels
         ):
             # Some VLM-s may generate negative input_ids for image tokens.
             # For example, Phi3-Vision generates `-N` input ids for
@@ -290,7 +300,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             labels = inputs["labels"]
             sanitized_label_target = int(
                 self._special_tokens.pad_token_id
-                if (self._special_tokens.label_ignore_index is None)
+                if (
+                    self._special_tokens.label_ignore_index is None
+                    or self._special_tokens.label_ignore_index < 0
+                )
                 else self._special_tokens.label_ignore_index
             )
             assert sanitized_label_target >= 0

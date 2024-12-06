@@ -3,8 +3,10 @@ from typing import Optional
 
 import transformers
 
-from oumi.builders.models import _find_internal_model_config_using_model_name
-from oumi.core.constants import LABEL_IGNORE_INDEX
+import oumi.core.constants as constants
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+)
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.processors.default_processor import DefaultProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -28,12 +30,12 @@ def build_processor(
     if not processor_name:
         raise ValueError("Empty model name.")
 
-    model_config = _find_internal_model_config_using_model_name(
+    model_config = find_internal_model_config_using_model_name(
         processor_name, trust_remote_code=trust_remote_code
     )
 
     # Initialize model-specific params.
-    label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
+    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
     processor_kwargs = {}
     if model_config is not None:
         label_ignore_index = model_config.label_ignore_index
@@ -50,5 +52,8 @@ def build_processor(
         worker_processor = create_processor_fn()
 
     return DefaultProcessor(
-        worker_processor, tokenizer, label_ignore_index=label_ignore_index
+        processor_name,
+        worker_processor,
+        tokenizer,
+        label_ignore_index=label_ignore_index,
     )

@@ -9,6 +9,9 @@ from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
 from oumi.core.configs import DatasetSplit, TrainingConfig
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
@@ -101,10 +104,13 @@ def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Ca
     if not train_split.collator_name:
         return None
 
-    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
-    # TODO OPE-701 Replace with a more general mechanism.
-    if config.model.model_name == "microsoft/Phi-3-vision-128k-instruct":
-        label_ignore_index = None
+    model_config = find_internal_model_config(config.model)
+
+    label_ignore_index: Optional[int] = (
+        model_config.label_ignore_index
+        if model_config is not None
+        else constants.LABEL_IGNORE_INDEX
+    )
 
     return build_data_collator(
         collator_name=train_split.collator_name,
