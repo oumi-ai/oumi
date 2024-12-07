@@ -102,16 +102,16 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 | Llama3.1 70b | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
 | Llama3.1 405b | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
 | Llama3.2 3b | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
-| Llama3.2 Vision 11b | [SFT](/configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
+| Llama3.2 Vision 11b | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 
 #### 🎨 Vision Models
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.2 Vision 11b | [SFT](/configs/examples/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/examples/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
-| LLaVA 7b | [SFT](/configs/examples/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/examples/vision/llava_7b/inference/infer.yaml) |
-| Phi3 Vision | [SFT](/configs/examples/vision/phi3/sft/sft_train.yaml) |
-| Qwen2-VL 2b | [SFT](/configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml) |
+| Llama3.2 Vision 11b | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
+| LLaVA 7b | [SFT](/configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
+| Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/sft_train.yaml) |
+| Qwen2-VL 2b | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/sft_train.yaml) |
 
 #### 🎯 Training Techniques
 
@@ -127,7 +127,7 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 |-------|------------------------|
 | Llama3.1 8b | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/8b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/8b_infer_sglang.yaml) |
 | Llama3.1 70b | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/70b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/70b_infer_sglang.yaml) |
-| Llama3.2 Vision 11b | [vLLM](/configs/examples/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/examples/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
+| Llama3.2 Vision 11b | [vLLM](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
 | GPT-2 | [Native](/configs/recipes/gpt2/inference/infer.yaml) |
 | Mistral | [Bulk Inference](/configs/examples/bulk_inference/mistral_small_infer.yaml) |
 
