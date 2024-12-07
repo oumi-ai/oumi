@@ -1,8 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Final, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 import requests
@@ -11,6 +10,14 @@ from PIL import Image
 from typing_extensions import override
 
 from oumi.builders.processors import build_processor
+from oumi.core.configs.internal.internal_model_config import (
+    InternalFeatureFirstDimAction,
+    InternalModelConfig,
+)
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+    get_default_vlm_model_config,
+)
 from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -28,52 +35,6 @@ class _SpecialTokens(NamedTuple):
 
     pad_token_id: int
     """Token id of `PAD` token."""
-
-
-class _FirstDimAction(Enum):
-    """Enum representing how to handle the first feature dimension."""
-
-    DROP_ALWAYS = "drop_always"
-    """The first dimension is commonly dummy (length: 1) and must be dropped.
-
-    In effect, this operation is applied: `x = x[0, ...]`, which reduces
-    `x`'s rank by 1 (e.g., 3D->2D), and discards the following elements: `x[1:, ...]`.
-    """
-
-    DROP_IF_DUMMY = "drop_if_dummy"
-    """Drop the first dimension only if it's dummy (length: 1)."""
-
-    KEEP = "keep"
-    """Always preserve the first dimension."""
-
-
-class InputFeatureSpec(NamedTuple):
-    feature_name: str
-    required: bool
-    first_dim_action: _FirstDimAction = _FirstDimAction.DROP_ALWAYS
-
-
-_INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
-    InputFeatureSpec(feature_name="input_ids", required=True),
-    InputFeatureSpec(
-        feature_name="pixel_values",
-        required=True,
-        first_dim_action=_FirstDimAction.DROP_IF_DUMMY,
-    ),
-    InputFeatureSpec(feature_name="attention_mask", required=True),
-    InputFeatureSpec(feature_name="labels", required=True),
-    # Llama 3.2 Vision
-    InputFeatureSpec(feature_name="aspect_ratio_ids", required=False),
-    InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
-    InputFeatureSpec(feature_name="cross_attention_mask", required=False),
-    # Qwen2 VL
-    InputFeatureSpec(feature_name="image_grid_thw", required=False),
-    # Phi3 Vision
-    InputFeatureSpec(feature_name="image_sizes", required=False),
-]
-_INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
-    spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
-}
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -133,25 +94,29 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             processor = build_processor(
                 processor_name, tokenizer, trust_remote_code=trust_remote_code
             )
-
-        self._processor: Optional[BaseProcessor] = processor
-        if self._processor is not None:
-            if not callable(self._processor):
-                raise ValueError("Processor is not callable!")
-            self._image_processor = self._processor.image_processor
         else:
-            assert self._processor is None
-            self._tokenizer = None  # Reset base class's member variable.
-            self._image_processor = None
+            raise ValueError(
+                "At least one of processor or processor_name must provided."
+            )
+
+        assert processor is not None
+        if not callable(processor):
+            raise ValueError("Processor is not callable!")
+
+        self._processor: BaseProcessor = processor
+        self._image_processor = self._processor.image_processor
+
+        self._internal_model_config: InternalModelConfig = (
+            find_internal_model_config_using_model_name(
+                self._processor.processor_name, trust_remote_code=trust_remote_code
+            )
+            or get_default_vlm_model_config()
+        )
 
         self._special_tokens: _SpecialTokens = _SpecialTokens(
-            image_token=(self._processor.image_token if self._processor else None),
-            image_token_id=(
-                self._processor.image_token_id if self._processor else None
-            ),
-            label_ignore_index=(
-                self._processor.label_ignore_index if self._processor else None
-            ),
+            image_token=self._processor.image_token,
+            image_token_id=self._processor.image_token_id,
+            label_ignore_index=self._processor.label_ignore_index,
             pad_token_id=int(tokenizer.pad_token_id),
         )
 
@@ -219,7 +184,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for feature_name, feature_spec in _INPUT_FEATURES_DICT.items():
+        for (
+            feature_name,
+            feature_spec,
+        ) in self._internal_model_config.model_input_features.items():
             if (not feature_spec.required) and (feature_name not in inputs):
                 continue
             x = inputs[feature_name]
@@ -232,8 +200,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             first_dim_action = feature_spec.first_dim_action
 
             if first_dim_action in (
-                _FirstDimAction.DROP_ALWAYS,
-                _FirstDimAction.DROP_IF_DUMMY,
+                InternalFeatureFirstDimAction.DROP_ALWAYS,
+                InternalFeatureFirstDimAction.DROP_IF_DUMMY,
             ):
                 first_dim_len = get_first_dim_len(x)
                 if first_dim_len <= 0:
@@ -241,7 +209,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                         f"Empty first dimension for the feature '{feature_name}'."
                     )
                 drop_first_dim = (
-                    first_dim_action == _FirstDimAction.DROP_ALWAYS
+                    first_dim_action == InternalFeatureFirstDimAction.DROP_ALWAYS
                     or first_dim_len <= 1
                 )
                 if first_dim_len > 1 and drop_first_dim:
@@ -256,7 +224,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 else:
                     inputs[feature_name] = x
             else:
-                assert feature_spec.first_dim_action == _FirstDimAction.KEEP
+                assert (
+                    feature_spec.first_dim_action == InternalFeatureFirstDimAction.KEEP
+                )
                 inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
@@ -275,8 +245,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 labels = np.array(labels)
                 labels[labels == image_token_id] = label_ignore_index
                 inputs["labels"] = labels.tolist()
-        elif (self._special_tokens.label_ignore_index is None) or (
-            self._special_tokens.label_ignore_index >= 0
+        elif (
+            self._internal_model_config is not None
+            and self._internal_model_config.sanitize_negative_labels
         ):
             # Some VLM-s may generate negative input_ids for image tokens.
             # For example, Phi3-Vision generates `-N` input ids for
@@ -290,7 +261,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             labels = inputs["labels"]
             sanitized_label_target = int(
                 self._special_tokens.pad_token_id
-                if (self._special_tokens.label_ignore_index is None)
+                if (
+                    self._special_tokens.label_ignore_index is None
+                    or self._special_tokens.label_ignore_index < 0
+                )
                 else self._special_tokens.label_ignore_index
             )
             assert sanitized_label_target >= 0

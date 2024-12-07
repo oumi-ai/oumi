@@ -21,6 +21,12 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def processor_name(self) -> str:
+        """Returns a processor name."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
     def tokenizer(self) -> BaseTokenizer:
         """Returns a tokenizer associated with this processor."""
         raise NotImplementedError
