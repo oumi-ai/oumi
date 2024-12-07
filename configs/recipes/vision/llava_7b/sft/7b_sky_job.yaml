@@ -43,7 +43,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llava_7b/sft/7b_sft_train.yaml \
+      -c configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \

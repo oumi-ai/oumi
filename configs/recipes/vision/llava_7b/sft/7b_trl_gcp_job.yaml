@@ -1,5 +1,5 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/llava_7b/sft/7b_trl_gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/recipes/vision/llava_7b/sft/7b_trl_gcp_job.yaml --cluster my-oumi-cluster
 name: llava-7b-sft-trl-train
 
 resources:
@@ -43,7 +43,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/llava_7b/sft/7b_sft_train.yaml \
+      -c configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
