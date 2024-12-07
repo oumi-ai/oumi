@@ -1,5 +1,5 @@
 # Sample command:
-# oumi launch up --config configs/examples/vision/qwen2_vl_2b/sft/gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/recipes/vision/qwen2_vl_2b/sft/gcp_job.yaml --cluster my-oumi-cluster
 name: qwen2-vl-sft-oumi-train
 
 resources:
@@ -49,7 +49,7 @@ run: |
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
       -m oumi.train \
-      -c configs/examples/vision/qwen2_vl_2b/sft/sft_train.yaml \
+      -c configs/recipes/vision/qwen2_vl_2b/sft/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
       "training.max_steps=20" \
       "training.save_steps=0" \
