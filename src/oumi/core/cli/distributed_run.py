@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import Final, NamedTuple, Optional
+from typing import Any, Final, NamedTuple, Optional
 
 import typer
 
@@ -99,6 +99,22 @@ class _ProcessRunInfo:
     def master_port(self) -> int:
         """Master port."""
         return self._master_port
+
+    def __repr__(self) -> str:
+        """Defines how this class is properly printed."""
+        fields_dict: dict[str, Any] = {
+            "node_rank": self.node_rank,
+            "num_nodes": self.num_nodes,
+            "gpus_per_node": self.gpus_per_node,
+            "total_gpus": self.total_gpus,
+            "master_address": self.master_address,
+            "master_port": self.master_port,
+        }
+        return (
+            "{"
+            + ",".join([f"{key}: {value}" for key, value in fields_dict.items()])
+            + "}"
+        )
 
 
 def _get_optional_int_env_var(var_name: str, env: dict[str, str]) -> Optional[int]:
