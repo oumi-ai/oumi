@@ -280,7 +280,6 @@ def torchrun(
         level: The logging level for the specified command.
     """
     run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
-    logger.info(f"run_info: {run_info}")
 
     cmds: list[str] = [
         "torchrun",
@@ -291,7 +290,6 @@ def torchrun(
         f"--master-port={run_info.master_port}",
     ]
     cmds.extend(ctx.args)
-    logger.info(f"cmds: {cmds}")
 
     _run_subprocess(cmds)
 
@@ -307,7 +305,6 @@ def accelerate(
         level: The logging level for the specified command.
     """
     run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
-    logger.info(f"run_info: {run_info}")
 
     cmds: list[str] = [
         "accelerate",
@@ -318,6 +315,5 @@ def accelerate(
         f"--main_process_port={run_info.master_port}",
     ]
     cmds.extend(ctx.args)
-    logger.info(f"cmds: {cmds}")
 
     _run_subprocess(cmds)
