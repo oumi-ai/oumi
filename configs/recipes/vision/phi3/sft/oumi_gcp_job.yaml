@@ -41,6 +41,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  # FIXME remove before submit.
   pip install -e '.[gpu]'
 
   set -x
