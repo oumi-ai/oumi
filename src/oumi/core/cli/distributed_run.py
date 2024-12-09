@@ -110,11 +110,7 @@ class _ProcessRunInfo:
             "master_address": self.master_address,
             "master_port": self.master_port,
         }
-        return (
-            "{"
-            + ",".join([f"{key}: {value}" for key, value in fields_dict.items()])
-            + "}"
-        )
+        return repr(fields_dict)
 
 
 def _get_optional_int_env_var(var_name: str, env: dict[str, str]) -> Optional[int]:
