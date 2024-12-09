@@ -148,7 +148,13 @@ def build_huggingface_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Downloads and builds the model from the HuggingFace Hub."""
+    """Builds a HuggingFace model.
+
+    If a local directory is specified, the model will be loaded from that checkpoint.
+    Otherwise, `model_params.model_name` is the name of a HuggingFaceHub model. The
+    model will be downloaded from the Hub to a local cache directory if it is not
+    already present, and will be loaded from there.
+    """
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
 
