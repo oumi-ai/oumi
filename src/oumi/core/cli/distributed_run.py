@@ -230,7 +230,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     elif oumi_master_address and oumi_master_address not in node_ips:
         raise ValueError(
             f"Master address '{oumi_master_address}' "
-            f"not found in teh list of nodes."
+            f"not found in the list of nodes."
         )
 
     result = _ProcessRunInfo(
