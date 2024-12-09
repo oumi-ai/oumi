@@ -278,7 +278,7 @@ def torchrun(
     cmds.extend(ctx.args)
     logger.info(f"cmds: {cmds}")
 
-    raise NotImplementedError
+    _run_subprocess(cmds)
 
 
 def accelerate(
