@@ -2,6 +2,7 @@ import enum
 import os
 import subprocess
 import sys
+import time
 from typing import Final, NamedTuple, Optional
 
 import typer
@@ -237,21 +238,29 @@ def _stream_output(process):
 def _run_subprocess(cmds: list[str]) -> None:
     env_copy = os.environ.copy()
 
+    start_time = time.perf_counter()
     logger.info(f"Running the command: {cmds}")
 
     p = subprocess.Popen(
         cmds,
         env=env_copy,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=sys.stdout,  # subprocess.PIPE,
+        stderr=sys.stderr,  # subprocess.PIPE,
         bufsize=1,
         universal_newlines=True,
     )
     # threading.Thread(target=_stream_output, args=(p,)).start()
     rc = p.wait()
+    duration_sec = time.perf_counter() - start_time
+    duration_str = f"Duration: {duration_sec:.1f} sec"
     if rc != 0:
-        logger.error(f"{cmds[0]} failed with exit code: {rc}. Command: {cmds}")
+        logger.error(
+            f"{cmds[0]} failed with exit code: {rc} ({duration_str}). "
+            f"Command: {cmds}"
+        )
         sys.exit(rc)
+
+    logger.info(f"Successfully completed! ({duration_str})")
 
 
 def torchrun(
