@@ -1,5 +1,5 @@
 # Sample command:
-# oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster xrdaukar-mac-1node4gpu-01-lema-cluster   # my-oumi-cluster
 name: phi3-sft-oumi-train
 
 resources:
@@ -41,13 +41,17 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  pip install -e '.[gpu]'
+
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
+  # torchrun \
+  #    --nnodes=${OUMI_NUM_NODES} \
+  #    --node-rank=${SKYPILOT_NODE_RANK} \
+  #    --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
+  #    --master-addr=${OUMI_MASTER_ADDR} \
+  #    --master-port=8007 \
+
+  oumi distributed torchrun \
       -m oumi.train \
       -c configs/recipes/vision/phi3/sft/sft_train.yaml \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
