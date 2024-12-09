@@ -1,6 +1,7 @@
 import enum
 import os
-from typing import Annotated, Final, NamedTuple, Optional
+import subprocess
+from typing import Final, NamedTuple, Optional
 
 import typer
 
@@ -16,24 +17,29 @@ _SKY_ENV_VARS = {
     "SKYPILOT_NUM_GPUS_PER_NODE",
 }
 
+_POLARIS_ENV_VARS = {
+    "PBS_NODEFILE",
+    "PBS_JOBID",
+}
+
 
 class _RunBackend(str, enum.Enum):
-    SKY = "SkyPilot"
+    SKYPILOT = "SkyPilot"
     POLARIS = "Polaris"
 
 
-class WorldInfo(NamedTuple):
+class _WorldInfo(NamedTuple):
     num_nodes: int
     """Total number of nodes (machines)."""
     gpus_per_node: int
     """Number of GPU-s per node."""
 
 
-class ProcessRunInfo:
+class _ProcessRunInfo:
     def __init__(
         self,
         node_rank: int,
-        world_info: WorldInfo,
+        world_info: _WorldInfo,
         master_address: str,
         master_port: int,
     ):
@@ -127,7 +133,7 @@ def _parse_nodes_str(nodes_str: str) -> list[str]:
     return node_ips
 
 
-def detect_process_run_info(env: dict[str, str]) -> ProcessRunInfo:
+def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     """Detects process run info.
 
     Uses known environment variables to detect common runtime parameters.
@@ -150,7 +156,7 @@ def detect_process_run_info(env: dict[str, str]) -> ProcessRunInfo:
 
     node_rank: Optional[int] = _get_optional_int_env_var("SKYPILOT_NODE_RANK", env)
     if node_rank is not None:
-        backend = _RunBackend.SKY
+        backend = _RunBackend.SKYPILOT
         logger.debug("Running in SkyPilot environment!")
         for env_var_name in _SKY_ENV_VARS:
             if env.get(env_var_name, None) is None:
@@ -169,6 +175,12 @@ def detect_process_run_info(env: dict[str, str]) -> ProcessRunInfo:
                 f"Multiple backends detected: {_RunBackend.POLARIS} and {backend}!"
             )
         backend = _RunBackend.POLARIS
+        logger.debug("Running in Polaris environment!")
+        for env_var_name in _POLARIS_ENV_VARS:
+            if env.get(env_var_name, None) is None:
+                raise ValueError(
+                    f"Polaris environment variable '{env_var_name}' is not defined!"
+                )
         if not polaris_node_file:
             raise ValueError("Empty value in the 'PBS_NODEFILE' environment variable!")
         with open(polaris_node_file) as f:
@@ -207,54 +219,84 @@ def detect_process_run_info(env: dict[str, str]) -> ProcessRunInfo:
             f"not found in teh list of nodes."
         )
 
-    return ProcessRunInfo(
+    result = _ProcessRunInfo(
         node_rank=node_rank,
-        world_info=WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
+        world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=(oumi_master_address or node_ips[0]),
         master_port=8007,
     )
+    return result
+
+
+def _stream_output(process):
+    for output in iter(process.stdout.readline, ""):
+        print(output, end="")
+
+
+def _run_subprocess(cmds: list[str]) -> int:
+    env_copy = os.environ.copy()
+
+    p = subprocess.Popen(
+        cmds,
+        env=env_copy,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    # threading.Thread(target=_stream_output, args=(p,)).start()
+    return p.wait()
 
 
 def torchrun(
     ctx: typer.Context,
-    config: Annotated[
-        str,
-        typer.Option(
-            *cli_utils.CONFIG_FLAGS, help="Path to the configuration file for training."
-        ),
-    ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Train a model.
 
     Args:
         ctx: The Typer context object.
-        config: Path to the configuration file for training.
         level: The logging level for the specified command.
     """
-    run_info: ProcessRunInfo = detect_process_run_info(os.environ.copy())
+    run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
     logger.info(f"run_info: {run_info}")
-    extra_args = cli_utils.parse_extra_cli_args(ctx)
-    logger.info(f"extra_args: {extra_args}")
+
+    cmds: list[str] = [
+        "torchrun",
+        f"--nnodes={run_info.num_nodes}",
+        f"--node-rank={run_info.node_rank}",
+        f"--nproc-per-node={run_info.gpus_per_node}",
+        f"--master-addr={run_info.master_address}",
+        f"--master-port={run_info.master_port}",
+    ]
+    cmds.extend(ctx.args)
+    logger.info(f"cmds: {cmds}")
 
     raise NotImplementedError
 
 
 def accelerate(
     ctx: typer.Context,
-    config: Annotated[
-        str,
-        typer.Option(
-            *cli_utils.CONFIG_FLAGS, help="Path to the configuration file for training."
-        ),
-    ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
-    """Train a model.
+    """Starts `accelerate` sub-process w/ automatically configured common params.
 
     Args:
         ctx: The Typer context object.
-        config: Path to the configuration file for training.
         level: The logging level for the specified command.
     """
+    run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
+    logger.info(f"run_info: {run_info}")
+
+    cmds: list[str] = [
+        "accelerate",
+        f"--num_machines={run_info.num_nodes}",
+        f"--node-machine_rank={run_info.node_rank}",
+        f"--num_processes={run_info.total_gpus}",
+        f"--main_process_ip={run_info.master_address}",
+        f"--main_process_port={run_info.master_port}",
+    ]
+    cmds.extend(ctx.args)
+    logger.info(f"cmds: {cmds}")
+
     raise NotImplementedError
