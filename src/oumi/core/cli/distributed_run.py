@@ -244,8 +244,8 @@ def _run_subprocess(cmds: list[str]) -> None:
     p = subprocess.Popen(
         cmds,
         env=env_copy,
-        stdout=sys.stdout,  # subprocess.PIPE,
-        stderr=sys.stderr,  # subprocess.PIPE,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
         bufsize=1,
         universal_newlines=True,
     )
