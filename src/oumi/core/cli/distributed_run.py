@@ -1,6 +1,7 @@
 import enum
 import os
 import subprocess
+import sys
 from typing import Final, NamedTuple, Optional
 
 import typer
@@ -233,8 +234,10 @@ def _stream_output(process):
         print(output, end="")
 
 
-def _run_subprocess(cmds: list[str]) -> int:
+def _run_subprocess(cmds: list[str]) -> None:
     env_copy = os.environ.copy()
+
+    logger.info(f"Running the command: {cmds}")
 
     p = subprocess.Popen(
         cmds,
@@ -245,13 +248,16 @@ def _run_subprocess(cmds: list[str]) -> int:
         universal_newlines=True,
     )
     # threading.Thread(target=_stream_output, args=(p,)).start()
-    return p.wait()
+    rc = p.wait()
+    if rc != 0:
+        logger.error(f"{cmds[0]} failed with exit code: {rc}. Command: {cmds}")
+        sys.exit(rc)
 
 
 def torchrun(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
-):
+) -> None:
     """Train a model.
 
     Args:
@@ -278,7 +284,7 @@ def torchrun(
 def accelerate(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
-):
+) -> None:
     """Starts `accelerate` sub-process w/ automatically configured common params.
 
     Args:
@@ -299,4 +305,4 @@ def accelerate(
     cmds.extend(ctx.args)
     logger.info(f"cmds: {cmds}")
 
-    raise NotImplementedError
+    _run_subprocess(cmds)
