@@ -230,7 +230,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     elif oumi_master_address and oumi_master_address not in node_ips:
         raise ValueError(
             f"Master address '{oumi_master_address}' "
-            f"not found in teh list of nodes."
+            f"not found in the list of nodes."
         )
 
     result = _ProcessRunInfo(
@@ -240,11 +240,6 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         master_port=8007,
     )
     return result
-
-
-def _stream_output(process):
-    for output in iter(process.stdout.readline, ""):
-        print(output, end="")
 
 
 def _run_subprocess(cmds: list[str]) -> None:
@@ -261,7 +256,6 @@ def _run_subprocess(cmds: list[str]) -> None:
         bufsize=1,
         universal_newlines=True,
     )
-    # threading.Thread(target=_stream_output, args=(p,)).start()
     rc = p.wait()
     duration_sec = time.perf_counter() - start_time
     duration_str = f"Duration: {duration_sec:.1f} sec"

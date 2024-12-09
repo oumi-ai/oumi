@@ -65,7 +65,7 @@ def get_app() -> typer.Typer:
         distributed_app,
         name="distributed",
         hidden=True,
-        help="Start torchrun, accelerate processes directly.",
+        help="Start torchrun, accelerate processes directly for distributed training.",
     )
     return app
 
