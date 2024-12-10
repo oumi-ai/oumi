@@ -250,7 +250,7 @@ def test_accelerate_skypilot_multi_gpu(
         [
             "accelerate",
             "--num_machines=3",
-            "--node-machine_rank=2",
+            "--machine_rank=2",
             "--num_processes=12",
             "--main_process_ip=x111",
             "--main_process_port=8007",

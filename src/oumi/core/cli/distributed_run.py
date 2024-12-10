@@ -315,7 +315,7 @@ def accelerate(
         cmds: list[str] = [
             "accelerate",
             f"--num_machines={run_info.num_nodes}",
-            f"--node-machine_rank={run_info.node_rank}",
+            f"--machine_rank={run_info.node_rank}",
             f"--num_processes={run_info.total_gpus}",
             f"--main_process_ip={run_info.master_address}",
             f"--main_process_port={run_info.master_port}",
