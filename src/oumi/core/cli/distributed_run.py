@@ -1,8 +1,9 @@
 import enum
 import os
-import subprocess
 import sys
 import time
+from subprocess import Popen
+from sys import stderr, stdout
 from typing import Any, Final, NamedTuple, Optional
 
 import typer
@@ -248,11 +249,11 @@ def _run_subprocess(cmds: list[str]) -> None:
     start_time = time.perf_counter()
     logger.info(f"Running the command: {cmds}")
 
-    p = subprocess.Popen(
+    p = Popen(
         cmds,
         env=env_copy,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
+        stdout=stdout,
+        stderr=stderr,
         bufsize=1,
         universal_newlines=True,
     )
