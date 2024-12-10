@@ -34,7 +34,7 @@ def train(
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
-    parsed_config.validate()
+    parsed_config.finalize_and_validate()
 
     limit_per_process_memory()
     device_cleanup()

@@ -199,6 +199,8 @@ class ModelParams(BaseParams):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
 
+    def __finalize_and_validate__(self):
+        """Finalizes and validates final config params."""
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
         # specified by `model_name` contains an adapter, and set `adapter_name` if so.
         if self.adapter_model is None:
@@ -232,8 +234,6 @@ class ModelParams(BaseParams):
                         f"Setting `model_name` to {model_name} found in adapter config."
                     )
 
-    def __validate__(self):
-        """Validates final config params."""
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()

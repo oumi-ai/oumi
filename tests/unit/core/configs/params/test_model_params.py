@@ -7,6 +7,7 @@ from oumi.core.configs.params.model_params import ModelParams
 
 def test_post_init_adapter_model_present():
     params = ModelParams(model_name="base_model", adapter_model="adapter_model")
+    params.finalize_and_validate()
 
     assert params.model_name == "base_model"
     assert params.adapter_model == "adapter_model"
@@ -15,6 +16,7 @@ def test_post_init_adapter_model_present():
 def test_post_init_adapter_model_not_present(tmp_path):
     # This is the expected config for FFT.
     params = ModelParams(model_name=tmp_path)
+    params.finalize_and_validate()
 
     assert params.model_name == tmp_path
     assert params.adapter_model is None
@@ -28,6 +30,7 @@ def test_post_init_config_file_present(mock_logger, tmp_path):
         pass
 
     params = ModelParams(model_name=tmp_path)
+    params.finalize_and_validate()
 
     assert params.model_name == tmp_path
     assert params.adapter_model == tmp_path
@@ -42,6 +45,7 @@ def test_post_init_config_file_not_present(mock_logger, tmp_path):
         f.write('{"base_model_name_or_path": "base_model"}')
 
     params = ModelParams(model_name=tmp_path)
+    params.finalize_and_validate()
 
     assert params.model_name == "base_model"
     assert params.adapter_model == tmp_path
@@ -63,9 +67,10 @@ def test_post_init_config_file_empty(mock_logger, tmp_path):
     with open(f"{tmp_path}/adapter_config.json", "w") as f:
         f.write("{}")
 
+    params = ModelParams(model_name=tmp_path)
     with pytest.raises(
         ValueError,
         match="`model_name` specifies an adapter model only,"
         " but the base model could not be found!",
     ):
-        ModelParams(model_name=tmp_path)
+        params.finalize_and_validate()

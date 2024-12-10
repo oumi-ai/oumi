@@ -30,7 +30,7 @@ def evaluate(
     parsed_config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
-    parsed_config.validate()
+    parsed_config.finalize_and_validate()
 
     # Run evaluation
     oumi_evaluate(parsed_config)

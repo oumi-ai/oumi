@@ -96,7 +96,7 @@ class Trainer(BaseTrainer):
         # 3. Supported model type.
         self.is_using_ring_attention = False
 
-        self.params.validate()
+        self.params.finalize_and_validate()
 
         self.state = TrainingState()
         self.device_type = "cuda" if torch.cuda.is_available() else "cpu"

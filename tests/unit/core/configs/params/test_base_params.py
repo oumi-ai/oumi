@@ -17,7 +17,7 @@ class NestedParams(BaseParams):
 class PositiveValueParams(BaseParams):
     value: Any
 
-    def __validate__(self) -> None:
+    def __finalize_and_validate__(self) -> None:
         if self.value <= 0:
             raise ValueError(f"Value must be positive, got {self.value}")
 
@@ -32,7 +32,7 @@ class ValueParams(BaseParams):
 #
 def test_simple_params():
     simple = PositiveValueParams(42)
-    simple.validate()  # Should not raise any exception
+    simple.finalize_and_validate()  # Should not raise any exception
 
 
 def test_nested_params():
@@ -43,7 +43,7 @@ def test_nested_params():
         list_param=[simple2, "not a param"],
         dict_param={"a": PositiveValueParams(3), "b": "not a param"},
     )
-    nested.validate()  # Should not raise any exception
+    nested.finalize_and_validate()  # Should not raise any exception
 
 
 def test_validation_call_count():
@@ -54,7 +54,7 @@ def test_validation_call_count():
         b: Any = None
         c: Any = None
 
-        def __validate__(self):
+        def __finalize_and_validate__(self):
             CounterParams.call_count += 1
 
     root = CounterParams(
@@ -67,7 +67,7 @@ def test_validation_call_count():
     )
 
     assert CounterParams.call_count == 0  # before validation
-    root.validate()
+    root.finalize_and_validate()
     assert CounterParams.call_count == 4  # root + 3 unique nested CounterParams
 
 
@@ -77,7 +77,7 @@ def test_cyclic_reference():
     a.value = b
     b.value = a
 
-    a.validate()  # Should not cause infinite recursion
+    a.finalize_and_validate()  # Should not cause infinite recursion
 
 
 def test_nested_params_with_failing_child():
@@ -86,7 +86,7 @@ def test_nested_params_with_failing_child():
 
     # Should fail after validation
     with pytest.raises(expected_exception=ValueError, match="Value must be positive"):
-        failing_param.validate()
+        failing_param.finalize_and_validate()
 
     # Should fail after validation of parent
     nested = NestedParams(
@@ -99,4 +99,4 @@ def test_nested_params_with_failing_child():
     )
 
     with pytest.raises(expected_exception=ValueError, match="Value must be positive"):
-        nested.validate()
+        nested.finalize_and_validate()
