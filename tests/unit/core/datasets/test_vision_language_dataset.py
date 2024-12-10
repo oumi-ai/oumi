@@ -47,6 +47,7 @@ def mock_image_tokenizer() -> MagicMock:
 
 def create_mock_processor(label_ignore_index: Optional[int]):
     processor = Mock()
+    processor.processor_name = "llava-hf/llava-1.5-7b-hf"
     processor.tokenizer = Mock()
     processor.image_processor = Mock()
     processor.chat_template = None

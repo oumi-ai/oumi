@@ -21,13 +21,16 @@ class DefaultProcessor(BaseProcessor):
 
     def __init__(
         self,
+        processor_name: str,
         worker_processor: Any,
         tokenizer: BaseTokenizer,
         *,
         label_ignore_index: Optional[int],
     ):
         """Initializes the processor."""
-        if worker_processor is None:
+        if not processor_name:
+            raise ValueError("Processor name must be provided!")
+        elif worker_processor is None:
             raise ValueError("Worker processor must be provided!")
         elif not callable(worker_processor):
             raise ValueError("Worker processor is not callable!")
@@ -40,6 +43,7 @@ class DefaultProcessor(BaseProcessor):
                 "Worker processor doesn't have " "the `apply_chat_template` method"
             )
 
+        self._processor_name = processor_name
         self._worker_processor: Callable = worker_processor
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
@@ -56,6 +60,12 @@ class DefaultProcessor(BaseProcessor):
                 self._worker_processor.image_processor
             )
         self._label_ignore_index: Optional[int] = label_ignore_index
+
+    @property
+    @override
+    def processor_name(self) -> str:
+        """Returns a processor name."""
+        return self._processor_name
 
     @property
     @override

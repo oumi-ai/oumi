@@ -21,7 +21,7 @@ class ChatTemplateTestSpec(NamedTuple):
     image_placeholder: Optional[str] = None
 
 
-class TestConversationTuple(NamedTuple):
+class ConversationTuple(NamedTuple):
     convo: Conversation
     unique_text_pieces: list[str]
 
@@ -35,7 +35,7 @@ def _generate_unique_text_piece(idx: int) -> str:
 
 def create_test_conversation(
     num_messages: int, include_image: bool
-) -> TestConversationTuple:
+) -> ConversationTuple:
     messages = []
     if include_image:
         messages.append(Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY))
@@ -50,7 +50,7 @@ def create_test_conversation(
             )
         )
         unique_text_pieces.append(s)
-    return TestConversationTuple(
+    return ConversationTuple(
         convo=Conversation(messages=messages), unique_text_pieces=unique_text_pieces
     )
 
@@ -130,7 +130,7 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
     tokenizer.chat_template = chat_template
 
     for include_image in (False, True) if test_spec.test_image else (False,):
-        test_convo_tuple: TestConversationTuple = create_test_conversation(
+        test_convo_tuple: ConversationTuple = create_test_conversation(
             5, include_image=include_image
         )
         for add_generation_prompt in (False, True):
