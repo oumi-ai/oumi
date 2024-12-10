@@ -206,6 +206,7 @@ class ModelParams(BaseParams):
             # given either a local dir or a HF Hub repo id. In the latter case, the repo
             # will be downloaded from HF Hub if it's not already cached.
             adapter_config_file = find_adapter_config_file(self.model_name)
+            # If this check fails, it means this is not a LoRA model.
             if adapter_config_file:
                 # If `model_name` is a local dir, this should be the same.
                 # If it's a HF Hub repo, this should be the path to the cached repo.
@@ -218,7 +219,7 @@ class ModelParams(BaseParams):
                 # If `model_name` specifies a LoRA adapter dir without the base model
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
-                if not adapter_dir.glob("config.json"):
+                if not list(adapter_dir.glob("config.json")):
                     adapter_config = json.load(open(adapter_config_file))
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
