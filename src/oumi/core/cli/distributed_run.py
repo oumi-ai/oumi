@@ -280,19 +280,23 @@ def torchrun(
         ctx: The Typer context object.
         level: The logging level for the specified command.
     """
-    run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
+    try:
+        run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
 
-    cmds: list[str] = [
-        "torchrun",
-        f"--nnodes={run_info.num_nodes}",
-        f"--node-rank={run_info.node_rank}",
-        f"--nproc-per-node={run_info.gpus_per_node}",
-        f"--master-addr={run_info.master_address}",
-        f"--master-port={run_info.master_port}",
-    ]
-    cmds.extend(ctx.args)
+        cmds: list[str] = [
+            "torchrun",
+            f"--nnodes={run_info.num_nodes}",
+            f"--node-rank={run_info.node_rank}",
+            f"--nproc-per-node={run_info.gpus_per_node}",
+            f"--master-addr={run_info.master_address}",
+            f"--master-port={run_info.master_port}",
+        ]
+        cmds.extend(ctx.args)
 
-    _run_subprocess(cmds)
+        _run_subprocess(cmds)
+    except Exception:
+        logger.exception("torchrun failed!")
+        raise
 
 
 def accelerate(
@@ -305,16 +309,20 @@ def accelerate(
         ctx: The Typer context object.
         level: The logging level for the specified command.
     """
-    run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
+    try:
+        run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
 
-    cmds: list[str] = [
-        "accelerate",
-        f"--num_machines={run_info.num_nodes}",
-        f"--node-machine_rank={run_info.node_rank}",
-        f"--num_processes={run_info.total_gpus}",
-        f"--main_process_ip={run_info.master_address}",
-        f"--main_process_port={run_info.master_port}",
-    ]
-    cmds.extend(ctx.args)
+        cmds: list[str] = [
+            "accelerate",
+            f"--num_machines={run_info.num_nodes}",
+            f"--node-machine_rank={run_info.node_rank}",
+            f"--num_processes={run_info.total_gpus}",
+            f"--main_process_ip={run_info.master_address}",
+            f"--main_process_port={run_info.master_port}",
+        ]
+        cmds.extend(ctx.args)
 
-    _run_subprocess(cmds)
+        _run_subprocess(cmds)
+    except Exception:
+        logger.exception("accelerate failed!")
+        raise

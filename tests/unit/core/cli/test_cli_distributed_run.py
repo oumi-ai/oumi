@@ -1,6 +1,7 @@
 import copy
 import logging
 import sys
+import tempfile
 from unittest.mock import Mock, patch
 
 import pytest
@@ -145,3 +146,121 @@ def test_torchrun_skypilot_multi_gpu(
         universal_newlines=True,
     )
     assert logger.level == logging.ERROR
+
+
+def test_torchrun_polaris_multi_gpu(
+    app,
+    mock_os,
+    mock_popen,
+    monkeypatch,
+):
+    with tempfile.NamedTemporaryFile("w+t") as file_nodelist:
+        # file_nodelist.name
+        file_nodelist.writelines(["z111\n", "x222\n", "x333\n"])
+        file_nodelist.flush()
+
+        test_env_vars = {
+            "PBS_NODEFILE": file_nodelist.name,
+            "PMI_RANK": 1,
+            "PBS_JOBID": "123456.polaris",
+            # Define the redundant OUMI_ variables to activate consistency checks.
+            "OUMI_TOTAL_NUM_GPUS": 12,
+            "OUMI_NUM_NODES": 3,
+            "OUMI_MASTER_ADDR": "z111",
+        }
+        mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+
+        mock_process = Mock()
+        mock_popen.return_value = mock_process
+        mock_process.wait.return_value = 0
+
+        monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
+        monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+
+        _ = runner.invoke(
+            app,
+            [
+                "torchrun",
+                "-m",
+                "oumi.train",
+                "training.max_steps=21",
+                "--log-level",
+                "DEBUG",
+            ],
+        )
+
+        mock_popen.assert_called_once()
+        mock_popen.assert_called_once_with(
+            [
+                "torchrun",
+                "--nnodes=3",
+                "--node-rank=1",
+                "--nproc-per-node=4",
+                "--master-addr=z111",
+                "--master-port=8007",
+                "-m",
+                "oumi.train",
+                "training.max_steps=21",
+            ],
+            env=copy.deepcopy(test_env_vars),
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        assert logger.level == logging.DEBUG
+
+
+def test_accelerate_skypilot_multi_gpu(
+    app,
+    mock_os,
+    mock_popen,
+    monkeypatch,
+):
+    test_env_vars = {
+        "SKYPILOT_NODE_IPS": "x111\nx222\nx333\n",
+        "SKYPILOT_NODE_RANK": 2,
+        "SKYPILOT_NUM_GPUS_PER_NODE": 4,
+        # Define the redundant OUMI_ variables to activate consistency checks.
+        "OUMI_TOTAL_NUM_GPUS": 12,
+        "OUMI_NUM_NODES": 3,
+        "OUMI_MASTER_ADDR": "x111",
+    }
+    mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+
+    mock_process = Mock()
+    mock_popen.return_value = mock_process
+    mock_process.wait.return_value = 0
+
+    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+
+    _ = runner.invoke(
+        app,
+        [
+            "accelerate",
+            "-m",
+            "oumi.evaluate",
+            "--log-level",
+            "DEBUG",
+        ],
+    )
+
+    mock_popen.assert_called_once_with(
+        [
+            "accelerate",
+            "--num_machines=3",
+            "--node-machine_rank=2",
+            "--num_processes=12",
+            "--main_process_ip=x111",
+            "--main_process_port=8007",
+            "-m",
+            "oumi.evaluate",
+        ],
+        env=copy.deepcopy(test_env_vars),
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    assert logger.level == logging.DEBUG
