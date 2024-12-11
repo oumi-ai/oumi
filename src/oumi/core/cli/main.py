@@ -3,6 +3,7 @@ import sys
 import typer
 
 from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.core.cli.distributed_run import accelerate, torchrun
 from oumi.core.cli.env import env
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
@@ -56,6 +57,19 @@ def get_app() -> typer.Typer:
     )(up)
     launch_app.command(help="Prints the available clouds.")(which)
     app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
+
+    distributed_app = typer.Typer(pretty_exceptions_enable=False)
+    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(accelerate)
+    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(torchrun)
+    app.add_typer(
+        distributed_app,
+        name="distributed",
+        hidden=True,
+        help=(
+            "A wrapper for torchrun/accelerate "
+            "with reasonable default values for distributed training."
+        ),
+    )
     return app
 
 

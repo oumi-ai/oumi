@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 from typer.testing import CliRunner
 
+from oumi.core.cli.distributed_run import accelerate, torchrun
 from oumi.core.cli.env import env
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.cli.infer import infer
@@ -108,6 +109,20 @@ def mock_judge_conversations():
     with patch("oumi.core.cli.main.conversations") as m_conversations:
         _copy_command(m_conversations, conversations)
         yield m_conversations
+
+
+@pytest.fixture
+def mock_distributed_torchrun():
+    with patch("oumi.core.cli.main.torchrun") as m_torchrun:
+        _copy_command(m_torchrun, torchrun)
+        yield m_torchrun
+
+
+@pytest.fixture
+def mock_distributed_accelerate():
+    with patch("oumi.core.cli.main.accelerate") as m_accelerate:
+        _copy_command(m_accelerate, accelerate)
+        yield m_accelerate
 
 
 @pytest.fixture
@@ -253,3 +268,39 @@ def test_main_judge_conversations_registered(mock_judge_conversations):
         ],
     )
     mock_judge_conversations.assert_called_once()
+
+
+def test_main_distributed_registered():
+    result = runner.invoke(get_app(), ["distributed", "--help"])
+    for cmd in ["accelerate", "torchrun"]:
+        assert cmd in result.output
+
+
+def test_main_distributed_torchrun_registered(mock_distributed_torchrun):
+    _ = runner.invoke(
+        get_app(),
+        [
+            "distributed",
+            "torchrun",
+            "-m",
+            "oumi.train",
+            "--config",
+            "some_config",
+        ],
+    )
+    mock_distributed_torchrun.assert_called_once()
+
+
+def test_main_distributed_accelerate_registered(mock_distributed_accelerate):
+    _ = runner.invoke(
+        get_app(),
+        [
+            "distributed",
+            "accelerate",
+            "-m",
+            "oumi.train",
+            "--config",
+            "some_config",
+        ],
+    )
+    mock_distributed_accelerate.assert_called_once()
