@@ -11,6 +11,8 @@ import typer
 import oumi.core.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
+# Port range [1024, 65535] is generally available
+# for application use w/o root permissions (non-privileged)
 _MASTER_PORT_MIN_VALID_VALUE: Final[int] = 1024
 _MASTER_PORT_MAX_VALID_VALUE: Final[int] = 65535
 
@@ -243,7 +245,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     return result
 
 
-def _run_subprocess(cmds: list[str]) -> None:
+def _run_subprocess(cmds: list[str], *, rank: int) -> None:
     env_copy = os.environ.copy()
 
     start_time = time.perf_counter()
@@ -267,14 +269,14 @@ def _run_subprocess(cmds: list[str]) -> None:
         )
         sys.exit(rc)
 
-    logger.info(f"Successfully completed! ({duration_str})")
+    logger.info(f"Successfully completed! (Rank: {rank}. {duration_str})")
 
 
 def torchrun(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
-    """Train a model.
+    """Starts `torchrun` sub-process w/ automatically configured common params.
 
     Args:
         ctx: The Typer context object.
@@ -293,9 +295,9 @@ def torchrun(
         ]
         cmds.extend(ctx.args)
 
-        _run_subprocess(cmds)
+        _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
-        logger.exception("torchrun failed!")
+        logger.exception(f"`torchrun` failed (Rank: {run_info.node_rank})!")
         raise
 
 
@@ -322,7 +324,7 @@ def accelerate(
         ]
         cmds.extend(ctx.args)
 
-        _run_subprocess(cmds)
+        _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
-        logger.exception("accelerate failed!")
+        logger.exception(f"`accelerate` failed (Rank: {run_info.node_rank})!")
         raise
