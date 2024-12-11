@@ -25,7 +25,7 @@ from oumi.utils.version_utils import get_python_package_versions
 
 OUTPUT_FILENAME_RESULTS = "lm_harness_{time}_results.json"
 OUTPUT_FILENAME_TASK_CONFIG = "lm_harness_{time}_task_config.json"
-OUTPUT_FILENAME_EVAL_CONFIG = "lm_harness_{time}_evaluation_config.json"
+OUTPUT_FILENAME_EVAL_CONFIG = "lm_harness_{time}_evaluation_config.yaml"
 OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
 JSONL_FILE_INDENT = 2
 
