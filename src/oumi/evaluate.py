@@ -220,7 +220,7 @@ def save_lm_harness_output(
     output_dir: str,
     lm_harness_output: dict[str, Any],
     evaluation_config: EvaluationConfig,
-    elapsed_time_sec,
+    elapsed_time_sec: float,
 ) -> None:
     """Writes configuration settings and LM Harness outputs to files."""
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
