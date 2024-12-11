@@ -239,6 +239,7 @@ def test_accelerate_skypilot_multi_gpu(
         app,
         [
             "accelerate",
+            "launch",
             "-m",
             "oumi.evaluate",
             "--log-level",
@@ -249,6 +250,7 @@ def test_accelerate_skypilot_multi_gpu(
     mock_popen.assert_called_once_with(
         [
             "accelerate",
+            "launch",
             "--num_machines=3",
             "--machine_rank=2",
             "--num_processes=12",
