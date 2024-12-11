@@ -3,6 +3,7 @@ import json
 import os
 import time
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any
@@ -19,8 +20,14 @@ from oumi.evaluation.huggingface_leaderboard import (
     HUGGINGFACE_LEADERBOARD_V1,
 )
 from oumi.utils.logging import logger
+from oumi.utils.serialization_utils import make_dict_serializable
+from oumi.utils.version_utils import get_python_package_versions
 
-SAVE_FILENAME_JSON = "eval.{benchmark_name}.json"
+OUTPUT_FILENAME_RESULTS = "lm_harness_{time}_results.json"
+OUTPUT_FILENAME_TASK_CONFIG = "lm_harness_{time}_task_config.json"
+OUTPUT_FILENAME_EVAL_CONFIG = "lm_harness_{time}_evaluation_config.json"
+OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
+JSONL_FILE_INDENT = 2
 
 
 def parse_cli():
@@ -148,7 +155,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     logger.info("Starting evaluation...")
     logger.info(f"\tLM Harness args:\n{pformat(lm_harness_args)}")
-    results = lm_eval.simple_evaluate(
+    lm_eval_output = lm_eval.simple_evaluate(
         model=lm_harness_model,
         model_args=lm_harness_args,
         tasks=config.lm_harness_params.tasks,  # type: ignore
@@ -163,27 +170,27 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     # Metrics are only available on the main process, and `None` on others.
     if is_world_process_zero():
-        assert results is not None
+        assert lm_eval_output is not None
         for benchmark_name in config.lm_harness_params.tasks:
-            metric_dict = results["results"][benchmark_name]  # type: ignore
-            metric_dict["elapsed_time_sec"] = elapsed_time_sec
-            if config.output_dir:
-                save_evaluation_results(
-                    output_dir=config.output_dir,
-                    benchmark_name=benchmark_name,
-                    metric_dict=metric_dict,
-                )
-            logger.info(
-                f"{benchmark_name}'s metric dictionary is {pformat(metric_dict)}"
-            )
+            metric_dict = lm_eval_output["results"][benchmark_name]  # type: ignore
+            logger.info(f"{benchmark_name}'s metric dict is {pformat(metric_dict)}")
+
         if config.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")
             logger.info(f"Logging to Weights and Biases project: '{project_name}'")
             wandb_logger = WandbLogger(
                 project=project_name, name=config.run_name, job_type="eval"
             )
-            wandb_logger.post_init(results)
+            wandb_logger.post_init(lm_eval_output)
             wandb_logger.log_eval_result()
+
+        if config.output_dir:
+            save_lm_harness_output(
+                output_dir=config.output_dir,
+                lm_harness_output=lm_eval_output,
+                evaluation_config=config,
+                elapsed_time_sec=elapsed_time_sec,
+            )
 
 
 def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
@@ -209,18 +216,49 @@ def evaluate_lm_harness_leaderboard(config: EvaluationConfig) -> None:
         evaluate_lm_harness(mutable_config)
 
 
-def save_evaluation_results(
+def save_lm_harness_output(
     output_dir: str,
-    benchmark_name: str,
-    metric_dict: dict[str, Any],
+    lm_harness_output: dict[str, Any],
+    evaluation_config: EvaluationConfig,
+    elapsed_time_sec,
 ) -> None:
-    """Writes metrics as a dict of dicts: Benchmarks -> metric names -> metric vals."""
+    """Writes configuration settings and LM Harness outputs to files."""
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Make sure the output folder exists.
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    output_filename = SAVE_FILENAME_JSON.format(benchmark_name=benchmark_name)
-    output_file = output_path / output_filename
-    with output_file.open(mode="w", encoding="utf-8") as f:
-        json.dump(metric_dict, f)
+
+    # --- Save results ---
+    # This file includes: all evaluation metrics, completion date and time, duration.
+    output_file_results = OUTPUT_FILENAME_RESULTS.format(time=current_time)
+    result_keys = [key for key in ["results", "groups"] if key in lm_harness_output]
+    results = {key: lm_harness_output.pop(key) for key in result_keys}
+    results["duration_sec"] = elapsed_time_sec
+    results["completion_time"] = current_time
+    results_json = json.dumps(results, indent=JSONL_FILE_INDENT)
+    with open(f"{output_path}/{output_file_results}", "w") as file_out:
+        file_out.write(results_json)
+
+    #  --- Save LM Harness task configuration(s) ---
+    # This file includes: number of samples, number of few-shots, task version(s),
+    # prompt(s) text, model/git hashes, seeds, and special tokens (pad, eos, bos, eot).
+    lm_harness_output = make_dict_serializable(lm_harness_output)
+    output_file_task_config = OUTPUT_FILENAME_TASK_CONFIG.format(time=current_time)
+    task_config_json = json.dumps(lm_harness_output, indent=JSONL_FILE_INDENT)
+    with open(f"{output_path}/{output_file_task_config}", "w") as file_out:
+        file_out.write(task_config_json)
+
+    #  --- Save evaluation configuration (oumi.core.configs.EvaluationConfig) ---
+    output_file_eval_config = OUTPUT_FILENAME_EVAL_CONFIG.format(time=current_time)
+    evaluation_config.to_yaml(f"{output_path}/{output_file_eval_config}")
+
+    # --- Save python environment (package versions) ---
+    output_file_pkg_versions = OUTPUT_FILENAME_PKG_VERSIONS.format(time=current_time)
+    package_versions = get_python_package_versions()
+    package_versions_json = json.dumps(package_versions, indent=JSONL_FILE_INDENT)
+    with open(f"{output_path}/{output_file_pkg_versions}", "w") as file_out:
+        file_out.write(package_versions_json)
 
 
 if __name__ == "__main__":
