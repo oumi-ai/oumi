@@ -49,9 +49,7 @@ run: |
   fi
 
   set -x
-  accelerate launch \
-    --num_processes=${OUMI_TOTAL_NUM_GPUS} \
-    --num_machines=${OUMI_NUM_NODES} \
+  oumi distributed accelerate launch \
     --mixed_precision="no" \
     --dynamo_backend="no" \
     -m oumi.evaluate \

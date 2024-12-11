@@ -1,3 +1,4 @@
+import copy
 import enum
 import os
 import sys
@@ -314,15 +315,29 @@ def accelerate(
     try:
         run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
 
-        cmds: list[str] = [
-            "accelerate",
-            f"--num_machines={run_info.num_nodes}",
-            f"--machine_rank={run_info.node_rank}",
-            f"--num_processes={run_info.total_gpus}",
-            f"--main_process_ip={run_info.master_address}",
-            f"--main_process_port={run_info.master_port}",
-        ]
-        cmds.extend(ctx.args)
+        accelerate_subcommand: Optional[str] = None
+        extra_args = copy.deepcopy(ctx.args)
+        if (
+            len(extra_args) > 0
+            and len(extra_args[0]) > 0
+            and not extra_args[0].startswith("-")
+        ):
+            # Copy sub-commands like "launch" to insert them right after `accelerate`
+            # ("accelerate launch ...")
+            accelerate_subcommand = extra_args.pop(0)
+
+        cmds: list[str] = (
+            ["accelerate"]
+            + ([accelerate_subcommand] if accelerate_subcommand is not None else [])
+            + [
+                f"--num_machines={run_info.num_nodes}",
+                f"--machine_rank={run_info.node_rank}",
+                f"--num_processes={run_info.total_gpus}",
+                f"--main_process_ip={run_info.master_address}",
+                f"--main_process_port={run_info.master_port}",
+            ]
+        )
+        cmds.extend(extra_args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
