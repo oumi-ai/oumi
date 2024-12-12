@@ -54,7 +54,7 @@ class BaseParams:
             return
         validated.add(id(self))
 
-        # Validate the children of this object.
+        # Finalize and validate the children of this object.
         # Note that we only support one level of nesting.
         # For example: `List[BaseParams]` is supported, but not `List[List[BaseParams]]`
         for _, attr_value in self:
