@@ -130,8 +130,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         pil_images: list[PIL.Image.Image] = []
         for i, conversation in enumerate(conversations):
-            image_turns = [m for m in conversation.messages if m.is_image()]
-            num_images = len(image_turns)
+            image_items = [
+                item for m in conversation.messages for item in m.image_content_items
+            ]
+            num_images = len(image_items)
             if num_images >= 1:
                 if num_images > 1:
                     # FIXME OPE-355 Support multiple images
@@ -148,21 +150,21 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                             "All or none conversations in a batch must contain images."
                         )
                     )
-                image_turn = image_turns[-1]
-                if image_turn.type != Type.IMAGE_BINARY:
+                image_item = image_items[-1]
+                if image_item.type != Type.IMAGE_BINARY:
                     raise NotImplementedError(
                         conversation.append_id_to_string(
                             "Only binary image messages (`IMAGE_BINARY`) "
-                            f"are supported. Actual: {image_turn.type}"
+                            f"are supported. Actual: {image_item.type}"
                         )
                     )
-                elif image_turn.binary is None or len(image_turn.binary) == 0:
+                elif image_item.binary is None or len(image_item.binary) == 0:
                     raise ValueError(
                         conversation.append_id_to_string(
                             "No image bytes in a binary image message (`IMAGE_BINARY`)!"
                         )
                     )
-                image = load_image_from_bytes(image_turn.binary)
+                image = load_image_from_bytes(image_item.binary)
                 pil_images.append(image)
 
         batch = self._processor(

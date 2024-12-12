@@ -7,7 +7,7 @@ from typing import Optional, Union
 import PIL.Image
 import requests
 
-from oumi.core.types.conversation import Message, Type
+from oumi.core.types.conversation import MessageContentItem, Type
 from oumi.utils.logging import logger
 
 
@@ -93,50 +93,52 @@ def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_bytes_to_message(message: Message) -> Message:
-    """Ensures that message contains inline image bytes if it's an image.
+def load_image_bytes_to_message(item: MessageContentItem) -> MessageContentItem:
+    """Ensures that message content item contains inline image bytes if it's an image.
 
     Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
     Otherwise returns the input message w/o any changes.
 
     Args:
-        message: An input message.
+        item: An input message content item.
 
     Returns:
         A message guaranteed to be `IMAGE_BINARY` if an input message
         was any of image types (`IMAGE_URL`, `IMAGE_PATH`, `IMAGE_BINARY`).
     """
-    if message.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
-        message = copy.deepcopy(message)
-        if message.type == Type.IMAGE_PATH:
-            if message.content is None:
+    if item.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
+        item = copy.deepcopy(item)
+        if item.type == Type.IMAGE_PATH:
+            if item.content is None:
                 raise ValueError("Image path is None")
-            png_bytes = load_image_png_bytes_from_path(message.content)
+            png_bytes = load_image_png_bytes_from_path(item.content)
         else:
-            assert message.type == Type.IMAGE_URL
-            if message.content is None:
+            assert item.type == Type.IMAGE_URL
+            if item.content is None:
                 raise ValueError("Image URL is None")
             try:
-                response = requests.get(message.content, stream=True)
+                response = requests.get(item.content, stream=True)
                 response.raise_for_status()
             except requests.exceptions.RequestException:
-                logger.exception(f"Failed to download image: '{message.content}'")
+                logger.exception(f"Failed to download image: '{item.content}'")
                 raise
             png_bytes = create_png_bytes_from_image_bytes(response.content)
 
-        message.type = Type.IMAGE_BINARY
-        message.binary = png_bytes
-        message.content = None
-        return message
+        item.type = Type.IMAGE_BINARY
+        item.binary = png_bytes
+        item.content = None
+        return item
 
-    return message
+    return item
 
 
-def base64encode_image_bytes(message: Message, *, add_mime_prefix: bool = True) -> str:
+def base64encode_image_bytes(
+    item: MessageContentItem, *, add_mime_prefix: bool = True
+) -> str:
     """Creates base-64 encoded image bytes as ASCII string value.
 
     Args:
-        message: An input message of image type
+        item: An input message content item of image type
             (one of `IMAGE_BINARY`, `IMAGE_PATH, `IMAGE_URL`)
             with the pre-populated `binary` field.
         add_mime_prefix: Whether to add MIME prefix `data:image/png;base64,`
@@ -146,10 +148,10 @@ def base64encode_image_bytes(message: Message, *, add_mime_prefix: bool = True) 
         If `add_mime_prefix` is True, then the following format is used:
         `data:image/png;base64,<BASE64_VALUE>`.
     """
-    if not message.is_image():
-        raise ValueError(f"Message type is not an image: {message.type}")
-    elif not message.binary:
-        raise ValueError(f"No image bytes in message: {message.type}")
+    if not item.is_image():
+        raise ValueError(f"Message type is not an image: {item.type}")
+    elif not item.binary:
+        raise ValueError(f"No image bytes in message: {item.type}")
 
-    base64_str = base64.b64encode(message.binary).decode(encoding="utf8")
+    base64_str = base64.b64encode(item.binary).decode(encoding="utf8")
     return ("data:image/png;base64," + base64_str) if add_mime_prefix else base64_str

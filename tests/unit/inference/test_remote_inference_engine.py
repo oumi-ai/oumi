@@ -19,7 +19,13 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.image_utils import (
@@ -87,8 +93,8 @@ def create_test_png_image_bytes() -> bytes:
 
 def create_test_png_image_base64_str() -> str:
     return base64encode_image_bytes(
-        Message(
-            role=Role.USER, binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY
+        MessageContentItem(
+            binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY
         ),
         add_mime_prefix=True,
     )
@@ -988,10 +994,10 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
 
         assert "role" in json_dict, debug_info
         assert message.role == json_dict["role"], debug_info
-        if message.is_text():
+        if message.contains_text():
             assert message.content == json_dict["content"], debug_info
         else:
-            assert message.is_image(), debug_info
+            assert message.contains_images(), debug_info
             assert "content" in json_dict, debug_info
             assert isinstance(json_dict["content"], list), debug_info
             assert len(json_dict["content"]) == 1, debug_info
@@ -1014,7 +1020,7 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                 assert "url" in image_url
 
                 expected_base64_bytes_str = base64encode_image_bytes(
-                    message, add_mime_prefix=True
+                    message.image_content_items[-1], add_mime_prefix=True
                 )
                 assert len(expected_base64_bytes_str) == len(image_url["url"])
                 assert image_url == {"url": expected_base64_bytes_str}, debug_info
