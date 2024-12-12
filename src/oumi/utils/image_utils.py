@@ -1,5 +1,4 @@
 import base64
-import copy
 import io
 from pathlib import Path
 from typing import Optional, Union
@@ -107,7 +106,6 @@ def load_image_bytes_to_message(item: MessageContentItem) -> MessageContentItem:
         was any of image types (`IMAGE_URL`, `IMAGE_PATH`, `IMAGE_BINARY`).
     """
     if item.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
-        item = copy.deepcopy(item)
         if item.type == Type.IMAGE_PATH:
             if item.content is None:
                 raise ValueError("Image path is None")
@@ -124,10 +122,7 @@ def load_image_bytes_to_message(item: MessageContentItem) -> MessageContentItem:
                 raise
             png_bytes = create_png_bytes_from_image_bytes(response.content)
 
-        item.type = Type.IMAGE_BINARY
-        item.binary = png_bytes
-        item.content = None
-        return item
+        return MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
 
     return item
 

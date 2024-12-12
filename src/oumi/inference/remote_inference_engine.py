@@ -286,12 +286,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             ):
                 # Set "content" to a primitive string value, which is the common
                 # convention for text-only models.
-                item[_CONTENT_KEY] = messages[idx].text_content_items[0]
+                item[_CONTENT_KEY] = messages[idx].text_content_items[0].content
             else:
                 # Set "content" to be a list of dictionaries for more complex cases.
                 content_list = []
                 while idx < end_idx:
-                    content_list.append(
+                    content_list.extend(
                         RemoteInferenceEngine._get_content_for_message(messages[idx])
                     )
                     idx += 1
