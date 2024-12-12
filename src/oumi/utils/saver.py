@@ -1,6 +1,5 @@
 import csv
 
-import numpy as np
 import pandas as pd
 
 PARQUET_EXTENSION = ".parquet"
@@ -16,9 +15,9 @@ def load_infer_prob(input_filepath: str) -> list[list[list[float]]]:
     """Retrieve batched probabilities from a parquet file."""
     probs_count_in_first_batch = None
 
-    def to_list(probs: np.ndarray) -> list[float]:
+    def to_list(probs):
         """Ensure number of probabilities is the same for all entries."""
-        probs_list = [float(prob) for prob in probs]
+        probs_list = list(probs)
         nonlocal probs_count_in_first_batch
         probs_count_in_first_batch = probs_count_in_first_batch or len(probs_list)
         if probs_count_in_first_batch != len(probs_list):
@@ -29,8 +28,9 @@ def load_infer_prob(input_filepath: str) -> list[list[list[float]]]:
         return probs_list
 
     df_probs = pd.read_parquet(f"{input_filepath}{PARQUET_EXTENSION}")
-    probabilities: list[list[np.ndarray]] = df_probs.to_numpy().tolist()  # type: ignore
-    return [[to_list(probs) for probs in batch] for batch in probabilities]
+    probabilities = df_probs.to_numpy().tolist()
+    probabilities = [[to_list(probs) for probs in batch] for batch in probabilities]
+    return probabilities
 
 
 #  The inference probabilities (`probabilities`) are structured as follows:

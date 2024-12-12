@@ -239,7 +239,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],  # type: ignore
+    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
