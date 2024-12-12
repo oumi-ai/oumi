@@ -13,6 +13,7 @@ def save_infer_prob(output_filepath: str, probabilities: list[list[list[float]]]
 
 def dummy_fn():
     """Test function for the `save_infer_prob` function."""
+    #  The inference probabilities (`probabilities`) are structured as follows:
     pass
 
 
