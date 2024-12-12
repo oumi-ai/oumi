@@ -129,7 +129,12 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
     if config.model.adapter_model:
         logger.info(f"Loading adapter for eval: {config.model.adapter_model}")
     assert config.lm_harness_params is not None
-    batch_size = config.generation.batch_size if config.generation.batch_size else None
+    # If batch size isn't specified, we set it to "auto", which will let LM Harness
+    # automatically select the largest batch size that will fit in memory.
+    # https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md
+    batch_size = (
+        config.generation.batch_size if config.generation.batch_size else "auto"
+    )
     start_time = time.time()
 
     lm_harness_args = config.model.to_lm_harness()
