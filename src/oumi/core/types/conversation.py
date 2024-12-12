@@ -132,8 +132,11 @@ class MessageContentItem(pydantic.BaseModel):
             if self.type == Type.IMAGE_BINARY and (
                 self.binary is None or len(self.binary) == 0
             ):
-                raise ValueError(f"Binary not provided for {self.type} message item.")
-            if self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL) and (
+                raise ValueError(
+                    "No image bytes in message content item "
+                    f"(Item type: {self.type})."
+                )
+            if self.type in (Type.IMAGE_PATH, Type.IMAGE_URL) and (
                 self.content is None or len(self.content) == 0
             ):
                 raise ValueError(f"Content not provided for {self.type} message item.")

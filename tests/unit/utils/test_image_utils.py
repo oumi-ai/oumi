@@ -156,7 +156,11 @@ def test_base64encode_image_bytes(message_type: Type):
     png_bytes = create_png_bytes_from_image(pil_image)
 
     base64_str = base64encode_image_bytes(
-        MessageContentItem(type=message_type, binary=png_bytes)
+        MessageContentItem(
+            type=message_type,
+            binary=png_bytes,
+            content=(None if message_type == Type.IMAGE_BINARY else "foo"),
+        )
     )
     assert base64_str
     assert base64_str.startswith("data:image/png;base64,iVBOR")

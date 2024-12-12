@@ -169,7 +169,8 @@ def test_infer_online():
                     role=Role.USER,
                 ),
                 Message(
-                    binary=b"Hello again!",
+                    content="/tmp/hello/again.png",
+                    binary=b"a binary image",
                     role=Role.USER,
                     type=Type.IMAGE_PATH,
                 ),
