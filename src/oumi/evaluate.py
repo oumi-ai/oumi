@@ -112,9 +112,6 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
     Args:
         config: The desired configuration for evaluation.
-
-    Returns:
-        None.
     """
     if torch.cuda.is_available():
         # CUDA device may be overwritten if `accelerate launch`,

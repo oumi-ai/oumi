@@ -89,8 +89,13 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
     "sphinx-design",           # Allows us to include tabs in the docs
 ]
+
 # Dependencies that require a GPU to install
-gpu = ["liger-kernel>=0.3.1", "nvidia-ml-py", "vllm>=0.6.3,<0.7.0"]
+gpu = [
+    "liger-kernel>=0.3.1",
+    "nvidia-ml-py",
+    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+]
 
 # Targets for supported cloud providers
 aws = ["skypilot[aws]"]
@@ -101,29 +106,28 @@ gcp = [
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
-    "skypilot[gcp]",
+    "skypilot[gcp,kubernetes]",
 ]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
-
-# CI targets
-ci_cpu = ["oumi[dev,train,azure,gcp,lambda,runpod,docs,optional]"]
-ci_gpu = ["oumi[ci_cpu,gpu,quant,optional]"]
+cloud = ["oumi[aws,azure,gcp,lambda,runpod]"]
 
 # Optional dependencies
 optional = [
     "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
 ]
-quant = [
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
-]
-cambrian = [ # Consider merging into "train"
+
+cambrian = [
     "timm==0.9.16",
     "open_clip_torch",
     "diffusers[torch]",
     "einops==0.6.1",
 ]
+
+# CI targets
+ci_cpu = ["oumi[dev,docs,cloud,optional]"]
+ci_gpu = ["oumi[ci_cpu,gpu]"]
 
 [project.scripts]
 oumi = "oumi.core.cli.main:run"
