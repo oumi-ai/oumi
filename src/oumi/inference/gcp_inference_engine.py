@@ -17,9 +17,13 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
     def _get_api_key(self, remote_params: RemoteParams) -> str:
         """Gets the authentication token for GCP."""
         try:
-            from google.auth import default
-            from google.auth.transport.requests import Request
-            from google.oauth2 import service_account
+            from google.auth import default  # pyright: ignore[reportMissingImports]
+            from google.auth.transport.requests import (  # pyright: ignore[reportMissingImports]
+                Request,
+            )
+            from google.oauth2 import (  # pyright: ignore[reportMissingImports]
+                service_account,
+            )
         except ModuleNotFoundError:
             raise RuntimeError(
                 "Google-auth is not installed. "
