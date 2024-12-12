@@ -133,7 +133,7 @@ class MessageContentItem(pydantic.BaseModel):
 
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
-        return f"<{self.type.upper()}>{self.content}"
+        return f"{self.content}" if self.is_text() else f"<{self.type.upper()}>"
 
 
 class Message(pydantic.BaseModel):
