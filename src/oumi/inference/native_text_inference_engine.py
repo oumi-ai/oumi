@@ -189,6 +189,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         generation_params = inference_config.generation
         model_device = next(self._model.parameters()).device
+        if generation_params.batch_size is None:
+            logger.warning("Batch size not specified. Defaulting to 1.")
+            generation_params.batch_size = 1
         batched_input: list[list[Conversation]] = self._make_batches(
             input, generation_params.batch_size
         )
