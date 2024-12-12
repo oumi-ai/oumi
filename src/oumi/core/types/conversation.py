@@ -66,32 +66,38 @@ class MessageContentItem(pydantic.BaseModel):
     two `MessageContentItem`-s: one for text, and another for image.
 
     Note:
-        Either content or binary must be provided when creating a Message instance.
+        Either content or binary must be provided when creating an instance.
     """
 
     model_config = pydantic.ConfigDict(frozen=True)
 
     type: Type
-    """The type of the message content (e.g., text, image path, image URL)."""
+    """The type of the content (e.g., text, image path, image URL)."""
 
     content: Optional[str] = None
-    """Optional text content of the message.
+    """Optional text content of the content item.
 
     One of content or binary must be provided.
     """
 
     binary: Optional[bytes] = None
-    """Optional binary data for the message, used for image data.
+    """Optional binary data for the message content item, used for image data.
 
     One of content or binary must be provided.
+
+    The field is required for `IMAGE_BINARY`, and can be optionally populated for
+    `IMAGE_URL`, `IMAGE_PATH` in which case it must be the loaded bytes of
+    the image specified in the `content` field.
+
+    The field must be `None` for `TEXT`.
     """
 
     def is_image(self) -> bool:
-        """Checks if the message contains an image."""
+        """Checks if the item contains an image."""
         return self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH)
 
     def is_text(self) -> bool:
-        """Checks if the message contains text."""
+        """Checks if the item contains text."""
         return self.type == Type.TEXT
 
     @pydantic.field_serializer("binary")
@@ -113,7 +119,7 @@ class MessageContentItem(pydantic.BaseModel):
         return value
 
     def model_post_init(self, __context) -> None:
-        """Post-initialization method for the MessageContentItem model.
+        """Post-initialization method for the `MessageContentItem` model.
 
         This method is automatically called after the model is initialized.
         Performs additional validation e.g., to ensure that either content or binary
