@@ -110,7 +110,7 @@ gcp = [
 ]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
-cloud = ["oumi[aws,azure,gcp,lambda,runpod]"]
+cloud = ["oumi[azure,gcp,lambda,runpod]"] # aws excluded due to version conflicts
 
 # Optional dependencies
 optional = [
