@@ -16,16 +16,22 @@ from oumi.utils.torch_utils import get_torch_dtype
 @dataclass
 class ModelParams(BaseParams):
     model_name: str = MISSING
-    """The name or path of the model to use.
+    """The name or path of the model or LoRA adapter to use.
 
-    This can be a model identifier from the Oumi registry, Hugging Face model hub,
+    This can be a model identifier from the Oumi registry, HuggingFace Hub,
     or a path to a local directory containing model files.
+
+    The LoRA adapter can be specified here instead of in `adapter_model`. If so, this
+    value is copied to `adapter_model`, and the appropriate base model is set here
+    instead. The base model could either be in the same directory as the adapter, or
+    specified in the adapter's config file.
     """
 
     adapter_model: Optional[str] = None
     """The path to an adapter model to be applied on top of the base model.
 
-    If provided, this adapter will be loaded and applied to the base model.
+    If provided, this adapter will be loaded and applied to the base model. The
+    adapter path could alternatively be specified in `model_name`.
     """
 
     tokenizer_name: Optional[str] = None
