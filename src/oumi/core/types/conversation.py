@@ -122,14 +122,27 @@ class MessageContentItem(pydantic.BaseModel):
         Raises:
             ValueError: If fields are set to invalid or inconsistent values.
         """
-        if self.binary is None:
-            if self.content is None:
+        if self.binary is None and self.content is None:
+            raise ValueError(
+                "Either content or binary must be provided for the message item "
+                f"(Item type: {self.type})."
+            )
+
+        if self.is_image():
+            if self.type == Type.IMAGE_BINARY and (
+                self.binary is None or len(self.binary) == 0
+            ):
+                raise ValueError(f"Binary not provided for {self.type} message item.")
+            if self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL) and (
+                self.content is None or len(self.content) == 0
+            ):
+                raise ValueError(f"Content not provided for {self.type} message item.")
+        else:
+            if self.binary is not None:
                 raise ValueError(
-                    "Either content or binary must be provided for the message item."
+                    "Binary can only be provided for the image message items "
+                    f"(Item type: {self.type})."
                 )
-        elif not self.is_image():
-            assert self.binary is not None
-            raise ValueError("Binary can only be provided for the image message items.")
 
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
