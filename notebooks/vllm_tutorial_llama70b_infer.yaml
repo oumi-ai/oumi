@@ -1,0 +1,13 @@
+
+model:
+  # model_name: "meta-llama/Llama-3.1-8B-Instruct"  # 8B model, requires 1x A100-40GB GPUs
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"  # 70B model, requires 4x A100-40GB GPUs
+  # model_name: "bartowski/Llama-3.3-70B-Instruct-GGUF"  # 4-bit quantized model, requires 1x A100-40GB GPUs. See bonus section for more details.
+  model_max_length: 512
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+generation:
+  max_new_tokens: 128
+  batch_size: 1
