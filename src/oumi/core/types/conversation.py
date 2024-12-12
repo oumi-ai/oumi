@@ -261,7 +261,12 @@ class Message(pydantic.BaseModel):
                     type=self.type, content=self.content, binary=self.binary
                 )
         elif self.type == Type.COMPOUND and self.content is not None:
-            assert isinstance(self.content, list), f"Type: {self.type}"
+            if not isinstance(self.content, list):
+                raise RuntimeError(
+                    f"Unexpected content type: {type(self.content)} "
+                    f"for message type: {self.type}. "
+                    f"Expected: `list`."
+                )
             if return_text and return_images:
                 yield from self.content
             else:
