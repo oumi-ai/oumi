@@ -6,8 +6,8 @@
 :hidden:
 
 inference_engines
-vllm
-polaris
+vllm_gcp
+vllm_polaris
 ```
 
 ## Quick Start
