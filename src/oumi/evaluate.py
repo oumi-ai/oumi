@@ -20,14 +20,14 @@ from oumi.evaluation.huggingface_leaderboard import (
     HUGGINGFACE_LEADERBOARD_V1,
 )
 from oumi.utils.logging import logger
-from oumi.utils.serialization_utils import make_dict_serializable
+from oumi.utils.serialization_utils import TorchJsonEncoder
 from oumi.utils.version_utils import get_python_package_versions
 
 OUTPUT_FILENAME_RESULTS = "lm_harness_{time}_results.json"
 OUTPUT_FILENAME_TASK_CONFIG = "lm_harness_{time}_task_config.json"
 OUTPUT_FILENAME_EVAL_CONFIG = "lm_harness_{time}_evaluation_config.yaml"
 OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
-JSONL_FILE_INDENT = 2
+JSON_FILE_INDENT = 2
 
 
 def parse_cli():
@@ -232,32 +232,36 @@ def save_lm_harness_output(
     # --- Save results ---
     # This file includes: all evaluation metrics, completion date and time, duration.
     output_file_results = OUTPUT_FILENAME_RESULTS.format(time=current_time)
-    result_keys = [key for key in ["results", "groups"] if key in lm_harness_output]
-    results = {key: lm_harness_output.pop(key) for key in result_keys}
+    results = {
+        key: lm_harness_output.pop(key)
+        for key in ["results", "groups"]
+        if key in lm_harness_output
+    }
     results["duration_sec"] = elapsed_time_sec
     results["completion_time"] = current_time
-    results_json = json.dumps(results, indent=JSONL_FILE_INDENT)
-    with open(f"{output_path}/{output_file_results}", "w") as file_out:
+    results_json = json.dumps(results, indent=JSON_FILE_INDENT)
+    with open(output_path / output_file_results, "w") as file_out:
         file_out.write(results_json)
 
     #  --- Save LM Harness task configuration(s) ---
     # This file includes: number of samples, number of few-shots, task version(s),
     # prompt(s) text, model/git hashes, seeds, and special tokens (pad, eos, bos, eot).
-    lm_harness_output = make_dict_serializable(lm_harness_output)
     output_file_task_config = OUTPUT_FILENAME_TASK_CONFIG.format(time=current_time)
-    task_config_json = json.dumps(lm_harness_output, indent=JSONL_FILE_INDENT)
-    with open(f"{output_path}/{output_file_task_config}", "w") as file_out:
+    task_config_json = json.dumps(
+        lm_harness_output, cls=TorchJsonEncoder, indent=JSON_FILE_INDENT
+    )
+    with open(output_path / output_file_task_config, "w") as file_out:
         file_out.write(task_config_json)
 
     #  --- Save evaluation configuration (oumi.core.configs.EvaluationConfig) ---
     output_file_eval_config = OUTPUT_FILENAME_EVAL_CONFIG.format(time=current_time)
-    evaluation_config.to_yaml(f"{output_path}/{output_file_eval_config}")
+    evaluation_config.to_yaml(output_path / output_file_eval_config)
 
     # --- Save python environment (package versions) ---
     output_file_pkg_versions = OUTPUT_FILENAME_PKG_VERSIONS.format(time=current_time)
     package_versions = get_python_package_versions()
-    package_versions_json = json.dumps(package_versions, indent=JSONL_FILE_INDENT)
-    with open(f"{output_path}/{output_file_pkg_versions}", "w") as file_out:
+    package_versions_json = json.dumps(package_versions, indent=JSON_FILE_INDENT)
+    with open(output_path / output_file_pkg_versions, "w") as file_out:
         file_out.write(package_versions_json)
 
 
