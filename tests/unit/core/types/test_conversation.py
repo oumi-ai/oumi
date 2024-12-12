@@ -1,6 +1,12 @@
 import pytest
 
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 
 
@@ -11,7 +17,15 @@ def test_conversation():
 
     message1 = Message(role=role_user, content="Hello", id="1")
     message2 = Message(role=role_assistant, content="Hi, how can I help you?")
-    message3 = Message(role=role_user, content="I need assistance with my account.")
+    message3 = Message(
+        type=Type.COMPOUND,
+        role=role_user,
+        content=[
+            MessageContentItem(
+                type=Type.TEXT, content="I need assistance with my account."
+            )
+        ],
+    )
 
     conversation = Conversation(messages=[message1, message2, message3])
     return conversation, role_user, role_assistant, message1, message2, message3
@@ -232,4 +246,39 @@ def test_from_dict_with_invalid_base64():
                 ],
                 "metadata": {"test": "metadata"},
             }
+        )
+
+
+def test_compound_content_incorrect_message_type():
+    with pytest.raises(RuntimeError, match="Unexpected content type"):
+        Message(
+            role=Role.ASSISTANT,
+            content=[
+                MessageContentItem(
+                    type=Type.TEXT, content="I need assistance with my account."
+                )
+            ],
+        )
+    with pytest.raises(RuntimeError, match="Unexpected content type"):
+        Message(
+            type=Type.TEXT,
+            role=Role.ASSISTANT,
+            content=[
+                MessageContentItem(
+                    type=Type.TEXT, content="I need assistance with my account."
+                )
+            ],
+        )
+    with pytest.raises(RuntimeError, match="Unexpected content type"):
+        Message(
+            type=Type.IMAGE_PATH,
+            role=Role.ASSISTANT,
+            content=[],
+        )
+
+    with pytest.raises(RuntimeError, match="Unexpected content type"):
+        Message(
+            type=Type.COMPOUND,
+            role=Role.USER,
+            content="Hello!",
         )

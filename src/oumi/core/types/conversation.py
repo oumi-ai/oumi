@@ -228,15 +228,32 @@ class Message(pydantic.BaseModel):
             raise ValueError(
                 "Either content or binary must be provided for the message."
             )
+        if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
+            if not (self.content is None or isinstance(self.content, str)):
+                raise RuntimeError(
+                    f"Unexpected content type: {type(self.content)} "
+                    f"for message type: {self.type}. "
+                    f"Consider {Type.COMPOUND}."
+                )
+        elif self.type == Type.COMPOUND:
+            if not (self.content is None or isinstance(self.content, list)):
+                raise RuntimeError(
+                    f"Unexpected content type: {type(self.content)} "
+                    f"for message type: {self.type}. "
+                    f"Expected: `list`."
+                )
 
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[MessageContentItem, None, None]:
         """Returns a list of content items."""
         if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
-            assert self.content is None or isinstance(
-                self.content, str
-            ), f"Type: {self.type}"
+            if not (self.content is None or isinstance(self.content, str)):
+                raise RuntimeError(
+                    f"Unexpected content type: {type(self.content)} "
+                    f"for message type: {self.type}. "
+                    f"Consider {Type.COMPOUND}."
+                )
             is_text = self.type == Type.TEXT
             is_image = not is_text
             if (return_text and is_text) or (return_images and is_image):
