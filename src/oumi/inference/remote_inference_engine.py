@@ -207,7 +207,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         return [
             RemoteInferenceEngine._get_content_for_message_content_item(item)
-            for item in message.all_content_items
+            for item in message.content_items
         ]
 
     @staticmethod

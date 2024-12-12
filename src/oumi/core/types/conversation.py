@@ -257,6 +257,11 @@ class Message(pydantic.BaseModel):
         )
 
     @property
+    def content_items(self) -> list[MessageContentItem]:
+        """Returns a list of text content items."""
+        return [item for item in self._iter_all_content_items()]
+
+    @property
     def image_content_items(self) -> list[MessageContentItem]:
         """Returns a list of image content items."""
         return [item for item in self._iter_content_items(return_images=True)]
@@ -265,11 +270,6 @@ class Message(pydantic.BaseModel):
     def text_content_items(self) -> list[MessageContentItem]:
         """Returns a list of text content items."""
         return [item for item in self._iter_content_items(return_text=True)]
-
-    @property
-    def all_content_items(self) -> list[MessageContentItem]:
-        """Returns a list of text content items."""
-        return [item for item in self._iter_all_content_items()]
 
     def compute_flattened_text_content(self, separator=" ") -> str:
         """Joins contents of all text items."""
