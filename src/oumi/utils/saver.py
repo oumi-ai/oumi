@@ -11,6 +11,11 @@ def save_infer_prob(output_filepath: str, probabilities: list[list[list[float]]]
     df_probs.to_parquet(f"{output_filepath}{PARQUET_EXTENSION}")
 
 
+def dummy_fn():
+    """Test function for the `save_infer_prob` function."""
+    pass
+
+
 def load_infer_prob(input_filepath: str) -> list[list[list[float]]]:
     """Retrieve batched probabilities from a parquet file."""
     probs_count_in_first_batch = None
