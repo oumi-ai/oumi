@@ -89,9 +89,9 @@ def test_load_image_bytes_to_message_noop_text():
     input_item = MessageContentItem(type=Type.TEXT, content="hello")
     saved_input_item = copy.deepcopy(input_item)
 
-    output_message = load_image_bytes_to_message(input_item)
-    assert id(output_message) == id(input_item)
-    assert output_message == saved_input_item
+    output_item = load_image_bytes_to_message(input_item)
+    assert id(output_item) == id(input_item)
+    assert output_item == saved_input_item
 
 
 def test_load_image_bytes_to_message_noop_image_binary():
