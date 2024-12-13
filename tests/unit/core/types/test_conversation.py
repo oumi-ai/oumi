@@ -355,16 +355,10 @@ def test_conversation_from_json_compound_simple():
 
 
 def test_roundtrip_dict_legacy(root_testdata_dir):
-    png_logo_bytes = load_image_png_bytes_from_path(
-        root_testdata_dir / "images" / "oumi_logo_dark.png"
-    )
-
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
-            Message(role=Role.USER, binary=png_logo_bytes, type=Type.IMAGE_BINARY),
-            Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
             Message(
                 role=Role.ASSISTANT,
                 content="https://www.oumi.ai/logo.png",
@@ -440,16 +434,10 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
 
 
 def test_roundtrip_json_legacy(root_testdata_dir):
-    png_logo_bytes = load_image_png_bytes_from_path(
-        root_testdata_dir / "images" / "oumi_logo_light.png"
-    )
-
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
-            Message(role=Role.USER, binary=png_logo_bytes, type=Type.IMAGE_BINARY),
-            Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
             Message(
                 role=Role.ASSISTANT,
                 content="https://www.oumi.ai/logo.png",
@@ -665,40 +653,12 @@ def test_content_item_methods_mixed_items(role: Role):
     [Type.IMAGE_BINARY, Type.IMAGE_PATH, Type.IMAGE_URL],
 )
 def test_content_item_methods_legacy_image(image_type):
-    test_image_item = MessageContentItem(
-        type=image_type,
-        content=(None if image_type == Type.IMAGE_BINARY else "foo"),
-        binary=(
-            _create_test_image_bytes() if image_type == Type.IMAGE_BINARY else None
-        ),
-    )
-    message = Message(
-        type=image_type,
-        role=Role.ASSISTANT,
-        content=test_image_item.content,
-        binary=test_image_item.binary,
-    )
-
-    assert not message.contains_text()
-    assert not message.contains_single_text_content_item_only()
-    assert not message.contains_text_content_items_only()
-
-    assert message.contains_images()
-    assert message.contains_single_image_content_item_only()
-    assert message.contains_image_content_items_only()
-
-    assert message.compute_flattened_text_content() == ""
-    assert message.compute_flattened_text_content("Z") == ""
-
-    assert message.content_items == [
-        test_image_item,
-    ]
-    assert message.image_content_items == [test_image_item]
-    assert message.text_content_items == []
-
-    assert message.count_content_items() == MessageContentItemCounts(
-        total_items=1, image_items=1, text_items=0
-    )
+    with pytest.raises(ValueError, match="To be defined"):
+        Message(
+            type=image_type,
+            role=Role.ASSISTANT,
+            content="aaa",
+        )
 
 
 @pytest.mark.parametrize(
@@ -794,7 +754,6 @@ def test_content_item_methods_legacy_text():
         role=Role.USER,
         type=Type.TEXT,
         content=test_text_item.content,
-        binary=test_text_item.binary,
     )
 
     assert message.contains_text()

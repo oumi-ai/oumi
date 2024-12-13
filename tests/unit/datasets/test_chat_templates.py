@@ -1,3 +1,4 @@
+import base64
 import copy
 import functools
 import random
@@ -9,7 +10,13 @@ import pytest
 from oumi.builders.models import build_chat_template, build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.utils.io_utils import get_oumi_root_directory
 from oumi.utils.logging import logger
 
@@ -29,6 +36,15 @@ class ConversationTuple(NamedTuple):
 _ALL_TEST_CHARS: Final[str] = string.ascii_uppercase + string.digits
 
 
+_SMALL_B64_IMAGE: Final[str] = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+def _create_test_image_bytes() -> bytes:
+    return base64.b64decode(_SMALL_B64_IMAGE)
+
+
 def _generate_unique_text_piece(idx: int) -> str:
     return f"x{idx:03}" + "".join(random.choices(_ALL_TEST_CHARS, k=8))
 
@@ -37,11 +53,24 @@ def create_test_conversation(
     num_messages: int, include_image: bool
 ) -> ConversationTuple:
     messages = []
-    if include_image:
-        messages.append(Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY))
     unique_text_pieces = []
+    if include_image:
+        png_bytes = _create_test_image_bytes()
+        s = _generate_unique_text_piece(len(unique_text_pieces))
+        messages.append(
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(content=s, type=Type.TEXT),
+                ],
+            )
+        )
+        unique_text_pieces.append(s)
+
     for i in range(num_messages - 1 if include_image else num_messages):
-        s = _generate_unique_text_piece(i)
+        s = _generate_unique_text_piece(len(unique_text_pieces))
         messages.append(
             Message(
                 role=(Role.USER if (i % 2 == 0) else Role.ASSISTANT),

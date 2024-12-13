@@ -105,21 +105,39 @@ def create_test_multimodal_text_image_conversation():
     return Conversation(
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
-            Message(binary=png_bytes, role=Role.USER, type=Type.IMAGE_BINARY),
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="there", role=Role.USER, type=Type.TEXT),
-            Message(content="Greetings!", role=Role.ASSISTANT, type=Type.TEXT),
             Message(
-                binary=png_bytes,
-                content="http://oumi.ai/test.png",
-                role=Role.ASSISTANT,
-                type=Type.IMAGE_URL,
-            ),
-            Message(content="Describe this image", role=Role.USER, type=Type.TEXT),
-            Message(
-                content=str(_TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"),
                 role=Role.USER,
-                type=Type.IMAGE_PATH,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(content="Hello", type=Type.TEXT),
+                    MessageContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Greetings!", type=Type.TEXT),
+                    MessageContentItem(
+                        binary=png_bytes,
+                        content="http://oumi.ai/test.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Describe this image", type=Type.TEXT),
+                    MessageContentItem(
+                        content=str(
+                            _TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
+                        ),
+                        type=Type.IMAGE_PATH,
+                    ),
+                ],
             ),
         ]
     )
@@ -165,24 +183,27 @@ def test_infer_online():
         conversation = Conversation(
             messages=[
                 Message(
-                    content="Hello world!",
                     role=Role.USER,
-                ),
-                Message(
-                    content="/tmp/hello/again.png",
-                    binary=b"a binary image",
-                    role=Role.USER,
-                    type=Type.IMAGE_PATH,
-                ),
-                Message(
-                    content="a url for our image",
-                    role=Role.USER,
-                    type=Type.IMAGE_URL,
-                ),
-                Message(
-                    binary=b"a binary image",
-                    role=Role.USER,
-                    type=Type.IMAGE_BINARY,
+                    type=Type.COMPOUND,
+                    content=[
+                        MessageContentItem(
+                            content="Hello world!",
+                            type=Type.TEXT,
+                        ),
+                        MessageContentItem(
+                            content="/tmp/hello/again.png",
+                            binary=b"a binary image",
+                            type=Type.IMAGE_PATH,
+                        ),
+                        MessageContentItem(
+                            content="a url for our image",
+                            type=Type.IMAGE_URL,
+                        ),
+                        MessageContentItem(
+                            binary=b"a binary image",
+                            type=Type.IMAGE_BINARY,
+                        ),
+                    ],
                 ),
             ],
             metadata={"foo": "bar"},
@@ -1012,7 +1033,7 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                 json_dict["content"][0]["image_url"]["url"], str
             ), debug_info
 
-            if message.binary:
+            if message.type == Type.COMPOUND:  #  FIXME message.binary:
                 content = json_dict["content"][0]
                 assert isinstance(content, dict)
                 assert "image_url" in content

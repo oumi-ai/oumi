@@ -11,7 +11,7 @@ from oumi.builders import build_chat_template, build_processor, build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Message, Role, Type
+from oumi.core.types.conversation import Message, MessageContentItem, Role, Type
 
 _LLAVA_SYSTEM_PROMPT: Final[str] = (
     "A chat between a curious user and an artificial "
@@ -99,11 +99,15 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     with pytest.raises(ValueError, match="Conversation includes non-text messages"):
         processor.apply_chat_template(
             [
-                Message(role=Role.USER, type=Type.TEXT, content="Hello"),
                 Message(
                     role=Role.USER,
-                    type=Type.IMAGE_BINARY,
-                    binary=base64.b64decode(_SMALL_B64_IMAGE),
+                    content=[
+                        MessageContentItem(type=Type.TEXT, content="Hello"),
+                        MessageContentItem(
+                            type=Type.IMAGE_BINARY,
+                            binary=base64.b64decode(_SMALL_B64_IMAGE),
+                        ),
+                    ],
                 ),
                 Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
                 Message(role=Role.USER, type=Type.TEXT, content="Hmm"),

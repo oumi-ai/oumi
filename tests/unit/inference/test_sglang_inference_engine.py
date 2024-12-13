@@ -5,7 +5,13 @@ import PIL.Image
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -61,12 +67,22 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
         messages=(
             [Message(role=Role.SYSTEM, content="System message")]
             + (
-                [Message(role=Role.USER, binary=png_bytes, type=Type.IMAGE_BINARY)]
+                [
+                    Message(
+                        role=Role.USER,
+                        type=Type.COMPOUND,
+                        content=[
+                            MessageContentItem(
+                                binary=png_bytes, type=Type.IMAGE_BINARY
+                            ),
+                            MessageContentItem(type=Type.TEXT, content="User message"),
+                        ],
+                    )
+                ]
                 if is_vision_language
-                else []
+                else [Message(role=Role.USER, type=Type.TEXT, content="User message")]
             )
             + [
-                Message(role=Role.USER, content="User message"),
                 Message(role=Role.ASSISTANT, content="Assistant message"),
             ]
         ),
