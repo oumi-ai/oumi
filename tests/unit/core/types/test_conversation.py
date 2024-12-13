@@ -106,7 +106,7 @@ def test_repr(test_conversation):
     )
 
 
-def test_conversation_to_dict():
+def test_conversation_to_dict_legacy():
     conv = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
@@ -126,7 +126,89 @@ def test_conversation_to_dict():
     assert conv_dict["messages"][1]["content"] == "Hi there!"
 
 
-def test_conversation_from_dict():
+def test_conversation_to_dict_compound_text_content():
+    conv = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[MessageContentItem(type=Type.TEXT, content="Hello")],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                type=Type.COMPOUND,
+                content=[MessageContentItem(type=Type.TEXT, content="Hi there!")],
+            ),
+        ],
+        metadata={"test": "metadata"},
+    )
+    conv_dict = conv.to_dict()
+
+    assert isinstance(conv_dict, dict)
+    assert "messages" in conv_dict
+    assert len(conv_dict["messages"]) == 2
+    assert conv_dict["metadata"] == {"test": "metadata"}
+    assert conv_dict["messages"][0]["role"] == "user"
+    assert conv_dict["messages"][0]["content"] == [{"content": "Hello", "type": "text"}]
+    assert conv_dict["messages"][1]["role"] == "assistant"
+    assert conv_dict["messages"][1]["content"] == [
+        {"content": "Hi there!", "type": "text"}
+    ]
+
+
+def test_conversation_to_dict_compound_mixed_content():
+    png_bytes = _create_test_image_bytes()
+    conv = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+                    MessageContentItem(type=Type.TEXT, content="Hello"),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(type=Type.TEXT, content="Hi there!"),
+                    MessageContentItem(
+                        type=Type.IMAGE_URL,
+                        content="/tmp/foo.png",
+                        binary=png_bytes,
+                    ),
+                ],
+            ),
+        ],
+        metadata={"test": "metadata"},
+    )
+    conv_dict = conv.to_dict()
+
+    assert isinstance(conv_dict, dict)
+    assert "messages" in conv_dict
+    assert len(conv_dict["messages"]) == 2
+    assert conv_dict["metadata"] == {"test": "metadata"}
+    assert conv_dict["messages"][0]["role"] == "user"
+    assert conv_dict["messages"][0]["content"] == [
+        {
+            "binary": _SMALL_B64_IMAGE,
+            "type": "image_binary",
+        },
+        {"content": "Hello", "type": "text"},
+    ]
+    assert conv_dict["messages"][1]["role"] == "assistant"
+    assert conv_dict["messages"][1]["content"] == [
+        {"content": "Hi there!", "type": "text"},
+        {
+            "binary": _SMALL_B64_IMAGE,
+            "content": "/tmp/foo.png",
+            "type": "image_url",
+        },
+    ]
+
+
+def test_conversation_from_dict_legacy():
     conv_dict = {
         "messages": [
             {"role": "user", "content": "Hello"},
@@ -145,7 +227,42 @@ def test_conversation_from_dict():
     assert conv.messages[1].content == "Hi there!"
 
 
-def test_conversation_to_json():
+def test_conversation_from_dict_compound_mixed_content():
+    png_bytes = _create_test_image_bytes()
+    conv_dict = {
+        "messages": [
+            {
+                "role": "user",
+                "type": "compound",
+                "content": [
+                    {
+                        "binary": _SMALL_B64_IMAGE,
+                        "type": "image_binary",
+                    },
+                    {"content": "Hello", "type": "text"},
+                ],
+            },
+            {"role": "assistant", "content": "Hi there!"},
+        ],
+        "metadata": {"test": "metadata"},
+    }
+    conv = Conversation.from_dict(conv_dict)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].type == Type.COMPOUND
+    assert isinstance(conv.messages[0].content, list)
+    assert conv.messages[0].content == [
+        MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+        MessageContentItem(type=Type.TEXT, content="Hello"),
+    ]
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
+def test_conversation_to_json_legacy():
     conv = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
@@ -163,7 +280,51 @@ def test_conversation_to_json():
     assert '"test":"metadata"' in json_str
 
 
-def test_conversation_from_json():
+def test_conversation_to_json_mixed_content():
+    png_bytes = _create_test_image_bytes()
+    conv = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+                    MessageContentItem(type=Type.TEXT, content="Hello"),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(type=Type.TEXT, content="Hi there!"),
+                    MessageContentItem(
+                        type=Type.IMAGE_URL,
+                        content="/tmp/foo.png",
+                        binary=png_bytes,
+                    ),
+                ],
+            ),
+        ],
+        metadata={"test": "_MY_METADATA_"},
+    )
+    json_str = conv.to_json()
+
+    assert isinstance(json_str, str)
+    assert '"role":"user"' in json_str, json_str
+    assert '"type":"compound"' in json_str
+    assert '"type":"image_binary"' in json_str
+    assert ('"binary":"' + _SMALL_B64_IMAGE + '"') in json_str, json_str
+    assert json_str.count('"binary":"' + _SMALL_B64_IMAGE + '"') == 2, json_str
+    assert '"content":"Hello"' in json_str, json_str
+    assert '"type":"text"' in json_str
+    assert json_str.count('"type":"text"') == 2, json_str
+    assert '"role":"assistant"' in json_str
+    assert '"type":"image_url"' in json_str
+    assert '"content":"Hi there!"' in json_str
+    assert '"test":"_MY_METADATA_"' in json_str
+
+
+def test_conversation_from_json_legacy():
     json_str = '{"messages": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
     conv = Conversation.from_json(json_str)
 
@@ -176,8 +337,25 @@ def test_conversation_from_json():
     assert conv.messages[1].content == "Hi there!"
 
 
-def test_roundtrip_dict(root_testdata_dir):
-    png_image_bytes = load_image_png_bytes_from_path(
+def test_conversation_from_json_compound_simple():
+    json_str = '{"messages": [{"role": "user", "type": "compound", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
+    conv = Conversation.from_json(json_str)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].type == Type.COMPOUND
+    assert isinstance(conv.messages[0].content, list)
+    assert conv.messages[0].content == [
+        MessageContentItem(type=Type.TEXT, content="Hello")
+    ]
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
+def test_roundtrip_dict_legacy(root_testdata_dir):
+    png_logo_bytes = load_image_png_bytes_from_path(
         root_testdata_dir / "images" / "oumi_logo_dark.png"
     )
 
@@ -185,7 +363,7 @@ def test_roundtrip_dict(root_testdata_dir):
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
-            Message(role=Role.USER, binary=png_image_bytes, type=Type.IMAGE_BINARY),
+            Message(role=Role.USER, binary=png_logo_bytes, type=Type.IMAGE_BINARY),
             Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
             Message(
                 role=Role.ASSISTANT,
@@ -207,8 +385,62 @@ def test_roundtrip_dict(root_testdata_dir):
     assert original == reconstructed
 
 
-def test_roundtrip_json(root_testdata_dir):
-    png_image_bytes = load_image_png_bytes_from_path(
+def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
+    png_logo_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "oumi_logo_dark.png"
+    )
+    png_small_image_bytes = _create_test_image_bytes()
+
+    original = Conversation(
+        messages=[
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(
+                id="z072",
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(
+                        binary=png_small_image_bytes, type=Type.IMAGE_BINARY
+                    ),
+                    MessageContentItem(
+                        content="https://www.oumi.ai/logo.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                id="_xyz",
+                role=Role.TOOL,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(
+                        content=str(
+                            root_testdata_dir / "images" / "oumi_logo_dark.png"
+                        ),
+                        binary=png_logo_bytes,
+                        type=Type.IMAGE_PATH,
+                    ),
+                    MessageContentItem(
+                        content="http://oumi.ai/bzz.png",
+                        binary=png_small_image_bytes,
+                        type=Type.IMAGE_URL,
+                    ),
+                    MessageContentItem(content="<@>", type=Type.TEXT),
+                ],
+            ),
+        ],
+        metadata={"a": "b", "b": "c"},
+    )
+    conv_dict = original.to_dict()
+    reconstructed = Conversation.from_dict(conv_dict)
+
+    assert original == reconstructed
+
+
+def test_roundtrip_json_legacy(root_testdata_dir):
+    png_logo_bytes = load_image_png_bytes_from_path(
         root_testdata_dir / "images" / "oumi_logo_light.png"
     )
 
@@ -216,7 +448,7 @@ def test_roundtrip_json(root_testdata_dir):
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
-            Message(role=Role.USER, binary=png_image_bytes, type=Type.IMAGE_BINARY),
+            Message(role=Role.USER, binary=png_logo_bytes, type=Type.IMAGE_BINARY),
             Message(role=Role.USER, binary=b"", type=Type.IMAGE_BINARY),
             Message(
                 role=Role.ASSISTANT,
@@ -231,6 +463,60 @@ def test_roundtrip_json(root_testdata_dir):
             ),
         ],
         metadata={"test": "metadata"},
+    )
+    json_str = original.to_json()
+    reconstructed = Conversation.from_json(json_str)
+
+    assert original == reconstructed
+
+
+def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
+    png_logo_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "oumi_logo_light.png"
+    )
+    png_small_image_bytes = _create_test_image_bytes()
+
+    original = Conversation(
+        messages=[
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(
+                id="z072",
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(
+                        binary=png_small_image_bytes, type=Type.IMAGE_BINARY
+                    ),
+                    MessageContentItem(
+                        content="https://www.oumi.ai/logo.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                id="_xyz",
+                role=Role.TOOL,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(
+                        content=str(
+                            root_testdata_dir / "images" / "oumi_logo_dark.png"
+                        ),
+                        binary=png_logo_bytes,
+                        type=Type.IMAGE_PATH,
+                    ),
+                    MessageContentItem(
+                        content="http://oumi.ai/bzz.png",
+                        binary=png_small_image_bytes,
+                        type=Type.IMAGE_URL,
+                    ),
+                    MessageContentItem(content="<@>", type=Type.TEXT),
+                ],
+            ),
+        ],
+        metadata={"a": "b", "b": "c"},
     )
     json_str = original.to_json()
     reconstructed = Conversation.from_json(json_str)
