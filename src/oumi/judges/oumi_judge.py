@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.types.conversation import Conversation, Role, TemplatedMessage
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 from oumi.judges.base_judge import BaseJudge, BaseJudgeOutput
 from oumi.utils.str_utils import str_to_bool
 
@@ -47,17 +47,21 @@ class OumiXmlJudge(BaseJudge):
     def _transform_conversation_input(
         self, conversation: Conversation
     ) -> OumiJudgeInput:
-        user_prompt = conversation.last_message(Role.USER)
-        assistant_prompt = conversation.last_message(Role.ASSISTANT)
+        user_prompt: Optional[Message] = conversation.last_message(Role.USER)
+        assistant_prompt: Optional[Message] = conversation.last_message(Role.ASSISTANT)
 
-        if user_prompt and user_prompt.content:
-            request = user_prompt.content
+        if user_prompt is not None:
+            if not user_prompt.contains_text_content_items_only():
+                raise ValueError("User message contains non-text content!")
+            request: str = user_prompt.compute_flattened_text_content()
         else:
             raise ValueError("No user prompt found in conversation")
 
-        response = None
-        if assistant_prompt:
-            response = assistant_prompt.content
+        response: Optional[str] = None
+        if assistant_prompt is not None:
+            if not assistant_prompt.contains_text_content_items_only():
+                raise ValueError("Assistant message contains non-text content!")
+            response = assistant_prompt.compute_flattened_text_content()
         else:
             response = None
 

@@ -121,9 +121,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
+        # FIXME Handle multimodal e.g., raise an error.
         return [
             {
-                "content": message.content or "",
+                "content": message.compute_flattened_text_content(),
                 "role": message.role,
             }
             for message in conversation.messages

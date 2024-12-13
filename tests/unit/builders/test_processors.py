@@ -1,3 +1,4 @@
+import base64
 from typing import Final
 
 import numpy as np
@@ -20,6 +21,10 @@ _LLAVA_SYSTEM_PROMPT: Final[str] = (
 )
 _IMAGE_TOKEN: Final[str] = "<image>"
 _IMAGE_TOKEN_ID: Final[int] = 32000
+
+_SMALL_B64_IMAGE: Final[str] = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +100,11 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
         processor.apply_chat_template(
             [
                 Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-                Message(role=Role.USER, type=Type.IMAGE_BINARY, binary=b""),
+                Message(
+                    role=Role.USER,
+                    type=Type.IMAGE_BINARY,
+                    binary=base64.b64decode(_SMALL_B64_IMAGE),
+                ),
                 Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
                 Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
             ]
