@@ -1,0 +1,39 @@
+name: oumi-ssh
+
+num_nodes: 1
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  # accelerators: { "A100": 2, "L4": 4 }  # Some multi-gpu options
+
+  disk_size: 200  # Disk size in GB
+  # region: us-central1  # Uncomment this line to only consider a specific region.
+
+  use_spot: false
+
+# Upload working directory to remote ~/sky_workdir.
+working_dir: .
+
+# Mount local files.
+storage_mounts:
+  /gcs_dir:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-debug
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[dev]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
