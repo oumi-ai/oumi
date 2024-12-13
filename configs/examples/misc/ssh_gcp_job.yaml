@@ -5,8 +5,9 @@ num_nodes: 1
 resources:
   cloud: gcp
 
-  accelerators: { "A40", "A10", "A10g", "A100-80GB-SXM", "A100", "L4" } # Some single-gpu options
-  # accelerators: { "A100:2", "L4:4" }  # Some multi-gpu options
+  # Other single GPU options: "A40", "A10", "A10g", "A100-80GB-SXM", "L4"
+  # Multi GPU options: "A100:2", "L4:4"
+  accelerators: "A100"
 
   disk_size: 200 # Disk size in GBs
   # region: us-central1  # Uncomment this line to only consider a specific region.
