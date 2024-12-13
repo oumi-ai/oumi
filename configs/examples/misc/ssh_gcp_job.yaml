@@ -9,7 +9,7 @@ resources:
   # Multi GPU options: "A100:2", "L4:4"
   accelerators: "A100"
 
-  disk_size: 200 # Disk size in GBs
+  disk_size: 200 # Disk size in GB
   # region: us-central1  # Uncomment this line to only consider a specific region.
 
   use_spot: false
