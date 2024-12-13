@@ -163,6 +163,7 @@ def _try_expand_oumi_command(args: list[str]) -> None:
     Args:
         args: List of separated command line arguments.
     """
+    return
     if "oumi" in args:
         idx = args.index("oumi")
         oumi_path = shutil.which("oumi")
