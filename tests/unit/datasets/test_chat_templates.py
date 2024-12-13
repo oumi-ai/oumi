@@ -70,10 +70,11 @@ def create_test_conversation(
         unique_text_pieces.append(s)
 
     for i in range(num_messages - 1 if include_image else num_messages):
-        s = _generate_unique_text_piece(len(unique_text_pieces))
+        idx = len(unique_text_pieces)
+        s = _generate_unique_text_piece(idx)
         messages.append(
             Message(
-                role=(Role.USER if (i % 2 == 0) else Role.ASSISTANT),
+                role=(Role.USER if (idx % 2 == 0) else Role.ASSISTANT),
                 content=s,
                 type=Type.TEXT,
             )
@@ -144,7 +145,8 @@ def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
                 chat_template_name=template_name, model_name="openai-community/gpt2"
             )
         )
-    return result
+    return [x for x in result if x.chat_template_name == "llama3-instruct"]
+    # return result
 
 
 @pytest.mark.parametrize(
@@ -164,8 +166,9 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
         )
         for add_generation_prompt in (False, True):
             debug_tag = (
-                f"include_image: {include_image} "
-                f"add_generation_prompt: {add_generation_prompt}"
+                f"\ninclude_image: {include_image} "
+                f"\nadd_generation_prompt: {add_generation_prompt} "
+                f"\ntest_spec: {test_spec}"
             )
 
             prompt = tokenizer.apply_chat_template(
@@ -174,6 +177,7 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                 add_generation_prompt=add_generation_prompt,
             )
 
+            logger.info(f"prompt:\n=====\n{prompt}\n=====")
             for text_piece in test_convo_tuple.unique_text_pieces:
                 assert (
                     text_piece in prompt

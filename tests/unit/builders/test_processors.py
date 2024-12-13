@@ -101,6 +101,7 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
             [
                 Message(
                     role=Role.USER,
+                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(type=Type.TEXT, content="Hello"),
                         MessageContentItem(
