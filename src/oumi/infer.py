@@ -1,4 +1,3 @@
-import argparse
 from typing import Optional
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
@@ -13,7 +12,6 @@ from oumi.inference import (
     SGLangInferenceEngine,
     VLLMInferenceEngine,
 )
-from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.logging import logger
 
 
@@ -56,49 +54,6 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
             "Falling back to the default 'native' engine."
         )
         return NativeTextInferenceEngine(config.model)
-
-
-def parse_cli():
-    """Parses command line arguments and returns the configuration filename."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-c", "--config", default=None, help="Path to the configuration file"
-    )
-    parser.add_argument(
-        "-i",
-        "--image",
-        type=argparse.FileType("rb"),
-        help="File path of an input image to be used with `image+text` VLLMs.",
-    )
-    args, unknown = parser.parse_known_args()
-    return args.config, args.image, unknown
-
-
-def main():
-    """Main entry point for running inference using Oumi.
-
-    Training arguments are fetched from the following sources, ordered by
-    decreasing priority:
-    1. [Optional] Arguments provided as CLI arguments, in dotfile format
-    2. [Optional] Arguments provided in a yaml config file
-    3. Default arguments values defined in the data class
-    """
-    # Load configuration
-    config_path, input_image_filepath, arg_list = parse_cli()
-
-    config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
-        config_path, arg_list, logger=logger
-    )
-    config.finalize_and_validate()
-
-    input_image_png_bytes: Optional[bytes] = (
-        load_image_png_bytes_from_path(input_image_filepath)
-        if input_image_filepath
-        else None
-    )
-
-    # Run inference
-    infer_interactive(config, input_image_bytes=input_image_png_bytes)
 
 
 def infer_interactive(
@@ -177,7 +132,3 @@ def infer(
         inference_config=config,
     )
     return generations
-
-
-if __name__ == "__main__":
-    main()
