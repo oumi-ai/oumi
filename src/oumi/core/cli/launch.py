@@ -304,7 +304,7 @@ def run(
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
-    parsed_config.validate()
+    parsed_config.finalize_and_validate()
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
     if not cluster:
         raise ValueError("No cluster specified for the `run` action.")
@@ -432,7 +432,7 @@ def up(
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
-    parsed_config.validate()
+    parsed_config.finalize_and_validate()
     if cluster:
         target_cloud = launcher.get_cloud(parsed_config.resources.cloud)
         target_cluster = target_cloud.get_cluster(cluster)
