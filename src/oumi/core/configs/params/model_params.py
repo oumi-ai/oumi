@@ -227,7 +227,7 @@ class ModelParams(BaseParams):
                 # If `model_name` specifies a LoRA adapter dir without the base model
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
-                if not list(adapter_dir.glob("config.json")):
+                if len(list(adapter_dir.glob("config.json"))) == 0:
                     adapter_config = json.load(open(adapter_config_file))
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
