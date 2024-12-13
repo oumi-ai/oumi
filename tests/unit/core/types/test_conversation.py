@@ -360,15 +360,15 @@ def test_roundtrip_dict_legacy(root_testdata_dir):
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
             Message(
-                role=Role.ASSISTANT,
-                content="https://www.oumi.ai/logo.png",
-                type=Type.IMAGE_URL,
+                role=Role.TOOL,
+                content="lalala",
+                type=Type.TEXT,
             ),
             Message(
                 id="xyz",
-                role=Role.TOOL,
-                content=str(root_testdata_dir / "images" / "oumi_logo_dark.png"),
-                type=Type.IMAGE_PATH,
+                role=Role.USER,
+                content="oumi_logo_dark",
+                type=Type.TEXT,
             ),
         ],
         metadata={"test": "metadata"},
@@ -439,15 +439,14 @@ def test_roundtrip_json_legacy(root_testdata_dir):
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
             Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
             Message(
-                role=Role.ASSISTANT,
-                content="https://www.oumi.ai/logo.png",
-                type=Type.IMAGE_URL,
+                role=Role.USER,
+                content="",
+                type=Type.TEXT,
             ),
             Message(
                 id="xyz",
                 role=Role.TOOL,
-                content=str(root_testdata_dir / "images" / "oumi_logo_dark.png"),
-                type=Type.IMAGE_PATH,
+                content="oumi_logo_dark",
             ),
         ],
         metadata={"test": "metadata"},
@@ -522,8 +521,8 @@ def test_from_json_with_invalid_field():
         Conversation.from_json('{"invalid": json')
 
 
-def test_from_dict_with_invalid_base64():
-    with pytest.raises(ValueError, match="Invalid base64-encoded string"):
+def test_from_dict_missing_content():
+    with pytest.raises(ValueError, match="content must be provided for the message"):
         Conversation.from_dict(
             {
                 "messages": [
@@ -536,10 +535,44 @@ def test_from_dict_with_invalid_base64():
                 "metadata": {"test": "metadata"},
             }
         )
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Conversation.from_dict(
+            {
+                "messages": [
+                    {
+                        "binary": "zzzz",
+                        "role": "assistant",
+                        "type": "text",
+                    },
+                ],
+                "metadata": {"test": "metadata"},
+            }
+        )
+
+
+def test_from_dict_with_invalid_base64():
+    with pytest.raises(ValueError, match="Invalid base64-encoded string"):
+        Conversation.from_dict(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "type": "compound",
+                        "content": [
+                            {
+                                "binary": "INVALID_BASE64!",
+                                "type": "image_binary",
+                            }
+                        ],
+                    },
+                ],
+                "metadata": {"test": "metadatazzz"},
+            }
+        )
 
 
 def test_compound_content_incorrect_message_type():
-    with pytest.raises(RuntimeError, match="Unexpected content type"):
+    with pytest.raises(ValueError, match="Unexpected content type"):
         Message(
             role=Role.ASSISTANT,
             content=[
@@ -548,7 +581,7 @@ def test_compound_content_incorrect_message_type():
                 )
             ],
         )
-    with pytest.raises(RuntimeError, match="Unexpected content type"):
+    with pytest.raises(ValueError, match="Unexpected content type"):
         Message(
             type=Type.TEXT,
             role=Role.ASSISTANT,
@@ -558,18 +591,46 @@ def test_compound_content_incorrect_message_type():
                 )
             ],
         )
-    with pytest.raises(RuntimeError, match="Unexpected content type"):
+    with pytest.raises(ValueError, match="Unexpected content type"):
         Message(
-            type=Type.IMAGE_PATH,
+            type=Type.TEXT,
             role=Role.ASSISTANT,
             content=[],
         )
 
-    with pytest.raises(RuntimeError, match="Unexpected content type"):
+    with pytest.raises(ValueError, match="Unexpected content type"):
         Message(
             type=Type.COMPOUND,
             role=Role.USER,
             content="Hello!",
+        )
+
+
+@pytest.mark.parametrize(
+    "image_type",
+    [Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH],
+)
+def test_top_level_image_type_not_allowed(image_type: Type):
+    with pytest.raises(
+        ValueError, match="Images must be stored as items under `Message.content`"
+    ):
+        Message(
+            type=image_type,
+            role=Role.ASSISTANT,
+            content=[
+                MessageContentItem(
+                    type=Type.TEXT, content="I need assistance with my account."
+                )
+            ],
+        )
+
+    with pytest.raises(
+        ValueError, match="Images must be stored as items under `Message.content`"
+    ):
+        Message(
+            type=image_type,
+            role=Role.USER,
+            content="aaa",
         )
 
 
@@ -646,19 +707,6 @@ def test_content_item_methods_mixed_items(role: Role):
     assert message.count_content_items() == MessageContentItemCounts(
         total_items=5, image_items=2, text_items=3
     )
-
-
-@pytest.mark.parametrize(
-    "image_type",
-    [Type.IMAGE_BINARY, Type.IMAGE_PATH, Type.IMAGE_URL],
-)
-def test_content_item_methods_legacy_image(image_type):
-    with pytest.raises(ValueError, match="To be defined"):
-        Message(
-            type=image_type,
-            role=Role.ASSISTANT,
-            content="aaa",
-        )
 
 
 @pytest.mark.parametrize(

@@ -221,8 +221,8 @@ class Message(pydantic.BaseModel):
                 )
         else:
             raise ValueError(
-                "Images must be stored as message content items "
-                "as children of `Message.content`. Type: {self.type}"
+                "Images must be stored as items "
+                f"under `Message.content`. Type: {self.type}"
             )
 
     def _iter_content_items(
@@ -242,8 +242,8 @@ class Message(pydantic.BaseModel):
                 yield MessageContentItem(type=self.type, content=self.content)
         elif self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
             raise RuntimeError(
-                "Images must be stored as message content items "
-                "as children of `Message.content`. Type: {self.type}"
+                "Images must be stored as items "
+                f"under `Message.content`. Type: {self.type}"
             )
         elif self.type == Type.COMPOUND and self.content is not None:
             if not isinstance(self.content, list):
