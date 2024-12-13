@@ -49,7 +49,7 @@ run: |
 
   set -x
   accelerate launch \
-    /home/gcpuser/miniconda3/bin/oumi evaluate \
+    $(which oumi) evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name ${MODEL_CHECKPOINT_DIR}
