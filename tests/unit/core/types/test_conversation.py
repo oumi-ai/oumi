@@ -395,6 +395,93 @@ def test_content_item_methods_legacy_image(image_type):
     )
 
 
+@pytest.mark.parametrize(
+    "image_type",
+    [Type.IMAGE_BINARY, Type.IMAGE_PATH, Type.IMAGE_URL],
+)
+def test_content_item_methods_single_image(image_type):
+    test_image_item = MessageContentItem(
+        type=image_type,
+        content=(None if image_type == Type.IMAGE_BINARY else "foo"),
+        binary=(
+            _create_test_image_bytes() if image_type == Type.IMAGE_BINARY else None
+        ),
+    )
+    message = Message(
+        type=Type.COMPOUND,
+        role=Role.ASSISTANT,
+        content=[test_image_item],
+    )
+
+    assert not message.contains_text()
+    assert not message.contains_single_text_content_item_only()
+    assert not message.contains_text_content_items_only()
+
+    assert message.contains_images()
+    assert message.contains_single_image_content_item_only()
+    assert message.contains_image_content_items_only()
+
+    assert message.compute_flattened_text_content() == ""
+    assert message.compute_flattened_text_content("Z") == ""
+
+    assert message.content_items == [
+        test_image_item,
+    ]
+    assert message.image_content_items == [test_image_item]
+    assert message.text_content_items == []
+
+    assert message.count_content_items() == MessageContentItemCounts(
+        total_items=1, image_items=1, text_items=0
+    )
+
+
+def test_content_item_methods_triple_image():
+    test_image_item1 = MessageContentItem(
+        type=Type.IMAGE_BINARY,
+        binary=(_create_test_image_bytes()),
+    )
+    test_image_item2 = MessageContentItem(
+        type=Type.IMAGE_URL,
+        content="http://oumi.ai/a.png",
+    )
+    test_image_item3 = MessageContentItem(
+        type=Type.IMAGE_PATH,
+        content="/tmp/oumi.ai/b.gif",
+    )
+    message = Message(
+        type=Type.COMPOUND,
+        role=Role.ASSISTANT,
+        content=[test_image_item1, test_image_item2, test_image_item3],
+    )
+
+    assert not message.contains_text()
+    assert not message.contains_single_text_content_item_only()
+    assert not message.contains_text_content_items_only()
+
+    assert message.contains_images()
+    assert not message.contains_single_image_content_item_only()
+    assert message.contains_image_content_items_only()
+
+    assert message.compute_flattened_text_content() == ""
+    assert message.compute_flattened_text_content("Z") == ""
+
+    assert message.content_items == [
+        test_image_item1,
+        test_image_item2,
+        test_image_item3,
+    ]
+    assert message.image_content_items == [
+        test_image_item1,
+        test_image_item2,
+        test_image_item3,
+    ]
+    assert message.text_content_items == []
+
+    assert message.count_content_items() == MessageContentItemCounts(
+        total_items=3, image_items=3, text_items=0
+    )
+
+
 def test_content_item_methods_legacy_text():
     test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
@@ -423,4 +510,35 @@ def test_content_item_methods_legacy_text():
 
     assert message.count_content_items() == MessageContentItemCounts(
         total_items=1, image_items=0, text_items=1
+    )
+
+
+def test_content_item_methods_double_text():
+    test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    message = Message(
+        role=Role.USER,
+        type=Type.COMPOUND,
+        content=[test_text_item, test_text_item],
+    )
+
+    assert message.contains_text()
+    assert not message.contains_single_text_content_item_only()
+    assert message.contains_text_content_items_only()
+
+    assert not message.contains_images()
+    assert not message.contains_single_image_content_item_only()
+    assert not message.contains_image_content_items_only()
+
+    assert message.compute_flattened_text_content() == "bzzz bzzz"
+    assert message.compute_flattened_text_content("^") == "bzzz^bzzz"
+
+    assert message.content_items == [
+        test_text_item,
+        test_text_item,
+    ]
+    assert message.image_content_items == []
+    assert message.text_content_items == [test_text_item, test_text_item]
+
+    assert message.count_content_items() == MessageContentItemCounts(
+        total_items=2, image_items=0, text_items=2
     )
