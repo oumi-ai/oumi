@@ -228,7 +228,8 @@ class ModelParams(BaseParams):
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
                 if len(list(adapter_dir.glob("config.json"))) == 0:
-                    adapter_config = json.load(open(adapter_config_file))
+                    with open(adapter_config_file) as f:
+                        adapter_config = json.load(f)
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
                         raise ValueError(
