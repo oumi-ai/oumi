@@ -585,6 +585,26 @@ def test_compound_content_incorrect_message_type():
         )
 
 
+def test_incorrect_message_content_item_type():
+    with pytest.raises(ValueError, match="COMPOUND type is not allowed"):
+        MessageContentItem(
+            type=Type.COMPOUND,
+            content="foo",
+        )
+    with pytest.raises(ValueError, match="Either content or binary must be provided"):
+        MessageContentItem(
+            type=Type.TEXT,
+        )
+    with pytest.raises(ValueError, match="No image bytes in message content item"):
+        MessageContentItem(type=Type.IMAGE_BINARY, binary=b"")
+    with pytest.raises(ValueError, match="Content not provided"):
+        MessageContentItem(type=Type.IMAGE_URL, binary=b"")
+    with pytest.raises(ValueError, match="Content not provided"):
+        MessageContentItem(type=Type.IMAGE_PATH, binary=b"")
+    with pytest.raises(ValueError, match="Binary can only be provided for images"):
+        MessageContentItem(type=Type.TEXT, binary=b"")
+
+
 @pytest.mark.parametrize(
     "role",
     [Role.USER, Role.ASSISTANT, Role.TOOL, Role.SYSTEM],

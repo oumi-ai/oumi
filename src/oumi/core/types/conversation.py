@@ -128,6 +128,9 @@ class MessageContentItem(pydantic.BaseModel):
         Raises:
             ValueError: If fields are set to invalid or inconsistent values.
         """
+        if self.type == Type.COMPOUND:
+            raise ValueError("COMPOUND type is not allowed in message content items.")
+
         if self.binary is None and self.content is None:
             raise ValueError(
                 "Either content or binary must be provided for the message item "
@@ -149,7 +152,7 @@ class MessageContentItem(pydantic.BaseModel):
         else:
             if self.binary is not None:
                 raise ValueError(
-                    "Binary can only be provided for the image message items "
+                    "Binary can only be provided for images "
                     f"(Item type: {self.type})."
                 )
 
