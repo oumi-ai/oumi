@@ -91,7 +91,7 @@ def main() -> None:
     config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
-    config.validate()
+    config.finalize_and_validate()
 
     limit_per_process_memory()
     set_random_seeds(config.training.seed)

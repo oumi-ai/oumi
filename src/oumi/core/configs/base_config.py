@@ -123,16 +123,16 @@ class BaseConfig:
 
         return cast(T, config)
 
-    def validate(self) -> None:
-        """Validates the top level params objects."""
+    def finalize_and_validate(self) -> None:
+        """Finalizes and validates the top level params objects."""
         for _, attr_value in self:
             if isinstance(attr_value, BaseParams):
-                attr_value.validate()
+                attr_value.finalize_and_validate()
 
-        self.__validate__()
+        self.__finalize_and_validate__()
 
-    def __validate__(self) -> None:
-        """Validates the parameters of this object.
+    def __finalize_and_validate__(self) -> None:
+        """Finalizes and validates the parameters of this object.
 
         This method can be overridden by subclasses to implement custom
         validation logic.

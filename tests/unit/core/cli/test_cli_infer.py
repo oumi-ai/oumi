@@ -76,7 +76,7 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
                 "--interactive",
                 "--config",
                 yaml_path,
-                "--model.model_name",
+                "--model.tokenizer_name",
                 "new_name",
                 "--generation.max_new_tokens",
                 "5",
@@ -85,7 +85,7 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
             ],
         )
         expected_config = _create_inference_config()
-        expected_config.model.model_name = "new_name"
+        expected_config.model.tokenizer_name = "new_name"
         expected_config.generation.max_new_tokens = 5
         expected_config.engine = InferenceEngineType.VLLM
         mock_infer_interactive.assert_has_calls(
@@ -137,14 +137,14 @@ def test_infer_not_interactive_with_overrides(app, mock_infer, mock_infer_intera
             [
                 "--config",
                 yaml_path,
-                "--model.model_name",
+                "--model.tokenizer_name",
                 "new_name",
                 "--generation.max_new_tokens",
                 "5",
             ],
         )
         expected_config = _create_inference_config()
-        expected_config.model.model_name = "new_name"
+        expected_config.model.tokenizer_name = "new_name"
         expected_config.generation.max_new_tokens = 5
         expected_config.input_path = "some/path"
         mock_infer.assert_has_calls([call(expected_config)])

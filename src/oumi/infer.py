@@ -89,7 +89,7 @@ def main():
     config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config_path, arg_list, logger=logger
     )
-    config.validate()
+    config.finalize_and_validate()
 
     input_image_png_bytes: Optional[bytes] = (
         load_image_png_bytes_from_path(input_image_filepath)

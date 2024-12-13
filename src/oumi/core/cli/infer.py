@@ -53,7 +53,7 @@ def infer(
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
-    parsed_config.validate()
+    parsed_config.finalize_and_validate()
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
