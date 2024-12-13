@@ -131,11 +131,11 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-skyssh:
-	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
+gcpssh:
+	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev -c configs/examples/misc/ssh_job.yaml
 	ssh "${USERNAME}-dev"
 
-skycode:
+gcpcode:
 	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
