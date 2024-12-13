@@ -122,7 +122,7 @@ def test_train_with_overrides(
             [
                 "--config",
                 train_yaml_path,
-                "--model.model_name",
+                "--model.tokenizer_name",
                 "new_name",
                 "--training.max_steps",
                 "5",
@@ -131,7 +131,7 @@ def test_train_with_overrides(
         mock_limit_per_process_memory.assert_called_once()
         mock_device_cleanup.assert_has_calls([call(), call()])
         expected_config = _create_training_config()
-        expected_config.model.model_name = "new_name"
+        expected_config.model.tokenizer_name = "new_name"
         expected_config.training.max_steps = 5
         mock_train.assert_has_calls([call(expected_config)])
         mock_set_random_seeds.assert_called_once()
