@@ -1,6 +1,7 @@
 import copy
 import enum
 import os
+import shutil
 import sys
 import time
 from subprocess import Popen
@@ -151,6 +152,25 @@ def _parse_nodes_str(nodes_str: str) -> list[str]:
     return node_ips
 
 
+def _try_expand_oumi_command(args: list[str]) -> None:
+    """Expands `oumi` command to the full path.
+
+    torchrun can run binaries in addition to Python scripts. However, it doesn't
+    seem to search for the binary in PATH, and instead treats it as `./oumi`.
+    This function replaces `oumi` with the full path to the `oumi` executable as a
+    workaround.
+
+    Args:
+        args: List of separated command line arguments.
+    """
+    if "oumi" in args:
+        idx = args.index("oumi")
+        oumi_path = shutil.which("oumi")
+        if not oumi_path:
+            raise RuntimeError("`oumi` executable not found in PATH!")
+        args[idx] = oumi_path
+
+
 def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     """Detects process run info.
 
@@ -283,6 +303,8 @@ def torchrun(
         ctx: The Typer context object.
         level: The logging level for the specified command.
     """
+    args = copy.deepcopy(ctx.args)
+    _try_expand_oumi_command(args)
     try:
         run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
 
@@ -294,7 +316,7 @@ def torchrun(
             f"--master-addr={run_info.master_address}",
             f"--master-port={run_info.master_port}",
         ]
-        cmds.extend(ctx.args)
+        cmds.extend(args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
@@ -312,19 +334,17 @@ def accelerate(
         ctx: The Typer context object.
         level: The logging level for the specified command.
     """
+    args = copy.deepcopy(ctx.args)
+    _try_expand_oumi_command(args)
     try:
         run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
 
         accelerate_subcommand: Optional[str] = None
-        extra_args = copy.deepcopy(ctx.args)
-        if (
-            len(extra_args) > 0
-            and len(extra_args[0]) > 0
-            and not extra_args[0].startswith("-")
-        ):
+        args = copy.deepcopy(args)
+        if len(args) > 0 and len(args[0]) > 0 and not args[0].startswith("-"):
             # Copy sub-commands like "launch" to insert them right after `accelerate`
             # ("accelerate launch ...")
-            accelerate_subcommand = extra_args.pop(0)
+            accelerate_subcommand = args.pop(0)
 
         cmds: list[str] = (
             ["accelerate"]
@@ -337,7 +357,7 @@ def accelerate(
                 f"--main_process_port={run_info.master_port}",
             ]
         )
-        cmds.extend(extra_args)
+        cmds.extend(args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
