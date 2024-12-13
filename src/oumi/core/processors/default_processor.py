@@ -195,7 +195,7 @@ class DefaultProcessor(BaseProcessor):
         if isinstance(self._worker_processor, BaseTokenizer):
             # If the processor is actually a tokenizer, then disallow non-text messages.
             for message in conversation:
-                if not message.is_text():
+                if message.contains_images():
                     raise ValueError(
                         f"Conversation includes non-text messages: {message.type}. "
                         "This is not allowed for processors that are tokenizers."
