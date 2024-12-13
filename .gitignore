@@ -5,8 +5,8 @@ wandb/
 output/
 # test coverage report
 coverage_html/
-# Notebook tutorial working directories
-notebooks/*tutorial*/
+# Notebook tutorial working files/directories
+notebooks/*tutorial*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
