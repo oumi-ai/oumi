@@ -348,12 +348,17 @@ class Message(pydantic.BaseModel):
         return counts.text_items > 0 and counts.text_items == counts.total_items
 
     def contains_single_text_content_item_only(self) -> bool:
-        """Checks if the message contains exactly 1 text content item, and nothing else.
+        """Checks if the message contains exactly 1 text item, and nothing else.
 
         These are the most common and simple messages, and may need special handling.
         """
         counts = self.count_content_items()
         return counts.text_items == 1 and counts.text_items == counts.total_items
+
+    def contains_single_image_content_item_only(self) -> bool:
+        """Checks if the message contains exactly 1 image item, and nothing else."""
+        counts = self.count_content_items()
+        return counts.image_items == 1 and counts.image_items == counts.total_items
 
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
