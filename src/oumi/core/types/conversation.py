@@ -277,9 +277,7 @@ class Message(pydantic.BaseModel):
                     ):
                         yield item
 
-    def _iter_all_content_items(
-        self, *, return_text: bool = False, return_images: bool = False
-    ) -> Generator[MessageContentItem, None, None]:
+    def _iter_all_content_items(self) -> Generator[MessageContentItem, None, None]:
         return self._iter_content_items(return_text=True, return_images=True)
 
     def count_content_items(self) -> MessageContentItemCounts:
