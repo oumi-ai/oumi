@@ -104,8 +104,16 @@ def _get_test_png_image_bytes(image_size: Optional[tuple[int, int]] = None) -> b
 def sample_conversation_using_image_path():
     return Conversation(
         messages=[
-            Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
-            Message(role=Role.USER, content="path/to/image.jpg", type=Type.IMAGE_PATH),
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Describe this image:", type=Type.TEXT),
+                    MessageContentItem(
+                        content="path/to/image.jpg", type=Type.IMAGE_PATH
+                    ),
+                ],
+            ),
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
