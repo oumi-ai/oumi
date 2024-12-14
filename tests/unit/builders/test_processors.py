@@ -14,7 +14,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message, MessageContentItem, Role, Type
 
 _LLAVA_SYSTEM_PROMPT: Final[str] = (
-    "A chat between a curious user and an artificial "
+    "<s>A chat between a curious user and an artificial "
     "intelligence assistant. "
     "The assistant gives helpful, detailed, and "
     "polite answers to the user's questions."
@@ -162,7 +162,7 @@ def test_build_processor_basic_multimodal_success():
     )
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
-    assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz "
+    assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz \n"
 
     prompt = processor.apply_chat_template(
         [
@@ -175,7 +175,7 @@ def test_build_processor_basic_multimodal_success():
     assert isinstance(prompt, str)
     assert prompt == (
         _LLAVA_SYSTEM_PROMPT
-        + " USER: Hello ASSISTANT: How can I help? </s>USER: Hmm ASSISTANT: "
+        + " USER: Hello \nASSISTANT: How can I help? </s>\nUSER: Hmm \nASSISTANT: "
     )
 
     test_image = PIL.Image.new(mode="RGB", size=(512, 256))
@@ -190,11 +190,11 @@ def test_build_processor_basic_multimodal_success():
     ]
     attention_mask = result["attention_mask"]
     assert isinstance(attention_mask, torch.Tensor)
-    assert attention_mask.shape == (1, 57)
+    assert attention_mask.shape == (1, 61)
 
     input_ids = result["input_ids"]
     assert isinstance(input_ids, torch.Tensor)
-    assert input_ids.shape == (1, 57)
+    assert input_ids.shape == (1, 61)
 
     pixel_values = result["pixel_values"]
     assert isinstance(pixel_values, torch.Tensor)
@@ -228,11 +228,11 @@ def test_build_processor_basic_multimodal_success():
     ]
     attention_mask = result["attention_mask"]
     assert isinstance(attention_mask, torch.Tensor)
-    assert attention_mask.shape == (3, 57)
+    assert attention_mask.shape == (3, 61)
 
     input_ids = result["input_ids"]
     assert isinstance(input_ids, torch.Tensor)
-    assert input_ids.shape == (3, 57)
+    assert input_ids.shape == (3, 61)
 
     pixel_values = result["pixel_values"]
     assert isinstance(pixel_values, torch.Tensor)
