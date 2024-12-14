@@ -34,7 +34,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install ".[gpu,quant]" hf_transfer
+  pip install uv && uv pip install '.[gpu,quant]' hf_transfer
   # Recommended: Copy the model from our cache in GCS
   # mkdir -p ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
   # gsutil -m cp -n gs://oumi-dev-us-central1/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/*  ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1

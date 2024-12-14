@@ -68,7 +68,7 @@ cd oumi
 pip install -e .  # For local development & testing
 
 # OR, with GPU support (Requires Nvidia or AMD GPU)
-pip install -e ".[gpu]"  # For GPU training
+pip install -e '.[gpu]'  # For GPU training
 ```
 
 ### Usage

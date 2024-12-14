@@ -16,7 +16,7 @@ for more details.
 
 Oumi uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
     ```shell
-    pip install ".[dev]"
+    pip install '.[dev]'
     pre-commit install
     ```
 

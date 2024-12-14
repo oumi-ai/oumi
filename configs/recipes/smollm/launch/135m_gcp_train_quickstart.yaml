@@ -18,7 +18,7 @@ envs:
 
 setup: |
   set -e
-  pip install ".[gpu]"
+  pip install '.[gpu]'
 
 run: |
   set -e  # Exit if any command failed.

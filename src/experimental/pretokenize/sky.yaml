@@ -29,7 +29,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install "."
+  pip install uv && uv pip install '.'
 
 run: |
   set -e  # Exit if any command failed.

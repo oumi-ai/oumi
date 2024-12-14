@@ -63,7 +63,7 @@ sky exec -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
 ```
 
 If you made any code changes to the codebase (not including configs), you need to run
-`pip install "."` in the `run` section of the SkyPilot config to install the
+`pip install '.'` in the `run` section of the SkyPilot config to install the
 changes on the cluster.
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down oumi-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
