@@ -110,8 +110,8 @@ if ! (echo "${ALLOWED_MODEL_SIZES[@]}" | grep -q -w "${MODEL_SIZE}"); then
 fi
 
 if "${ENABLE_OUMI_TELEMETRY}"; then
-    OUMI_TELEMETRY_PARAMS="training.telemetry.collect_telemetry_for_all_ranks=true
-    training.telemetry.track_gpu_temperature=true"
+    OUMI_TELEMETRY_PARAMS="--training.telemetry.collect_telemetry_for_all_ranks true
+    --training.telemetry.track_gpu_temperature true"
     echo "Oumi telemetry enabled!"
 fi
 
@@ -121,13 +121,13 @@ export TOKENIZERS_PARALLELISM=false
 
 # Training params shared between the different training modes, and likely
 # don't need to be modified during experimentation.
-SHARED_TRAINING_PARAMS="training.run_name='polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}'
-training.output_dir=/eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
+SHARED_TRAINING_PARAMS="--training.run_name 'polaris.llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}'
+--training.output_dir /eagle/community_ai/${USER}/runs/llama${MODEL_SIZE}.${TRAINING_MODE}.${OUMI_JOBNUM}
 ${OUMI_TELEMETRY_PARAMS}"
 
 if [ "$TRAINING_MODE" == "pretrain" ]; then
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
-PRETRAIN_DATASETS="data.train.datasets=
+PRETRAIN_DATASETS="--data.train.datasets
 - dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
   subset: 'default'
   split: 'train'
@@ -242,7 +242,7 @@ torchrun \
     --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
     --master-addr=${OUMI_MASTER_ADDR} \
     --master-port=8007 \
-    -m oumi.train \
+    -m oumi train \
     -c "${OUMI_CFG_FILE}" \
     ${PRETRAIN_DATASETS:+"$PRETRAIN_DATASETS"} \
     $SHARED_TRAINING_PARAMS \
