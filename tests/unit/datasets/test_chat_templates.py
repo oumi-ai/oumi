@@ -151,7 +151,6 @@ def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
                 chat_template_name=template_name, model_name="openai-community/gpt2"
             )
         )
-    # return [x for x in result if x.chat_template_name == "llama3-instruct"]
     return result
 
 

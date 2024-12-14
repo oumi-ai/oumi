@@ -129,7 +129,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
     )
 
-    test_prompt: str = "Describe the high-level theme of the image in few words!"
+    test_prompt: str = "Generate a short, descriptive caption for this image!"
 
     input = [test_prompt] * (num_batches * batch_size)
     output = infer(
@@ -156,7 +156,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 ),
                 Message(
                     role=Role.ASSISTANT,
-                    content="2 boats in a wave.",
+                    content="2 boats are in the middle of a large wave",
                     type=Type.TEXT,
                 ),
             ]

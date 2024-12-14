@@ -301,7 +301,7 @@ def test_infer_from_file_to_file_with_images():
         TEST_IMAGE_DIR / "oumi_logo_dark.png"
     )
 
-    test_prompt: str = "Describe the high-level theme of the image in few words!"
+    test_prompt: str = "Generate a short, descriptive caption for this image!"
 
     with tempfile.TemporaryDirectory() as output_temp_dir:
         engine = NativeTextInferenceEngine(_get_default_image_model_params())
@@ -352,7 +352,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="2 boats in a wave",
+                        content="2 boats are in the middle of a large wave",
                         role=Role.ASSISTANT,
                     ),
                 ],

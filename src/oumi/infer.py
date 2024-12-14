@@ -176,9 +176,9 @@ def infer(
                                 MessageContentItem(
                                     type=Type.IMAGE_BINARY, binary=input_image_bytes
                                 ),
+                                MessageContentItem(type=Type.TEXT, content=content),
                             ],
                         ),
-                        Message(role=Role.USER, content=content),
                     ]
                 )
                 for content in inputs

@@ -29,6 +29,8 @@
     {%- if message['role'] == 'assistant' -%}
         {{eos_token}}
     {%- endif -%}
+
+    {{ '\n' }}
 {%- endfor -%}
 
 {%- if add_generation_prompt -%}
