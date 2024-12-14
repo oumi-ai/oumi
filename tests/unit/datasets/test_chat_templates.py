@@ -120,6 +120,12 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         image_placeholder="<image>",
     ),
     ChatTemplateTestSpec(
+        chat_template_name="phi3-instruct",
+        model_name="microsoft/Phi-3-vision-128k-instruct",
+        test_image=True,
+        image_placeholder="<|image_1|>",
+    ),
+    ChatTemplateTestSpec(
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
     ),
@@ -145,8 +151,8 @@ def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
                 chat_template_name=template_name, model_name="openai-community/gpt2"
             )
         )
-    return [x for x in result if x.chat_template_name == "llama3-instruct"]
-    # return result
+    # return [x for x in result if x.chat_template_name == "llama3-instruct"]
+    return result
 
 
 @pytest.mark.parametrize(
