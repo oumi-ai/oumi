@@ -28,7 +28,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[dev]'
+  pip install uv && uv pip install ".[dev]"
 
 run: |
   set -e  # Exit if any command failed.

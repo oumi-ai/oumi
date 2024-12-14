@@ -31,7 +31,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install ".[gpu]"
 
 run: |
   set -e  # Exit if any command failed.
@@ -44,15 +44,15 @@ run: |
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
-      -m oumi.train \
+      -m oumi train \
       -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir=train/" \
-      "training.enable_wandb=true" \
-      "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=false" \
-      "training.per_device_train_batch_size=4" \
-      "training.max_steps=20" \
-      "training.logging_steps=10"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir train/ \
+      --training.enable_wandb true \
+      --training.enable_tensorboard true \
+      --training.include_performance_metrics false \
+      --training.per_device_train_batch_size 4 \
+      --training.max_steps 20 \
+      --training.logging_steps 10
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

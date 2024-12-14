@@ -21,15 +21,15 @@ file_mounts:
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
   MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-70B-Instruct
-  # NOTE: For LoRA, update this to point to your LoRA adapter.
-  LORA_ADAPTER_DIR: ""
   WANDB_PROJECT: oumi-eval
   OUMI_RUN_NAME: llama70b.eval
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install ".[gpu]" hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct --exclude original/*
@@ -44,15 +44,10 @@ run: |
   fi
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
-  if test -n "$LORA_ADAPTER_DIR"; then
-    echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
-  fi
-
   set -x
   oumi evaluate \
     -c configs/recipes/llama3_1/evaluation/70b_eval.yaml \
-    --run_name '${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}' \
-    --model.model_name ${MODEL_CHECKPOINT_DIR} \
-    --model.adapter_model ${LORA_ADAPTER_DIR}
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

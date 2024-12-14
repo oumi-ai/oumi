@@ -100,7 +100,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $
   if ! command -v uv >/dev/null 2>&1; then
       pip install -U uv
   fi
-  pip install -e '.[gpu]'
+  pip install -e ".[gpu]"
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.

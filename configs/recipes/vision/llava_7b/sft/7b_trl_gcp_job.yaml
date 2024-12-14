@@ -26,7 +26,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install ".[gpu]" hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf
@@ -37,11 +37,11 @@ run: |
 
   set -x
   oumi distributed torchrun \
-      -m oumi.train \
+      -m oumi train \
       -c configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=20" \
-      "training.save_steps=0" \
-      "training.save_final_model=false"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

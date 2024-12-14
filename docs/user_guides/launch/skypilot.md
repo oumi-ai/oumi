@@ -7,7 +7,7 @@ SkyPilot support is deprecated. Please use oumi launcher, which extends SkyPilot
 To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
 
 ```shell
-pip install 'oumi[cloud]'
+pip install "oumi[cloud]"
 ```
 
 Then setup your cloud credentials:
@@ -51,7 +51,7 @@ sky exec -c oumi-cluster configs/skypilot/sky_gpt2.yaml
 ```
 
 If you made any code changes to the codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the SkyPilot config to install the
+`pip install "."` in the `run` section of the SkyPilot config to install the
 changes on the cluster.
 
 Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down oumi-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
