@@ -47,7 +47,7 @@ run: |
       -m oumi train \
       -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.output_dir train/ \
+      --training.output_dir "train/" \
       --training.enable_wandb true \
       --training.enable_tensorboard true \
       --training.include_performance_metrics false \

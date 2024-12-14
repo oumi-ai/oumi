@@ -37,7 +37,7 @@ If you want to contribute to Oumi or need the full source code, you can clone th
 ```bash
 git clone https://github.com/oumi-ai/oumi.git
 cd oumi
-pip install -e '.[dev]'
+pip install -e ".[dev]"
 ```
 
 The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
@@ -57,23 +57,23 @@ Oumi has several optional features that require additional dependencies:
 - For GPU support:
 
   ```bash
-  pip install '.[gpu]'  # Only if you have an Nvidia or AMD GPU
+  pip install ".[gpu]"  # Only if you have an Nvidia or AMD GPU
   ```
 
 - For development and testing:
 
   ```bash
-  pip install '.[dev]'
+  pip install ".[dev]"
   ```
 
 - For specific cloud providers:
 
   ```bash
-  pip install '.[aws]'     # For Amazon Web Services
-  pip install '.[azure]'   # For Microsoft Azure
-  pip install '.[gcp]'     # For Google Cloud Platform
-  pip install '.[lambda]'  # For Lambda Cloud
-  pip install '.[runpod]'  # For RunPod
+  pip install ".[aws]"     # For Amazon Web Services
+  pip install ".[azure]"   # For Microsoft Azure
+  pip install ".[gcp]"     # For Google Cloud Platform
+  pip install ".[lambda]"  # For Lambda Cloud
+  pip install ".[runpod]"  # For RunPod
   ```
 
   You can install multiple cloud dependencies by combining them, e.g.:
