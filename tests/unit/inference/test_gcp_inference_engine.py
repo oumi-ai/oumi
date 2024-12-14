@@ -142,7 +142,7 @@ def test_convert_conversation_to_api_input_multimodal(gcp_engine, inference_conf
         conversation, inference_config.generation
     )
     assert api_input["model"] == "gcp-model"
-    assert len(conversation.messages) == 4
+    assert len(conversation.messages) == 3
     assert len(api_input["messages"]) == 3
     assert isinstance(api_input["messages"][0]["content"], list)
     assert len(api_input["messages"][0]["content"]) == 2
