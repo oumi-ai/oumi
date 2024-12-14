@@ -1033,7 +1033,10 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                 assert isinstance(json_item, dict)
                 assert "type" in json_item, debug_info
 
-                if item.is_image():
+                if item.is_text():
+                    assert json_item["type"] == "text", debug_info
+                    assert json_item["text"] == item.content, debug_info
+                elif item.is_image():
                     assert json_item["type"] == "image_url", debug_info
                     assert "image_url" in json_item, debug_info
                     assert isinstance(json_item["image_url"], dict), debug_info
