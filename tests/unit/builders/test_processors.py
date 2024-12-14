@@ -162,7 +162,7 @@ def test_build_processor_basic_multimodal_success():
     )
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
-    assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz \n"
+    assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz "
 
     prompt = processor.apply_chat_template(
         [
@@ -175,7 +175,7 @@ def test_build_processor_basic_multimodal_success():
     assert isinstance(prompt, str)
     assert prompt == (
         _LLAVA_SYSTEM_PROMPT
-        + " USER: Hello \nASSISTANT: How can I help? </s>\nUSER: Hmm \nASSISTANT: "
+        + " USER: Hello ASSISTANT: How can I help? </s>USER: Hmm ASSISTANT: "
     )
 
     test_image = PIL.Image.new(mode="RGB", size=(512, 256))
@@ -190,11 +190,11 @@ def test_build_processor_basic_multimodal_success():
     ]
     attention_mask = result["attention_mask"]
     assert isinstance(attention_mask, torch.Tensor)
-    assert attention_mask.shape == (1, 60)
+    assert attention_mask.shape == (1, 57)
 
     input_ids = result["input_ids"]
     assert isinstance(input_ids, torch.Tensor)
-    assert input_ids.shape == (1, 60)
+    assert input_ids.shape == (1, 57)
 
     pixel_values = result["pixel_values"]
     assert isinstance(pixel_values, torch.Tensor)
@@ -228,11 +228,11 @@ def test_build_processor_basic_multimodal_success():
     ]
     attention_mask = result["attention_mask"]
     assert isinstance(attention_mask, torch.Tensor)
-    assert attention_mask.shape == (3, 60)
+    assert attention_mask.shape == (3, 57)
 
     input_ids = result["input_ids"]
     assert isinstance(input_ids, torch.Tensor)
-    assert input_ids.shape == (3, 60)
+    assert input_ids.shape == (3, 57)
 
     pixel_values = result["pixel_values"]
     assert isinstance(pixel_values, torch.Tensor)

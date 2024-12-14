@@ -352,7 +352,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="2 boats are in the middle of a large wave",
+                        content="2 boats are in the",
                         role=Role.ASSISTANT,
                     ),
                 ],
@@ -363,7 +363,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="4x4 square.",
+                        content="4 white squares make up",
                         role=Role.ASSISTANT,
                     ),
                 ],
