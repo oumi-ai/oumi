@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import time
@@ -28,37 +27,6 @@ OUTPUT_FILENAME_TASK_CONFIG = "lm_harness_{time}_task_config.json"
 OUTPUT_FILENAME_EVAL_CONFIG = "lm_harness_{time}_evaluation_config.yaml"
 OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
 JSON_FILE_INDENT = 2
-
-
-def parse_cli():
-    """Parses command line arguments and return the configuration filename."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-c", "--config", default=None, help="Path to the configuration file"
-    )
-    args, arg_list = parser.parse_known_args()
-    return args.config, arg_list
-
-
-def main() -> None:
-    """Main entry point for evaluating Oumi.
-
-    Evaluation arguments are fetched from the following sources, ordered by
-    decreasing priority:
-    1. [Optional] Arguments provided as CLI arguments, in dotfile format
-    2. [Optional] Arguments provided in a yaml config file
-    3. Default arguments values defined in the data class
-    """
-    # Load configuration
-    config_path, arg_list = parse_cli()
-
-    config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
-        config_path, arg_list, logger=logger
-    )
-    config.finalize_and_validate()
-
-    # Run evaluation
-    evaluate(config)
 
 
 def evaluate(config: EvaluationConfig) -> None:
@@ -265,7 +233,3 @@ def save_lm_harness_output(
     package_versions_json = json.dumps(package_versions, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_pkg_versions, "w") as file_out:
         file_out.write(package_versions_json)
-
-
-if __name__ == "__main__":
-    main()
