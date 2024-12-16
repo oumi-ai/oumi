@@ -13,7 +13,13 @@ from typing_extensions import override
 from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 
 
 class EqBytesIO:
@@ -98,8 +104,16 @@ def _get_test_png_image_bytes(image_size: Optional[tuple[int, int]] = None) -> b
 def sample_conversation_using_image_path():
     return Conversation(
         messages=[
-            Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
-            Message(role=Role.USER, content="path/to/image.jpg", type=Type.IMAGE_PATH),
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Describe this image:", type=Type.TEXT),
+                    MessageContentItem(
+                        content="path/to/image.jpg", type=Type.IMAGE_PATH
+                    ),
+                ],
+            ),
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
@@ -113,11 +127,15 @@ def sample_conversation_using_image_path():
 def sample_conversation_using_image_binary():
     return Conversation(
         messages=[
-            Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
             Message(
                 role=Role.USER,
-                binary=_get_test_png_image_bytes(),
-                type=Type.IMAGE_BINARY,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Describe this image:", type=Type.TEXT),
+                    MessageContentItem(
+                        binary=_get_test_png_image_bytes(), type=Type.IMAGE_BINARY
+                    ),
+                ],
             ),
             Message(
                 role=Role.ASSISTANT,

@@ -3,7 +3,13 @@ from typing import Optional
 
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference import (
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
@@ -151,27 +157,33 @@ def infer(
     if not inference_engine:
         inference_engine = _get_engine(config)
 
-    image_messages = (
-        [
-            Message(
-                binary=input_image_bytes,
-                type=Type.IMAGE_BINARY,
-                role=Role.USER,
-            )
-        ]
-        if input_image_bytes is not None
-        else []
-    )
-
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
-        conversations = [
-            Conversation(
-                messages=(image_messages + [Message(content=content, role=Role.USER)])
-            )
-            for content in inputs
-        ]
+        if input_image_bytes is None:
+            conversations = [
+                Conversation(messages=[Message(role=Role.USER, content=content)])
+                for content in inputs
+            ]
+        else:
+            conversations = [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.USER,
+                            type=Type.COMPOUND,
+                            content=[
+                                MessageContentItem(
+                                    type=Type.IMAGE_BINARY, binary=input_image_bytes
+                                ),
+                                MessageContentItem(type=Type.TEXT, content=content),
+                            ],
+                        ),
+                    ]
+                )
+                for content in inputs
+            ]
+
     generations = inference_engine.infer(
         input=conversations,
         inference_config=config,

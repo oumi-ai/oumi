@@ -128,6 +128,9 @@ class MessageContentItem(pydantic.BaseModel):
         Raises:
             ValueError: If fields are set to invalid or inconsistent values.
         """
+        if self.type == Type.COMPOUND:
+            raise ValueError("COMPOUND type is not allowed in message content items.")
+
         if self.binary is None and self.content is None:
             raise ValueError(
                 "Either content or binary must be provided for the message item "
@@ -149,7 +152,7 @@ class MessageContentItem(pydantic.BaseModel):
         else:
             if self.binary is not None:
                 raise ValueError(
-                    "Binary can only be provided for the image message items "
+                    "Binary can only be provided for images "
                     f"(Item type: {self.type})."
                 )
 
@@ -184,35 +187,11 @@ class Message(pydantic.BaseModel):
     One of content or binary must be provided.
     """
 
-    binary: Optional[bytes] = None
-    """Optional binary data for the message, used for image data.
-
-    One of content or binary must be provided.
-    """
-
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
 
     type: Type = Type.TEXT
     """The type of the message content (e.g., text, image path, image URL)."""
-
-    @pydantic.field_serializer("binary")
-    def _encode_binary(self, value: Optional[bytes]) -> str:
-        """Encode binary value as base64 ASCII string.
-
-        This is needed for compatibility with JSON.
-        """
-        if value is None or len(value) == 0:
-            return ""
-        return base64.b64encode(value).decode("ascii")
-
-    @pydantic.field_validator("binary", mode="before")
-    def _decode_binary(cls, value: Optional[Union[str, bytes]]) -> Optional[bytes]:
-        if value is None:
-            return None
-        elif isinstance(value, str):
-            return base64.b64decode(value)
-        return value
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
@@ -224,30 +203,33 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if self.content is None and self.binary is None:
-            raise ValueError(
-                "Either content or binary must be provided for the message."
-            )
-        if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
+        if self.content is None:
+            raise ValueError("content must be provided for the message.")
+        if self.type == Type.TEXT:
             if not (self.content is None or isinstance(self.content, str)):
-                raise RuntimeError(
+                raise ValueError(
                     f"Unexpected content type: {type(self.content)} "
                     f"for message type: {self.type}. "
                     f"Consider {Type.COMPOUND}."
                 )
         elif self.type == Type.COMPOUND:
             if not (self.content is None or isinstance(self.content, list)):
-                raise RuntimeError(
+                raise ValueError(
                     f"Unexpected content type: {type(self.content)} "
                     f"for message type: {self.type}. "
                     f"Expected: `list`."
                 )
+        else:
+            raise ValueError(
+                "Images must be stored as items "
+                f"under `Message.content`. Type: {self.type}"
+            )
 
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[MessageContentItem, None, None]:
         """Returns a list of content items."""
-        if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
+        if self.type == Type.TEXT:
             if not (self.content is None or isinstance(self.content, str)):
                 raise RuntimeError(
                     f"Unexpected content type: {type(self.content)} "
@@ -257,9 +239,12 @@ class Message(pydantic.BaseModel):
             is_text = self.type == Type.TEXT
             is_image = not is_text
             if (return_text and is_text) or (return_images and is_image):
-                yield MessageContentItem(
-                    type=self.type, content=self.content, binary=self.binary
-                )
+                yield MessageContentItem(type=self.type, content=self.content)
+        elif self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
+            raise RuntimeError(
+                "Images must be stored as items "
+                f"under `Message.content`. Type: {self.type}"
+            )
         elif self.type == Type.COMPOUND and self.content is not None:
             if not isinstance(self.content, list):
                 raise RuntimeError(
@@ -277,9 +262,7 @@ class Message(pydantic.BaseModel):
                     ):
                         yield item
 
-    def _iter_all_content_items(
-        self, *, return_text: bool = False, return_images: bool = False
-    ) -> Generator[MessageContentItem, None, None]:
+    def _iter_all_content_items(self) -> Generator[MessageContentItem, None, None]:
         return self._iter_content_items(return_text=True, return_images=True)
 
     def count_content_items(self) -> MessageContentItemCounts:

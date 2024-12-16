@@ -105,21 +105,38 @@ def create_test_multimodal_text_image_conversation():
     return Conversation(
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
-            Message(binary=png_bytes, role=Role.USER, type=Type.IMAGE_BINARY),
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="there", role=Role.USER, type=Type.TEXT),
-            Message(content="Greetings!", role=Role.ASSISTANT, type=Type.TEXT),
             Message(
-                binary=png_bytes,
-                content="http://oumi.ai/test.png",
-                role=Role.ASSISTANT,
-                type=Type.IMAGE_URL,
-            ),
-            Message(content="Describe this image", role=Role.USER, type=Type.TEXT),
-            Message(
-                content=str(_TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"),
                 role=Role.USER,
-                type=Type.IMAGE_PATH,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(content="Hello", type=Type.TEXT),
+                    MessageContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Greetings!", type=Type.TEXT),
+                    MessageContentItem(
+                        content="http://oumi.ai/test.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                role=Role.USER,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(content="Describe this image", type=Type.TEXT),
+                    MessageContentItem(
+                        content=str(
+                            _TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
+                        ),
+                        type=Type.IMAGE_PATH,
+                    ),
+                ],
             ),
         ]
     )
@@ -165,24 +182,27 @@ def test_infer_online():
         conversation = Conversation(
             messages=[
                 Message(
-                    content="Hello world!",
                     role=Role.USER,
-                ),
-                Message(
-                    content="/tmp/hello/again.png",
-                    binary=b"a binary image",
-                    role=Role.USER,
-                    type=Type.IMAGE_PATH,
-                ),
-                Message(
-                    content="a url for our image",
-                    role=Role.USER,
-                    type=Type.IMAGE_URL,
-                ),
-                Message(
-                    binary=b"a binary image",
-                    role=Role.USER,
-                    type=Type.IMAGE_BINARY,
+                    type=Type.COMPOUND,
+                    content=[
+                        MessageContentItem(
+                            content="Hello world!",
+                            type=Type.TEXT,
+                        ),
+                        MessageContentItem(
+                            content="/tmp/hello/again.png",
+                            binary=b"a binary image",
+                            type=Type.IMAGE_PATH,
+                        ),
+                        MessageContentItem(
+                            content="a url for our image",
+                            type=Type.IMAGE_URL,
+                        ),
+                        MessageContentItem(
+                            binary=b"a binary image",
+                            type=Type.IMAGE_BINARY,
+                        ),
+                    ],
                 ),
             ],
             metadata={"foo": "bar"},
@@ -915,7 +935,7 @@ def test_infer_from_file_to_file():
 
 def test_get_list_of_message_json_dicts_multimodal_with_grouping():
     conversation = create_test_multimodal_text_image_conversation()
-    assert len(conversation.messages) == 8
+    assert len(conversation.messages) == 4
     expected_base64_str = create_test_png_image_base64_str()
     assert expected_base64_str.startswith("data:image/png;base64,")
 
@@ -944,7 +964,7 @@ def test_get_list_of_message_json_dicts_multimodal_with_grouping():
     assert result[2]["content"][0] == {"type": "text", "text": "Greetings!"}
     assert result[2]["content"][1] == {
         "type": "image_url",
-        "image_url": {"url": expected_base64_str},
+        "image_url": {"url": "http://oumi.ai/test.png"},
     }
 
     assert result[3]["role"] == "user"
@@ -995,48 +1015,53 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
 
         assert "role" in json_dict, debug_info
         assert message.role == json_dict["role"], debug_info
-        if message.contains_text():
+        if message.type == Type.TEXT:
+            assert isinstance(message.content, str), debug_info
+            assert isinstance(json_dict["content"], str), debug_info
             assert message.content == json_dict["content"], debug_info
         else:
-            assert message.contains_images(), debug_info
+            assert message.type == Type.COMPOUND, debug_info
+            assert isinstance(message.content, list), debug_info
             assert "content" in json_dict, debug_info
             assert isinstance(json_dict["content"], list), debug_info
-            assert len(json_dict["content"]) == 1, debug_info
-            assert isinstance(json_dict["content"][0], dict), debug_info
-            assert "type" in json_dict["content"][0], debug_info
-            assert json_dict["content"][0]["type"] == "image_url", debug_info
-            assert "image_url" in json_dict["content"][0], debug_info
-            assert isinstance(json_dict["content"][0]["image_url"], dict), debug_info
-            assert "url" in json_dict["content"][0]["image_url"], debug_info
-            assert isinstance(
-                json_dict["content"][0]["image_url"]["url"], str
-            ), debug_info
+            assert len(message.content) == len(json_dict["content"]), debug_info
 
-            if message.binary:
-                content = json_dict["content"][0]
-                assert isinstance(content, dict)
-                assert "image_url" in content
-                image_url = content["image_url"]
-                assert isinstance(image_url, dict)
-                assert "url" in image_url
+            assert message.contains_images(), debug_info
 
-                expected_base64_bytes_str = base64encode_image_bytes(
-                    message.image_content_items[-1], add_mime_prefix=True
-                )
-                assert len(expected_base64_bytes_str) == len(image_url["url"])
-                assert image_url == {"url": expected_base64_bytes_str}, debug_info
-            elif message.type == Type.IMAGE_URL:
-                assert json_dict["content"][0]["image_url"] == {
-                    "url": message.content
-                }, debug_info
-            elif message.type == Type.IMAGE_PATH:
-                content = json_dict["content"][0]
-                assert isinstance(content, dict)
-                assert "image_url" in content
-                image_url = content["image_url"]
-                assert isinstance(image_url, dict)
-                assert "url" in image_url
-                assert image_url["url"].startswith("data:image/png;base64,"), debug_info
+            for idx, item in enumerate(message.content):
+                json_item = json_dict["content"][idx]
+                assert isinstance(json_item, dict)
+                assert "type" in json_item, debug_info
+
+                if item.is_text():
+                    assert json_item["type"] == "text", debug_info
+                    assert json_item["text"] == item.content, debug_info
+                elif item.is_image():
+                    assert json_item["type"] == "image_url", debug_info
+                    assert "image_url" in json_item, debug_info
+                    assert isinstance(json_item["image_url"], dict), debug_info
+                    assert "url" in json_item["image_url"], debug_info
+                    assert isinstance(json_item["image_url"]["url"], str), debug_info
+                    if item.type == Type.IMAGE_BINARY:
+                        assert "image_url" in json_item
+                        image_url = json_item["image_url"]
+                        assert isinstance(image_url, dict)
+                        assert "url" in image_url
+                        expected_base64_bytes_str = base64encode_image_bytes(
+                            message.image_content_items[-1], add_mime_prefix=True
+                        )
+                        assert len(expected_base64_bytes_str) == len(image_url["url"])
+                        assert image_url == {
+                            "url": expected_base64_bytes_str
+                        }, debug_info
+                    elif item.type == Type.IMAGE_URL:
+                        assert json_item["image_url"] == {
+                            "url": item.content
+                        }, debug_info
+                    elif item.type == Type.IMAGE_PATH:
+                        assert json_item["image_url"]["url"].startswith(
+                            "data:image/png;base64,"
+                        ), debug_info
 
 
 def test_convert_conversation_to_api_input_with_json_schema():
