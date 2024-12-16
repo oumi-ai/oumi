@@ -6,7 +6,7 @@ import jsonlines
 import pytest
 from pandas.core.api import DataFrame as DataFrame
 
-from oumi.core.types.conversation import Conversation, Type
+from oumi.core.types.conversation import Conversation, MessageContentItem, Type
 from oumi.datasets.vision_language.vision_jsonlines import (
     VLJsonlinesDataset,
 )
@@ -37,8 +37,20 @@ def sample_jsonlines_data():
     return [
         {
             "messages": [
-                {"role": "user", "content": "Describe this image:", "type": "text"},
-                {"role": "user", "content": "path/to/image.jpg", "type": "image_path"},
+                {
+                    "role": "user",
+                    "type": "compound",
+                    "content": [
+                        {
+                            "content": "Describe this image:",
+                            "type": "text",
+                        },
+                        {
+                            "content": "path/to/image.jpg",
+                            "type": "image_path",
+                        },
+                    ],
+                },
                 {
                     "role": "assistant",
                     "content": "A scenic view of the puget sound.",
@@ -60,11 +72,13 @@ def test_jsonlines_init_with_data(
 
     conversation = dataset.conversation(0)
     assert isinstance(conversation, Conversation)
-    assert len(conversation.messages) == 3
-    assert conversation.messages[0].content == "Describe this image:"
-    assert conversation.messages[1].content == "path/to/image.jpg"
-    assert conversation.messages[1].type == Type.IMAGE_PATH
-    assert conversation.messages[2].content == "A scenic view of the puget sound."
+    assert len(conversation.messages) == 2
+    assert isinstance(conversation.messages[0].content, list)
+    assert conversation.messages[0].content == [
+        MessageContentItem(content="Describe this image:", type=Type.TEXT),
+        MessageContentItem(content="path/to/image.jpg", type=Type.IMAGE_PATH),
+    ]
+    assert conversation.messages[1].content == "A scenic view of the puget sound."
 
 
 def test_jsonlines_init_with_dataset_path(
@@ -86,11 +100,13 @@ def test_jsonlines_init_with_dataset_path(
         conversation = dataset.conversation(0)
 
         assert isinstance(conversation, Conversation)
-        assert len(conversation.messages) == 3
-        assert conversation.messages[0].content == "Describe this image:"
-        assert conversation.messages[1].content == "path/to/image.jpg"
-        assert conversation.messages[1].type == Type.IMAGE_PATH
-        assert conversation.messages[2].content == "A scenic view of the puget sound."
+        assert len(conversation.messages) == 2
+        assert isinstance(conversation.messages[0].content, list)
+        assert conversation.messages[0].content == [
+            MessageContentItem(content="Describe this image:", type=Type.TEXT),
+            MessageContentItem(content="path/to/image.jpg", type=Type.IMAGE_PATH),
+        ]
+        assert conversation.messages[1].content == "A scenic view of the puget sound."
 
 
 def test_jsonlines_init_with_invalid_input(

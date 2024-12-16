@@ -2,7 +2,13 @@ from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 
 
 @register_dataset("merve/vqav2-small")
@@ -23,11 +29,16 @@ class Vqav2SmallDataset(VisionLanguageSftDataset):
         messages = [
             Message(
                 role=Role.USER,
-                binary=example["image"]["bytes"],
-                type=Type.IMAGE_BINARY,
+                type=Type.COMPOUND,
+                content=[
+                    MessageContentItem(
+                        type=Type.IMAGE_BINARY,
+                        binary=example["image"]["bytes"],
+                    ),
+                    MessageContentItem(type=Type.TEXT, content=input_text),
+                ],
             ),
-            Message(role=Role.USER, content=input_text),
-            Message(role=Role.ASSISTANT, content=output_text),
+            Message(role=Role.ASSISTANT, type=Type.TEXT, content=output_text),
         ]
 
         return Conversation(messages=messages)

@@ -5,11 +5,18 @@ import PIL.Image
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
+from oumi.utils.logging import logger
 
 
 def create_test_remote_params():
@@ -61,12 +68,22 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
         messages=(
             [Message(role=Role.SYSTEM, content="System message")]
             + (
-                [Message(role=Role.USER, binary=png_bytes, type=Type.IMAGE_BINARY)]
+                [
+                    Message(
+                        role=Role.USER,
+                        type=Type.COMPOUND,
+                        content=[
+                            MessageContentItem(
+                                binary=png_bytes, type=Type.IMAGE_BINARY
+                            ),
+                            MessageContentItem(type=Type.TEXT, content="User message"),
+                        ],
+                    )
+                ]
                 if is_vision_language
-                else []
+                else [Message(role=Role.USER, type=Type.TEXT, content="User message")]
             )
             + [
-                Message(role=Role.USER, content="User message"),
                 Message(role=Role.ASSISTANT, content="Assistant message"),
             ]
         ),
@@ -89,19 +106,20 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
     expected_prompt = (
         "\n\n".join(
             [
-                engine._tokenizer.bos_token
-                + "<|start_header_id|>system<|end_header_id|>",
-                "System message<|eot_id|><|start_header_id|>user<|end_header_id|>",
-            ]
-            + (
-                ["<|image|><|eot_id|><|start_header_id|>user<|end_header_id|>"]
-                if is_vision_language
-                else []
-            )
-            + [
-                "User message<|eot_id|><|start_header_id|>assistant<|end_header_id|>",
                 (
-                    "Assistant message<|eot_id|><|start_header_id|>assistant"
+                    engine._tokenizer.bos_token
+                    + "<|start_header_id|>system<|end_header_id|>"
+                ),
+                "System message<|eot_id|>\n<|start_header_id|>user<|end_header_id|>",
+            ]
+            + [
+                (
+                    ("<|image|>" if is_vision_language else "")
+                    + "User message<|eot_id|>\n"
+                    + "<|start_header_id|>assistant<|end_header_id|>"
+                ),
+                (
+                    "Assistant message<|eot_id|>\n<|start_header_id|>assistant"
                     "<|end_header_id|>"
                 ),
             ]
@@ -110,6 +128,8 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
     )
 
     assert "text" in result, result
+    logger.info(f"result['text']:\n{result['text']}\n\n")
+    logger.info(f"expected_prompt:\n{expected_prompt}\n\n")
     assert result["text"] == expected_prompt, result
     if is_vision_language:
         assert "image_data" in result, result
