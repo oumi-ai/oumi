@@ -126,7 +126,6 @@ def infer(
                     messages=[
                         Message(
                             role=Role.USER,
-                            type=Type.COMPOUND,
                             content=[
                                 MessageContentItem(
                                     type=Type.IMAGE_BINARY, binary=input_image_bytes

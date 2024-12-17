@@ -143,7 +143,6 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
             [
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(
                             binary=png_image_bytes, type=Type.IMAGE_BINARY
@@ -157,7 +156,6 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 Message(
                     role=Role.ASSISTANT,
                     content="2 boats are in the middle of a large wave",
-                    type=Type.TEXT,
                 ),
             ]
         )

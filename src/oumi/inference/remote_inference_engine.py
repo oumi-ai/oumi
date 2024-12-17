@@ -397,7 +397,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 Message(
                     content=message[_CONTENT_KEY],
                     role=Role(message[_ROLE_KEY]),
-                    type=Type.TEXT,
                 ),
             ],
             metadata=original_conversation.metadata,
