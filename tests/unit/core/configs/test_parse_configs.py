@@ -76,8 +76,6 @@ def test_parse_configs(config_path: str):
         {
             "accelerate.yaml",
             "sky_job.yaml",
-            "sky_ssh_job.yaml",
-            "oumi_dev_iam_custom_role.yaml",
         }
     ),
 )

@@ -36,7 +36,7 @@ file_mounts:
 
 setup: |
   set -e
-  pip install -e '.[gpu,quant]'
+  pip install -e '.[gpu]'
 
 run: |
   set -e  # Exit if any command failed.

@@ -367,7 +367,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
@@ -469,7 +469,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
@@ -570,7 +570,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
@@ -659,7 +659,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
@@ -750,7 +750,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
@@ -833,7 +833,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu,quant]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
