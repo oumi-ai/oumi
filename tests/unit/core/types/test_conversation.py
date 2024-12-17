@@ -222,6 +222,25 @@ def test_conversation_from_dict_legacy():
     assert conv.messages[1].content == "Hi there!"
 
 
+def test_conversation_from_dict_with_unknown_fields():
+    conv_dict = {
+        "messages": [
+            {"role": "user", "content": "Hello", "foo_unknown": "bar"},
+            {"role": "assistant", "content": "Hi there!", "type": "text"},
+        ],
+        "metadata": {"test": "metadata"},
+    }
+    conv = Conversation.from_dict(conv_dict)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].content == "Hello"
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
 def test_conversation_from_dict_compound_mixed_content():
     png_bytes = _create_test_image_bytes()
     conv_dict = {
@@ -317,6 +336,19 @@ def test_conversation_to_json_mixed_content():
 
 def test_conversation_from_json_legacy():
     json_str = '{"messages": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
+    conv = Conversation.from_json(json_str)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].content == "Hello"
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
+def test_conversation_from_json_with_unknown_fields():
+    json_str = '{"messages": [{"role": "user", "content": "Hello", "foo_unknown": "Z"}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
     conv = Conversation.from_json(json_str)
 
     assert isinstance(conv, Conversation)
