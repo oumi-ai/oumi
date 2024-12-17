@@ -146,7 +146,7 @@ if [ "$MODEL_SIZE" == "3b" ]; then
             OUMI_CFG_FILE="configs/recipes/llama3_2/sft/3b_qlora/train.yaml"
         else # FFT
             OUMI_CFG_FILE="configs/recipes/llama3_2/sft/3b_full/train.yaml"
-            ADDITIONAL_TRAINING_PARAMS="model.model_max_length=512"
+            ADDITIONAL_TRAINING_PARAMS="--model.model_max_length 512"
         fi
     else # FSDP
         echo "Llama 3B FSDP is currently not supported!"
