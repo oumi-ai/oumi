@@ -1,3 +1,4 @@
+import copy
 import gc
 import math
 import os
@@ -61,9 +62,28 @@ class BaseMapDataset(MapDataPipe, ABC):
         split: Optional[str] = None,
         trust_remote_code: bool = False,
         transform_num_workers: Optional[Union[str, int]] = None,
+        column_to_filename: Optional[dict[str, str]] = None,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseDataset class."""
+        """Initializes a new instance of the BaseMapDataset class.
+
+        Args:
+            dataset_name: The dataset name.
+            dataset_path: Optional file system path. Used for datasets stored locally.
+                Can be a file or a directory depending on dataset.
+            subset: Dataset subset.
+            split: Dataset subset.
+            trust_remote_code: Whether to trust remote code
+                when post-processing dataset.
+            transform_num_workers: Number of subprocesses to use
+                for dataset post-processing.
+            column_to_filename: Optional mapping of dataset feature names (columns)
+                to a file name. Used for local datasets stored as multiple files
+                (e.g., a separate `.npy` file per feature). File names must be relative
+                with respect to `dataset_path`. Can use glob patterns to match files.
+                The parameter can only be used if `dataset_path` is specified.
+            **kwargs: Additional arguments passed to BaseMapDataset.
+        """
         dataset_type_name = self.__class__.__name__
         logger.info(f"Creating map dataset (type: {dataset_type_name})...")
         if len(kwargs) > 0:
@@ -88,6 +108,16 @@ class BaseMapDataset(MapDataPipe, ABC):
         self.split = split
         self.trust_remote_code = trust_remote_code
         self.transform_num_workers = transform_num_workers
+
+        self._column_to_filename_dict: Optional[dict[str, str]] = None
+        if column_to_filename is not None:
+            if not self.dataset_path:
+                raise ValueError(
+                    "`column_to_filename` can only be used for local datasets "
+                    " (`dataset_path` is not provided). "
+                    f"column_to_filename: {column_to_filename}"
+                )
+            self._column_to_filename_dict = copy.deepcopy(column_to_filename)
 
     #
     # Main API
@@ -391,13 +421,10 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         if dataset_path.suffix.lower() == ".jsonl" and dataset_path.is_file():
             result = self._load_jsonl_dataset(dataset_path)
-
         elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
             result = self._load_parquet_dataset(dataset_path)
-
         elif is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
-
         else:
             raise ValueError(f"File format not supported for {self.dataset_name}")
 
