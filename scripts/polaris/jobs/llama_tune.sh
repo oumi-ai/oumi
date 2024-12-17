@@ -236,12 +236,7 @@ fi
 # The PRETRAIN_DATASETS line evaluates to an empty string if PRETRAIN_DATASETS is not
 # set, and the properly quoted value if set.
 set -x
-torchrun \
-    --nnodes=${OUMI_NUM_NODES} \
-    --node-rank=${POLARIS_NODE_RANK} \
-    --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-    --master-addr=${OUMI_MASTER_ADDR} \
-    --master-port=8007 \
+oumi distributed torchrun \
     -m oumi train \
     -c "${OUMI_CFG_FILE}" \
     ${PRETRAIN_DATASETS:+"$PRETRAIN_DATASETS"} \

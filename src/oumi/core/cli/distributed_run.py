@@ -298,7 +298,10 @@ def torchrun(
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
-        logger.exception(f"`torchrun` failed (Rank: {run_info.node_rank})!")
+        rank_str = ""
+        if run_info:
+            rank_str = f" Rank: {run_info.node_rank}"
+        logger.exception("`torchrun` failed!" + rank_str)
         raise
 
 
