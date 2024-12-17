@@ -38,8 +38,8 @@ run: |
       --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
       --master-addr=${OUMI_MASTER_ADDR} \
       --master-port=8007 \
-      -m oumi.train \
+      -m oumi train \
       -c configs/recipes/llama3_2/sft/3b_lora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

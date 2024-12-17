@@ -7,7 +7,7 @@
 #     --num_processes 8 \
 #     --dynamo_backend inductor \
 #     --mixed_precision no \
-#     -m oumi.train \
+#     -m oumi train \
 #     -c "configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml"
 
 model:

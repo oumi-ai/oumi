@@ -52,10 +52,10 @@ run: |
   oumi distributed accelerate launch \
     --mixed_precision="no" \
     --dynamo_backend="no" \
-    -m oumi.evaluate \
+    -m oumi evaluate \
     -c configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml \
-    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-    "model.model_name=${MODEL_CHECKPOINT_DIR}" \
-    "model.adapter_model=${LORA_ADAPTER_DIR}"
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}" \
+    --model.adapter_model "${LORA_ADAPTER_DIR}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

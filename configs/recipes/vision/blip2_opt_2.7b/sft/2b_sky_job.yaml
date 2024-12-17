@@ -37,11 +37,11 @@ run: |
 
   set -x
   oumi distributed torchrun \
-      -m oumi.train \
+      -m oumi train \
       -c configs/recipes/vision/blip2_opt_2.7b/sft/2b_sft_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=20" \
-      "training.save_steps=0" \
-      "training.save_final_model=false"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
