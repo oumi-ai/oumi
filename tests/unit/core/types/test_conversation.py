@@ -303,7 +303,6 @@ def test_conversation_to_json_mixed_content():
 
     assert isinstance(json_str, str)
     assert '"role":"user"' in json_str, json_str
-    assert '"type":"compound"' in json_str
     assert '"type":"image_binary"' in json_str
     assert ('"binary":"' + _SMALL_B64_IMAGE + '"') in json_str, json_str
     assert json_str.count('"binary":"' + _SMALL_B64_IMAGE + '"') == 2, json_str
@@ -555,43 +554,23 @@ def test_from_dict_with_invalid_base64():
         )
 
 
-def test_compound_content_incorrect_message_type():
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            role=Role.ASSISTANT,
-            content=[
-                MessageContentItem(
-                    type=Type.TEXT, content="I need assistance with my account."
-                )
-            ],
-        )
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            role=Role.ASSISTANT,
-            content=[
-                MessageContentItem(
-                    type=Type.TEXT, content="I need assistance with my account."
-                )
-            ],
-        )
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            role=Role.ASSISTANT,
-            content=[],
-        )
+def test_empty_content_list():
+    message = Message(role=Role.ASSISTANT, content=[])
+    assert isinstance(message.content, list)
+    assert len(message.content) == 0
 
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            role=Role.USER,
-            content="Hello!",
-        )
+
+def test_empty_content_string():
+    message = Message(role=Role.USER, content="")
+    assert isinstance(message.content, str)
+    assert len(message.content) == 0
 
 
 def test_incorrect_message_content_item_type():
-    with pytest.raises(ValueError, match="COMPOUND type is not allowed"):
+    with pytest.raises(ValueError, match="Input should be a valid string"):
         MessageContentItem(
             type=Type.TEXT,
-            content=cast(str, 12345.7),
+            content=cast(str, 12345.7),  # Hacky way to pass a number as content.
         )
     with pytest.raises(ValueError, match="Either content or binary must be provided"):
         MessageContentItem(

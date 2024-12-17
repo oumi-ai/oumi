@@ -168,7 +168,6 @@ def test_convert_api_output_to_conversation(engine):
     assert result.messages[0].content == "User message"
     assert result.messages[1].content == "Assistant response"
     assert result.messages[1].role == Role.ASSISTANT
-    assert result.messages[1].type == Type.TEXT
     assert result.metadata == {"key": "value"}
     assert result.conversation_id == "test_id"
 
