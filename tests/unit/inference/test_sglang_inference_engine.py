@@ -71,7 +71,6 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
                 [
                     Message(
                         role=Role.USER,
-                        type=Type.COMPOUND,
                         content=[
                             MessageContentItem(
                                 binary=png_bytes, type=Type.IMAGE_BINARY
@@ -81,7 +80,7 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
                     )
                 ]
                 if is_vision_language
-                else [Message(role=Role.USER, type=Type.TEXT, content="User message")]
+                else [Message(role=Role.USER, content="User message")]
             )
             + [
                 Message(role=Role.ASSISTANT, content="Assistant message"),
@@ -169,7 +168,6 @@ def test_convert_api_output_to_conversation(engine):
     assert result.messages[0].content == "User message"
     assert result.messages[1].content == "Assistant response"
     assert result.messages[1].role == Role.ASSISTANT
-    assert result.messages[1].type == Type.TEXT
     assert result.metadata == {"key": "value"}
     assert result.conversation_id == "test_id"
 

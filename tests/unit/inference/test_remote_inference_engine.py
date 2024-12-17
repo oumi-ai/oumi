@@ -78,10 +78,10 @@ def _setup_input_conversations(filepath: str, conversations: list[Conversation])
 def create_test_text_only_conversation():
     return Conversation(
         messages=[
-            Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
-            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(content="Hello", role=Role.USER),
+            Message(content="Hi there!", role=Role.ASSISTANT),
+            Message(content="How are you?", role=Role.USER),
         ]
     )
 
@@ -104,10 +104,9 @@ def create_test_multimodal_text_image_conversation():
     png_bytes = create_test_png_image_bytes()
     return Conversation(
         messages=[
-            Message(content="You are an assistant!", role=Role.SYSTEM, type=Type.TEXT),
+            Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
                     MessageContentItem(content="Hello", type=Type.TEXT),
@@ -116,7 +115,6 @@ def create_test_multimodal_text_image_conversation():
             ),
             Message(
                 role=Role.ASSISTANT,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(content="Greetings!", type=Type.TEXT),
                     MessageContentItem(
@@ -127,7 +125,6 @@ def create_test_multimodal_text_image_conversation():
             ),
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(content="Describe this image", type=Type.TEXT),
                     MessageContentItem(
@@ -183,7 +180,6 @@ def test_infer_online():
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(
                             content="Hello world!",
@@ -1015,12 +1011,10 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
 
         assert "role" in json_dict, debug_info
         assert message.role == json_dict["role"], debug_info
-        if message.type == Type.TEXT:
-            assert isinstance(message.content, str), debug_info
+        if isinstance(message.content, str):
             assert isinstance(json_dict["content"], str), debug_info
             assert message.content == json_dict["content"], debug_info
         else:
-            assert message.type == Type.COMPOUND, debug_info
             assert isinstance(message.content, list), debug_info
             assert "content" in json_dict, debug_info
             assert isinstance(json_dict["content"], list), debug_info
@@ -1394,7 +1388,7 @@ async def test_create_batch():
 
         conversation = Conversation(
             messages=[
-                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+                Message(content="Hello", role=Role.USER),
             ]
         )
 
@@ -1487,7 +1481,7 @@ async def test_get_batch_results():
 
         conversation = Conversation(
             messages=[
-                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+                Message(content="Hello", role=Role.USER),
             ]
         )
 
@@ -1524,7 +1518,7 @@ def test_infer_batch():
 
         conversation = Conversation(
             messages=[
-                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+                Message(content="Hello", role=Role.USER),
             ]
         )
 
@@ -1615,7 +1609,7 @@ def test_get_batch_results_public():
 
         conversation = Conversation(
             messages=[
-                Message(content="Hello", role=Role.USER, type=Type.TEXT),
+                Message(content="Hello", role=Role.USER),
             ]
         )
 

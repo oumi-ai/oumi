@@ -68,7 +68,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
 
         return Conversation(
             messages=[
-                Message(role=Role.USER, type=Type.COMPOUND, content=user_items),
-                Message(role=Role.ASSISTANT, type=Type.TEXT, content=output_text),
+                Message(role=Role.USER, content=user_items),
+                Message(role=Role.ASSISTANT, content=output_text),
             ]
         )

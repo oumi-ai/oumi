@@ -106,7 +106,6 @@ def sample_conversation_using_image_path():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(content="Describe this image:", type=Type.TEXT),
                     MessageContentItem(
@@ -117,7 +116,6 @@ def sample_conversation_using_image_path():
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
-                type=Type.TEXT,
             ),
         ]
     )
@@ -129,7 +127,6 @@ def sample_conversation_using_image_binary():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(content="Describe this image:", type=Type.TEXT),
                     MessageContentItem(
@@ -140,7 +137,6 @@ def sample_conversation_using_image_binary():
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
-                type=Type.TEXT,
             ),
         ]
     )

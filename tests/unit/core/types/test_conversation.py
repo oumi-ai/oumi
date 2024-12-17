@@ -1,5 +1,5 @@
 import base64
-from typing import Final
+from typing import Final, cast
 
 import pytest
 
@@ -30,7 +30,6 @@ def test_conversation():
     message1 = Message(role=role_user, content="Hello", id="1")
     message2 = Message(role=role_assistant, content="Hi, how can I help you?")
     message3 = Message(
-        type=Type.COMPOUND,
         role=role_user,
         content=[
             MessageContentItem(
@@ -131,12 +130,10 @@ def test_conversation_to_dict_compound_text_content():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[MessageContentItem(type=Type.TEXT, content="Hello")],
             ),
             Message(
                 role=Role.ASSISTANT,
-                type=Type.COMPOUND,
                 content=[MessageContentItem(type=Type.TEXT, content="Hi there!")],
             ),
         ],
@@ -162,7 +159,6 @@ def test_conversation_to_dict_compound_mixed_content():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
                     MessageContentItem(type=Type.TEXT, content="Hello"),
@@ -170,7 +166,6 @@ def test_conversation_to_dict_compound_mixed_content():
             ),
             Message(
                 role=Role.ASSISTANT,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(type=Type.TEXT, content="Hi there!"),
                     MessageContentItem(
@@ -227,6 +222,25 @@ def test_conversation_from_dict_legacy():
     assert conv.messages[1].content == "Hi there!"
 
 
+def test_conversation_from_dict_with_unknown_fields():
+    conv_dict = {
+        "messages": [
+            {"role": "user", "content": "Hello", "foo_unknown": "bar"},
+            {"role": "assistant", "content": "Hi there!", "type": "text"},
+        ],
+        "metadata": {"test": "metadata"},
+    }
+    conv = Conversation.from_dict(conv_dict)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].content == "Hello"
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
 def test_conversation_from_dict_compound_mixed_content():
     png_bytes = _create_test_image_bytes()
     conv_dict = {
@@ -252,7 +266,6 @@ def test_conversation_from_dict_compound_mixed_content():
     assert len(conv.messages) == 2
     assert conv.metadata == {"test": "metadata"}
     assert conv.messages[0].role == Role.USER
-    assert conv.messages[0].type == Type.COMPOUND
     assert isinstance(conv.messages[0].content, list)
     assert conv.messages[0].content == [
         MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
@@ -286,7 +299,6 @@ def test_conversation_to_json_mixed_content():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
                     MessageContentItem(type=Type.TEXT, content="Hello"),
@@ -294,7 +306,6 @@ def test_conversation_to_json_mixed_content():
             ),
             Message(
                 role=Role.ASSISTANT,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(type=Type.TEXT, content="Hi there!"),
                     MessageContentItem(
@@ -311,7 +322,6 @@ def test_conversation_to_json_mixed_content():
 
     assert isinstance(json_str, str)
     assert '"role":"user"' in json_str, json_str
-    assert '"type":"compound"' in json_str
     assert '"type":"image_binary"' in json_str
     assert ('"binary":"' + _SMALL_B64_IMAGE + '"') in json_str, json_str
     assert json_str.count('"binary":"' + _SMALL_B64_IMAGE + '"') == 2, json_str
@@ -337,6 +347,19 @@ def test_conversation_from_json_legacy():
     assert conv.messages[1].content == "Hi there!"
 
 
+def test_conversation_from_json_with_unknown_fields():
+    json_str = '{"messages": [{"role": "user", "content": "Hello", "foo_unknown": "Z"}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
+    conv = Conversation.from_json(json_str)
+
+    assert isinstance(conv, Conversation)
+    assert len(conv.messages) == 2
+    assert conv.metadata == {"test": "metadata"}
+    assert conv.messages[0].role == Role.USER
+    assert conv.messages[0].content == "Hello"
+    assert conv.messages[1].role == Role.ASSISTANT
+    assert conv.messages[1].content == "Hi there!"
+
+
 def test_conversation_from_json_compound_simple():
     json_str = '{"messages": [{"role": "user", "type": "compound", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
     conv = Conversation.from_json(json_str)
@@ -345,7 +368,6 @@ def test_conversation_from_json_compound_simple():
     assert len(conv.messages) == 2
     assert conv.metadata == {"test": "metadata"}
     assert conv.messages[0].role == Role.USER
-    assert conv.messages[0].type == Type.COMPOUND
     assert isinstance(conv.messages[0].content, list)
     assert conv.messages[0].content == [
         MessageContentItem(type=Type.TEXT, content="Hello")
@@ -358,17 +380,15 @@ def test_roundtrip_dict_legacy(root_testdata_dir):
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!"),
             Message(
                 role=Role.TOOL,
                 content="lalala",
-                type=Type.TEXT,
             ),
             Message(
                 id="xyz",
                 role=Role.USER,
                 content="oumi_logo_dark",
-                type=Type.TEXT,
             ),
         ],
         metadata={"test": "metadata"},
@@ -388,11 +408,10 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!"),
             Message(
                 id="z072",
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
                     MessageContentItem(
@@ -407,7 +426,6 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
             Message(
                 id="_xyz",
                 role=Role.TOOL,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(
                         content=str(
@@ -437,11 +455,10 @@ def test_roundtrip_json_legacy(root_testdata_dir):
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!"),
             Message(
                 role=Role.USER,
                 content="",
-                type=Type.TEXT,
             ),
             Message(
                 id="xyz",
@@ -466,11 +483,10 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(id="", role=Role.ASSISTANT, content="Hi there!", type=Type.TEXT),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!"),
             Message(
                 id="z072",
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
                     MessageContentItem(
@@ -485,7 +501,6 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
             Message(
                 id="_xyz",
                 role=Role.TOOL,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(
                         content=str(
@@ -571,74 +586,31 @@ def test_from_dict_with_invalid_base64():
         )
 
 
-def test_compound_content_incorrect_message_type():
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            role=Role.ASSISTANT,
-            content=[
-                MessageContentItem(
-                    type=Type.TEXT, content="I need assistance with my account."
-                )
-            ],
-        )
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            type=Type.TEXT,
-            role=Role.ASSISTANT,
-            content=[
-                MessageContentItem(
-                    type=Type.TEXT, content="I need assistance with my account."
-                )
-            ],
-        )
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            type=Type.TEXT,
-            role=Role.ASSISTANT,
-            content=[],
-        )
-
-    with pytest.raises(ValueError, match="Unexpected content type"):
-        Message(
-            type=Type.COMPOUND,
-            role=Role.USER,
-            content="Hello!",
-        )
+def test_empty_content_list():
+    message = Message(role=Role.ASSISTANT, content=[])
+    assert isinstance(message.content, list)
+    assert len(message.content) == 0
 
 
-@pytest.mark.parametrize(
-    "image_type",
-    [Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH],
-)
-def test_top_level_image_type_not_allowed(image_type: Type):
-    with pytest.raises(
-        ValueError, match="Images must be stored as items under `Message.content`"
-    ):
-        Message(
-            type=image_type,
-            role=Role.ASSISTANT,
-            content=[
-                MessageContentItem(
-                    type=Type.TEXT, content="I need assistance with my account."
-                )
-            ],
-        )
+def test_empty_content_string():
+    message = Message(role=Role.USER, content="")
+    assert isinstance(message.content, str)
+    assert len(message.content) == 0
 
-    with pytest.raises(
-        ValueError, match="Images must be stored as items under `Message.content`"
-    ):
-        Message(
-            type=image_type,
-            role=Role.USER,
-            content="aaa",
-        )
+
+def test_content_none():
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Message(role=Role.TOOL)
+
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Message(role=Role.USER, content=None)
 
 
 def test_incorrect_message_content_item_type():
-    with pytest.raises(ValueError, match="COMPOUND type is not allowed"):
+    with pytest.raises(ValueError, match="Input should be a valid string"):
         MessageContentItem(
-            type=Type.COMPOUND,
-            content="foo",
+            type=Type.TEXT,
+            content=cast(str, 12345.7),  # Hacky way to pass a number as content.
         )
     with pytest.raises(ValueError, match="Either content or binary must be provided"):
         MessageContentItem(
@@ -672,7 +644,6 @@ def test_content_item_methods_mixed_items(role: Role):
     text_item3 = MessageContentItem(type=Type.TEXT, content="CC")
 
     message = Message(
-        type=Type.COMPOUND,
         role=role,
         content=[
             text_item1,
@@ -722,7 +693,6 @@ def test_content_item_methods_single_image(image_type):
         ),
     )
     message = Message(
-        type=Type.COMPOUND,
         role=Role.ASSISTANT,
         content=[test_image_item],
     )
@@ -763,7 +733,6 @@ def test_content_item_methods_triple_image():
         content="/tmp/oumi.ai/b.gif",
     )
     message = Message(
-        type=Type.COMPOUND,
         role=Role.ASSISTANT,
         content=[test_image_item1, test_image_item2, test_image_item3],
     )
@@ -800,7 +769,6 @@ def test_content_item_methods_legacy_text():
     test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
-        type=Type.TEXT,
         content=test_text_item.content,
     )
 
@@ -830,7 +798,6 @@ def test_content_item_methods_double_text():
     test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
-        type=Type.COMPOUND,
         content=[test_text_item, test_text_item],
     )
 

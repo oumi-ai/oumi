@@ -3,7 +3,7 @@ from typing import Any
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
 
@@ -97,7 +97,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=response[_CONTENT_KEY][0]["text"],
             role=Role.ASSISTANT,
-            type=Type.TEXT,
         )
         return Conversation(
             messages=[*original_conversation.messages, new_message],
