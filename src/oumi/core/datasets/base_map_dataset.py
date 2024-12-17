@@ -424,14 +424,18 @@ class BaseMapDataset(MapDataPipe, ABC):
         if not dataset_path.exists():
             raise FileNotFoundError(f"File not found: {dataset_path}")
 
-        if dataset_path.suffix.lower() == ".jsonl" and dataset_path.is_file():
+        is_file: bool = dataset_path.is_file()
+        is_dir: bool = dataset_path.is_dir()
+
+        if is_file and dataset_path.suffix.lower() == ".jsonl":
             result = self._load_jsonl_dataset(dataset_path)
-        elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
+        elif is_file and dataset_path.suffix.lower() == ".parquet":
             result = self._load_parquet_dataset(dataset_path)
-        elif is_cached_to_disk_hf_dataset(dataset_path):
+        elif is_dir and is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
         elif (
-            self._column_to_filename_dict is not None
+            is_dir
+            and self._column_to_filename_dict is not None
             and len(self._column_to_filename_dict) > 0
             and is_local_numpy_dataset(dataset_path, self._column_to_filename_dict)
         ):
