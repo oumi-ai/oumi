@@ -14,6 +14,10 @@ from torch.utils.data import MapDataPipe
 
 from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
+from oumi.utils.numpy_datasets_utils import (
+    is_local_numpy_dataset,
+    load_local_numpy_dataset,
+)
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
 
@@ -79,9 +83,10 @@ class BaseMapDataset(MapDataPipe, ABC):
                 for dataset post-processing.
             column_to_filename: Optional mapping of dataset feature names (columns)
                 to a file name. Used for local datasets stored as multiple files
-                (e.g., a separate `.npy` file per feature). File names must be relative
-                with respect to `dataset_path`. Can use glob patterns to match files.
-                The parameter can only be used if `dataset_path` is specified.
+                (e.g., a separate `.npy` file per feature). File names stored in values
+                must be relative with respect to `dataset_path`. Can use glob patterns
+                to match files. The parameter can only be used
+                if `dataset_path` is specified.
             **kwargs: Additional arguments passed to BaseMapDataset.
         """
         dataset_type_name = self.__class__.__name__
@@ -425,6 +430,14 @@ class BaseMapDataset(MapDataPipe, ABC):
             result = self._load_parquet_dataset(dataset_path)
         elif is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
+        elif (
+            self._column_to_filename_dict is not None
+            and len(self._column_to_filename_dict) > 0
+            and is_local_numpy_dataset(dataset_path, self._column_to_filename_dict)
+        ):
+            result = load_local_numpy_dataset(
+                dataset_path, self._column_to_filename_dict
+            )
         else:
             raise ValueError(f"File format not supported for {self.dataset_name}")
 
