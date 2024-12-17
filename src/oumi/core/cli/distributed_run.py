@@ -161,6 +161,11 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
 
     Returns:
         Process run info.
+
+    Raises:
+        ValueError: If any of the required environment variables are missing or invalid.
+        RuntimeError: If the node list is empty, or there are issues with backend
+            detection.
     """
     oumi_total_gpus: Optional[int] = _get_optional_int_env_var(
         "OUMI_TOTAL_NUM_GPUS", env
@@ -285,7 +290,11 @@ def torchrun(
     """
     try:
         run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
+    except (ValueError, RuntimeError):
+        logger.exception("Failed to detect process run info!")
+        raise
 
+    try:
         cmds: list[str] = [
             "torchrun",
             f"--nnodes={run_info.num_nodes}",
@@ -298,10 +307,7 @@ def torchrun(
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
-        rank_str = ""
-        if run_info:
-            rank_str = f" Rank: {run_info.node_rank}"
-        logger.exception("`torchrun` failed!" + rank_str)
+        logger.exception(f"`torchrun` failed (Rank: {run_info.node_rank})!")
         raise
 
 
@@ -317,7 +323,11 @@ def accelerate(
     """
     try:
         run_info: _ProcessRunInfo = _detect_process_run_info(os.environ.copy())
+    except (ValueError, RuntimeError):
+        logger.exception("Failed to detect process run info!")
+        raise
 
+    try:
         accelerate_subcommand: Optional[str] = None
         extra_args = copy.deepcopy(ctx.args)
         if (
