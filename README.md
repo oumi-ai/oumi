@@ -125,9 +125,9 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.1 8b | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/8b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/8b_infer_sglang.yaml) |
-| Llama3.1 70b | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [vLLM](/configs/recipes/llama3_1/inference/70b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/llama3_1/inference/70b_infer_sglang.yaml) |
-| Llama3.2 Vision 11b | [vLLM](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
+| Llama3.1 8b | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) |
+| Llama3.1 70b | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) |
+| Llama3.2 Vision 11b | [Native](/configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml) • [vLLM](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
 | GPT-2 | [Native](/configs/recipes/gpt2/inference/infer.yaml) |
 | Mistral | [Bulk Inference](/configs/examples/bulk_inference/mistral_small_infer.yaml) |
 
