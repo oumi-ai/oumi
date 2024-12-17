@@ -46,12 +46,6 @@ class Type(str, Enum):
     IMAGE_BINARY = "image_binary"
     """Represents an image stored as binary data."""
 
-    COMPOUND = "compound"
-    """Message content is a list of `MessageContentItem`-s.
-
-    The child items are allowed to be of mixed types.
-    """
-
 
 class MessageContentItemCounts(NamedTuple):
     total_items: int
@@ -149,7 +143,7 @@ class MessageContentItem(pydantic.BaseModel):
         else:
             if self.binary is not None:
                 raise ValueError(
-                    "Binary can only be provided for the image message items "
+                    "Binary can only be provided for images "
                     f"(Item type: {self.type})."
                 )
 
@@ -184,35 +178,8 @@ class Message(pydantic.BaseModel):
     One of content or binary must be provided.
     """
 
-    binary: Optional[bytes] = None
-    """Optional binary data for the message, used for image data.
-
-    One of content or binary must be provided.
-    """
-
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
-
-    type: Type = Type.TEXT
-    """The type of the message content (e.g., text, image path, image URL)."""
-
-    @pydantic.field_serializer("binary")
-    def _encode_binary(self, value: Optional[bytes]) -> str:
-        """Encode binary value as base64 ASCII string.
-
-        This is needed for compatibility with JSON.
-        """
-        if value is None or len(value) == 0:
-            return ""
-        return base64.b64encode(value).decode("ascii")
-
-    @pydantic.field_validator("binary", mode="before")
-    def _decode_binary(cls, value: Optional[Union[str, bytes]]) -> Optional[bytes]:
-        if value is None:
-            return None
-        elif isinstance(value, str):
-            return base64.b64decode(value)
-        return value
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
@@ -224,62 +191,36 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if self.content is None and self.binary is None:
+        if self.content is None:
+            raise ValueError("content must be provided for the message.")
+
+        if not isinstance(self.content, (str, list)):
             raise ValueError(
-                "Either content or binary must be provided for the message."
+                f"Unexpected content type: {type(self.content)}. "
+                f"Must by a Python string or a list."
             )
-        if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
-            if not (self.content is None or isinstance(self.content, str)):
-                raise RuntimeError(
-                    f"Unexpected content type: {type(self.content)} "
-                    f"for message type: {self.type}. "
-                    f"Consider {Type.COMPOUND}."
-                )
-        elif self.type == Type.COMPOUND:
-            if not (self.content is None or isinstance(self.content, list)):
-                raise RuntimeError(
-                    f"Unexpected content type: {type(self.content)} "
-                    f"for message type: {self.type}. "
-                    f"Expected: `list`."
-                )
 
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[MessageContentItem, None, None]:
         """Returns a list of content items."""
-        if self.type in (Type.TEXT, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH):
-            if not (self.content is None or isinstance(self.content, str)):
-                raise RuntimeError(
-                    f"Unexpected content type: {type(self.content)} "
-                    f"for message type: {self.type}. "
-                    f"Consider {Type.COMPOUND}."
-                )
-            is_text = self.type == Type.TEXT
-            is_image = not is_text
-            if (return_text and is_text) or (return_images and is_image):
-                yield MessageContentItem(
-                    type=self.type, content=self.content, binary=self.binary
-                )
-        elif self.type == Type.COMPOUND and self.content is not None:
-            if not isinstance(self.content, list):
-                raise RuntimeError(
-                    f"Unexpected content type: {type(self.content)} "
-                    f"for message type: {self.type}. "
-                    f"Expected: `list`."
-                )
+        if self.content is None:
+            return
+
+        if isinstance(self.content, str):
+            if return_text:
+                yield MessageContentItem(type=Type.TEXT, content=self.content)
+        elif isinstance(self.content, list):
             if return_text and return_images:
                 yield from self.content
             else:
                 for item in self.content:
-                    is_text = item.type == Type.TEXT
                     if (return_text and item.is_text()) or (
                         return_images and item.is_image()
                     ):
                         yield item
 
-    def _iter_all_content_items(
-        self, *, return_text: bool = False, return_images: bool = False
-    ) -> Generator[MessageContentItem, None, None]:
+    def _iter_all_content_items(self) -> Generator[MessageContentItem, None, None]:
         return self._iter_content_items(return_text=True, return_images=True)
 
     def count_content_items(self) -> MessageContentItemCounts:

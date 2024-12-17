@@ -190,7 +190,6 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=response["text"],
             role=Role.ASSISTANT,
-            type=Type.TEXT,
         )
         return Conversation(
             messages=[*original_conversation.messages, new_message],

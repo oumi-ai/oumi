@@ -10,7 +10,13 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -61,9 +67,9 @@ def inference_config(generation_params, remote_params):
 def create_test_text_only_conversation():
     return Conversation(
         messages=[
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
-            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+            Message(content="Hello", role=Role.USER),
+            Message(content="Hi there!", role=Role.ASSISTANT),
+            Message(content="How are you?", role=Role.USER),
         ]
     )
 
@@ -73,10 +79,15 @@ def create_test_multimodal_text_image_conversation():
     png_bytes = create_png_bytes_from_image(pil_image)
     return Conversation(
         messages=[
-            Message(binary=png_bytes, role=Role.USER, type=Type.IMAGE_BINARY),
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
-            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+            Message(
+                role=Role.USER,
+                content=[
+                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    MessageContentItem(content="Hello", type=Type.TEXT),
+                ],
+            ),
+            Message(content="Hi there!", role=Role.ASSISTANT),
+            Message(content="How are you?", role=Role.USER),
         ]
     )
 
@@ -130,7 +141,7 @@ def test_convert_conversation_to_api_input_multimodal(gcp_engine, inference_conf
         conversation, inference_config.generation
     )
     assert api_input["model"] == "gcp-model"
-    assert len(conversation.messages) == 4
+    assert len(conversation.messages) == 3
     assert len(api_input["messages"]) == 3
     assert isinstance(api_input["messages"][0]["content"], list)
     assert len(api_input["messages"][0]["content"]) == 2

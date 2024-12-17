@@ -45,10 +45,10 @@ run: |
   fi
 
   set -x
-  python -m oumi.evaluate \
+  oumi evaluate \
     -c configs/recipes/llama3_1/evaluation/70b_eval.yaml \
-    "run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-    "model.model_name=${MODEL_CHECKPOINT_DIR}" \
-    "model.adapter_model=${LORA_ADAPTER_DIR}"
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}" \
+    --model.adapter_model "${LORA_ADAPTER_DIR}"
 
   echo -e "Finished eval on node:\n$(cat $PBS_NODEFILE)"

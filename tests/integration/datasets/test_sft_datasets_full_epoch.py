@@ -79,9 +79,9 @@ def test_dataset_conversation(dataset_fixture):
                     f"Content of message {msg_idx} in conversation "
                     f"at index {idx} is empty"
                 )
-            assert message.type == "text", (
+            assert isinstance(message.content, str), (
                 f"Type of message {msg_idx} in conversation at index {idx} "
-                f"is not 'text'. Type: {message.type}"
+                f"is not 'text'. Type: {type(message.content)}"
             )
 
         assert conversation.messages[0].role == "user", (

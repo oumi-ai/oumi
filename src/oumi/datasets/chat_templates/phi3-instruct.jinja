@@ -1,12 +1,22 @@
 {% set image_token = '<|image_1|>' %}
 
-{% for message in messages %}
-    {% if message['type'] == 'text' %}
-        {{'<|' + message['role'] + '|>' + '\n' + message['content'] + '<|end|>\n' }}
-    {% elif message['type'] in ('image_path','image_url','image_binary') %}
-        {{'<|' + message['role'] + '|>' + '\n' + image_token + '<|end|>\n' }}
-    {% endif %}
-{% endfor %}
+{%- for message in messages -%}
+    {{ '<|' + message['role'] + '|>' + '\n' }}
+
+    {%- if message['content'] is string -%}
+        {{ message['content'] }}
+    {%- elif message['content'] is iterable -%}
+        {%- for item in message['content'] -%}
+            {%- if item['type'] == 'text' -%}
+                {{ item['content'] }}
+            {%- elif item['type'].startswith('image') -%}
+                {{ image_token }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+
+    {{ '<|end|>\n' }}
+{%- endfor -%}
 
 {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}
     {{- '<|assistant|>\n' -}}
