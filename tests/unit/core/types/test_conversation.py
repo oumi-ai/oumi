@@ -598,6 +598,14 @@ def test_empty_content_string():
     assert len(message.content) == 0
 
 
+def test_content_none():
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Message(role=Role.TOOL)
+
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Message(role=Role.USER, content=None)
+
+
 def test_incorrect_message_content_item_type():
     with pytest.raises(ValueError, match="Input should be a valid string"):
         MessageContentItem(
