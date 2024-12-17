@@ -19,7 +19,7 @@ class Flickr30kDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single conversation example into a Conversation object."""
         input_text = "Describe this image:"
-        output_text = str(example["caption"][0])
+        output_text = example["caption"][0]
 
         return Conversation(
             messages=[
