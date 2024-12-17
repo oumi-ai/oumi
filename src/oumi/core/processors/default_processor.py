@@ -197,7 +197,7 @@ class DefaultProcessor(BaseProcessor):
             for message in conversation:
                 if message.contains_images():
                     raise ValueError(
-                        f"Conversation includes non-text messages: {message.type}. "
+                        f"Conversation includes non-text messages: {message.id}. "
                         "This is not allowed for processors that are tokenizers."
                     )
 

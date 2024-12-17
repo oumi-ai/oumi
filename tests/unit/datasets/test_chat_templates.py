@@ -60,7 +60,6 @@ def create_test_conversation(
         messages.append(
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
                     MessageContentItem(content=s, type=Type.TEXT),
@@ -76,7 +75,6 @@ def create_test_conversation(
             Message(
                 role=(Role.USER if (idx % 2 == 0) else Role.ASSISTANT),
                 content=s,
-                type=Type.TEXT,
             )
         )
         unique_text_pieces.append(s)
@@ -85,7 +83,7 @@ def create_test_conversation(
     )
 
 
-@functools.cache  # same as @cache added in Python 3.9
+@functools.cache
 def creat_test_tokenizer(model_name: str, chat_template_name: str) -> BaseTokenizer:
     tokenizer_pad_token = None
     if model_name == "openai-community/gpt2":

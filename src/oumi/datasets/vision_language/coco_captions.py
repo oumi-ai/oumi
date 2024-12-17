@@ -39,7 +39,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
                 "Training example doesn't contain 'sentences.raw' key. Available keys "
                 f"under 'sentences.': {example[_COCO_COLUMN_SENTENCES].keys()}."
             )
-        output_text = example[_COCO_COLUMN_SENTENCES][_COCO_COLUMN_RAW]
+        output_text = str(example[_COCO_COLUMN_SENTENCES][_COCO_COLUMN_RAW])
 
         user_items: list[MessageContentItem] = []
 
@@ -68,7 +68,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
 
         return Conversation(
             messages=[
-                Message(role=Role.USER, type=Type.COMPOUND, content=user_items),
-                Message(role=Role.ASSISTANT, type=Type.TEXT, content=output_text),
+                Message(role=Role.USER, content=user_items),
+                Message(role=Role.ASSISTANT, content=output_text),
             ]
         )

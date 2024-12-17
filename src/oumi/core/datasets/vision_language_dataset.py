@@ -328,7 +328,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             if turn.contains_text() or turn.contains_images():
                 texts.append(turn)
             else:
-                raise ValueError(f"Unsupported message type: {turn.type}")
+                raise ValueError(
+                    f"Unsupported message: {turn.id}. "
+                    "Contains no text and no images."
+                )
 
         text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
 

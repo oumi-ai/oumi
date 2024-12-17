@@ -67,9 +67,9 @@ def inference_config(generation_params, remote_params):
 def create_test_text_only_conversation():
     return Conversation(
         messages=[
-            Message(content="Hello", role=Role.USER, type=Type.TEXT),
-            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
-            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+            Message(content="Hello", role=Role.USER),
+            Message(content="Hi there!", role=Role.ASSISTANT),
+            Message(content="How are you?", role=Role.USER),
         ]
     )
 
@@ -81,14 +81,13 @@ def create_test_multimodal_text_image_conversation():
         messages=[
             Message(
                 role=Role.USER,
-                type=Type.COMPOUND,
                 content=[
                     MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
                     MessageContentItem(content="Hello", type=Type.TEXT),
                 ],
             ),
-            Message(content="Hi there!", role=Role.ASSISTANT, type=Type.TEXT),
-            Message(content="How are you?", role=Role.USER, type=Type.TEXT),
+            Message(content="Hi there!", role=Role.ASSISTANT),
+            Message(content="How are you?", role=Role.USER),
         ]
     )
 
