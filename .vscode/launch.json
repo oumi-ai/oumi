@@ -133,7 +133,7 @@
                 "--model-name",
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
-                "merve/vqav2-small"
+                "geo-fno/sigma_mesh_rr"
             ],
             "justMyCode": false
         },

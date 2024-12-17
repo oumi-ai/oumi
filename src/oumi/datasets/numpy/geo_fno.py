@@ -15,11 +15,11 @@ class GeoFNO(BaseMapDataset):
         **kwargs,
     ):
         """Initializes a new instance of the GeoFNO class."""
-        if dataset_path is not None:
+        if not dataset_path:
             raise ValueError("dataset_path must be provided")
 
         col_dict = {"sigma": "*_sigma_*.npy", "mesh": "*_XY_*.npy", "rr": "*_rr_*.npy"}
 
         super().__init__(
-            dataset_path=dataset_path, column_to_filename=col_dict, **kwargs
+            dataset_path=str(dataset_path), column_to_filename=col_dict, **kwargs
         )

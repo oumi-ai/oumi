@@ -133,6 +133,7 @@ class DatasetName(str, Enum):
     LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
+    GEO_FNO = "geo-fno/sigma_mesh_rr"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -194,6 +195,7 @@ def test_multimodal_trainer(
 
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
+        dataset_path="/mnt/d/LeMa/PDE/GEO-FNO/elasticity/Meshes/",
         tokenizer=tokenizer,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
