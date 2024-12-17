@@ -28,14 +28,14 @@ torchrun \
     --nproc-per-node=4 \
     --master-addr=${OUMI_MASTER_ADDR} \
     --master-port=8007 \
-    -m oumi.train \
+    -m oumi train \
     -c configs/recipes/gpt2/pretraining/train.yaml \
-    "training.run_name='gpt2.pt.${PBS_JOBID}'" \
+    --training.run_name "gpt2.pt.${PBS_JOBID}" \
     "$TRAIN_DATASETS" \
-    "training.max_steps=100" \
-    "training.include_performance_metrics=true" \
-    "training.ddp_find_unused_parameters=false" \
-    "training.dataloader_num_workers=2" \
-    "training.dataloader_prefetch_factor=4" \
-    "training.per_device_train_batch_size=32" \
-    "training.gradient_accumulation_steps=4"
+    --training.max_steps 100 \
+    --training.include_performance_metrics true \
+    --training.ddp_find_unused_parameters false \
+    --training.dataloader_num_workers 2 \
+    --training.dataloader_prefetch_factor 4 \
+    --training.per_device_train_batch_size 32 \
+    --training.gradient_accumulation_steps 4

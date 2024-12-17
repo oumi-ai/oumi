@@ -41,10 +41,10 @@ run: |
 
   set -x
   oumi distributed torchrun \
-      -m oumi.train \
+      -m oumi train \
       -c configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='${OUMI_RUN_NAME}'" \
-      "training.logging_dir='${OUMI_RUN_NAME}/runs'"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir "${OUMI_RUN_NAME}" \
+      --training.logging_dir "${OUMI_RUN_NAME}/runs"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
