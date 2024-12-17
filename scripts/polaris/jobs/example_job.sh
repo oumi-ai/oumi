@@ -30,7 +30,7 @@ torchrun \
     --master-port=8007 \
     -m oumi train \
     -c configs/recipes/gpt2/pretraining/train.yaml \
-    --training.run_name 'gpt2.pt.${PBS_JOBID}' \
+    --training.run_name "gpt2.pt.${PBS_JOBID}" \
     "$TRAIN_DATASETS" \
     --training.max_steps 100 \
     --training.include_performance_metrics true \
