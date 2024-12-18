@@ -2,36 +2,38 @@
 {% set video_count = namespace(value=0) %}
 
 {%- for message in messages -%}
+    {#
     {%- if loop.first and message['role'] != 'system' -%}
-        <|im_start|>system\nYou are a helpful assistant.<|im_end|>\n
+        {{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}
     {%- endif -%}
+    #}
 
-    <|im_start|>{{ message['role'] }}\n
+    {{ '<|im_start|>' + message['role'] + '\n' }}
 
     {%- if message['content'] is string -%}
-        {{ message['content'] }}<|im_end|>\n
+        {{- message['content'] + '<|im_end|>\n' -}}
     {%- elif message['content'] is iterable -%}
         {%- for content in message['content'] -%}
-            {%- if ['type'].startswith('image') -%}
+            {%- if content['type'].startswith('image') -%}
                 {%- set image_count.value = image_count.value + 1 -%}
                 {%- if add_vision_id -%}
-                    Picture {{ image_count.value }}:{{ ' ' }}
+                    {{ 'Picture ' + image_count.value + ': ' }}
                 {%- endif -%}
-            <|vision_start|><|image_pad|><|vision_end|>
+                {{ '<|vision_start|><|image_pad|><|vision_end|>' }}
             {%- elif content['type'].startswith('video') -%}
                 {%- set video_count.value = video_count.value + 1 -%}
                 {%- if add_vision_id -%}
-                    Video {{ video_count.value }}:{{ ' ' }}
+                    {{ 'Video ' + video_count.value + ': ' }}
                 {%- endif -%}
-                <|vision_start|><|video_pad|><|vision_end|>
+                {{ '<|vision_start|><|video_pad|><|vision_end|>' }}
             {%- elif content['type']=='text' -%}
-                {{ content['text'] }}
+                {{- content['content'] -}}
             {%- endif -%}
         {%- endfor -%}
-        <|im_end|>\n
+        {{ '<|im_end|>\n' }}
     {%- endif -%}
 {%- endfor -%}
 
 {%- if add_generation_prompt -%}
-    <|im_start|>assistant\n
+    {{- '<|im_start|>assistant\n' -}}
 {%- endif -%}
