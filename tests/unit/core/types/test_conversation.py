@@ -600,10 +600,7 @@ def test_empty_content_string():
 
 def test_content_none():
     with pytest.raises(ValueError, match="content must be provided for the message"):
-        Message(role=Role.TOOL)
-
-    with pytest.raises(ValueError, match="content must be provided for the message"):
-        Message(role=Role.USER, content=None)
+        Message(role=Role.USER, content="")
 
 
 def test_incorrect_message_content_item_type():
@@ -769,7 +766,7 @@ def test_content_item_methods_legacy_text():
     test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
-        content=test_text_item.content,
+        content=(test_text_item.content or ""),
     )
 
     assert message.contains_text()
