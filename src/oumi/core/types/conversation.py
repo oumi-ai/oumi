@@ -181,8 +181,8 @@ class Message(pydantic.BaseModel):
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
-    For multimodal messages, `content` is a list of content items of potentially
-    different types e.g., text and image.
+    For multimodal messages, `content` should be a list of content items of
+    potentially different types e.g., text and image.
     """
 
     role: Role
