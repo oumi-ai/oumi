@@ -536,6 +536,21 @@ def test_from_json_with_invalid_field():
         Conversation.from_json('{"invalid": json')
 
 
+def test_from_dict_missing_content():
+    with pytest.raises(ValueError, match="content must be provided for the message"):
+        Conversation.from_dict(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        # No `content` specified!
+                    },
+                ],
+                "metadata": {"test": "metadata"},
+            }
+        )
+
+
 def test_from_dict_with_invalid_base64():
     with pytest.raises(ValueError, match="Invalid base64-encoded string"):
         Conversation.from_dict(

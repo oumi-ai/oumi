@@ -177,6 +177,9 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
+    role: Role
+    """The role of the entity sending the message (e.g., user, assistant, system)."""
+
     content: Union[str, list[MessageContentItem]]
     """Content of the message.
 
@@ -185,8 +188,11 @@ class Message(pydantic.BaseModel):
     potentially different types e.g., text and image.
     """
 
-    role: Role
-    """The role of the entity sending the message (e.g., user, assistant, system)."""
+    @pydantic.field_validator("content", mode="before")
+    def _decode_content(
+        cls, value: Optional[Union[str, list[MessageContentItem]]]
+    ) -> Union[str, list[MessageContentItem]]:
+        return "" if value is None else value
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
