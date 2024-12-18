@@ -106,12 +106,7 @@ ${OUMI_TELEMETRY_PARAMS}"
 echo "${LOG_PREFIX} Starting training (${TRAINING_MODE})..."
 if [ "$TRAINING_MODE" == "ddp" ]; then
     set -x
-    torchrun \
-        --nnodes=${OUMI_NUM_NODES} \
-        --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-        --master-addr=${OUMI_MASTER_ADDR} \
-        --master-port=8007 \
+    oumi distributed torchrun \
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
@@ -123,6 +118,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
     export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
     set -x
     echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
+    # Note the 1 process per node
     torchrun \
         --nnodes=${OUMI_TOTAL_NUM_GPUS} \
         --node-rank=${POLARIS_NODE_RANK} \
@@ -139,12 +135,7 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
 elif [ "$TRAINING_MODE" == "deepspeed" ]; then
     set -x
     pip install deepspeed # Deepspeed is not installed by default
-    accelerate launch \
-        --num_machines ${OUMI_NUM_NODES} \
-        --machine_rank ${POLARIS_NODE_RANK} \
-        --num_processes ${OUMI_TOTAL_NUM_GPUS} \
-        --main_process_ip ${OUMI_MASTER_ADDR} \
-        --main_process_port 8007 \
+    oumi distributed accelerate launch \
         --use_deepspeed \
         --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
         -m oumi train \
@@ -158,12 +149,7 @@ elif [ "$TRAINING_MODE" == "deepspeed" ]; then
         --training.mixed_precision_dtype BF16
 else # FSDP
     set -x
-    torchrun \
-        --nnodes=${OUMI_NUM_NODES} \
-        --node-rank=${POLARIS_NODE_RANK} \
-        --nproc-per-node=${OUMI_POLARIS_NUM_GPUS_PER_NODE} \
-        --master-addr=${OUMI_MASTER_ADDR} \
-        --master-port=8007 \
+    oumi distributed torchrun \
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml \
         "$TRAIN_DATASETS" \
