@@ -104,7 +104,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=True)
-    # TODO OPE-673 Add Qwen2-VL chat template
+    config.chat_template = "qwen2-vl-instruct"
     config.model_input_features.update(
         {
             feature_name: InternalFeatureSpec(
@@ -113,6 +113,12 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
                 variable_shape=False,
             )
             for feature_name in ("image_grid_thw",)
+        }
+    )
+    config.processor_kwargs.update(
+        {
+            "min_pixels": 256 * 28 * 28,
+            "max_pixels": 1280 * 28 * 28,
         }
     )
     return config

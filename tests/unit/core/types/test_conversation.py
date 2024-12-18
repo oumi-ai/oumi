@@ -536,35 +536,6 @@ def test_from_json_with_invalid_field():
         Conversation.from_json('{"invalid": json')
 
 
-def test_from_dict_missing_content():
-    with pytest.raises(ValueError, match="content must be provided for the message"):
-        Conversation.from_dict(
-            {
-                "messages": [
-                    {
-                        "binary": "INVALID_BASE64!",
-                        "role": "user",
-                        "type": "image_binary",
-                    },
-                ],
-                "metadata": {"test": "metadata"},
-            }
-        )
-    with pytest.raises(ValueError, match="content must be provided for the message"):
-        Conversation.from_dict(
-            {
-                "messages": [
-                    {
-                        "binary": "zzzz",
-                        "role": "assistant",
-                        "type": "text",
-                    },
-                ],
-                "metadata": {"test": "metadata"},
-            }
-        )
-
-
 def test_from_dict_with_invalid_base64():
     with pytest.raises(ValueError, match="Invalid base64-encoded string"):
         Conversation.from_dict(
@@ -596,14 +567,6 @@ def test_empty_content_string():
     message = Message(role=Role.USER, content="")
     assert isinstance(message.content, str)
     assert len(message.content) == 0
-
-
-def test_content_none():
-    with pytest.raises(ValueError, match="content must be provided for the message"):
-        Message(role=Role.TOOL)
-
-    with pytest.raises(ValueError, match="content must be provided for the message"):
-        Message(role=Role.USER, content=None)
 
 
 def test_incorrect_message_content_item_type():
@@ -769,7 +732,7 @@ def test_content_item_methods_legacy_text():
     test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
-        content=test_text_item.content,
+        content=(test_text_item.content or ""),
     )
 
     assert message.contains_text()
@@ -822,3 +785,23 @@ def test_content_item_methods_double_text():
     assert message.count_content_items() == MessageContentItemCounts(
         total_items=2, image_items=0, text_items=2
     )
+
+
+def test_role_str_repr():
+    assert str(Role.ASSISTANT) == "assistant"
+    assert "assistant" in repr(Role.ASSISTANT)
+    assert str(Role.USER) == "user"
+    assert "user" in repr(Role.USER)
+    assert str(Role.TOOL) == "tool"
+    assert "tool" in repr(Role.TOOL)
+
+
+def test_type_str_repr():
+    assert str(Type.TEXT) == "text"
+    assert "text" in repr(Type.TEXT)
+    assert str(Type.IMAGE_BINARY) == "image_binary"
+    assert "image_binary" in repr(Type.IMAGE_BINARY)
+    assert str(Type.IMAGE_URL) == "image_url"
+    assert "image_url" in repr(Type.IMAGE_URL)
+    assert str(Type.IMAGE_PATH) == "image_path"
+    assert "image_path" in repr(Type.IMAGE_PATH)

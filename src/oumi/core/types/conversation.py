@@ -46,6 +46,14 @@ class Type(str, Enum):
     IMAGE_BINARY = "image_binary"
     """Represents an image stored as binary data."""
 
+    def __str__(self) -> str:
+        """Return the string representation of the Type enum.
+
+        Returns:
+            str: The string value of the Type enum.
+        """
+        return self.value
+
 
 class MessageContentItemCounts(NamedTuple):
     total_items: int
@@ -156,10 +164,7 @@ class Message(pydantic.BaseModel):
     """A message in a conversation.
 
     This class represents a single message within a conversation, containing
-    various attributes such as content, role, type, and optional binary data.
-
-    Note:
-        Either content or binary must be provided when creating a Message instance.
+    various attributes such as role, content, identifier.
     """
 
     id: Optional[str] = None
@@ -172,10 +177,12 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: Optional[Union[str, list[MessageContentItem]]] = None
-    """Optional text content of the message.
+    content: Union[str, list[MessageContentItem]]
+    """Content of the message.
 
-    One of content or binary must be provided.
+    For text messages, `content` can be set to a string value.
+    For multimodal messages, `content` should be a list of content items of
+    potentially different types e.g., text and image.
     """
 
     role: Role
@@ -191,9 +198,6 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if self.content is None:
-            raise ValueError("content must be provided for the message.")
-
         if not isinstance(self.content, (str, list)):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
@@ -204,9 +208,6 @@ class Message(pydantic.BaseModel):
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[MessageContentItem, None, None]:
         """Returns a list of content items."""
-        if self.content is None:
-            return
-
         if isinstance(self.content, str):
             if return_text:
                 yield MessageContentItem(type=Type.TEXT, content=self.content)

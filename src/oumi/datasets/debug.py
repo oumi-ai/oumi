@@ -127,9 +127,12 @@ class DebugSftDataset(BaseSftDataset):
         """Transforms the example into a Conversation object."""
         return Conversation(
             messages=[
-                Message(role=Role.USER, content=example.get("user_message", "")),
                 Message(
-                    role=Role.ASSISTANT, content=example.get("assistant_message", "")
+                    role=Role.USER, content=(example.get("user_message", None) or "")
+                ),
+                Message(
+                    role=Role.ASSISTANT,
+                    content=(example.get("assistant_message", None) or ""),
                 ),
             ]
         )

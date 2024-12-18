@@ -28,7 +28,7 @@ time accelerate launch \
 
 # HuggingFace model with Oumi trainer
 # time CUDA_VISIBLE_DEVICES="0" python \  # For single GPU, can also be ran directly
-time torchrun --standalone --nproc_per_node 1 \
+time torchrun --standalone --nproc-per-node 1 \
     -m oumi train \
     -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
     --training.trainer_type OUMI \

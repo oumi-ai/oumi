@@ -5,7 +5,7 @@ Run the script using:
     --model-name<model_name> --dataset-name <dataset_name>
 
 For multi-GPU training, use torchrun:
-   torchrun --standalone --nproc_per_node=$(nvidia-smi --list-gpus | wc -l) \
+   torchrun --standalone --nproc-per-node=$(nvidia-smi --list-gpus | wc -l) \
         scripts/benchmarks/minimal_multimodal_training.py \
             --model-name <model_name> --dataset-name <dataset_name>
 
@@ -83,7 +83,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["vision_tower"],
     ),
     ModelName.QWEN2_VL: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
     ),
     ModelName.CHAMELEON: ModelInfo(

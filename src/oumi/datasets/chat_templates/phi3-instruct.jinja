@@ -6,10 +6,10 @@
     {%- if message['content'] is string -%}
         {{ message['content'] }}
     {%- elif message['content'] is iterable -%}
-        {%- for item in message['content'] -%}
-            {%- if item['type'] == 'text' -%}
-                {{ item['content'] }}
-            {%- elif item['type'].startswith('image') -%}
+        {%- for content in message['content'] -%}
+            {%- if content['type'] == 'text' -%}
+                {{ content['content'] }}
+            {%- elif content['type'].startswith('image') -%}
                 {{ image_token }}
             {%- endif -%}
         {%- endfor -%}
@@ -20,4 +20,4 @@
 
 {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}
     {{- '<|assistant|>\n' -}}
-{% endif %}",
+{% endif %}

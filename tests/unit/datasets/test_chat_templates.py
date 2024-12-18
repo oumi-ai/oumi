@@ -124,6 +124,12 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         image_placeholder="<|image_1|>",
     ),
     ChatTemplateTestSpec(
+        chat_template_name="qwen2-vl-instruct",
+        model_name="Qwen/Qwen2-VL-2B-Instruct",
+        test_image=True,
+        image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
+    ),
+    ChatTemplateTestSpec(
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
     ),
@@ -180,7 +186,9 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                 add_generation_prompt=add_generation_prompt,
             )
 
-            logger.info(f"prompt:\n=====\n{prompt}\n=====")
+            logger.info(
+                f"prompt ({test_spec.chat_template_name}):\n=====\n{prompt}\n====="
+            )
             for text_piece in test_convo_tuple.unique_text_pieces:
                 assert (
                     text_piece in prompt
