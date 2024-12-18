@@ -123,6 +123,10 @@ def load_local_numpy_dataset(
     data_columns: dict[str, np.ndarray] = {}
     for feature_name, data_file_path in all_data_files.items():
         column_data = np.load(data_file_path, allow_pickle=False)
+        logger.info(
+            f"Loaded '{feature_name}' (shape: {column_data.shape}) "
+            f"from {data_file_path}"
+        )
         data_columns[feature_name] = column_data
 
     return pd.DataFrame(data_columns)

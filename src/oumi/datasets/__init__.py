@@ -26,6 +26,7 @@ from oumi.datasets.debug import (
     DebugPretrainingDataset,
     DebugSftDataset,
 )
+from oumi.datasets.numpy import GeoFNO
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
@@ -74,6 +75,7 @@ __all__ = [
     "FalconRefinedWebDataset",
     "FineWebEduDataset",
     "Flickr30kDataset",
+    "GeoFNO",
     "LlavaInstructMixVsftDataset",
     "MagpieProDataset",
     "OrpoDpoMix40kDataset",
