@@ -90,9 +90,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
             )
 
         # Add image messages before text messages!
-        return Message(
-            role=role, type=Type.COMPOUND, content=(image_items + text_items)
-        )
+        return Message(role=role, content=(image_items + text_items))
 
     def _parse_assistant_messages(self, message_list: list[dict]) -> Message:
         role = Role.ASSISTANT
@@ -110,7 +108,6 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
 
         return Message(
             role=role,
-            type=Type.TEXT,
             content=self._process_text_value(message_list[0]["text"]),
         )
 

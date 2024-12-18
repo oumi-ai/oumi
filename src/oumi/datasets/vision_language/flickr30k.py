@@ -25,7 +25,6 @@ class Flickr30kDataset(VisionLanguageSftDataset):
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(
                             type=Type.IMAGE_BINARY,
@@ -34,6 +33,6 @@ class Flickr30kDataset(VisionLanguageSftDataset):
                         MessageContentItem(type=Type.TEXT, content=input_text),
                     ],
                 ),
-                Message(role=Role.ASSISTANT, type=Type.TEXT, content=output_text),
+                Message(role=Role.ASSISTANT, content=output_text),
             ]
         )

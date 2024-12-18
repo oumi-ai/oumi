@@ -35,8 +35,8 @@ help:
 	@echo "  format      - Run code formatter"
 	@echo "  test        - Run tests"
 	@echo "  coverage    - Run tests with coverage"
-	@echo "  skyssh      - Launch a cloud VM with SSH config"
-	@echo "  skycode     - Launch a vscode remote session on a cloud VM"
+	@echo "  gcpssh      - Launch a GCP VM and ssh into it"
+	@echo "  gcpcode     - Launch a VS Code remote session on a GCP VM"
 	@echo "  docs        - Build Sphinx documentation"
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
@@ -131,12 +131,14 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-skyssh:
-	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
+# To run with 4 A100s: `make gcpssh ARGS="--resources.accelerators A100:4"`
+gcpssh:
+	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev" -c configs/examples/misc/dev_gcp_job.yaml
 	ssh "${USERNAME}-dev"
 
-skycode:
-	$(CONDA_RUN) sky launch $(ARGS) -y --no-setup -c "${USERNAME}-dev" --cloud gcp configs/examples/misc/sky_ssh_job.yaml
+# To run with 4 A100s: `make gcpcode ARGS="--resources.accelerators A100:4"`
+gcpcode:
+	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev" -c configs/examples/misc/dev_gcp_job.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
 docs:
@@ -164,4 +166,4 @@ docs-clean:
 	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
 	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
 
-.PHONY: help setup upgrade clean check format test coverage skyssh skycode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs
+.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs

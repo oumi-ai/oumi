@@ -309,7 +309,6 @@ def test_infer_from_file_to_file_with_images():
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(
                             type=Type.IMAGE_BINARY,
@@ -329,7 +328,6 @@ def test_infer_from_file_to_file_with_images():
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(
                             type=Type.IMAGE_BINARY,

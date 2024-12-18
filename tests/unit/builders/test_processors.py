@@ -78,18 +78,16 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     assert attention_mask.shape == (1, 2)
     assert np.all(attention_mask.numpy() == np.array([[1, 1]]))
 
-    prompt = processor.apply_chat_template(
-        [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
-    )
+    prompt = processor.apply_chat_template([Message(role=Role.USER, content="FooBazz")])
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
     assert prompt == "USER: FooBazz"
 
     prompt = processor.apply_chat_template(
         [
-            Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-            Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-            Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="How can I help?"),
+            Message(role=Role.USER, content="Hmm"),
         ],
         add_generation_prompt=True,
     )
@@ -101,7 +99,6 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
             [
                 Message(
                     role=Role.USER,
-                    type=Type.COMPOUND,
                     content=[
                         MessageContentItem(type=Type.TEXT, content="Hello"),
                         MessageContentItem(
@@ -110,8 +107,8 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
                         ),
                     ],
                 ),
-                Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-                Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+                Message(role=Role.ASSISTANT, content="How can I help?"),
+                Message(role=Role.USER, content="Hmm"),
             ]
         )
 
@@ -157,18 +154,16 @@ def test_build_processor_basic_multimodal_success():
     assert attention_mask.shape == (1, 3)
     assert np.all(attention_mask.numpy() == np.array([[1, 1, 1]]))
 
-    prompt = processor.apply_chat_template(
-        [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
-    )
+    prompt = processor.apply_chat_template([Message(role=Role.USER, content="FooBazz")])
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
     assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz "
 
     prompt = processor.apply_chat_template(
         [
-            Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-            Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-            Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="How can I help?"),
+            Message(role=Role.USER, content="Hmm"),
         ],
         add_generation_prompt=True,
     )
