@@ -46,6 +46,14 @@ class Type(str, Enum):
     IMAGE_BINARY = "image_binary"
     """Represents an image stored as binary data."""
 
+    def __str__(self) -> str:
+        """Return the string representation of the Type enum.
+
+        Returns:
+            str: The string value of the Type enum.
+        """
+        return self.value
+
 
 class MessageContentItemCounts(NamedTuple):
     total_items: int
@@ -200,9 +208,6 @@ class Message(pydantic.BaseModel):
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[MessageContentItem, None, None]:
         """Returns a list of content items."""
-        if self.content is None:
-            return
-
         if isinstance(self.content, str):
             if return_text:
                 yield MessageContentItem(type=Type.TEXT, content=self.content)
