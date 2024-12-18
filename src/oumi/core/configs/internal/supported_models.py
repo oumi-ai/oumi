@@ -115,6 +115,12 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
             for feature_name in ("image_grid_thw",)
         }
     )
+    config.processor_kwargs.update(
+        {
+            "min_pixels": 256 * 28 * 28,
+            "max_pixels": 1280 * 28 * 28,
+        }
+    )
     return config
 
 

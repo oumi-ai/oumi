@@ -24,7 +24,7 @@ data:
           processor_name: "microsoft/Phi-3-vision-128k-instruct"
           limit: 8192
           return_tensors: True
-      # - dataset_name: "microsoft/Phi-3-vision-128k-instruct"
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True
       #   seed: 42
