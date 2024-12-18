@@ -131,7 +131,7 @@
             "program": "scripts/benchmarks/minimal_multimodal_training.py",
             "args": [
                 "--model-name",
-                "llava-hf/llava-1.5-7b-hf",
+                "HuggingFaceTB/SmolVLM-Instruct",
                 "--dataset-name",
                 "merve/vqav2-small"
             ],

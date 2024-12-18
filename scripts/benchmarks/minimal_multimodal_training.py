@@ -64,6 +64,7 @@ class ModelName(str, Enum):
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
+    SMOLVLM = "HuggingFaceTB/SmolVLM-Instruct"
 
 
 class ModelInfo(NamedTuple):
@@ -104,6 +105,10 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
         freeze_layers=["model.vision_backbone"],
+    ),
+    ModelName.SMOLVLM: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_model"],
     ),
 }
 
@@ -223,7 +228,7 @@ def test_multimodal_trainer(
         max_grad_norm=10,
         lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
-        log_model_summary=False,
+        log_model_summary=True,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )

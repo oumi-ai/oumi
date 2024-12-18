@@ -95,11 +95,23 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         if not generation_params.stop_token_ids and not generation_params.stop_strings:
             if self._tokenizer.eos_token_id:
-                logger.info(f"Setting EOS token id to `{self._tokenizer.eos_token_id}`")
-                generation_params.stop_token_ids = [self._tokenizer.eos_token_id]
+                eos_token_id = self._tokenizer.eos_token_id
+                logger.info(f"Setting EOS token id to `{eos_token_id}`")
+                if not isinstance(eos_token_id, int):
+                    raise RuntimeError(
+                        f"Tokenizer's `eos_token_id` is not an integer: "
+                        f"{eos_token_id}. Type: {type(eos_token_id)}"
+                    )
+                generation_params.stop_token_ids = [eos_token_id]
             elif self._tokenizer.eos_token:
-                logger.info(f"Setting EOS token to `{self._tokenizer.eos_token}`")
-                generation_params.stop_strings = [self._tokenizer.eos_token]
+                eos_token = self._tokenizer.eos_token
+                logger.info(f"Setting EOS token to `{eos_token}`")
+                if not isinstance(eos_token, str):
+                    raise RuntimeError(
+                        f"Tokenizer's `eos_token_id` is not a string: "
+                        f"{eos_token}. Type: {type(eos_token)}"
+                    )
+                generation_params.stop_strings = [eos_token]
             else:
                 logger.warning("No EOS token defined.")
 

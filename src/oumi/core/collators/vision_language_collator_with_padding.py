@@ -116,6 +116,6 @@ class VisionLanguageCollatorWithPadding:
         elif isinstance(images[0], np.ndarray):
             return torch.stack([torch.from_numpy(img) for img in images])
         elif isinstance(images[0], list):
-            return torch.tensor(images)
+            return torch.tensor(np.array(images))
         else:
             raise ValueError(f"Unsupported image type: {type(images[0])}")
