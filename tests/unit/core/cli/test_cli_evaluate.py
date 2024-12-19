@@ -68,14 +68,14 @@ def test_evaluate_with_overrides(app, mock_evaluate):
             [
                 "--config",
                 yaml_path,
-                "--model.model_name",
+                "--model.tokenizer_name",
                 "new_name",
                 "--lm_harness_params.num_samples",
                 "5",
             ],
         )
         expected_config = _create_eval_config()
-        expected_config.model.model_name = "new_name"
+        expected_config.model.tokenizer_name = "new_name"
         if expected_config.lm_harness_params:
             expected_config.lm_harness_params.num_samples = 5
         mock_evaluate.assert_has_calls([call(expected_config)])

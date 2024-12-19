@@ -114,8 +114,10 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         )
 
     def _create_image_data_as_str(self, conversation: Conversation) -> str | None:
-        image_turns = [m for m in conversation.messages if m.is_image()]
-        num_images = len(image_turns)
+        image_items = [
+            item for m in conversation.messages for item in m.image_content_items
+        ]
+        num_images = len(image_items)
         if num_images <= 0:
             return None
         elif num_images > 1:
@@ -127,25 +129,25 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                 )
             )
 
-        image_turn = image_turns[-1]
-        if image_turn.type == Type.IMAGE_BINARY:
-            if not image_turn.binary:
+        image_item = image_items[-1]
+        if image_item.type == Type.IMAGE_BINARY:
+            if not image_item.binary:
                 raise ValueError(
                     conversation.append_id_to_string(
-                        f"No image bytes in message: {image_turn.type}"
+                        f"No image bytes in message: {image_item.type}"
                     )
                 )
-            return base64encode_image_bytes(image_turn)
+            return base64encode_image_bytes(image_item)
 
-        assert image_turn.type in (Type.IMAGE_PATH, Type.IMAGE_URL)
-        image_path_or_url = image_turn.content
+        assert image_item.type in (Type.IMAGE_PATH, Type.IMAGE_URL)
+        image_path_or_url = image_item.content
         if not image_path_or_url:
             friendly_type_name = (
-                "image path" if image_turn.type == Type.IMAGE_PATH else "image URL"
+                "image path" if image_item.type == Type.IMAGE_PATH else "image URL"
             )
             raise ValueError(
                 conversation.append_id_to_string(
-                    f"Empty {friendly_type_name} in message: {image_turn.type}"
+                    f"Empty {friendly_type_name} in message: {image_item.type}"
                 )
             )
         return image_path_or_url
@@ -188,7 +190,6 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=response["text"],
             role=Role.ASSISTANT,
-            type=Type.TEXT,
         )
         return Conversation(
             messages=[*original_conversation.messages, new_message],

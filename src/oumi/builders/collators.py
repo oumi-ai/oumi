@@ -9,6 +9,9 @@ from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
 from oumi.core.configs import DatasetSplit, TrainingConfig
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
@@ -101,9 +104,17 @@ def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Ca
     if not train_split.collator_name:
         return None
 
+    model_config = find_internal_model_config(config.model)
+
+    label_ignore_index: Optional[int] = (
+        model_config.label_ignore_index
+        if model_config is not None
+        else constants.LABEL_IGNORE_INDEX
+    )
+
     return build_data_collator(
         collator_name=train_split.collator_name,
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
-        label_ignore_index=constants.LABEL_IGNORE_INDEX,
+        label_ignore_index=label_ignore_index,
     )

@@ -47,7 +47,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--standalone",
-                "--nproc_per_node",
+                "--nproc-per-node",
                 "4",
                 "-m",
                 "oumi",
@@ -120,7 +120,7 @@
                 "--image",
                 "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/examples/vision/llama3_2_vision/inference/11b_infer.yaml"
+                "configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml"
             ],
             "justMyCode": false
         },
@@ -142,7 +142,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

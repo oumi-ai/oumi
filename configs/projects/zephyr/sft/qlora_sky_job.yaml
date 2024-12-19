@@ -40,18 +40,13 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      -m oumi.train \
+  oumi distributed torchrun \
+      -m oumi train \
       -c configs/projects/zephyr/sft/qlora_train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.enable_wandb=true" \
-      "training.enable_tensorboard=true" \
-      "training.include_performance_metrics=false" \
-      "training.output_dir=/output_dir_gcs/panos/output/${OUMI_RUN_NAME}"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.enable_wandb true \
+      --training.enable_tensorboard true \
+      --training.include_performance_metrics false \
+      --training.output_dir "/output_dir_gcs/panos/output/${OUMI_RUN_NAME}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

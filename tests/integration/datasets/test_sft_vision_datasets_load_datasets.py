@@ -1,3 +1,4 @@
+import os
 from typing import Final, NamedTuple, Optional
 
 import datasets
@@ -38,6 +39,7 @@ class LoadDatasetInfo(NamedTuple):
     dataset_name: str
     model_name: str
     max_rows: int = 32
+    expected_rows: Optional[int] = 32
     extra_dataset_features: Optional[list[str]] = None
     chat_template: str = _DEFAULT_CHAT_TEMPLATE
     dataset_split: str = _DEFALT_DATASET_SPLIT
@@ -57,8 +59,19 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             dataset_split="validation",
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
+            max_rows=64,
+            expected_rows=64,
+        ),
+        LoadDatasetInfo(
+            dataset_name="merve/vqav2-small",
+            model_name="microsoft/Phi-3-vision-128k-instruct",
+            dataset_split="validation",
+            extra_dataset_features=["image_sizes"],
+            chat_template="phi3-instruct",
+            trust_remote_code=True,
             max_rows=32,
-        )
+            expected_rows=32,
+        ),
     ]
 
     manually_configured_dataset_names = set({info.dataset_name for info in result})
@@ -91,6 +104,8 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
 
 @pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
 def test_build_dataset_mixture(info: LoadDatasetInfo):
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     debug_tag = f"Test: {info}"
     model_params = ModelParams(
         model_name=info.model_name,
@@ -126,6 +141,9 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
     assert dataset.num_rows > 0, debug_tag
     assert dataset.num_rows <= info.max_rows, debug_tag
 
+    if info.expected_rows is not None:
+        assert dataset.num_rows == info.expected_rows, debug_tag
+
     assert "input_ids" in dataset.features, debug_tag
     assert "attention_mask" in dataset.features, debug_tag
     assert "pixel_values" in dataset.features, debug_tag
@@ -137,3 +155,16 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
 
     assert dataset[0] is not None, debug_tag
     assert dataset[dataset.num_rows - 1] is not None, debug_tag
+
+
+if __name__ == "__main__":
+    datasets.disable_caching()
+    info = LoadDatasetInfo(
+        dataset_name="merve/vqav2-small",
+        model_name=_DEFAULT_MODEL_NAME,
+        dataset_split="validation",
+        chat_template=_DEFAULT_CHAT_TEMPLATE,
+        trust_remote_code=True,
+        max_rows=513,
+    )
+    test_build_dataset_mixture(info)

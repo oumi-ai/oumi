@@ -6,17 +6,15 @@
 :hidden:
 
 inference_engines
-vllm
-polaris
+vllm_gcp
 ```
 
 ## Quick Start
 
-To run inference using the Oumi CLI:
+To run local interactive inference using the Oumi CLI:
 
 ```{code-block} bash
-# TODO: OPE-590 update with command for interactive local inference
-oumi infer -c examples/llama3.2_1b_infer.yaml
+oumi infer -i -c configs/recipes/llama3_2/inference/1b_infer.yaml
 ```
 
 ## Inference Configuration
@@ -27,7 +25,7 @@ For a complete list of configuration options, refer to the {py:class}`~oumi.core
 
 ```{code-block} yaml
 model:
-  model_name: "meta-llama/Meta-Llama-3-8B"
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
 
 generation:
   max_new_tokens: 100
@@ -35,15 +33,11 @@ generation:
   top_p: 0.9
   batch_size: 1
 
-engine: "vllm"  # or "vllm", "oumi", etc.
+engine: "VLLM"  # or "LLAMACPP", "NATIVE", etc.
 ```
 
 ```{note}
 Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {doc}`Configuration Guide <../../get_started/configuration>` and {py:class}`~oumi.core.configs.InferenceConfig` class.
-```
-
-```{seealso}
-For detailed information on each inference engine, see the {doc}`Inference Engines documentation <inference_engines>`.
 ```
 
 ## Input Data
@@ -68,6 +62,10 @@ oumi infer -c infer_config.yaml -i
 Oumi supports multiple inference engines:
 
 ```{include} ../../api/summary/inference_engines.md
+```
+
+```{seealso}
+For detailed information on each inference engine, see the {doc}`Inference Engines documentation <inference_engines>`.
 ```
 
 ## Advanced Topics
@@ -99,18 +97,16 @@ from oumi.core.configs import InferenceConfig, ModelParams
 
 vllmModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
 engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] #Add your inputs here
+input_conversation = [] # Add your inputs here
 inference_config = InferenceConfig()
 outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
 ```
 
 ### Distributed Inference
 
-For large-scale inference across multiple GPUs or machines, see the {doc}`Inference with Llama3.1 405B on Polaris <polaris>` tutorial.
-
-### Running Inference in a notebook
-
-See the {doc}`Inference in a notebook <vllm>` tutorial.
+For large-scale inference across multiple GPUs or machines, see the following tutorials
+for inference with Llama 3.1 70B on {doc}`GCP <vllm_gcp>` and
+{doc}`Polaris <vllm_polaris>`.
 
 ## Troubleshooting
 

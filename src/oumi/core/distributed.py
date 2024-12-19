@@ -254,12 +254,20 @@ def cleanup_distributed():
 def prepare_model_for_distributed(
     model: torch.nn.Module,
     config: TrainingConfig,
+    ddp_find_unused_parameters: Optional[bool] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP or FSDP).
 
     Args:
         model: The model to be wrapped.
         config: The training config.
+        ddp_find_unused_parameters: Whether to traverse the autograd graph from all
+            tensors contained in the return value of the wrapped module's `forward`
+            function. Parameters that don't receive gradients as part of this
+            graph are preemptively marked as being ready to be reduced. In addition,
+            parameters that may have been used in the wrapped module's ``forward``
+            function but were not part of loss computation and thus would also
+            not receive gradients are preemptively marked as ready to be reduced.
 
     Returns:
         torch.nn.Module: The wrapped model for distributed training.
@@ -274,6 +282,7 @@ def prepare_model_for_distributed(
         model = DistributedDataParallel(
             model,
             device_ids=[device_rank_info.local_rank],
+            find_unused_parameters=(ddp_find_unused_parameters or False),
         )
         return model
 

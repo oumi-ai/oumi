@@ -5,7 +5,13 @@ from typing import Final
 import jsonlines
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.io_utils import get_oumi_root_directory
@@ -295,19 +301,25 @@ def test_infer_from_file_to_file_with_images():
         TEST_IMAGE_DIR / "oumi_logo_dark.png"
     )
 
+    test_prompt: str = "Generate a short, descriptive caption for this image!"
+
     with tempfile.TemporaryDirectory() as output_temp_dir:
         engine = NativeTextInferenceEngine(_get_default_image_model_params())
         conversation_1 = Conversation(
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.IMAGE_BINARY,
-                    binary=png_image_bytes_great_wave,
-                ),
-                Message(
-                    content="Describe the high-level theme of the image in few words!",
-                    role=Role.USER,
-                ),
+                    content=[
+                        MessageContentItem(
+                            type=Type.IMAGE_BINARY,
+                            binary=png_image_bytes_great_wave,
+                        ),
+                        MessageContentItem(
+                            type=Type.TEXT,
+                            content=test_prompt,
+                        ),
+                    ],
+                )
             ],
             metadata={"foo": "bar"},
             conversation_id="123",
@@ -316,12 +328,16 @@ def test_infer_from_file_to_file_with_images():
             messages=[
                 Message(
                     role=Role.USER,
-                    type=Type.IMAGE_BINARY,
-                    binary=png_image_bytes_logo,
-                ),
-                Message(
-                    content="Describe the high-level theme of the image in few words!",
-                    role=Role.USER,
+                    content=[
+                        MessageContentItem(
+                            type=Type.IMAGE_BINARY,
+                            binary=png_image_bytes_logo,
+                        ),
+                        MessageContentItem(
+                            type=Type.TEXT,
+                            content=test_prompt,
+                        ),
+                    ],
                 ),
             ],
             metadata={"umi": "bar"},
@@ -334,7 +350,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="2 boats in a wave",
+                        content="2 boats are in the",
                         role=Role.ASSISTANT,
                     ),
                 ],
@@ -345,7 +361,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="4x4 square.",
+                        content="4 white squares make up",
                         role=Role.ASSISTANT,
                     ),
                 ],

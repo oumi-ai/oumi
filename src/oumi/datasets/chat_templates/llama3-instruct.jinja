@@ -3,16 +3,24 @@
 {% set turn_suffix = '<|eot_id|>' %}
 {% set image_token = '<|image|>' %}
 
-
 {{ bos_token }}
-{% for message in messages %}
-    {% if message['type'] == 'text' %}
-        {{ role_prefix + message['role'] + role_suffix + message['content'] | trim + turn_suffix }}
-    {% elif message['type'] in ('image_path','image_url','image_binary') %}
-        {{ role_prefix + message['role'] + role_suffix + image_token | trim + turn_suffix }}
-    {% endif %}
-{% endfor %}
+{%- for message in messages -%}
+    {{ role_prefix + message['role'] + role_suffix }}
 
-{% if add_generation_prompt %}
+    {%- if message['content'] is string -%}
+        {{ message['content'] | trim }}
+    {%- elif message['content'] is iterable -%}
+        {%- for content in message['content'] -%}
+            {%- if content['type'] == 'text' -%}
+                {{  content['content'] | trim }}
+            {%- elif content['type'].startswith('image') -%}
+                {{  image_token }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {{  turn_suffix  + '\n' }}
+{%- endfor -%}
+
+{%- if add_generation_prompt -%}
     {{ role_prefix + 'assistant' + role_suffix }}
-{% endif %}
+{%- endif -%}

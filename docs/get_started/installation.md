@@ -6,9 +6,11 @@ This guide will help you install Oumi and its dependencies.
 
 Before installing Oumi, ensure you have the following:
 
-- Python 3.8 or later
+- Python 3.9 or later
 - pip (Python package installer)
 - Git (for cloning the repository)
+
+We recommend using a virtual environment to install Oumi. You can find instructions for setting up a conda environment in the {doc}`development/dev_setup` guide.
 
 ## Installation Methods
 
@@ -24,7 +26,7 @@ pip install git+ssh://git@github.com/oumi-ai/oumi.git
 :::
 
 :::{code-block} HTTP
-pip install git+https://github.com/oumi-ai/oumi.git
+pip install git+<https://github.com/oumi-ai/oumi.git>
 :::
 ::::
 
@@ -55,23 +57,23 @@ Oumi has several optional features that require additional dependencies:
 - For GPU support:
 
   ```bash
-  pip install oumi[gpu]
+  pip install ".[gpu]"  # Only if you have an Nvidia or AMD GPU
   ```
 
 - For development and testing:
 
   ```bash
-  pip install oumi[dev]
+  pip install ".[dev]"
   ```
 
 - For specific cloud providers:
 
   ```bash
-  pip install oumi[aws]     # For Amazon Web Services
-  pip install oumi[azure]   # For Microsoft Azure
-  pip install oumi[gcp]     # For Google Cloud Platform
-  pip install oumi[lambda]  # For Lambda Cloud
-  pip install oumi[runpod]  # For RunPod
+  pip install ".[aws]"     # For Amazon Web Services
+  pip install ".[azure]"   # For Microsoft Azure
+  pip install ".[gcp]"     # For Google Cloud Platform
+  pip install ".[lambda]"  # For Lambda Cloud
+  pip install ".[runpod]"  # For RunPod
   ```
 
   You can install multiple cloud dependencies by combining them, e.g.:
@@ -94,7 +96,7 @@ This should print the help message for Oumi.
 
 If you encounter any issues during installation, please check the [troubleshooting guide](../faq/troubleshooting.md).
 
-If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository.
+If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/S74NxTDh7v).
 
 ## Next Steps
 

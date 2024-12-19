@@ -24,7 +24,13 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    Conversation,
+    Message,
+    MessageContentItem,
+    Role,
+    Type,
+)
 from oumi.utils.image_utils import base64encode_image_bytes, load_image_bytes_to_message
 
 _CONTENT_KEY: str = "content"
@@ -190,36 +196,53 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._remote_params = copy.deepcopy(remote_params)
 
     @staticmethod
-    def _get_content_for_message(message: Message) -> dict[str, Any]:
+    def _get_content_for_message(message: Message) -> list[dict[str, Any]]:
         """Returns the content for a message.
 
         Args:
             message: The message to get the content for.
 
         Returns:
+            list[Dict[str, Any]]: The content for the message for all content items.
+        """
+        return [
+            RemoteInferenceEngine._get_content_for_message_content_item(item)
+            for item in message.content_items
+        ]
+
+    @staticmethod
+    def _get_content_for_message_content_item(
+        item: MessageContentItem,
+    ) -> dict[str, Any]:
+        """Returns the content for a message content item.
+
+        Args:
+            item: The message content item to get the content for.
+
+        Returns:
             Dict[str, Any]: The content for the message.
         """
-        if message.type == Type.TEXT:
-            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (message.content or "")}
-        elif not message.is_image():
-            raise ValueError(f"Unsupported message type: {message.type}")
+        if item.type == Type.TEXT:
+            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (item.content or "")}
+        elif not item.is_image():
+            raise ValueError(f"Unsupported message type: {item.type}")
 
-        if not message.binary and message.type != Type.IMAGE_URL:
-            message = load_image_bytes_to_message(message)
+        if not item.binary and item.type != Type.IMAGE_URL:
+            item = load_image_bytes_to_message(item)
 
-        if message.binary:
-            b64_image = base64encode_image_bytes(message, add_mime_prefix=True)
+        if item.binary:
+            b64_image = base64encode_image_bytes(item, add_mime_prefix=True)
             return {
                 _TYPE_KEY: Type.IMAGE_URL.value,
                 _IMAGE_URL_KEY: {_URL_KEY: b64_image},
             }
 
         assert (
-            message.type == Type.IMAGE_URL
-        ), f"Unexpected message type: {message.type}. Must be a code bug."
+            item.type == Type.IMAGE_URL
+        ), f"Unexpected message type: {item.type}. Must be a code bug."
         return {
             _TYPE_KEY: Type.IMAGE_URL.value,
-            _IMAGE_URL_KEY: {message.content or ""},
+            _IMAGE_URL_KEY: {_URL_KEY: item.content or ""},
         }
 
     @staticmethod
@@ -257,15 +280,18 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 _ROLE_KEY: messages[idx].role.value,
             }
             group_size = end_idx - idx
-            if group_size == 1 and messages[idx].is_text():
+            if (
+                group_size == 1
+                and messages[idx].contains_single_text_content_item_only()
+            ):
                 # Set "content" to a primitive string value, which is the common
                 # convention for text-only models.
-                item[_CONTENT_KEY] = messages[idx].content
+                item[_CONTENT_KEY] = messages[idx].text_content_items[0].content
             else:
                 # Set "content" to be a list of dictionaries for more complex cases.
                 content_list = []
                 while idx < end_idx:
-                    content_list.append(
+                    content_list.extend(
                         RemoteInferenceEngine._get_content_for_message(messages[idx])
                     )
                     idx += 1
@@ -294,7 +320,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "model": self._model,
             "messages": [
                 {
-                    _CONTENT_KEY: [self._get_content_for_message(message)],
+                    _CONTENT_KEY: self._get_content_for_message(message),
                     _ROLE_KEY: message.role.value,
                 }
                 for message in conversation.messages
@@ -371,7 +397,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 Message(
                     content=message[_CONTENT_KEY],
                     role=Role(message[_ROLE_KEY]),
-                    type=Type.TEXT,
                 ),
             ],
             metadata=original_conversation.metadata,
@@ -428,6 +453,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             headers = self._get_request_headers(inference_config.remote_params)
             retries = 0
+            failure_reason = None
             # Retry the request if it fails.
             for _ in range(remote_params.max_retries + 1):
                 async with session.post(
@@ -452,10 +478,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
+                        failure_reason = (
+                            response_json.get("error").get("message")
+                            if response_json and response_json.get("error")
+                            else None
+                        )
                         retries += 1
                         await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
-                f"Failed to query API after {remote_params.max_retries} retries."
+                f"Failed to query API after {remote_params.max_retries} retries. "
+                + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
     async def _infer(

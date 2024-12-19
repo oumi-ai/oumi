@@ -29,7 +29,13 @@ def create_small_dataset(size=10):
 @register_dataset("small_map_dataset")
 class SmallMapDataset(BaseMapDataset):
     def __init__(
-        self, size: int = 10, split=None, subset=None, tokenizer=None, dataset_path=None
+        self,
+        size: int = 10,
+        split=None,
+        subset=None,
+        tokenizer=None,
+        dataset_path=None,
+        trust_remote_code: bool = False,
     ):
         self._data = create_small_dataset(size)  # type: ignore
 
@@ -49,6 +55,7 @@ class SmallIterableDataset(BaseIterableDataset):
         subset=None,
         tokenizer=None,
         dataset_path=None,
+        trust_remote_code: bool = False,
     ):
         self._data = create_small_dataset(size)
 

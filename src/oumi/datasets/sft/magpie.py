@@ -15,8 +15,8 @@ class ArgillaMagpieUltraDataset(BaseSftDataset):
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
-        instruction = example.get("instruction", "")
-        response = example.get("response", "")
+        instruction: str = example.get("instruction", None) or ""
+        response: str = example.get("response", None) or ""
 
         messages = [
             Message(role=Role.USER, content=instruction),

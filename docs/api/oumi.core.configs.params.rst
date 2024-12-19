@@ -45,6 +45,14 @@ oumi.core.configs.params.generation\_params module
    :undoc-members:
    :show-inheritance:
 
+oumi.core.configs.params.guided\_decoding\_params module
+--------------------------------------------------------
+
+.. automodule:: oumi.core.configs.params.guided_decoding_params
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.core.configs.params.model\_params module
 ---------------------------------------------
 

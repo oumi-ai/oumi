@@ -2,7 +2,7 @@
 
 Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` CLI to train, evaluate, and run inference with a model.
 
-We'll use a small model (`SmolLM-135M`) so that the examples can be run on CPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
+We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page <../models/recipes>`.
 
@@ -78,10 +78,10 @@ oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-We can also run training on multiple GPUs. For example, to run on 4 GPUs:
+We can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
 
 ```bash
-torchrun --nproc_per_node=4 oumi train \
+torchrun --standalone --nproc-per-node=4 oumi train \
   -c configs/recipes/smollm/sft/135m/train_quickstart.yaml \
   --training.output_dir output/smollm-135m-sft-dist
 ```

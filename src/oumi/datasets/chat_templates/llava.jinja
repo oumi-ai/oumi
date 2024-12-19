@@ -1,8 +1,36 @@
-A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.
-{{ ' ' }}
-{% for message in messages %}
-    {% if message['role'] == 'user' %}USER: {% else %}ASSISTANT: {% endif %}
-    {% if message['type'] == 'text' %}{{ message['content'] + ' ' }}{% elif message['type'].startswith('image') %}<image>{{ ' ' }}{% endif %}
-    {% if message['role'] == 'user' %}{% else %}{{eos_token}}{% endif %}
-{% endfor %}
-{% if add_generation_prompt %}ASSISTANT: {% endif %}
+{%- if messages[0]['role'] == 'system' -%}
+    {%- set system_message = messages[0]['content'] -%}
+    {%- set messages = messages[1:] -%}
+{%- else -%}
+    {% set system_message = "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions." -%}
+{%- endif -%}
+
+{{ system_message + ' '}}
+
+{%- for message in messages if message['role'] in ('user','assistant') -%}
+    {%- if message['role'] == 'user' -%}
+        {{ 'USER: ' }}
+    {%- elif message['role'] == 'assistant' -%}
+        {{ 'ASSISTANT: ' }}
+    {%- endif -%}
+
+    {%- if message['content'] is string -%}
+        {{ message['content'] + ' ' }}
+    {%- elif message['content'] is iterable -%}
+        {%- for content in message['content'] -%}
+            {%- if content['type'] == 'text' -%}
+                {{ content['content'] + ' ' }}
+            {%- elif content['type'].startswith('image') -%}
+                <image>{{ ' ' }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+
+    {%- if message['role'] == 'assistant' -%}
+        {{eos_token}}
+    {%- endif -%}
+{%- endfor -%}
+
+{%- if add_generation_prompt -%}
+    {{ 'ASSISTANT: ' }}
+{%- endif -%}

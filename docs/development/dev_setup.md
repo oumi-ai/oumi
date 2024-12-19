@@ -1,4 +1,6 @@
-# Development Setup
+# Dev Environment Setup
+
+This guide will help you set up a development environment for contributing to Oumi. If you already have a working environment, you can skip to [Set up Oumi](#set-up-oumi).
 
 ## 1. Install Miniconda
 
@@ -50,18 +52,24 @@
    conda install gh --channel conda-forge
    ```
 
-### 2.2 Authorize Github CLI (easier when using SSH protocol)
+### 2.2 Authorize Github CLI
 
    ```shell
    gh auth login
    ```
 
+It is recommended to select "SSH", when asked "What is your preferred protocol for Git operations on this host."
+
 ### 2.3 Set your Github name and email
 
    ```shell
    git config --global user.name "YOUR_NAME"
-   git config --global user.email YOUR_USERNAME@oumi.ai
+   git config --global user.email "YOUR_EMAIL"
    ```
+
+The name and email will be used to identify your contributions to the Oumi repository. To ensure that commits are attributed to you and appear in your contributions graph, use an email address that is connected to your account on GitHub, or the noreply email address provided to you in your email settings.
+
+You can find more instructions [here](hhttps://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address).
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
 

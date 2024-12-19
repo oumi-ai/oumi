@@ -1,4 +1,3 @@
-import argparse
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -35,7 +34,6 @@ from oumi.core.distributed import (
     is_local_process_zero,
     is_world_process_zero,
     prepare_accelerate_fsdp_run,
-    set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
@@ -52,54 +50,12 @@ from oumi.utils.torch_utils import (
     coerce_model_to_dtype,
     device_cleanup,
     get_torch_dtype,
-    limit_per_process_memory,
     log_devices_info,
     log_model_summary,
     log_peak_gpu_memory,
     log_versioning_info,
 )
 from oumi.utils.version_utils import is_dev_build
-
-
-def parse_cli():
-    """Parses command line arguments and returns the configuration filename."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-c", "--config", default=None, help="Path to the configuration file"
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-    )
-    args, unknown = parser.parse_known_args()
-    return args.config, args.verbose, unknown
-
-
-def main() -> None:
-    """Main entry point for training Oumi.
-
-    Training arguments are fetched from the following sources, ordered by
-    decreasing priority:
-    1. [Optional] Arguments provided as CLI arguments, in dotfile format
-    2. [Optional] Arguments provided in a yaml config file
-    3. Default arguments values defined in the data class
-    """
-    # Load configuration
-    config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
-
-    config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
-        config_path, arg_list, logger=logger
-    )
-    config.validate()
-
-    limit_per_process_memory()
-    set_random_seeds(config.training.seed)
-
-    # Run training
-    train(config)
-
-    device_cleanup()
 
 
 def _find_checkpoint_to_resume_from(
@@ -363,7 +319,3 @@ def train(config: TrainingConfig, **kwargs) -> None:
         "\n\n» We're always looking for feedback. "
         "What's one thing we can improve? https://oumi.ai/feedback"
     )
-
-
-if __name__ == "__main__":
-    main()

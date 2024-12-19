@@ -25,21 +25,16 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu,quant]'
+  pip install uv && uv pip install '.[gpu]'
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      -m oumi.train \
+  oumi distributed torchrun \
+      -m oumi train \
       -c configs/recipes/llama3_2/sft/3b_qlora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

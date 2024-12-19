@@ -155,7 +155,7 @@ This allows you to input prompts and get responses from your model interactively
 For multi-GPU training on a single machine:
 
 ```bash
-torchrun --standalone --nproc_per_node=4 -m oumi.train -c config.yaml
+torchrun --standalone --nproc-per-node=4 -m oumi train -c config.yaml
 ```
 
 For distributed training across multiple nodes, use `oumi launch`:

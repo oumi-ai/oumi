@@ -43,16 +43,11 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      -m oumi.train \
+  oumi distributed torchrun \
+      -m oumi train \
       -c configs/examples/llama3_1/sft/8b_lora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='${OUMI_RUN_NAME}'" \
-      "training.logging_dir='${OUMI_RUN_NAME}/runs'"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir "${OUMI_RUN_NAME}" \
+      --training.logging_dir "${OUMI_RUN_NAME}/runs"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -34,7 +34,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu,quant]' hf_transfer
+  pip install uv && uv pip install '.[gpu]' hf_transfer
   # Recommended: Copy the model from our cache in GCS
   # mkdir -p ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
   # gsutil -m cp -n gs://oumi-dev-us-central1/hf_cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1/*  ~/.cache/huggingface/hub/models--meta-llama--Meta-Llama-3.1-405B-Instruct/snapshots/be673f326cab4cd22ccfef76109faf68e41aa5f1
@@ -49,14 +49,9 @@ run: |
   set -x
   # Must use a float type for quantized data storage. See:
   # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      -m oumi.train \
+  oumi distributed torchrun \
+      -m oumi train \
       -c configs/recipes/llama3_1/sft/405b_qlora/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

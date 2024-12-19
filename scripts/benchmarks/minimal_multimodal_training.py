@@ -5,15 +5,19 @@ Run the script using:
     --model-name<model_name> --dataset-name <dataset_name>
 
 For multi-GPU training, use torchrun:
-   torchrun --standalone --nproc_per_node=$(nvidia-smi --list-gpus | wc -l) \
+   torchrun --standalone --nproc-per-node=$(nvidia-smi --list-gpus | wc -l) \
         scripts/benchmarks/minimal_multimodal_training.py \
             --model-name <model_name> --dataset-name <dataset_name>
 
 Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name merve/vqav2-small
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
+    --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
+    --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
+
+
 """
 
 from enum import Enum
@@ -60,6 +64,7 @@ class ModelName(str, Enum):
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
+    SMOLVLM = "HuggingFaceTB/SmolVLM-Instruct"
 
 
 class ModelInfo(NamedTuple):
@@ -71,33 +76,39 @@ _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
 _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_model"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_model"],
     ),
     ModelName.LLAVA: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_tower"],
     ),
     ModelName.QWEN2_VL: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["visual"]
+        chat_template="qwen2-vl-instruct",
+        freeze_layers=["visual"],
     ),
     ModelName.CHAMELEON: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
-        freeze_layers=["model.vqmodel"],  # FIXME Freeze nested layers OPE-505
+        freeze_layers=["model.vqmodel"],
     ),
     ModelName.PALIGEMMA: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE, freeze_layers=["vision_tower"]
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_tower"],
     ),
     ModelName.PHI3_VISION: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
-        freeze_layers=[
-            "model.vision_embed_tokens"
-        ],  # FIXME Freeze nested layers OPE-505
+        chat_template="phi3-instruct",
+        freeze_layers=["model.vision_embed_tokens"],
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
         chat_template="llama3-instruct", freeze_layers=["vision_model"]
     ),
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
-        freeze_layers=["model.vision_backbone"],  # FIXME Freeze nested layers OPE-505
+        freeze_layers=["model.vision_backbone"],
+    ),
+    ModelName.SMOLVLM: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_model"],
     ),
 }
 
