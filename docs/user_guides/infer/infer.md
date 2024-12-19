@@ -7,7 +7,6 @@
 
 inference_engines
 vllm_gcp
-vllm_polaris
 ```
 
 ## Quick Start

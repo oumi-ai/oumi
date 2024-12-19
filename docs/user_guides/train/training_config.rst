@@ -1,5 +1,5 @@
-Training Configuration (Alternative Rendering)
-==============================================
+Training Configuration
+======================
 
 .. autoclass:: oumi.core.configs.TrainingConfig
    :members: model, data, training, peft, fsdp
