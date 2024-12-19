@@ -77,8 +77,8 @@ faq/gpu_sizing
 :hidden:
 :caption: API Reference
 
-api/oumi
-cli/commands
+API Reference <api/oumi>
+CLI Reference <cli/commands>
 ```
 
 ```{toctree}
