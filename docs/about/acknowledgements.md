@@ -2,7 +2,7 @@
 
 Oumi makes use of several libraries and tools from the open-source community 🚀.
 
-We would like to acknowledge and thank the contributors of these projects (in alphabetical order):
+We would like to acknowledge and deeply thank the contributors of these projects:
 
 | Project | Usage in Oumi |
 |-------------------|---------------|
