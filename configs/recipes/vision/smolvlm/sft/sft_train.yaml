@@ -49,7 +49,7 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
   max_steps: 20
 

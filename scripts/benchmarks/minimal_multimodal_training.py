@@ -228,7 +228,7 @@ def test_multimodal_trainer(
         max_grad_norm=10,
         lr_scheduler_type="cosine",
         gradient_accumulation_steps=1,
-        log_model_summary=True,
+        log_model_summary=False,
         logging_steps=logging_steps,
         include_performance_metrics=True,
     )
