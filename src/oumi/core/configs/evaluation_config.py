@@ -1,23 +1,18 @@
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.params.evaluation_params import LMHarnessParams
+from oumi.core.configs.params.evaluation_params import AlpacaEvalParams, LMHarnessParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.utils.str_utils import sanitize_run_name
 
 
-class EvaluationFramework(Enum):
-    """Enum representing the evaluation framework to use."""
-
-    OUMI = "oumi"
-    LM_HARNESS = "lm_harness"
-
-
 @dataclass
 class EvaluationConfig(BaseConfig):
+    tasks: Optional[list[Union[LMHarnessParams, AlpacaEvalParams]]] = None
+    """List of all the evaluation tasks to run."""
+
     model: ModelParams = field(default_factory=ModelParams)
     """Parameters for the model to be evaluated.
 
@@ -31,14 +26,6 @@ class EvaluationConfig(BaseConfig):
     This includes settings such as temperature, top-k, top-p,
     maximum length, and any other parameters that control the
     text generation process.
-    """
-
-    lm_harness_params: Optional[LMHarnessParams] = None
-    """Parameters for the LM Harness evaluation framework.
-
-    LM Harness is a comprehensive benchmarking suite for evaluating language models
-    across various tasks.
-    If specified, the tasks provided in the LMHarnessParams will be evaluated.
     """
 
     run_name: Optional[str] = None
@@ -59,14 +46,3 @@ class EvaluationConfig(BaseConfig):
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
-        if self.lm_harness_params is not None:
-            if (
-                self.lm_harness_params.num_fewshot
-                and self.lm_harness_params.num_fewshot < 0
-            ):
-                raise ValueError("`num_fewshot` must be non-negative.")
-            if (
-                self.lm_harness_params.num_samples is not None
-                and self.lm_harness_params.num_samples <= 0
-            ):
-                raise ValueError("`num_samples` must be None or a positive integer.")
