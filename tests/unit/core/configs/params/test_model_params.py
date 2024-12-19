@@ -22,6 +22,20 @@ def test_post_init_adapter_model_not_present(tmp_path):
     assert params.adapter_model is None
 
 
+@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+def test_post_init_adapter_model_not_present_exception(
+    mock_find_adapter_config_file, tmp_path
+):
+    # This is the expected config for FFT.
+    mock_find_adapter_config_file.side_effect = OSError("No adapter config found.")
+    params = ModelParams(model_name=tmp_path)
+    params.finalize_and_validate()
+
+    assert params.model_name == tmp_path
+    assert params.adapter_model is None
+    mock_find_adapter_config_file.assert_called_with(tmp_path)
+
+
 @patch("oumi.core.configs.params.model_params.logger")
 def test_post_init_config_file_present(mock_logger, tmp_path):
     with open(f"{tmp_path}/config.json", "w"):
