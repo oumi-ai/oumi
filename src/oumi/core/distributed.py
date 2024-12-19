@@ -36,6 +36,24 @@ class DeviceRankInfo(NamedTuple):
     local_rank: int
 
 
+def _get_use_orig_params(config: TrainingConfig) -> bool:
+    """Returns whether to use the PyTorch Module's original parameters for FSDP.
+
+    If the user specified a value, return that. Else, infer its value based on other
+    config values (compilation, FSDP, PEFT).
+    """
+    if config.fsdp.use_orig_params is not None:
+        return config.fsdp.use_orig_params
+    # use_orig_params must be true for model compilation.
+    if not config.training.compile:
+        # use_orig_params should be false for FSDP PEFT training to realize GPU memory
+        # savings.
+        # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
+        if config.training.use_peft and config.fsdp.enable_fsdp:
+            return False
+    return True
+
+
 #
 # Process Info
 #
@@ -352,14 +370,6 @@ def prepare_model_for_distributed(
     # Backward Prefetch
     backward_prefetch = fsdp_params.backward_prefetch.to_torch()
 
-    # Use Orig Params.
-    use_orig_params = True
-    # use_orig_params must be true for model compilation.
-    if not config.training.compile:
-        # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
-        if config.training.use_peft and config.fsdp.enable_fsdp:
-            use_orig_params = False
-
     model = FSDP(
         model,
         sharding_strategy=sharding_strategy,
@@ -370,7 +380,7 @@ def prepare_model_for_distributed(
         device_id=torch.cuda.current_device(),
         sync_module_states=fsdp_params.sync_module_states,
         forward_prefetch=fsdp_params.forward_prefetch,
-        use_orig_params=use_orig_params,
+        use_orig_params=_get_use_orig_params(config),
         # Leaving these to their default values for now
         # but we may want to make them configurable later
         limit_all_gathers=True,
@@ -405,13 +415,7 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     # https://github.com/huggingface/transformers/blob/33868a057c02f0368ba63bd1edb746be38fe3d90/src/transformers/modeling_utils.py#L146
     env_vars["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
 
-    env_vars["FSDP_USE_ORIG_PARAMS"] = "true"
-    # FSDP_USE_ORIG_PARAMS must be true for model compilation.
-    if not config.training.compile:
-        # https://huggingface.co/docs/peft/main/en/accelerate/fsdp#the-important-parts
-        if config.training.use_peft and config.fsdp.enable_fsdp:
-            env_vars["FSDP_USE_ORIG_PARAMS"] = "false"
-
+    env_vars["FSDP_USE_ORIG_PARAMS"] = str(_get_use_orig_params(config)).lower()
     # These env vars are set based on FSDPParams.
     env_vars["ACCELERATE_USE_FSDP"] = str(config.fsdp.enable_fsdp).lower()
     env_vars["FSDP_SHARDING_STRATEGY"] = config.fsdp.sharding_strategy.value
