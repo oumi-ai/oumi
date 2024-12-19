@@ -216,7 +216,9 @@ class ModelParams(BaseParams):
             try:
                 adapter_config_file = find_adapter_config_file(self.model_name)
             except OSError:
-                logger.info("Failed to find adapter config file.")
+                logger.debug(
+                    f"Failed to find adapter config file at path: {self.model_name}"
+                )
                 adapter_config_file = None
             # If this check fails, it means this is not a LoRA model.
             if adapter_config_file:
