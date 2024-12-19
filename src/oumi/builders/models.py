@@ -254,6 +254,9 @@ def is_image_text_llm_using_model_name(
 
 def is_image_text_llm(model_params: ModelParams) -> bool:
     """Determines whether the model is a basic image+text LLM."""
+    # For now, assume that custom models are not image+text LLMs.
+    if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+        return False
     return is_image_text_llm_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
