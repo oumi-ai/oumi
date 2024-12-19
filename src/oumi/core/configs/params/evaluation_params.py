@@ -4,7 +4,7 @@ from typing import Optional
 
 from omegaconf import MISSING
 
-from oumi.core.configs import InferenceEngineType
+from oumi.core.configs.inference_config import InferenceEngineType
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.data_params import DatasetSplitParams
 from oumi.core.configs.params.remote_params import RemoteParams
