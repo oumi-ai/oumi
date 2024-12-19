@@ -24,26 +24,6 @@ data:
           processor_name: "HuggingFaceTB/SmolVLM-Instruct"
           limit: 4096
           return_tensors: True
-      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   dataset_kwargs:
-      #     processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-      #     limit: 8192
-      #     return_tensors: True
-      # - dataset_name: "coco_captions"
-      #   split: "train"
-      #   trust_remote_code: True
-      #   dataset_kwargs:
-      #     processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-      #     limit: 8192
-      #     return_tensors: True
-      # - dataset_name: vision_language_jsonl
-      #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
-      #   dataset_kwargs:
-      #     data_column: "messages"
-      #     processor_name: "HuggingFaceTB/SmolVLM-Instruct"
 
 training:
   output_dir: "output/vlm_finetuned"

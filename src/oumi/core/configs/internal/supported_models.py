@@ -147,6 +147,7 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
 
 def _create_idefics3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=False)
+    # FIXME OPE-697 Create model-specific chat template
     config.chat_template = "llava"
     config.model_input_features.update(
         {
