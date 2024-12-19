@@ -51,7 +51,7 @@ run: |
       -c configs/recipes/vision/smolvlm/sft/sft_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
-      --training.max_steps 20 \
+      --training.max_steps 200 \
       --training.save_steps 0 \
       --training.save_final_model false
 

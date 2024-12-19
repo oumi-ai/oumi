@@ -161,6 +161,7 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
     assert config.visual_config is not None
     visual_config = config.visual_config
     visual_config.supports_multiple_images = True
+    visual_config.variable_shape_image_features = True
     return config
 
 
