@@ -125,9 +125,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
     :::
     ::::
 
-7. Tune CUDA allocator settings:
-
-Set the `PYTORCH_CUDA_ALLOC_CONF` environment variable per PyTorch [Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) instructions. For example:
+7. Tune CUDA Allocator Settings (See [PyTorch Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf))
 
     ::::{tab-set-code}
     :::{code-block} yaml
