@@ -125,7 +125,9 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
     :::
     ::::
 
-7. Tune CUDA Allocator Settings (See [PyTorch Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf))
+7. Tune CUDA Allocator Settings
+
+    For details, see [PyTorch Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf).
 
     ::::{tab-set-code}
     :::{code-block} yaml
@@ -155,9 +157,9 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
     :::
     ::::
 
-```{note}
-Paged Adam requires `bitsandbytes` to be installed.
-```
+    ```{note}
+    Paged Adam requires `bitsandbytes` to be installed.
+    ```
 
 ## Model Configuration
 
