@@ -74,11 +74,11 @@ from oumi.core.configs.params.data_params import (
     MixtureStrategy,
 )
 from oumi.core.configs.params.evaluation_params import (
-    AlpacaEvalParams,
+    AlpacaEvalTaskParams,
     CustomEvaluationParams,
-    EvalTaskParams,
     EvaluationPlatform,
-    LMHarnessParams,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
 )
 from oumi.core.configs.params.fsdp_params import (
     AutoWrapPolicy,
@@ -103,7 +103,7 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
-    "AlpacaEvalParams",
+    "AlpacaEvalTaskParams",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
@@ -113,7 +113,7 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "EvalTaskParams",
+    "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationPlatform",
     "FSDPParams",
@@ -125,7 +125,7 @@ __all__ = [
     "JobResources",
     "JudgeAttribute",
     "JudgeConfig",
-    "LMHarnessParams",
+    "LMHarnessTaskParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",

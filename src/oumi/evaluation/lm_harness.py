@@ -13,7 +13,7 @@ from lm_eval.loggers import WandbLogger
 from oumi.builders import build_processor, build_tokenizer, is_image_text_llm
 from oumi.core.configs import (
     GenerationParams,
-    LMHarnessParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from oumi.core.distributed import is_world_process_zero
@@ -53,7 +53,7 @@ def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str
 
 def evaluate_lm_harness(
     model_params: ModelParams,
-    lm_harness_params: LMHarnessParams,
+    lm_harness_params: LMHarnessTaskParams,
     generation_params: GenerationParams,
     output_dir: str,
     enable_wandb: bool,
@@ -153,7 +153,7 @@ def save_lm_harness_output(
     output_dir: str,
     lm_harness_output: dict[str, Any],
     model_params: ModelParams,
-    lm_harness_params: LMHarnessParams,
+    lm_harness_params: LMHarnessTaskParams,
     generation_params: GenerationParams,
     elapsed_time_sec: float,
 ) -> None:

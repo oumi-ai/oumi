@@ -11,8 +11,8 @@ from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.core.cli.evaluate import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
-    EvaluationPlatform,
-    LMHarnessParams,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from oumi.utils.logging import logger
@@ -24,11 +24,12 @@ def _create_eval_config() -> EvaluationConfig:
     return EvaluationConfig(
         output_dir="output/dir",
         tasks=[
-            LMHarnessParams(
-                evaluation_platform=EvaluationPlatform.LM_HARNESS,
-                tasks=["mmlu"],
-                num_samples=4,
-            ),
+            EvaluationTaskParams(
+                lm_harness_task_params=LMHarnessTaskParams(
+                    tasks=["mmlu"],
+                    num_samples=4,
+                ),
+            )
         ],
         model=ModelParams(
             model_name="openai-community/gpt2",

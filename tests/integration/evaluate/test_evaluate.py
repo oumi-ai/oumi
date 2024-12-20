@@ -5,8 +5,8 @@ import tempfile
 from oumi import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
-    EvaluationPlatform,
-    LMHarnessParams,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from tests.markers import requires_gpus
@@ -23,11 +23,12 @@ def test_evaluate_lm_harness():
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
             tasks=[
-                LMHarnessParams(
-                    evaluation_platform=EvaluationPlatform.LM_HARNESS,
-                    tasks=[TASK],
-                    num_samples=NUM_SAMPLES,
-                ),
+                EvaluationTaskParams(
+                    lm_harness_task_params=LMHarnessTaskParams(
+                        tasks=[TASK],
+                        num_samples=NUM_SAMPLES,
+                    ),
+                )
             ],
             model=ModelParams(
                 model_name="openai-community/gpt2",

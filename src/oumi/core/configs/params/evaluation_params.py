@@ -18,11 +18,8 @@ class EvaluationPlatform(Enum):
 
 
 @dataclass
-class EvalTaskParams(BaseParams):
-    """Parameters for a single evaluation task."""
-
-    evaluation_platform: EvaluationPlatform = MISSING
-    """The name of the evaluation platform that can run this task."""
+class BaseTaskParams(BaseParams):
+    """Base task parameters, which are applicable to ALL evaluation platforms."""
 
     num_samples: Optional[int] = None
     """Number of samples/examples to evaluate from this dataset.
@@ -39,15 +36,12 @@ class EvalTaskParams(BaseParams):
 
 
 @dataclass
-class LMHarnessParams(EvalTaskParams):
+class LMHarnessTaskParams(BaseTaskParams):
     """Parameters for the LM Harness evaluation framework.
 
     LM Harness is a comprehensive benchmarking suite for evaluating language models
     across various tasks.
     """
-
-    evaluation_platform: EvaluationPlatform = EvaluationPlatform.LM_HARNESS
-    """The name of the evaluation platform that can run this task."""
 
     tasks: list[str] = MISSING
     """The LM Harness tasks to evaluate.
@@ -73,7 +67,7 @@ class LMHarnessParams(EvalTaskParams):
 
 
 @dataclass
-class AlpacaEvalParams(EvalTaskParams):
+class AlpacaEvalTaskParams(BaseTaskParams):
     """Parameters for the AlpacaEval evaluation framework.
 
     AlpacaEval is an LLM-based automatic evaluation suite that is fast, cheap,
@@ -84,14 +78,42 @@ class AlpacaEvalParams(EvalTaskParams):
     The default judge is GPT4 Turbo.
     """
 
-    evaluation_platform: EvaluationPlatform = EvaluationPlatform.ALPACA_EVAL
-    """The name of the evaluation platform that can run this task."""
-
     inference_engine: Optional[InferenceEngineType] = None
     """The inference engine to use for generation."""
 
     inference_remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
+
+
+@dataclass
+class EvaluationTaskParams(BaseParams):
+    """Wrapper for task params of different evaluation platforms."""
+
+    # Only one of the following *_task_params variables can be set.
+    lm_harness_task_params: Optional[LMHarnessTaskParams] = None
+    alpaca_eval_task_params: Optional[AlpacaEvalTaskParams] = None
+
+    def evaluation_platform(self):
+        """Returns the evaluation platform to use for the current task."""
+        if self.lm_harness_task_params:
+            return EvaluationPlatform.LM_HARNESS
+        elif self.alpaca_eval_task_params:
+            return EvaluationPlatform.ALPACA_EVAL
+        else:
+            raise ValueError("No task params available")
+
+    def __post_init__(self):
+        """Verifies params."""
+        if not any([self.lm_harness_task_params, self.alpaca_eval_task_params]):
+            raise ValueError(
+                "At least one task params variable must be set. Please define either "
+                "`lm_harness_task_params` or `alpaca_eval_task_params`"
+            )
+        if all([self.lm_harness_task_params, self.alpaca_eval_task_params]):
+            raise ValueError(
+                "Only one task params variable can be set. Please define either "
+                "`lm_harness_task_params` or `alpaca_eval_task_params`"
+            )
 
 
 @dataclass
