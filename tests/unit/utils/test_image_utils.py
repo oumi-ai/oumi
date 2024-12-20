@@ -12,7 +12,7 @@ from oumi.utils.image_utils import (
     base64encode_image_bytes,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
-    load_image_bytes_to_message,
+    load_image_bytes_to_content_item,
     load_image_from_bytes,
     load_image_png_bytes_from_path,
 )
@@ -89,7 +89,7 @@ def test_load_image_bytes_to_message_noop_text():
     input_item = ContentItem(type=Type.TEXT, content="hello")
     saved_input_item = copy.deepcopy(input_item)
 
-    output_item = load_image_bytes_to_message(input_item)
+    output_item = load_image_bytes_to_content_item(input_item)
     assert id(output_item) == id(input_item)
     assert output_item == saved_input_item
 
@@ -102,7 +102,7 @@ def test_load_image_bytes_to_message_noop_image_binary():
     )
     saved_input_item = copy.deepcopy(input_item)
 
-    output_item = load_image_bytes_to_message(input_item)
+    output_item = load_image_bytes_to_content_item(input_item)
     assert id(output_item) == id(input_item)
     assert output_item == saved_input_item
 
@@ -118,7 +118,7 @@ def test_load_image_bytes_to_message_image_path():
 
         input_item = ContentItem(type=Type.IMAGE_PATH, content=str(png_filename))
 
-        output_item = load_image_bytes_to_message(input_item)
+        output_item = load_image_bytes_to_content_item(input_item)
         assert id(output_item) != id(input_item)
 
         expected_output_item = ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
@@ -134,7 +134,7 @@ def test_load_image_bytes_to_message_image_url():
 
         input_item = ContentItem(type=Type.IMAGE_URL, content="http://oumi.ai/logo.png")
 
-        output_item = load_image_bytes_to_message(input_item)
+        output_item = load_image_bytes_to_content_item(input_item)
         assert id(output_item) != id(input_item)
 
         expected_output_item = ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)

@@ -92,17 +92,17 @@ def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_bytes_to_message(item: ContentItem) -> ContentItem:
+def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
     """Ensures that message content item contains inline image bytes if it's an image.
 
     Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
-    Otherwise returns the input message w/o any changes.
+    Otherwise returns the input content item w/o any changes.
 
     Args:
         item: An input message content item.
 
     Returns:
-        A message guaranteed to be `IMAGE_BINARY` if an input message
+        A content item guaranteed to be `IMAGE_BINARY` if an input content item
         was any of image types (`IMAGE_URL`, `IMAGE_PATH`, `IMAGE_BINARY`).
     """
     if item.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
