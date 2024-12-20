@@ -1,6 +1,7 @@
 import base64
 from typing import Final, cast
 
+import pydantic
 import pytest
 
 from oumi.core.types.conversation import (
@@ -803,3 +804,42 @@ def test_type_str_repr():
     assert "image_url" in repr(Type.IMAGE_URL)
     assert str(Type.IMAGE_PATH) == "image_path"
     assert "image_path" in repr(Type.IMAGE_PATH)
+
+
+def test_frozen_message_content_item():
+    test_item = MessageContentItem(type=Type.TEXT, content="init")
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        test_item.content = "foo"
+    assert test_item.content == "init"
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        test_item.type = Type.IMAGE_BINARY
+    assert test_item.type == Type.TEXT
+
+
+def test_frozen_message():
+    test_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    message = Message(
+        id="007",
+        role=Role.ASSISTANT,
+        content=[test_item, test_item],
+    )
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.id = "001"
+    assert message.id == "007"
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.role = Role.TOOL
+    assert message.role == Role.ASSISTANT
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.content = "Hey"
+    assert isinstance(message.content, list)
+    assert len(message.content) == 2
+
+    # Pydantic "frozen" only ensures that `message.content` can't be re-assigned
+    # but it doesn't enforce the field object itself is immutable.
+    message.content.append(test_item)
+    assert isinstance(message.content, list)
+    assert len(message.content) == 3
