@@ -71,7 +71,7 @@ Here's a basic example:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
-from oumi.core.types.turn import Conversation, Message, Role, Type
+from oumi.core.types.turn import ContentItem, Conversation, Message, Role, Type
 
 class MyVLSftDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
@@ -85,8 +85,10 @@ class MyVLSftDataset(VisionLanguageSftDataset):
         # }
         conversation = Conversation(
             messages=[
-                Message(role=Role.USER, content=example['image_path'], type=Type.IMAGE_PATH),
-                Message(role=Role.USER, content=example['question']),
+                Message(role=Role.USER, content=[
+                    ContentItem(type=Type.IMAGE_PATH, content=example['image_path']),
+                    ContentItem(type=Type.TEXT, content=example['question']),
+                ]),
                 Message(role=Role.ASSISTANT, content=example['answer'])
             ]
         )
@@ -95,7 +97,7 @@ class MyVLSftDataset(VisionLanguageSftDataset):
 ```
 
 ```{note}
-The key difference in VL-SFT datasets is the inclusion of image data, typically represented as an additional `Message` with `type=Type.IMAGE_PATH` or `Type.IMAGE_URL`.
+The key difference in VL-SFT datasets is the inclusion of image data, typically represented as an additional `ContentItem` with `type=Type.IMAGE_BINARY`, `type=Type.IMAGE_PATH` or `Type.IMAGE_URL`.
 ```
 
 For more advanced VL-SFT dataset implementations, explore the {py:mod}`oumi.datasets.vision_language` module.
