@@ -56,9 +56,16 @@ class Type(str, Enum):
 
 
 class ContentItemCounts(NamedTuple):
+    """Contains counts of content items in a message by type."""
+
     total_items: int
+    """The total number of content items in a message."""
+
     text_items: int
+    """The number of text content items in a message."""
+
     image_items: int
+    """The number of image content items in a message."""
 
 
 class ContentItem(pydantic.BaseModel):
