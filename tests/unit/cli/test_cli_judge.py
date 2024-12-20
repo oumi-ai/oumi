@@ -7,6 +7,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+import oumi.core.registry
+import oumi.judge
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.judge import conversations, dataset, model
 from oumi.core.types import Conversation, Message
@@ -33,19 +35,19 @@ def app():
 
 @pytest.fixture
 def mock_registry():
-    with patch("oumi.cli.judge.REGISTRY") as m_registry:
+    with patch.object(oumi.core.registry, "REGISTRY") as m_registry:
         yield m_registry
 
 
 @pytest.fixture
 def mock_judge_dataset():
-    with patch("oumi.cli.judge.judge_dataset") as m_jd:
+    with patch.object(oumi.judge, "judge_dataset", autospec=True) as m_jd:
         yield m_jd
 
 
 @pytest.fixture
 def mock_judge_conversations():
-    with patch("oumi.cli.judge.judge_conversations") as m_jc:
+    with patch.object(oumi.judge, "judge_conversations", autospec=True) as m_jc:
         yield m_jc
 
 

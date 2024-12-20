@@ -7,6 +7,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+import oumi
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.evaluate import evaluate
 from oumi.core.configs import (
@@ -45,7 +46,7 @@ def app():
 
 @pytest.fixture
 def mock_evaluate():
-    with patch("oumi.cli.evaluate.oumi_evaluate") as m_evaluate:
+    with patch.object(oumi, "evaluate", autospec=True) as m_evaluate:
         yield m_evaluate
 
 

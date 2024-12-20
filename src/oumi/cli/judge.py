@@ -58,8 +58,8 @@ def dataset(
 ):
     """Judge a dataset."""
     # Delayed imports
+    from oumi import judge_dataset
     from oumi.core.registry import REGISTRY
-    from oumi.judge import judge_dataset
 
     # End imports
     if not dataset_name:
@@ -113,8 +113,8 @@ def conversations(
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     # Delayed imports
+    from oumi import judge_conversations
     from oumi.core.types.conversation import Conversation
-    from oumi.judge import judge_conversations
     # End imports
 
     # Load the judge config
@@ -160,9 +160,9 @@ def model(
 ):
     """Judge the outputs of a model on a dataset."""
     # Delayed imports
+    from oumi import judge_conversations
     from oumi.builders.inference_engines import build_inference_engine
     from oumi.core.types.conversation import Conversation
-    from oumi.judge import judge_conversations
     # End imports
 
     judge_extra_args = cli_utils.parse_extra_cli_args(ctx)

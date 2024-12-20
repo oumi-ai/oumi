@@ -25,9 +25,9 @@ def train(
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     # Delayed imports
+    from oumi import train as oumi_train
     from oumi.core.configs import TrainingConfig
     from oumi.core.distributed import set_random_seeds
-    from oumi.train import train as oumi_train
     from oumi.utils.torch_utils import (
         device_cleanup,
         limit_per_process_memory,

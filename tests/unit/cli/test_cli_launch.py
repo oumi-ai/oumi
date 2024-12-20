@@ -7,6 +7,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+import oumi
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
@@ -61,7 +62,7 @@ def app():
 
 @pytest.fixture
 def mock_launcher():
-    with patch("oumi.cli.launch.launcher") as launcher_mock:
+    with patch.object(oumi, "launcher", autospec=True) as launcher_mock:
         yield launcher_mock
 
 
