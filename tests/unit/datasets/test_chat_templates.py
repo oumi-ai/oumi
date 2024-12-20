@@ -11,9 +11,9 @@ from oumi.builders.models import build_chat_template, build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -61,8 +61,8 @@ def create_test_conversation(
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
-                    MessageContentItem(content=s, type=Type.TEXT),
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content=s, type=Type.TEXT),
                 ],
             )
         )
