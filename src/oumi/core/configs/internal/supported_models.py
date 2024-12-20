@@ -145,6 +145,27 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_idefics3_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(pixel_values_variable_shape=False)
+    # FIXME OPE-697 Create model-specific chat template
+    config.chat_template = "llava"
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+            )
+            for feature_name in ("pixel_attention_mask",)
+        }
+    )
+    assert config.visual_config is not None
+    visual_config = config.visual_config
+    visual_config.supports_multiple_images = True
+    visual_config.variable_shape_image_features = True
+    return config
+
+
 @functools.cache
 def get_all_vlms_map() -> (
     Mapping[
@@ -186,7 +207,7 @@ def get_all_vlms_map() -> (
         _ModelTypeInfo(
             model_type="idefics3",
             model_class=default_vlm_class,
-            config=copy.deepcopy(default_vlm_config),
+            config=_create_idefics3_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="instructblip",

@@ -6,9 +6,9 @@ import pytest
 from oumi import infer, infer_interactive
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -144,10 +144,8 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 Message(
                     role=Role.USER,
                     content=[
-                        MessageContentItem(
-                            binary=png_image_bytes, type=Type.IMAGE_BINARY
-                        ),
-                        MessageContentItem(
+                        ContentItem(binary=png_image_bytes, type=Type.IMAGE_BINARY),
+                        ContentItem(
                             content=test_prompt,
                             type=Type.TEXT,
                         ),

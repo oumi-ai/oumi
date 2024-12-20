@@ -6,9 +6,9 @@ import jsonlines
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -310,11 +310,11 @@ def test_infer_from_file_to_file_with_images():
                 Message(
                     role=Role.USER,
                     content=[
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.IMAGE_BINARY,
                             binary=png_image_bytes_great_wave,
                         ),
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.TEXT,
                             content=test_prompt,
                         ),
@@ -329,11 +329,11 @@ def test_infer_from_file_to_file_with_images():
                 Message(
                     role=Role.USER,
                     content=[
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.IMAGE_BINARY,
                             binary=png_image_bytes_logo,
                         ),
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.TEXT,
                             content=test_prompt,
                         ),

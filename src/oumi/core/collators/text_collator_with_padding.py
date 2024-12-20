@@ -54,6 +54,11 @@ class TextCollatorWithPadding:
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"{tokenizer.pad_token_id}. Type: {type(tokenizer.pad_token_id)}"
+            )
 
         self._special_tokens: _SpecialTokens = _SpecialTokens(
             pad_token_id=int(tokenizer.pad_token_id),

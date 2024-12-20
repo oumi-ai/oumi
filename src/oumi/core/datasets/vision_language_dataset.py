@@ -22,8 +22,8 @@ from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
-    MessageContentItem,
     Type,
 )
 from oumi.utils.logging import logger
@@ -87,6 +87,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             )
         elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"Type: {type(tokenizer.pad_token_id)}"
+            )
 
         if processor is not None:
             if processor_name:
@@ -302,8 +307,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         if len(text_turns) == 0:
             raise ValueError("Conversation must contain at least one text turn")
 
-        last_image_item: MessageContentItem = image_turns[-1].image_content_items[-1]
-        last_text_item: MessageContentItem = text_turns[-1].text_content_items[-1]
+        last_image_item: ContentItem = image_turns[-1].image_content_items[-1]
+        last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
 
         prompt = last_text_item.content or ""
         image = self._load_image(last_image_item)
@@ -343,7 +348,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
         return images, text
 
-    def _load_image(self, image_item: MessageContentItem) -> Image.Image:
+    def _load_image(self, image_item: ContentItem) -> Image.Image:
         """Loads an image from a message.
 
         Args:

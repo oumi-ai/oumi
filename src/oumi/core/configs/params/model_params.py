@@ -213,7 +213,13 @@ class ModelParams(BaseParams):
             # This is a HF utility function that tries to find `adapter_config.json`
             # given either a local dir or a HF Hub repo id. In the latter case, the repo
             # will be downloaded from HF Hub if it's not already cached.
-            adapter_config_file = find_adapter_config_file(self.model_name)
+            try:
+                adapter_config_file = find_adapter_config_file(self.model_name)
+            except OSError:
+                logger.debug(
+                    f"Model folder does not contain an adapter: {self.model_name}"
+                )
+                adapter_config_file = None
             # If this check fails, it means this is not a LoRA model.
             if adapter_config_file:
                 # If `model_name` is a local dir, this should be the same.

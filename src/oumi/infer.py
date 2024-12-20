@@ -3,9 +3,9 @@ from typing import Optional
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -127,10 +127,10 @@ def infer(
                         Message(
                             role=Role.USER,
                             content=[
-                                MessageContentItem(
+                                ContentItem(
                                     type=Type.IMAGE_BINARY, binary=input_image_bytes
                                 ),
-                                MessageContentItem(type=Type.TEXT, content=content),
+                                ContentItem(type=Type.TEXT, content=content),
                             ],
                         ),
                     ]

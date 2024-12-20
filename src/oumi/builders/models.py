@@ -242,10 +242,23 @@ def _get_transformers_model_class(config):
     return auto_model_class
 
 
+def is_custom_model(model_name: str):
+    """Determines whether the model is a custom model defined in oumi registry."""
+    if len(model_name) > 0 and REGISTRY.contains(
+        name=model_name, type=RegistryType.MODEL
+    ):
+        return True
+
+    return False
+
+
 def is_image_text_llm_using_model_name(
     model_name: str, trust_remote_code: bool
 ) -> bool:
     """Determines whether the model is a basic image+text LLM."""
+    # For now, assume that custom models are not image+text LLMs.
+    if is_custom_model(model_name):
+        return False
     model_config = find_internal_model_config_using_model_name(
         model_name, trust_remote_code=trust_remote_code
     )
