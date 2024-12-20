@@ -14,23 +14,51 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
 ### Example 1: Simple Text Conversation
 
 ```json
-{"messages": [
-    {"role": "user", "content": "What's the weather like in Seattle today?"},
-    {"role": "assistant", "content": "I apologize, but I don't have access to real-time weather information for Seattle."},
-    {"role": "user", "content": "I see. Can you tell me about Seattle's typical weather patterns?"},
-    {"role": "assistant", "content": "Certainly! Seattle is known for its mild, but wet climate."}
-]}
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "What's the weather like in Seattle today?"
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I don't have access to real-time weather information for Seattle."
+    },
+    {
+      "role": "user",
+      "content": "I see. Can you tell me about Seattle's typical weather patterns?"
+    },
+    {
+      "role": "assistant",
+      "content": "Certainly! Seattle is known for its mild, but wet climate."
+    }
+  ]
+}
 ```
 
 ### Example 2: Multi-turn Conversation with System Message
 
 ```json
-{"messages": [
-    {"role": "system", "content": "You are a helpful AI assistant with knowledge about architecture."},
-    {"role": "user", "content": "Hi, can you tell me about the Golden Gate Bridge?"},
-    {"role": "assistant", "content": "Sure! The Golden Gate Bridge is an iconic suspension bridge in San Francisco."},
-    {"role": "user", "content": "How long is the Golden Gate Bridge?"},
-]}
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful AI assistant with knowledge about architecture."
+    },
+    {
+      "role": "user",
+      "content": "Hi, can you tell me about the Golden Gate Bridge?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sure! The Golden Gate Bridge is an iconic suspension bridge in San Francisco."
+    },
+    {
+      "role": "user",
+      "content": "How long is the Golden Gate Bridge?"
+    }
+  ]
+}
 ```
 
 ### Example 3: Conversation with an Image
