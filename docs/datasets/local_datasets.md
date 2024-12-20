@@ -103,7 +103,7 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
   ],
   "metadata": {
     "category": "coffee_brewing",
-    "timestamp": "2024-05-11T11:22:00Z"
+    "timestamp": "2025-01-11T11:22:00Z"
   }
 }
 ```

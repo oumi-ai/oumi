@@ -18,7 +18,7 @@ training:
       datasets:
         - dataset_name: your_vl_sft_dataset_name
           split: train
-          trust_remote_code: True # If model-specific processor uses downloadable Python scripts
+          trust_remote_code: False # `True` if model-specific processor uses downloaded Python scripts
           transform_num_workers: "auto"
           dataset_kwargs:
             processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
@@ -37,9 +37,9 @@ from torch.utils.data import DataLoader
 
 # Assume you have your tokenizer and image processor initialized
 model_params: ModelParams = ...
-trust_remote_code = False # `True` if model-specific processor requires it
-tokenizer = build_tokenizer(model_params)
-processor = build_processor(
+trust_remote_code: bool = False # `True` if model-specific processor requires it
+tokenizer: BaseTokenizer = build_tokenizer(model_params)
+processor: BaseProcessor = build_processor(
         model_params.model_name, tokenizer, trust_remote_code=trust_remote_code
 )
 
