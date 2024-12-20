@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import jsonlines
 import typer
@@ -14,7 +12,7 @@ if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig, JudgeConfig
 
 
-def _load_judge_config(config: str, extra_args: list[str]) -> JudgeConfig:
+def _load_judge_config(config: str, extra_args: list[str]) -> "JudgeConfig":
     from oumi.core.registry import REGISTRY
 
     judge_config_builder = REGISTRY.get_judge_config(config)
@@ -43,16 +41,16 @@ def dataset(
         str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
     ],
     dataset_name: Annotated[
-        str | None, typer.Option(help="Name of the dataset from the registry")
+        Optional[str], typer.Option(help="Name of the dataset from the registry")
     ] = None,
     dataset_subset: Annotated[
-        str | None, typer.Option(help="Subset of the dataset to use, if applicable")
+        Optional[str], typer.Option(help="Subset of the dataset to use, if applicable")
     ] = None,
     dataset_split: Annotated[
-        str | None, typer.Option(help="Split of the dataset to use.")
+        Optional[str], typer.Option(help="Split of the dataset to use.")
     ] = "train",
     output_file: Annotated[
-        str | None, typer.Option(help="Path to the output file (jsonl)")
+        Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
@@ -102,10 +100,10 @@ def conversations(
         str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
     ],
     input_file: Annotated[
-        str | None, typer.Option(help="Path to the input file (jsonl)")
+        Optional[str], typer.Option(help="Path to the input file (jsonl)")
     ] = None,
     output_file: Annotated[
-        str | None, typer.Option(help="Path to the output file (jsonl)")
+        Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
@@ -151,10 +149,10 @@ def model(
         typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the inference config file"),
     ],
     input_file: Annotated[
-        str | None, typer.Option(help="Path to the input file (jsonl)")
+        Optional[str], typer.Option(help="Path to the input file (jsonl)")
     ] = None,
     output_file: Annotated[
-        str | None, typer.Option(help="Path to the output file (jsonl)")
+        Optional[str], typer.Option(help="Path to the output file (jsonl)")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from inspect import signature
-from typing import Callable
+from typing import Callable, get_type_hints
 from unittest.mock import Mock, patch
 
 import pytest
@@ -22,8 +22,9 @@ runner = CliRunner()
 
 def _copy_command(mock: Mock, command: Callable):
     mock.__name__ = command.__name__
-    mock.__annotations__ = command.__annotations__
+    mock.__annotations__ = get_type_hints(command)
     mock.__signature__ = signature(command)
+    mock.__bool__ = lambda _: True
 
 
 #

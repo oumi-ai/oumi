@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 import itertools
 import sys
 import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable
+from typing import TYPE_CHECKING, Annotated, Callable, Optional
 
 import typer
 
@@ -113,7 +111,7 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _down_worker(cluster: str, cloud: str | None) -> bool:
+def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     """Turns down a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
@@ -149,7 +147,7 @@ def _down_worker(cluster: str, cloud: str | None) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _stop_worker(cluster: str, cloud: str | None) -> bool:
+def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
     """Stops a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
@@ -186,10 +184,10 @@ def _stop_worker(cluster: str, cloud: str | None) -> bool:
 
 
 def _poll_job(
-    job_status: JobStatus,
+    job_status: "JobStatus",
     detach: bool,
     cloud: str,
-    running_cluster: BaseCluster | None = None,
+    running_cluster: Optional["BaseCluster"] = None,
 ) -> None:
     """Polls a job until it is complete.
 
@@ -258,7 +256,7 @@ def cancel(
 def down(
     cluster: Annotated[str, typer.Option(help="The cluster to turn down.")],
     cloud: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -289,7 +287,7 @@ def run(
         ),
     ],
     cluster: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
@@ -334,14 +332,14 @@ def run(
 
 def status(
     cloud: Annotated[
-        str | None, typer.Option(help="Filter results by this cloud.")
+        Optional[str], typer.Option(help="Filter results by this cloud.")
     ] = None,
     cluster: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(help="Filter results by clusters matching this name."),
     ] = None,
     id: Annotated[
-        str | None, typer.Option(help="Filter results by jobs matching this job ID.")
+        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
@@ -394,7 +392,7 @@ def status(
 def stop(
     cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
     cloud: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -425,7 +423,7 @@ def up(
         ),
     ],
     cluster: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
