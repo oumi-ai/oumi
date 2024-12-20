@@ -63,11 +63,20 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
 
 ```json
 {
-    "messages": [
-    {"role": "user", "content": "How can I make good espresso at home?"},
-    {"role": "assistant", "content": "Making good espresso at home requires some equipment and practice, but here are some key tips:\n\n1. Use freshly roasted, high-quality coffee beans.\n2. Grind the beans just before brewing, using a fine, consistent grind.\n3. Use the right amount of coffee - typically 18-20 grams for a double shot.\n4. Tamp the grounds evenly with about 30 pounds of pressure.\n5. Ensure your espresso machine is clean and at the correct temperature (usually around 200°F).\n6. Aim for an extraction time of 25-30 seconds for a 1-2 oz shot.\n7. Look for a golden-brown crema on top of your espresso.\n8. Experiment and adjust based on taste - espresso making is part science, part art!"}
-    ],
-    "metadata": {"category": "coffee_brewing", "timestamp": "2024-05-11T11:22:00Z"}
+  "messages": [
+    {
+      "role": "user",
+      "content": "How can I make good espresso at home?"
+    },
+    {
+      "role": "assistant",
+      "content": "Making good espresso at home requires some equipment and practice, but here are some key tips:\n\n1. Use freshly roasted, high-quality coffee beans.\n2. Grind the beans just before brewing, using a fine, consistent grind.\n3. Use the right amount of coffee - typically 18-20 grams for a double shot.\n4. Tamp the grounds evenly with about 30 pounds of pressure.\n5. Ensure your espresso machine is clean and at the correct temperature (usually around 200°F).\n6. Aim for an extraction time of 25-30 seconds for a 1-2 oz shot.\n7. Look for a golden-brown crema on top of your espresso.\n8. Experiment and adjust based on taste - espresso making is part science, part art!"
+    }
+  ],
+  "metadata": {
+    "category": "coffee_brewing",
+    "timestamp": "2024-05-11T11:22:00Z"
+  }
 }
 ```
 
@@ -90,7 +99,7 @@ The `Message` class represents a single message in a conversation. Key attribute
 
 - `id`: Optional unique identifier for the message
 - `role`: The role of the entity sending the message
-- `content`: Text content of the message for text messages, or a list for `ContentItem`-s for multimodal messages e.g., an image and text content items.
+- `content`: Text content of the message for text messages, or a list of `ContentItem`-s for multimodal messages e.g., an image and text content items.
 
 ### ContentItem
 
@@ -113,7 +122,7 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 ### Creating Messages
 
 ```python
->>> from oumi.core.types.conversation import Message, Role, Type
+>>> from oumi.core.types.conversation import ContentItem, Message, Role, Type
 >>> # Create a simple text message
 >>> text_message = Message(role=Role.USER, content="Hello, world!")
 >>> text_message.role
@@ -131,13 +140,13 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 ### Creating and Working with Conversations
 
 ```python
->>> from oumi.core.types.conversation import Conversation, Message, Role
+>>> from oumi.core.types.conversation import ContentItem, Conversation, Message, Role
 >>> # Create a conversation with multiple messages
 >>> conversation = Conversation(
 ...     messages=[
-...         Message(content="Hi there!", role=Role.USER),
-...         Message(content="Hello! How can I help?", role=Role.ASSISTANT),
-...         Message(content="What's the weather?", role=Role.USER)
+...         Message(role=Role.USER, content="Hi there!"),
+...         Message(role=Role.ASSISTANT, content="Hello! How can I help?"),
+...         Message(role=Role.USER, content="What's the weather?")
 ...     ],
 ...     metadata={"source": "customer_support"}
 ... )
@@ -164,22 +173,22 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 ### Serialization
 
 ```python
->>> from oumi.core.types.conversation import Conversation, Message, Role
+>>> from oumi.core.types.conversation import ContentItem, Conversation, Message, Role
 >>> # Serialize to JSON
 >>> conversation = Conversation(
-...     messages=[Message(content="Hello!", role=Role.USER)],
-...     metadata={"timestamp": "2024-01-01"}
+...     messages=[Message(role=Role.USER, content="Hello!")],
+...     metadata={"timestamp": "2025-01-01"}
 ... )
 >>> json_data = conversation.to_json()
 >>> print(json_data)
-{"messages":[{"content":"Hello!","role":"user"}],"metadata":{"timestamp":"2024-01-01"}}
+{"messages":[{"content":"Hello!","role":"user"}],"metadata":{"timestamp":"2025-01-01"}}
 
 >>> # Deserialize from JSON
 >>> restored = Conversation.from_json(json_data)
 >>> restored.messages[0].content
 'Hello!'
 >>> restored.metadata["timestamp"]
-'2024-01-01'
+'2025-01-01'
 
 ```
 
