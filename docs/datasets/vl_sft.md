@@ -16,8 +16,8 @@ training:
   data:
     train:
       datasets:
-        - dataset_name: your_vl_sft_dataset_name
-          split: train
+        - dataset_name: "your_vl_sft_dataset_name"
+          split: "train"
           trust_remote_code: False # `True` if model-specific processor uses downloaded Python scripts
           transform_num_workers: "auto"
           dataset_kwargs:
