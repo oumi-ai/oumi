@@ -14,9 +14,9 @@ from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -107,10 +107,8 @@ def sample_conversation_using_image_path():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(content="Describe this image:", type=Type.TEXT),
-                    MessageContentItem(
-                        content="path/to/image.jpg", type=Type.IMAGE_PATH
-                    ),
+                    ContentItem(content="Describe this image:", type=Type.TEXT),
+                    ContentItem(content="path/to/image.jpg", type=Type.IMAGE_PATH),
                 ],
             ),
             Message(
@@ -128,8 +126,8 @@ def sample_conversation_using_image_binary():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(content="Describe this image:", type=Type.TEXT),
-                    MessageContentItem(
+                    ContentItem(content="Describe this image:", type=Type.TEXT),
+                    ContentItem(
                         binary=_get_test_png_image_bytes(), type=Type.IMAGE_BINARY
                     ),
                 ],
