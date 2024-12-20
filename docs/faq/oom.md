@@ -127,7 +127,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 
 7. Tune CUDA Allocator Settings
 
-    For details, see [PyTorch Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf).
+    It's sometimes possible to eliminate OOM errors (e.g., OOM-s caused by GPU VRAM fragmentation) by tuning CUDA allocator configuration as described in [PyTorch Optimizing Memory Usage]( https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) e.g., by switching to a different allocator, setting garbage collection settings. Example:
 
     ::::{tab-set-code}
     :::{code-block} yaml
