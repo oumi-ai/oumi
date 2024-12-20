@@ -66,6 +66,12 @@ class TrainingConfig(BaseConfig):
                 "Use `training.compile` instead of `model.compile` to "
                 "enable model compilation during training."
             )
+        if self.training.compile and (
+            self.fsdp.use_orig_params is not None and not self.fsdp.use_orig_params
+        ):
+            raise ValueError(
+                "`fsdp.use_orig_params` must be True for model compilation."
+            )
 
         # Verify dataset-related params for TRL_SFT.
         if self.training.trainer_type == TrainerType.TRL_SFT:

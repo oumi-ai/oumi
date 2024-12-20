@@ -245,7 +245,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         with torch.profiler.record_function("create_trainer"):
             kwargs = {}
             if config.training.trainer_type == TrainerType.OUMI:
-                kwargs["fsdp_params"] = config.fsdp
+                kwargs["config"] = config
 
             callbacks = build_training_callbacks(config, model, profiler)
 
