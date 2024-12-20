@@ -3,13 +3,11 @@ name: fineweb-deepspeed
 num_nodes: 1 # Set it to N for multi-node training.
 
 resources:
-  accelerators: { "A100": 4 }
-  any_of:
-    - use_spot: true
-    - use_spot: false
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: true
 
-# Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:
