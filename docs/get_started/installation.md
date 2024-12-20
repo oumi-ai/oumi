@@ -8,7 +8,7 @@ Before installing Oumi, ensure you have the following:
 
 - Python 3.9 or later
 - pip (Python package installer)
-- Git (for cloning the repository)
+- Git (if cloning the repository; required for steps 1 and 2)
 
 We recommend using a virtual environment to install Oumi. You can find instructions for setting up a conda environment in the {doc}`development/dev_setup` guide.
 
@@ -34,11 +34,22 @@ pip install git+<https://github.com/oumi-ai/oumi.git>
 
 If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
 
-```bash
+::::{tab-set-code}
+:::{code-block} SSH
+git clone git@github.com:oumi-ai/oumi.git
+cd oumi
+pip install -e ".[dev]"
+:::
+
+:::{code-block} HTTP
 git clone https://github.com/oumi-ai/oumi.git
 cd oumi
 pip install -e ".[dev]"
-```
+:::
+::::
+
+For more information on setting up your dev environment for contributing to Oumi, please
+see our [dev setup guide](../development/dev_setup.md).
 
 The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
 
@@ -66,6 +77,12 @@ Oumi has several optional features that require additional dependencies:
   pip install ".[dev]"
   ```
 
+- For the Cambrian multi-modal model:
+
+  ```bash
+  pip install ".[cambrian]"
+  ```
+
 - For specific cloud providers:
 
   ```bash
@@ -79,7 +96,13 @@ Oumi has several optional features that require additional dependencies:
   You can install multiple cloud dependencies by combining them, e.g.:
 
   ```bash
-  pip install oumi[aws,azure,gcp]
+  pip install ".[aws,azure,gcp]"
+  ```
+
+- For other optional dependencies, including those needed for various inference engines:
+
+  ```bash
+  pip install ".[optional]"
   ```
 
 ## Verifying the Installation
@@ -96,7 +119,7 @@ This should print the help message for Oumi.
 
 If you encounter any issues during installation, please check the [troubleshooting guide](../faq/troubleshooting.md).
 
-If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/S74NxTDh7v).
+If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/oumi).
 
 ## Next Steps
 
