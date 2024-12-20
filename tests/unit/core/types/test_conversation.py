@@ -248,7 +248,6 @@ def test_conversation_from_dict_compound_mixed_content():
         "messages": [
             {
                 "role": "user",
-                "type": "compound",
                 "content": [
                     {
                         "binary": _SMALL_B64_IMAGE,
@@ -362,7 +361,7 @@ def test_conversation_from_json_with_unknown_fields():
 
 
 def test_conversation_from_json_compound_simple():
-    json_str = '{"messages": [{"role": "user", "type": "compound", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
+    json_str = '{"messages": [{"role": "user", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
     conv = Conversation.from_json(json_str)
 
     assert isinstance(conv, Conversation)
@@ -544,7 +543,6 @@ def test_from_dict_with_invalid_base64():
                 "messages": [
                     {
                         "role": "user",
-                        "type": "compound",
                         "content": [
                             {
                                 "binary": "INVALID_BASE64!",
