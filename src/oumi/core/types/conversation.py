@@ -167,6 +167,8 @@ class Message(pydantic.BaseModel):
     various attributes such as role, content, identifier.
     """
 
+    model_config = pydantic.ConfigDict(frozen=True)
+
     id: Optional[str] = None
     """Optional unique identifier for the message.
 
