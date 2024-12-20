@@ -805,3 +805,18 @@ def test_type_str_repr():
     assert "image_url" in repr(Type.IMAGE_URL)
     assert str(Type.IMAGE_PATH) == "image_path"
     assert "image_path" in repr(Type.IMAGE_PATH)
+
+
+def test_frozen_message_content_item():
+    test_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    test_item.content = "foo"
+
+
+def test_frozen_message():
+    test_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    message = Message(
+        role=Role.USER,
+        content=[test_item, test_item],
+    )
+
+    message.id = "007"
