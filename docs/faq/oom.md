@@ -385,6 +385,6 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
     :::
     ::::
 
-```{attention}
-Disabling FSDP's forward and backward prefetch can lead to significant slower training times, use with caution.
-```
+    ```{attention}
+    Disabling FSDP's forward and backward prefetch can lead to significant slower training times, use with caution.
+    ```
