@@ -47,7 +47,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--standalone",
-                "--nproc_per_node",
+                "--nproc-per-node",
                 "4",
                 "-m",
                 "oumi",

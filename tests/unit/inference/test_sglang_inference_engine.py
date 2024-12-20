@@ -102,6 +102,9 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
 
     result = engine._convert_conversation_to_api_input(conversation, generation_params)
 
+    assert isinstance(
+        engine._tokenizer.bos_token, str
+    ), "bos_token: {engine._tokenizer.bos_token}"
     expected_prompt = (
         "\n\n".join(
             [

@@ -6,7 +6,7 @@ This guide will help you install Oumi and its dependencies.
 
 Before installing Oumi, ensure you have the following:
 
-- Python 3.8 or later
+- Python 3.9 or later
 - pip (Python package installer)
 - Git (for cloning the repository)
 

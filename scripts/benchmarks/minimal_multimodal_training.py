@@ -5,7 +5,7 @@ Run the script using:
     --model-name<model_name> --dataset-name <dataset_name>
 
 For multi-GPU training, use torchrun:
-   torchrun --standalone --nproc_per_node=$(nvidia-smi --list-gpus | wc -l) \
+   torchrun --standalone --nproc-per-node=$(nvidia-smi --list-gpus | wc -l) \
         scripts/benchmarks/minimal_multimodal_training.py \
             --model-name <model_name> --dataset-name <dataset_name>
 
@@ -64,6 +64,7 @@ class ModelName(str, Enum):
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
     MOLMOE_1B = "allenai/MolmoE-1B-0924"
+    SMOLVLM = "HuggingFaceTB/SmolVLM-Instruct"
 
 
 class ModelInfo(NamedTuple):
@@ -83,7 +84,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["vision_tower"],
     ),
     ModelName.QWEN2_VL: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
     ),
     ModelName.CHAMELEON: ModelInfo(
@@ -104,6 +105,10 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
         freeze_layers=["model.vision_backbone"],
+    ),
+    ModelName.SMOLVLM: ModelInfo(
+        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        freeze_layers=["vision_model"],
     ),
 }
 

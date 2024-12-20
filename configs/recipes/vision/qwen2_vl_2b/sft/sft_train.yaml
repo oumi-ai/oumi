@@ -4,7 +4,7 @@ model:
   model_max_length: 4096
   trust_remote_code: True
   attn_implementation: "sdpa"
-  chat_template: "llava"
+  chat_template: "qwen2-vl-instruct"
   freeze_layers:
     - "visual"
 

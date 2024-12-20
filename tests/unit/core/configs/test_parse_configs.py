@@ -43,11 +43,9 @@ def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str
 @pytest.mark.parametrize(
     "config_path",
     _get_all_config_paths(
-        {
+        exclude_yaml_suffixes={
             "accelerate.yaml",
             "sky_job.yaml",
-            "sky_ssh_job.yaml",
-            "oumi_dev_iam_custom_role.yaml",
         }
     ),
 )
@@ -78,8 +76,6 @@ def test_parse_configs(config_path: str):
         {
             "accelerate.yaml",
             "sky_job.yaml",
-            "sky_ssh_job.yaml",
-            "oumi_dev_iam_custom_role.yaml",
         }
     ),
 )

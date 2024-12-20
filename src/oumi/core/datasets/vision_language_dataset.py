@@ -87,6 +87,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             )
         elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"Type: {type(tokenizer.pad_token_id)}"
+            )
 
         if processor is not None:
             if processor_name:

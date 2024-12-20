@@ -15,8 +15,8 @@ class AyaDataset(BaseSftDataset):
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
-        question = example.get("inputs", "")
-        answer = example.get("targets", "")
+        question: str = example.get("inputs", None) or ""
+        answer: str = example.get("targets", None) or ""
 
         messages = [
             Message(role=Role.USER, content=question),
