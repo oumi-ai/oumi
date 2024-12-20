@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from datetime import datetime
@@ -18,7 +17,7 @@ from oumi.core.configs import (
 )
 from oumi.core.distributed import is_world_process_zero
 from oumi.utils.logging import logger
-from oumi.utils.serialization_utils import TorchJsonEncoder
+from oumi.utils.serialization_utils import json_serializer
 from oumi.utils.version_utils import get_python_package_versions
 
 OUTPUT_FILENAME_RESULTS = "lm_harness_{time}_results.json"
@@ -27,7 +26,6 @@ OUTPUT_FILENAME_MODEL_PARAMS = "lm_harness_{time}_model_params.json"
 OUTPUT_FILENAME_GENERATION_PARAMS = "lm_harness_{time}_generation_params.json"
 OUTPUT_FILENAME_HARNESS_PARAMS = "lm_harness_{time}_lm_harness_params.json"
 OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
-JSON_FILE_INDENT = 2
 
 
 def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str, Any]:
@@ -174,39 +172,31 @@ def save_lm_harness_output(
     }
     results["duration_sec"] = elapsed_time_sec
     results["completion_time"] = time_now
-    results_json = json.dumps(results, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_results, "w") as file_out:
-        file_out.write(results_json)
+        file_out.write(json_serializer(results))
 
     #  --- Save LM Harness task configuration(s) ---
     # This file includes: number of samples, number of few-shots, task version(s),
     # prompt(s) text, model/git hashes, seeds, and special tokens (pad, eos, bos, eot).
     output_file_task_config = OUTPUT_FILENAME_TASK_CONFIG.format(time=time_now)
-    task_config_json = json.dumps(
-        lm_harness_output, cls=TorchJsonEncoder, indent=JSON_FILE_INDENT
-    )
     with open(output_path / output_file_task_config, "w") as file_out:
-        file_out.write(task_config_json)
+        file_out.write(json_serializer(lm_harness_output))
 
     #  --- Save evaluation configuration ---
     output_file_model_params = OUTPUT_FILENAME_MODEL_PARAMS.format(time=time_now)
-    model_params_json = json.dumps(model_params, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_model_params, "w") as file_out:
-        file_out.write(model_params_json)
+        file_out.write(json_serializer(model_params))
 
     output_file_gen_params = OUTPUT_FILENAME_GENERATION_PARAMS.format(time=time_now)
-    generation_params_json = json.dumps(generation_params, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_gen_params, "w") as file_out:
-        file_out.write(generation_params_json)
+        file_out.write(json_serializer(generation_params))
 
     output_file_harness_params = OUTPUT_FILENAME_HARNESS_PARAMS.format(time=time_now)
-    lm_harness_params_json = json.dumps(lm_harness_params, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_harness_params, "w") as file_out:
-        file_out.write(lm_harness_params_json)
+        file_out.write(json_serializer(lm_harness_params))
 
     # --- Save python environment (package versions) ---
     output_file_pkg_versions = OUTPUT_FILENAME_PKG_VERSIONS.format(time=time_now)
     package_versions = get_python_package_versions()
-    package_versions_json = json.dumps(package_versions, indent=JSON_FILE_INDENT)
     with open(output_path / output_file_pkg_versions, "w") as file_out:
-        file_out.write(package_versions_json)
+        file_out.write(json_serializer(package_versions))
