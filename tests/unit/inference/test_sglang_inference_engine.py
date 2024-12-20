@@ -6,9 +6,9 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -72,10 +72,8 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
                     Message(
                         role=Role.USER,
                         content=[
-                            MessageContentItem(
-                                binary=png_bytes, type=Type.IMAGE_BINARY
-                            ),
-                            MessageContentItem(type=Type.TEXT, content="User message"),
+                            ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                            ContentItem(type=Type.TEXT, content="User message"),
                         ],
                     )
                 ]

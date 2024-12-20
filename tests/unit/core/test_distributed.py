@@ -367,7 +367,8 @@ def test_get_accelerate_env_vars():
         min_num_params=100000000,
     )
     config = TrainingConfig(
-        fsdp=fsdp_params, training=TrainingParams(enable_gradient_checkpointing=True)
+        fsdp=fsdp_params,
+        training=TrainingParams(enable_gradient_checkpointing=True, use_peft=True),
     )
 
     env_vars = get_accelerate_env_vars(config)
@@ -376,7 +377,7 @@ def test_get_accelerate_env_vars():
         "ACCELERATE_DYNAMO_MODE": "default",
         "ACCELERATE_DYNAMO_USE_FULLGRAPH": "False",
         "ACCELERATE_DYNAMO_USE_DYNAMIC": "False",
-        "FSDP_USE_ORIG_PARAMS": "true",
+        "FSDP_USE_ORIG_PARAMS": "false",
         "FSDP_CPU_RAM_EFFICIENT_LOADING": "true",
         "ACCELERATE_USE_FSDP": "true",
         "FSDP_SHARDING_STRATEGY": "HYBRID_SHARD",
@@ -390,6 +391,35 @@ def test_get_accelerate_env_vars():
         "FSDP_MIN_NUM_PARAMS": "100000000",
         "FSDP_SYNC_MODULE_STATES": "false",
         "FSDP_ACTIVATION_CHECKPOINTING": "true",
+    }
+
+
+def test_get_accelerate_env_vars_compile_keep_use_orig_params():
+    fsdp_params = FSDPParams(
+        enable_fsdp=True,
+    )
+    config = TrainingConfig(
+        fsdp=fsdp_params,
+        training=TrainingParams(use_peft=True, compile=True),
+    )
+    env_vars = get_accelerate_env_vars(config)
+    assert env_vars == {
+        "ACCELERATE_DYNAMO_BACKEND": "NO",
+        "ACCELERATE_DYNAMO_MODE": "default",
+        "ACCELERATE_DYNAMO_USE_FULLGRAPH": "False",
+        "ACCELERATE_DYNAMO_USE_DYNAMIC": "False",
+        "FSDP_USE_ORIG_PARAMS": "true",
+        "FSDP_CPU_RAM_EFFICIENT_LOADING": "true",
+        "ACCELERATE_USE_FSDP": "true",
+        "FSDP_SHARDING_STRATEGY": "FULL_SHARD",
+        "FSDP_OFFLOAD_PARAMS": "false",
+        "FSDP_BACKWARD_PREFETCH": "BACKWARD_PRE",
+        "FSDP_FORWARD_PREFETCH": "false",
+        "FSDP_STATE_DICT_TYPE": "FULL_STATE_DICT",
+        "FSDP_AUTO_WRAP_POLICY": "SIZE_BASED_WRAP",
+        "FSDP_MIN_NUM_PARAMS": "100000",
+        "FSDP_SYNC_MODULE_STATES": "true",
+        "FSDP_ACTIVATION_CHECKPOINTING": "false",
     }
 
 

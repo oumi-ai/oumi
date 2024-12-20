@@ -20,9 +20,9 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -93,9 +93,7 @@ def create_test_png_image_bytes() -> bytes:
 
 def create_test_png_image_base64_str() -> str:
     return base64encode_image_bytes(
-        MessageContentItem(
-            binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY
-        ),
+        ContentItem(binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY),
         add_mime_prefix=True,
     )
 
@@ -108,16 +106,16 @@ def create_test_multimodal_text_image_conversation():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
-                    MessageContentItem(content="Hello", type=Type.TEXT),
-                    MessageContentItem(content="there", type=Type.TEXT),
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
                 ],
             ),
             Message(
                 role=Role.ASSISTANT,
                 content=[
-                    MessageContentItem(content="Greetings!", type=Type.TEXT),
-                    MessageContentItem(
+                    ContentItem(content="Greetings!", type=Type.TEXT),
+                    ContentItem(
                         content="http://oumi.ai/test.png",
                         type=Type.IMAGE_URL,
                     ),
@@ -126,8 +124,8 @@ def create_test_multimodal_text_image_conversation():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(content="Describe this image", type=Type.TEXT),
-                    MessageContentItem(
+                    ContentItem(content="Describe this image", type=Type.TEXT),
+                    ContentItem(
                         content=str(
                             _TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
                         ),
@@ -181,20 +179,20 @@ def test_infer_online():
                 Message(
                     role=Role.USER,
                     content=[
-                        MessageContentItem(
+                        ContentItem(
                             content="Hello world!",
                             type=Type.TEXT,
                         ),
-                        MessageContentItem(
+                        ContentItem(
                             content="/tmp/hello/again.png",
                             binary=b"a binary image",
                             type=Type.IMAGE_PATH,
                         ),
-                        MessageContentItem(
+                        ContentItem(
                             content="a url for our image",
                             type=Type.IMAGE_URL,
                         ),
-                        MessageContentItem(
+                        ContentItem(
                             binary=b"a binary image",
                             type=Type.IMAGE_BINARY,
                         ),
