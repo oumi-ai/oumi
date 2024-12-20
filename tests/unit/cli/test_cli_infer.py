@@ -9,8 +9,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.infer import infer
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.infer import infer
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -46,13 +46,13 @@ def app():
 
 @pytest.fixture
 def mock_infer():
-    with patch("oumi.core.cli.infer.oumi_infer") as m_infer:
+    with patch("oumi.cli.infer.oumi_infer") as m_infer:
         yield m_infer
 
 
 @pytest.fixture
 def mock_infer_interactive():
-    with patch("oumi.core.cli.infer.oumi_infer_interactive") as m_infer:
+    with patch("oumi.cli.infer.oumi_infer_interactive") as m_infer:
         yield m_infer
 
 

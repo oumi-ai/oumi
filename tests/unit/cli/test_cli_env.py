@@ -2,7 +2,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.env import env
+from oumi.cli.env import env
 
 runner = CliRunner()
 

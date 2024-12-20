@@ -7,9 +7,9 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.launch import cancel, down, status, stop, up, which
-from oumi.core.cli.launch import run as launcher_run
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import run as launcher_run
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -61,13 +61,13 @@ def app():
 
 @pytest.fixture
 def mock_launcher():
-    with patch("oumi.core.cli.launch.launcher") as launcher_mock:
+    with patch("oumi.cli.launch.launcher") as launcher_mock:
         yield launcher_mock
 
 
 @pytest.fixture
 def mock_pool():
-    with patch("oumi.core.cli.launch.Pool") as pool_mock:
+    with patch("oumi.cli.launch.Pool") as pool_mock:
         mock_pool = MockPool()
         pool_mock.return_value = mock_pool
         yield pool_mock
@@ -88,7 +88,7 @@ def mock_version():
 
 @pytest.fixture
 def mock_git_root():
-    with patch("oumi.core.cli.launch.get_git_root_dir") as root_mock:
+    with patch("oumi.cli.launch.get_git_root_dir") as root_mock:
         root_mock.return_value = _oumi_root()
         yield root_mock
 

@@ -1,19 +1,22 @@
+from __future__ import annotations
+
 import itertools
 import sys
 import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import Annotated, Callable, Optional
+from typing import TYPE_CHECKING, Annotated, Callable
 
 import typer
 
-import oumi.core.cli.cli_utils as cli_utils
-from oumi import launcher
-from oumi.core.launcher import BaseCluster, JobStatus
+import oumi.cli.cli_utils as cli_utils
 from oumi.utils.git_utils import get_git_root_dir
 from oumi.utils.logging import logger
 from oumi.utils.version_utils import is_dev_build
+
+if TYPE_CHECKING:
+    from oumi.core.launcher import BaseCluster, JobStatus
 
 
 def _clear_line() -> None:
@@ -82,6 +85,8 @@ def _print_and_wait(
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     """Returns true IFF a job is no longer running."""
+    from oumi import launcher
+
     running_cloud = launcher.get_cloud(cloud)
     running_cluster = running_cloud.get_cluster(cluster)
     if not running_cluster:
@@ -96,6 +101,8 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     All workers must return a boolean to indicate whether the task is done.
     Cancel has no intermediate states, so it always returns True.
     """
+    from oumi import launcher
+
     if not cluster:
         return True
     if not id:
@@ -106,12 +113,14 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
+def _down_worker(cluster: str, cloud: str | None) -> bool:
     """Turns down a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
     Down has no intermediate states, so it always returns True.
     """
+    from oumi import launcher
+
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
@@ -140,12 +149,14 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
+def _stop_worker(cluster: str, cloud: str | None) -> bool:
     """Stops a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
     Stop has no intermediate states, so it always returns True.
     """
+    from oumi import launcher
+
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
@@ -178,13 +189,15 @@ def _poll_job(
     job_status: JobStatus,
     detach: bool,
     cloud: str,
-    running_cluster: Optional[BaseCluster] = None,
+    running_cluster: BaseCluster | None = None,
 ) -> None:
     """Polls a job until it is complete.
 
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
+    from oumi import launcher
+
     is_local = cloud == "local"
     if detach and not is_local:
         print(f"Running job {job_status.id} in detached mode.")
@@ -245,7 +258,7 @@ def cancel(
 def down(
     cluster: Annotated[str, typer.Option(help="The cluster to turn down.")],
     cloud: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -276,7 +289,7 @@ def run(
         ),
     ],
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
@@ -301,6 +314,10 @@ def run(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Delayed imports
+    from oumi import launcher
+
+    # End imports
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
@@ -317,14 +334,14 @@ def run(
 
 def status(
     cloud: Annotated[
-        Optional[str], typer.Option(help="Filter results by this cloud.")
+        str | None, typer.Option(help="Filter results by this cloud.")
     ] = None,
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter results by clusters matching this name."),
     ] = None,
     id: Annotated[
-        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
+        str | None, typer.Option(help="Filter results by jobs matching this job ID.")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
@@ -339,6 +356,10 @@ def status(
         id: Filter results by jobs matching this job ID.
         level: The logging level for the specified command.
     """
+    # Delayed imports
+    from oumi import launcher
+
+    # End imports
     print("========================")
     print("Job status:")
     print("========================")
@@ -373,7 +394,7 @@ def status(
 def stop(
     cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
     cloud: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -404,7 +425,7 @@ def up(
         ),
     ],
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
@@ -428,6 +449,10 @@ def up(
         detach: Run the job in the background.
         level: The logging level for the specified command.
     """
+    # Delayed imports
+    from oumi import launcher
+
+    # End imports
     extra_args = cli_utils.parse_extra_cli_args(ctx)
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
@@ -455,6 +480,10 @@ def up(
 
 def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
     """Prints the available clouds."""
+    # Delayed imports
+    from oumi import launcher
+
+    # End imports
     clouds = launcher.which_clouds()
     print("========================")
     print("Available clouds:")

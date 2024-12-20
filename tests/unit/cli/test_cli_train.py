@@ -7,8 +7,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.train import train
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.train import train
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -65,25 +65,25 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch("oumi.core.cli.train.oumi_train") as m_train:
+    with patch("oumi.cli.train.oumi_train") as m_train:
         yield m_train
 
 
 @pytest.fixture
 def mock_limit_per_process_memory():
-    with patch("oumi.core.cli.train.limit_per_process_memory") as m_memory:
+    with patch("oumi.cli.train.limit_per_process_memory") as m_memory:
         yield m_memory
 
 
 @pytest.fixture
 def mock_device_cleanup():
-    with patch("oumi.core.cli.train.device_cleanup") as m_cleanup:
+    with patch("oumi.cli.train.device_cleanup") as m_cleanup:
         yield m_cleanup
 
 
 @pytest.fixture
 def mock_set_random_seeds():
-    with patch("oumi.core.cli.train.set_random_seeds") as m_seeds:
+    with patch("oumi.cli.train.set_random_seeds") as m_seeds:
         yield m_seeds
 
 

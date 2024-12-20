@@ -2,15 +2,8 @@ from typing import Annotated
 
 import typer
 
-import oumi.core.cli.cli_utils as cli_utils
-from oumi import train as oumi_train
-from oumi.core.configs import TrainingConfig
-from oumi.core.distributed import set_random_seeds
+import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import (
-    device_cleanup,
-    limit_per_process_memory,
-)
 
 
 def train(
@@ -31,6 +24,16 @@ def train(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Delayed imports
+    from oumi.core.configs import TrainingConfig
+    from oumi.core.distributed import set_random_seeds
+    from oumi.train import train as oumi_train
+    from oumi.utils.torch_utils import (
+        device_cleanup,
+        limit_per_process_memory,
+    )
+
+    # End imports
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )

@@ -5,8 +5,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.judge import conversations, dataset, model
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.judge import conversations, dataset, model
 from oumi.core.types import Conversation, Message
 from oumi.core.types.conversation import Role
 from oumi.utils.io_utils import save_jsonlines
