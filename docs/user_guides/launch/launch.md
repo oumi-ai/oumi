@@ -76,8 +76,10 @@ sky logs oumi-cluster
 To cancel a running job without stopping the cluster, run:
 
 ```shell
-oumi launch cancel --cluster oumi-cluster
+oumi launch cancel --cluster oumi-cluster --cloud gcp --id 1
 ```
+
+The id of the job can be obtained by running `oumi launch status`.
 
 ### Stop/turn down clusters
 
