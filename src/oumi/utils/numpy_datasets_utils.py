@@ -127,6 +127,17 @@ def load_local_numpy_dataset(
             f"Loaded '{feature_name}' (shape: {column_data.shape}) "
             f"from {data_file_path}"
         )
+
+        # FIXME Make it configurable
+        logger.info(f"BEFORE: {feature_name}: {column_data.shape}")
+        if feature_name == "sigma":
+            column_data = np.transpose(column_data, (1, 0))
+        elif feature_name == "mesh":
+            column_data = np.transpose(column_data, (2, 0, 1))
+        elif feature_name == "rr":
+            column_data = np.transpose(column_data, (1, 0))
+        logger.info(f"AFTER: {feature_name}: {column_data.shape}")
+
         data_columns[feature_name] = column_data
 
     return pd.DataFrame(data_columns)
