@@ -25,9 +25,9 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -212,7 +212,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     @staticmethod
     def _get_content_for_message_content_item(
-        item: MessageContentItem,
+        item: ContentItem,
     ) -> dict[str, Any]:
         """Returns the content for a message content item.
 

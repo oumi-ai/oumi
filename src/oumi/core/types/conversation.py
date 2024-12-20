@@ -55,13 +55,13 @@ class Type(str, Enum):
         return self.value
 
 
-class MessageContentItemCounts(NamedTuple):
+class ContentItemCounts(NamedTuple):
     total_items: int
     text_items: int
     image_items: int
 
 
-class MessageContentItem(pydantic.BaseModel):
+class ContentItem(pydantic.BaseModel):
     """A sub-part of `Message.content`.
 
     For example, a multimodal message from `USER` may include
@@ -179,7 +179,7 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: Union[str, list[MessageContentItem]]
+    content: Union[str, list[ContentItem]]
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
@@ -208,11 +208,11 @@ class Message(pydantic.BaseModel):
 
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
-    ) -> Generator[MessageContentItem, None, None]:
+    ) -> Generator[ContentItem, None, None]:
         """Returns a list of content items."""
         if isinstance(self.content, str):
             if return_text:
-                yield MessageContentItem(type=Type.TEXT, content=self.content)
+                yield ContentItem(type=Type.TEXT, content=self.content)
         elif isinstance(self.content, list):
             if return_text and return_images:
                 yield from self.content
@@ -223,10 +223,10 @@ class Message(pydantic.BaseModel):
                     ):
                         yield item
 
-    def _iter_all_content_items(self) -> Generator[MessageContentItem, None, None]:
+    def _iter_all_content_items(self) -> Generator[ContentItem, None, None]:
         return self._iter_content_items(return_text=True, return_images=True)
 
-    def count_content_items(self) -> MessageContentItemCounts:
+    def count_content_items(self) -> ContentItemCounts:
         """Counts content items by type."""
         total_items: int = 0
         num_text_items: int = 0
@@ -238,24 +238,24 @@ class Message(pydantic.BaseModel):
             elif item.is_image():
                 num_image_items += 1
 
-        return MessageContentItemCounts(
+        return ContentItemCounts(
             total_items=total_items,
             text_items=num_text_items,
             image_items=num_image_items,
         )
 
     @property
-    def content_items(self) -> list[MessageContentItem]:
+    def content_items(self) -> list[ContentItem]:
         """Returns a list of text content items."""
         return [item for item in self._iter_all_content_items()]
 
     @property
-    def image_content_items(self) -> list[MessageContentItem]:
+    def image_content_items(self) -> list[ContentItem]:
         """Returns a list of image content items."""
         return [item for item in self._iter_content_items(return_images=True)]
 
     @property
-    def text_content_items(self) -> list[MessageContentItem]:
+    def text_content_items(self) -> list[ContentItem]:
         """Returns a list of text content items."""
         return [item for item in self._iter_content_items(return_text=True)]
 

@@ -6,7 +6,7 @@ from typing import Optional, Union
 import PIL.Image
 import requests
 
-from oumi.core.types.conversation import MessageContentItem, Type
+from oumi.core.types.conversation import ContentItem, Type
 from oumi.utils.logging import logger
 
 
@@ -92,7 +92,7 @@ def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_bytes_to_message(item: MessageContentItem) -> MessageContentItem:
+def load_image_bytes_to_message(item: ContentItem) -> ContentItem:
     """Ensures that message content item contains inline image bytes if it's an image.
 
     Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
@@ -122,14 +122,12 @@ def load_image_bytes_to_message(item: MessageContentItem) -> MessageContentItem:
                 raise
             png_bytes = create_png_bytes_from_image_bytes(response.content)
 
-        return MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+        return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
 
     return item
 
 
-def base64encode_image_bytes(
-    item: MessageContentItem, *, add_mime_prefix: bool = True
-) -> str:
+def base64encode_image_bytes(item: ContentItem, *, add_mime_prefix: bool = True) -> str:
     """Creates base-64 encoded image bytes as ASCII string value.
 
     Args:

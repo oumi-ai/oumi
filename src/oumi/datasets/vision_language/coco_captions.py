@@ -3,9 +3,9 @@ from typing_extensions import override
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -41,18 +41,18 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
             )
         output_text = example[_COCO_COLUMN_SENTENCES][_COCO_COLUMN_RAW]
 
-        user_items: list[MessageContentItem] = []
+        user_items: list[ContentItem] = []
 
         if _COCO_COLUMN_BYTES in example[_COCO_COLUMN_IMAGE]:
             user_items.append(
-                MessageContentItem(
+                ContentItem(
                     binary=example[_COCO_COLUMN_IMAGE][_COCO_COLUMN_BYTES],
                     type=Type.IMAGE_BINARY,
                 )
             )
         elif _COCO_COLUMN_PATH in example[_COCO_COLUMN_IMAGE]:
             user_items.append(
-                MessageContentItem(
+                ContentItem(
                     content=example[_COCO_COLUMN_IMAGE][_COCO_COLUMN_PATH],
                     type=Type.IMAGE_PATH,
                 )
@@ -64,7 +64,7 @@ class COCOCaptionsDataset(VisionLanguageSftDataset):
                 f"Available keys under 'image.': {example[_COCO_COLUMN_IMAGE].keys()}."
             )
 
-        user_items.append(MessageContentItem(type=Type.TEXT, content=input_text))
+        user_items.append(ContentItem(type=Type.TEXT, content=input_text))
 
         return Conversation(
             messages=[
