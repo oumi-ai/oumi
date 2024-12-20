@@ -26,7 +26,7 @@ def _create_eval_config() -> EvaluationConfig:
         tasks=[
             EvaluationTaskParams(
                 lm_harness_task_params=LMHarnessTaskParams(
-                    tasks=["mmlu"],
+                    task_name="mmlu",
                     num_samples=4,
                 ),
             )
@@ -63,28 +63,28 @@ def test_evaluate_runs(app, mock_evaluate):
         mock_evaluate.assert_has_calls([call(config)])
 
 
-# FIXME
-# def test_evaluate_with_overrides(app, mock_evaluate):
-#     with tempfile.TemporaryDirectory() as output_temp_dir:
-#         yaml_path = str(Path(output_temp_dir) / "eval.yaml")
-#         config: EvaluationConfig = _create_eval_config()
-#         config.to_yaml(yaml_path)
-#         _ = runner.invoke(
-#             app,
-#             [
-#                 "--config",
-#                 yaml_path,
-#                 "--model.tokenizer_name",
-#                 "new_name",
-#                 "--lm_harness_params.num_samples",
-#                 "5",
-#             ],
-#         )
-#         expected_config = _create_eval_config()
-#         expected_config.model.tokenizer_name = "new_name"
-#         if expected_config.lm_harness_params:
-#             expected_config.lm_harness_params.num_samples = 5
-#         mock_evaluate.assert_has_calls([call(expected_config)])
+def test_evaluate_with_overrides(app, mock_evaluate):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "eval.yaml")
+        config: EvaluationConfig = _create_eval_config()
+        config.to_yaml(yaml_path)
+        _ = runner.invoke(
+            app,
+            [
+                "--config",
+                yaml_path,
+                "--model.tokenizer_name",
+                "new_name",
+                "--tasks.lm_harness_task_params.num_samples",
+                "5",
+            ],
+        )
+        expected_config = _create_eval_config()
+        expected_config.model.tokenizer_name = "new_name"
+        if expected_config.tasks:
+            if expected_config.tasks[0].lm_harness_task_params:
+                expected_config.tasks[0].lm_harness_task_params.num_samples = 5
+        mock_evaluate.assert_has_calls([call(expected_config)])
 
 
 def test_evaluate_logging_levels(app, mock_evaluate):

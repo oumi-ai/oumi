@@ -20,7 +20,7 @@ def test_evaluate_async_polling_interval():
                 tasks=[
                     EvaluationTaskParams(
                         lm_harness_task_params=LMHarnessTaskParams(
-                            tasks=["mmlu"],
+                            task_name="mmlu",
                             num_samples=4,
                         ),
                     )

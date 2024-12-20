@@ -25,7 +25,7 @@ def test_evaluate_lm_harness():
             tasks=[
                 EvaluationTaskParams(
                     lm_harness_task_params=LMHarnessTaskParams(
-                        tasks=[TASK],
+                        task_name=TASK,
                         num_samples=NUM_SAMPLES,
                     ),
                 )

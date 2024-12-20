@@ -110,7 +110,7 @@ def evaluate_lm_harness(
     lm_eval_output = lm_eval.simple_evaluate(
         model=lm_harness_model,
         model_args=lm_harness_args,
-        tasks=lm_harness_params.tasks,  # type: ignore
+        tasks=[lm_harness_params.task_name],
         num_fewshot=lm_harness_params.num_fewshot,
         batch_size=batch_size,  # type: ignore
         device=device,
@@ -123,9 +123,9 @@ def evaluate_lm_harness(
     # Metrics are only available on the main process, and `None` on others.
     if is_world_process_zero():
         assert lm_eval_output is not None
-        for benchmark_name in lm_harness_params.tasks:
-            metric_dict = lm_eval_output["results"][benchmark_name]  # type: ignore
-            logger.info(f"{benchmark_name}'s metric dict is {pformat(metric_dict)}")
+        task_name = lm_harness_params.task_name
+        metric_dict = lm_eval_output["results"][task_name]  # type: ignore
+        logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
         if enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")

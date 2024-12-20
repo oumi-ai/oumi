@@ -121,9 +121,10 @@ Create an `eval_config.yaml` file with evaluation-specific settings:
 model:
   model_name: "output/quickstart/checkpoint-1000"  # Path to your trained model
 
-lm_harness_params:
-  tasks:
-    - "mmlu"  # Multiple-choice grade-school tasks
+tasks:
+  - lm_harness_task_params:
+      task_name: "mmlu"  # Multiple-choice grade-school tasks
+
 output_dir: "output/quickstart/eval_results"
 ```
 

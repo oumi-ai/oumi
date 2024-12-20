@@ -17,9 +17,25 @@ model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
   trust_remote_code: True
 
-lm_harness_params:
-  tasks:
-    - "huggingface_leaderboard_v1"
+tasks: # HuggingFace Leaderboard
+  - lm_harness_task_params:
+      task_name: "mmlu"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "arc_challenge"
+      num_fewshot: 25
+  - lm_harness_task_params:
+      task_name: "winogrande"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "hellaswag"
+      num_fewshot: 10
+  - lm_harness_task_params:
+      task_name: "truthfulqa_mc2"
+      num_fewshot: 0
+  - lm_harness_task_params:
+      task_name: "gsm8k"
+      num_fewshot: 5
 ```
 
 ```{note}
@@ -32,7 +48,7 @@ For evaluation, we use the `lm_eval` library, which includes a wide range of tas
 
 ```{tip}
 To use `lm_eval` with `oumi`:
-1. Specify the tasks in your configuration file under `lm_harness_params.tasks`.
+1. Specify the tasks in your configuration file under `tasks.lm_harness_task_params`.
 2. Adjust other parameters like `num_fewshot` and `num_samples` as needed.
 ```
 

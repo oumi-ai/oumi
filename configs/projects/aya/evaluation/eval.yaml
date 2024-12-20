@@ -5,23 +5,49 @@ model:
   trust_remote_code: True
   attn_implementation: "sdpa"
 
-lm_harness_params:
-  tasks:
-    - "m_mmlu_ar"
-    - "m_mmlu_zh"
-    - "m_mmlu_en"
-    - "m_mmlu_fr"
-    - "m_mmlu_de"
-    - "m_mmlu_hi"
-    - "m_mmlu_id"
-    - "m_mmlu_it"
-    - "m_mmlu_pt"
-    - "m_mmlu_ro"
-    - "m_mmlu_ru"
-    - "m_mmlu_es"
-    - "m_mmlu_uk"
-    - "m_mmlu_vi"
-  num_fewshot: 5
+tasks:
+  - lm_harness_task_params:
+      task_name: "m_mmlu_ar"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_zh"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_en"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_fr"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_de"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_hi"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_id"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_it"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_pt"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_ro"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_ru"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_es"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_uk"
+      num_fewshot: 5
+  - lm_harness_task_params:
+      task_name: "m_mmlu_vi"
+      num_fewshot: 5
 
 generation:
   batch_size: 8

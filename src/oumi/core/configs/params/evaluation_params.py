@@ -43,8 +43,8 @@ class LMHarnessTaskParams(BaseTaskParams):
     across various tasks.
     """
 
-    tasks: list[str] = MISSING
-    """The LM Harness tasks to evaluate.
+    task_name: str = MISSING
+    """The LM Harness task to evaluate.
 
     A list of all tasks is available at
     https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks
@@ -60,8 +60,8 @@ class LMHarnessTaskParams(BaseTaskParams):
 
     def __post_init__(self):
         """Verifies params."""
-        if not self.tasks:
-            raise ValueError("`tasks` must include at least 1 task.")
+        if not self.task_name:
+            raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_fewshot and self.num_fewshot < 0:
             raise ValueError("`num_fewshot` must be non-negative.")
 
