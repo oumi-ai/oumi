@@ -352,7 +352,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         """Loads an image from a message.
 
         Args:
-            image_item (MessageContentItem): A content item representing an image.
+            image_item (`ContentItem`): A content item representing an image.
 
         Returns:
             Image.Image: A PIL image.
