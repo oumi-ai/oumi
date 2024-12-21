@@ -25,13 +25,16 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
-from oumi.utils.image_utils import base64encode_image_bytes, load_image_bytes_to_message
+from oumi.utils.image_utils import (
+    base64encode_image_bytes,
+    load_image_bytes_to_content_item,
+)
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -212,7 +215,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     @staticmethod
     def _get_content_for_message_content_item(
-        item: MessageContentItem,
+        item: ContentItem,
     ) -> dict[str, Any]:
         """Returns the content for a message content item.
 
@@ -228,7 +231,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError(f"Unsupported message type: {item.type}")
 
         if not item.binary and item.type != Type.IMAGE_URL:
-            item = load_image_bytes_to_message(item)
+            item = load_image_bytes_to_content_item(item)
 
         if item.binary:
             b64_image = base64encode_image_bytes(item, add_mime_prefix=True)

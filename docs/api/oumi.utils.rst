@@ -85,6 +85,14 @@ oumi.utils.saver module
    :undoc-members:
    :show-inheritance:
 
+oumi.utils.serialization\_utils module
+--------------------------------------
+
+.. automodule:: oumi.utils.serialization_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.utils.str\_utils module
 ----------------------------
 

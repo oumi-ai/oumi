@@ -16,9 +16,7 @@ E2E Foundation Model Research Platform - Community-first & Enterprise-grade
 
 get_started/installation
 get_started/quickstart
-get_started/configuration
 get_started/tutorials
-get_started/tour
 ```
 
 ```{toctree}
@@ -50,7 +48,6 @@ advanced/distributed_training
 :caption: Models
 
 models/recipes
-models/cambrian
 ```
 
 ```{toctree}
@@ -80,8 +77,8 @@ faq/gpu_sizing
 :hidden:
 :caption: API Reference
 
-api/oumi
-cli/commands
+API Reference <api/oumi>
+CLI Reference <cli/commands>
 ```
 
 ```{toctree}

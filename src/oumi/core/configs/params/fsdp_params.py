@@ -193,6 +193,13 @@ class FSDPParams(BaseParams):
     forward_prefetch: bool = False
     """If True, prefetches the forward pass results."""
 
+    use_orig_params: Optional[bool] = None
+    """If True, uses the PyTorch Module's original parameters for FSDP.
+
+    For more information, see: https://pytorch.org/docs/stable/fsdp.html.
+    If not specified, it will be automatically inferred based on other config values.
+    """
+
     state_dict_type: StateDictType = StateDictType.FULL_STATE_DICT
     """Specifies the type of state dict to use for checkpointing."""
 

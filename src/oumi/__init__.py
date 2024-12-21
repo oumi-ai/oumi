@@ -58,19 +58,195 @@ See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
 
-from oumi import datasets, judges, models
-from oumi.evaluate import evaluate, evaluate_lm_harness
-from oumi.evaluate_async import evaluate_async
-from oumi.infer import infer, infer_interactive
-from oumi.judge import judge_conversations, judge_dataset
-from oumi.train import train
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from oumi.utils import logging
+
+if TYPE_CHECKING:
+    from oumi.core.configs import (
+        AsyncEvaluationConfig,
+        EvaluationConfig,
+        InferenceConfig,
+        JudgeConfig,
+        TrainingConfig,
+    )
+    from oumi.core.datasets import BaseSftDataset
+    from oumi.core.inference import BaseInferenceEngine
+    from oumi.core.types.conversation import Conversation
 
 logging.configure_dependency_warnings()
 
 
+def evaluate_async(config: AsyncEvaluationConfig) -> None:
+    """Runs an async evaluation for a model using the provided configuration.
+
+    Overview:
+        This is a utility method for running evaluations iteratively over a series
+        of checkpoints. This method can be run in parallel with a training job to
+        compute metrics per checkpoint without wasting valuable time in the main
+        training loop.
+
+    Args:
+        config: The desired configuration for evaluation.
+
+    Returns:
+        None.
+    """
+    import oumi.evaluate_async
+
+    return oumi.evaluate_async.evaluate_async(config)
+
+
+def evaluate(config: EvaluationConfig) -> None:
+    """Evaluates a model using the provided configuration.
+
+    Args:
+        config: The desired configuration for evaluation.
+
+    Returns:
+        None.
+    """
+    import oumi.evaluate
+
+    return oumi.evaluate.evaluate(config)
+
+
+def evaluate_lm_harness(config: EvaluationConfig) -> None:
+    """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
+
+    For detailed documentation, we refer you to the following readme:
+       https://github.com/EleutherAI/lm-evaluation-harness
+
+    Args:
+        config: The desired configuration for evaluation.
+    """
+    import oumi.evaluate
+
+    return oumi.evaluate.evaluate_lm_harness(config)
+
+
+def infer_interactive(
+    config: InferenceConfig, *, input_image_bytes: bytes | None = None
+) -> None:
+    """Interactively provide the model response for a user-provided input."""
+    import oumi.infer
+
+    return oumi.infer.infer_interactive(config, input_image_bytes=input_image_bytes)
+
+
+def infer(
+    config: InferenceConfig,
+    inputs: list[str] | None = None,
+    inference_engine: BaseInferenceEngine | None = None,
+    *,
+    input_image_bytes: bytes | None = None,
+) -> list[Conversation]:
+    """Runs batch inference for a model using the provided configuration.
+
+    Args:
+        config: The configuration to use for inference.
+        inputs: A list of inputs for inference.
+        inference_engine: The engine to use for inference. If unspecified, the engine
+            will be inferred from `config`.
+        input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
+            Only used in interactive mode.
+
+    Returns:
+        object: A list of model responses.
+    """
+    import oumi.infer
+
+    return oumi.infer.infer(
+        config, inputs, inference_engine, input_image_bytes=input_image_bytes
+    )
+
+
+def judge_conversations(
+    config: JudgeConfig, judge_inputs: list[Conversation]
+) -> list[dict[str, Any]]:
+    """Judge a list of conversations.
+
+    This function evaluates a list of conversations using the specified Judge.
+
+    The function performs the following steps:
+
+        1. Initializes the Judge with the provided configuration.
+        2. Uses the Judge to evaluate each conversation input.
+        3. Collects and returns the judged outputs.
+
+    Args:
+        config: The configuration for the judge.
+        judge_inputs: A list of Conversation objects to be judged.
+
+    Returns:
+        List[Dict[str, Any]]: A list of judgement results for each conversation.
+
+        >>> # Example output:
+        [
+            {'helpful': True, 'safe': False},
+            {'helpful': True, 'safe': True},
+        ]
+
+    Example:
+        >>> config = JudgeConfig(...)
+        >>> judge_inputs = [Conversation(...), Conversation(...)]
+        >>> judged_outputs = judge_conversations(config, judge_inputs)
+        >>> for output in judged_outputs:
+        ...     print(output)
+    """
+    import oumi.judge
+
+    return oumi.judge.judge_conversations(config, judge_inputs)
+
+
+def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str, Any]]:
+    """Judge a dataset.
+
+    This function evaluates a given dataset using a specified Judge configuration.
+
+    The function performs the following steps:
+
+        1. Initializes the Judge with the provided configuration.
+        2. Iterates through the dataset to extract conversation inputs.
+        3. Uses the Judge to evaluate each conversation input.
+        4. Collects and returns the judged outputs.
+
+    Args:
+        config: The configuration for the judge.
+        dataset: The dataset to be judged. This dataset
+            should be compatible with the Supervised Finetuning Dataset class.
+
+    Returns:
+        List[Dict[str, Any]]: A list of judgement results for each conversation.
+
+        >>> # Example output:
+        [
+            {'helpful': True, 'safe': False},
+            {'helpful': True, 'safe': True},
+        ]
+
+    Example:
+        >>> config = JudgeConfig(...)
+        >>> dataset = SomeDataset(...)
+        >>> judged_outputs = judge_dataset(config, dataset)
+        >>> for output in judged_outputs:
+        ...     print(output)
+    """
+    import oumi.judge
+
+    return oumi.judge.judge_dataset(config, dataset)
+
+
+def train(config: TrainingConfig, **kwargs) -> None:
+    """Trains a model using the provided configuration."""
+    import oumi.train
+
+    return oumi.train.train(config, *kwargs)
+
+
 __all__ = [
-    "datasets",
     "evaluate_async",
     "evaluate_lm_harness",
     "evaluate",
@@ -78,7 +254,5 @@ __all__ = [
     "infer",
     "judge_conversations",
     "judge_dataset",
-    "judges",
-    "models",
     "train",
 ]

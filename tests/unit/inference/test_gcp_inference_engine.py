@@ -11,9 +11,9 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -82,8 +82,8 @@ def create_test_multimodal_text_image_conversation():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
-                    MessageContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
                 ],
             ),
             Message(content="Hi there!", role=Role.ASSISTANT),

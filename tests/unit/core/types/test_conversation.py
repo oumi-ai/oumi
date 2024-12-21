@@ -1,13 +1,14 @@
 import base64
 from typing import Final, cast
 
+import pydantic
 import pytest
 
 from oumi.core.types.conversation import (
+    ContentItem,
+    ContentItemCounts,
     Conversation,
     Message,
-    MessageContentItem,
-    MessageContentItemCounts,
     Role,
     Type,
 )
@@ -32,12 +33,8 @@ def test_conversation():
     message3 = Message(
         role=role_user,
         content=[
-            MessageContentItem(
-                type=Type.TEXT, content="I need assistance with my account."
-            ),
-            MessageContentItem(
-                type=Type.IMAGE_BINARY, binary=_create_test_image_bytes()
-            ),
+            ContentItem(type=Type.TEXT, content="I need assistance with my account."),
+            ContentItem(type=Type.IMAGE_BINARY, binary=_create_test_image_bytes()),
         ],
     )
 
@@ -130,11 +127,11 @@ def test_conversation_to_dict_compound_text_content():
         messages=[
             Message(
                 role=Role.USER,
-                content=[MessageContentItem(type=Type.TEXT, content="Hello")],
+                content=[ContentItem(type=Type.TEXT, content="Hello")],
             ),
             Message(
                 role=Role.ASSISTANT,
-                content=[MessageContentItem(type=Type.TEXT, content="Hi there!")],
+                content=[ContentItem(type=Type.TEXT, content="Hi there!")],
             ),
         ],
         metadata={"test": "metadata"},
@@ -160,15 +157,15 @@ def test_conversation_to_dict_compound_mixed_content():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
-                    MessageContentItem(type=Type.TEXT, content="Hello"),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+                    ContentItem(type=Type.TEXT, content="Hello"),
                 ],
             ),
             Message(
                 role=Role.ASSISTANT,
                 content=[
-                    MessageContentItem(type=Type.TEXT, content="Hi there!"),
-                    MessageContentItem(
+                    ContentItem(type=Type.TEXT, content="Hi there!"),
+                    ContentItem(
                         type=Type.IMAGE_URL,
                         content="/tmp/foo.png",
                         binary=png_bytes,
@@ -247,7 +244,6 @@ def test_conversation_from_dict_compound_mixed_content():
         "messages": [
             {
                 "role": "user",
-                "type": "compound",
                 "content": [
                     {
                         "binary": _SMALL_B64_IMAGE,
@@ -268,8 +264,8 @@ def test_conversation_from_dict_compound_mixed_content():
     assert conv.messages[0].role == Role.USER
     assert isinstance(conv.messages[0].content, list)
     assert conv.messages[0].content == [
-        MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
-        MessageContentItem(type=Type.TEXT, content="Hello"),
+        ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+        ContentItem(type=Type.TEXT, content="Hello"),
     ]
     assert conv.messages[1].role == Role.ASSISTANT
     assert conv.messages[1].content == "Hi there!"
@@ -300,15 +296,15 @@ def test_conversation_to_json_mixed_content():
             Message(
                 role=Role.USER,
                 content=[
-                    MessageContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
-                    MessageContentItem(type=Type.TEXT, content="Hello"),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+                    ContentItem(type=Type.TEXT, content="Hello"),
                 ],
             ),
             Message(
                 role=Role.ASSISTANT,
                 content=[
-                    MessageContentItem(type=Type.TEXT, content="Hi there!"),
-                    MessageContentItem(
+                    ContentItem(type=Type.TEXT, content="Hi there!"),
+                    ContentItem(
                         type=Type.IMAGE_URL,
                         content="/tmp/foo.png",
                         binary=png_bytes,
@@ -361,7 +357,7 @@ def test_conversation_from_json_with_unknown_fields():
 
 
 def test_conversation_from_json_compound_simple():
-    json_str = '{"messages": [{"role": "user", "type": "compound", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
+    json_str = '{"messages": [{"role": "user", "content": [{"type": "text", "content": "Hello"}]}, {"role": "assistant", "content": "Hi there!"}], "metadata": {"test": "metadata"}}'  # noqa: E501
     conv = Conversation.from_json(json_str)
 
     assert isinstance(conv, Conversation)
@@ -369,9 +365,7 @@ def test_conversation_from_json_compound_simple():
     assert conv.metadata == {"test": "metadata"}
     assert conv.messages[0].role == Role.USER
     assert isinstance(conv.messages[0].content, list)
-    assert conv.messages[0].content == [
-        MessageContentItem(type=Type.TEXT, content="Hello")
-    ]
+    assert conv.messages[0].content == [ContentItem(type=Type.TEXT, content="Hello")]
     assert conv.messages[1].role == Role.ASSISTANT
     assert conv.messages[1].content == "Hi there!"
 
@@ -413,11 +407,9 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
                 id="z072",
                 role=Role.USER,
                 content=[
-                    MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
-                    MessageContentItem(
-                        binary=png_small_image_bytes, type=Type.IMAGE_BINARY
-                    ),
-                    MessageContentItem(
+                    ContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(binary=png_small_image_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(
                         content="https://www.oumi.ai/logo.png",
                         type=Type.IMAGE_URL,
                     ),
@@ -427,19 +419,19 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
                 id="_xyz",
                 role=Role.TOOL,
                 content=[
-                    MessageContentItem(
+                    ContentItem(
                         content=str(
                             root_testdata_dir / "images" / "oumi_logo_dark.png"
                         ),
                         binary=png_logo_bytes,
                         type=Type.IMAGE_PATH,
                     ),
-                    MessageContentItem(
+                    ContentItem(
                         content="http://oumi.ai/bzz.png",
                         binary=png_small_image_bytes,
                         type=Type.IMAGE_URL,
                     ),
-                    MessageContentItem(content="<@>", type=Type.TEXT),
+                    ContentItem(content="<@>", type=Type.TEXT),
                 ],
             ),
         ],
@@ -488,11 +480,9 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
                 id="z072",
                 role=Role.USER,
                 content=[
-                    MessageContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
-                    MessageContentItem(
-                        binary=png_small_image_bytes, type=Type.IMAGE_BINARY
-                    ),
-                    MessageContentItem(
+                    ContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(binary=png_small_image_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(
                         content="https://www.oumi.ai/logo.png",
                         type=Type.IMAGE_URL,
                     ),
@@ -502,19 +492,19 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
                 id="_xyz",
                 role=Role.TOOL,
                 content=[
-                    MessageContentItem(
+                    ContentItem(
                         content=str(
                             root_testdata_dir / "images" / "oumi_logo_dark.png"
                         ),
                         binary=png_logo_bytes,
                         type=Type.IMAGE_PATH,
                     ),
-                    MessageContentItem(
+                    ContentItem(
                         content="http://oumi.ai/bzz.png",
                         binary=png_small_image_bytes,
                         type=Type.IMAGE_URL,
                     ),
-                    MessageContentItem(content="<@>", type=Type.TEXT),
+                    ContentItem(content="<@>", type=Type.TEXT),
                 ],
             ),
         ],
@@ -543,7 +533,6 @@ def test_from_dict_with_invalid_base64():
                 "messages": [
                     {
                         "role": "user",
-                        "type": "compound",
                         "content": [
                             {
                                 "binary": "INVALID_BASE64!",
@@ -571,22 +560,22 @@ def test_empty_content_string():
 
 def test_incorrect_message_content_item_type():
     with pytest.raises(ValueError, match="Input should be a valid string"):
-        MessageContentItem(
+        ContentItem(
             type=Type.TEXT,
             content=cast(str, 12345.7),  # Hacky way to pass a number as content.
         )
     with pytest.raises(ValueError, match="Either content or binary must be provided"):
-        MessageContentItem(
+        ContentItem(
             type=Type.TEXT,
         )
     with pytest.raises(ValueError, match="No image bytes in message content item"):
-        MessageContentItem(type=Type.IMAGE_BINARY, binary=b"")
+        ContentItem(type=Type.IMAGE_BINARY, binary=b"")
     with pytest.raises(ValueError, match="Content not provided"):
-        MessageContentItem(type=Type.IMAGE_URL, binary=b"")
+        ContentItem(type=Type.IMAGE_URL, binary=b"")
     with pytest.raises(ValueError, match="Content not provided"):
-        MessageContentItem(type=Type.IMAGE_PATH, binary=b"")
+        ContentItem(type=Type.IMAGE_PATH, binary=b"")
     with pytest.raises(ValueError, match="Binary can only be provided for images"):
-        MessageContentItem(type=Type.TEXT, binary=b"")
+        ContentItem(type=Type.TEXT, binary=b"")
 
 
 @pytest.mark.parametrize(
@@ -594,17 +583,15 @@ def test_incorrect_message_content_item_type():
     [Role.USER, Role.ASSISTANT, Role.TOOL, Role.SYSTEM],
 )
 def test_content_item_methods_mixed_items(role: Role):
-    text_item1 = MessageContentItem(type=Type.TEXT, content="aaa")
-    image_item1 = MessageContentItem(
-        type=Type.IMAGE_BINARY, binary=_create_test_image_bytes()
-    )
-    text_item2 = MessageContentItem(type=Type.TEXT, content=" B B ")
-    image_item2 = MessageContentItem(
+    text_item1 = ContentItem(type=Type.TEXT, content="aaa")
+    image_item1 = ContentItem(type=Type.IMAGE_BINARY, binary=_create_test_image_bytes())
+    text_item2 = ContentItem(type=Type.TEXT, content=" B B ")
+    image_item2 = ContentItem(
         type=Type.IMAGE_PATH,
         content="/tmp/test/dummy.jpeg",
         binary=_create_test_image_bytes(),
     )
-    text_item3 = MessageContentItem(type=Type.TEXT, content="CC")
+    text_item3 = ContentItem(type=Type.TEXT, content="CC")
 
     message = Message(
         role=role,
@@ -638,7 +625,7 @@ def test_content_item_methods_mixed_items(role: Role):
     assert message.image_content_items == [image_item1, image_item2]
     assert message.text_content_items == [text_item1, text_item2, text_item3]
 
-    assert message.count_content_items() == MessageContentItemCounts(
+    assert message.count_content_items() == ContentItemCounts(
         total_items=5, image_items=2, text_items=3
     )
 
@@ -648,7 +635,7 @@ def test_content_item_methods_mixed_items(role: Role):
     [Type.IMAGE_BINARY, Type.IMAGE_PATH, Type.IMAGE_URL],
 )
 def test_content_item_methods_single_image(image_type):
-    test_image_item = MessageContentItem(
+    test_image_item = ContentItem(
         type=image_type,
         content=(None if image_type == Type.IMAGE_BINARY else "foo"),
         binary=(
@@ -677,21 +664,21 @@ def test_content_item_methods_single_image(image_type):
     assert message.image_content_items == [test_image_item]
     assert message.text_content_items == []
 
-    assert message.count_content_items() == MessageContentItemCounts(
+    assert message.count_content_items() == ContentItemCounts(
         total_items=1, image_items=1, text_items=0
     )
 
 
 def test_content_item_methods_triple_image():
-    test_image_item1 = MessageContentItem(
+    test_image_item1 = ContentItem(
         type=Type.IMAGE_BINARY,
         binary=(_create_test_image_bytes()),
     )
-    test_image_item2 = MessageContentItem(
+    test_image_item2 = ContentItem(
         type=Type.IMAGE_URL,
         content="http://oumi.ai/a.png",
     )
-    test_image_item3 = MessageContentItem(
+    test_image_item3 = ContentItem(
         type=Type.IMAGE_PATH,
         content="/tmp/oumi.ai/b.gif",
     )
@@ -723,13 +710,13 @@ def test_content_item_methods_triple_image():
     ]
     assert message.text_content_items == []
 
-    assert message.count_content_items() == MessageContentItemCounts(
+    assert message.count_content_items() == ContentItemCounts(
         total_items=3, image_items=3, text_items=0
     )
 
 
 def test_content_item_methods_legacy_text():
-    test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    test_text_item = ContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
         content=(test_text_item.content or ""),
@@ -752,13 +739,13 @@ def test_content_item_methods_legacy_text():
     assert message.image_content_items == []
     assert message.text_content_items == [test_text_item]
 
-    assert message.count_content_items() == MessageContentItemCounts(
+    assert message.count_content_items() == ContentItemCounts(
         total_items=1, image_items=0, text_items=1
     )
 
 
 def test_content_item_methods_double_text():
-    test_text_item = MessageContentItem(type=Type.TEXT, content="bzzz")
+    test_text_item = ContentItem(type=Type.TEXT, content="bzzz")
     message = Message(
         role=Role.USER,
         content=[test_text_item, test_text_item],
@@ -782,7 +769,7 @@ def test_content_item_methods_double_text():
     assert message.image_content_items == []
     assert message.text_content_items == [test_text_item, test_text_item]
 
-    assert message.count_content_items() == MessageContentItemCounts(
+    assert message.count_content_items() == ContentItemCounts(
         total_items=2, image_items=0, text_items=2
     )
 
@@ -805,3 +792,42 @@ def test_type_str_repr():
     assert "image_url" in repr(Type.IMAGE_URL)
     assert str(Type.IMAGE_PATH) == "image_path"
     assert "image_path" in repr(Type.IMAGE_PATH)
+
+
+def test_frozen_message_content_item():
+    test_item = ContentItem(type=Type.TEXT, content="init")
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        test_item.content = "foo"
+    assert test_item.content == "init"
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        test_item.type = Type.IMAGE_BINARY
+    assert test_item.type == Type.TEXT
+
+
+def test_frozen_message():
+    test_item = ContentItem(type=Type.TEXT, content="bzzz")
+    message = Message(
+        id="007",
+        role=Role.ASSISTANT,
+        content=[test_item, test_item],
+    )
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.id = "001"
+    assert message.id == "007"
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.role = Role.TOOL
+    assert message.role == Role.ASSISTANT
+
+    with pytest.raises(pydantic.ValidationError, match="Instance is frozen"):
+        message.content = "Hey"
+    assert isinstance(message.content, list)
+    assert len(message.content) == 2
+
+    # Pydantic "frozen" only ensures that `message.content` can't be re-assigned
+    # but it doesn't enforce the field object itself is immutable.
+    message.content.append(test_item)
+    assert isinstance(message.content, list)
+    assert len(message.content) == 3

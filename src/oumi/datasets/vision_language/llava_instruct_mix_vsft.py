@@ -3,9 +3,9 @@ from typing_extensions import override
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     Message,
-    MessageContentItem,
     Role,
     Type,
 )
@@ -34,13 +34,13 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                 f"Actual: {len(message_list)}"
             )
 
-        text_items: list[MessageContentItem] = []
-        image_items: list[MessageContentItem] = []
+        text_items: list[ContentItem] = []
+        image_items: list[ContentItem] = []
         for user_message in message_list:
             message_type = user_message["type"]
             if message_type == "text":
                 text_items.append(
-                    MessageContentItem(
+                    ContentItem(
                         type=Type.TEXT,
                         content=self._process_text_value(user_message["text"]),
                     )
@@ -56,14 +56,14 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                 image_dict = images[image_index]
                 if "bytes" in image_dict and image_dict["bytes"]:
                     image_items.append(
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.IMAGE_BINARY,
                             binary=image_dict["bytes"],
                         )
                     )
                 elif "path" in image_dict and image_dict["path"]:
                     image_items.append(
-                        MessageContentItem(
+                        ContentItem(
                             type=Type.IMAGE_PATH,
                             content=image_dict["path"],
                         )

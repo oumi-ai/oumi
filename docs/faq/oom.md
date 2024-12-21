@@ -125,7 +125,22 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
     :::
     ::::
 
-7. Use Paged Adam:
+7. Tune CUDA Allocator Settings
+
+    It's sometimes possible to eliminate OOM errors (e.g., OOM-s caused by GPU VRAM fragmentation) by tuning CUDA allocator configuration as described in [PyTorch Optimizing Memory Usage](https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) e.g., by switching to a different allocator, tuning garbage collection settings. Example:
+
+    ::::{tab-set-code}
+    :::{code-block} yaml
+    envs:
+        PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+    :::
+
+    :::{code-block} shell
+    export PYTORCH_CUDA_ALLOC_CONF="garbage_collection_threshold:0.8,max_split_size_mb:128"
+    :::
+    ::::
+
+8. Use Paged Adam:
 
     ::::{tab-set-code}
     :::{code-block} python
@@ -142,9 +157,9 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
     :::
     ::::
 
-```{note}
-Paged Adam requires `bitsandbytes` to be installed.
-```
+    ```{note}
+    Paged Adam requires `bitsandbytes` to be installed.
+    ```
 
 ## Model Configuration
 
@@ -370,6 +385,6 @@ If you have access to multiple GPUs, you can leverage FSDP to distribute the tra
     :::
     ::::
 
-```{attention}
-Disabling FSDP's forward and backward prefetch can lead to significant slower training times, use with caution.
-```
+    ```{attention}
+    Disabling FSDP's forward and backward prefetch can lead to significant slower training times, use with caution.
+    ```
