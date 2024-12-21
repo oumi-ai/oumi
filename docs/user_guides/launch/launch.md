@@ -9,7 +9,7 @@ deploy
 remote
 ```
 
-Oumi launcher allows you to run jobs on remote clusters. It provides a unified interface, allowing you to seamlessly switch between popular cloud providers and your own custom clusters.
+Oumi launcher allows you to run jobs on remote clusters. It provides a unified interface, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
 
 ## Setup
 
@@ -23,7 +23,7 @@ Oumi launcher integrates with SkyPilot to launch jobs on popular cloud providers
   pip install oumi[runpod]  # For RunPod
   ```
 
-Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html).
+Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).
 
 ## Overview
 
@@ -51,7 +51,7 @@ oumi launch up --cluster oumi-cluster -c configs/recipes/smollm/launch/135m_gcp_
 
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
-To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud gcp`. Most of our configs run on GCP by default. See [this page](https://oumi.ai/docs/latest/api/oumi.launcher.html#oumi.launcher.JobResources.cloud) for all supported clouds, or run:
+To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud lambda`. Most of our configs run on GCP by default. See [this page](https://oumi.ai/docs/latest/api/oumi.launcher.html#oumi.launcher.JobResources.cloud) for all supported clouds, or run:
 
 ```shell
 oumi launch which
@@ -91,9 +91,9 @@ oumi launch stop --cluster oumi-cluster
 
 In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
 
-Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically started by specifying them in an `oumi launch up` command.
+Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in an `oumi launch up` command.
 
-To turn down a cluster, including deleting their associated disk, run:
+To turn down a cluster, which deletes their associated disk and removes them from our list of existing clusters, run:
 
 ```shell
 oumi launch down --cluster oumi-cluster
