@@ -2,9 +2,7 @@ from typing import Annotated
 
 import typer
 
-import oumi.core.cli.cli_utils as cli_utils
-from oumi import evaluate as oumi_evaluate
-from oumi.core.configs import EvaluationConfig
+import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 
@@ -26,6 +24,12 @@ def evaluate(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    # Delayed imports
+    from oumi import evaluate as oumi_evaluate
+    from oumi.core.configs import EvaluationConfig
+    # End imports
+
     # Load configuration
     parsed_config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger

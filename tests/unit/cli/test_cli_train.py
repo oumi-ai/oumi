@@ -7,8 +7,11 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.train import train
+import oumi
+import oumi.core.distributed
+import oumi.utils.torch_utils
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.train import train
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -65,25 +68,31 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch("oumi.core.cli.train.oumi_train") as m_train:
+    with patch.object(oumi, "train", autospec=True) as m_train:
         yield m_train
 
 
 @pytest.fixture
 def mock_limit_per_process_memory():
-    with patch("oumi.core.cli.train.limit_per_process_memory") as m_memory:
+    with patch.object(
+        oumi.utils.torch_utils, "limit_per_process_memory", autospec=True
+    ) as m_memory:
         yield m_memory
 
 
 @pytest.fixture
 def mock_device_cleanup():
-    with patch("oumi.core.cli.train.device_cleanup") as m_cleanup:
+    with patch.object(
+        oumi.utils.torch_utils, "device_cleanup", autospec=True
+    ) as m_cleanup:
         yield m_cleanup
 
 
 @pytest.fixture
 def mock_set_random_seeds():
-    with patch("oumi.core.cli.train.set_random_seeds") as m_seeds:
+    with patch.object(
+        oumi.core.distributed, "set_random_seeds", autospec=True
+    ) as m_seeds:
         yield m_seeds
 
 
@@ -100,8 +109,8 @@ def test_train_runs(
         config.to_yaml(train_yaml_path)
         _ = runner.invoke(app, ["--config", train_yaml_path, "--log-level", "ERROR"])
         mock_limit_per_process_memory.assert_called_once()
-        mock_device_cleanup.assert_has_calls([call(), call()])
         mock_train.assert_has_calls([call(config)])
+        mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
         assert logger.level == logging.ERROR
 
@@ -129,9 +138,9 @@ def test_train_with_overrides(
             ],
         )
         mock_limit_per_process_memory.assert_called_once()
-        mock_device_cleanup.assert_has_calls([call(), call()])
         expected_config = _create_training_config()
         expected_config.model.tokenizer_name = "new_name"
         expected_config.training.max_steps = 5
         mock_train.assert_has_calls([call(expected_config)])
+        mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()

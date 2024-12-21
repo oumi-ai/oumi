@@ -2,7 +2,7 @@
 
 ## Training
 
-```{typer} oumi.core.cli.main.app.train
+```{typer} oumi.cli.main.app.train
   :prog: oumi train
   :make-sections:
   :preferred: svg
@@ -12,7 +12,7 @@
 
 ## Evaluation
 
-```{typer} oumi.core.cli.main.app.evaluate
+```{typer} oumi.cli.main.app.evaluate
   :prog: oumi evaluate
   :make-sections:
   :preferred: svg
@@ -22,7 +22,7 @@
 
 ## Inference
 
-```{typer} oumi.core.cli.main.app.infer
+```{typer} oumi.cli.main.app.infer
   :prog: oumi infer
   :make-sections:
   :preferred: svg
@@ -32,7 +32,7 @@
 
 ## Judge
 
-```{typer} oumi.core.cli.main.app.judge
+```{typer} oumi.cli.main.app.judge
   :prog: oumi judge
   :make-sections:
   :show-nested:
@@ -43,7 +43,7 @@
 
 ## Launch
 
-```{typer} oumi.core.cli.main.app.launch
+```{typer} oumi.cli.main.app.launch
   :prog: oumi launch
   :make-sections:
   :show-nested:

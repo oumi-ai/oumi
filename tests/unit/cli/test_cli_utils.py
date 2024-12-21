@@ -2,7 +2,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import (
+from oumi.cli.cli_utils import (
     CONFIG_FLAGS,
     CONTEXT_ALLOW_EXTRA_ARGS,
     LogLevel,

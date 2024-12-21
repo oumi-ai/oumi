@@ -3,11 +3,7 @@ from typing import Annotated, Optional
 
 import typer
 
-import oumi.core.cli.cli_utils as cli_utils
-from oumi import infer as oumi_infer
-from oumi import infer_interactive as oumi_infer_interactive
-from oumi.core.configs import InferenceConfig
-from oumi.utils.image_utils import load_image_png_bytes_from_path
+import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 
@@ -50,6 +46,14 @@ def infer(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    # Delayed imports
+    from oumi import infer as oumi_infer
+    from oumi import infer_interactive as oumi_infer_interactive
+    from oumi.core.configs import InferenceConfig
+    from oumi.utils.image_utils import load_image_png_bytes_from_path
+    # End imports
+
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
