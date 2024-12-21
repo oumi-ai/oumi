@@ -131,7 +131,7 @@ The `Message` class represents a single message in a conversation. Key attribute
 
 ### ContentItem
 
-The `ContentItem` class represents a single part of content used in messages in a conversation. Key attributes include:
+The `ContentItem` class represents a single type part of content used in multimodal messages in a conversation. Key attributes include:
 
 - `type`: The type of the content
 - `content`: Optional text content (used for content text items, or to store image URL or path for `IMAGE_URL` and `IMAGE_PATH` content items respectively).
