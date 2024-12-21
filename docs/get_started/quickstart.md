@@ -100,7 +100,7 @@ Using a model downloaded from HuggingFace:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
-  --lm_harness_params.tasks "[m_mmlu_en]"
+  --tasks "[{lm_harness_task_params: {task_name: m_mmlu_en}}]"
 ```
 
 Or with our newly trained model saved on disk:
@@ -108,7 +108,7 @@ Or with our newly trained model saved on disk:
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
   --model.model_name output/smollm-135m-sft \
-  --lm_harness_params.tasks "[m_mmlu_en]"
+  --tasks "[{lm_harness_task_params: {task_name: m_mmlu_en}}]"
 ```
 
 ## Inference
