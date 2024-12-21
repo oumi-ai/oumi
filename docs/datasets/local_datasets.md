@@ -137,7 +137,7 @@ The `ContentItem` class represents a single type part of content used in multimo
 - `content`: Optional text content (used for content text items, or to store image URL or path for `IMAGE_URL` and `IMAGE_PATH` content items respectively).
 - `binary`: Optional binary data for the content item (used for images)
 
-Either `content` or `binary` must be provided when creating a `Message` instance.
+Either `content` or `binary` must be provided when creating a `ContentItem` instance.
 
 ### Conversation
 
