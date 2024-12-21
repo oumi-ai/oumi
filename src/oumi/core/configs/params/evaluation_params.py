@@ -89,9 +89,16 @@ class AlpacaEvalTaskParams(BaseTaskParams):
 class EvaluationTaskParams(BaseParams):
     """Wrapper for task params of different evaluation platforms."""
 
-    # Only one of the following *_task_params variables can be set.
     lm_harness_task_params: Optional[LMHarnessTaskParams] = None
+    """Used when the task will be evaluated using the LM Harness evaluation platform.
+    Only a single *_task_params variable can be set in this class, so this is mutually
+    exclusive with `alpaca_eval_task_params`.
+    """
+
     alpaca_eval_task_params: Optional[AlpacaEvalTaskParams] = None
+    """Used when the task will be evaluated using the AlpacaEval evaluation platform.
+    Only a single *_task_params variable can be set in this class, so this is mutually
+    exclusive with `lm_harness_task_params`."""
 
     def evaluation_platform(self):
         """Returns the evaluation platform to use for the current task."""
