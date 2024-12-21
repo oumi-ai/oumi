@@ -58,7 +58,9 @@ See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
 
-from typing import TYPE_CHECKING, Any, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from oumi.utils import logging
 
@@ -126,7 +128,7 @@ def evaluate_lm_harness(config: EvaluationConfig) -> None:
 
 
 def infer_interactive(
-    config: InferenceConfig, *, input_image_bytes: Optional[bytes] = None
+    config: InferenceConfig, *, input_image_bytes: bytes | None = None
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     import oumi.infer
@@ -136,10 +138,10 @@ def infer_interactive(
 
 def infer(
     config: InferenceConfig,
-    inputs: Optional[list[str]] = None,
-    inference_engine: Optional[BaseInferenceEngine] = None,
+    inputs: list[str] | None = None,
+    inference_engine: BaseInferenceEngine | None = None,
     *,
-    input_image_bytes: Optional[bytes] = None,
+    input_image_bytes: bytes | None = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
