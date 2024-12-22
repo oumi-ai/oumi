@@ -1,27 +1,28 @@
 from inspect import signature
-from typing import Callable
+from typing import Callable, get_type_hints
 from unittest.mock import Mock, patch
 
 import pytest
 from typer.testing import CliRunner
 
-from oumi.core.cli.distributed_run import accelerate, torchrun
-from oumi.core.cli.env import env
-from oumi.core.cli.evaluate import evaluate
-from oumi.core.cli.infer import infer
-from oumi.core.cli.judge import conversations, dataset
-from oumi.core.cli.launch import cancel, down, status, stop, up, which
-from oumi.core.cli.launch import run as launcher_run
-from oumi.core.cli.main import get_app
-from oumi.core.cli.train import train
+from oumi.cli.distributed_run import accelerate, torchrun
+from oumi.cli.env import env
+from oumi.cli.evaluate import evaluate
+from oumi.cli.infer import infer
+from oumi.cli.judge import conversations, dataset
+from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import run as launcher_run
+from oumi.cli.main import get_app
+from oumi.cli.train import train
 
 runner = CliRunner()
 
 
 def _copy_command(mock: Mock, command: Callable):
     mock.__name__ = command.__name__
-    mock.__annotations__ = command.__annotations__
+    mock.__annotations__ = get_type_hints(command)
     mock.__signature__ = signature(command)
+    mock.__bool__ = lambda _: True
 
 
 #
@@ -29,105 +30,105 @@ def _copy_command(mock: Mock, command: Callable):
 #
 @pytest.fixture
 def mock_train():
-    with patch("oumi.core.cli.main.train") as m_train:
+    with patch("oumi.cli.main.train") as m_train:
         _copy_command(m_train, train)
         yield m_train
 
 
 @pytest.fixture
 def mock_eval():
-    with patch("oumi.core.cli.main.evaluate") as m_eval:
+    with patch("oumi.cli.main.evaluate") as m_eval:
         _copy_command(m_eval, evaluate)
         yield m_eval
 
 
 @pytest.fixture
 def mock_infer():
-    with patch("oumi.core.cli.main.infer") as m_infer:
+    with patch("oumi.cli.main.infer") as m_infer:
         _copy_command(m_infer, infer)
         yield m_infer
 
 
 @pytest.fixture
 def mock_down():
-    with patch("oumi.core.cli.main.down") as m_down:
+    with patch("oumi.cli.main.down") as m_down:
         _copy_command(m_down, down)
         yield m_down
 
 
 @pytest.fixture
 def mock_stop():
-    with patch("oumi.core.cli.main.stop") as m_stop:
+    with patch("oumi.cli.main.stop") as m_stop:
         _copy_command(m_stop, stop)
         yield m_stop
 
 
 @pytest.fixture
 def mock_launcher_run():
-    with patch("oumi.core.cli.main.launcher_run") as m_launcher_run:
+    with patch("oumi.cli.main.launcher_run") as m_launcher_run:
         _copy_command(m_launcher_run, launcher_run)
         yield m_launcher_run
 
 
 @pytest.fixture
 def mock_status():
-    with patch("oumi.core.cli.main.status") as m_status:
+    with patch("oumi.cli.main.status") as m_status:
         _copy_command(m_status, status)
         yield m_status
 
 
 @pytest.fixture
 def mock_cancel():
-    with patch("oumi.core.cli.main.cancel") as m_cancel:
+    with patch("oumi.cli.main.cancel") as m_cancel:
         _copy_command(m_cancel, cancel)
         yield m_cancel
 
 
 @pytest.fixture
 def mock_up():
-    with patch("oumi.core.cli.main.up") as m_up:
+    with patch("oumi.cli.main.up") as m_up:
         _copy_command(m_up, up)
         yield m_up
 
 
 @pytest.fixture
 def mock_which():
-    with patch("oumi.core.cli.main.which") as m_which:
+    with patch("oumi.cli.main.which") as m_which:
         _copy_command(m_which, which)
         yield m_which
 
 
 @pytest.fixture
 def mock_judge_dataset():
-    with patch("oumi.core.cli.main.dataset") as m_dataset:
+    with patch("oumi.cli.main.dataset") as m_dataset:
         _copy_command(m_dataset, dataset)
         yield m_dataset
 
 
 @pytest.fixture
 def mock_judge_conversations():
-    with patch("oumi.core.cli.main.conversations") as m_conversations:
+    with patch("oumi.cli.main.conversations") as m_conversations:
         _copy_command(m_conversations, conversations)
         yield m_conversations
 
 
 @pytest.fixture
 def mock_distributed_torchrun():
-    with patch("oumi.core.cli.main.torchrun") as m_torchrun:
+    with patch("oumi.cli.main.torchrun") as m_torchrun:
         _copy_command(m_torchrun, torchrun)
         yield m_torchrun
 
 
 @pytest.fixture
 def mock_distributed_accelerate():
-    with patch("oumi.core.cli.main.accelerate") as m_accelerate:
+    with patch("oumi.cli.main.accelerate") as m_accelerate:
         _copy_command(m_accelerate, accelerate)
         yield m_accelerate
 
 
 @pytest.fixture
 def mock_env():
-    with patch("oumi.core.cli.main.env") as m_env:
+    with patch("oumi.cli.main.env") as m_env:
         _copy_command(m_env, env)
         yield m_env
 

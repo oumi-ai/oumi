@@ -3,8 +3,6 @@ import importlib.util
 import os
 import platform
 
-from oumi.utils.torch_utils import format_cudnn_version
-
 
 def _get_package_version(package_name: str, version_fallback: str) -> str:
     """Gets the version of the specified package.
@@ -50,6 +48,10 @@ def _get_padded_table(
 
 def env():
     """Prints information about the current environment."""
+    # Delayed imports
+    from oumi.utils.torch_utils import format_cudnn_version
+    # End imports
+
     version_fallback = "<not installed>"
     env_var_fallback = "<not set>"
 
