@@ -77,12 +77,6 @@ Oumi has several optional features that require additional dependencies:
   pip install ".[dev]"
   ```
 
-- For the Cambrian multi-modal model:
-
-  ```bash
-  pip install ".[cambrian]"
-  ```
-
 - For specific cloud providers:
 
   ```bash
@@ -97,12 +91,6 @@ Oumi has several optional features that require additional dependencies:
 
   ```bash
   pip install ".[aws,azure,gcp]"
-  ```
-
-- For other optional dependencies, including those needed for various inference engines:
-
-  ```bash
-  pip install ".[optional]"
   ```
 
 ## Verifying the Installation
