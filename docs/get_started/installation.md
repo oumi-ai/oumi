@@ -10,7 +10,7 @@ Before installing Oumi, ensure you have the following:
 - pip (Python package installer)
 - Git (for cloning the repository)
 
-We recommend using a virtual environment to install Oumi. You can find instructions for setting up a conda environment in the {doc}`development/dev_setup` guide.
+We recommend using a virtual environment to install Oumi. You can find instructions for setting up a conda environment in the {doc}`/development/dev_setup` guide.
 
 ## Installation Methods
 

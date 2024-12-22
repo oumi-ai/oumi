@@ -97,11 +97,10 @@ trainers
 ## Advanced Topics
 
 - {doc}`finetuning`: Learn about fine-tuning techniques and best practices.
-- {doc}`llama`: Specific guide for training LLaMA models.
 - {doc}`performance_optimization`: Tips for optimizing training performance.
 - {doc}`distributed_training`: Tips for optimizing training performance.
 - {doc}`quantization`: Tips for optimizing training performance.
-- {doc}`../models/custom_models`: Guide on implementing custom model architectures.
+- {doc}`/models/custom_models`: Guide on implementing custom model architectures.
 
 ## Troubleshooting
 
