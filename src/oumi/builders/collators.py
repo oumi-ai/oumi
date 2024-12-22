@@ -34,7 +34,7 @@ def build_data_collator(
             Supported values are:
                 - "text_with_padding": Uses TextCollatorWithPadding for text data.
                 - "vision_language_with_padding": Uses VisionLanguageCollatorWithPadding
-                  for multi-modal data.
+                    for multi-modal data.
         tokenizer: A tokenizer.
         max_length: An optional maximum sequence length.
         label_ignore_index: If set, then label values of tokens that shouldn't
