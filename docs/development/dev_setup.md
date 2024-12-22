@@ -16,11 +16,11 @@ Alternatively, install Miniconda from the [Anaconda website](https://docs.anacon
 
 ## 2.1 Install GitHub CLI
 
-### 2.1.0 Installation instructions for Windows
+### 2.1.1 Installation instructions for Windows
 
 We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/) using [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install). Then, proceed to [step 1.1.2](#installation-instructions-for-linux-including-wsl).
 
-### 2.1.1 Installation instructions for Mac
+### 2.1.2 Installation instructions for Mac
 
 Install Homebrew (command copied from <www.brew.sh>)
 
@@ -34,7 +34,7 @@ Then follow "Next steps" (shown after installation) to add `brew` into `.zprofil
 brew install gh
 ```
 
-### 2.1.2 Installation instructions for Linux, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
+### 2.1.3 Installation instructions for Linux, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
 
 Use Conda to install the `gh` CLI (command copied from <https://github.com/cli/cli?tab=readme-ov-file#conda>):
 
@@ -87,17 +87,9 @@ pre-commit uninstall
 pre-commit install --install-hooks --hook-type pre-push
 ```
 
-#### Optional dependencies
+#### 3.2.1 Optional dependencies
 
 Follow [these instructions](../get_started/installation.md#optional-dependencies) to install optional dependencies you may want depending on your use case.
-
-#### Upgrade dependencies
-
-To upgrade your package versions in the future, run:
-
-```shell
-make upgrade
-```
 
 ### 3.3 [optional] Add an Oumi alias to your shell
 
@@ -121,7 +113,7 @@ The Oumi launcher can be used to launch jobs on remote clusters. Our launcher in
 
 ## 5. [optional] Set up HuggingFace
 
-Oumi integrates with HuggingFace Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
+Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
 
 1. [Sign up for HuggingFace](https://huggingface.co/join) if you haven't done so already.
 2. Create a [user access token](https://huggingface.co/docs/hub/en/security-tokens). If you only need to read content from the Hub, create a `read` token. If you also plan to push datasets or models to the Hub, create a `write` token.
@@ -133,7 +125,7 @@ Oumi integrates with HuggingFace Hub for access to models and datasets. While mo
 
    This will save your token in the HF cache directory at `~/.cache/huggingface/token`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L19) for an example.
 
-### Getting access to Llama
+### 5.1 Getting access to Llama
 
 Llama models are gated on HF Hub. To gain access, sign the agreement on your desired Llama model's Hub page. It usually takes a few hours to get access to the model after signing the agreement. There is a separate agreement for each version of Llama:
 
@@ -142,3 +134,21 @@ Llama models are gated on HF Hub. To gain access, sign the agreement on your des
 - [Llama 3.1](https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct)
 - [Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct)
 - [Llama 3.3](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
+
+## 6. [optional] Set up Weights and Biases
+
+Oumi integrates with Weights and Biases (WandB) to track the results of training and evaluation runs. Run the following to log in on your machine:
+
+```shell
+wandb login
+```
+
+This will save your login info at `~/.netrc`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L16) for an example.
+
+## 7. [optional] Set up VSCode
+
+We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi conda environment so that notebooks run in VSCode use the right kernel.
+
+## 8. Test your setup!
+
+To test that your setup is complete, you can run `oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/gcp_job.yaml --cluster llama8b-lora`. This requires step 4 (SkyPilot GCP), step 5 (HF), step 5.1 (Llama 3.1 access), and step 6 (WandB).
