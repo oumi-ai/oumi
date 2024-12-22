@@ -23,7 +23,7 @@ lm_harness_params:
 ```
 
 ```{note}
-Adjust the parameters according to your specific evaluation needs. For a complete list of configuration options, refer to {doc}`Configuration Guide <../../get_started/configuration>` page and {py:class}`~oumi.core.configs.Evaluation` class.
+Adjust the parameters according to your specific evaluation needs. For a complete list of configuration options, refer to {py:class}`~oumi.core.configs.Evaluation` class.
 ```
 
 ## Language Model Evaluation Harness

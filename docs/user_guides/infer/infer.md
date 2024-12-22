@@ -37,7 +37,7 @@ engine: "VLLM"  # or "LLAMACPP", "NATIVE", etc.
 ```
 
 ```{note}
-Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {doc}`Configuration Guide <../../get_started/configuration>` and {py:class}`~oumi.core.configs.InferenceConfig` class.
+Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {py:class}`~oumi.core.configs.InferenceConfig` class.
 ```
 
 ## Input Data
