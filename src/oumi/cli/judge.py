@@ -1,20 +1,20 @@
 import json
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import jsonlines
 import typer
 
-from oumi.builders.inference_engines import build_inference_engine
-from oumi.core.cli import cli_utils
-from oumi.core.configs import InferenceConfig, JudgeConfig
-from oumi.core.registry import REGISTRY
-from oumi.core.types.conversation import Conversation
-from oumi.judge import judge_conversations, judge_dataset
+from oumi.cli import cli_utils
 from oumi.utils.io_utils import load_jsonlines
 
+if TYPE_CHECKING:
+    from oumi.core.configs import InferenceConfig, JudgeConfig
 
-def _load_judge_config(config: str, extra_args: list[str]) -> JudgeConfig:
+
+def _load_judge_config(config: str, extra_args: list[str]) -> "JudgeConfig":
+    from oumi.core.registry import REGISTRY
+
     judge_config_builder = REGISTRY.get_judge_config(config)
 
     if judge_config_builder:
@@ -55,6 +55,11 @@ def dataset(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a dataset."""
+    # Delayed imports
+    from oumi import judge_dataset
+    from oumi.core.registry import REGISTRY
+
+    # End imports
     if not dataset_name:
         typer.echo("Dataset name is required.")
         raise typer.Exit(code=1)
@@ -103,9 +108,14 @@ def conversations(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge a list of conversations."""
-    # Load the judge config
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    # Delayed imports
+    from oumi import judge_conversations
+    from oumi.core.types.conversation import Conversation
+    # End imports
+
+    # Load the judge config
     judge_config = _load_judge_config(config, extra_args)
 
     # Load the conversations from the input file
@@ -147,8 +157,15 @@ def model(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Judge the outputs of a model on a dataset."""
-    # Load the judge config
+    # Delayed imports
+    from oumi import judge_conversations
+    from oumi.builders.inference_engines import build_inference_engine
+    from oumi.core.types.conversation import Conversation
+    # End imports
+
     judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    # Load the judge config
     judge_config = _load_judge_config(config, judge_extra_args)
 
     # Load the inference config

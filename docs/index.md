@@ -150,4 +150,4 @@ If you encounter any issues or have questions, please don't hesitate to:
 
 1. Check our [FAQ section](faq/troubleshooting) for common questions and answers.
 2. Open an issue on our [GitHub Issues page](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests.
-3. Send us a message on [Discord](https://discord.gg/S74NxTDh7v) to chat with the team and other users.
+3. Send us a message on [Discord](https://discord.gg/oumi) to chat with the team and other users.

@@ -9,7 +9,7 @@ from typing import Any, Final, NamedTuple, Optional
 
 import typer
 
-import oumi.core.cli.cli_utils as cli_utils
+import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 # Port range [1024, 65535] is generally available

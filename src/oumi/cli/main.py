@@ -2,15 +2,15 @@ import sys
 
 import typer
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.distributed_run import accelerate, torchrun
-from oumi.core.cli.env import env
-from oumi.core.cli.evaluate import evaluate
-from oumi.core.cli.infer import infer
-from oumi.core.cli.judge import conversations, dataset, model
-from oumi.core.cli.launch import cancel, down, status, stop, up, which
-from oumi.core.cli.launch import run as launcher_run
-from oumi.core.cli.train import train
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.distributed_run import accelerate, torchrun
+from oumi.cli.env import env
+from oumi.cli.evaluate import evaluate
+from oumi.cli.infer import infer
+from oumi.cli.judge import conversations, dataset, model
+from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import run as launcher_run
+from oumi.cli.train import train
 
 
 def get_app() -> typer.Typer:

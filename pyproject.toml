@@ -130,7 +130,7 @@ ci_cpu = ["oumi[dev,docs,cloud,optional]"]
 ci_gpu = ["oumi[ci_cpu,gpu]"]
 
 [project.scripts]
-oumi = "oumi.core.cli.main:run"
+oumi = "oumi.cli.main:run"
 
 [tool.ruff]
 extend-include = [

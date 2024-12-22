@@ -8,8 +8,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from oumi.core.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.cli.distributed_run import accelerate, torchrun
+from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.utils.logging import logger
 
 runner = CliRunner()
@@ -28,13 +28,13 @@ def app():
 
 @pytest.fixture
 def mock_os():
-    with patch("oumi.core.cli.distributed_run.os") as os_mock:
+    with patch("oumi.cli.distributed_run.os") as os_mock:
         yield os_mock
 
 
 @pytest.fixture
 def mock_popen():
-    with patch("oumi.core.cli.distributed_run.Popen") as popen_mock:
+    with patch("oumi.cli.distributed_run.Popen") as popen_mock:
         yield popen_mock
 
 
@@ -55,8 +55,8 @@ def test_torchrun_skypilot_single_gpu(
     mock_popen.return_value = mock_process
     mock_process.wait.return_value = 0
 
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
 
     _ = runner.invoke(
         app,
@@ -116,8 +116,8 @@ def test_torchrun_skypilot_multi_gpu(
     mock_popen.return_value = mock_process
     mock_process.wait.return_value = 0
 
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
 
     _ = runner.invoke(
         app,
@@ -182,8 +182,8 @@ def test_torchrun_polaris_multi_gpu(
         mock_popen.return_value = mock_process
         mock_process.wait.return_value = 0
 
-        monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
-        monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+        monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+        monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
 
         _ = runner.invoke(
             app,
@@ -244,8 +244,8 @@ def test_accelerate_skypilot_multi_gpu(
     mock_popen.return_value = mock_process
     mock_process.wait.return_value = 0
 
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stdout", sys.stdout)
-    monkeypatch.setattr("oumi.core.cli.distributed_run.sys.stderr", sys.stderr)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
 
     _ = runner.invoke(
         app,
