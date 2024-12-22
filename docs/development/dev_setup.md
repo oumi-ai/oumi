@@ -1,10 +1,10 @@
 # Dev Environment Setup
 
-This guide will help you set up a development environment for contributing to Oumi. If you already have a working environment, you can skip to [Set up Oumi](#set-up-oumi).
+This guide will help you set up a development environment for contributing to Oumi. If you already have a working environment, you can skip to [Set up Oumi](#3-set-up-oumi).
 
 ## 1. Install Miniconda
 
-The simplest way to install Miniconda is to first clone the Oumi repository (step 3.1 [below](#clone-the-oumi-repository)), then run:
+The simplest way to install Miniconda is to first clone the Oumi repository (step 3.1 [below](#31-clone-the-oumi-repository)), then run:
 
 ```shell
 make install-miniconda
@@ -18,7 +18,7 @@ Alternatively, install Miniconda from the [Anaconda website](https://docs.anacon
 
 #### 2.1.1 Installation instructions for Windows
 
-We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/) using [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install). Then, proceed to [step 2.1.3](#installation-instructions-for-linux-including-wsl).
+We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/) using [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install). Then, proceed to [step 2.1.3](#213-installation-instructions-for-linux-including-wsl).
 
 #### 2.1.2 Installation instructions for Mac
 
@@ -147,7 +147,7 @@ This will save your login info at `~/.netrc`. Oumi jobs mount this file to remot
 
 ## 7. [optional] Set up VSCode
 
-We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi Conda environment so that notebooks running in VSCode use the right kernel.
+We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml), [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint), and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi Conda environment so that notebooks running in VSCode use the right kernel.
 
 In addition, we also use VSCode to run a notebook backed by a cloud node. To do so, run:
 
@@ -157,6 +157,6 @@ make gcpcode ARGS="--resources.accelerators A100:4"
 
 This runs on GCP by default. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs.
 
-## 8. [optional] Test your setup!
+## 8. [optional] Test your setup
 
 To test that your setup is complete, you can run `oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/gcp_job.yaml --cluster llama8b-lora`. This requires step 4 (SkyPilot GCP), step 5 (HF), step 5.1 (Llama 3.1 access), and step 6 (WandB).
