@@ -29,7 +29,7 @@ trainers
      - Vision-Language SFT: {doc}`VL-SFT Datasets <../../datasets/vl_sft>`
      - Pre-training: {doc}`Pretraining Datasets <../../datasets/pretraining>`
      - Preference tuning: {doc}`Preference Tuning Datasets <../../datasets/preference_tuning>`
-   - **Custom dataset**: Create a custom dataset class for specific needs. Learn how in {doc}`Custom Datasets <../../advanced/custom_datasets>`.
+   - **Custom dataset**: Create a custom dataset class for specific needs. Learn how in {doc}`Custom Datasets <../../datasets/custom_datasets>`.
    ```
 
 3. **Training Configuration**: Set up your training parameters using YAML configuration files.
@@ -47,7 +47,7 @@ trainers
 5. **Distributed Training**: For large-scale training, Oumi supports distributed training across multiple GPUs and nodes.
 
    ```{note}
-   Learn more about distributed training setups in the {doc}`Distributed Training <../../advanced/distributed_training>` guide.
+   Learn more about distributed training setups in the {doc}`Distributed Training <../../user_guides/train/distributed_training>` guide.
    ```
 
 ## Running a Training Job
@@ -98,8 +98,10 @@ trainers
 
 - {doc}`finetuning`: Learn about fine-tuning techniques and best practices.
 - {doc}`llama`: Specific guide for training LLaMA models.
-- {doc}`../../advanced/performance_optimization`: Tips for optimizing training performance.
-- {doc}`../../advanced/custom_models`: Guide on implementing custom model architectures.
+- {doc}`performance_optimization`: Tips for optimizing training performance.
+- {doc}`distributed_training`: Tips for optimizing training performance.
+- {doc}`quantization`: Tips for optimizing training performance.
+- {doc}`../models/custom_models`: Guide on implementing custom model architectures.
 
 ## Troubleshooting
 

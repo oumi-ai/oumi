@@ -34,17 +34,6 @@ user_guides/launch/launch
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Advanced Topics
-
-advanced/customization
-advanced/quantization
-advanced/performance_optimization
-advanced/distributed_training
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
 :caption: Models
 
 models/recipes

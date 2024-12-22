@@ -88,7 +88,7 @@ pip install -e ".[gpu]"  # For GPU training
    --interactive
    ```
 
-   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
+   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/user_guides/train/distributed_training.md).
 
 ### Examples &  Recipes
 
