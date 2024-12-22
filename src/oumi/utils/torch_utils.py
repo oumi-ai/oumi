@@ -1,16 +1,23 @@
+import gc
+import math
 import os
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, TypeVar, cast
+from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
+import numpy.typing
 import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import compute_utf8_len
 
 
 def device_cleanup() -> None:
-    """Empties cuda cache, good to do before and after training for cleanup."""
+    """Empties gpu cache, good to do before and after training for cleanup."""
+    logger.debug("Running garbage collection.")
+    gc.collect()
+
     if torch.cuda.is_available():
         logger.debug("Cleaning up GPU memory.")
         logger.debug(
@@ -21,6 +28,10 @@ def device_cleanup() -> None:
         torch.cuda.empty_cache()
 
         logger.debug(f"Memory after cleanup: {get_nvidia_gpu_memory_utilization()} MiB")
+
+    elif torch.backends.mps.is_available():
+        logger.debug("Cleaning up MPS memory.")
+        torch.mps.empty_cache()
 
 
 def limit_per_process_memory(percent: float = 0.95) -> None:
@@ -36,6 +47,20 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
+def format_cudnn_version(v: Optional[int]) -> str:
+    """Formats the cuDNN version number.
+
+    Args:
+        v: The cuDNN version number.
+
+    Returns:
+        A formatted string.
+    """
+    if v is None:
+        return ""
+    return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
+
+
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
@@ -43,15 +68,10 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
-    def _format_cudnn_version(v: Optional[int]) -> str:
-        if v is None:
-            return ""
-        return ".".join(map(str, (v // 1000, v // 100 % 10, v % 100)))
-
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
         f"CUDA version: {torch.version.cuda} "
-        f"CuDNN version: {_format_cudnn_version(torch.backends.cudnn.version())}"
+        f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 
 
@@ -197,7 +217,7 @@ def log_trainable_parameters(model: torch.nn.Module) -> None:
     trainable_params = params.trainable_params
     logger.info(
         f"Trainable params: {trainable_params} || All params: {all_params} "
-        f"|| Trainable%: {100 * trainable_params / all_params :.4f}"
+        f"|| Trainable%: {100 * trainable_params / all_params:.4f}"
     )
 
 
@@ -212,8 +232,67 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
         return torch.bfloat16
     elif torch_dtype_str in ["f16", "float16", "half"]:
         return torch.float16
+    elif torch_dtype_str in ["uint8"]:
+        return torch.uint8
     else:
         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
+
+
+def get_dtype_size_in_bytes(
+    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],
+) -> int:
+    """Returns size of this dtype in bytes."""
+    if isinstance(dtype, torch.dtype):
+        return dtype.itemsize
+    elif isinstance(dtype, str):
+        if not dtype:
+            raise ValueError("Empty string is not a valid dtype")
+        try:
+            # Try to parse using non-standard names like "f64"
+            return get_torch_dtype(dtype).itemsize
+        except ValueError:
+            return np.dtype(dtype).itemsize
+
+    return np.dtype(dtype).itemsize
+
+
+def _estimate_item_size_in_bytes(item: Any) -> int:
+    if isinstance(item, (int, float)):
+        return 4
+    elif isinstance(item, (np.ndarray, torch.Tensor)):
+        num_elements = math.prod(item.shape)
+        return num_elements * get_dtype_size_in_bytes(item.dtype)
+    elif isinstance(item, list):
+        return _estimate_sample_list_size_in_bytes(item)
+    elif isinstance(item, str):
+        return compute_utf8_len(item)
+    elif isinstance(item, (str, bytes)):
+        return len(item)
+
+    return 0
+
+
+def _estimate_sample_list_size_in_bytes(sample_list: list[Any]) -> int:
+    num_elements = len(sample_list)
+    if num_elements <= 0:
+        return 0
+    return sum(_estimate_item_size_in_bytes(item) for item in sample_list)
+
+
+def estimate_sample_dict_size_in_bytes(sample: dict[str, Any]) -> int:
+    """Estimates the approximate total number of bytes in a provided sample.
+
+    Training sample is expected to be a dictionary, where a value is a list,
+    tensor, or a numpy array.
+
+    The function works in best effort mode i.e., 100% accuaracy isn't guaranteed.
+    The implementation is slow, and shouldn't be called in performance-sensitive code.
+    """
+    result = 0
+    for key, val in sample.items():
+        result += compute_utf8_len(key)
+        result += _estimate_item_size_in_bytes(val)
+    return result
 
 
 def coerce_model_to_dtype(model: torch.nn.Module, dtype: torch.dtype) -> None:
@@ -380,3 +459,94 @@ def create_ones_like(
             result.append(create_ones_like(item))
 
     return cast(T, result)
+
+
+def get_first_dim_len(x: Any) -> int:
+    """Returns length of the first dimension."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return int(x.shape[0])
+    elif isinstance(x, list):
+        return len(x)
+
+    raise ValueError(
+        f"Unsupported type: {type(x)}. "
+        "Must be numpy array, torch tensor, or Python list."
+    )
+
+
+def get_shape_as_list(x: Any) -> list[int]:
+    """Returns shape of an object (tensor or numpy array) as Python list."""
+    if isinstance(x, (torch.Tensor, np.ndarray)):
+        return list(x.shape)
+
+    raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")
+
+
+class _FreezeModelLayer:
+    def __init__(self, name: str, freeze_it: bool):
+        self.name: str = name
+        self.freeze_it: bool = freeze_it
+        self.children: list[_FreezeModelLayer] = []
+
+
+def _freeze_model_layers_impl(
+    module: torch.nn.Module, freeze_layers: list[_FreezeModelLayer], parent_path: str
+) -> int:
+    result: int = 0
+    for model_layer in freeze_layers:
+        full_layer_path = (
+            (parent_path + "." + model_layer.name) if parent_path else model_layer.name
+        )
+        if hasattr(module, model_layer.name):
+            child_module = getattr(module, model_layer.name)
+            if model_layer.freeze_it:
+                logger.info(f"Freezing layer '{full_layer_path}'...")
+                for param in child_module.parameters(recurse=True):
+                    param.requires_grad_(False)
+                result += 1
+            elif len(model_layer.children) > 0:
+                result += _freeze_model_layers_impl(
+                    child_module, model_layer.children, full_layer_path
+                )
+        else:
+            logger.warning(f"Layer '{full_layer_path}' not found in model.")
+
+    return result
+
+
+def _group_freeze_model_layers(freeze_layers: list[str]) -> list[_FreezeModelLayer]:
+    dummy_root: _FreezeModelLayer = _FreezeModelLayer(name="", freeze_it=False)
+
+    # Build a tree of nested layers.
+    for layer_name in freeze_layers:
+        layer: _FreezeModelLayer = dummy_root
+        all_parts = list(layer_name.split("."))
+        for idx, curr_part in enumerate(all_parts):
+            next_layer = next((x for x in layer.children if x.name == curr_part), None)
+            # If it's the last part, let's freeze this layer.
+            freeze_it = idx + 1 >= len(all_parts)
+            if next_layer is None:
+                next_layer = _FreezeModelLayer(name=curr_part, freeze_it=freeze_it)
+                layer.children.append(next_layer)
+            elif freeze_it:
+                next_layer.freeze_it = True
+            layer = next_layer
+    return dummy_root.children
+
+
+def freeze_model_layers(model: torch.nn.Module, freeze_layers: list[str]) -> int:
+    """Recursively freezes model layers.
+
+    Args:
+        model: A model to freeze layers in.
+        freeze_layers: A list of layer names to freeze.
+            Nested layers can be specified using a dot ('.') separator.
+            For example, "visual.child.grandchild".
+            Layer names not found in the model are ignored.
+
+    Returns:
+        The total number of layers successfully frozen.
+    """
+    root_freeze_layers = _group_freeze_model_layers(freeze_layers)
+
+    return _freeze_model_layers_impl(model, root_freeze_layers, "")

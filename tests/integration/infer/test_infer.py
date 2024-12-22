@@ -5,7 +5,13 @@ import pytest
 
 from oumi import infer, infer_interactive
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    Role,
+    Type,
+)
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_cuda_initialized, requires_gpus
@@ -123,9 +129,9 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
     )
 
-    input = ["Describe the high-level theme of the image in few words!"] * (
-        num_batches * batch_size
-    )
+    test_prompt: str = "Generate a short, descriptive caption for this image!"
+
+    input = [test_prompt] * (num_batches * batch_size)
     output = infer(
         config=InferenceConfig(model=model_params, generation=generation_params),
         inputs=input,
@@ -135,16 +141,19 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
     conversation = Conversation(
         messages=(
             [
-                Message(role=Role.USER, binary=png_image_bytes, type=Type.IMAGE_BINARY),
                 Message(
                     role=Role.USER,
-                    content="Describe the high-level theme of the image in few words!",
-                    type=Type.TEXT,
+                    content=[
+                        ContentItem(binary=png_image_bytes, type=Type.IMAGE_BINARY),
+                        ContentItem(
+                            content=test_prompt,
+                            type=Type.TEXT,
+                        ),
+                    ],
                 ),
                 Message(
                     role=Role.ASSISTANT,
-                    content="2 boats in a wave.",
-                    type=Type.TEXT,
+                    content="2 boats are in the middle of a large wave",
                 ),
             ]
         )

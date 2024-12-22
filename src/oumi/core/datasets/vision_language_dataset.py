@@ -1,7 +1,7 @@
 import copy
 import io
 from abc import ABC, abstractmethod
-from typing import Final, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional
 
 import numpy as np
 import requests
@@ -9,13 +9,25 @@ import torch
 from PIL import Image
 from typing_extensions import override
 
-import oumi.core.constants as constants
 from oumi.builders.processors import build_processor
+from oumi.core.configs.internal.internal_model_config import (
+    InternalFeatureFirstDimAction,
+    InternalModelConfig,
+)
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+    get_default_vlm_model_config,
+)
 from oumi.core.datasets import BaseSftDataset
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Type,
+)
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import get_first_dim_len
 
 
 class _SpecialTokens(NamedTuple):
@@ -25,27 +37,8 @@ class _SpecialTokens(NamedTuple):
     image_token_id: Optional[int]
     label_ignore_index: Optional[int]
 
-
-class InputFeatureSpec(NamedTuple):
-    feature_name: str
-    required: bool
-
-
-_INPUT_FEATURES_LIST: Final[list[InputFeatureSpec]] = [
-    InputFeatureSpec(feature_name="input_ids", required=True),
-    InputFeatureSpec(feature_name="pixel_values", required=True),
-    InputFeatureSpec(feature_name="attention_mask", required=True),
-    InputFeatureSpec(feature_name="labels", required=True),
-    # Llama 3.2 Vision
-    InputFeatureSpec(feature_name="aspect_ratio_ids", required=False),
-    InputFeatureSpec(feature_name="aspect_ratio_mask", required=False),
-    InputFeatureSpec(feature_name="cross_attention_mask", required=False),
-    # Qwen2 VL
-    InputFeatureSpec(feature_name="image_grid_thw", required=False),
-]
-_INPUT_FEATURES_DICT: Final[dict[str, InputFeatureSpec]] = {
-    spec.feature_name: spec for spec in _INPUT_FEATURES_LIST
-}
+    pad_token_id: int
+    """Token id of `PAD` token."""
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -81,7 +74,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
-        label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
         **kwargs,
@@ -92,6 +84,13 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         if tokenizer is None:
             raise ValueError(
                 f"Tokenizer must be provided for {self.__class__.__name__}"
+            )
+        elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
+            raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"Type: {type(tokenizer.pad_token_id)}"
             )
 
         if processor is not None:
@@ -104,23 +103,30 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             processor = build_processor(
                 processor_name, tokenizer, trust_remote_code=trust_remote_code
             )
-
-        self._processor: Optional[BaseProcessor] = processor
-        if self._processor is not None:
-            if not callable(self._processor):
-                raise ValueError("Processor is not callable!")
-            self._image_processor = self._processor.image_processor
         else:
-            assert self._processor is None
-            self._tokenizer = None  # Reset base class's member variable.
-            self._image_processor = None
+            raise ValueError(
+                "At least one of processor or processor_name must provided."
+            )
+
+        assert processor is not None
+        if not callable(processor):
+            raise ValueError("Processor is not callable!")
+
+        self._processor: BaseProcessor = processor
+        self._image_processor = self._processor.image_processor
+
+        self._internal_model_config: InternalModelConfig = (
+            find_internal_model_config_using_model_name(
+                self._processor.processor_name, trust_remote_code=trust_remote_code
+            )
+            or get_default_vlm_model_config()
+        )
 
         self._special_tokens: _SpecialTokens = _SpecialTokens(
-            image_token=(self._processor.image_token if self._processor else None),
-            image_token_id=(
-                self._processor.image_token_id if self._processor else None
-            ),
-            label_ignore_index=label_ignore_index,
+            image_token=self._processor.image_token,
+            image_token_id=self._processor.image_token_id,
+            label_ignore_index=self._processor.label_ignore_index,
+            pad_token_id=int(tokenizer.pad_token_id),
         )
 
         if limit is not None:
@@ -180,24 +186,57 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         if isinstance(input_ids, torch.Tensor):
             inputs["labels"] = input_ids.clone()
         else:
-            inputs["labels"] = copy.deepcopy(inputs["input_ids"])
+            inputs["labels"] = copy.deepcopy(input_ids)
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
         # Images will be of shape (C, H, W) and texts will be of shape (T)
         # However, this is going to break models that support multiple images
         # TODO: OPE-355 add support for multiple images
-        for feature_name, feature_spec in _INPUT_FEATURES_DICT.items():
+        for (
+            feature_name,
+            feature_spec,
+        ) in self._internal_model_config.model_input_features.items():
             if (not feature_spec.required) and (feature_name not in inputs):
                 continue
             x = inputs[feature_name]
 
-            if isinstance(x, (torch.Tensor, np.ndarray, list)):
-                inputs[feature_name] = x[0]
-            else:
+            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
+
+            first_dim_action = feature_spec.first_dim_action
+
+            if first_dim_action in (
+                InternalFeatureFirstDimAction.DROP_ALWAYS,
+                InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+            ):
+                first_dim_len = get_first_dim_len(x)
+                if first_dim_len <= 0:
+                    raise ValueError(
+                        f"Empty first dimension for the feature '{feature_name}'."
+                    )
+                drop_first_dim = (
+                    first_dim_action == InternalFeatureFirstDimAction.DROP_ALWAYS
+                    or first_dim_len <= 1
+                )
+                if first_dim_len > 1 and drop_first_dim:
+                    logger.warning(
+                        "The first dimension is non-dummy for "
+                        f"the feature: '{feature_name}' (Length: {first_dim_len}). "
+                        "Only the first element is kept, others are dropped, "
+                        "which may lead to data loss, and to tensor shape errors."
+                    )
+                if drop_first_dim:
+                    inputs[feature_name] = x[0]
+                else:
+                    inputs[feature_name] = x
+            else:
+                assert (
+                    feature_spec.first_dim_action == InternalFeatureFirstDimAction.KEEP
+                )
+                inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
         if (
@@ -215,6 +254,40 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 labels = np.array(labels)
                 labels[labels == image_token_id] = label_ignore_index
                 inputs["labels"] = labels.tolist()
+        elif (
+            self._internal_model_config is not None
+            and self._internal_model_config.sanitize_negative_labels
+        ):
+            # Some VLM-s may generate negative input_ids for image tokens.
+            # For example, Phi3-Vision generates `-N` input ids for
+            # "<|image_N|>" tokens. It can cause CUDA errors during loss
+            # computation as loss function may assume all labels are
+            # within the [0, num_classes) range.
+            # The code below attempts to sanitize labels by resetting all negative
+            # labels to `label_ignore_index` (if provided) or to PAD token index.
+            #
+            # TODO OPE-701 Consider having a more general configuration per model type.
+            labels = inputs["labels"]
+            sanitized_label_target = int(
+                self._special_tokens.pad_token_id
+                if (
+                    self._special_tokens.label_ignore_index is None
+                    or self._special_tokens.label_ignore_index < 0
+                )
+                else self._special_tokens.label_ignore_index
+            )
+            assert sanitized_label_target >= 0
+            if isinstance(labels, torch.Tensor):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            elif isinstance(labels, np.ndarray):
+                # Modify in-place
+                labels[labels < 0] = sanitized_label_target
+            else:
+                # Create numpy array, modify, and copy back.
+                labels = np.array(labels)
+                labels[labels < 0] = sanitized_label_target
+                inputs["labels"] = labels.tolist()
 
         return inputs.data
 
@@ -226,19 +299,19 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         Simple models only use the last image and text turn in the conversation. They
         don't use the chat template, so the prompt is just the last text turn.
         """
-        image_turns = [turn for turn in conversation.messages if turn.is_image()]
-        text_turns = [turn for turn in conversation.messages if turn.is_text()]
+        image_turns = [turn for turn in conversation.messages if turn.contains_images()]
+        text_turns = [turn for turn in conversation.messages if turn.contains_text()]
 
-        if not image_turns:
+        if len(image_turns) == 0:
             raise ValueError("Conversation must contain at least one image turn")
-        if not text_turns:
+        if len(text_turns) == 0:
             raise ValueError("Conversation must contain at least one text turn")
 
-        last_image_turn = image_turns[-1]
-        last_text_turn = text_turns[-1].content or ""
+        last_image_item: ContentItem = image_turns[-1].image_content_items[-1]
+        last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
 
-        prompt = last_text_turn
-        image = self._load_image(last_image_turn)
+        prompt = last_text_item.content or ""
+        image = self._load_image(last_image_item)
 
         return image, prompt
 
@@ -257,25 +330,29 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         # including image placeholders for each image in the conversation
         texts = []
         for turn in conversation.messages:
-            if turn.is_text() or turn.is_image():
+            if turn.contains_text() or turn.contains_images():
                 texts.append(turn)
             else:
-                raise ValueError(f"Unsupported message type: {turn.type}")
+                raise ValueError(
+                    f"Unsupported message: {turn.id}. "
+                    "Contains no text and no images."
+                )
 
         text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
 
         # Loads the images from the conversation
-        images = [turn for turn in conversation.messages if turn.is_image()]
-        images = [self._load_image(image) for image in images]
+        image_items = [
+            item for turn in conversation.messages for item in turn.image_content_items
+        ]
+        images = [self._load_image(item) for item in image_items]
 
         return images, text
 
-    def _load_image(self, image: Union[str, Message]) -> Image.Image:
+    def _load_image(self, image_item: ContentItem) -> Image.Image:
         """Loads an image from a message.
 
         Args:
-            image (Union[str, Message]): A string representing the image path or a
-                Message object.
+            image_item (`ContentItem`): A content item representing an image.
 
         Returns:
             Image.Image: A PIL image.
@@ -283,32 +360,25 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         if self._image_processor is None:
             raise ValueError("Processor required for transform")
 
-        if isinstance(image, str):
-            image_type = Type.IMAGE_URL if image.startswith("http") else Type.IMAGE_PATH
-            image = Message(type=image_type, content=image, role=Role.USER)
-
-        if image.type == Type.IMAGE_PATH:
-            if image.content is None:
+        if image_item.type == Type.IMAGE_PATH:
+            if image_item.content is None:
                 raise ValueError("Image path is None")
-            image_bin = Image.open(image.content).convert("RGB")
-
-        elif image.type == Type.IMAGE_URL:
-            if image.content is None:
+            image_bin = Image.open(image_item.content).convert("RGB")
+        elif image_item.type == Type.IMAGE_URL:
+            if image_item.content is None:
                 raise ValueError("Image URL is None")
             try:
-                response = requests.get(image.content, stream=True)
+                response = requests.get(image_item.content, stream=True)
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                logger.exception(f"Failed to download image: '{image.content}'")
+                logger.exception(f"Failed to download image: '{image_item.content}'")
                 raise e
             image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
-
-        elif image.type == Type.IMAGE_BINARY:
-            if image.binary is None:
+        elif image_item.type == Type.IMAGE_BINARY:
+            if image_item.binary is None:
                 raise ValueError("Image binary is None")
-            image_bin = Image.open(io.BytesIO(image.binary)).convert("RGB")
-
+            image_bin = Image.open(io.BytesIO(image_item.binary)).convert("RGB")
         else:
-            raise ValueError(f"Unsupported image type: {image.type}")
+            raise ValueError(f"Unsupported image type: {image_item.type}")
 
         return image_bin

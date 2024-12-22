@@ -13,7 +13,13 @@ from typing_extensions import override
 from oumi.builders import build_chat_template
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    Role,
+    Type,
+)
 
 
 class EqBytesIO:
@@ -45,14 +51,15 @@ def mock_image_tokenizer() -> MagicMock:
     return mock
 
 
-@pytest.fixture
-def mock_processor():
+def create_mock_processor(label_ignore_index: Optional[int]):
     processor = Mock()
+    processor.processor_name = "llava-hf/llava-1.5-7b-hf"
     processor.tokenizer = Mock()
     processor.image_processor = Mock()
     processor.chat_template = None
     processor.image_token = _IMAGE_TOKEN
     processor.image_token_id = _IMAGE_TOKEN_ID
+    processor.label_ignore_index = label_ignore_index
     processor.side_effect = (
         lambda images, text, return_tensors, padding: transformers.BatchEncoding(
             data={
@@ -73,6 +80,16 @@ def mock_processor():
     return processor
 
 
+@pytest.fixture
+def mock_processor():
+    return create_mock_processor(label_ignore_index=-100)
+
+
+@pytest.fixture
+def mock_processor_no_label_ignore_index():
+    return create_mock_processor(label_ignore_index=None)
+
+
 @functools.cache  # same as @cache added in Python 3.9
 def _get_test_png_image_bytes(image_size: Optional[tuple[int, int]] = None) -> bytes:
     if image_size is None:
@@ -87,12 +104,16 @@ def _get_test_png_image_bytes(image_size: Optional[tuple[int, int]] = None) -> b
 def sample_conversation_using_image_path():
     return Conversation(
         messages=[
-            Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
-            Message(role=Role.USER, content="path/to/image.jpg", type=Type.IMAGE_PATH),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Describe this image:", type=Type.TEXT),
+                    ContentItem(content="path/to/image.jpg", type=Type.IMAGE_PATH),
+                ],
+            ),
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
-                type=Type.TEXT,
             ),
         ]
     )
@@ -102,24 +123,26 @@ def sample_conversation_using_image_path():
 def sample_conversation_using_image_binary():
     return Conversation(
         messages=[
-            Message(role=Role.USER, content="Describe this image:", type=Type.TEXT),
             Message(
                 role=Role.USER,
-                binary=_get_test_png_image_bytes(),
-                type=Type.IMAGE_BINARY,
+                content=[
+                    ContentItem(content="Describe this image:", type=Type.TEXT),
+                    ContentItem(
+                        binary=_get_test_png_image_bytes(), type=Type.IMAGE_BINARY
+                    ),
+                ],
             ),
             Message(
                 role=Role.ASSISTANT,
                 content="A beautiful sunset over the ocean.",
-                type=Type.TEXT,
             ),
         ]
     )
 
 
 @pytest.fixture
-def test_dataset_image_path(
-    mock_processor: Mock,
+def test_dataset_image_path_no_label_ignore_index(
+    mock_processor_no_label_ignore_index: Mock,
     sample_conversation_using_image_path: Conversation,
     mock_image_tokenizer: MagicMock,
 ):
@@ -135,9 +158,8 @@ def test_dataset_image_path(
             pass
 
     return TestDatasetImagePath(
-        processor=mock_processor,
+        processor=mock_processor_no_label_ignore_index,
         tokenizer=mock_image_tokenizer,
-        label_ignore_index=None,
     )
 
 
@@ -164,12 +186,18 @@ def test_dataset_image_binary_label_ignore_index(
     )
 
 
-def test_transform_simple_model_using_image_path(test_dataset_image_path):
-    with patch.object(test_dataset_image_path, "_load_image") as mock_load_image:
+def test_transform_simple_model_using_image_path(
+    test_dataset_image_path_no_label_ignore_index,
+):
+    with patch.object(
+        test_dataset_image_path_no_label_ignore_index, "_load_image"
+    ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_path.transform({"example": "data"})
+        result = test_dataset_image_path_no_label_ignore_index.transform(
+            {"example": "data"}
+        )
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -212,16 +240,23 @@ def test_transform_simple_model_using_image_binary(
 
 
 def test_transform_instruct_model_using_image_path(
-    test_dataset_image_path, mock_processor: Mock
+    test_dataset_image_path_no_label_ignore_index,
+    mock_processor_no_label_ignore_index: Mock,
 ):
-    mock_processor.chat_template = "Template"
-    mock_processor.apply_chat_template = Mock(return_value="Processed template")
+    mock_processor_no_label_ignore_index.chat_template = "Template"
+    mock_processor_no_label_ignore_index.apply_chat_template = Mock(
+        return_value="Processed template"
+    )
 
-    with patch.object(test_dataset_image_path, "_load_image") as mock_load_image:
+    with patch.object(
+        test_dataset_image_path_no_label_ignore_index, "_load_image"
+    ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_path.transform({"example": "data"})
+        result = test_dataset_image_path_no_label_ignore_index.transform(
+            {"example": "data"}
+        )
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -233,7 +268,7 @@ def test_transform_instruct_model_using_image_path(
     assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
-    mock_processor.apply_chat_template.assert_called_once()
+    mock_processor_no_label_ignore_index.apply_chat_template.assert_called_once()
 
 
 def test_transform_instruct_model_using_image_binary(

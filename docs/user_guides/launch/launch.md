@@ -2,19 +2,20 @@
 
 ```{toctree}
 :maxdepth: 2
-:caption: Judge
+:caption: Launch
 :hidden:
 
 deploy
 remote
-skypilot
 ```
 
-To train on a cloud GPU cluster, first make sure to have all the dependencies installed:
+Oumi launcher allows you to run jobs on remote clusters. It provides a unified interface, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
 
-For specific cloud providers:
+## Setup
 
-  ```bash
+Oumi launcher integrates with SkyPilot to launch jobs on popular cloud providers. To run on a cloud GPU cluster, first make sure to have all the dependencies installed for your desired cloud provider:
+
+  ```shell
   pip install oumi[aws]     # For Amazon Web Services
   pip install oumi[azure]   # For Microsoft Azure
   pip install oumi[gcp]     # For Google Cloud Platform
@@ -22,25 +23,17 @@ For specific cloud providers:
   pip install oumi[runpod]  # For RunPod
   ```
 
-Then setup your cloud credentials:
+Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).
 
-- [Google Cloud](https://github.com/oumi-ai/oumi/wiki/Clouds-Setup)
-- [Runpod](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#runpod)
-- [Lambda Labs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#lambda-cloud)
+## Overview
 
-Your environment should be ready! Use this to check:
+To view your existing clusters, run:
 
 ```shell
-sky check
+oumi launch status
 ```
 
-You can look at the existing clusters with the following command:
-
-```shell
-sky status
-```
-
-To see the available GPUs, you can use the following command:
+To view available GPUs, run:
 
 ```shell
 sky show-gpus
@@ -48,28 +41,60 @@ sky show-gpus
 
 You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), `A100-80GB`, and `A100-80GB-SXM`.
 
-To launch a job on the cloud, you can use the following command:
+### Launch jobs
+
+To launch a job on your desired cloud, run:
 
 ```shell
-sky launch -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
+oumi launch up --cluster oumi-cluster -c configs/recipes/smollm/launch/135m_gcp_train_quickstart.yaml
 ```
 
-To launch on the cloud of your choice, use the `--cloud` flag, ex. `--cloud gcp`.
+This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
-Once you have already launched a job, you can use the following command to execute a job on an existing cluster:
+To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud lambda`. Most of our configs run on GCP by default. See [this page](https://oumi.ai/docs/latest/api/oumi.launcher.html#oumi.launcher.JobResources.cloud) for all supported clouds, or run:
 
 ```shell
-sky exec -c oumi-cluster configs/recipes/gpt2/pretraining/sky_job.yaml
+oumi launch which
 ```
+
+To return immediatly when the job is scheduled and not poll for the job's completion, specify the `--detach` flag.
 
 If you made any code changes to the codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the SkyPilot config to install the
+`pip install '.'` in the `run` section of the job config to install the
 changes on the cluster.
 
-Remember to stop the cluster when you are done to avoid extra charges. You can either do it manually (`sky down oumi-cluster`), or use the following to automatically take it down after 10 minutes of inactivity:
+### View logs
+
+To view the logs of your jobs on clouds supported by SkyPilot, run:
 
 ```shell
-sky autostop oumi-cluster -i 10
+sky logs oumi-cluster
 ```
 
-Alternatively, you can include `-i 10` into your `sky launch` command (as shown above).
+### Cancel jobs
+
+To cancel a running job without stopping the cluster, run:
+
+```shell
+oumi launch cancel --cluster oumi-cluster --cloud gcp --id 1
+```
+
+The id of the job can be obtained by running `oumi launch status`.
+
+### Stop/turn down clusters
+
+To stop the cluster when you are done to avoid extra charges, run:
+
+```shell
+oumi launch stop --cluster oumi-cluster
+```
+
+In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
+
+Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in an `oumi launch up` command.
+
+To turn down a cluster, which deletes their associated disk and removes them from our list of existing clusters, run:
+
+```shell
+oumi launch down --cluster oumi-cluster
+```

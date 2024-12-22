@@ -27,6 +27,7 @@ training:
   trainer_type: "TRL_SFT"
   max_steps: 1000
   save_steps: 500
+  save_final_model: True
   per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
   enable_gradient_checkpointing: True

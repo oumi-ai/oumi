@@ -1,17 +1,14 @@
-import argparse
-import gc
 import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 
-import oumi.core.constants as constants
 from oumi.builders import (
-    build_data_collator,
+    build_collator_from_config,
     build_dataset_mixture,
     build_metrics_function,
     build_model,
@@ -24,7 +21,6 @@ from oumi.builders import (
 )
 from oumi.core.configs import (
     DatasetSplit,
-    DatasetSplitParams,
     TrainerType,
     TrainingConfig,
 )
@@ -38,7 +34,6 @@ from oumi.core.distributed import (
     is_local_process_zero,
     is_world_process_zero,
     prepare_accelerate_fsdp_run,
-    set_random_seeds,
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
@@ -55,57 +50,12 @@ from oumi.utils.torch_utils import (
     coerce_model_to_dtype,
     device_cleanup,
     get_torch_dtype,
-    limit_per_process_memory,
     log_devices_info,
     log_model_summary,
     log_peak_gpu_memory,
     log_versioning_info,
 )
 from oumi.utils.version_utils import is_dev_build
-
-_START_TIME = -1.0
-
-
-def parse_cli():
-    """Parses command line arguments and returns the configuration filename."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-c", "--config", default=None, help="Path to the configuration file"
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-    )
-    args, unknown = parser.parse_known_args()
-    return args.config, args.verbose, unknown
-
-
-def main() -> None:
-    """Main entry point for training Oumi.
-
-    Training arguments are fetched from the following sources, ordered by
-    decreasing priority:
-    1. [Optional] Arguments provided as CLI arguments, in dotfile format
-    2. [Optional] Arguments provided in a yaml config file
-    3. Default arguments values defined in the data class
-    """
-    # Load configuration
-    config_path, _verbose, arg_list = parse_cli()  # TODO: keep or not unused var
-
-    config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
-        config_path, arg_list, logger=logger
-    )
-    config.validate()
-
-    limit_per_process_memory()
-    device_cleanup()
-    set_random_seeds(config.training.seed)
-
-    # Run training
-    train(config)
-
-    device_cleanup()
 
 
 def _find_checkpoint_to_resume_from(
@@ -181,20 +131,6 @@ def _log_training_info(config: TrainingConfig) -> None:
             logger.info(f"Git tag: {get_git_tag()}")
 
 
-def _build_collator_if_needed(config: TrainingConfig, tokenizer) -> Optional[Any]:
-    """Creates data collator if specified in config."""
-    train_split: DatasetSplitParams = config.data.get_split(DatasetSplit.TRAIN)
-    if not train_split.collator_name:
-        return None
-
-    return build_data_collator(
-        collator_name=train_split.collator_name,
-        tokenizer=tokenizer,
-        max_length=config.model.model_max_length,
-        label_ignore_index=constants.LABEL_IGNORE_INDEX,
-    )
-
-
 def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     """Updates TrainingConfig using dynamic/runtime info."""
     if config.training.dataloader_num_workers == "auto":
@@ -207,9 +143,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         config.training.dataloader_num_workers = num_workers
 
     assert isinstance(config.training.dataloader_num_workers, int)
-
-    # FIXME OPE-229 Consider moving hardware capability validations
-    # from TrainingConfig `__post_init__` to this function.
     return config
 
 
@@ -265,7 +198,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
             trust_remote_code=config.model.trust_remote_code,
         )
 
-    # Are we supporting PEFT?
     use_peft = config.training.use_peft and config.peft
 
     # Build model.
@@ -300,10 +232,10 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     metrics_function = build_metrics_function(config.training)
 
-    # Reclaim memory before training starts.
-    gc.collect()
+    collator = build_collator_from_config(config, tokenizer)
 
-    collator = _build_collator_if_needed(config, tokenizer)
+    # Reclaim memory before training starts.
+    device_cleanup()
 
     with torch_profile(
         config.training.profiler,
@@ -313,7 +245,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         with torch.profiler.record_function("create_trainer"):
             kwargs = {}
             if config.training.trainer_type == TrainerType.OUMI:
-                kwargs["fsdp_params"] = config.fsdp
+                kwargs["config"] = config
 
             callbacks = build_training_callbacks(config, model, profiler)
 
@@ -383,7 +315,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     if is_distributed():
         cleanup_distributed()
-
-
-if __name__ == "__main__":
-    main()
+    logger.info(
+        "\n\n» We're always looking for feedback. "
+        "What's one thing we can improve? https://oumi.ai/feedback"
+    )

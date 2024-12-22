@@ -2,7 +2,13 @@ from typing_extensions import override
 
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    Role,
+    Type,
+)
 from oumi.utils.logging import logger
 
 
@@ -19,7 +25,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
 
     def _parse_user_messages(
         self, message_list: list[dict], images: list[dict]
-    ) -> list[Message]:
+    ) -> Message:
         role = Role.USER
         if len(message_list) not in (1, 2):
             raise ValueError(
@@ -28,14 +34,14 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                 f"Actual: {len(message_list)}"
             )
 
-        text_messages = []
-        image_messages = []
+        text_items: list[ContentItem] = []
+        image_items: list[ContentItem] = []
         for user_message in message_list:
             message_type = user_message["type"]
             if message_type == "text":
-                text_messages.append(
-                    Message(
-                        role=role,
+                text_items.append(
+                    ContentItem(
+                        type=Type.TEXT,
                         content=self._process_text_value(user_message["text"]),
                     )
                 )
@@ -49,17 +55,15 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                     )
                 image_dict = images[image_index]
                 if "bytes" in image_dict and image_dict["bytes"]:
-                    image_messages.append(
-                        Message(
-                            role=role,
+                    image_items.append(
+                        ContentItem(
                             type=Type.IMAGE_BINARY,
                             binary=image_dict["bytes"],
                         )
                     )
                 elif "path" in image_dict and image_dict["path"]:
-                    image_messages.append(
-                        Message(
-                            role=role,
+                    image_items.append(
+                        ContentItem(
                             type=Type.IMAGE_PATH,
                             content=image_dict["path"],
                         )
@@ -74,18 +78,19 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                     f"{role}'s question has unknown type: '{message_type}'"
                 )
 
-        if len(text_messages) != 1:
+        if len(text_items) != 1:
             raise ValueError(
                 f"{role}'s turn must include 1 text question. "
-                f"Actual: {len(text_messages)}"
+                f"Actual: {len(text_items)}"
             )
-        if len(image_messages) > 1:
+        if len(image_items) > 1:
             raise ValueError(
                 f"{role}'s turn must include max 1 image. "
-                f"Actual: {len(image_messages)}"
+                f"Actual: {len(image_items)}"
             )
+
         # Add image messages before text messages!
-        return image_messages + text_messages
+        return Message(role=role, content=(image_items + text_items))
 
     def _parse_assistant_messages(self, message_list: list[dict]) -> Message:
         role = Role.ASSISTANT
@@ -127,7 +132,7 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
                 raise ValueError("Missing or empty `content` field in message.")
 
             if message["role"] == "user":
-                messages.extend(self._parse_user_messages(message_list, images))
+                messages.append(self._parse_user_messages(message_list, images))
             elif message["role"] == "assistant":
                 messages.append(self._parse_assistant_messages(message_list))
             else:

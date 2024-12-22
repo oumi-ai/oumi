@@ -1,28 +1,37 @@
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from omegaconf import MISSING
-from transformers.utils import is_flash_attn_2_available
+from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.distributed_utils import is_using_accelerate
+from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
 
 @dataclass
 class ModelParams(BaseParams):
     model_name: str = MISSING
-    """The name or path of the model to use.
+    """The name or path of the model or LoRA adapter to use.
 
-    This can be a model identifier from the Oumi registry, Hugging Face model hub,
+    This can be a model identifier from the Oumi registry, HuggingFace Hub,
     or a path to a local directory containing model files.
+
+    The LoRA adapter can be specified here instead of in `adapter_model`. If so, this
+    value is copied to `adapter_model`, and the appropriate base model is set here
+    instead. The base model could either be in the same directory as the adapter, or
+    specified in the adapter's config file.
     """
 
     adapter_model: Optional[str] = None
     """The path to an adapter model to be applied on top of the base model.
 
-    If provided, this adapter will be loaded and applied to the base model.
+    If provided, this adapter will be loaded and applied to the base model. The
+    adapter path could alternatively be specified in `model_name`.
     """
 
     tokenizer_name: Optional[str] = None
@@ -196,8 +205,48 @@ class ModelParams(BaseParams):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
 
-    def __validate__(self):
-        """Validates final config params."""
+    def __finalize_and_validate__(self):
+        """Finalizes and validates final config params."""
+        # If the user didn't specify a LoRA adapter, check to see if the dir/repo
+        # specified by `model_name` contains an adapter, and set `adapter_name` if so.
+        if self.adapter_model is None:
+            # This is a HF utility function that tries to find `adapter_config.json`
+            # given either a local dir or a HF Hub repo id. In the latter case, the repo
+            # will be downloaded from HF Hub if it's not already cached.
+            try:
+                adapter_config_file = find_adapter_config_file(self.model_name)
+            except OSError:
+                logger.debug(
+                    f"Model folder does not contain an adapter: {self.model_name}"
+                )
+                adapter_config_file = None
+            # If this check fails, it means this is not a LoRA model.
+            if adapter_config_file:
+                # If `model_name` is a local dir, this should be the same.
+                # If it's a HF Hub repo, this should be the path to the cached repo.
+                adapter_dir = Path(adapter_config_file).parent
+                self.adapter_model = self.model_name
+                logger.info(
+                    f"Found LoRA adapter at {adapter_dir}, "
+                    "setting `adapter_model` to `model_name`."
+                )
+                # If `model_name` specifies a LoRA adapter dir without the base model
+                # present, set it to the base model name found in the adapter config,
+                # if present. Error otherwise.
+                if len(list(adapter_dir.glob("config.json"))) == 0:
+                    with open(adapter_config_file) as f:
+                        adapter_config = json.load(f)
+                    model_name = adapter_config.get("base_model_name_or_path")
+                    if not model_name:
+                        raise ValueError(
+                            "`model_name` specifies an adapter model only,"
+                            " but the base model could not be found!"
+                        )
+                    self.model_name = model_name
+                    logger.info(
+                        f"Setting `model_name` to {model_name} found in adapter config."
+                    )
+
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
             not is_flash_attn_2_available()

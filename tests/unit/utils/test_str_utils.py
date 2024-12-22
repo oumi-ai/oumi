@@ -1,6 +1,6 @@
 import pytest
 
-from oumi.utils.str_utils import sanitize_run_name, str_to_bool
+from oumi.utils.str_utils import compute_utf8_len, sanitize_run_name, str_to_bool
 
 
 def test_sanitize_run_name_empty():
@@ -69,3 +69,12 @@ def test_false_values(value):
 def test_invalid_inputs(value):
     with pytest.raises(ValueError):
         str_to_bool(value)
+
+
+def test_compute_utf8_len():
+    assert compute_utf8_len("") == 0
+    assert compute_utf8_len("a") == 1
+    assert compute_utf8_len("abc") == 3
+    assert compute_utf8_len("a b c") == 5
+    assert compute_utf8_len("Wir müssen") == 11
+    assert compute_utf8_len("Мы должны") == 17

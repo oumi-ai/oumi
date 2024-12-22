@@ -1,0 +1,37 @@
+# Config used by our Makefile to launch a bare-bones GCP VM for development.
+name: oumi-ssh
+
+num_nodes: 1
+resources:
+  cloud: gcp
+
+  # Other single GPU options: "A40", "A10", "A10g", "A100-80GB-SXM", "L4"
+  # Multi GPU options: "A100:2", "L4:4"
+  accelerators: "A100"
+
+  disk_size: 200 # Disk size in GB
+  # region: us-central1  # Uncomment this line to only consider a specific region.
+
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+storage_mounts:
+  /gcs_dir:
+    source: gs://oumi-dev-us-central1
+    store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-debug
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[dev]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh

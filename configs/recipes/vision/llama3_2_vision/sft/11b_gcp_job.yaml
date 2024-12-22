@@ -1,0 +1,50 @@
+# Sample command:
+# oumi launch up --config configs/recipes/vision/llama3_2_vision/sft/11b_gcp_job.yaml --cluster llama3-2-vision
+name: llama32v-11b-sft-train
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:4"
+  # Allow Spot VM-s, which cost ~3X less.
+  use_spot: true
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+# Upload working directory to remote ~/sky_workdir.
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on your local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama32v.11b.sft
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]' hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir "${OUMI_RUN_NAME}" \
+      --training.logging_dir "${OUMI_RUN_NAME}/runs"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 
 
 @dataclass
@@ -14,11 +14,14 @@ class GenerationParams(BaseParams):
     Default is 256 tokens.
     """
 
-    batch_size: int = 2
+    batch_size: Optional[int] = 1
     """The number of sequences to generate in parallel.
 
-    Larger batch sizes can improve throughput but require more memory.
-    Default is 2.
+    Larger batch sizes can improve throughput but require more memory. Default is 1.
+
+    The value must either be positive or None, in which case the behavior is dependent
+    on the downstream applicaiton. For example, LM Harness will automatically determine
+    the largest batch size that will fit in memory.
     """
 
     exclude_prompt_from_response: bool = True
@@ -61,9 +64,6 @@ class GenerationParams(BaseParams):
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
-    remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
-
     logit_bias: dict[Any, float] = field(default_factory=dict)
     """Modify the likelihood of specified tokens appearing in the completion.
 
@@ -101,10 +101,13 @@ class GenerationParams(BaseParams):
     decoding.
     Default is False."""
 
+    guided_decoding: Optional[GuidedDecodingParams] = None
+    """Parameters for guided decoding."""
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
-        if self.batch_size < 1:
-            raise ValueError("Batch size must be at least 1.")
+        if self.batch_size is not None and self.batch_size < 1:
+            raise ValueError("Batch size must be positive.")
 
         if self.num_beams < 1:
             raise ValueError("num_beams must be strictly larger than 0.")

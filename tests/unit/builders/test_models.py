@@ -122,12 +122,20 @@ def test_build_chat_template_removes_indentation_and_newlines():
 
 
 @pytest.mark.parametrize(
-    "model_name, expected_result",
+    "model_name, trust_remote_code, expected_result",
     [
-        ("gpt2", False),
-        ("llava-hf/llava-1.5-7b-hf", True),
-        ("Salesforce/blip2-opt-2.7b", True),
+        ("MlpEncoder", False, False),  # Custom model
+        ("openai-community/gpt2", False, False),
+        ("llava-hf/llava-1.5-7b-hf", False, True),
+        ("Salesforce/blip2-opt-2.7b", False, True),
+        ("microsoft/Phi-3-vision-128k-instruct", True, True),
+        # ("HuggingFaceTB/SmolVLM-Instruct", False, True), # requires transformers>=4.46
     ],
 )
-def test_is_image_text_llm(model_name, expected_result):
-    assert is_image_text_llm(ModelParams(model_name=model_name)) == expected_result
+def test_is_image_text_llm(model_name, trust_remote_code, expected_result):
+    assert (
+        is_image_text_llm(
+            ModelParams(model_name=model_name, trust_remote_code=trust_remote_code)
+        )
+        == expected_result
+    )

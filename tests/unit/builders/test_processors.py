@@ -1,3 +1,4 @@
+import base64
 from typing import Final
 
 import numpy as np
@@ -10,7 +11,7 @@ from oumi.builders import build_chat_template, build_processor, build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import Message, Role, Type
+from oumi.core.types.conversation import ContentItem, Message, Role, Type
 
 _LLAVA_SYSTEM_PROMPT: Final[str] = (
     "A chat between a curious user and an artificial "
@@ -20,6 +21,10 @@ _LLAVA_SYSTEM_PROMPT: Final[str] = (
 )
 _IMAGE_TOKEN: Final[str] = "<image>"
 _IMAGE_TOKEN_ID: Final[int] = 32000
+
+_SMALL_B64_IMAGE: Final[str] = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 
 @pytest.mark.parametrize(
@@ -71,18 +76,16 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     assert attention_mask.shape == (1, 2)
     assert np.all(attention_mask.numpy() == np.array([[1, 1]]))
 
-    prompt = processor.apply_chat_template(
-        [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
-    )
+    prompt = processor.apply_chat_template([Message(role=Role.USER, content="FooBazz")])
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
     assert prompt == "USER: FooBazz"
 
     prompt = processor.apply_chat_template(
         [
-            Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-            Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-            Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="How can I help?"),
+            Message(role=Role.USER, content="Hmm"),
         ],
         add_generation_prompt=True,
     )
@@ -92,10 +95,18 @@ def test_build_processor_basic_gpt2_success(mock_tokenizer):
     with pytest.raises(ValueError, match="Conversation includes non-text messages"):
         processor.apply_chat_template(
             [
-                Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-                Message(role=Role.USER, type=Type.IMAGE_BINARY, binary=b""),
-                Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-                Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content="Hello"),
+                        ContentItem(
+                            type=Type.IMAGE_BINARY,
+                            binary=base64.b64decode(_SMALL_B64_IMAGE),
+                        ),
+                    ],
+                ),
+                Message(role=Role.ASSISTANT, content="How can I help?"),
+                Message(role=Role.USER, content="Hmm"),
             ]
         )
 
@@ -141,18 +152,16 @@ def test_build_processor_basic_multimodal_success():
     assert attention_mask.shape == (1, 3)
     assert np.all(attention_mask.numpy() == np.array([[1, 1, 1]]))
 
-    prompt = processor.apply_chat_template(
-        [Message(role=Role.USER, type=Type.TEXT, content="FooBazz")]
-    )
+    prompt = processor.apply_chat_template([Message(role=Role.USER, content="FooBazz")])
     assert isinstance(prompt, str)
     assert "FooBazz" in prompt
     assert prompt == _LLAVA_SYSTEM_PROMPT + " USER: FooBazz "
 
     prompt = processor.apply_chat_template(
         [
-            Message(role=Role.USER, type=Type.TEXT, content="Hello"),
-            Message(role=Role.ASSISTANT, type=Type.TEXT, content="How can I help?"),
-            Message(role=Role.USER, type=Type.TEXT, content="Hmm"),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="How can I help?"),
+            Message(role=Role.USER, content="Hmm"),
         ],
         add_generation_prompt=True,
     )

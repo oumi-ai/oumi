@@ -1,5 +1,3 @@
-import functools
-from enum import Enum
 from pathlib import Path
 from typing import Optional, Union, cast
 
@@ -9,6 +7,11 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+    find_model_hf_config,
+    get_all_vlms_map,
+)
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.tokenizers import get_default_special_tokens
@@ -16,6 +19,7 @@ from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout
+from oumi.utils.torch_utils import freeze_model_layers
 
 try:
     import liger_kernel.transformers  # type: ignore
@@ -65,14 +69,12 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
 
-    for layer_name in model_params.freeze_layers:
-        if hasattr(model, layer_name):
-            logger.info(f"Freezing layer '{layer_name}'...")
-
-            for param in getattr(model, layer_name).parameters():
-                param.requires_grad_(False)
-        else:
-            logger.warning(f"Layer '{layer_name}' not found in model.")
+    if len(model_params.freeze_layers) > 0:
+        num_frozen = freeze_model_layers(model, model_params.freeze_layers)
+        logger.warning(
+            f"{num_frozen} layer(s) frozen based on the config: "
+            f"{model_params.freeze_layers}."
+        )
 
     if model_params.compile:
         # The output type of torch.compile is Callable, but when I test it it's of type
@@ -134,22 +136,18 @@ def build_oumi_model(
     return model
 
 
-class _InternalModelKind(Enum):
-    """Private enum representing the supported types of models for internal use."""
-
-    DEFAULT = "default"
-    """Default/unknown model type."""
-
-    IMAGE_TEXT_LLM = "image_text_llm"
-    """Basic image+text LLM."""
-
-
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Downloads and builds the model from the HuggingFace Hub."""
+    """Builds a HuggingFace model.
+
+    If a local directory is specified, the model will be loaded from that checkpoint.
+    Otherwise, `model_params.model_name` is the name of a HuggingFaceHub model. The
+    model will be downloaded from the Hub to a local cache directory if it is not
+    already present, and will be loaded from there.
+    """
     device_map = model_params.device_map
     device_rank_info = get_device_rank_info()
 
@@ -174,13 +172,9 @@ def build_huggingface_model(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
 
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
-        return_unused_kwargs=True,
+    hf_config = find_model_hf_config(
+        model_params.model_name, trust_remote_code=model_params.trust_remote_code
     )
-    if unused_kwargs:
-        logger.warning(f"Unused kwargs found in config: {unused_kwargs}.")
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
@@ -195,7 +189,7 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class, _ = _get_transformers_model_class(hf_config)
+    transformers_model_class = _get_transformers_model_class(hf_config)
 
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
@@ -232,70 +226,48 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
-    # TODO: Remove this once we have a better way to identify the model class
-    # Or we can just ask the user to specify the model class in the config
-    model_kind: _InternalModelKind = _InternalModelKind.DEFAULT
-    if config.model_type in (
-        "blip-2",
-        "blip",
-        "chameleon",
-        "idefics",
-        "idefics2",
-        "idefics3",
-        "instructblip",
-        "llava",
-        "mllama",
-        "paligemma",
-        "qwen2_vl",
-        "vipllava",
-    ):
-        tested_models = {
-            "blip-2",
-            "llava",
-            "mllama",
-        }  # TODO: OPE-353, make sure we have all models supported
+    vlm_info = get_all_vlms_map().get(config.model_type, None)
 
-        if config.model_type not in tested_models:
+    if vlm_info is not None:
+        auto_model_class = vlm_info.model_class
+        if not vlm_info.tested:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
-                "Using AutoModelForVision2Seq as the model class."
+                f"Using {auto_model_class} as the model class. "
                 "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
             )
-
-        auto_model_class = transformers.AutoModelForVision2Seq
-        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
-    elif config.model_type in ("molmo"):
-        tested_models = {}  # TODO: OPE-353, make sure we have all models supported
-
-        if config.model_type not in tested_models:
-            logger.warning(
-                f"Model type {config.model_type} not tested. "
-                "Using AutoModelForCausalLM as the model class."
-                "If you encounter errors, please open an issue at https://github.com/oumi-ai/oumi."
-            )
-        auto_model_class = transformers.AutoModelForCausalLM
-        model_kind = _InternalModelKind.IMAGE_TEXT_LLM
     else:
         auto_model_class = transformers.AutoModelForCausalLM
-        model_kind = _InternalModelKind.DEFAULT
     logger.info(f"Using model class: {auto_model_class} to instantiate model.")
-    return auto_model_class, model_kind
+    return auto_model_class
 
 
-@functools.cache
-def _is_image_text_llm_impl(model_name: str, trust_remote_code: bool) -> bool:
-    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-        model_name,
-        trust_remote_code=trust_remote_code,
-        return_unused_kwargs=True,
+def is_custom_model(model_name: str):
+    """Determines whether the model is a custom model defined in oumi registry."""
+    if len(model_name) > 0 and REGISTRY.contains(
+        name=model_name, type=RegistryType.MODEL
+    ):
+        return True
+
+    return False
+
+
+def is_image_text_llm_using_model_name(
+    model_name: str, trust_remote_code: bool
+) -> bool:
+    """Determines whether the model is a basic image+text LLM."""
+    # For now, assume that custom models are not image+text LLMs.
+    if is_custom_model(model_name):
+        return False
+    model_config = find_internal_model_config_using_model_name(
+        model_name, trust_remote_code=trust_remote_code
     )
-    _, model_kind = _get_transformers_model_class(hf_config)
-    return model_kind == _InternalModelKind.IMAGE_TEXT_LLM
+    return model_config is not None and model_config.visual_config is not None
 
 
 def is_image_text_llm(model_params: ModelParams) -> bool:
     """Determines whether the model is a basic image+text LLM."""
-    return _is_image_text_llm_impl(
+    return is_image_text_llm_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
 

@@ -15,10 +15,10 @@ Oumi integrates with the `bitsandbytes`, `peft`, and `transformers` libraries to
 To enable `bitsandbytes` quantization in Oumi, simply install the package and configure your model to use quantization (see the next section for details).
 
 ```bash
-# Option 1: install the quantization extras
-pip install oumi[quant]
+# Option 1: Install GPU dependencies including bitsandbytes
+pip install oumi[gpu]
 
-# Or, Option 2: install bitsandbytes separately
+# Option 2: Install bitsandbytes separately
 pip install bitsandbytes
 ```
 

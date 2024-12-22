@@ -26,17 +26,12 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  torchrun \
-      --nnodes=${OUMI_NUM_NODES} \
-      --node-rank=${SKYPILOT_NODE_RANK} \
-      --nproc-per-node=${SKYPILOT_NUM_GPUS_PER_NODE} \
-      --master-addr=${OUMI_MASTER_ADDR} \
-      --master-port=8007 \
-      -m oumi.train \
+  oumi distributed torchrun \
+      -m oumi train \
       -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.max_steps=20" \
-      "training.save_steps=0" \
-      "training.save_final_model=false"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

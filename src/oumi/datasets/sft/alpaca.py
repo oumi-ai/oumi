@@ -45,20 +45,19 @@ class AlpacaDataset(BaseSftDataset):
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
-            example (dict): The example containing the input and instruction.
+            example (dict or Pandas Series): An example containing `input` (optional),
+                `instruction`, and `output` entries.
 
         Returns:
-            dict: The preprocessed inputs as a dictionary.
+            dict: The input example converted to Alpaca dictionary format.
 
         """
         messages = []
 
         # Use default Alpaca user prompt template
-        if example.get("input") is not None and len(example["input"]) > 0:
+        if ("input" in example) and len(example["input"]) > 0:
             # This example has both an instruction and a user input.
-            user_prompt = """{instruction}\n\n### Input:\n{input}""".format(
-                instruction=example["instruction"], input=example["input"]
-            )
+            user_prompt = f"{example['instruction']}\n\n### Input:\n{example['input']}"
             system_prompt = self.system_prompt_with_context
         else:
             user_prompt = cast(str, example["instruction"])

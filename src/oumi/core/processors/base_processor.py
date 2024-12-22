@@ -21,6 +21,12 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def processor_name(self) -> str:
+        """Returns a processor name."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
     def tokenizer(self) -> BaseTokenizer:
         """Returns a tokenizer associated with this processor."""
         raise NotImplementedError
@@ -59,6 +65,12 @@ class BaseProcessor(abc.ABC):
     @abc.abstractmethod
     def image_token_id(self) -> Optional[int]:
         """Returns an image token id."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def label_ignore_index(self) -> Optional[int]:
+        """Returns a label ignore index."""
         raise NotImplementedError
 
     @abc.abstractmethod

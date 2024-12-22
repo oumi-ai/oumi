@@ -1,6 +1,7 @@
 import base64
+from collections.abc import Generator
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import pydantic
 from jinja2 import Template
@@ -45,44 +46,68 @@ class Type(str, Enum):
     IMAGE_BINARY = "image_binary"
     """Represents an image stored as binary data."""
 
+    def __str__(self) -> str:
+        """Return the string representation of the Type enum.
 
-class Message(pydantic.BaseModel):
-    """A message in a conversation.
+        Returns:
+            str: The string value of the Type enum.
+        """
+        return self.value
 
-    This class represents a single message within a conversation, containing
-    various attributes such as content, role, type, and optional binary data.
+
+class ContentItemCounts(NamedTuple):
+    """Contains counts of content items in a message by type."""
+
+    total_items: int
+    """The total number of content items in a message."""
+
+    text_items: int
+    """The number of text content items in a message."""
+
+    image_items: int
+    """The number of image content items in a message."""
+
+
+class ContentItem(pydantic.BaseModel):
+    """A sub-part of `Message.content`.
+
+    For example, a multimodal message from `USER` may include
+    two `ContentItem`-s: one for text, and another for image.
 
     Note:
-        Either content or binary must be provided when creating a Message instance.
+        Either content or binary must be provided when creating an instance.
     """
 
-    id: Optional[str] = None
-    """Optional unique identifier for the message.
+    model_config = pydantic.ConfigDict(frozen=True)
 
-    This attribute can be used to assign a specific identifier to the message,
-    which may be useful for tracking or referencing messages within a conversation.
-
-    Returns:
-        Optional[str]: The unique identifier of the message, if set; otherwise None.
-    """
+    type: Type
+    """The type of the content (e.g., text, image path, image URL)."""
 
     content: Optional[str] = None
-    """Optional text content of the message.
+    """Optional text content of the content item.
 
     One of content or binary must be provided.
     """
 
     binary: Optional[bytes] = None
-    """Optional binary data for the message, used for image data
+    """Optional binary data for the message content item, used for image data.
 
     One of content or binary must be provided.
+
+    The field is required for `IMAGE_BINARY`, and can be optionally populated for
+    `IMAGE_URL`, `IMAGE_PATH` in which case it must be the loaded bytes of
+    the image specified in the `content` field.
+
+    The field must be `None` for `TEXT`.
     """
 
-    role: Role
-    """The role of the entity sending the message (e.g., user, assistant, system)."""
+    def is_image(self) -> bool:
+        """Checks if the item contains an image."""
+        return self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH)
 
-    type: Type = Type.TEXT
-    """The type of the message content (e.g., text, image path, image URL)."""
+    def is_text(self) -> bool:
+        """Checks if the item contains text."""
+        return self.type == Type.TEXT
 
     @pydantic.field_serializer("binary")
     def _encode_binary(self, value: Optional[bytes]) -> str:
@@ -103,6 +128,76 @@ class Message(pydantic.BaseModel):
         return value
 
     def model_post_init(self, __context) -> None:
+        """Post-initialization method for the `ContentItem` model.
+
+        This method is automatically called after the model is initialized.
+        Performs additional validation e.g., to ensure that either content or binary
+        is provided for the message.
+
+        Raises:
+            ValueError: If fields are set to invalid or inconsistent values.
+        """
+        if self.binary is None and self.content is None:
+            raise ValueError(
+                "Either content or binary must be provided for the message item "
+                f"(Item type: {self.type})."
+            )
+
+        if self.is_image():
+            if self.type == Type.IMAGE_BINARY and (
+                self.binary is None or len(self.binary) == 0
+            ):
+                raise ValueError(
+                    "No image bytes in message content item "
+                    f"(Item type: {self.type})."
+                )
+            if self.type in (Type.IMAGE_PATH, Type.IMAGE_URL) and (
+                self.content is None or len(self.content) == 0
+            ):
+                raise ValueError(f"Content not provided for {self.type} message item.")
+        else:
+            if self.binary is not None:
+                raise ValueError(
+                    "Binary can only be provided for images "
+                    f"(Item type: {self.type})."
+                )
+
+    def __repr__(self) -> str:
+        """Returns a string representation of the message item."""
+        return f"{self.content}" if self.is_text() else f"<{self.type.upper()}>"
+
+
+class Message(pydantic.BaseModel):
+    """A message in a conversation.
+
+    This class represents a single message within a conversation, containing
+    various attributes such as role, content, identifier.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    id: Optional[str] = None
+    """Optional unique identifier for the message.
+
+    This attribute can be used to assign a specific identifier to the message,
+    which may be useful for tracking or referencing messages within a conversation.
+
+    Returns:
+        Optional[str]: The unique identifier of the message, if set; otherwise None.
+    """
+
+    content: Union[str, list[ContentItem]]
+    """Content of the message.
+
+    For text messages, `content` can be set to a string value.
+    For multimodal messages, `content` should be a list of content items of
+    potentially different types e.g., text and image.
+    """
+
+    role: Role
+    """The role of the entity sending the message (e.g., user, assistant, system)."""
+
+    def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
 
         This method is automatically called after the model is initialized.
@@ -112,26 +207,118 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if self.content is None and self.binary is None:
+        if not isinstance(self.content, (str, list)):
             raise ValueError(
-                "Either content or binary must be provided for the message."
+                f"Unexpected content type: {type(self.content)}. "
+                f"Must by a Python string or a list."
             )
 
-    def is_image(self) -> bool:
-        """Checks if the message contains an image."""
-        return self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH)
+    def _iter_content_items(
+        self, *, return_text: bool = False, return_images: bool = False
+    ) -> Generator[ContentItem, None, None]:
+        """Returns a list of content items."""
+        if isinstance(self.content, str):
+            if return_text:
+                yield ContentItem(type=Type.TEXT, content=self.content)
+        elif isinstance(self.content, list):
+            if return_text and return_images:
+                yield from self.content
+            else:
+                for item in self.content:
+                    if (return_text and item.is_text()) or (
+                        return_images and item.is_image()
+                    ):
+                        yield item
 
-    def is_text(self) -> bool:
-        """Checks if the message contains text."""
-        return self.type == Type.TEXT
+    def _iter_all_content_items(self) -> Generator[ContentItem, None, None]:
+        return self._iter_content_items(return_text=True, return_images=True)
+
+    def count_content_items(self) -> ContentItemCounts:
+        """Counts content items by type."""
+        total_items: int = 0
+        num_text_items: int = 0
+        num_image_items: int = 0
+        for item in self._iter_all_content_items():
+            total_items += 1
+            if item.is_text():
+                num_text_items += 1
+            elif item.is_image():
+                num_image_items += 1
+
+        return ContentItemCounts(
+            total_items=total_items,
+            text_items=num_text_items,
+            image_items=num_image_items,
+        )
+
+    @property
+    def content_items(self) -> list[ContentItem]:
+        """Returns a list of text content items."""
+        return [item for item in self._iter_all_content_items()]
+
+    @property
+    def image_content_items(self) -> list[ContentItem]:
+        """Returns a list of image content items."""
+        return [item for item in self._iter_content_items(return_images=True)]
+
+    @property
+    def text_content_items(self) -> list[ContentItem]:
+        """Returns a list of text content items."""
+        return [item for item in self._iter_content_items(return_text=True)]
+
+    def compute_flattened_text_content(self, separator=" ") -> str:
+        """Joins contents of all text items."""
+        return separator.join(
+            [(item.content or "") for item in self.text_content_items]
+        )
+
+    def contains_images(self) -> bool:
+        """Checks if the message contains at least one image."""
+        first_image = next(self._iter_content_items(return_images=True), None)
+        return first_image is not None
+
+    def contains_text(self) -> bool:
+        """Checks if the message contains at least one text item."""
+        first_text = next(self._iter_content_items(return_text=True), None)
+        return first_text is not None
+
+    def contains_image_content_items_only(self) -> bool:
+        """Checks if the message contains only image items.
+
+        At least one image item is required.
+        """
+        counts = self.count_content_items()
+        return counts.image_items > 0 and counts.image_items == counts.total_items
+
+    def contains_text_content_items_only(self) -> bool:
+        """Checks if the message contains only text items.
+
+        At least one text item is required.
+        """
+        counts = self.count_content_items()
+        return counts.text_items > 0 and counts.text_items == counts.total_items
+
+    def contains_single_text_content_item_only(self) -> bool:
+        """Checks if the message contains exactly 1 text item, and nothing else.
+
+        These are the most common and simple messages, and may need special handling.
+        """
+        counts = self.count_content_items()
+        return counts.text_items == 1 and counts.text_items == counts.total_items
+
+    def contains_single_image_content_item_only(self) -> bool:
+        """Checks if the message contains exactly 1 image item, and nothing else."""
+        counts = self.count_content_items()
+        return counts.image_items == 1 and counts.image_items == counts.total_items
 
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
         id_str = ""
         if self.id:
             id_str = f"{self.id} - "
-        content = (self.content or "") if self.is_text() else f"<{self.type.upper() }>"
-        return f"{id_str}{self.role.upper()}: {content}"
+        return f"{id_str}{self.role.upper()}: " + " | ".join(
+            [repr(item) for item in self._iter_all_content_items()]
+        )
 
 
 class Conversation(pydantic.BaseModel):

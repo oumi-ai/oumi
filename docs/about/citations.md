@@ -2,7 +2,7 @@
 
 ## Citing Oumi
 
-If you find Oumi useful in your research, please cite it using the following BibTeX entry:
+If you find Oumi useful in your research, please consider citing it using the following entry:
 
 ```bibtex
 @software{oumi2024,

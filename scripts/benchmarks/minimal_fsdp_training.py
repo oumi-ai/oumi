@@ -3,7 +3,7 @@
 This script demonstrates a minimal FSDP training loop using the Oumi framework.
 
 Run the script using torchrun for multi-GPU training:
-   torchrun --standalone --nproc_per_node=NUM_GPUS \
+   torchrun --standalone --nproc-per-node=NUM_GPUS \
         scripts/benchmarks/minimal_fsdp_training.py
 
    Replace NUM_GPUS with the number of GPUs you want to use.

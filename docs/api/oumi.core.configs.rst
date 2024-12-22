@@ -11,4 +11,5 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
+   oumi.core.configs.internal
    oumi.core.configs.params

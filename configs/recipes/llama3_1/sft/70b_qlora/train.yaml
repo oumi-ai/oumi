@@ -31,7 +31,9 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 2.0e-05
+  learning_rate: 3.0e-04
+  warmup_steps: 100
+  weight_decay: 0.01
   compile: False
 
   dataloader_num_workers: "auto"
@@ -48,6 +50,7 @@ peft:
   q_lora: True
   # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
   bnb_4bit_quant_type: "nf4"
+  bnb_4bit_quant_storage: "bfloat16"
   bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 16
   lora_alpha: 32

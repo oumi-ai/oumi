@@ -7,8 +7,8 @@ from pprint import pformat
 from typing import Optional, Union
 
 import transformers
-import wandb
 
+import wandb  # isort: skip
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.configs import TrainingParams
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero

@@ -19,9 +19,18 @@ class DefaultProcessor(BaseProcessor):
     Validates that worker conforms to basic required invariants.
     """
 
-    def __init__(self, worker_processor: Any, tokenizer: BaseTokenizer):
+    def __init__(
+        self,
+        processor_name: str,
+        worker_processor: Any,
+        tokenizer: BaseTokenizer,
+        *,
+        label_ignore_index: Optional[int],
+    ):
         """Initializes the processor."""
-        if worker_processor is None:
+        if not processor_name:
+            raise ValueError("Processor name must be provided!")
+        elif worker_processor is None:
             raise ValueError("Worker processor must be provided!")
         elif not callable(worker_processor):
             raise ValueError("Worker processor is not callable!")
@@ -34,6 +43,7 @@ class DefaultProcessor(BaseProcessor):
                 "Worker processor doesn't have " "the `apply_chat_template` method"
             )
 
+        self._processor_name = processor_name
         self._worker_processor: Callable = worker_processor
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
@@ -49,6 +59,13 @@ class DefaultProcessor(BaseProcessor):
             self._image_processor = DefaultImageProcessor(
                 self._worker_processor.image_processor
             )
+        self._label_ignore_index: Optional[int] = label_ignore_index
+
+    @property
+    @override
+    def processor_name(self) -> str:
+        """Returns a processor name."""
+        return self._processor_name
 
     @property
     @override
@@ -112,6 +129,12 @@ class DefaultProcessor(BaseProcessor):
             )
         return int(token_id)
 
+    @property
+    @override
+    def label_ignore_index(self) -> Optional[int]:
+        """Returns a label ignore index."""
+        return self._label_ignore_index
+
     @override
     def __call__(
         self,
@@ -138,7 +161,10 @@ class DefaultProcessor(BaseProcessor):
             )
         else:
             result = self._worker_processor(
-                text=text, images=images, padding=padding, return_tensors=return_tensors
+                text=(text[0] if len(text) == 1 else text),
+                images=images,
+                padding=padding,
+                return_tensors=return_tensors,
             )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
@@ -169,9 +195,9 @@ class DefaultProcessor(BaseProcessor):
         if isinstance(self._worker_processor, BaseTokenizer):
             # If the processor is actually a tokenizer, then disallow non-text messages.
             for message in conversation:
-                if not message.is_text():
+                if message.contains_images():
                     raise ValueError(
-                        f"Conversation includes non-text messages: {message.type}. "
+                        f"Conversation includes non-text messages: {message.id}. "
                         "This is not allowed for processors that are tokenizers."
                     )
 

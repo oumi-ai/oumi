@@ -9,9 +9,9 @@ Oumi provides various ways to customize and extend its functionality to suit you
 custom_datasets
 custom_vl_datasets
 custom_models
-nanopgt
 custom_cluster
 custom_evaluation
+custom_loss
 ```
 
 ## Overview

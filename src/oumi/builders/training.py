@@ -41,7 +41,7 @@ def build_trainer(
             if training_args is not None:
                 # if set, convert to HuggingFace Trainer args format
                 training_args = cast(TrainingParams, training_args)
-                training_args.validate()
+                training_args.finalize_and_validate()
 
             hf_args = training_args.to_hf()
             if is_world_process_zero():

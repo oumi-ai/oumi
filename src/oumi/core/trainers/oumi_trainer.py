@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import os
 import time
 from contextlib import contextmanager
@@ -38,6 +39,12 @@ from oumi.core.distributed import (
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.models.layers.ring_attention import (
+    apply_zigzag_ring_attn_monkey_patch_llama as apply_ring_attention_monkey_patch,
+)
+from oumi.models.layers.ring_attention import (
+    prepare_zigzag_ring_attn_inputs as prepare_seq_parallel_inputs,
+)
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
@@ -64,7 +71,7 @@ class Trainer(BaseTrainer):
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[list[TrainerCallback]] = None,
         data_collator: Optional[Callable] = None,
-        fsdp_params: Optional[FSDPParams] = None,
+        config: Optional[TrainingConfig] = None,
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
@@ -74,17 +81,23 @@ class Trainer(BaseTrainer):
 
         self.tokenizer = tokenizer
         self._processor = processor
-        self.params = args
+        self.params = copy.deepcopy(args)
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.max_norm = (
             float(args.max_grad_norm) if args.max_grad_norm is not None else None
         )
 
-        self.fsdp_params = fsdp_params or FSDPParams()
+        self.config = config or TrainingConfig()
+        self.fsdp_params = self.config.fsdp or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
+        # TODO OPE-333 Define a param to enable ring attention + check pre-conditions:
+        # 1. Flash Attention (`is_ring_attention_available()`),
+        # 2. CUDA and distributed multi-GPU training (otherwise, pointless).
+        # 3. Supported model type.
+        self.is_using_ring_attention = False
 
-        self.params.validate()
+        self.params.finalize_and_validate()
 
         self.state = TrainingState()
         self.device_type = "cuda" if torch.cuda.is_available() else "cpu"
@@ -136,8 +149,13 @@ class Trainer(BaseTrainer):
             with self._telemetry_block("wrap model for distributed"):
                 model = prepare_model_for_distributed(
                     model,
-                    fsdp_params=self.fsdp_params,
+                    self.config,
+                    ddp_find_unused_parameters=self.params.ddp_find_unused_parameters,
                 )
+                # Apply ring attention monkey patch if enabled
+                if self.is_using_ring_attention:
+                    apply_ring_attention_monkey_patch()
+
         if self.params.compile:
             self.log("Compiling model...")
             with self._telemetry_block("compile model"):
@@ -226,12 +244,18 @@ class Trainer(BaseTrainer):
         ):
             yield (record_function_context, timer_context)
 
+    @staticmethod
+    def _cuda_sync_and_empty_cache() -> None:
+        if torch.cuda.is_available() and torch.cuda.is_initialized():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+
     def _train_epoch(self, progress_bar: tqdm) -> None:
         """Trains the model for one epoch."""
         epoch_start_time = time.perf_counter()
 
         self.model.train()
-        torch.cuda.empty_cache()
+        self._cuda_sync_and_empty_cache()
         self.optimizer.zero_grad(set_to_none=True)
         micro_step = 0
 
@@ -273,7 +297,7 @@ class Trainer(BaseTrainer):
                     self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
-                    if not self.is_using_fsdp:
+                    if not self.is_using_fsdp and not self.is_using_ring_attention:
                         batch = {
                             k: v.to(self.device, non_blocking=True)
                             for k, v in batch.items()
@@ -284,7 +308,20 @@ class Trainer(BaseTrainer):
                         end_of_global_step or stop_on_max_steps_limit
                     )
 
-                    outputs = self.model(**batch)
+                    if self.is_using_ring_attention:
+                        # Prepare inputs for ring attention
+                        prepared_inputs = prepare_seq_parallel_inputs(
+                            batch["input_ids"],
+                            batch.get("position_ids"),
+                            batch.get("labels"),
+                            get_device_rank_info().rank,
+                            get_device_rank_info().world_size,
+                            self.device,
+                        )
+                        outputs = self.model(**prepared_inputs)
+                    else:
+                        outputs = self.model(**batch)
+
                     loss = outputs["loss"] / gradient_accumulation_steps
 
                 with self._telemetry_block("loss backward"):

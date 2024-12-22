@@ -30,7 +30,9 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  learning_rate: 2.0e-05
+  learning_rate: 3.0e-04
+  warmup_steps: 100
+  weight_decay: 0.01
   compile: False
 
   dataloader_num_workers: "auto"
@@ -44,7 +46,6 @@ training:
   enable_wandb: True
 
 peft:
-  q_lora: False
   lora_r: 16
   lora_alpha: 32
   lora_dropout: 0.0

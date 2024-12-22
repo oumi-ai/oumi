@@ -336,7 +336,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -352,7 +352,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -367,11 +367,11 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
             call(
                 [
@@ -387,11 +387,11 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -438,7 +438,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -454,7 +454,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -469,11 +469,11 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
             call(
                 [
@@ -489,11 +489,11 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -539,7 +539,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -555,7 +555,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -570,11 +570,11 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
             call(
                 [
@@ -590,11 +590,11 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "1-2-3",
@@ -636,7 +636,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
@@ -644,7 +644,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -659,11 +659,11 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
             call(
                 [
@@ -679,11 +679,11 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -727,7 +727,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
@@ -735,7 +735,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -750,11 +750,11 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
         ]
     )
@@ -762,11 +762,11 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         "#!/bin/bash\n\n" "export var1=val1\n\n" "small setup\n./hello_world.sh\n"
     )
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",
@@ -810,7 +810,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/09102024_130424513094",
+                "/home/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
@@ -818,7 +818,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
         [
             call(
                 [
-                    "cd /home/user/oumi_launcher/09102024_130424513094",
+                    "cd /home/user/oumi_launcher/20241009_130424513094",
                     "module use /soft/modulefiles",
                     "module load conda",
                     "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
@@ -833,21 +833,21 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
                     "if ! command -v uv >/dev/null 2>&1; then",
                     "pip install -U uv",
                     "fi",
-                    "pip install -e '.[gpu]'",
+                    "pip install -e '.[gpu,optional]'",
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"]
+                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
         ]
     )
     job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
     mock_polaris_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh"
+        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_polaris_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/09102024_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/09102024_130424513094",
+        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/home/user/oumi_launcher/20241009_130424513094",
         2,
         PolarisClient.SupportedQueues.DEBUG,
         "myjob",

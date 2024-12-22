@@ -20,7 +20,7 @@ def _format_date(date: datetime) -> str:
     Returns:
         The formatted date.
     """
-    return date.strftime("%d%m%Y_%H%M%S%f")
+    return date.strftime("%Y%m%d_%H%M%S%f")
 
 
 def _last_pbs_line(script: list[str]) -> int:
@@ -242,7 +242,7 @@ class PolarisCluster(BaseCluster):
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install -e '.[gpu]'",  # TODO Re-enable uv OPE-670
+            "pip install -e '.[gpu,optional]'",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.

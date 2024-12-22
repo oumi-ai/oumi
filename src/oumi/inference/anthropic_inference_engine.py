@@ -3,7 +3,7 @@ from typing import Any
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
 
@@ -73,13 +73,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         # See https://docs.anthropic.com/claude/reference/messages_post
         body = {
             "model": self._model,
-            "messages": [
-                {
-                    _CONTENT_KEY: message.content,
-                    _ROLE_KEY: message.role.value,
-                }
-                for message in messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                messages, group_adjacent_same_role_turns=True
+            ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
@@ -101,7 +97,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=response[_CONTENT_KEY][0]["text"],
             role=Role.ASSISTANT,
-            type=Type.TEXT,
         )
         return Conversation(
             messages=[*original_conversation.messages, new_message],
@@ -117,11 +112,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "X-API-Key": self._get_api_key(remote_params) or "",
         }
 
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "max_new_tokens",
-            "remote_params",
             "stop_strings",
             "temperature",
             "top_p",

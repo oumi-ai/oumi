@@ -3,13 +3,16 @@ from unittest.mock import patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 
 
 @pytest.fixture
 def anthropic_engine():
-    return AnthropicInferenceEngine(model_params=ModelParams(model_name="claude-3"))
+    return AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-3"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
 
 
 def test_convert_conversation_to_api_input(anthropic_engine):
@@ -54,7 +57,6 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.messages[0].content == "User message"
     assert result.messages[1].content == "Assistant response"
     assert result.messages[1].role == Role.ASSISTANT
-    assert result.messages[1].type == Type.TEXT
     assert result.metadata == {"key": "value"}
     assert result.conversation_id == "test_id"
 

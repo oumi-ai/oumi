@@ -2,7 +2,9 @@ import dataclasses
 import logging
 import re
 from collections.abc import Iterator
-from typing import Any, Optional, TypeVar, cast
+from io import StringIO
+from pathlib import Path
+from typing import Any, Optional, TypeVar, Union, cast
 
 from omegaconf import OmegaConf
 
@@ -40,7 +42,7 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
 @dataclasses.dataclass
 class BaseConfig:
-    def to_yaml(self, config_path: str) -> None:
+    def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
         """Saves the configuration to a YAML file."""
         OmegaConf.save(config=self, f=config_path)
 
@@ -121,16 +123,16 @@ class BaseConfig:
 
         return cast(T, config)
 
-    def validate(self) -> None:
-        """Validates the top level params objects."""
+    def finalize_and_validate(self) -> None:
+        """Finalizes and validates the top level params objects."""
         for _, attr_value in self:
             if isinstance(attr_value, BaseParams):
-                attr_value.validate()
+                attr_value.finalize_and_validate()
 
-        self.__validate__()
+        self.__finalize_and_validate__()
 
-    def __validate__(self) -> None:
-        """Validates the parameters of this object.
+    def __finalize_and_validate__(self) -> None:
+        """Finalizes and validates the parameters of this object.
 
         This method can be overridden by subclasses to implement custom
         validation logic.
