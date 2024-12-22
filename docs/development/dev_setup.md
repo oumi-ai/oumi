@@ -14,27 +14,27 @@ Alternatively, install Miniconda from the [Anaconda website](https://docs.anacon
 
 ## 2. Set up GitHub
 
-## 2.1 Install GitHub CLI
+### 2.1 Install GitHub CLI
 
-### 2.1.1 Installation instructions for Windows
+#### 2.1.1 Installation instructions for Windows
 
-We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/) using [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install). Then, proceed to [step 1.1.2](#installation-instructions-for-linux-including-wsl).
+We strongly suggest that Windows users set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/) using [these instructions](https://learn.microsoft.com/en-us/windows/wsl/install). Then, proceed to [step 2.1.3](#installation-instructions-for-linux-including-wsl).
 
-### 2.1.2 Installation instructions for Mac
+#### 2.1.2 Installation instructions for Mac
 
-Install Homebrew (command copied from <www.brew.sh>)
+Install Homebrew (command copied from <https://www.brew.sh>):
 
 ```shell
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Then follow "Next steps" (shown after installation) to add `brew` into `.zprofile`
+Then follow "Next steps" (shown after installation) to add `brew` into `.zprofile`:
 
 ```shell
 brew install gh
 ```
 
-### 2.1.3 Installation instructions for Linux, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
+#### 2.1.3 Installation instructions for Linux, including [WSL](https://learn.microsoft.com/en-us/windows/wsl/)
 
 Use Conda to install the `gh` CLI (command copied from <https://github.com/cli/cli?tab=readme-ov-file#conda>):
 
@@ -59,7 +59,7 @@ git config --global user.email "YOUR_EMAIL"
 
 The name and email will be used to identify your contributions to the Oumi repository. To ensure that commits are attributed to you and appear in your contributions graph, use an email address that is connected to your account on GitHub, or the noreply email address provided to you in your email settings.
 
-You can find more instructions [here](hhttps://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address).
+You can find more instructions [here](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address).
 
 ### 2.4 [optional] Install [Git Credential Manager](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls) for authentication management
 
@@ -143,12 +143,20 @@ Oumi integrates with Weights and Biases (WandB) to track the results of training
 wandb login
 ```
 
-This will save your login info at `~/.netrc`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L16) for an example.
+This will save your login info at `~/.netrc`. Oumi jobs mount this file to remote clusters to allow them to log to WandB. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L16) for an example.
 
 ## 7. [optional] Set up VSCode
 
-We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi conda environment so that notebooks run in VSCode use the right kernel.
+We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi Conda environment so that notebooks running in VSCode use the right kernel.
 
-## 8. Test your setup!
+In addition, we also use VSCode to run a notebook backed by a cloud node. To do so, run:
+
+```shell
+make gcpcode ARGS="--resources.accelerators A100:4"
+```
+
+This runs on GCP by default. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs.
+
+## 8. [optional] Test your setup!
 
 To test that your setup is complete, you can run `oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/gcp_job.yaml --cluster llama8b-lora`. This requires step 4 (SkyPilot GCP), step 5 (HF), step 5.1 (Llama 3.1 access), and step 6 (WandB).
