@@ -206,7 +206,7 @@ def register_judge(registry_name: str) -> Callable:
     the parameters and attributes for a specific judge.
 
     Args:
-        registry_name (str): The name under which the judge configuration should be
+        registry_name: The name under which the judge configuration should be
             registered.
 
     Returns:
