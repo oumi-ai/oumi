@@ -41,7 +41,7 @@ TRAINING_MODE="fsdp"
 ENABLE_PYTORCH_PROFILER="false"
 ENABLE_OUMI_TELEMETRY="false"
 
-while getopts "m:pt" opt; do
+while getopts ":m:p:t" opt; do
     case "$opt" in
     m) TRAINING_MODE="$OPTARG" ;;
     p) ENABLE_PYTORCH_PROFILER="true" ;;
