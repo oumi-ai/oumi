@@ -1,4 +1,4 @@
-name: fineweb-pt-fsdp
+name: fineweb-pt-ddp
 # NOTE: Replace with your username.
 user: your_username
 num_nodes: 2
@@ -26,7 +26,7 @@ run: |
   set -x
   mpiexec --verbose \
     --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-    ./scripts/polaris/jobs/fineweb_pt_worker.sh -m fsdp
+    ./scripts/polaris/jobs/fineweb_pt_worker.sh -m ddp
 
   echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"
