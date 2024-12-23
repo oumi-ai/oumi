@@ -1,6 +1,7 @@
 # Inference Engines
 
 ## Overview
+
 Inference Engines are simple tools for running inference on models in Oumi. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and Open AI.
 
 ## Choosing an Engine
@@ -54,7 +55,7 @@ Check out our [Infer CLI definition](/cli/commands.md#oumi-infer) to see the ful
 
 ## Supported Engines
 
-```{include} ../../api/summary/inference_engines.md
+```{include} /api/summary/inference_engines.md
 ```
 
 ## Inference Engine Configs

@@ -48,7 +48,7 @@ lm-eval --tasks list
 
 ### Custom Evaluation Tasks
 
-To build a custom evaluation task, refer to the {doc}`Custom Evaluation Tasks <../../advanced/custom_evaluation>`.
+To build a custom evaluation task, refer to the {doc}`Custom Evaluation Tasks <../../user_guides/evaluate/custom_evaluation>`.
 
 ## Troubleshooting
 
