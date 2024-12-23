@@ -4,10 +4,8 @@ from typing import Optional
 
 from omegaconf import MISSING
 
-from oumi.core.configs.inference_config import InferenceEngineType
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.data_params import DatasetSplitParams
-from oumi.core.configs.params.remote_params import RemoteParams
 
 
 class EvaluationPlatform(Enum):
@@ -78,11 +76,7 @@ class AlpacaEvalTaskParams(BaseTaskParams):
     The default judge is GPT4 Turbo.
     """
 
-    inference_engine: Optional[InferenceEngineType] = None
-    """The inference engine to use for generation."""
-
-    inference_remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
+    placeholder = None
 
 
 @dataclass

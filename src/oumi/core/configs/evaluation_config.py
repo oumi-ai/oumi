@@ -2,9 +2,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.inference_config import InferenceEngineType
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -27,6 +29,18 @@ class EvaluationConfig(BaseConfig):
     maximum length, and any other parameters that control the
     text generation process.
     """
+
+    inference_engine: Optional[InferenceEngineType] = InferenceEngineType.NATIVE
+    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
+    inference engine is required to generate model responses. This parameter specifies
+    the inference engine to use for generation. If not defined, the default is the
+    `NATIVE` inference engine."""
+
+    inference_remote_params: Optional[RemoteParams] = None
+    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
+    inference engine is required to generate model responses. If the model is accessed
+    via a remote API, these parameters specify how to run inference against the remote
+    API."""
 
     run_name: Optional[str] = None
     """A unique identifier for the current training run.
