@@ -37,7 +37,7 @@ engine: "VLLM"  # or "LLAMACPP", "NATIVE", etc.
 ```
 
 ```{note}
-Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {doc}`Configuration Guide <../../get_started/configuration>` and {py:class}`~oumi.core.configs.InferenceConfig` class.
+Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {py:class}`~oumi.core.configs.InferenceConfig` class.
 ```
 
 ## Input Data
@@ -104,9 +104,8 @@ outputConversations = engine.infer_online(input=input_conversation, inference_co
 
 ### Distributed Inference
 
-For large-scale inference across multiple GPUs or machines, see the following tutorials
-for inference with Llama 3.1 70B on {doc}`GCP <vllm_gcp>` and
-{doc}`Polaris <vllm_polaris>`.
+For large-scale inference across multiple GPUs or machines, see the following tutorial
+for inference with Llama 3.1 70B on {doc}`GCP <vllm_gcp>`.
 
 ## Troubleshooting
 

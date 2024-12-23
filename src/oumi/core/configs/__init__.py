@@ -41,9 +41,6 @@ The configurations are organized into different categories:
 - Judge:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
 
-For more information on using these configurations, see the
-:doc:`/get_started/configuration` guide.
-
 Example:
     >>> from oumi.core.configs import TrainingConfig, ModelParams
     >>> model_params = ModelParams(model_name="gpt2", num_labels=2)

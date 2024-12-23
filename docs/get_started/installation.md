@@ -21,12 +21,14 @@ You can install Oumi using one of the following methods:
 For the latest development version, you can install Oumi directly from the GitHub repository:
 
 ::::{tab-set-code}
-:::{code-block} SSH
+:::{code-block} shell
+:name: SSH
 pip install git+ssh://git@github.com/oumi-ai/oumi.git
 :::
 
-:::{code-block} HTTP
-pip install git+<https://github.com/oumi-ai/oumi.git>
+:::{code-block} shell
+:name: HTTPS
+pip install git+https://github.com/oumi-ai/oumi.git
 :::
 ::::
 

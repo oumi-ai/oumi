@@ -157,6 +157,6 @@ make gcpcode ARGS="--resources.accelerators A100:4"
 
 This runs on GCP by default. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs.
 
-## 8. [optional] Test your setup!
+## 8. [optional] Test your setup
 
 To test that your setup is complete, you can run `oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/gcp_job.yaml --cluster llama8b-lora`. This requires step 4 (SkyPilot GCP), step 5 (HF), step 5.1 (Llama 3.1 access), and step 6 (WandB).
