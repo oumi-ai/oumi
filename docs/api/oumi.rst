@@ -12,6 +12,7 @@ Subpackages
    :maxdepth: 2
 
    oumi.builders
+   oumi.cli
    oumi.core
    oumi.datasets
    oumi.evaluation

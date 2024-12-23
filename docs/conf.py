@@ -26,17 +26,18 @@ main_doc = "index"
 extensions = [
     "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
-    "sphinx_rtd_theme",
     "sphinx_design",
+    "sphinx_rtd_theme",
+    "sphinx_term.termynal",
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
     "sphinx.ext.duration",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.typer",
-    "sphinx_term.termynal",
 ]
 
 source_suffix = {

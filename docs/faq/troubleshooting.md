@@ -26,7 +26,7 @@ See {doc}`oom` and {doc}`gpu_sizing` for more information.
 
 ### Slow training / Low GPU utilization
 
-See {doc}`../advanced/performance_optimization` for more information.
+See {doc}`../user_guides/train/performance_optimization` for more information.
 
 ### Training Stability & NaN Loss
 
