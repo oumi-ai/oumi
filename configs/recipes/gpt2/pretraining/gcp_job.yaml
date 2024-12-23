@@ -1,13 +1,11 @@
 name: gpt2-pt
 
 resources:
-  accelerators: {"A100-80GB"}
-  any_of:
-    - use_spot: true
-    - use_spot: false
+  cloud: gcp
+  accelerators: "A100-80GB"
+  use_spot: true
 
-# Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:

@@ -41,6 +41,7 @@ help:
 	@echo "  docs-help   - Show Sphinx documentation help"
 	@echo "  docs-serve  - Serve docs locally and open in browser"
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
+	@echo "  doctest     - Run doctests on documentation files"
 	@echo "  jupyter     - Run Jupyter Lab with the project environment"
 
 setup:
@@ -165,4 +166,14 @@ docs-clean:
 	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
 	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
 
-.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs
+doctest:
+	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)"
+
+doctest-file:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Error: Please specify a file using FILE=docs/path/to/file"; \
+		exit 1; \
+	fi
+	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
+
+.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file

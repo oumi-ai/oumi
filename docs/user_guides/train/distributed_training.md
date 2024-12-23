@@ -31,7 +31,7 @@ NOTE: PyTorch FSDP paper: <https://arxiv.org/abs/2304.11277>
 
 For example, for Phi3 DPO model, there are two related sample configs provided:
 
-- SkyPilot config: [configs/recipes/phi3/dpo/fsdp_sky_job.yaml](../../../configs/recipes/phi3/dpo/fsdp_sky_job.yaml)
+- Job config: [configs/recipes/phi3/dpo/fsdp_gcp_job.yaml](../../../configs/recipes/phi3/dpo/fsdp_gcp_job.yaml)
   - Set the `accelerators:` section as follows: `accelerators: {"A40": N}`, where `N` is the number of GPUs to use e.g., `2`.
 
 Then run `sky launch ...` as before.

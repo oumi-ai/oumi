@@ -12,9 +12,9 @@ model:
 generation:
   batch_size: 4
 
-lm_harness_params:
-  tasks:
-    - "m_mmlu_en"
-  num_fewshot: 5
+tasks:
+  - lm_harness_task_params:
+      task_name: "m_mmlu_en"
+      num_fewshot: 5
 
 enable_wandb: True

@@ -45,7 +45,6 @@ def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str
     _get_all_config_paths(
         exclude_yaml_suffixes={
             "accelerate.yaml",
-            "sky_job.yaml",
         }
     ),
 )
@@ -75,7 +74,6 @@ def test_parse_configs(config_path: str):
     _get_all_config_paths(
         {
             "accelerate.yaml",
-            "sky_job.yaml",
         }
     ),
 )

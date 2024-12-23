@@ -2,10 +2,11 @@ import json
 import os
 import tempfile
 
-from oumi import evaluate_lm_harness
+from oumi import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
-    LMHarnessParams,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from tests.markers import requires_gpus
@@ -21,17 +22,21 @@ def test_evaluate_lm_harness():
 
         config: EvaluationConfig = EvaluationConfig(
             output_dir=nested_output_dir,
-            lm_harness_params=LMHarnessParams(
-                tasks=[TASK],
-                num_samples=NUM_SAMPLES,
-            ),
+            tasks=[
+                EvaluationTaskParams(
+                    lm_harness_task_params=LMHarnessTaskParams(
+                        task_name=TASK,
+                        num_samples=NUM_SAMPLES,
+                    ),
+                )
+            ],
             model=ModelParams(
                 model_name="openai-community/gpt2",
                 trust_remote_code=True,
             ),
         )
 
-        evaluate_lm_harness(config)
+        evaluate(config)
 
         # Identify the relevant output file: "lm_harness_<timestamp>_results.json"
         files = [f for f in os.listdir(nested_output_dir) if f.endswith("results.json")]
