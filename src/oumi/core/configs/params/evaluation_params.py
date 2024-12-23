@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from omegaconf import MISSING
 
@@ -16,7 +16,7 @@ class EvaluationPlatform(Enum):
 
 
 @dataclass
-class BaseTaskParams(BaseParams):
+class BaseEvaluationTaskParams(BaseParams):
     """Base task parameters, which are applicable to ALL evaluation platforms."""
 
     num_samples: Optional[int] = None
@@ -27,6 +27,13 @@ class BaseTaskParams(BaseParams):
     If set, this must be a positive integer.
     """
 
+    eval_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass to the evaluation function.
+
+    This allows for passing any evaluation-specific parameters that are not
+    covered by other fields in *TaskParams classes.
+    """
+
     def __post_init__(self):
         """Verifies params."""
         if self.num_samples is not None and self.num_samples <= 0:
@@ -34,7 +41,7 @@ class BaseTaskParams(BaseParams):
 
 
 @dataclass
-class LMHarnessTaskParams(BaseTaskParams):
+class LMHarnessTaskParams(BaseEvaluationTaskParams):
     """Parameters for the LM Harness evaluation framework.
 
     LM Harness is a comprehensive benchmarking suite for evaluating language models
@@ -65,7 +72,7 @@ class LMHarnessTaskParams(BaseTaskParams):
 
 
 @dataclass
-class AlpacaEvalTaskParams(BaseTaskParams):
+class AlpacaEvalTaskParams(BaseEvaluationTaskParams):
     """Parameters for the AlpacaEval evaluation framework.
 
     AlpacaEval is an LLM-based automatic evaluation suite that is fast, cheap,

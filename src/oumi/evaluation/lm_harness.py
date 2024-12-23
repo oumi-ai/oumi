@@ -117,6 +117,7 @@ def evaluate_lm_harness(
         limit=lm_harness_params.num_samples,
         log_samples=False,
         apply_chat_template=apply_chat_template,
+        **lm_harness_params.eval_kwargs,
     )
     elapsed_time_sec = time.time() - start_time
 
