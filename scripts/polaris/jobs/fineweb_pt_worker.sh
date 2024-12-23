@@ -26,11 +26,11 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp", "deepspeed")
+ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
+    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
     exit 1 # Exit script after printing help
 }
@@ -132,21 +132,6 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
         --training.per_device_train_batch_size 4 \
         --training.gradient_accumulation_steps 64
-elif [ "$TRAINING_MODE" == "deepspeed" ]; then
-    set -x
-    pip install deepspeed # Deepspeed is not installed by default
-    oumi distributed accelerate launch \
-        --use_deepspeed \
-        --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
-        -m oumi train \
-        -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
-        --training.per_device_train_batch_size 4 \
-        --training.gradient_accumulation_steps 64 \
-        --model.torch_dtype_str float32 \
-        --training.mixed_precision_dtype BF16
 else # FSDP
     set -x
     oumi distributed torchrun \

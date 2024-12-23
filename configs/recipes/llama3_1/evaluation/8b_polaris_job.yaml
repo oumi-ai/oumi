@@ -13,11 +13,10 @@ working_dir: .
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
   MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
-  # NOTE: For LoRA, update this to point to your LoRA adapter.
-  LORA_ADAPTER_DIR: ""
   WANDB_PROJECT: oumi-eval
-  OUMI_RUN_NAME: llama8b.eval
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
 # directives in the `setup` section. Additional commands can also be run here after the
@@ -40,16 +39,11 @@ run: |
   fi
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
-  if test -n "$LORA_ADAPTER_DIR"; then
-    echo "Using LoRA adapter: ${LORA_ADAPTER_DIR}"
-  fi
-
   set -x
   accelerate launch \
     -m oumi evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
-    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-    --model.model_name "${MODEL_CHECKPOINT_DIR}" \
-    --model.adapter_model "${LORA_ADAPTER_DIR}"
+    --run_name "polaris.llama8b.eval.${OUMI_JOBNUM}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
 
   echo -e "Finished eval on node:\n$(cat $PBS_NODEFILE)"
