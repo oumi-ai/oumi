@@ -115,7 +115,6 @@ clean: docs-clean
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
 
-
 check:
 	$(CONDA_RUN) pre-commit run --all-files
 

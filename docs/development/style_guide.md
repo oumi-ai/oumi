@@ -14,11 +14,13 @@ for more details.
 
 ### 1.2. Pre-Commit Hooks
 
-Oumi uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
-    ```shell
-    pip install '.[dev]'
-    pre-commit install
-    ```
+Oumi uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure,
+run either `make setup`, or:
+
+```shell
+pip install '.[dev]'
+pre-commit install
+```
 
 The pre-commit hooks will now be run before each commit. You can also run the hooks manually via:
 
