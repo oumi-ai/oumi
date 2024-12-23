@@ -1,22 +1,20 @@
 name: chatqa-stage2-nopack
 
 resources:
-  accelerators: {"A100-80GB"}
-  any_of:
-    - use_spot: true
-    - use_spot: false
+  cloud: gcp
+  accelerators: "A100-80GB"
+  use_spot: true
   disk_size: 1000  # Disk size in GB
 
-# Upload working directory to remote ~/sky_workdir.
-workdir: .
+working_dir: .
 
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
   WANDB_PROJECT: oumi-train
-  HF_TOKEN: null # forces the user to pass it
   OUMI_RUN_NAME: chatqa.stage2
 
 setup: |
@@ -30,7 +28,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/examples/chatqa/chatqa_stage2_train.yaml \
+      -c configs/projects/chatqa/chatqa_stage2_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.ddp_find_unused_parameters false \
       --training.dataloader_num_workers 2 \
