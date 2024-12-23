@@ -12,7 +12,8 @@ from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.evaluate import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
-    LMHarnessParams,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from oumi.utils.logging import logger
@@ -23,10 +24,14 @@ runner = CliRunner()
 def _create_eval_config() -> EvaluationConfig:
     return EvaluationConfig(
         output_dir="output/dir",
-        lm_harness_params=LMHarnessParams(
-            tasks=["mmlu"],
-            num_samples=4,
-        ),
+        tasks=[
+            EvaluationTaskParams(
+                lm_harness_task_params=LMHarnessTaskParams(
+                    task_name="mmlu",
+                    num_samples=4,
+                ),
+            )
+        ],
         model=ModelParams(
             model_name="openai-community/gpt2",
             trust_remote_code=True,
@@ -71,14 +76,15 @@ def test_evaluate_with_overrides(app, mock_evaluate):
                 yaml_path,
                 "--model.tokenizer_name",
                 "new_name",
-                "--lm_harness_params.num_samples",
-                "5",
+                "--tasks",
+                "[{lm_harness_task_params: {num_samples: 5, task_name: mmlu}}]",
             ],
         )
         expected_config = _create_eval_config()
         expected_config.model.tokenizer_name = "new_name"
-        if expected_config.lm_harness_params:
-            expected_config.lm_harness_params.num_samples = 5
+        if expected_config.tasks:
+            if expected_config.tasks[0].lm_harness_task_params:
+                expected_config.tasks[0].lm_harness_task_params.num_samples = 5
         mock_evaluate.assert_has_calls([call(expected_config)])
 
 

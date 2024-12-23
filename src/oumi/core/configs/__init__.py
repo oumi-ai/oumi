@@ -62,10 +62,7 @@ Note:
 
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.evaluation_config import (
-    EvaluationConfig,
-    EvaluationFramework,
-)
+from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeAttribute, JudgeConfig
@@ -77,8 +74,11 @@ from oumi.core.configs.params.data_params import (
     MixtureStrategy,
 )
 from oumi.core.configs.params.evaluation_params import (
+    AlpacaEvalTaskParams,
     CustomEvaluationParams,
-    LMHarnessParams,
+    EvaluationPlatform,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
 )
 from oumi.core.configs.params.fsdp_params import (
     AutoWrapPolicy,
@@ -103,6 +103,7 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
+    "AlpacaEvalTaskParams",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
@@ -112,8 +113,9 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "EvaluationTaskParams",
     "EvaluationConfig",
-    "EvaluationFramework",
+    "EvaluationPlatform",
     "FSDPParams",
     "GenerationParams",
     "GuidedDecodingParams",
@@ -123,7 +125,7 @@ __all__ = [
     "JobResources",
     "JudgeAttribute",
     "JudgeConfig",
-    "LMHarnessParams",
+    "LMHarnessTaskParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",

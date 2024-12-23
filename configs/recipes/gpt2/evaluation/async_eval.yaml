@@ -1,5 +1,6 @@
 evaluation:
   output_dir: "" # "/output_dir_gcs/matthew/gpt2.pt.4xA10080GB.5000steps/hellaswag/"
+
   model:
     model_name: "gpt2"  # 124M params
     # For local testing.
@@ -10,9 +11,9 @@ evaluation:
     compile: True
     trust_remote_code: True
 
-  lm_harness_params:
-    tasks:
-      - "hellaswag"
+  tasks:
+    - lm_harness_task_params:
+        task_name: "hellaswag"
 
   generation:
     batch_size: 32
