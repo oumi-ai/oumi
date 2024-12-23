@@ -17,7 +17,7 @@ echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
 
 cd ${PBS_O_WORKDIR}
 
-pip install -U "ray" -q
+pip install -U ray -q
 pip install vllm -q
 pip install locust -q
 pip install openai -q
