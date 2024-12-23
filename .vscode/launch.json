@@ -26,24 +26,33 @@
             "justMyCode": false
         },
         {
-            "name": "Oumi - Judge",
+            "name": "Oumi - Train - FSDP",
             "type": "debugpy",
             "request": "launch",
-            "module": "oumi",
+            "module": "torch.distributed.run",
+            "console": "integratedTerminal",
             "args": [
-                "judge",
-                "--config-name",
-                "oumi/v1_xml_local",
-                "--dataset-name",
-                "yahma/alpaca-cleaned"
-            ],
-            "justMyCode": true
+                "--standalone",
+                "--nproc-per-node",
+                "4",
+                "-m",
+                "oumi",
+                "train",
+                "-c",
+                "configs/recipes/llama3_1/sft/8b_full/train.yaml",
+                "--training.max_steps",
+                "2",
+                "--training.enable_wandb",
+                "false",
+                "--training.enable_tensorboard",
+                "false"
+            ]
         },
         {
-            "name": "Oumi - Train - Multi-GPU",
+            "name": "Oumi - Pretrain - DDP",
             "type": "debugpy",
-            "module": "torch.distributed.run",
             "request": "launch",
+            "module": "torch.distributed.run",
             "console": "integratedTerminal",
             "args": [
                 "--standalone",
@@ -55,47 +64,6 @@
                 "-c",
                 "configs/recipes/gpt2/pretraining/train.yaml"
             ]
-        },
-        {
-            "name": "Oumi - Train - Accelerate",
-            "type": "debugpy",
-            "module": "accelerate.commands.launch",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "args": [
-                "--num_machines",
-                "1",
-                "--machine_rank",
-                "0",
-                "--num_processes",
-                "4",
-                "--use_fsdp",
-                "--config_file",
-                "configs/recipes/llama3_1/sft/8b_full/accelerate.yaml",
-                "-m",
-                "oumi",
-                "train",
-                "-c",
-                "configs/recipes/llama3_1/sft/8b_full/train.yaml",
-                "training.max_steps=2",
-                "training.save_steps=1",
-                "training.save_final_model=true",
-                "training.enable_wandb=false",
-                "training.enable_tensorboard=false"
-            ]
-        },
-        {
-            "name": "Oumi - Inference",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-                "infer",
-                "--interactive",
-                "-c",
-                "configs/recipes/smollm/inference/135m_infer.yaml"
-            ],
-            "justMyCode": true
         },
         {
             "name": "Oumi - Evaluate - LM Harness",
@@ -110,19 +78,31 @@
             "justMyCode": false
         },
         {
-            "name": "Oumi - Experimental - Multimodal Inference",
+            "name": "Oumi - Inference - Interactive",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
             "args": [
                 "infer",
                 "--interactive",
-                "--image",
-                "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml"
+                "configs/recipes/smollm/inference/135m_infer.yaml"
             ],
-            "justMyCode": false
+            "justMyCode": true
+        },
+        {
+            "name": "Oumi - Judge",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "judge",
+                "--config-name",
+                "oumi/v1_xml_local",
+                "--dataset-name",
+                "yahma/alpaca-cleaned"
+            ],
+            "justMyCode": true
         },
         {
             "name": "Oumi - Experimental - Multimodal Training",
@@ -134,6 +114,21 @@
                 "llava-hf/llava-1.5-7b-hf",
                 "--dataset-name",
                 "merve/vqav2-small"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Oumi - Experimental - Multimodal Inference Interactive",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "infer",
+                "--interactive",
+                "--image",
+                "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
+                "-c",
+                "configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml"
             ],
             "justMyCode": false
         },

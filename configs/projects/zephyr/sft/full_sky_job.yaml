@@ -1,4 +1,4 @@
-name: zephyr-7b-sft
+name: zephyr-7b-fft
 
 num_nodes: 1  # Set it to N for multi-node training.
 
@@ -25,7 +25,7 @@ storage_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: "zephyr.7b.fft"
+  OUMI_RUN_NAME: zephyr.7b.fft
 
 setup: |
   set -e

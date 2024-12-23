@@ -38,8 +38,8 @@ run: |
 
   set -x
   oumi distributed torchrun \
-      -m oumi train \
-      -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+    -m oumi train \
+    -c configs/recipes/llama3_1/sft/8b_full/train.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
