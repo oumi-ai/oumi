@@ -28,7 +28,9 @@ OUTPUT_FILENAME_HARNESS_PARAMS = "lm_harness_{time}_lm_harness_params.json"
 OUTPUT_FILENAME_PKG_VERSIONS = "lm_harness_{time}_package_versions.json"
 
 
-def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str, Any]:
+def _create_extra_lm_harness_model_params_for_vlm(
+    model_params: ModelParams,
+) -> dict[str, Any]:
     # For details, see:
     # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
     # FIXME OPE-355 To remove `max_images=1` limit
@@ -51,7 +53,7 @@ def _create_extra_lm_harness_args_for_vlm(model_params: ModelParams) -> dict[str
 
 def evaluate_lm_harness(
     model_params: ModelParams,
-    lm_harness_params: LMHarnessTaskParams,
+    lm_harness_task_params: LMHarnessTaskParams,
     generation_params: GenerationParams,
     output_dir: str,
     enable_wandb: bool,
@@ -64,7 +66,7 @@ def evaluate_lm_harness(
 
     Args:
         model_params: The parameters of the model to evaluate.
-        lm_harness_params: The LM Harness parameters to use for evaluation.
+        lm_harness_task_params: The LM Harness parameters to use for evaluation.
         generation_params: The generation parameters to use for evaluation.
         output_dir: The directory where the evaluation results will be saved.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
@@ -82,7 +84,7 @@ def evaluate_lm_harness(
 
     if model_params.adapter_model:
         logger.info(f"Loading adapter for eval: {model_params.adapter_model}")
-    assert lm_harness_params is not None
+    assert lm_harness_task_params is not None
     # If batch size isn't specified, we set it to "auto", which will let LM Harness
     # automatically select the largest batch size that will fit in memory.
     # https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md
@@ -91,14 +93,16 @@ def evaluate_lm_harness(
     )
     start_time = time.time()
 
-    lm_harness_args = model_params.to_lm_harness()
+    lm_harness_model_params = model_params.to_lm_harness()
 
     if is_image_text_llm(model_params):
         # Multimodal support is currently restricted to
         # the ['hf-multimodal', 'vllm-vlm'] model types.
         lm_harness_model = "hf-multimodal"
         apply_chat_template = True
-        lm_harness_args.update(_create_extra_lm_harness_args_for_vlm(model_params))
+        lm_harness_model_params.update(
+            _create_extra_lm_harness_model_params_for_vlm(model_params)
+        )
     else:
         lm_harness_model = "hf"
         # False is the default value for `simple_evaluate()`
@@ -106,25 +110,26 @@ def evaluate_lm_harness(
         apply_chat_template = False
 
     logger.info("Starting evaluation...")
-    logger.info(f"\tLM Harness args:\n{pformat(lm_harness_args)}")
+    logger.info(f"\tLM Harness model params:\n{pformat(lm_harness_model_params)}")
+    logger.info(f"\tLM Harness task params:\n{pformat(lm_harness_task_params)}")
     lm_eval_output = lm_eval.simple_evaluate(
         model=lm_harness_model,
-        model_args=lm_harness_args,
-        tasks=[lm_harness_params.task_name],
-        num_fewshot=lm_harness_params.num_fewshot,
+        model_args=lm_harness_model_params,
+        tasks=[lm_harness_task_params.task_name],
+        num_fewshot=lm_harness_task_params.num_fewshot,
         batch_size=batch_size,  # type: ignore
         device=device,
-        limit=lm_harness_params.num_samples,
+        limit=lm_harness_task_params.num_samples,
         log_samples=False,
         apply_chat_template=apply_chat_template,
-        **lm_harness_params.eval_kwargs,  # type: ignore
+        **lm_harness_task_params.eval_kwargs,  # type: ignore
     )
     elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
     if is_world_process_zero():
         assert lm_eval_output is not None
-        task_name = lm_harness_params.task_name
+        task_name = lm_harness_task_params.task_name
         metric_dict = lm_eval_output["results"][task_name]  # type: ignore
         logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
@@ -142,7 +147,7 @@ def evaluate_lm_harness(
                 output_dir=output_dir,
                 lm_harness_output=lm_eval_output,
                 model_params=model_params,
-                lm_harness_params=lm_harness_params,
+                lm_harness_task_params=lm_harness_task_params,
                 generation_params=generation_params,
                 elapsed_time_sec=elapsed_time_sec,
             )
@@ -152,7 +157,7 @@ def save_lm_harness_output(
     output_dir: str,
     lm_harness_output: dict[str, Any],
     model_params: ModelParams,
-    lm_harness_params: LMHarnessTaskParams,
+    lm_harness_task_params: LMHarnessTaskParams,
     generation_params: GenerationParams,
     elapsed_time_sec: float,
 ) -> None:
@@ -194,7 +199,7 @@ def save_lm_harness_output(
 
     output_file_harness_params = OUTPUT_FILENAME_HARNESS_PARAMS.format(time=time_now)
     with open(output_path / output_file_harness_params, "w") as file_out:
-        file_out.write(json_serializer(lm_harness_params))
+        file_out.write(json_serializer(lm_harness_task_params))
 
     # --- Save python environment (package versions) ---
     output_file_pkg_versions = OUTPUT_FILENAME_PKG_VERSIONS.format(time=time_now)

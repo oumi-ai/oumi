@@ -6,47 +6,61 @@ model:
   attn_implementation: "sdpa"
 
 tasks:
-  - lm_harness_task_params:
-      task_name: "m_mmlu_ar"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_ar
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_zh"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_zh
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_en"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_en
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_fr"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_fr
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_de"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_de
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_hi"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_hi
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_id"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_id
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_it"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_it
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_pt"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_pt
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_ro"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_ro
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_ru"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_ru
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_es"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_es
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_uk"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_uk
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "m_mmlu_vi"
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_vi
+    eval_kwargs:
       num_fewshot: 5
 
 generation:

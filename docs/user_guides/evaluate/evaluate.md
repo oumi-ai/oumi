@@ -18,23 +18,29 @@ model:
   trust_remote_code: True
 
 tasks: # HuggingFace Leaderboard
-  - lm_harness_task_params:
-      task_name: "mmlu"
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "arc_challenge"
+  - evaluation_platform: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
       num_fewshot: 25
-  - lm_harness_task_params:
-      task_name: "winogrande"
+  - evaluation_platform: lm_harness
+    task_name: winogrande
+    eval_kwargs:
       num_fewshot: 5
-  - lm_harness_task_params:
-      task_name: "hellaswag"
+  - evaluation_platform: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
       num_fewshot: 10
-  - lm_harness_task_params:
-      task_name: "truthfulqa_mc2"
+  - evaluation_platform: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
       num_fewshot: 0
-  - lm_harness_task_params:
-      task_name: "gsm8k"
+  - evaluation_platform: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
       num_fewshot: 5
 ```
 
@@ -48,7 +54,7 @@ For evaluation, we use the `lm_eval` library, which includes a wide range of tas
 
 ```{tip}
 To use `lm_eval` with `oumi`:
-1. Specify the tasks in your configuration file under `tasks.lm_harness_task_params`.
+1. Specify the tasks in your configuration file under `tasks`.
 2. Adjust other parameters like `num_fewshot` and `num_samples` as needed.
 ```
 

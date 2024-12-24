@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -11,7 +12,7 @@ from oumi.utils.str_utils import sanitize_run_name
 
 @dataclass
 class EvaluationConfig(BaseConfig):
-    tasks: list[dict[str, Any]] = field(default_factory=list)
+    tasks: list[EvaluationTaskParams] = field(default_factory=list)
     """List of all the evaluation tasks to run."""
 
     model: ModelParams = field(default_factory=ModelParams)

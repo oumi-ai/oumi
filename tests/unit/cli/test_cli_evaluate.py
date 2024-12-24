@@ -12,6 +12,7 @@ from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.evaluate import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
+    EvaluationTaskParams,
     ModelParams,
 )
 from oumi.utils.logging import logger
@@ -23,11 +24,11 @@ def _create_eval_config() -> EvaluationConfig:
     return EvaluationConfig(
         output_dir="output/dir",
         tasks=[
-            {
-                "evaluation_platform": "lm_harness",
-                "task_name": "mmlu",
-                "num_samples": 4,
-            },
+            EvaluationTaskParams(
+                evaluation_platform="lm_harness",
+                task_name="mmlu",
+                num_samples=4,
+            )
         ],
         model=ModelParams(
             model_name="openai-community/gpt2",
@@ -81,7 +82,7 @@ def test_evaluate_with_overrides(app, mock_evaluate):
         expected_config.model.tokenizer_name = "new_name"
         if expected_config.tasks:
             if expected_config.tasks[0]:
-                expected_config.tasks[0]["num_samples"] = 5
+                expected_config.tasks[0].num_samples = 5
         mock_evaluate.assert_has_calls([call(expected_config)])
 
 
