@@ -10,8 +10,9 @@ model:
   attn_implementation: "sdpa"
 
 tasks:
-  - lm_harness_task_params:
-      task_name: "mmlu"
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+    eval_kwargs:
       num_fewshot: 5
 
 generation:

@@ -11,7 +11,7 @@ generation:
   batch_size: 1
 
 tasks:
-  - lm_harness_task_params:
-      task_name: "mmmu_val"
+  - evaluation_platform: lm_harness
+    task_name: mmmu_val
 
 enable_wandb: True

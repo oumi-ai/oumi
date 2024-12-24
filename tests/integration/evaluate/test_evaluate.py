@@ -6,7 +6,6 @@ from oumi import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
     EvaluationTaskParams,
-    LMHarnessTaskParams,
     ModelParams,
 )
 from tests.markers import requires_gpus
@@ -24,10 +23,9 @@ def test_evaluate_lm_harness():
             output_dir=nested_output_dir,
             tasks=[
                 EvaluationTaskParams(
-                    lm_harness_task_params=LMHarnessTaskParams(
-                        task_name=TASK,
-                        num_samples=NUM_SAMPLES,
-                    ),
+                    evaluation_platform="lm_harness",
+                    task_name=TASK,
+                    num_samples=NUM_SAMPLES,
                 )
             ],
             model=ModelParams(

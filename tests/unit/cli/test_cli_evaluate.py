@@ -13,7 +13,6 @@ from oumi.cli.evaluate import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
     EvaluationTaskParams,
-    LMHarnessTaskParams,
     ModelParams,
 )
 from oumi.utils.logging import logger
@@ -26,10 +25,9 @@ def _create_eval_config() -> EvaluationConfig:
         output_dir="output/dir",
         tasks=[
             EvaluationTaskParams(
-                lm_harness_task_params=LMHarnessTaskParams(
-                    task_name="mmlu",
-                    num_samples=4,
-                ),
+                evaluation_platform="lm_harness",
+                task_name="mmlu",
+                num_samples=4,
             )
         ],
         model=ModelParams(
@@ -77,14 +75,14 @@ def test_evaluate_with_overrides(app, mock_evaluate):
                 "--model.tokenizer_name",
                 "new_name",
                 "--tasks",
-                "[{lm_harness_task_params: {num_samples: 5, task_name: mmlu}}]",
+                "[{evaluation_platform: lm_harness, num_samples: 5, task_name: mmlu}]",
             ],
         )
         expected_config = _create_eval_config()
         expected_config.model.tokenizer_name = "new_name"
         if expected_config.tasks:
-            if expected_config.tasks[0].lm_harness_task_params:
-                expected_config.tasks[0].lm_harness_task_params.num_samples = 5
+            if expected_config.tasks[0]:
+                expected_config.tasks[0].num_samples = 5
         mock_evaluate.assert_has_calls([call(expected_config)])
 
 

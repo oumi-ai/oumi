@@ -16,8 +16,35 @@ class EvaluationPlatform(Enum):
 
 
 @dataclass
-class BaseEvaluationTaskParams(BaseParams):
-    """Base task parameters, which are applicable to ALL evaluation platforms."""
+class EvaluationTaskParams(BaseParams):
+    """Configuration parameters for model evaluation tasks.
+
+    Supported platforms:
+    - LM Harness: Framework for evaluating language models on standard benchmarks.
+        A list of all supported tasks can be found at:
+        github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+    - Alpaca Eval: Framework for evaluating language models on instruction-following
+        and quality of responses on open-ended questions.
+
+    Examples:
+        # LM Harness evaluation on MMLU
+        params = EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            eval_kwargs={"num_fewshot": 5}
+        )
+
+        # Alpaca Eval 2.0 evaluation
+        params = EvaluationTaskParams(
+            evaluation_platform="alpaca_eval"
+        )
+    """
+
+    evaluation_platform: str = MISSING
+    """The evaluation platform to use for the current task."""
+
+    task_name: Optional[str] = None
+    """The task to evaluate."""
 
     num_samples: Optional[int] = None
     """Number of samples/examples to evaluate from this dataset.
@@ -34,25 +61,91 @@ class BaseEvaluationTaskParams(BaseParams):
     covered by other fields in *TaskParams classes.
     """
 
+    def get_evaluation_platform(self) -> EvaluationPlatform:
+        """Returns the evaluation platform as an Enum."""
+        if not self.evaluation_platform:
+            raise ValueError(
+                "Missing `evaluation_platform`. When running evaluations, it is "
+                "necessary to specify the evaluation platform to use for EACH task. "
+                "The available platforms can be found in the following enum: "
+                "`oumi.core.configs.params.evaluation_params.EvaluationPlatform`. "
+                f"Current options: {EvaluationTaskParams.list_evaluation_platforms()}."
+            )
+        elif self.evaluation_platform == EvaluationPlatform.LM_HARNESS.value:
+            return EvaluationPlatform.LM_HARNESS
+        elif self.evaluation_platform == EvaluationPlatform.ALPACA_EVAL.value:
+            return EvaluationPlatform.ALPACA_EVAL
+        else:
+            raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
+
+    def get_evaluation_platform_task_params(self):
+        """Returns the evaluation platform-specific task parameters."""
+        if self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
+            target_class = LMHarnessTaskParams
+        elif self.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
+            raise NotImplementedError("Alpaca Eval is not yet supported.")
+        else:
+            raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
+
+        init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
+        return target_class(**init_kwargs)
+
+    @staticmethod
+    def list_evaluation_platforms() -> str:
+        """Returns a string listing all available evaluation platforms."""
+        return ", ".join([platform.value for platform in EvaluationPlatform])
+
+    def _get_init_kwargs_for_task_params_class(self, target_class) -> dict[str, Any]:
+        """Returns the init keyword arguments for a `target_class` of name *TaskParams.
+
+        Given a target class of name <evaluation platform>_TaskParams, which inherits
+        from the current class, this method returns a 'flattened' dict that includes all
+        arguments needed to instantiate it. The dict includes all the parameters which
+        are already members of the current class, as well as additional parameters which
+        are only known to the target class (stored under `eval_kwargs`). By 'flattened',
+        we mean that all known parameters that are stored under the `eval_kwargs` dict
+        are moved one level up, to the (flat) dict that is returned. In contrast, all
+        unknown (to the target class) parameters remain (unflattened) inside the
+        `eval_kwargs` dict.
+        """
+        # Find all keys in `eval_kwargs` which are known to the target class.
+        known_keys = []
+        if self.eval_kwargs:
+            for key in self.eval_kwargs:
+                if key in target_class.all_params():
+                    known_keys.append(key)
+
+        # Identify all kwargs known to the current class.
+        init_keys = [
+            key
+            for key in dir(self)
+            if not callable(getattr(self, key)) and not key.startswith("_")
+        ]
+        init_kwargs = {key: getattr(self, key) for key in init_keys}
+
+        # Move known kwargs one level up: from `eval_kwargs` to the top-level dict.
+        for key in known_keys:
+            init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
+
+        return init_kwargs
+
     def __post_init__(self):
         """Verifies params."""
+        if (
+            self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS
+            and not self.task_name
+        ):
+            raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_samples is not None and self.num_samples <= 0:
             raise ValueError("`num_samples` must be None or a positive integer.")
 
 
 @dataclass
-class LMHarnessTaskParams(BaseEvaluationTaskParams):
+class LMHarnessTaskParams(EvaluationTaskParams):
     """Parameters for the LM Harness evaluation framework.
 
     LM Harness is a comprehensive benchmarking suite for evaluating language models
     across various tasks.
-    """
-
-    task_name: str = MISSING
-    """The LM Harness task to evaluate.
-
-    A list of all tasks is available at
-    https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks
     """
 
     num_fewshot: Optional[int] = None
@@ -63,16 +156,19 @@ class LMHarnessTaskParams(BaseEvaluationTaskParams):
     If set to 0: no few-shot examples will be added in the prompt.
     """
 
+    @classmethod
+    def all_params(cls) -> list[str]:
+        """Returns all parameters of the class."""
+        return list(cls.__dict__.keys())
+
     def __post_init__(self):
         """Verifies params."""
-        if not self.task_name:
-            raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_fewshot and self.num_fewshot < 0:
             raise ValueError("`num_fewshot` must be non-negative.")
 
 
 @dataclass
-class AlpacaEvalTaskParams(BaseEvaluationTaskParams):
+class AlpacaEvalTaskParams(EvaluationTaskParams):
     """Parameters for the AlpacaEval evaluation framework.
 
     AlpacaEval is an LLM-based automatic evaluation suite that is fast, cheap,
@@ -84,44 +180,6 @@ class AlpacaEvalTaskParams(BaseEvaluationTaskParams):
     """
 
     placeholder = None
-
-
-@dataclass
-class EvaluationTaskParams(BaseParams):
-    """Wrapper for task params of different evaluation platforms."""
-
-    lm_harness_task_params: Optional[LMHarnessTaskParams] = None
-    """Used when the task is evaluated using the LM Harness evaluation platform.
-    Only a single *_task_params variable can be set in this class, so this is mutually
-    exclusive with `alpaca_eval_task_params`.
-    """
-
-    alpaca_eval_task_params: Optional[AlpacaEvalTaskParams] = None
-    """Used when the task is evaluated using the AlpacaEval evaluation platform.
-    Only a single *_task_params variable can be set in this class, so this is mutually
-    exclusive with `lm_harness_task_params`."""
-
-    def evaluation_platform(self):
-        """Returns the evaluation platform to use for the current task."""
-        if self.lm_harness_task_params:
-            return EvaluationPlatform.LM_HARNESS
-        elif self.alpaca_eval_task_params:
-            return EvaluationPlatform.ALPACA_EVAL
-        else:
-            raise ValueError("No task params available")
-
-    def __post_init__(self):
-        """Verifies params."""
-        if not any([self.lm_harness_task_params, self.alpaca_eval_task_params]):
-            raise ValueError(
-                "At least one task params variable must be set. Please define either "
-                "`lm_harness_task_params` or `alpaca_eval_task_params`"
-            )
-        if all([self.lm_harness_task_params, self.alpaca_eval_task_params]):
-            raise ValueError(
-                "Only one task params variable can be set. Please define either "
-                "`lm_harness_task_params` or `alpaca_eval_task_params`"
-            )
 
 
 @dataclass
