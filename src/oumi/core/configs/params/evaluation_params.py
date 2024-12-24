@@ -96,7 +96,12 @@ class EvaluationTaskParams(BaseParams):
                     known_keys.append(key)
 
         # Identify all kwargs known to the current class.
-        init_kwargs = self.__dict__
+        init_keys = [
+            key
+            for key in dir(self)
+            if not callable(getattr(self, key)) and not key.startswith("_")
+        ]
+        init_kwargs = {key: getattr(self, key) for key in init_keys}
 
         # Move known kwargs one level up: from `eval_kwargs` to the top-level dict.
         for key in known_keys:
