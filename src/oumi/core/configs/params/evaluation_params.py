@@ -17,19 +17,34 @@ class EvaluationPlatform(Enum):
 
 @dataclass
 class EvaluationTaskParams(BaseParams):
-    """Wrapper for task params of different evaluation platforms."""
+    """Configuration parameters for model evaluation tasks.
+
+    Supported platforms:
+    - LM Harness: Framework for evaluating language models on standard benchmarks.
+        A list of all supported tasks can be found at:
+        github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+    - Alpaca Eval: Framework for evaluating language models on instruction-following
+        and quality of responses on open-ended questions.
+
+    Examples:
+        # LM Harness evaluation on MMLU
+        params = EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            eval_kwargs={"num_fewshot": 5}
+        )
+
+        # Alpaca Eval 2.0 evaluation
+        params = EvaluationTaskParams(
+            evaluation_platform="alpaca_eval"
+        )
+    """
 
     evaluation_platform: str = MISSING
     """The evaluation platform to use for the current task."""
 
     task_name: Optional[str] = None
-    """The task to evaluate.
-
-    If the evaluation platform is LM Harness, a list of all tasks can be found at:
-    https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks
-
-    If the evaluation platform is Alpaca Eval, this field is ignored.
-    """
+    """The task to evaluate."""
 
     num_samples: Optional[int] = None
     """Number of samples/examples to evaluate from this dataset.
@@ -54,7 +69,7 @@ class EvaluationTaskParams(BaseParams):
                 "necessary to specify the evaluation platform to use for EACH task. "
                 "The available platforms can be found in the following enum: "
                 "`oumi.core.configs.params.evaluation_params.EvaluationPlatform`. "
-                f"Current options: {', '.join([p.value for p in EvaluationPlatform])}."
+                f"Current options: {EvaluationTaskParams.list_evaluation_platforms()}."
             )
         elif self.evaluation_platform == EvaluationPlatform.LM_HARNESS.value:
             return EvaluationPlatform.LM_HARNESS
@@ -67,13 +82,18 @@ class EvaluationTaskParams(BaseParams):
         """Returns the evaluation platform-specific task parameters."""
         if self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
             target_class = LMHarnessTaskParams
-        elif self.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL.value:
+        elif self.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
             raise NotImplementedError("Alpaca Eval is not yet supported.")
         else:
             raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
 
         init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
         return target_class(**init_kwargs)
+
+    @staticmethod
+    def list_evaluation_platforms() -> str:
+        """Returns a string listing all available evaluation platforms."""
+        return ", ".join([platform.value for platform in EvaluationPlatform])
 
     def _get_init_kwargs_for_task_params_class(self, target_class) -> dict[str, Any]:
         """Returns the init keyword arguments for a `target_class` of name *TaskParams.
