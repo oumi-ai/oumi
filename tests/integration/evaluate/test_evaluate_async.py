@@ -5,8 +5,6 @@ from oumi import evaluate_async
 from oumi.core.configs import (
     AsyncEvaluationConfig,
     EvaluationConfig,
-    EvaluationTaskParams,
-    LMHarnessTaskParams,
     ModelParams,
 )
 
@@ -18,12 +16,11 @@ def test_evaluate_async_polling_interval():
             evaluation=EvaluationConfig(
                 output_dir=output_temp_dir,
                 tasks=[
-                    EvaluationTaskParams(
-                        lm_harness_task_params=LMHarnessTaskParams(
-                            task_name="mmlu",
-                            num_samples=4,
-                        ),
-                    )
+                    {
+                        "evaluation_platform": "lm_harness",
+                        "task_name": "mmlu",
+                        "num_samples": 4,
+                    },
                 ],
                 model=ModelParams(
                     model_name="openai-community/gpt2",

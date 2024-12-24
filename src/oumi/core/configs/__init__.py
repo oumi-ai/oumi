@@ -74,7 +74,6 @@ from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
     CustomEvaluationParams,
     EvaluationPlatform,
-    EvaluationTaskParams,
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.fsdp_params import (
@@ -110,7 +109,6 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationPlatform",
     "FSDPParams",

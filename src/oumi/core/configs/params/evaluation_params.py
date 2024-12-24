@@ -19,6 +19,9 @@ class EvaluationPlatform(Enum):
 class BaseEvaluationTaskParams(BaseParams):
     """Base task parameters, which are applicable to ALL evaluation platforms."""
 
+    evaluation_platform: EvaluationPlatform = MISSING
+    """The evaluation platform to use for the current task."""
+
     num_samples: Optional[int] = None
     """Number of samples/examples to evaluate from this dataset.
 
@@ -27,7 +30,7 @@ class BaseEvaluationTaskParams(BaseParams):
     If set, this must be a positive integer.
     """
 
-    eval_kwargs: dict[str, Any] = field(default_factory=dict)
+    eval_kwargs: Optional[dict[str, Any]] = None
     """Additional keyword arguments to pass to the evaluation function.
 
     This allows for passing any evaluation-specific parameters that are not
@@ -87,44 +90,6 @@ class AlpacaEvalTaskParams(BaseEvaluationTaskParams):
 
 
 @dataclass
-class EvaluationTaskParams(BaseParams):
-    """Wrapper for task params of different evaluation platforms."""
-
-    lm_harness_task_params: Optional[LMHarnessTaskParams] = None
-    """Used when the task is evaluated using the LM Harness evaluation platform.
-    Only a single *_task_params variable can be set in this class, so this is mutually
-    exclusive with `alpaca_eval_task_params`.
-    """
-
-    alpaca_eval_task_params: Optional[AlpacaEvalTaskParams] = None
-    """Used when the task is evaluated using the AlpacaEval evaluation platform.
-    Only a single *_task_params variable can be set in this class, so this is mutually
-    exclusive with `lm_harness_task_params`."""
-
-    def evaluation_platform(self):
-        """Returns the evaluation platform to use for the current task."""
-        if self.lm_harness_task_params:
-            return EvaluationPlatform.LM_HARNESS
-        elif self.alpaca_eval_task_params:
-            return EvaluationPlatform.ALPACA_EVAL
-        else:
-            raise ValueError("No task params available")
-
-    def __post_init__(self):
-        """Verifies params."""
-        if not any([self.lm_harness_task_params, self.alpaca_eval_task_params]):
-            raise ValueError(
-                "At least one task params variable must be set. Please define either "
-                "`lm_harness_task_params` or `alpaca_eval_task_params`"
-            )
-        if all([self.lm_harness_task_params, self.alpaca_eval_task_params]):
-            raise ValueError(
-                "Only one task params variable can be set. Please define either "
-                "`lm_harness_task_params` or `alpaca_eval_task_params`"
-            )
-
-
-@dataclass
 class CustomEvaluationParams(BaseParams):
     """Parameters for running custom evaluations."""
 
@@ -134,3 +99,38 @@ class CustomEvaluationParams(BaseParams):
     This includes specifications for train, validation, and test splits,
     as well as any data preprocessing parameters.
     """
+
+
+def evaluation_task_params_factory(
+    task_params: dict[str, Any],
+) -> BaseEvaluationTaskParams:
+    """Factory that creates the evaluation task params object, based on a dict."""
+    if "evaluation_platform" not in task_params:
+        raise ValueError(
+            "Missing `evaluation_platform` in task params. When running evaluations, "
+            "it is necessary to specify the evaluation platform to use for EACH task. "
+            "The available platforms can be found in the following enum: "
+            "`oumi.core.configs.params.evaluation_params.EvaluationPlatform`. Current "
+            f"options are: {', '.join([p.value for p in EvaluationPlatform])}."
+        )
+    elif task_params["evaluation_platform"] == EvaluationPlatform.LM_HARNESS.value:
+        for param in task_params:
+            if (not hasattr(LMHarnessTaskParams, param)) and (
+                not hasattr(BaseEvaluationTaskParams, param)
+            ):
+                raise ValueError(
+                    f"Unknown parameter: {param}. Please check the following class for "
+                    "the available parameters of the LM Harness evaluation platform: "
+                    "`oumi.core.configs.params.evaluation_params.LMHarnessTaskParams`. "
+                    "If you wish to add a parameter that is supported by LM Harness "
+                    "but not supported by Oumi, you can add this in the `eval_kwargs` "
+                    "dictionary and it will be passed to the evaluation function. "
+                )
+        return LMHarnessTaskParams(**task_params)
+    elif task_params["evaluation_platform"] == EvaluationPlatform.ALPACA_EVAL.value:
+        raise NotImplementedError("Alpaca Eval is not yet supported.")
+    else:
+        raise ValueError(
+            f"Unknown evaluation platform: `{task_params['evaluation_platform']}`. "
+            f"Current options are: {', '.join([p.value for p in EvaluationPlatform])}."
+        )
