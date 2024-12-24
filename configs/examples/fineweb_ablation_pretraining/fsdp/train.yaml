@@ -35,6 +35,13 @@ training:
   optimizer: "adamw_torch_fused"
   compile: True
 
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr: 3.0e-5
+  learning_rate: 3.0e-4
+  warmup_steps: 500
+  weight_decay: 0.1
+
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
