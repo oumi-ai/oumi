@@ -99,6 +99,7 @@ SHARED_TRAINING_PARAMS="--data.train.use_async_dataset true
 --training.dataloader_main_process_only false
 --training.dataloader_num_workers 8
 --training.log_model_summary false
+--training.run_name 'polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'
 ${TRAINING_OUTPUT_DIR_PARAM}
 ${PROFILER_TRAINING_PARAMS}
 ${OUMI_TELEMETRY_PARAMS}"
@@ -109,11 +110,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
     oumi distributed torchrun \
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
-        --training.per_device_train_batch_size 4 \
-        --training.gradient_accumulation_steps 64
+        $SHARED_TRAINING_PARAMS
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
     export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
     set -x
@@ -129,7 +126,6 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
         --training.per_device_train_batch_size 4 \
         --training.gradient_accumulation_steps 64
 else # FSDP
@@ -138,8 +134,7 @@ else # FSDP
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml \
         "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}"
+        $SHARED_TRAINING_PARAMS
 fi
 
 echo "${LOG_PREFIX} All done!"

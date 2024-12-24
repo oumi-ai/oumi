@@ -1,3 +1,6 @@
+# Config to FSDP pretrain the FineWeb ablation model.
+# Example command:
+# oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 name: fineweb-pt-fsdp
 # NOTE: Replace with your username.
 user: your_username
