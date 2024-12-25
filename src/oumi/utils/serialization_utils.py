@@ -2,6 +2,7 @@ import dataclasses
 import json
 from typing import Any
 
+import numpy as np
 import torch
 
 from oumi.utils.logging import logger
@@ -15,8 +16,16 @@ class TorchJsonEncoder(json.JSONEncoder):
         """Extending python's JSON Encoder to serialize torch dtype."""
         if obj is None:
             return ""
+        # JSON does NOT natively support any torch types.
         elif isinstance(obj, torch.dtype):
             return str(obj)
+        # JSON does NOT natively support numpy types.
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
         else:
             return super().default(obj)
 

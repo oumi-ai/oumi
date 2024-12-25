@@ -21,7 +21,7 @@ from oumi.inference import (
 from oumi.utils.logging import logger
 
 
-def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
+def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config."""
     if config.engine is None:
         logger.warning(
@@ -67,7 +67,7 @@ def infer_interactive(
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     # Create engine up front to avoid reinitializing it for each input.
-    inference_engine = _get_engine(config)
+    inference_engine = get_engine(config)
     while True:
         try:
             input_text = input("Enter your input prompt: ")
@@ -110,7 +110,7 @@ def infer(
         object: A list of model responses.
     """
     if not inference_engine:
-        inference_engine = _get_engine(config)
+        inference_engine = get_engine(config)
 
     # Pass None if no conversations are provided.
     conversations = None
