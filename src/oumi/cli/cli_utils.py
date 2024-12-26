@@ -81,6 +81,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             "Extra arguments must be in `--argname value` pairs. "
             f"Recieved: `{bad_args}`"
         )
+    logger.debug(f"parsed args: {args}")
     return args
 
 
