@@ -20,9 +20,11 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         List[str]: The extra CLI arguments
     """
     args = []
-    # Bundle the args into key-value pairs. Throws a ValueError if the number of args is
-    # odd.
-    # pairs = zip(*[iter(ctx.args)] * 2, strict=True)  # type: ignore
+
+    # The following formats are supported:
+    # 1. Space separated: "--foo" "2"
+    # 2. `=`-separated: "--foo=2"
+    # 3. Newline-separated: "--foo\nValue" (used for `--data.train.datasets` overrides)
     try:
         num_args = len(ctx.args)
         idx = 0

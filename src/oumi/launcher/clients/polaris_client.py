@@ -215,7 +215,7 @@ class PolarisClient:
                 new_cmd,
                 shell=True,
                 capture_output=True,
-                timeout=1800,  # time in seconds
+                timeout=180,  # time in seconds
             )
             duration_str = self._compute_duration_debug_str(start_time)
             if child.returncode == 0:
