@@ -54,17 +54,10 @@ def test_parse_extra_cli_args_eq_separated(app):
     assert result.output.strip() == str(expected_result).strip()
 
 
-def test_parse_extra_cli_args_newline_separated(app):
-    # Verify that results are in the proper dot format.
-    result = runner.invoke(app, ["--config=some/path", "--foo\nbar"])
-    expected_result = ["config=some/path", "foo=bar"]
-    assert result.output.strip() == str(expected_result).strip()
-
-
 def test_parse_extra_cli_args_mixed(app):
     # Verify that results are in the proper dot format.
     result = runner.invoke(
-        app, ["--config=some/path", "--foo ", " bar ", "--bazz = 12345 ", "--zz\nXYZ"]
+        app, ["--config=some/path", "--foo ", " bar ", "--bazz = 12345 ", "--zz=XYZ"]
     )
     expected_result = ["config=some/path", "foo=bar", "bazz=12345", "zz=XYZ"]
     assert result.output.strip() == str(expected_result).strip()

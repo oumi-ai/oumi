@@ -24,7 +24,6 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
     # The following formats are supported:
     # 1. Space separated: "--foo" "2"
     # 2. `=`-separated: "--foo=2"
-    # 3. Newline-separated: "--foo\nValue" (used for `--data.train.datasets` overrides)
     try:
         num_args = len(ctx.args)
         idx = 0
@@ -52,28 +51,15 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
                     )
                 idx += 1
             else:
-                # New line separated argument
-                pos = key.find("\n")
-                if pos >= 0:
-                    value = key[(pos + 1) :].strip()
-                    key = key[:pos].strip()
-                    if not key:
-                        raise typer.BadParameter(
-                            "Empty key name for `\n`-separated argument. "
-                            f"Found argument `{original_key}` at position {idx}: "
-                            f"`{ctx.args}`"
-                        )
-                    idx += 1
-                else:
-                    # Space separated argument
-                    if idx + 1 >= num_args:
-                        raise typer.BadParameter(
-                            "Trailing argument has no value assigned. "
-                            f"Found argument `{original_key}` at position {idx}: "
-                            f"`{ctx.args}`"
-                        )
-                    value = ctx.args[idx + 1].strip()
-                    idx += 2
+                # Space separated argument
+                if idx + 1 >= num_args:
+                    raise typer.BadParameter(
+                        "Trailing argument has no value assigned. "
+                        f"Found argument `{original_key}` at position {idx}: "
+                        f"`{ctx.args}`"
+                    )
+                value = ctx.args[idx + 1].strip()
+                idx += 2
 
             if value.startswith("--"):
                 logger.warning(
