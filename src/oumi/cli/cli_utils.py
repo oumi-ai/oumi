@@ -27,8 +27,8 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         num_args = len(ctx.args)
         idx = 0
         while idx < num_args:
-            key = ctx.args[idx]
-            original_key = key
+            original_key = ctx.args[idx]
+            key = original_key.strip()
             if not key.startswith("--"):
                 raise typer.BadParameter(
                     "Extra arguments must start with '--'. "
@@ -40,6 +40,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             pos = key.find("=")
             if pos >= 0:
                 # '='-separated argument
+                value = key[(pos + 1) :].strip()
                 key = key[:pos].strip()
                 if not key:
                     raise typer.BadParameter(
@@ -47,12 +48,12 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
                         f"Found argument `{original_key}` at position {idx}: "
                         f"`{ctx.args}`"
                     )
-                value = key[(pos + 1) :].strip()
                 idx += 1
             else:
                 # New line separated argument
                 pos = key.find("\n")
                 if pos >= 0:
+                    value = key[(pos + 1) :].strip()
                     key = key[:pos].strip()
                     if not key:
                         raise typer.BadParameter(
@@ -60,7 +61,6 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
                             f"Found argument `{original_key}` at position {idx}: "
                             f"`{ctx.args}`"
                         )
-                    value = key[(pos + 1) :].strip()
                     idx += 1
                 else:
                     # Space separated argument
@@ -87,7 +87,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             "Extra arguments must be in `--argname value` pairs. "
             f"Recieved: `{bad_args}`"
         )
-    logger.debug(f"parsed args: {args}")
+    logger.debug(f"\n\nParsed CLI args:\n{args}\n\n")
     return args
 
 
