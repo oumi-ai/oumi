@@ -73,6 +73,12 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
                     value = ctx.args[idx + 1].strip()
                     idx += 2
 
+            if value.startswith("--"):
+                logger.warning(
+                    f"Argument value ('{value}') starts with `--`! "
+                    f"Key: '{original_key}'"
+                )
+
             cli_arg = f"{key}={value}"
             args.append(cli_arg)
     except ValueError:
