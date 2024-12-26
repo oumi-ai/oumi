@@ -34,7 +34,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             if not key.startswith("--"):
                 raise typer.BadParameter(
                     "Extra arguments must start with '--'. "
-                    f"Found argument `{key}` at position {idx}: `{ctx.args}`"
+                    f"Found argument `{original_key}` at position {idx}: `{ctx.args}`"
                 )
             # Strip leading "--"
 
