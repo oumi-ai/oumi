@@ -52,19 +52,21 @@ def evaluate(
     open_ai_key = os.environ.get("OPENAI_API_KEY")
     if not open_ai_key:
         logger.warning(
-            "OPENAI_API_KEY environment variable is NOT set. If you are using an OpenAI"
-            " model as an annotator (judge), the execution will fail."
+            "`OPENAI_API_KEY` environment variable is NOT set. If you are using an "
+            "OpenAI model as an annotator (judge), the execution will fail."
         )
-        # Fast fail for default annotators configs:
+        # Fast fail for the two default annotator configs:
         if alpaca_eval_task_params.annotators_config and (
             alpaca_eval_task_params.annotators_config
             == "weighted_alpaca_eval_gpt4_turbo"
             or alpaca_eval_task_params.annotators_config == "alpaca_eval_gpt4"
         ):
-            raise ValueError("Setting `OPENAI_API_KEY` is required for GPT-4 judge.")
+            raise ValueError(
+                "`OPENAI_API_KEY` environment variable is not set and required."
+            )
 
     # Get a timestamp for the current run.
-    time_now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     start_time = time.time()
 
     # Load the evaluation dataset.
@@ -78,7 +80,8 @@ def evaluate(
 
     # Run inference for the alpaca_dataset.
     logger.info("Running inference with {inference_engine_type}.")
-    logger.info(f"\tAlpacaEval model params:\n{pformat(model_params)}")
+    logger.info(f"\tAlpacaEval inference model params:\n{pformat(model_params)}")
+    logger.info(f"\tAlpacaEval inference gen params:\n{pformat(generation_params)}")
     inference_config = InferenceConfig(
         model=model_params,
         generation=generation_params,
@@ -90,13 +93,13 @@ def evaluate(
         input=alpaca_dataset, inference_config=inference_config
     )
 
-    # Convert the responses from `Oumi format` to `Alpaca format.
-    generator_display_name = run_name or time_now  # if no run name, use timestamp.
+    # Convert the model responses from Oumi format to Alpaca format.
+    generator_display_name = run_name or start_time_str  # if no run name, use time.
     responses_json = utils.conversations_to_alpaca_format(responses)
     responses_df = pd.DataFrame(responses_json)
     responses_df["generator"] = generator_display_name
 
-    # Run AlpacaEval evaluation: Annotate the model's responses.
+    # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
     logger.info(f"\tAlpacaEval params:\n{pformat(alpaca_eval_task_params)}")
     df_leaderboard, _ = alpaca_eval.evaluate(
@@ -116,7 +119,7 @@ def evaluate(
             if generator_display_name in df_leaderboard.index:
                 metrics = df_leaderboard.loc[generator_display_name]
                 metric_dict = {metric: value for metric, value in metrics.items()}
-                logger.info(f"AlpacaEval completed in {elapsed_time_sec:.2f} sec.")
+                logger.info(f"AlpacaEval run completed in {elapsed_time_sec:.2f} secs.")
                 logger.info(f"AlpacaEval's metric dict is {pformat(metric_dict)}.")
             else:
                 logger.error("AlpacaEval results not found in leaderboard.")
@@ -128,13 +131,13 @@ def evaluate(
             output_path = Path(output_dir)
             output_path.mkdir(parents=True, exist_ok=True)
 
-            # Save evaluation metrics, completion time and duration.
+            # Save evaluation metrics, start time, and duration.
             results = {
                 "results": metric_dict,
+                "start_time": start_time_str,
                 "duration_sec": elapsed_time_sec,
-                "completion_time": time_now,
             }
 
-            output_file_results = OUTPUT_FILENAME_RESULTS.format(time=time_now)
+            output_file_results = OUTPUT_FILENAME_RESULTS.format(time=start_time_str)
             with open(output_path / output_file_results, "w") as file_out:
                 file_out.write(json_serializer(results))

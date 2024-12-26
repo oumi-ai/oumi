@@ -5,7 +5,7 @@ from oumi.core.configs.params.evaluation_params import (
     LMHarnessTaskParams,
 )
 from oumi.evaluation.alpaca_eval import evaluate as evaluate_alpaca_eval
-from oumi.evaluation.lm_harness import evaluate_lm_harness
+from oumi.evaluation.lm_harness import evaluate as evaluate_lm_harness
 
 
 def evaluate(config: EvaluationConfig) -> None:
@@ -22,8 +22,8 @@ def evaluate(config: EvaluationConfig) -> None:
             lm_harness_task_params = task.get_evaluation_platform_task_params()
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
             evaluate_lm_harness(
-                model_params=config.model,
                 lm_harness_task_params=lm_harness_task_params,
+                model_params=config.model,
                 generation_params=config.generation,
                 output_dir=config.output_dir,
                 enable_wandb=config.enable_wandb,

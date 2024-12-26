@@ -51,9 +51,9 @@ def _create_extra_lm_harness_model_params_for_vlm(
     return result
 
 
-def evaluate_lm_harness(
-    model_params: ModelParams,
+def evaluate(
     lm_harness_task_params: LMHarnessTaskParams,
+    model_params: ModelParams,
     generation_params: GenerationParams,
     output_dir: str,
     enable_wandb: bool,
