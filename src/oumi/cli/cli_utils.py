@@ -22,15 +22,58 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
     args = []
     # Bundle the args into key-value pairs. Throws a ValueError if the number of args is
     # odd.
-    pairs = zip(*[iter(ctx.args)] * 2, strict=True)  # type: ignore
+    # pairs = zip(*[iter(ctx.args)] * 2, strict=True)  # type: ignore
     try:
-        for key, value in pairs:
+        num_args = len(ctx.args)
+        idx = 0
+        while idx < num_args:
+            key = ctx.args[idx]
+            original_key = key
             if not key.startswith("--"):
                 raise typer.BadParameter(
                     "Extra arguments must start with '--'. "
-                    f"Found argument `{key}` with value `{value}`"
+                    f"Found argument `{key}` at position {idx}: `{ctx.args}`"
                 )
-            cli_arg = f"{key[2:]}={value}"
+            # Strip leading "--"
+
+            key = key[2:]
+            pos = key.find("=")
+            if pos >= 0:
+                # '='-separated argument
+                key = key[:pos].strip()
+                if not key:
+                    raise typer.BadParameter(
+                        "Empty key name for `=`-separated argument. "
+                        f"Found argument `{original_key}` at position {idx}: "
+                        f"`{ctx.args}`"
+                    )
+                value = key[(pos + 1) :].strip()
+                idx += 1
+            else:
+                # New line separated argument
+                pos = key.find("\n")
+                if pos >= 0:
+                    key = key[:pos].strip()
+                    if not key:
+                        raise typer.BadParameter(
+                            "Empty key name for `\n`-separated argument. "
+                            f"Found argument `{original_key}` at position {idx}: "
+                            f"`{ctx.args}`"
+                        )
+                    value = key[(pos + 1) :].strip()
+                    idx += 1
+                else:
+                    # Space separated argument
+                    if idx + 1 >= num_args:
+                        raise typer.BadParameter(
+                            "Trailing argument has no value assigned. "
+                            f"Found argument `{original_key}` at position {idx}: "
+                            f"`{ctx.args}`"
+                        )
+                    value = ctx.args[idx + 1].strip()
+                    idx += 2
+
+            cli_arg = f"{key}={value}"
             args.append(cli_arg)
     except ValueError:
         bad_args = " ".join(ctx.args)
