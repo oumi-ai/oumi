@@ -84,7 +84,7 @@ if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
 fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
-TRAIN_DATASETS="--data.train.datasets
+TRAIN_DATASETS="--data.train.datasets=
 - dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
   subset: 'default'
   split: 'train'
