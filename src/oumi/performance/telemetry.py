@@ -501,14 +501,19 @@ class TelemetryTracker:
     ) -> list[str]:
         return [
             f"\t{name}:",
-            f"\t\tTotal: {stats['total']:.6f} seconds",
-            f"\t\tMean: {stats['mean']:.6f} seconds",
-            f"\t\tMedian: {stats['median']:.6f} seconds",
-            f"\t\tStd Dev: {stats['std_dev']:.6f} seconds",
-            f"\t\tMin: {stats['min']:.6f} seconds",
-            f"\t\tMax: {stats['max']:.6f} seconds",
-            f"\t\tCount: {stats['count']}",
-            f"\t\tPercentage of total time: {stats['percentage']:.2f}%",
+            (
+                f"\t\tTotal: {stats['total']:.4f}s "
+                f"Mean: {stats['mean']:.4f}s Median: {stats['median']:.4f}s"
+            ),
+            (
+                f"\t\tMin: {stats['min']:.4f}s "
+                f"Max: {stats['max']:.4f}s "
+                f"StdDev: {stats['std_dev']:.4f}s"
+            ),
+            (
+                f"\t\tCount: {stats['count']}"
+                f"Percentage of total time: {stats['percentage']:.2f}%"
+            ),
         ]
 
     def _format_gpu_temperature_stats_as_lines(
@@ -516,10 +521,14 @@ class TelemetryTracker:
     ) -> list[str]:
         return [
             "\tGPU temperature:",
-            f"\t\tMean: {stats['mean']:.2f} C",
-            f"\t\tMedian: {stats['median']:.2f} C",
-            f"\t\tStd Dev: {stats['std_dev']:.4f} C",
-            f"\t\tMin: {stats['min']:.2f} C",
-            f"\t\tMax: {stats['max']:.2f} C",
-            f"\t\tCount: {stats['count']}",
+            (
+                f"\t\tMean: {stats['mean']:.2f}C "
+                f"Median: {stats['median']:.2f}C "
+                f"StdDev: {stats['std_dev']:.4f}C"
+            ),
+            (
+                f"\t\tMin: {stats['min']:.2f}C "
+                f"Max: {stats['max']:.2f}C "
+                f"Count: {stats['count']}"
+            ),
         ]
