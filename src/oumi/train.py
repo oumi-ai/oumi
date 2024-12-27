@@ -158,7 +158,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
-    configure_logger("oumi", level=config.training.log_level, log_dir=log_dir)
+    for logger_name in ("oumi", "oumi.telemetry"):
+        configure_logger(logger_name, level=config.training.log_level, log_dir=log_dir)
 
     telemetry_dir = config.training.telemetry_dir
 
