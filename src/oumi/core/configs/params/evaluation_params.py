@@ -83,7 +83,7 @@ class EvaluationTaskParams(BaseParams):
         if self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
             target_class = LMHarnessTaskParams
         elif self.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
-            raise NotImplementedError("Alpaca Eval is not yet supported.")
+            target_class = AlpacaEvalTaskParams
         else:
             raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
 
@@ -179,7 +179,8 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
     The default judge is GPT4 Turbo.
     """
 
-    placeholder = None
+    version: Optional[float] = 2.0
+    """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
 
 
 @dataclass
