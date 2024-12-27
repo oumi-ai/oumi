@@ -6,7 +6,7 @@ from pprint import pformat
 from typing import Optional
 
 try:
-    import alpaca_eval
+    import alpaca_eval  # pyright: ignore[reportMissingImports]
 except ImportError:
     alpaca_eval = None
 
