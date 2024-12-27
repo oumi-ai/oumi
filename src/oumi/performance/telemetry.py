@@ -507,7 +507,7 @@ class TelemetryTracker:
             ),
             (
                 f"\t\tMin: {stats['min']:.4f}s "
-                f"Max: {stats['max']:.4f}s"
+                f"Max: {stats['max']:.4f}s "
                 f"StdDev: {stats['std_dev']:.4f}s"
             ),
             (
