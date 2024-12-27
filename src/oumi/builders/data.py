@@ -5,6 +5,7 @@ from typing import Callable, Optional, TypeVar, Union, cast
 import datasets
 from trl.trainer import ConstantLengthDataset
 
+import oumi.datasets  # should always be imported here to register datasets
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -316,3 +317,11 @@ def _load_dataset(
             trust_remote_code=dataset_params.trust_remote_code,
             **dataset_params.dataset_kwargs,
         )
+
+
+if __name__ == "__main__":
+    # Print all available datasets.
+    # Note: this is mostly to avoid a not-used import for `oumi.datasets`.
+    print("Available datasets:")
+    for dataset in sorted(oumi.datasets.__all__):
+        print(f"- {dataset}")
