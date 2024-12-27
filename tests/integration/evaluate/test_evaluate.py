@@ -169,11 +169,9 @@ def _mock_alpaca_eval_evaluate(
 
     # Mock the `alpaca_eval.evaluate` function (by returning the expected results).
     expected_results_dict = EXPECTED_RESULTS[ALPACA_EVAL]
-    # model_display_name: str = TEST_TASK_PARAMS[ALPACA_EVAL]["run_name"]
-    model_display_name = "test_alpaca_eval"  # type: ignore
     df_leaderboard = pd.DataFrame(
         {key: expected_results_dict[key]["value"] for key in expected_results_dict},
-        index=[model_display_name],  # type: ignore
+        index=[TEST_TASK_PARAMS[ALPACA_EVAL]["run_name"]],  # type: ignore
     )
     return df_leaderboard, None
 
