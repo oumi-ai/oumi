@@ -5,7 +5,11 @@ from pathlib import Path
 from pprint import pformat
 from typing import Optional
 
-import alpaca_eval
+try:
+    import alpaca_eval  # pyright: ignore[reportMissingImports]
+except ImportError:
+    alpaca_eval = None
+
 import pandas as pd
 
 from oumi.builders.inference_engines import build_inference_engine
