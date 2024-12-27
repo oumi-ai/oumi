@@ -254,8 +254,16 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
 def _add_log_level_if_needed(
     cmds: list[str], level: cli_utils.LOG_LEVEL_TYPE
 ) -> list[str]:
-    if level is None or "oumi" not in cmds:
+    if level is None or len(cmds) < 2:
         return cmds
+    is_oumi_module = False
+    for idx in range(len(cmds) - 1):
+        if cmds[idx] == "-m" and cmds[idx + 1] == "oumi":
+            is_oumi_module = True
+            break
+    if not is_oumi_module:
+        return cmds
+
     result = copy.deepcopy(cmds)
     result.append(f"--log-level={level.value}")
     return result
