@@ -8,6 +8,7 @@ from typing import Optional
 import alpaca_eval
 import pandas as pd
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
     GenerationParams,
@@ -18,7 +19,6 @@ from oumi.core.configs import (
 )
 from oumi.core.distributed import is_world_process_zero
 from oumi.datasets.evaluation import AlpacaEvalDataset, utils
-from oumi.infer import get_engine as get_inference_engine
 from oumi.utils.logging import logger
 from oumi.utils.serialization_utils import json_serializer
 
@@ -27,11 +27,11 @@ OUTPUT_FILENAME_RESULTS = "alpaca_eval_{time}_results.json"
 
 def evaluate(
     alpaca_eval_task_params: AlpacaEvalTaskParams,
+    output_dir: str,
     model_params: ModelParams,
     generation_params: GenerationParams,
     inference_engine_type: InferenceEngineType,
-    inference_remote_params: RemoteParams,
-    output_dir: str,
+    inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
 ) -> None:
     """Evaluates a model using the Alpaca Eval framework.
@@ -49,21 +49,34 @@ def evaluate(
         run_name: Unique identifier for the current run.
     """
     # Prerequisites
+    if not alpaca_eval:
+        raise RuntimeError(
+            "The `alpaca_eval` package, which is part of Oumi's optional dependencies, "
+            "is NOT installed. Please either install all optional dependencies with "
+            "`pip install -e '.[optional]'` or directly install the missing package "
+            "with `pip install alpaca_eval`."
+        )
+
     open_ai_key = os.environ.get("OPENAI_API_KEY")
     if not open_ai_key:
         logger.warning(
             "`OPENAI_API_KEY` environment variable is NOT set. If you are using an "
             "OpenAI model as an annotator (judge), the execution will fail."
         )
-        # Fast fail for the two default annotator configs:
-        if alpaca_eval_task_params.annotators_config and (
-            alpaca_eval_task_params.annotators_config
-            == "weighted_alpaca_eval_gpt4_turbo"
-            or alpaca_eval_task_params.annotators_config == "alpaca_eval_gpt4"
-        ):
-            raise ValueError(
-                "`OPENAI_API_KEY` environment variable is not set and required."
-            )
+
+    # Set the annotators config and metric function based on the version.
+    if alpaca_eval_task_params.version == 1.0:
+        os.environ["IS_ALPACA_EVAL_2"] = str(False)
+        annotators_config = "alpaca_eval_gpt4"
+        fn_metric = "get_winrate"
+    elif alpaca_eval_task_params.version == 2.0:
+        os.environ["IS_ALPACA_EVAL_2"] = str(True)
+        annotators_config = "weighted_alpaca_eval_gpt4_turbo"
+        fn_metric = "get_length_controlled_winrate"
+    else:
+        raise ValueError(
+            "The `version` field in `AlpacaEvalTaskParams` must be either 1.0 or 2.0."
+        )
 
     # Get a timestamp for the current run.
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -88,7 +101,11 @@ def evaluate(
         engine=inference_engine_type,
         remote_params=inference_remote_params,
     )
-    inference_engine = get_inference_engine(config=inference_config)
+    inference_engine = build_inference_engine(
+        engine_type=inference_engine_type,
+        model_params=model_params,
+        remote_params=inference_remote_params,
+    )
     responses = inference_engine.infer(
         input=alpaca_dataset, inference_config=inference_config
     )
@@ -104,8 +121,8 @@ def evaluate(
     logger.info(f"\tAlpacaEval params:\n{pformat(alpaca_eval_task_params)}")
     df_leaderboard, _ = alpaca_eval.evaluate(
         model_outputs=responses_df,
-        annotators_config=alpaca_eval_task_params.annotators_config or "",
-        fn_metric=alpaca_eval_task_params.fn_metric,
+        annotators_config=annotators_config,
+        fn_metric=fn_metric,
         is_return_instead_of_print=True,
         is_overwrite_leaderboard=True,
         max_instances=alpaca_eval_task_params.num_samples,

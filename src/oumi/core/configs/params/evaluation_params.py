@@ -179,36 +179,8 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
     The default judge is GPT4 Turbo.
     """
 
-    version: Optional[int] = 2
+    version: Optional[float] = 2.0
     """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
-
-    annotators_config: Optional[str] = (
-        "weighted_alpaca_eval_gpt4_turbo" if (version == 2) else "alpaca_eval_gpt4"
-    )
-    """The annotator's (judge's) configuration.
-
-    This string defines which model will be used as an annotator (judge) to evaluate
-    model responses and calculate win rates. It also indicates whether the annotator
-    will use logprobs of a single output token to compute continuous preference
-    (i.e., `weighted` win rate instead of `binary` win rate).
-    - For Alpaca 1.0, the default config is `alpaca_eval_gpt4`.
-    - For Alpaca 2.0, the default config is `weighted_alpaca_eval_gpt4_turbo`.
-    - If you have a tight budget, we recommend using `chatgpt_fn`.
-    - A list of all available configs (with pricing info) can be found at:
-    https://github.com/tatsu-lab/alpaca_eval?tab=readme-ov-file#evaluators
-    """
-
-    fn_metric: Optional[str] = (
-        "get_length_controlled_winrate" if (version == 2) else "get_winrate"
-    )
-    """
-    The function used to convert preference to metrics. The function takes a sequence of
-    preferences (e.g. 0 for draw, 1 for base win, 2 when the model to compare wins) and
-    returns a dictionary of metrics and the key by which to sort the leaderboard.
-    - For Alpaca 1.0, the default function is `get_winrate`.
-    - For Alpaca 2.0, the default function is `get_length_controlled_winrate`.
-    - Another popular choice is `get_length_controlled_elo`.
-    """
 
 
 @dataclass

@@ -53,9 +53,9 @@ def _create_extra_lm_harness_model_params_for_vlm(
 
 def evaluate(
     lm_harness_task_params: LMHarnessTaskParams,
+    output_dir: str,
     model_params: ModelParams,
     generation_params: GenerationParams,
-    output_dir: str,
     enable_wandb: bool,
     run_name: Optional[str] = None,
 ) -> None:
