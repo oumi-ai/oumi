@@ -5,7 +5,16 @@ from pathlib import Path
 from pprint import pformat
 from typing import Optional
 
-import alpaca_eval
+try:
+    import alpaca_eval
+except ImportError:
+    raise ImportError(
+        "The `alpaca_eval` package, which is part of Oumi's optional dependencies, "
+        "is NOT installed. Please either install all optional dependencies with "
+        "`pip install -e '.[optional]'` or directly install the missing package "
+        "with `pip install alpaca_eval`."
+    )
+
 import pandas as pd
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -49,14 +58,6 @@ def evaluate(
         run_name: Unique identifier for the current run.
     """
     # Prerequisites
-    if not alpaca_eval:
-        raise RuntimeError(
-            "The `alpaca_eval` package, which is part of Oumi's optional dependencies, "
-            "is NOT installed. Please either install all optional dependencies with "
-            "`pip install -e '.[optional]'` or directly install the missing package "
-            "with `pip install alpaca_eval`."
-        )
-
     open_ai_key = os.environ.get("OPENAI_API_KEY")
     if not open_ai_key:
         logger.warning(
