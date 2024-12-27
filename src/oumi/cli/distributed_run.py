@@ -251,6 +251,16 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     return result
 
 
+def _add_log_level_if_needed(
+    cmds: list[str], level: cli_utils.LOG_LEVEL_TYPE
+) -> list[str]:
+    if level is None or "oumi" not in cmds:
+        return cmds
+    result = copy.deepcopy(cmds)
+    result.append(f"--log-level={level.value}")
+    return result
+
+
 def _run_subprocess(cmds: list[str], *, rank: int) -> None:
     env_copy = os.environ.copy()
 
@@ -304,6 +314,7 @@ def torchrun(
             f"--master-port={run_info.master_port}",
         ]
         cmds.extend(ctx.args)
+        cmds = _add_log_level_if_needed(cmds, level=level)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
@@ -351,6 +362,7 @@ def accelerate(
             ]
         )
         cmds.extend(extra_args)
+        cmds = _add_log_level_if_needed(cmds, level=level)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
