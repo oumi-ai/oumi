@@ -8,7 +8,7 @@ import responses
 
 from oumi.core.types.conversation import ContentItem, Type
 from oumi.utils.conversation_utils import (
-    base64encode_image_bytes,
+    base64encode_content_item_image_bytes,
     load_image_bytes_to_content_item,
 )
 from oumi.utils.image_utils import (
@@ -80,7 +80,7 @@ def test_base64encode_image_bytes(message_type: Type):
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
     png_bytes = create_png_bytes_from_image(pil_image)
 
-    base64_str = base64encode_image_bytes(
+    base64_str = base64encode_content_item_image_bytes(
         ContentItem(
             type=message_type,
             binary=png_bytes,
@@ -97,10 +97,18 @@ def test_base64encode_image_bytes(message_type: Type):
 
 def test_base64encode_image_bytes_invalid_arguments():
     with pytest.raises(ValueError, match="Message type is not an image"):
-        base64encode_image_bytes(ContentItem(type=Type.TEXT, content="hello"))
+        base64encode_content_item_image_bytes(
+            ContentItem(type=Type.TEXT, content="hello")
+        )
     with pytest.raises(ValueError, match="No image bytes in message"):
-        base64encode_image_bytes(ContentItem(type=Type.IMAGE_BINARY, content="hi"))
+        base64encode_content_item_image_bytes(
+            ContentItem(type=Type.IMAGE_BINARY, content="hi")
+        )
     with pytest.raises(ValueError, match="No image bytes in message"):
-        base64encode_image_bytes(ContentItem(type=Type.IMAGE_PATH, content="hi"))
+        base64encode_content_item_image_bytes(
+            ContentItem(type=Type.IMAGE_PATH, content="hi")
+        )
     with pytest.raises(ValueError, match="No image bytes in message"):
-        base64encode_image_bytes(ContentItem(type=Type.IMAGE_URL, content="hi"))
+        base64encode_content_item_image_bytes(
+            ContentItem(type=Type.IMAGE_URL, content="hi")
+        )

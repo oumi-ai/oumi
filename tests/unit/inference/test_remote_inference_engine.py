@@ -29,7 +29,7 @@ from oumi.core.types.conversation import (
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.conversation_utils import (
-    base64encode_image_bytes,
+    base64encode_content_item_image_bytes,
 )
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -94,7 +94,7 @@ def create_test_png_image_bytes() -> bytes:
 
 
 def create_test_png_image_base64_str() -> str:
-    return base64encode_image_bytes(
+    return base64encode_content_item_image_bytes(
         ContentItem(binary=create_test_png_image_bytes(), type=Type.IMAGE_BINARY),
         add_mime_prefix=True,
     )
@@ -1041,8 +1041,10 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                         image_url = json_item["image_url"]
                         assert isinstance(image_url, dict)
                         assert "url" in image_url
-                        expected_base64_bytes_str = base64encode_image_bytes(
-                            message.image_content_items[-1], add_mime_prefix=True
+                        expected_base64_bytes_str = (
+                            base64encode_content_item_image_bytes(
+                                message.image_content_items[-1], add_mime_prefix=True
+                            )
                         )
                         assert len(expected_base64_bytes_str) == len(image_url["url"])
                         assert image_url == {

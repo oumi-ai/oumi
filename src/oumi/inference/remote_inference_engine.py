@@ -32,7 +32,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.conversation_utils import (
-    base64encode_image_bytes,
+    base64encode_content_item_image_bytes,
     load_image_bytes_to_content_item,
 )
 
@@ -234,7 +234,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             item = load_image_bytes_to_content_item(item)
 
         if item.binary:
-            b64_image = base64encode_image_bytes(item, add_mime_prefix=True)
+            b64_image = base64encode_content_item_image_bytes(
+                item, add_mime_prefix=True
+            )
             return {
                 _TYPE_KEY: Type.IMAGE_URL.value,
                 _IMAGE_URL_KEY: {_URL_KEY: b64_image},

@@ -45,7 +45,9 @@ def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
     return item
 
 
-def base64encode_image_bytes(item: ContentItem, *, add_mime_prefix: bool = True) -> str:
+def base64encode_content_item_image_bytes(
+    item: ContentItem, *, add_mime_prefix: bool = True
+) -> str:
     """Creates base-64 encoded image bytes as ASCII string value.
 
     Args:
