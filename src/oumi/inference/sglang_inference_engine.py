@@ -19,7 +19,7 @@ from oumi.core.configs import (
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.image_utils import base64encode_image_bytes
+from oumi.utils.conversation_utils import base64encode_image_bytes
 from oumi.utils.logging import logger
 
 

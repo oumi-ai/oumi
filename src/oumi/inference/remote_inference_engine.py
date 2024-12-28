@@ -31,7 +31,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
-from oumi.utils.image_utils import (
+from oumi.utils.conversation_utils import (
     base64encode_image_bytes,
     load_image_bytes_to_content_item,
 )

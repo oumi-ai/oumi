@@ -28,8 +28,10 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
-from oumi.utils.image_utils import (
+from oumi.utils.conversation_utils import (
     base64encode_image_bytes,
+)
+from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
 from oumi.utils.io_utils import get_oumi_root_directory
