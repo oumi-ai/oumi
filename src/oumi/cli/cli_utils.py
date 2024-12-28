@@ -20,17 +20,54 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         List[str]: The extra CLI arguments
     """
     args = []
-    # Bundle the args into key-value pairs. Throws a ValueError if the number of args is
-    # odd.
-    pairs = zip(*[iter(ctx.args)] * 2, strict=True)  # type: ignore
+
+    # The following formats are supported:
+    # 1. Space separated: "--foo" "2"
+    # 2. `=`-separated: "--foo=2"
     try:
-        for key, value in pairs:
+        num_args = len(ctx.args)
+        idx = 0
+        while idx < num_args:
+            original_key = ctx.args[idx]
+            key = original_key.strip()
             if not key.startswith("--"):
                 raise typer.BadParameter(
                     "Extra arguments must start with '--'. "
-                    f"Found argument `{key}` with value `{value}`"
+                    f"Found argument `{original_key}` at position {idx}: `{ctx.args}`"
                 )
-            cli_arg = f"{key[2:]}={value}"
+            # Strip leading "--"
+
+            key = key[2:]
+            pos = key.find("=")
+            if pos >= 0:
+                # '='-separated argument
+                value = key[(pos + 1) :].strip()
+                key = key[:pos].strip()
+                if not key:
+                    raise typer.BadParameter(
+                        "Empty key name for `=`-separated argument. "
+                        f"Found argument `{original_key}` at position {idx}: "
+                        f"`{ctx.args}`"
+                    )
+                idx += 1
+            else:
+                # Space separated argument
+                if idx + 1 >= num_args:
+                    raise typer.BadParameter(
+                        "Trailing argument has no value assigned. "
+                        f"Found argument `{original_key}` at position {idx}: "
+                        f"`{ctx.args}`"
+                    )
+                value = ctx.args[idx + 1].strip()
+                idx += 2
+
+            if value.startswith("--"):
+                logger.warning(
+                    f"Argument value ('{value}') starts with `--`! "
+                    f"Key: '{original_key}'"
+                )
+
+            cli_arg = f"{key}={value}"
             args.append(cli_arg)
     except ValueError:
         bad_args = " ".join(ctx.args)
@@ -38,6 +75,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
             "Extra arguments must be in `--argname value` pairs. "
             f"Recieved: `{bad_args}`"
         )
+    logger.debug(f"\n\nParsed CLI args:\n{args}\n\n")
     return args
 
 

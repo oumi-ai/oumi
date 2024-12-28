@@ -40,10 +40,26 @@ def test_context_allow_extra_args():
     }
 
 
-def test_parse_extra_cli_args(app):
+def test_parse_extra_cli_args_space_separated(app):
     # Verify that results are in the proper dot format.
     result = runner.invoke(app, ["--config", "some/path", "--allow_extra", "args"])
     expected_result = ["config=some/path", "allow_extra=args"]
+    assert result.output.strip() == str(expected_result).strip()
+
+
+def test_parse_extra_cli_args_eq_separated(app):
+    # Verify that results are in the proper dot format.
+    result = runner.invoke(app, ["--config=some/path", "--allow_extra=args"])
+    expected_result = ["config=some/path", "allow_extra=args"]
+    assert result.output.strip() == str(expected_result).strip()
+
+
+def test_parse_extra_cli_args_mixed(app):
+    # Verify that results are in the proper dot format.
+    result = runner.invoke(
+        app, ["--config=some/path", "--foo ", " bar ", "--bazz = 12345 ", "--zz=XYZ"]
+    )
+    expected_result = ["config=some/path", "foo=bar", "bazz=12345", "zz=XYZ"]
     assert result.output.strip() == str(expected_result).strip()
 
 
@@ -56,7 +72,8 @@ def test_parse_extra_cli_args_empty(app):
 def test_parse_extra_cli_args_fails_for_odd_args(app):
     # Verify that results are in the proper dot format.
     result = runner.invoke(app, ["--config", "some/path", "--odd"])
-    assert "Extra arguments must be in" in result.output.strip()
+    output_str = result.output.strip()
+    assert "Trailing argument has no value assigned" in output_str, f"{output_str}"
 
 
 def test_valid_log_levels():

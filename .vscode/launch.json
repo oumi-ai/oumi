@@ -11,7 +11,7 @@
                 "-c",
                 "configs/recipes/smollm/sft/135m/train.yaml"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Oumi - Train - DPO",

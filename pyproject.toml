@@ -119,6 +119,7 @@ cloud = [
 optional = [
     "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
+    "alpaca-eval",
 ]
 
 cambrian = [
