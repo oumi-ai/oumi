@@ -27,6 +27,23 @@ def get_logger(
     return logger
 
 
+def _detect_rank() -> int:
+    """Detecs rank.
+
+    Reading the rank from the environment variables instead of
+    get_device_rank_info to avoid circular imports.
+    """
+    for var_name in (
+        "RANK",
+        "SKYPILOT_NODE_RANK",  # SkyPilot
+        "PMI_RANK",  # HPC
+    ):
+        rank = os.environ.get(var_name, None)
+        if rank is not None:
+            return max(int(rank), 0)
+    return 0
+
+
 def configure_logger(
     name: str,
     level: str = "info",
@@ -41,9 +58,7 @@ def configure_logger(
     # Configure the logger
     logger.setLevel(level.upper())
 
-    # Reading the rank from the environment variable
-    # instead of get_device_rank_info to avoid circular imports
-    device_rank = int(os.environ.get("RANK", 0))
+    device_rank = _detect_rank()
 
     formatter = logging.Formatter(
         "[%(asctime)s][%(name)s]"
