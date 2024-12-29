@@ -28,7 +28,7 @@ def get_logger(
 
 
 def _detect_rank() -> int:
-    """Detecs rank.
+    """Detects rank.
 
     Reading the rank from the environment variables instead of
     get_device_rank_info to avoid circular imports.
