@@ -19,7 +19,7 @@ from oumi.core.configs import (
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.image_utils import base64encode_image_bytes
+from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.logging import logger
 
 
@@ -137,7 +137,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                         f"No image bytes in message: {image_item.type}"
                     )
                 )
-            return base64encode_image_bytes(image_item)
+            return base64encode_content_item_image_bytes(image_item)
 
         assert image_item.type in (Type.IMAGE_PATH, Type.IMAGE_URL)
         image_path_or_url = image_item.content

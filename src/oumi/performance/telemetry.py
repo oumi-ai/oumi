@@ -511,7 +511,7 @@ class TelemetryTracker:
                 f"StdDev: {stats['std_dev']:.4f}s"
             ),
             (
-                f"\t\tCount: {stats['count']}"
+                f"\t\tCount: {stats['count']} "
                 f"Percentage of total time: {stats['percentage']:.2f}%"
             ),
         ]
