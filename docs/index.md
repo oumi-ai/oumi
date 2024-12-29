@@ -16,6 +16,7 @@ E2E Foundation Model Research Platform - Community-first & Enterprise-grade
 
 get_started/installation
 get_started/quickstart
+get_started/core_concepts
 get_started/tutorials
 ```
 
