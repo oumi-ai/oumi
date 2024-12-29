@@ -42,9 +42,8 @@ def _detect_rank() -> int:
         if rank is not None:
             rank = int(rank)
             if rank < 0:
-                # Using `print()` as loggers may be not fully initialized yet.
-                print("Negative rank: {rank} specified in '{var_name}'!")
-            return max(rank, 0)
+                raise ValueError(f"Negative rank: {rank} specified in '{var_name}'!")
+            return rank
     return 0
 
 
