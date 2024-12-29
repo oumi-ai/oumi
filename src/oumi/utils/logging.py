@@ -40,7 +40,10 @@ def _detect_rank() -> int:
     ):
         rank = os.environ.get(var_name, None)
         if rank is not None:
-            return max(int(rank), 0)
+            rank = int(rank)
+            if rank < 0:
+                print("Negative rank: {rank} specified in '{var_name}'")
+            return max(rank, 0)
     return 0
 
 
