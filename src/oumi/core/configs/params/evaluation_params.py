@@ -23,7 +23,7 @@ class EvaluationTaskParams(BaseParams):
 
     - LM Harness: Framework for evaluating language models on standard benchmarks.
       A list of all supported tasks can be found at:
-      github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+      https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
     - Alpaca Eval: Framework for evaluating language models on instruction-following
       and quality of responses on open-ended questions.
 
