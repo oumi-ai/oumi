@@ -7,6 +7,7 @@
 
 deploy
 remote
+custom_cluster
 ```
 
 Oumi launcher allows you to run jobs on remote clusters. It provides a unified interface, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
