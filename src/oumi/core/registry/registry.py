@@ -213,9 +213,11 @@ def register_judge(registry_name: str) -> Callable:
         Callable: A decorator function that registers the target judge configuration.
 
     Example:
-        @register_judge("my_custom_judge")
-        def my_judge_config() -> JudgeConfig:
-            return JudgeConfig(...)
+         .. code-block:: python
+
+            @register_judge("my_custom_judge")
+            def my_judge_config() -> JudgeConfig:
+                return JudgeConfig(...)
     """
 
     def decorator_register(obj):
