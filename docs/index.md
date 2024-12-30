@@ -59,7 +59,6 @@ datasets/vl_sft
 
 faq/troubleshooting
 faq/oom
-faq/gpu_sizing
 ```
 
 ```{toctree}
