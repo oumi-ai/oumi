@@ -21,26 +21,14 @@ OUTPUT_FILENAME_INFERENCE_CONFIG = "inference_config.json"
 OUTPUT_FILENAME_PACKAGE_VERSIONS = "package_versions.json"
 
 
-def _save_to_file(
-    output_filename: str,
-    output_dir: str,
-    data: Any,
-    platform: EvaluationPlatform,
-    time: str,
-) -> None:
-    """Saves `data` under `<output_dir>/<platform>_<time>/<output_filename>`."""
-    # Create the output directory.
-    full_output_dir = Path(output_dir) / f"{platform.value}_{time}"
-    full_output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Serialize and save `data` to `output_filename`.
-    output_path = full_output_dir / output_filename
+def _save_to_file(output_path: Path, data: Any) -> None:
+    """Serialize and save `data` to `output_path`."""
     with open(output_path, "w") as file_out:
         file_out.write(json_serializer(data))
 
 
 def save_evaluation_output(
-    output_dir: str,
+    output_dir_str: str,
     platform: EvaluationPlatform,
     platform_results: dict[str, Any],
     platform_task_config: dict[str, Any],
@@ -54,7 +42,9 @@ def save_evaluation_output(
     """Writes configuration settings and evaluations outputs to files.
 
     Args:
-        output_dir: The directory where the evaluation results will be saved.
+        output_dir_str: The directory where the evaluation results will be saved.
+            A subdirectory with the format `<output_dir_str> / <platform>_<time>`
+            will be created to retain all files related to this evaluation.
         platform: The evaluation platform used (e.g., "lm_harness", "alpaca_eval").
         platform_results: The evaluation results (metrics and their values) to save.
         platform_task_config: The platform-specific task configuration to save.
@@ -66,65 +56,29 @@ def save_evaluation_output(
         inference_config: The inference configuration used in the evaluation
         (if inference is required for the corresponding evaluation platform).
     """
+    # Create the output directory: `<output_dir_str> / <platform>_<time>`.
+    output_dir = Path(output_dir_str) / f"{platform.value}_{start_time_str}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # Save all evaluation metrics, start date/time, and duration.
     platform_results["duration_sec"] = elapsed_time_sec
     platform_results["start_time"] = start_time_str
-    _save_to_file(
-        output_filename=OUTPUT_FILENAME_PLATFORM_RESULTS,
-        output_dir=output_dir,
-        data=platform_results,
-        platform=platform,
-        time=start_time_str,
-    )
+    _save_to_file(output_dir / OUTPUT_FILENAME_PLATFORM_RESULTS, platform_results)
 
     # Save platform-specific task configuration.
     _save_to_file(
-        output_filename=OUTPUT_FILENAME_PLATFORM_TASK_CONFIG,
-        output_dir=output_dir,
-        data=platform_task_config,
-        platform=platform,
-        time=start_time_str,
+        output_dir / OUTPUT_FILENAME_PLATFORM_TASK_CONFIG, platform_task_config
     )
 
     # Save Oumi's task parameters/configuration.
-    _save_to_file(
-        output_filename=OUTPUT_FILENAME_TASK_PARAMS,
-        output_dir=output_dir,
-        data=task_params,
-        platform=platform,
-        time=start_time_str,
-    )
+    _save_to_file(output_dir / OUTPUT_FILENAME_TASK_PARAMS, task_params)
 
     # Save all relevant Oumi configurations.
-    _save_to_file(
-        output_filename=OUTPUT_FILENAME_MODEL_PARAMS,
-        output_dir=output_dir,
-        data=model_params,
-        platform=platform,
-        time=start_time_str,
-    )
-    _save_to_file(
-        output_filename=OUTPUT_FILENAME_GENERATION_PARAMS,
-        output_dir=output_dir,
-        data=generation_params,
-        platform=platform,
-        time=start_time_str,
-    )
+    _save_to_file(output_dir / OUTPUT_FILENAME_MODEL_PARAMS, model_params)
+    _save_to_file(output_dir / OUTPUT_FILENAME_GENERATION_PARAMS, generation_params)
     if inference_config:
-        _save_to_file(
-            output_filename=OUTPUT_FILENAME_INFERENCE_CONFIG,
-            output_dir=output_dir,
-            data=inference_config,
-            platform=platform,
-            time=start_time_str,
-        )
+        _save_to_file(output_dir / OUTPUT_FILENAME_INFERENCE_CONFIG, inference_config)
 
     # Save python environment (package versions).
     package_versions = get_python_package_versions()
-    _save_to_file(
-        output_filename=OUTPUT_FILENAME_PACKAGE_VERSIONS,
-        output_dir=output_dir,
-        data=package_versions,
-        platform=platform,
-        time=start_time_str,
-    )
+    _save_to_file(output_dir / OUTPUT_FILENAME_PACKAGE_VERSIONS, package_versions)
