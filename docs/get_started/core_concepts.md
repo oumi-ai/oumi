@@ -104,19 +104,19 @@ training:
   learning_rate: 1e-4
 ```
 
-For a full list of recipes, you can explore the {doc}`recipes page </models/recipes>`.
+For a full list of recipes, you can explore the {doc}`recipes page </resources/recipes>`.
 
 
 ### Other Key Concepts
 | Term | Description | Documentation |
 |------|-------------|---------------|
-| Recipe | Predefined configurations in Oumi for common model training, evaluation and inference workflows | {doc}`/models/recipes` |
+| Recipe | Predefined configurations in Oumi for common model training, evaluation and inference workflows | {doc}`/resources/recipes` |
 | Launcher | Oumi's job orchestration system for running workloads across different cloud providers | {doc}`/user_guides/launch/launch` |
-| Models | Model architectures and implementations. Oumi supports most models from HuggingFace's transformers library, as well as custom models. | {doc}`/models/custom_models` |
-| Datasets | Data loading and preprocessing pipelines | {doc}`/datasets/custom_datasets` |
+| Models | Model architectures and implementations. Oumi supports most models from HuggingFace's transformers library, as well as custom models. | {doc}`/resources/models/custom_models` |
+| Datasets | Data loading and preprocessing pipelines | {doc}`/resources/datasets/custom_datasets` |
 | Trainers | Orchestrate training process and optimization. Oumi supports custom trainers, as well as trainers from HuggingFace's transformers, TRL, and many others in the future. | {doc}`/user_guides/train/training_methods` |
-| Data Mixtures | Oumi's system for combining and weighting multiple datasets during training | {doc}`/datasets/custom_datasets` |
-| Oumi Judge | Built-in system for evaluating model outputs based on customizable attributes (e.g. helpfulness, honesty, and safety) | {doc}`/user_guides/judge/oumi_judge` |
+| Data Mixtures | Oumi's system for combining and weighting multiple datasets during training | {doc}`/resources/datasets/custom_datasets` |
+| Oumi Judge | Built-in system for evaluating model outputs based on customizable attributes (e.g. helpfulness, honesty, and safety) | {doc}`/user_guides/judge/judge` |
 
 
 ## Navigating the repository
@@ -154,5 +154,5 @@ To contribute to Oumi or troubleshoot issues, it's helpful to understand how the
 ## Next Steps
 
 1.  **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
-2.  **Explore example recipes:**  Check out the {doc}`/models/recipes` page and try running a few examples.
+2.  **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
 3.  **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.
