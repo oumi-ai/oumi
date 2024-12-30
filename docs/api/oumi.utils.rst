@@ -13,6 +13,14 @@ oumi.utils.batching module
    :undoc-members:
    :show-inheritance:
 
+oumi.utils.conversation\_utils module
+-------------------------------------
+
+.. automodule:: oumi.utils.conversation_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.utils.device\_utils module
 -------------------------------
 
