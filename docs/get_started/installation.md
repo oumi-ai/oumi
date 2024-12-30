@@ -10,7 +10,7 @@ Before installing Oumi, ensure you have the following:
 - pip (Python package installer)
 - Git (if cloning the repository; required for steps 1 and 2)
 
-We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the [dev setup guide](../development/dev_setup.md).
+We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
 
 ## Installation Methods
 
@@ -20,15 +20,17 @@ You can install Oumi using one of the following methods:
 
 For the latest development version, you can install Oumi directly from the GitHub repository:
 
-::::{tab-set-code}
-:::{code-block} shell
-:name: SSH
+::::{tab-set}
+:::{tab-item} SSH
+```{code-block} shell
 pip install git+ssh://git@github.com/oumi-ai/oumi.git
+```
 :::
 
-:::{code-block} shell
-:name: HTTPS
+:::{tab-item} HTTPS
+```{code-block} shell
 pip install git+https://github.com/oumi-ai/oumi.git
+```
 :::
 ::::
 
@@ -36,17 +38,21 @@ pip install git+https://github.com/oumi-ai/oumi.git
 
 If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
 
-::::{tab-set-code}
-:::{code-block} SSH
+::::{tab-set}
+:::{tab-item} SSH
+```{code-block} shell
 git clone git@github.com:oumi-ai/oumi.git
 cd oumi
 pip install -e ".[dev]"
+```
 :::
 
-:::{code-block} HTTP
+:::{tab-item} HTTPS
+```{code-block} shell
 git clone https://github.com/oumi-ai/oumi.git
 cd oumi
 pip install -e ".[dev]"
+```
 :::
 ::::
 
@@ -107,7 +113,7 @@ This should print the help message for Oumi.
 
 ## Troubleshooting
 
-If you encounter any issues during installation, please check the [troubleshooting guide](../faq/troubleshooting.md).
+If you encounter any issues during installation, please check the [troubleshooting guide](/faq/troubleshooting.md).
 
 If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/oumi).
 
