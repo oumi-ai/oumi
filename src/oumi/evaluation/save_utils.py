@@ -119,7 +119,7 @@ def save_evaluation_output(
             time=start_time_str,
         )
 
-    # --- Save python environment (package versions) ---
+    # Save python environment (package versions).
     package_versions = get_python_package_versions()
     _save_to_file(
         output_filename=OUTPUT_FILENAME_PACKAGE_VERSIONS,
