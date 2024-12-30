@@ -1,13 +1,13 @@
-# Vision-Language Supervised Fine-Tuning
+# Vision-Language
 
 ## VL-SFT Datasets
 
-```{include} ../api/summary/vl_sft_datasets.md
+```{include} /api/summary/vl_sft_datasets.md
 ```
 
 ## Usage
 
-### Using a Specific VL Dataset in Configuration
+### Configuration
 
 The configuration for VL-SFT datasets is similar to regular SFT datasets, with some additional parameters for image processing. Here's an example:
 
@@ -18,15 +18,21 @@ training:
       datasets:
         - dataset_name: "your_vl_sft_dataset_name"
           split: "train"
-          trust_remote_code: False # `True` if model-specific processor uses downloaded Python scripts
+          trust_remote_code: False # Set to true if needed for model-specific processors
           transform_num_workers: "auto"
           dataset_kwargs:
             processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
             return_tensors: True
       collator_name: vision_language_with_padding
 ```
+In this configuration:
 
-### Using a Specific VL Dataset in Code
+- `dataset_name`: Name of the vision-language dataset
+- `trust_remote_code`: Enable for model-specific processors that use downloaded scripts
+- `transform_num_workers`: Number of workers for image processing
+- `processor_name`: Vision model processor to use
+
+### Python API
 
 Using a VL-SFT dataset in code is similar to using a regular SFT dataset, with the main difference being in the batch contents:
 
@@ -52,6 +58,7 @@ dataset = build_dataset(
     trust_remote_code=trust_remote_code,
 )
 
+# Create dataloader
 loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
 # Now you can use the dataset in your training loop
@@ -60,6 +67,16 @@ for batch in loader:
     # Note: batch will contain both text and image data
     ...
 ```
+
+### Batch Contents
+
+Vision-language batches typically include:
+
+- `input_ids`: Text token IDs
+- `attention_mask`: Text attention mask
+- `pixel_values`: Processed image tensors
+- `image_attention_mask`: Image attention mask
+- Additional model-specific keys
 
 ```{tip}
 VL-SFT batches typically include additional keys for image data, such as `pixel_values` or `cross_attention_mask`, depending on the specific dataset and model architecture.
@@ -82,10 +99,11 @@ Here's a basic example:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
-from oumi.core.types.turn import ContentItem, Conversation, Message, Role, Type
+from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
-class MyVLSftDataset(VisionLanguageSftDataset):
+class CustomVLDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
+        """Transform raw data into a conversation with images."""
         # Transform the raw example into a Conversation object
         # 'example' represents one row of the raw dataset
         # Structure of 'example':

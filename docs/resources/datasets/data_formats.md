@@ -6,13 +6,13 @@ This format is implemented using pydantic models, which provide type checking an
 
 Let's look at some examples of compatible datasets and how to work with them.
 
-## JSONL Datasets
+## Supported File Formats
 
-Oumi can work with JSONL (JSON Lines) datasets that follow the structure defined
-by the `Conversation`, `Message`, and `ContentItem` classes.
+### JSONL Format
 
-### Example 1: Simple Text Conversation
+The primary format for conversation datasets is JSONL (JSON Lines). Each line contains a complete conversation:
 
+````{dropdown} Basic Conversation Example
 ```json
 {
   "messages": [
@@ -23,21 +23,15 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
     {
       "role": "assistant",
       "content": "I apologize, but I don't have access to real-time weather information for Seattle."
-    },
-    {
-      "role": "user",
-      "content": "I see. Can you tell me about Seattle's typical weather patterns?"
-    },
-    {
-      "role": "assistant",
-      "content": "Certainly! Seattle is known for its mild, but wet climate."
     }
   ]
 }
 ```
+````
 
-### Example 2: Multi-turn Conversation with System Message
+### Multi-turn with System Message
 
+````{dropdown} Example with System Message
 ```json
 {
   "messages": [
@@ -47,22 +41,20 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
     },
     {
       "role": "user",
-      "content": "Hi, can you tell me about the Golden Gate Bridge?"
+      "content": "Tell me about the Golden Gate Bridge."
     },
     {
       "role": "assistant",
-      "content": "Sure! The Golden Gate Bridge is an iconic suspension bridge in San Francisco."
-    },
-    {
-      "role": "user",
-      "content": "How long is the Golden Gate Bridge?"
+      "content": "The Golden Gate Bridge is an iconic suspension bridge in San Francisco."
     }
   ]
 }
 ```
+````
 
-### Example 3: Conversation with an Image
+### Multimodal Conversation
 
+````{dropdown} Example with Image and Text
 ```json
 {
   "messages": [
@@ -81,14 +73,16 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
     },
     {
       "role": "assistant",
-      "content": "Thank you for the image. This appears to be a Shih Tzu puppy."
+      "content": "This appears to be a Shih Tzu puppy."
     }
   ]
 }
 ```
+````
 
-### Example 4: Conversation with Metadata
+### Conversation with Metadata
 
+````{dropdown} Example with Additional Metadata
 ```json
 {
   "messages": [
@@ -98,7 +92,7 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
     },
     {
       "role": "assistant",
-      "content": "Making good espresso at home requires some equipment and practice, but here are some key tips:\n\n1. Use freshly roasted, high-quality coffee beans.\n2. Grind the beans just before brewing, using a fine, consistent grind.\n3. Use the right amount of coffee - typically 18-20 grams for a double shot.\n4. Tamp the grounds evenly with about 30 pounds of pressure.\n5. Ensure your espresso machine is clean and at the correct temperature (usually around 200°F).\n6. Aim for an extraction time of 25-30 seconds for a 1-2 oz shot.\n7. Look for a golden-brown crema on top of your espresso.\n8. Experiment and adjust based on taste - espresso making is part science, part art!"
+      "content": "Here are some key tips for making espresso at home:\n1. Use freshly roasted beans\n2. Grind just before brewing\n3. Use the right pressure\n4. Maintain proper temperature"
     }
   ],
   "metadata": {
@@ -107,19 +101,59 @@ by the `Conversation`, `Message`, and `ContentItem` classes.
   }
 }
 ```
+````
 
-## Python API
 
-### Role and Type Enums
+## Core Data Structures
+
+Oumi uses structured data formats implemented with pydantic models for robust type checking and validation:
+
+### Message Format
+
+The basic unit of conversation is the `Message` class:
 
 ```python
->>> from oumi.core.types.conversation import Role, Type
->>> list(Role)  # Show all available roles
-[<Role.SYSTEM: 'system'>, <Role.USER: 'user'>, <Role.ASSISTANT: 'assistant'>, <Role.TOOL: 'tool'>]
->>> list(Type)  # Show all available types
-[<Type.TEXT: 'text'>, <Type.IMAGE_PATH: 'image_path'>, <Type.IMAGE_URL: 'image_url'>, <Type.IMAGE_BINARY: 'image_binary'>]
+from oumi.core.types.conversation import Message, Role
 
+message = Message(
+    role=Role.USER,
+    content="Hello, how can I help you?"
+)
 ```
+
+Available roles:
+
+- `Role.SYSTEM`: System instructions
+- `Role.USER`: User messages
+- `Role.ASSISTANT`: AI assistant responses
+- `Role.TOOL`: Tool/function calls
+
+### Content Types
+
+For multimodal content, use `ContentItem` with appropriate types:
+
+```python
+from oumi.core.types.conversation import ContentItem, Type
+
+# Text content
+text_content = ContentItem(
+    type=Type.TEXT,
+    content="What's in this image?"
+)
+
+# Image content
+image_content = ContentItem(
+    type=Type.IMAGE_URL,
+    content="https://example.com/image.jpg"
+)
+```
+
+Available types:
+
+- `Type.TEXT`: Text content
+- `Type.IMAGE_PATH`: Local image path
+- `Type.IMAGE_URL`: Remote image URL
+- `Type.IMAGE_BINARY`: Raw image data
 
 ### Message
 
@@ -147,7 +181,21 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 - `messages`: List of `Message` objects that make up the conversation
 - `metadata`: Optional dictionary for storing additional information about the conversation
 
-### Creating Messages
+## Working with Conversations
+
+### Creating Conversations
+
+```python
+from oumi.core.types.conversation import Conversation, Message, Role
+
+conversation = Conversation(
+    messages=[
+        Message(role=Role.USER, content="Hi there!"),
+        Message(role=Role.ASSISTANT, content="Hello! How can I help?")
+    ],
+    metadata={"source": "customer_support"}
+)
+```
 
 ```python
 >>> from oumi.core.types.conversation import ContentItem, Message, Role, Type
@@ -165,7 +213,18 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 
 ```
 
-### Creating and Working with Conversations
+### Conversation Methods
+
+```python
+# Get first message of a specific role
+first_user = conversation.first_message(role=Role.USER)
+
+# Get all messages from a role
+assistant_msgs = conversation.filter_messages(role=Role.ASSISTANT)
+
+# Get the last message
+last_msg = conversation.last_message()
+```
 
 ```python
 >>> from oumi.core.types.conversation import ContentItem, Conversation, Message, Role
@@ -201,6 +260,14 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 ### Serialization
 
 ```python
+# Convert to JSON
+json_data = conversation.to_json()
+
+# Load from JSON
+restored = Conversation.from_json(json_data)
+```
+
+```python
 >>> from oumi.core.types.conversation import ContentItem, Conversation, Message, Role
 >>> # Serialize to JSON
 >>> conversation = Conversation(
@@ -222,4 +289,9 @@ The `Conversation` class represents a sequence of messages. Key attributes inclu
 
 ## Data Validation
 
-The pydantic models automatically validate the data.
+Oumi uses pydantic models to automatically validate:
+
+- Message role values
+- Content type consistency
+- Required fields presence
+- Data type correctness

@@ -1,15 +1,17 @@
 # Supervised Fine-Tuning
 
+This guide covers datasets used for instruction tuning and supervised learning in Oumi.
+
 ## SFT Datasets
 
-Multiple open-source datasets are available for supervised fine-tuning.
+Out-of-the box, we support multiple popular SFT datasets:
 
-```{include} ../api/summary/sft_datasets.md
+```{include} /api/summary/sft_datasets.md
 ```
 
 ## Usage
 
-### Using a Specific Dataset in Configuration
+### Configuration
 
 To use a specific SFT dataset in your Oumi configuration, specify it in the {py:class}`~oumi.core.configs.TrainingConfig`.
 
@@ -24,7 +26,6 @@ training:
           split: train
           stream: false
       collator_name: text_with_padding
-  # ... other configuration parameters
 ```
 
 In this configuration:
@@ -34,7 +35,7 @@ In this configuration:
 - {py:attr}`~oumi.core.configs.DatasetParams.stream` enables streaming mode for large datasets
 - {py:attr}`~oumi.core.configs.DatasetSplitParams.collator_name` specifies the collator to use for batching
 
-### Using a Specific Dataset in Code
+### Python API
 
 To use a specific SFT dataset in your code, you can use the {py:func}`~oumi.builders.data.build_dataset` function:
 
@@ -77,10 +78,12 @@ To add a new SFT dataset:
 For example:
 
 ```python
-from oumi.core.datasets import BaseLMSftDataset
-from oumi.core.types.turn import Conversation, Message, Role
+from oumi.core.datasets import BaseSftDataset
+from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.registry import register_dataset
 
-class MySftDataset(BaseLMSftDataset):
+@register_dataset("custom_sft_dataset")
+class CustomSftDataset(BaseLMSftDataset):
     def __init__(self, config: TrainingConfig,
                  tokenizer: BaseTokenizer,
                  dataset_split: DatasetSplit):
