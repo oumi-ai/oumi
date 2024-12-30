@@ -104,8 +104,8 @@ def evaluate(
         apply_chat_template = False
 
     logger.info("Starting evaluation...")
-    logger.info(f"\tLM Harness model params:\n{pformat(lm_harness_model_params)}")
-    logger.info(f"\tLM Harness task params:\n{pformat(task_params)}")
+    logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
+    logger.info(f"\tLM Harness `task_params`:\n{pformat(task_params)}")
     lm_eval_output = lm_eval.simple_evaluate(
         model=lm_harness_model,
         model_args=lm_harness_model_params,

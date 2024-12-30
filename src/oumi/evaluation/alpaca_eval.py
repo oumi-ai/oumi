@@ -25,8 +25,6 @@ from oumi.datasets.evaluation import AlpacaEvalDataset, utils
 from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
-OUTPUT_FILENAME_RESULTS = "alpaca_eval_{time}_results.json"
-
 
 def evaluate(
     task_params: AlpacaEvalTaskParams,
@@ -96,8 +94,10 @@ def evaluate(
 
     # Run inference for the alpaca_dataset.
     logger.info("Running inference with {inference_engine_type}.")
-    logger.info(f"\tAlpacaEval inference model params:\n{pformat(model_params)}")
-    logger.info(f"\tAlpacaEval inference gen params:\n{pformat(generation_params)}")
+    logger.info(f"\tAlpacaEval inference `model_params`:\n{pformat(model_params)}")
+    logger.info(
+        f"\tAlpacaEval inference `generation_params`:\n{pformat(generation_params)}"
+    )
     inference_config = InferenceConfig(
         model=model_params,
         generation=generation_params,
@@ -121,7 +121,7 @@ def evaluate(
 
     # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
-    logger.info(f"\tAlpacaEval task params:\n{pformat(task_params)}")
+    logger.info(f"\tAlpacaEval `task_params`:\n{pformat(task_params)}")
     df_leaderboard, _ = alpaca_eval.evaluate(
         model_outputs=responses_df,
         annotators_config=annotators_config,

@@ -13,6 +13,7 @@ from oumi.core.configs import (
     GenerationParams,
     ModelParams,
 )
+from oumi.evaluation.save_utils import OUTPUT_FILENAME_PLATFORM_RESULTS
 from tests.markers import requires_gpus
 
 # Currently supporting two platforms for evaluation: LM Harness and Alpaca Eval.
@@ -118,11 +119,14 @@ def _get_evaluation_config(platform: str, output_dir: str) -> EvaluationConfig:
 
 
 def _validate_results(platform: str, output_dir: str) -> None:
-    # Identify the relevant output file: "<platform>_<timestamp>_results.json"
-    filenames = [f for f in os.listdir(output_dir) if f.endswith("_results.json")]
-    assert len(filenames) == 1
-    assert filenames[0].startswith(f"{platform}_")
-    output_path = os.path.join(output_dir, filenames[0])
+    # Identify the relevant `output_path` for the evaluation test:
+    # <output_dir> / <platform>_<timestamp> / platform_results.json
+    subfolders = [sf for sf in os.listdir(output_dir) if sf.startswith(f"{platform}_")]
+    assert len(subfolders) == 1
+    output_path = os.path.join(
+        output_dir, subfolders[0], OUTPUT_FILENAME_PLATFORM_RESULTS
+    )
+    assert os.path.exists(output_path)
 
     # Read the results from the evaluation test's output file.
     with open(output_path, encoding="utf-8") as file_ptr:
