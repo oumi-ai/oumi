@@ -354,16 +354,18 @@ class TelemetryTracker:
         For example, it can be used to compute distribution
         of `{"gpu_temperature": {"max"}}` over ranks.
 
-        Arguments:
+        Args:
             rank_summaries: An array of summaries indexed by rank e.g.,
                 returned by the `get_summaries_from_all_ranks()` method.
             measurement_names: A hierarchy of measurment names of interest,
                 which must match the hierarchical naming structure in `rank_summaries`.
+
                 For example:
-                1 level:  {"total_time"}
-                2 levels: {"gpu_temperature": {"max", "median"}}
-                3 levels: {"timers": { "compile": {"mean"}, "forward": {"max", "min"}}}
-                ...
+
+                - 1 level:  ``{"total_time"}``
+                - 2 levels: ``{"gpu_temperature": {"max", "median"}}``
+                - 3 levels: ``{"timers": { "compile": {"mean"},
+                  "forward": {"max", "min"}}}``
 
         Returns:
             A dictionary containing the statistics specified in `measurement_names`,
@@ -374,15 +376,17 @@ class TelemetryTracker:
             layer containing cross-rank stats.
 
             For example, if input `measurement_names` is
-            `{"gpu_temperature": {"max", "median"}}` then the returned value
-            will look as follows:
-            {
-                "gpu_temperature":{
-                    "max": { "count": 7, "max": 75, ... },
-                    "median": { "count": 7, "max": 68, ... }
-                }
-            }
+            ``{"gpu_temperature": {"max", "median"}}`` then the returned value will look
+            as follows:
 
+            .. code-block:: python
+
+                {
+                    "gpu_temperature":{
+                        "max": { "count": 7, "max": 75, ... },
+                        "median": { "count": 7, "max": 68, ... }
+                    }
+                }
         """
         if not measurement_names:
             return {}
