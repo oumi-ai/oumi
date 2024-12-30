@@ -102,7 +102,7 @@ Oumi is designed to be fully flexible yet easy to use:
 - **End-to-End Training**: Support for the full training lifecycle (pre-training, SFT, DPO, guardrails, and more)
 - **Full Parameter Training**: Full fine-tuning with DDP, FSDP support and long context capabilities
 - **Efficient Fine-tuning**: LoRA, QLoRA for parameter-efficient fine-tuning
-- **Built for Scale**: Efficiently handle models up to 405B parameters
+- **Built for Scale**: Efficiently handle models up to 405B parameters with distributed training and inference on large clusters
 
 ### 📊 Inference & Deployment
 
@@ -113,7 +113,7 @@ Oumi is designed to be fully flexible yet easy to use:
 ### 🔧 Development Tools
 
 - **Rich Configuration**: Version-controlled YAML configs for reproducible experiments
-- **Extensible Architecture**: Easy model & dataset registration and customization
+- **Extensible Platform**: Easy model & dataset registration and customization
 - **Comprehensive Documentation**: Detailed guides, examples, and API reference
 
 ## Getting Started
