@@ -1,15 +1,17 @@
 # Pretraining
 
-## Pre-training Datasets
+This guide covers pretraining datasets used for training language models from scratch or continuing pretraining in Oumi.
 
-Multiple datasets are available for pretraining.
+## Supported Datasets
 
-```{include} ../api/summary/pretraining_datasets.md
+Out of the box, we support multiple popular pretraining datasets:
+
+```{include} /api/summary/pretraining_datasets.md
 ```
 
 ## Usage
 
-### Using a Specific Dataset in Configuration
+### Configuration
 
 To use a specific pretraining dataset in your Oumi configuration, you need to specify it in the {py:class}`~oumi.core.configs.TrainingConfig`. Here's an example of how to configure a pretraining dataset:
 
@@ -18,15 +20,15 @@ training:
   data:
     train:
       datasets:
-        - dataset_name: your_dataset_name
+        - dataset_name: your_pretraining_dataset
           subset: optional_subset
           split: train
-          stream: true
-          pack: true
+          stream: true  # Recommended for large datasets
+          pack: true    # Enable sequence packing
           dataset_kwargs:
-            seq_length: 512
-      use_async_dataset: true
-  # ... other configuration parameters
+            seq_length: 4096  # packing sequence length
+          stream: true  # Recommended for large datasets
+          pack: true    # Enable sequence packing
 ```
 
 In this configuration:
@@ -41,7 +43,7 @@ In this configuration:
 Setting {py:attr}`~oumi.core.configs.DatasetSplitParams.experimental_use_async_dataset` to `True` enables the use of {py:class}`~oumi.datasets.pretraining_async_text_dataset.PretrainingAsyncTextDataset`, which is optimized for asynchronous data processing.
 ```
 
-### Using a Specific Dataset in Code
+### Python API
 
 To use a specific pretraining dataset in your code, you can leverage the {py:func}`~oumi.builders.data.build_dataset_mixture` function. Here's an example:
 
@@ -76,7 +78,7 @@ The {py:func}`~oumi.builders.data.build_dataset_mixture` function takes care of 
 
 ## Adding a New Pretraining Dataset
 
-All pre-trainign datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
+All pretraining datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
 
 This class extends {py:class}`~oumi.core.datasets.iterable_dataset.BaseIterableDataset` to offer functionality specific to pretraining tasks.
 
@@ -84,7 +86,7 @@ This class extends {py:class}`~oumi.core.datasets.iterable_dataset.BaseIterableD
 The {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset` is an abstract base class. You should implement your specific dataset by subclassing it and overriding the {py:meth}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset.transform` method.
 ```
 
-To add a new pretraining dataset, you can to:
+To add a new pretraining dataset, you have to:
 
 1. Subclass {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset.transform` method to define the dataset-specific transformation logic.
@@ -92,18 +94,25 @@ To add a new pretraining dataset, you can to:
 For example:
 
 ```python
-from oumi.core.datasets.iterable_dataset import BasePretrainingIterableDataset
+from oumi.core.datasets import BasePretrainingDataset
+from oumi.core.registry import register_dataset
 
-class MyPretrainingDataset(BasePretrainingIterableDataset):
-    def __init__(self, config: TrainingConfig,
-                 tokenizer: BaseTokenizer,
-                 dataset_split: DatasetSplit):
-        super().__init__(config, tokenizer, dataset_split)
-        # Initialize your dataset here
+@register_dataset("custom_pretraining_dataset")
+class CustomPretrainingDataset(BasePretrainingDataset):
+    """A custom pretraining dataset."""
+
+    default_dataset = "custom_pretraining_name"
 
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        # Implement your dataset-specific transformation logic here
-        # transform receive a row of data from your raw dataset
-        # and should return a batch of data to be used for training
-        return data
+        # Transform raw data for pretraining
+        tokens = self.tokenizer(
+            data["text"],
+            max_length=self.max_length,
+            truncation=True
+        )
+        return {
+            "input_ids": tokens["input_ids"],
+            "attention_mask": tokens["attention_mask"],
+            "labels": tokens["input_ids"].copy()
+        }
 ```
