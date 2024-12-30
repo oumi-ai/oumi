@@ -114,11 +114,13 @@ def torch_profile(
             is enabled, or `None` otherwise.
 
     Example:
-        with torch_profile(profiler_params, record_function_name="oumi.train") as prof:
-            for i in range(n):
-                training_step()
-                if prof is not None:
-                    prof.step()
+        To profile a training loop::
+
+            with torch_profile(params, record_function_name="oumi.train") as prof:
+                for i in range(n):
+                    training_step()
+                    if prof is not None:
+                        prof.step()
     """
     params = _configure_torch_profile_save_dir(params, training_output_dir)
 

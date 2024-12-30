@@ -4,7 +4,7 @@ Now that we have Oumi installed, let's get started with the basics! We're going 
 
 We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
 
-For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page <../models/recipes>`.
+For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page </resources/recipes>`.
 
 ## Oumi CLI
 
@@ -165,4 +165,8 @@ To launch an evaluation job:
 
 ```bash
 oumi launch up -c configs/recipes/smollm/launch/135m_gcp_evaluate_quickstart.yaml
+```
+
+```{tip}
+Join our [Discord community](https://discord.gg/oumi) for help and discussions!
 ```

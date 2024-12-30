@@ -37,15 +37,18 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
+    "sphinxcontrib.mermaid",
     "sphinxcontrib.typer",
 ]
 
 source_suffix = {
     ".rst": "restructuredtext",
 }
-
 nb_execution_mode = "off"
+nitpick = True
+myst_heading_anchors = 5
 
+napoleon_use_admonition_for_examples = False
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 napoleon_numpy_docstring = False
@@ -62,7 +65,13 @@ coverage_statistics_to_report = True
 coverage_show_missing_items = True
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "api/modules.rst",
+    "api/oumi.models.experimental.*",
+]
 
 # Importing these modules causes errors in the docs build
 autodoc_mock_imports = ["oumi.models.experimental"]

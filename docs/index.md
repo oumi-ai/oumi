@@ -14,15 +14,17 @@ E2E Foundation Model Research Platform - Community-first & Enterprise-grade
 :hidden:
 :caption: Get started
 
+Home <self>
 get_started/installation
 get_started/quickstart
+get_started/core_concepts
 get_started/tutorials
 ```
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: User Guide
+:caption: User Guides
 
 user_guides/train/train
 user_guides/infer/infer
@@ -34,21 +36,21 @@ user_guides/launch/launch
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Models
+:caption: Resources
 
-models/recipes
+resources/models/models
+resources/datasets/datasets
+resources/recipes
+
 ```
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Datasets
+:caption: Reference
 
-datasets/local_datasets
-datasets/pretraining
-datasets/sft
-datasets/preference_tuning
-datasets/vl_sft
+API Reference <api/oumi>
+CLI Reference <cli/commands>
 ```
 
 ```{toctree}
@@ -58,16 +60,6 @@ datasets/vl_sft
 
 faq/troubleshooting
 faq/oom
-faq/gpu_sizing
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: API Reference
-
-API Reference <api/oumi>
-CLI Reference <cli/commands>
 ```
 
 ```{toctree}

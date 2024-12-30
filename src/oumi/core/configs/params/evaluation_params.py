@@ -20,24 +20,30 @@ class EvaluationTaskParams(BaseParams):
     """Configuration parameters for model evaluation tasks.
 
     Supported platforms:
+
     - LM Harness: Framework for evaluating language models on standard benchmarks.
-        A list of all supported tasks can be found at:
-        github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+      A list of all supported tasks can be found at:
+      https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
     - Alpaca Eval: Framework for evaluating language models on instruction-following
-        and quality of responses on open-ended questions.
+      and quality of responses on open-ended questions.
 
     Examples:
-        # LM Harness evaluation on MMLU
-        params = EvaluationTaskParams(
-            evaluation_platform="lm_harness",
-            task_name="mmlu",
-            eval_kwargs={"num_fewshot": 5}
-        )
+        .. code-block:: python
 
-        # Alpaca Eval 2.0 evaluation
-        params = EvaluationTaskParams(
-            evaluation_platform="alpaca_eval"
-        )
+            # LM Harness evaluation on MMLU
+            params = EvaluationTaskParams(
+                evaluation_platform="lm_harness",
+                task_name="mmlu",
+                eval_kwargs={"num_fewshot": 5}
+            )
+
+
+        .. code-block:: python
+
+            # Alpaca Eval 2.0 evaluation
+            params = EvaluationTaskParams(
+                evaluation_platform="alpaca_eval"
+            )
     """
 
     evaluation_platform: str = MISSING
@@ -58,7 +64,7 @@ class EvaluationTaskParams(BaseParams):
     """Additional keyword arguments to pass to the evaluation function.
 
     This allows for passing any evaluation-specific parameters that are not
-    covered by other fields in *TaskParams classes.
+    covered by other fields in TaskParams classes.
     """
 
     def get_evaluation_platform(self) -> EvaluationPlatform:
