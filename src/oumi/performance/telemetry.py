@@ -364,7 +364,8 @@ class TelemetryTracker:
 
                 - 1 level:  ``{"total_time"}``
                 - 2 levels: ``{"gpu_temperature": {"max", "median"}}``
-                - 3 levels: ``{"timers": { "compile": {"mean"}, "forward": {"max", "min"}}}``
+                - 3 levels: ``{"timers": { "compile": {"mean"},
+                  "forward": {"max", "min"}}}``
 
         Returns:
             A dictionary containing the statistics specified in `measurement_names`,

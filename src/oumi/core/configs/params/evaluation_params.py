@@ -20,11 +20,12 @@ class EvaluationTaskParams(BaseParams):
     """Configuration parameters for model evaluation tasks.
 
     Supported platforms:
-        LM Harness: Framework for evaluating language models on standard benchmarks.
-            A list of all supported tasks can be found at:
-            github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
-        Alpaca Eval: Framework for evaluating language models on instruction-following
-            and quality of responses on open-ended questions.
+
+    - LM Harness: Framework for evaluating language models on standard benchmarks.
+      A list of all supported tasks can be found at:
+      github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+    - Alpaca Eval: Framework for evaluating language models on instruction-following
+      and quality of responses on open-ended questions.
 
     Examples:
         .. code-block:: python
