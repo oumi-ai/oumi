@@ -28,7 +28,7 @@ def _save_to_file(output_path: Path, data: Any) -> None:
 
 
 def save_evaluation_output(
-    output_dir_str: str,
+    base_output_dir: str,
     platform: EvaluationPlatform,
     platform_results: dict[str, Any],
     platform_task_config: dict[str, Any],
@@ -42,8 +42,8 @@ def save_evaluation_output(
     """Writes configuration settings and evaluations outputs to files.
 
     Args:
-        output_dir_str: The directory where the evaluation results will be saved.
-            A subdirectory with the format `<output_dir_str> / <platform>_<time>`
+        base_output_dir: The directory where the evaluation results will be saved.
+            A subdirectory with the name `<base_output_dir> / <platform>_<time>`
             will be created to retain all files related to this evaluation.
         platform: The evaluation platform used (e.g., "lm_harness", "alpaca_eval").
         platform_results: The evaluation results (metrics and their values) to save.
@@ -56,8 +56,8 @@ def save_evaluation_output(
         inference_config: The inference configuration used in the evaluation
         (if inference is required for the corresponding evaluation platform).
     """
-    # Create the output directory: `<output_dir_str> / <platform>_<time>`.
-    output_dir = Path(output_dir_str) / f"{platform.value}_{start_time_str}"
+    # Create the output directory: `<base_output_dir> / <platform>_<time>`.
+    output_dir = Path(base_output_dir) / f"{platform.value}_{start_time_str}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save all evaluation metrics, start date/time, and duration.

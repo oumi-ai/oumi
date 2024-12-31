@@ -153,7 +153,7 @@ def evaluate(
             }
 
             save_evaluation_output(
-                output_dir_str=output_dir,
+                base_output_dir=output_dir,
                 platform=task_params.get_evaluation_platform(),
                 platform_results=platform_results,
                 platform_task_config=platform_task_config,
