@@ -187,8 +187,7 @@ outputConversations = engine.infer_online(input=input_conversation, inference_co
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
-for inference with Llama 3.1 70B on {doc}`GCP <vllm_gcp>`.
-
+for inference with Llama 3.1 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
 
 ## Next Steps
 
