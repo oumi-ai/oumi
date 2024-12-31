@@ -498,8 +498,8 @@ class TrainingParams(BaseParams):
     """
 
     ddp_find_unused_parameters: Optional[bool] = None
-    """When using distributed training, the value of the flag `find_unused_parameters`
-    passed to `DistributedDataParallel`.
+    """When using PyTorch's DistributedDataParallel training, the value of this flag is
+    passed to `find_unused_parameters`.
 
     Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
