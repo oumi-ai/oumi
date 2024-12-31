@@ -3,6 +3,7 @@ from typing import Optional
 import transformers
 
 from oumi.core.configs import TrainingConfig
+from oumi.core.configs.params.peft_params import PeftSaveMode
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers.base_trainer import BaseTrainer
@@ -56,14 +57,34 @@ class HuggingFaceTrainer(BaseTrainer):
             # FSDP is enabled, so we need to save the model in a special way.
             return self._save_fsdp_model(config=config, final=final)
 
-        if is_world_process_zero():
-            output_dir = config.training.output_dir
-            self._hf_trainer.save_model(output_dir)
-            logger.info(f"Model has been saved at {output_dir}.")
+        if not is_world_process_zero():
+            return
 
-            if self._processor is not None:
-                self._processor.save_config(output_dir)
-                logger.info(f"Processor config has been saved at {output_dir}.")
+        output_dir = config.training.output_dir
+        if not config.training.use_peft:
+            self._hf_trainer.save_model(output_dir)
+        else:
+            if config.peft.peft_save_mode == PeftSaveMode.MERGED:
+                merged_model = self._hf_trainer.model.merge_and_unload(
+                    progressbar=True, safe_merge=True
+                )
+                merged_model.save_pretrained(output_dir)
+            elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_ONLY:
+                # Save the LoRA adapter (doesn't include the base model).
+                self._hf_trainer.save_model(output_dir)
+            elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_AND_BASE_MODEL:
+                self._hf_trainer.save_model(output_dir)
+                # Saving the base model requires a separate call.
+                self._hf_trainer.model.base_model.save_pretrained(output_dir)
+            else:
+                raise ValueError(
+                    f"Unsupported PEFT save mode: {config.peft.peft_save_mode}"
+                )
+        logger.info(f"Model has been saved at {output_dir}.")
+
+        if self._processor is not None:
+            self._processor.save_config(output_dir)
+            logger.info(f"Processor config has been saved at {output_dir}.")
 
     def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model's weights to the specified output directory.
