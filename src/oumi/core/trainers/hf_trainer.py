@@ -61,20 +61,25 @@ class HuggingFaceTrainer(BaseTrainer):
             return
 
         output_dir = config.training.output_dir
-        if config.training.use_peft:
+        if not config.training.use_peft:
+            self._hf_trainer.save_model(output_dir)
+        else:
             if config.peft.peft_save_mode == PeftSaveMode.MERGED:
                 merged_model = self._hf_trainer.model.merge_and_unload(
                     progressbar=True, safe_merge=True
                 )
                 merged_model.save_pretrained(output_dir)
-            else:
+            elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_ONLY:
                 # Save the LoRA adapter (doesn't include the base model).
                 self._hf_trainer.save_model(output_dir)
-                if config.peft.peft_save_mode == PeftSaveMode.ADAPTER_AND_BASE_MODEL:
-                    # Save the base model.
-                    self._hf_trainer.model.base_model.save_pretrained(output_dir)
-        else:
-            self._hf_trainer.save_model(output_dir)
+            elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_AND_BASE_MODEL:
+                self._hf_trainer.save_model(output_dir)
+                # Saving the base model requires a separate call.
+                self._hf_trainer.model.base_model.save_pretrained(output_dir)
+            else:
+                raise ValueError(
+                    f"Unsupported PEFT save mode: {config.peft.peft_save_mode}"
+                )
         logger.info(f"Model has been saved at {output_dir}.")
 
         if self._processor is not None:
