@@ -19,7 +19,7 @@ All evaluations are automatically logged and versioned, capturing model configur
 
 | Type | Description | When to Use | Get Started |
 |------|-------------|-------------|-------------|
-| **Generative Benchmarks** | Evaluate model's ability to generate contextual responses | Best for assessing instruction-following capabilities, response quality, and multi-turn dialogue performance | See [MT-bench notebook](/../notebooks/mt_bench.ipynb) and [AlpacaEval notebook](/../notebooks/alpaca_eval.ipynb) |
+| **Generative Benchmarks** | Evaluate model's ability to generate contextual responses | Best for assessing instruction-following capabilities, response quality, and multi-turn dialogue performance | See {doc}`Generative Evaluation page </user_guides/evaluate/generative>` |
 | **Multiple Choice (LM-Eval)** | Assess knowledge and reasoning through structured questions | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See [Basic Configuration](#basic-configuration) and [Supported Tasks](#supported-tasks) |
 | **LLM as Judge** | Qualitative assessment using LLMs | Perfect for subjective evaluation of response quality, safety, and alignment with custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
 
