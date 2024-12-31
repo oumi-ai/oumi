@@ -19,15 +19,15 @@ class PeftSaveMode(Enum):
     ADAPTER_ONLY = "adapter_only"
     """Only save the model adapter.
 
-    Note that when loading this saved model, the base model has to be loaded separately
+    Note that when loading this saved model, the base model will be loaded separately
     from the local HF cache or downloaded from HF Hub.
     """
 
     ADAPTER_AND_BASE_MODEL = "adapter_and_base_model"
-    """Save the model adapter and base model separately.
+    """Save the base model in addition to the adapter.
 
     This is similar to `ADAPTER_ONLY`, but the base model's weights are also saved in
-    the same directory as the adapter weights, making the saved model self-contained.
+    the same directory as the adapter weights, making the output dir self-contained.
     """
 
     MERGED = "merged"
@@ -198,7 +198,7 @@ class PeftParams(BaseParams):
     By default, only the model adapter is saved to reduce disk usage.
     Options are defined in the `PeftSaveMode` enum and include:
     - ADAPTER_ONLY: Only save the model adapter.
-    - ADAPTER_AND_BASE_MODEL: Save the model adapter and base model separately.
+    - ADAPTER_AND_BASE_MODEL: Save the base model in addition to the adapter.
     - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
 
