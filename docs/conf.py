@@ -33,6 +33,7 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
     "sphinx.ext.duration",
+    "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
@@ -152,3 +153,7 @@ suppress_warnings = [
     # Ignore warnings from autodoc
     # "autodoc",
 ]
+
+extlinks = {
+    "gh": ("https://github.com/oumi-ai/oumi/blob/main/%s", None),
+}
