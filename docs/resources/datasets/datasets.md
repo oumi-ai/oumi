@@ -17,11 +17,14 @@ This guide will help you integrate datasets into your AI inference and training 
 
 ### Working with Your Data
 
-- **Standard Format Datasets**
+1. **Standard Format Datasets**
   If your data matches our [supported formats](/resources/datasets/data_formats), use it directly with minimal setup.
 
-- **Custom Processing Needs**
+2. **Custom Processing Needs**
   For datasets requiring special handling, follow our [custom dataset guide](/resources/datasets/custom_datasets).
+
+3. **Pre-built Datasets** We have a collection of pre-built, popular open source datasets for various training objectives and tasks. These are available for download and use in your training and inference pipelines, and can be used to complement your own datasets. See [Pre-built Datasets](#pre-built-datasets) for more information.
+
 
 ### Pre-Built Datasets
 

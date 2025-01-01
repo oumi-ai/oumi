@@ -1,7 +1,16 @@
 # Judge Court
 
+The `judge court` is a collection of judges, provided by the oumi community, that are used to evaluate the quality of a response.
+
+Each judge has two main components:
+1. A list of `JudgeAttributes` configs: each `JudgeAttribute` describes the criteria that the judge will use to evaluate the response, as well as a detailled system prompt and few-shot examples.
+2. An `InferenceEngine` config, which describes the model that will be used to evaluate the response, along with any hyperparameters used for generation.
+
+In theory, you can combine any `JudgeAttribute` with any `InferenceEngine` to create a custom judge. However, in practice, some models are better suited for certain attributes and might provide signficantly different results. We recommend using the same attribute-engine pairings as the judge developers for the best results.
 
 ## Built-in Judges
+
+As of now, the only judge available is the `Oumi Judge V1`, which supports 3 attributes and 3 inference engines.
 
 ### Oumi Judge V1
 
