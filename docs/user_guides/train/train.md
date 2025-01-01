@@ -8,22 +8,27 @@
 training_methods
 environments/environments
 configuration
-common_workflows
 monitoring
 ```
 
 ## Overview
 
-Oumi provides a comprehensive training framework that supports:
+Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
+
+Our goal is to allow you to start small, in a notebook or local machine, and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+
+Key features include:
 
 - **Multiple Training Methods**: {ref}`Supervised Fine-Tuning (SFT) <supervised-fine-tuning-sft>` to adapt models to your specific tasks, {ref}`Vision-Language SFT <vision-language-sft>` for multimodal models, {ref}`Pretraining <pretraining>` for training from scratch, and {ref}`Direct Preference Optimization (DPO) <direct-preference-optimization-dpo>` for preference-based fine-tuning
-- **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, or in {doc}`Jupyter notebooks <environments/notebooks>`
-- **Scalable Training**: From single GPU to distributed training with DDP and FSDP support
-- **Production Features**: {doc}`Configuration management <configuration>`, {doc}`common workflows <common_workflows>`, and {doc}`monitoring & debugging tools <monitoring>`
+- **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment <environments/cloud>`
+- **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
+- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using DDP or FSDP
 
 ## Quick Start
 
-The fastest way to start is using a pre-configured recipe:
+The fastest way to get started with training is using one of our pre-configured recipes.
+
+For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-lab/alpaca`), you can use the following command:
 
 ::::{tab-set-code}
 :::{code-block} bash
@@ -43,7 +48,7 @@ train(config)
 :::
 ::::
 
-This will:
+Running this config will:
 
 1. Download a small pre-trained model: `SmolLM-135M`
 2. Load a sample dataset: `tatsu-lab/alpaca`
@@ -52,7 +57,9 @@ This will:
 
 ## Configuration Guide
 
-Oumi uses YAML files for configuration, Here's a basic example with key parameters explained:
+At the heart of Oumi's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
+
+Here's a basic example with key parameters explained:
 
 ```yaml
 model:
@@ -73,7 +80,7 @@ training:
   save_steps: 100  # Checkpoint frequency
 ```
 
-You can override any config values via CLI or Python API:
+You can override any value either through the CLI or programmatically:
 
 ::::{tab-set-code}
 :::{code-block} bash
@@ -100,28 +107,34 @@ train(config)
 
 ## Common Workflows
 
+In the following sections, we'll cover some common workflows for training.
+
 ### Fine-tuning a Pre-trained Model
+
+The simplest workflow is to fine-tune a pre-trained model on a dataset. This will perform fully finetune the model using SFT (supervised fine-tuning).
 
 ```yaml
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Meta-Llama-3.2-3B-Instruct"  # Replace with your model
   trust_remote_code: true
   dtype: "bfloat16"
 
 data:
-  train:
+  train:  # Training dataset mixture, can be a single dataset or a list of datasets
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned"
+      - dataset_name: "yahma/alpaca-cleaned" # Replace with your dataset, or add more datasets
         split: "train"
 
 training:
-  output_dir: "output/llama-finetuned"
+  output_dir: "output/llama-finetuned"  # Where to save outputs
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
-  max_steps: 10
+  max_steps: 10  # Number of training steps
 ```
 
 ### Multi-GPU Training
+
+To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
 
 ```bash
 # Using DDP (DistributedDataParallel)
@@ -137,11 +150,19 @@ oumi distributed torchrun -m oumi train \
 
 ### Launch Remote Training
 
+To kick off a training run on a cloud environment, you can use the launcher system.
+
+This will create a GCP job with the specified configuration and start training:
+
 ```bash
 oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster llama3b-sft
 ```
 
-### Using Local Datasets
+Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/latest/), most cloud providers are supported -- make sure to check out {doc}`/user_guides/launch/launch` for more details.
+
+### Using Custom Datasets
+
+To use your own datasets, you can specify the path to the dataset in the configuration.
 
 ```yaml
 data:
@@ -151,21 +172,18 @@ data:
         dataset_path: "/path/to/dataset.jsonl"
 ```
 
+In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats, and {doc}`/resources/datasets/custom_datasets` for customizing the preprocessing at runtime if needed.
+
 ## Training Output
 
-During training, Oumi will:
+Throughout the training process, we generate logs and artifacts to help you track progress and debug issues in the `config.output_dir` directory.
 
-1. Create an output directory with:
-   - Model checkpoints
-   - Training logs
-   - TensorBoard events
-   - Config backup
-2. Display progress in terminal
-3. Log metrics (if configured)
+This includes model checkpoints for resuming training, detailed training logs, TensorBoard events for visualization, and a backup of the training configuration.
 
 ## Next Steps
 
+Now that we covered the basics, as a next step you can:
+
 - Learn about different {doc}`training methods <training_methods>`
+- Set up your {doc}`training environment <environments/environments>` and get started training
 - Explore {doc}`configuration options <configuration>`
-- Set up {doc}`distributed training <common_workflows>`
-- Try different {doc}`training environments <environments/environments>`
