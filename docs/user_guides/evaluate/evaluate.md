@@ -5,6 +5,7 @@
 :caption: Evaluation
 :hidden:
 
+mcqa
 generative
 custom_lm_harness
 ```
