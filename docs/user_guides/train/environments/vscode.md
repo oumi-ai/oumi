@@ -180,8 +180,7 @@ You can open and edit files directly on the remote machine, use the integrated t
 
 ### 4. Jupyter Integration
 
-VSCode provides excellent support for Jupyter notebooks, both local and remote. For detailed information, see [Working with Jupyter Notebooks](https://code.visualstudio.com/docs/datascience/jupyter-notebooks).
-
+VSCode provides excellent support for Jupyter notebooks, both local and remote. For detailed information, see [Working with Jupyter Notebooks](https://code.visualstudio.com/docs/datascience/jupyter-notebooks) or our {doc}`VSCode setup guide</user_guides/train/environments/notebooks>`.
 
 ## Next Steps
 

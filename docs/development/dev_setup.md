@@ -147,15 +147,9 @@ This will save your login info at `~/.netrc`. Oumi jobs mount this file to remot
 
 ## 7. [optional] Set up VSCode
 
-We recommend using [VSCode](https://code.visualstudio.com/) as the IDE. See our {doc}`/user_guides/train/environments/vscode.md` guide for recommended setup instructions.
+We recommend using [VSCode](https://code.visualstudio.com/) as the IDE. See our {doc}`/user_guides/train/environments/vscode` guide for recommended setup instructions.
 
-In addition, we also use VSCode to run a notebook backed by a cloud node. To do so, run:
-
-```shell
-make gcpcode ARGS="--resources.accelerators A100:4"
-```
-
-This runs on GCP by default. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs.
+You can also use VSCode to run Jupyter notebooks in the Oumi repository. See our {doc}`/user_guides/train/environments/notebooks` guide for more information.
 
 ## 8. [optional] Test your setup
 
