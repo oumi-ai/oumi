@@ -65,7 +65,7 @@ torchrun --standalone --nproc-per-node=<NUM_GPUS> oumi train -c config.yaml
 oumi distributed torchrun -m oumi train -c config.yaml --fsdp.enable_fsdp true
 ```
 
-For more details on distributed training options, see {doc}`/user_guides/train/common_workflows`.
+For more details on distributed training options, see {doc}`/user_guides/train/train`.
 
 ## Monitoring
 
@@ -113,7 +113,5 @@ For more monitoring options and best practices, see {doc}`/user_guides/train/mon
 
 ## Next Steps
 
-- Learn about {doc}`common workflows </user_guides/train/common_workflows>` for better performance
 - Set up {doc}`monitoring tools </user_guides/train/monitoring>` for tracking progress
 - Check out {doc}`configuration options </user_guides/train/configuration>` for detailed settings
-- Explore {doc}`distributed training </user_guides/train/common_workflows>` for scaling up

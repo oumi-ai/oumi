@@ -41,6 +41,5 @@ While Oumi supports multiple training environments, we recommend a systematic pr
 ## Next Steps
 
 - Check out {doc}`configuration options </user_guides/train/configuration>`
-- Learn about {doc}`common workflows </user_guides/train/common_workflows>`
 - Set up {doc}`monitoring tools </user_guides/train/monitoring>`
 - Explore {doc}`remote training </user_guides/launch/launch>`
