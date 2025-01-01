@@ -23,7 +23,7 @@ Install these VSCode extensions for the best development experience:
 | Code Quality | [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) | Python linting and formatting | Strongly recommended |
 | Code Quality | [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) | TOML file support | Recommended |
 | Code Quality | [YAML by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) | YAML file support | Recommended |
-| Documentation Quality | [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) | Markdown file support | Recommended |
+| Documentation | [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) | Markdown file support | Recommended |
 
 ### 3. Workspace Configuration
 
@@ -180,7 +180,7 @@ You can open and edit files directly on the remote machine, use the integrated t
 
 ### 4. Jupyter Integration
 
-VSCode provides excellent support for Jupyter notebooks, both local and remote. For detailed information, see [Working with Jupyter Notebooks](https://code.visualstudio.com/docs/datascience/jupyter-notebooks) or our {doc}`VSCode setup guide</user_guides/train/environments/notebooks>`.
+VSCode provides excellent support for Jupyter notebooks, both local and remote. For detailed information, see [Working with Jupyter Notebooks](https://code.visualstudio.com/docs/datascience/jupyter-notebooks) or our {doc}`Notebooks setup guide</user_guides/train/environments/notebooks>`.
 
 ## Next Steps
 
