@@ -3,7 +3,9 @@
 (training-methods)=
 ## Introduction
 
-Oumi supports several training methods to accommodate different use cases. Here's a quick comparison:
+Oumi supports several training methods to accommodate different use cases.
+
+Here's a quick comparison:
 
 | Method | Use Case | Data Required | Compute | Key Features |
 |--------|----------|---------------|---------|--------------|
@@ -220,5 +222,4 @@ training:
 ## Next Steps
 
 - Explore {doc}`configuration options </user_guides/train/configuration>`
-- Learn about {doc}`common workflows </user_guides/train/common_workflows>`
 - Set up {doc}`monitoring tools </user_guides/train/monitoring>`

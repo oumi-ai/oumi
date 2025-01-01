@@ -182,6 +182,5 @@ VSCode provides excellent support for Jupyter notebooks, both local and remote. 
 
 ## Next Steps
 
-- Learn about {doc}`common workflows </user_guides/train/common_workflows>` for better performance
 - Set up {doc}`monitoring tools </user_guides/train/monitoring>` for tracking progress
 - Explore {doc}`remote training </user_guides/train/environments/cloud>` for cloud resources
