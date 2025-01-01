@@ -5,14 +5,11 @@
 :caption: Inference
 :hidden:
 
-local_inference
-remote_inference
+inference_engines
 common_workflows
 configuration
 cli_reference
 ```
-
-# Inference
 
 Oumi Infer provides a unified interface for running language models, whether you're deploying your own models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
 
@@ -191,7 +188,6 @@ for inference with Llama 3.1 70B on {gh}`notebooks/Oumi - Using vLLM Engine for 
 
 ## Next Steps
 
-- Learn about {doc}`local_inference` for GPU-based setups
-- Explore {doc}`remote_inference` for remote API calls
+- Learn about the supported {doc}`inference_engines`
 - Review {doc}`common_workflows` for practical examples
 - See the {doc}`configuration` section for detailed configuration options.
