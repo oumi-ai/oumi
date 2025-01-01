@@ -147,7 +147,7 @@ This will save your login info at `~/.netrc`. Oumi jobs mount this file to remot
 
 ## 7. [optional] Set up VSCode
 
-We recommend using [VSCode](https://code.visualstudio.com/) as the IDE, along with the [Even Better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml), [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint), and [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) extensions and a [ruler length](https://levelup.gitconnected.com/do-you-know-about-rulers-in-visual-studio-code-f754b221a135) of 88. In addition, in the Command Pallete (`⌘ + Shift + P` on Mac), use `Python: Select Interpreter` to select your Oumi Conda environment so that notebooks running in VSCode use the right kernel.
+We recommend using [VSCode](https://code.visualstudio.com/) as the IDE. See our {doc}`/user_guides/train/environments/vscode.md` guide for recommended setup instructions.
 
 In addition, we also use VSCode to run a notebook backed by a cloud node. To do so, run:
 

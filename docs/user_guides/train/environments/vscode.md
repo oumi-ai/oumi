@@ -7,6 +7,7 @@ This guide will also work for other IDEs base on vscode, such as [Cursor](https:
 ## Environment Setup
 
 ### 1. Install VSCode
+
 Download and install VSCode from the [official website](https://code.visualstudio.com/download).
 
 If you're new to VSCode, check out the [VSCode Getting Started Guide](https://code.visualstudio.com/docs/getstarted/getting-started) for more information.
@@ -14,6 +15,7 @@ If you're new to VSCode, check out the [VSCode Getting Started Guide](https://co
 ### 2. Install Recommended Extensions
 
 Install these VSCode extensions for the best development experience:
+
 | Category | Extension | Purpose | Recommended |
 |----------|-----------|---------|-------------|
 | Python Development | [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) | Core Python support | Required |
@@ -21,7 +23,7 @@ Install these VSCode extensions for the best development experience:
 | Code Quality | [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) | Python linting and formatting | Strongly recommended |
 | Code Quality | [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) | TOML file support | Recommended |
 | Code Quality | [YAML by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) | YAML file support | Recommended |
-
+| Documentation Quality | [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) | Markdown file support | Recommended |
 
 ### 3. Workspace Configuration
 
@@ -30,6 +32,7 @@ Create or update `.vscode/settings.json` with recommended settings:
 ```json
 {
   "editor.defaultFormatter": "charliermarsh.ruff",
+  "editor.rulers": [88],
   "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,

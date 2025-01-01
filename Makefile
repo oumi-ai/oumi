@@ -131,12 +131,14 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
-# To run with 4 A100s: `make gcpssh ARGS="--resources.accelerators A100:4"`
+# To adjust the accelerators: `make gcpcode ARGS="--resources.accelerators A100:4"`
+# To run on a different cloud: `make gcpssh ARGS="--resources.cloud aws"`
 gcpssh:
 	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev" -c configs/examples/misc/dev_gcp_job.yaml
 	ssh "${USERNAME}-dev"
 
-# To run with 4 A100s: `make gcpcode ARGS="--resources.accelerators A100:4"`
+# To adjust the accelerators: `make gcpcode ARGS="--resources.accelerators A100:4"`
+# To run on a different cloud: `make gcpcode ARGS="--resources.cloud aws"`
 gcpcode:
 	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev" -c configs/examples/misc/dev_gcp_job.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
