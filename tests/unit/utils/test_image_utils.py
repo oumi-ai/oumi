@@ -8,8 +8,8 @@ import pytest
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
-    load_image_from_bytes,
     load_image_png_bytes_from_path,
+    load_pil_image_from_bytes,
 )
 
 
@@ -21,10 +21,10 @@ def _create_jpg_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
 
 def test_load_image_from_empty_bytes():
     with pytest.raises(ValueError, match="No image bytes"):
-        load_image_from_bytes(None)
+        load_pil_image_from_bytes(None)
 
     with pytest.raises(ValueError, match="No image bytes"):
-        load_image_from_bytes(b"")
+        load_pil_image_from_bytes(b"")
 
 
 def test_load_image_from_bytes():
@@ -32,7 +32,7 @@ def test_load_image_from_bytes():
     png_bytes = create_png_bytes_from_image(pil_image)
     assert len(png_bytes) > 50
 
-    pil_image_reloaded = load_image_from_bytes(png_bytes)
+    pil_image_reloaded = load_pil_image_from_bytes(png_bytes)
     assert pil_image_reloaded.size == pil_image.size
 
 
@@ -43,7 +43,7 @@ def test_create_png_bytes_from_image_bytes():
 
     png_bytes = create_png_bytes_from_image_bytes(jpg_bytes)
 
-    pil_image_reloaded = load_image_from_bytes(png_bytes)
+    pil_image_reloaded = load_pil_image_from_bytes(png_bytes)
     assert pil_image_reloaded.size == pil_image.size
 
 

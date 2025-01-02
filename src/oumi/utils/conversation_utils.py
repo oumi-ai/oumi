@@ -1,14 +1,11 @@
 import base64
 from typing import Any, Union
 
-import requests
-
 from oumi.core.types.conversation import ContentItem, Message, Type
 from oumi.utils.image_utils import (
-    create_png_bytes_from_image_bytes,
     load_image_png_bytes_from_path,
+    load_image_png_bytes_from_url,
 )
-from oumi.utils.logging import logger
 
 
 def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
@@ -33,13 +30,7 @@ def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
             assert item.type == Type.IMAGE_URL
             if item.content is None:
                 raise ValueError("Image URL is None")
-            try:
-                response = requests.get(item.content, stream=True)
-                response.raise_for_status()
-            except requests.exceptions.RequestException:
-                logger.exception(f"Failed to download image: '{item.content}'")
-                raise
-            png_bytes = create_png_bytes_from_image_bytes(response.content)
+            png_bytes = load_image_png_bytes_from_url(item.content)
 
         return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
 

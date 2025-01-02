@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import PIL.Image
+import requests
 
 from oumi.utils.logging import logger
 
@@ -25,8 +26,28 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
-def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> bytes:
-    """Loads an image from a path, converts it to PNG, and returns image bytes.
+def convert_pil_image_to_rgb_mode_if_needed(image: PIL.Image.Image) -> PIL.Image.Image:
+    """Converts a PIL image to RGB mode (if it's not RGB already) .
+
+    Args:
+        image: An input image.
+
+    Returns:
+        An image in RGB mode. If an input image was RGB then return it for efficiency.
+        Otherwise, a different image object is returned.
+    """
+    if image.mode == "RGB":
+        # Return the original object for better performance.
+        return image
+
+    try:
+        return image.convert("RGB")
+    except Exception as e:
+        raise RuntimeError("Failed to convert an image to RGB mode!") from e
+
+
+def load_pil_image_from_path(input_image_filepath: Union[str, Path]) -> PIL.Image.Image:
+    """Loads an image from a path.
 
     Args:
         input_image_filepath: A file path of an image.
@@ -46,15 +67,37 @@ def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> by
         )
 
     try:
-        pil_image = PIL.Image.open(input_image_filepath).convert("RGB")
+        pil_image = convert_pil_image_to_rgb_mode_if_needed(
+            PIL.Image.open(input_image_filepath)
+        )
     except Exception:
         logger.error(f"Failed to load an image from path: {input_image_filepath}")
         raise
+    return pil_image
 
-    return create_png_bytes_from_image(pil_image)
+
+def load_pil_image_from_url(input_image_url: str) -> PIL.Image.Image:
+    """Loads a PIL image from a URL.
+
+    Args:
+        input_image_url: An image URL.
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
+    if not input_image_url:
+        raise ValueError("Empty image URL!")
+
+    try:
+        response = requests.get(input_image_url, stream=True)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        logger.exception(f"Failed to download image: '{input_image_url}'")
+        raise
+    return load_pil_image_from_bytes(response.content)
 
 
-def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
+def load_pil_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
     """Loads an image from raw image bytes.
 
     Args:
@@ -67,7 +110,9 @@ def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
         raise ValueError("No image bytes.")
 
     try:
-        pil_image = PIL.Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        pil_image = convert_pil_image_to_rgb_mode_if_needed(
+            PIL.Image.open(io.BytesIO(image_bytes))
+        )
     except Exception:
         logger.error(
             f"Failed to load an image from raw image bytes ({len(image_bytes)} bytes)."
@@ -85,5 +130,32 @@ def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
     Returns:
         bytes: PNG bytes representation of the image.
     """
-    pil_image = load_image_from_bytes(image_bytes)
+    pil_image = load_pil_image_from_bytes(image_bytes)
+    return create_png_bytes_from_image(pil_image)
+
+
+def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> bytes:
+    """Loads an image from a path, converts it to PNG, and returns image bytes.
+
+    Args:
+        input_image_filepath: A file path of an image.
+            The image can be in any format supported by PIL.
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
+    pil_image = load_pil_image_from_path(input_image_filepath)
+    return create_png_bytes_from_image(pil_image)
+
+
+def load_image_png_bytes_from_url(input_image_url: str) -> bytes:
+    """Loads an image from a URL, converts it to PNG, and returns image bytes.
+
+    Args:
+        input_image_url: An image URL.
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
+    pil_image = load_pil_image_from_url(input_image_url)
     return create_png_bytes_from_image(pil_image)
