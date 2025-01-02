@@ -37,9 +37,9 @@ Our dataset collection covers various training objectives and tasks:
 | **Preference** | • Human preference data for RLHF training<br>• Direct preference optimization (DPO) support<br>• Quality and alignment tuning | [→ Preference learning guide](preference_datasets.md) |
 | **Vision-Language** | • Image-text pairs for multi-modal training<br>• Visual question answering datasets<br>• Image captioning collections | [→ Vision-language guide](vl_sft_datasets.md) |
 
-## Quick Start Guide
+## Quick Start
 
-Let's begin with a simple example:
+Let's begin with a simple example using the python API:
 
 ```python
 from oumi.builders import build_dataset
@@ -47,14 +47,39 @@ from oumi.core.configs import DatasetSplit
 
 # Load a pre-built dataset
 dataset = build_dataset(
-    dataset_name="oumi/sft-basic",
-    split=DatasetSplit.TRAIN
+    dataset_name="tatsu-lab/alpaca"
 )
 
+# Access the training sample at index 0
+print(dataset[0])
+
 # Use in your training loop
-for batch in dataset:
+dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+for batch in dataloader:
     # Your training code here
     pass
+```
+
+You can also build a mixture of datasets, to train on multiple datasets at once:
+
+```python
+from oumi.core.configs import DataParams, DatasetParams
+from oumi.builders import build_dataset_mixture
+
+config = DataParams(
+    train=DatasetSplitParams(
+        datasets=[
+            DatasetParams(dataset_name="tatsu-lab/alpaca"),
+            DatasetParams(dataset_name="databricks/dolly"),
+        ],
+        mixture_strategy="first_exhausted",
+    )
+)
+
+dataset = build_dataset_mixture(
+    config=config,
+    split=DatasetSplit.TRAIN
+)
 ```
 
 Configuration can be done via YAML:
@@ -75,22 +100,10 @@ training:
 Start with our pre-built datasets for common use cases, and move to custom implementations when you need more control over data processing and loading.
 
 1. **New to Oumi Datasets?**
-   - Start with our [Data Formats Guide](/resources/datasets/data_formats)
-   - Understand basic concepts and structures
-   - Try working with a pre-built dataset
+   - Start with our [Data Formats Guide](/resources/datasets/data_formats) to understand basic concepts and structures
 
 2. **Using Existing Datasets?**
-   - Explore the available [SFT Datasets](/resources/datasets/sft_datasets), [Pretraining Datasets](/resources/datasets/pretraining_datasets), and [Preference Datasets](/resources/datasets/preference_datasets)
-   - Check out [Vision-Language Datasets](/resources/datasets/vl_sft_datasets)
-   - Review performance optimization tips
+   - Explore the available [SFT Datasets](/resources/datasets/sft_datasets), [Pretraining Datasets](/resources/datasets/pretraining_datasets), [Preference Datasets](/resources/datasets/preference_datasets), and [Vision-Language Datasets](/resources/datasets/vl_sft_datasets)
 
-3. **Building Custom Datasets?**
+3. **Building Datasets with Custom Processing?**
    - Follow our [Custom Dataset Guide](/resources/datasets/custom_datasets)
-   - Understand the base classes
-   - Learn about optimization strategies
-
-## Support and Resources
-
-- Check our example notebooks in the `examples/` directory
-- Visit our [GitHub repository](https://github.com/oumi-ai/oumi) for updates
-- Join our community discussions for help and tips
