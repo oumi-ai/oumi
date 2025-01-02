@@ -20,6 +20,7 @@ Install these VSCode extensions for the best development experience:
 |----------|-----------|---------|-------------|
 | Python Development | [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) | Core Python support | Required |
 | Remote Development | [Remote Development](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack) | Remote development support | Required for remote hosts |
+| Experimentation | [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) | Notebook support | Recommended |
 | Code Quality | [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) | Python linting and formatting | Strongly recommended |
 | Code Quality | [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) | TOML file support | Recommended |
 | Code Quality | [YAML by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) | YAML file support | Recommended |
