@@ -42,7 +42,7 @@ sky show-gpus
 
 You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), `A100-80GB`, and `A100-80GB-SXM`.
 
-### Launch jobs
+### Launch Jobs
 
 To launch a job on your desired cloud, run:
 
@@ -64,7 +64,15 @@ If you made any code changes to the codebase (not including configs), you need t
 `pip install '.'` in the `run` section of the job config to install the
 changes on the cluster.
 
-### View logs
+#### Mount Cloud Storage
+
+You can mount cloud storage like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. You may want to do this if you want to easily read data from an existing bucket, or write data/model checkpoints. Your job's local disk may not have enough storage for multiple large model checkpoints, and data on local disk will be lost on job preemption.
+
+```{tip}
+To improve I/O speeds, prefer using a bucket in the same cloud region as your job!
+```
+
+### View Logs
 
 To view the logs of your jobs on clouds supported by SkyPilot, run:
 
@@ -72,7 +80,7 @@ To view the logs of your jobs on clouds supported by SkyPilot, run:
 sky logs oumi-cluster
 ```
 
-### Cancel jobs
+### Cancel Jobs
 
 To cancel a running job without stopping the cluster, run:
 
@@ -82,7 +90,7 @@ oumi launch cancel --cluster oumi-cluster --cloud gcp --id 1
 
 The id of the job can be obtained by running `oumi launch status`.
 
-### Stop/turn down clusters
+### Stop/Turn Down Clusters
 
 To stop the cluster when you are done to avoid extra charges, run:
 
