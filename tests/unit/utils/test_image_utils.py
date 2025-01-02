@@ -8,6 +8,7 @@ import pytest
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
+    ensure_pil_image_mode,
     load_image_png_bytes_from_path,
     load_pil_image_from_bytes,
 )
@@ -45,6 +46,21 @@ def test_create_png_bytes_from_image_bytes():
 
     pil_image_reloaded = load_pil_image_from_bytes(png_bytes)
     assert pil_image_reloaded.size == pil_image.size
+
+
+def test_ensure_pil_image_mode():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    assert id(ensure_pil_image_mode(pil_image, mode="RGB")) == id(pil_image)
+    assert id(ensure_pil_image_mode(pil_image, mode="")) == id(pil_image)
+
+    pil_image_rgba = ensure_pil_image_mode(pil_image, mode="RGBA")
+    assert id(pil_image_rgba) != id(pil_image)
+    assert pil_image_rgba.size == pil_image.size
+    assert id(ensure_pil_image_mode(pil_image_rgba, mode="")) == id(pil_image_rgba)
+
+    pil_image_rgb2 = ensure_pil_image_mode(pil_image_rgba, mode="RGB")
+    assert id(pil_image_rgb2) != id(pil_image)
+    assert pil_image_rgb2.size == pil_image.size
 
 
 def test_load_image_png_bytes_from_empty_path():

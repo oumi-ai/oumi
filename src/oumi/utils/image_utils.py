@@ -38,10 +38,11 @@ def ensure_pil_image_mode(
         mode: The requested image mode.
 
     Returns:
-        An image in the request mode . If an input image was already in the correct mode
-        then return it for efficiency. Otherwise, a different image object is returned.
+        An image in the requested mode . If an input image was already in the correct
+        mode then return it for efficiency.
+        Otherwise, a different image object is returned.
     """
-    if image.mode == mode or not mode:
+    if not mode or image.mode == mode:
         # Return the original object for better performance.
         return image
 
