@@ -20,11 +20,6 @@ file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
-storage_mounts:
-  /gcs_dir:
-    source: gs://oumi-dev-us-central1
-    store: gcs
-
 envs:
   WANDB_PROJECT: oumi-debug
 
