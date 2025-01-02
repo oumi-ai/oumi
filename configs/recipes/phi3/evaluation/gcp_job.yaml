@@ -10,14 +10,8 @@ resources:
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-
-storage_mounts:
-  /gcs_dir:
-    source: gs://oumi-dev-us-central1
-    store: gcs
 
 envs:
   # HF datasets require trusting remote code to be enabled.

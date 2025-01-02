@@ -1,5 +1,7 @@
 # Core Concepts
+
 ## Overview
+
 Oumi aims to combine production-grade reliability with researcher-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
 
 This guide introduces the core concepts, and terminology used throughout Oumi, as well as the architecture and guiding design principles. Understanding these core terms will help you navigate Oumi's documentation and features effectively.
@@ -55,7 +57,6 @@ The available commands are:
 - `launch`
 - `judge`
 
-
 See {doc}`/cli/commands` for full CLI details.
 
 ### Python API
@@ -86,6 +87,7 @@ Configs are Oumi's way of providing reproducible configurations for common workf
 | Launcher | Deployment settings | {doc}`/user_guides/launch/launch` |
 
 Example config structure:
+
 ```yaml
 # Example training recipe
 model:
@@ -106,8 +108,8 @@ training:
 
 For a full list of recipes, you can explore the {doc}`recipes page </resources/recipes>`.
 
-
 ### Other Key Concepts
+
 | Term | Description | Documentation |
 |------|-------------|---------------|
 | Recipe | Predefined configurations in Oumi for common model training, evaluation and inference workflows | {doc}`/resources/recipes` |
@@ -118,8 +120,7 @@ For a full list of recipes, you can explore the {doc}`recipes page </resources/r
 | Data Mixtures | Oumi's system for combining and weighting multiple datasets during training | {doc}`/resources/datasets/custom_datasets` |
 | Oumi Judge | Built-in system for evaluating model outputs based on customizable attributes (e.g. helpfulness, honesty, and safety) | {doc}`/user_guides/judge/judge` |
 
-
-## Navigating the repository
+## Navigating the Repository
 
 To contribute to Oumi or troubleshoot issues, it's helpful to understand how the repository is structured. Here's a breakdown of the key directories:
 
@@ -145,14 +146,14 @@ To contribute to Oumi or troubleshoot issues, it's helpful to understand how the
 - `docs/`: Documentation and guides
 
 ### Development Tools
+
 - `pyproject.toml`: Project dependencies and build settings
 - `Makefile`: Common development commands
 - `scripts/`: Utility scripts for development
 - `.github/`: CI/CD workflows and GitHub configurations
 
-
 ## Next Steps
 
-1.  **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
-2.  **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
-3.  **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.
+1. **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
+2. **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
+3. **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.

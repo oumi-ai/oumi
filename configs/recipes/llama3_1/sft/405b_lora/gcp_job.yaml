@@ -19,11 +19,6 @@ file_mounts:
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
-storage_mounts:
-  /gcs_dir:
-    source: gs://oumi-dev-us-central1
-    store: gcs
-
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama405b.lora.fsdp
