@@ -11,9 +11,7 @@ The most common use case is interactive chat using foundation models. Here's how
 You can easily switch between different inference engines by changing the engine in the `engine` variable, and customize the generation by updating the `GenerationParams` config.
 
 ```{code-block} python
-:emphasize-lines:  7, 8, 9, 10, 11, 12, 22, 23, 24, 25, 26
-:linenos:
-
+:emphasize-lines:  1, 6,7, 8, 9, 10, 11, 21, 22, 23, 24, 25
 
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams, GenerationParams
@@ -57,7 +55,6 @@ Here's an example of how to use guided decoding to generate data in a structured
 
 ```{code-block} python
 :emphasize-lines: 2, 6, 7, 8, 9, 10, 11, 25, 26, 27, 41
-:linenos:
 
 from typing import List
 from pydantic import BaseModel
@@ -109,7 +106,6 @@ For high-throughput scenarios where you need to process many requests concurrent
 
 ```{code-block} python
 :emphasize-lines: 10, 11, 12
-:linenos:
 
 from oumi.inference import RemoteInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams
@@ -139,8 +135,6 @@ The remote inference engine includes built-in error handling and rate limiting f
 - `num_workers`: Number of concurrent workers processing requests
 
 Most inference providers have a limit on the number of requests per minute you can make. You can configure the `num_workers` to match your provider's limit. For example, if your provider allows 100 requests per minute, you can set `num_workers=100` and `politeness_policy=60.0` to ensure you don't exceed the limit.
-
-
 
 ## Async Batch Inference
 
