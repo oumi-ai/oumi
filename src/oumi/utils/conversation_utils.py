@@ -1,5 +1,5 @@
 import base64
-from typing import Any
+from typing import Any, Union
 
 import requests
 
@@ -115,10 +115,24 @@ def convert_message_content_item_to_json_dict(
     }
 
 
-def convert_message_to_json_content(
+def convert_content_items_to_json_list(
+    content_items: list[ContentItem],
+) -> list[dict[str, Any]]:
+    """Converts content items to a list of JSON dicts.
+
+    Args:
+        content_items: A list of content items.
+
+    Returns:
+        list[Dict[str, Any]]: The list of all content items encoded as JSON dicts.
+    """
+    return [convert_message_content_item_to_json_dict(item) for item in content_items]
+
+
+def convert_message_to_json_content_list(
     message: Message,
 ) -> list[dict[str, Any]]:
-    """Returns the content for a message.
+    """Returns the message content as a list of its content items encoded as JSON dicts.
 
     Args:
         message: The message to get the content for.
@@ -126,7 +140,74 @@ def convert_message_to_json_content(
     Returns:
         list[Dict[str, Any]]: The content for the message for all content items.
     """
-    return [
-        convert_message_content_item_to_json_dict(item)
-        for item in message.content_items
-    ]
+    return convert_content_items_to_json_list(message.content_items)
+
+
+def convert_message_to_json_content(
+    message: Message,
+) -> Union[str, list[dict[str, Any]]]:
+    """Returns the message content.
+
+    Args:
+        message: The message to get the content for.
+
+    Returns:
+        list[Dict[str, Any]]: The content for the message for all content items.
+    """
+    if isinstance(message.content, str):
+        return message.content
+
+    assert isinstance(message.content, list)
+    return convert_content_items_to_json_list(message.content_items)
+
+
+def create_list_of_message_json_dicts(
+    messages: list[Message],
+    *,
+    group_adjacent_same_role_turns: bool,
+) -> list[dict[str, Any]]:
+    """Returns a list of JSON dictionaries representing messages.
+
+    Loads image bytes and encodes them as base64.
+
+    Args:
+        messages: The input messages.
+        group_adjacent_same_role_turns: Whether to pack adjacent messages
+            from the same role into a single element in output list.
+            For multimodal conversations, adjacent image and text turns from
+            the same role must be grouped together.
+
+    Returns:
+        list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
+    """
+    num_messages = len(messages)
+    result = []
+    idx = 0
+    while idx < num_messages:
+        end_idx = idx + 1
+        if group_adjacent_same_role_turns:
+            while end_idx < num_messages and (
+                messages[idx].role == messages[end_idx].role
+            ):
+                end_idx += 1
+
+        item: dict[str, Any] = {
+            "role": messages[idx].role.value,
+        }
+        group_size = end_idx - idx
+        if group_size == 1 and messages[idx].contains_single_text_content_item_only():
+            # Set "content" to a primitive string value, which is the common
+            # convention for text-only models.
+            item["content"] = messages[idx].text_content_items[0].content
+        else:
+            # Set "content" to be a list of dictionaries for more complex cases.
+            content_list = []
+            while idx < end_idx:
+                content_list.extend(convert_message_to_json_content_list(messages[idx]))
+                idx += 1
+            item["content"] = content_list
+
+        idx = end_idx
+        result.append(item)
+
+    return result
