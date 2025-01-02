@@ -25,25 +25,17 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
-    ContentItem,
     Conversation,
     Message,
     Role,
-    Type,
 )
-from oumi.utils.conversation_utils import (
-    base64encode_content_item_image_bytes,
-    load_image_bytes_to_content_item,
-)
+from oumi.utils.conversation_utils import convert_message_content_item_to_json_dict
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
 _ROLE_KEY: str = "role"
-_TYPE_KEY: str = "type"
-_TEXT_KEY: str = "text"
-_IMAGE_URL_KEY: str = "image_url"
+
 _AUTHORIZATION_KEY: str = "Authorization"
-_URL_KEY: str = "url"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 
@@ -209,46 +201,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             list[Dict[str, Any]]: The content for the message for all content items.
         """
         return [
-            RemoteInferenceEngine._get_content_for_message_content_item(item)
+            convert_message_content_item_to_json_dict(item)
             for item in message.content_items
         ]
-
-    @staticmethod
-    def _get_content_for_message_content_item(
-        item: ContentItem,
-    ) -> dict[str, Any]:
-        """Returns the content for a message content item.
-
-        Args:
-            item: The message content item to get the content for.
-
-        Returns:
-            Dict[str, Any]: The content for the message.
-        """
-        if item.type == Type.TEXT:
-            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (item.content or "")}
-        elif not item.is_image():
-            raise ValueError(f"Unsupported message type: {item.type}")
-
-        if not item.binary and item.type != Type.IMAGE_URL:
-            item = load_image_bytes_to_content_item(item)
-
-        if item.binary:
-            b64_image = base64encode_content_item_image_bytes(
-                item, add_mime_prefix=True
-            )
-            return {
-                _TYPE_KEY: Type.IMAGE_URL.value,
-                _IMAGE_URL_KEY: {_URL_KEY: b64_image},
-            }
-
-        assert (
-            item.type == Type.IMAGE_URL
-        ), f"Unexpected message type: {item.type}. Must be a code bug."
-        return {
-            _TYPE_KEY: Type.IMAGE_URL.value,
-            _IMAGE_URL_KEY: {_URL_KEY: item.content or ""},
-        }
 
     @staticmethod
     def _get_list_of_message_json_dicts(

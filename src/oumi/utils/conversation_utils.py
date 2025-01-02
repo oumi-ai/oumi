@@ -1,4 +1,5 @@
 import base64
+from typing import Any
 
 import requests
 
@@ -68,3 +69,47 @@ def base64encode_content_item_image_bytes(
 
     base64_str = base64.b64encode(item.binary).decode(encoding="utf8")
     return ("data:image/png;base64," + base64_str) if add_mime_prefix else base64_str
+
+
+_JSON_DICT_KEY_TYPE: str = "type"
+_JSON_DICT_KEY_TEXT: str = "text"
+_JSON_DICT_KEY_IMAGE_URL: str = "image_url"
+_JSON_DICT_KEY_URL: str = "url"
+
+
+def convert_message_content_item_to_json_dict(
+    item: ContentItem,
+) -> dict[str, Any]:
+    """Returns the content for a message content item.
+
+    Args:
+        item: The message content item to get the content for.
+
+    Returns:
+        Dict[str, Any]: The content for the message.
+    """
+    if item.type == Type.TEXT:
+        return {
+            _JSON_DICT_KEY_TYPE: Type.TEXT.value,
+            _JSON_DICT_KEY_TEXT: (item.content or ""),
+        }
+    elif not item.is_image():
+        raise ValueError(f"Unsupported message type: {item.type}")
+
+    if not item.binary and item.type != Type.IMAGE_URL:
+        item = load_image_bytes_to_content_item(item)
+
+    if item.binary:
+        b64_image = base64encode_content_item_image_bytes(item, add_mime_prefix=True)
+        return {
+            _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
+            _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: b64_image},
+        }
+
+    assert (
+        item.type == Type.IMAGE_URL
+    ), f"Unexpected message type: {item.type}. Must be a code bug."
+    return {
+        _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
+        _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},
+    }
