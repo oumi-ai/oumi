@@ -1,6 +1,6 @@
 # Config to evaluate smollm 135M on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/recipes/smollm/launch/135m_gcp_evaluate.yaml --cluster smollm-135m-eval
+# oumi launch up -c configs/recipes/smollm/evaluation/135m/gcp_job.yaml --cluster smollm-135m-eval
 name: smollm-135m-eval
 
 resources:
@@ -25,7 +25,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval.yaml \
+  oumi evaluate -c configs/recipes/smollm/evaluation/135m/eval.yaml \
     --enable_wandb false
 
   echo "Evaluation complete!"

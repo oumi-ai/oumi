@@ -1,6 +1,6 @@
 # Config to tune smollm 135M on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/recipes/smollm/launch/135m_gcp_train.yaml --cluster smollm-135m-fft
+# oumi launch up -c configs/recipes/smollm/sft/135m/gcp_job.yaml --cluster smollm-135m-fft
 name: smollm-135m-sft
 
 resources:

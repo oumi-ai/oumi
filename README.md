@@ -75,10 +75,10 @@ pip install -e ".[gpu]"  # For GPU training
 
    ```shell
    # Training
-   oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml
+   oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
    # Evaluation
-   oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
    --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
 
    # Inference

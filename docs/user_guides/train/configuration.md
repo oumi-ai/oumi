@@ -281,8 +281,8 @@ We aim to provide a comprehensive (and growing) set of recipes for all the commo
 
 This example shows how to fine-tune a small model ('SmolLM2-135M') without any parameter-efficient methods:
 
-````{dropdown} configs/recipes/smollm/sft/135m/train_quickstart.yaml
-```{literalinclude} ../../../configs/recipes/smollm/sft/135m/train_quickstart.yaml
+````{dropdown} configs/recipes/smollm/sft/135m/quickstart_train.yaml
+```{literalinclude} ../../../configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :language: yaml
 ```
 ````
