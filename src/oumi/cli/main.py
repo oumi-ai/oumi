@@ -94,7 +94,6 @@ def get_app() -> typer.Typer:
     app.add_typer(
         distributed_app,
         name="distributed",
-        hidden=True,
         help=(
             "A wrapper for torchrun/accelerate "
             "with reasonable default values for distributed training."
