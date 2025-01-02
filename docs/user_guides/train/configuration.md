@@ -311,8 +311,8 @@ This example shows how to fine-tune a medium-sized model ('Llama-3.1-8b') using 
 
 This example shows how to fine-tune a vision-language model ('LLaVA-7B'):
 
-````{dropdown} configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml
-```{literalinclude} ../../../configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml
+````{dropdown} configs/recipes/vision/llava_7b/sft/train.yaml
+```{literalinclude} ../../../configs/recipes/vision/llava_7b/sft/train.yaml
 :language: yaml
 ```
 ````

@@ -1,5 +1,5 @@
 # Sample command:
-# oumi launch up --config configs/recipes/vision/blip2_opt_2.7b/sft/2b_oumi_gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/recipes/vision/blip2_opt_2.7b/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
 
 name: blip2-opt-2.7b-sft-oumi-train
 
@@ -39,7 +39,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/blip2_opt_2.7b/sft/2b_sft_train.yaml \
+      -c configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
       --training.max_steps 20 \
