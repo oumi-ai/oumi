@@ -13,6 +13,7 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Update with your GCS buckets
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
 storage_mounts:
   /input_gcs_bucket:
     source: gs://<your-input-bucket> # GCS bucket that contains our input data

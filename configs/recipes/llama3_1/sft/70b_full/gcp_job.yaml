@@ -17,6 +17,13 @@ file_mounts:
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama70b.fft.fsdp
