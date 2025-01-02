@@ -57,8 +57,8 @@ You can also checkout the README.md in each recipe's directory for more details 
 | | `recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` |
 | LLaVA 7B | `recipes/vision/llava_7b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/sft/train.yaml>` {gh}`configs/recipes/vision/llava_7b/sft/train.yaml` |
 | | `recipes/vision/llava_7b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/inference/infer.yaml>` {gh}`configs/recipes/vision/llava_7b/inference/infer.yaml` |
-| Phi3 Vision | `recipes/vision/phi3/sft/sft_train.yaml` | {download}`Download </../configs/recipes/vision/phi3/sft/train.yaml>` {gh}`configs/recipes/vision/phi3/sft/train.yaml` |
-| Qwen2-VL 2B | `recipes/vision/qwen2_vl_2b/sft/sft_train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/sft/train.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/sft/train.yaml` |
+| Phi3 Vision | `recipes/vision/phi3/sft/train.yaml` | {download}`Download </../configs/recipes/vision/phi3/sft/train.yaml>` {gh}`configs/recipes/vision/phi3/sft/train.yaml` |
+| Qwen2-VL 2B | `recipes/vision/qwen2_vl_2b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/sft/train.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/sft/train.yaml` |
 
 ### 🎯 Training Techniques
 
