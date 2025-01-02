@@ -20,10 +20,12 @@ file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
-storage_mounts:
-  /gcs_dir:
-    source: gs://oumi-dev-us-central1
-    store: gcs
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
 
 envs:
   WANDB_PROJECT: oumi-debug

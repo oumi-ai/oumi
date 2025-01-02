@@ -18,11 +18,6 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
-storage_mounts:
-  /gcs_dir:
-    source: gs://oumi-dev-us-central1
-    store: gcs
-
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: zephyr.7b.fft
@@ -42,7 +37,6 @@ run: |
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.enable_wandb true \
       --training.enable_tensorboard true \
-      --training.output_dir /gcs_dir/nikolai/zephyr/${OUMI_RUN_NAME} \
       --training.include_performance_metrics false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
