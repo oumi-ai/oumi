@@ -23,7 +23,7 @@ A typical configuration file has this structure:
 
 ```yaml
 model:  # Model settings
-  model_name: "meta-llama/Llama-2-7b-chat-hf"
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
   trust_remote_code: true
   model_kwargs:
     device_map: "auto"
@@ -155,6 +155,6 @@ The `input_path` should contain prompts in JSONL format, where each line is a JS
 
 ## See Also
 
-- {doc}`/user_guides/infer/infer` for local setup
-- {doc}`/user_guides/infer/remote_inference` for remote setup
+- {doc}`/user_guides/infer/inference_engines` for local and remote inference engines usage
+- {doc}`/user_guides/infer/common_workflows` for common workflows
 - {doc}`/user_guides/infer/configuration` for detailed parameter documentation
