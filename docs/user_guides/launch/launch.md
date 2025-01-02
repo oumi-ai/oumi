@@ -66,7 +66,22 @@ changes on the cluster.
 
 #### Mount Cloud Storage
 
-You can mount cloud storage like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. You may want to do this if you want to easily read data from an existing bucket, or write data/model checkpoints. Your job's local disk may not have enough storage for multiple large model checkpoints, and data on local disk will be lost on job preemption.
+You can mount cloud storage like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. You may want to do this if you want to easily read data from an existing bucket, or write data/model checkpoints to a bucket.
+
+```{tip}
+Writing your job's output to cloud storage is recommended for preemptable cloud instances, or jobs outputting a large amount of data like large model checkpoints. Data on local disk will be lost on job preemption, and your job's local disk may not have enough storage for multiple large model checkpoints.
+```
+
+For example, to mount your GCS bucket `gs://my-bucket`, add the following to your {py:class}`~oumi.core.configs.JobConfig`:
+
+```yaml
+storage_mounts:
+  /gcs_dir:
+    source: gs://my-bucket
+    store: gcs
+```
+
+You can now access files in your bucket as if they're on your local disk's file system! For example, `gs://my-bucket/path/to/file` can be accessed in your jobs with `/gcs_dir/path/to/file`.
 
 ```{tip}
 To improve I/O speeds, prefer using a bucket in the same cloud region as your job!
