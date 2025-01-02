@@ -1,5 +1,5 @@
 evaluation:
-  output_dir: "" # NOTE: Update to your output directory.
+  output_dir: "output/gpt2.pt" # NOTE: Update to your output directory.
 
   model:
     model_name: "gpt2"  # 124M params
