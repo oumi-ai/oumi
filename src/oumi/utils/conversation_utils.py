@@ -3,7 +3,7 @@ from typing import Any
 
 import requests
 
-from oumi.core.types.conversation import ContentItem, Type
+from oumi.core.types.conversation import ContentItem, Message, Type
 from oumi.utils.image_utils import (
     create_png_bytes_from_image_bytes,
     load_image_png_bytes_from_path,
@@ -113,3 +113,20 @@ def convert_message_content_item_to_json_dict(
         _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
         _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},
     }
+
+
+def convert_message_to_json_content(
+    message: Message,
+) -> list[dict[str, Any]]:
+    """Returns the content for a message.
+
+    Args:
+        message: The message to get the content for.
+
+    Returns:
+        list[Dict[str, Any]]: The content for the message for all content items.
+    """
+    return [
+        convert_message_content_item_to_json_dict(item)
+        for item in message.content_items
+    ]

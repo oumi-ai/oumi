@@ -29,7 +29,9 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
-from oumi.utils.conversation_utils import convert_message_content_item_to_json_dict
+from oumi.utils.conversation_utils import (
+    convert_message_to_json_content,
+)
 
 _CONTENT_KEY: str = "content"
 _MESSAGE_KEY: str = "message"
@@ -191,21 +193,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._remote_params = copy.deepcopy(remote_params)
 
     @staticmethod
-    def _get_content_for_message(message: Message) -> list[dict[str, Any]]:
-        """Returns the content for a message.
-
-        Args:
-            message: The message to get the content for.
-
-        Returns:
-            list[Dict[str, Any]]: The content for the message for all content items.
-        """
-        return [
-            convert_message_content_item_to_json_dict(item)
-            for item in message.content_items
-        ]
-
-    @staticmethod
     def _get_list_of_message_json_dicts(
         messages: list[Message],
         *,
@@ -251,9 +238,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 # Set "content" to be a list of dictionaries for more complex cases.
                 content_list = []
                 while idx < end_idx:
-                    content_list.extend(
-                        RemoteInferenceEngine._get_content_for_message(messages[idx])
-                    )
+                    content_list.extend(convert_message_to_json_content(messages[idx]))
                     idx += 1
                 item[_CONTENT_KEY] = content_list
 
@@ -280,7 +265,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "model": self._model,
             "messages": [
                 {
-                    _CONTENT_KEY: self._get_content_for_message(message),
+                    _CONTENT_KEY: convert_message_to_json_content(message),
                     _ROLE_KEY: message.role.value,
                 }
                 for message in conversation.messages
