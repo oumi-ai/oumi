@@ -7,19 +7,19 @@ resources:
   use_spot: true
   disk_size: 2000 # Disk size in GBs
 
-# Upload a working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
+# NOTE: Update with your GCS buckets
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
 storage_mounts:
-  /output_gcs_bucket:
-    source: gs://oumi-batch-output # GCS bucket to store output
-    store: gcs
   /input_gcs_bucket:
-    source: gs://oumi-batch-input # GCS bucket that contains our input data
+    source: gs://<your-input-bucket> # GCS bucket that contains our input data
+    store: gcs
+  /output_gcs_bucket:
+    source: gs://<your-output-bucket> # GCS bucket to store output
     store: gcs
 
 envs:

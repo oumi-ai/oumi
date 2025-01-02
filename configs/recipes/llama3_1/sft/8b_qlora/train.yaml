@@ -52,6 +52,8 @@ peft:
   q_lora: True
   # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
   bnb_4bit_quant_type: "nf4"
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
   bnb_4bit_quant_storage: "bfloat16"
   bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 8

@@ -57,9 +57,13 @@ It's also possible to use VSCode to run notebooks backed by a cloud node, if you
 make gcpcode ARGS="--resources.accelerators A100:4"
 ```
 
-This command is defined in our [Makefile](https://github.com/oumi-ai/oumi/blob/main/Makefile), and uses the {doc}`Oumi launcher</user_guides/launch/launch>` to create the remote node. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs; see the {doc}`JobConfig class</api/oumi.core.configs.html#oumi.core.configs.JobConfig>` for an overview of configurable parameters.
+This command is defined in our [Makefile](https://github.com/oumi-ai/oumi/blob/main/Makefile), and uses the {doc}`Oumi launcher </user_guides/launch/launch>` to create the remote node. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs; see the {py:class}`~oumi.core.configs.JobConfig` class for an overview of configurable parameters.
 
-After the new VSCode window backed by the remote node is open, you need to install the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) on the remote VSCode instance. To have this extension automatically installed every time you open a remote VSCode instance, add the following line to your [VSCode user settings JSON file](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file): `"remote.SSH.defaultExtensions": ["ms-toolsai.jupyter"],`. After doing this, you need to select "Python Environments..." after trying to run your notebook in order to select the correct kernel.
+After the new VSCode window backed by the remote node is open, install the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) on the remote VSCode instance.  Then, select "Python Environments..." after trying to run your notebook in order to select the correct kernel.
+
+```{tip}
+To automatically install the Jupyter extension every time you open a remote VSCode instance, add the following line to your [VSCode user settings JSON file](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file): `"remote.SSH.defaultExtensions": ["ms-toolsai.jupyter"],`. You could also add other useful extensions like `"charliermarsh.ruff"` and `"ms-python.python"`.
+```
 
 ## Training Workflow
 
