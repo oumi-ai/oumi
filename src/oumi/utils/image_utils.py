@@ -1,11 +1,13 @@
 import io
 from pathlib import Path
-from typing import Optional, Union
+from typing import Final, Optional, Union
 
 import PIL.Image
 import requests
 
 from oumi.utils.logging import logger
+
+DEFAULT_IMAGE_MODE: Final[str] = "RGB"
 
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -26,32 +28,41 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
-def convert_pil_image_to_rgb_mode_if_needed(image: PIL.Image.Image) -> PIL.Image.Image:
-    """Converts a PIL image to RGB mode (if it's not RGB already) .
+def ensure_pil_image_mode(
+    image: PIL.Image.Image, *, mode: Optional[str]
+) -> PIL.Image.Image:
+    """Converts a PIL image to the requested mode (if it's not in that mode already) .
 
     Args:
         image: An input image.
+        mode: The requested image mode.
 
     Returns:
-        An image in RGB mode. If an input image was RGB then return it for efficiency.
-        Otherwise, a different image object is returned.
+        An image in the request mode . If an input image was already in the correct mode
+        then return it for efficiency. Otherwise, a different image object is returned.
     """
-    if image.mode == "RGB":
+    if image.mode == mode or not mode:
         # Return the original object for better performance.
         return image
 
+    old_mode = image.mode
     try:
-        return image.convert("RGB")
+        return image.convert(mode)
     except Exception as e:
-        raise RuntimeError("Failed to convert an image to RGB mode!") from e
+        raise RuntimeError(
+            f"Failed to convert an image from {old_mode} to {mode} mode!"
+        ) from e
 
 
-def load_pil_image_from_path(input_image_filepath: Union[str, Path]) -> PIL.Image.Image:
+def load_pil_image_from_path(
+    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
     """Loads an image from a path.
 
     Args:
         input_image_filepath: A file path of an image.
             The image can be in any format supported by PIL.
+        mode: The requested image mode.
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -67,8 +78,8 @@ def load_pil_image_from_path(input_image_filepath: Union[str, Path]) -> PIL.Imag
         )
 
     try:
-        pil_image = convert_pil_image_to_rgb_mode_if_needed(
-            PIL.Image.open(input_image_filepath)
+        pil_image = ensure_pil_image_mode(
+            PIL.Image.open(input_image_filepath), mode=mode
         )
     except Exception:
         logger.error(f"Failed to load an image from path: {input_image_filepath}")
@@ -76,11 +87,14 @@ def load_pil_image_from_path(input_image_filepath: Union[str, Path]) -> PIL.Imag
     return pil_image
 
 
-def load_pil_image_from_url(input_image_url: str) -> PIL.Image.Image:
+def load_pil_image_from_url(
+    input_image_url: str, mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
     """Loads a PIL image from a URL.
 
     Args:
         input_image_url: An image URL.
+        mode: The requested image mode.
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -94,14 +108,17 @@ def load_pil_image_from_url(input_image_url: str) -> PIL.Image.Image:
     except requests.exceptions.RequestException:
         logger.exception(f"Failed to download image: '{input_image_url}'")
         raise
-    return load_pil_image_from_bytes(response.content)
+    return load_pil_image_from_bytes(response.content, mode=mode)
 
 
-def load_pil_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
+def load_pil_image_from_bytes(
+    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
     """Loads an image from raw image bytes.
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
+        mode: The requested image mode.
 
     Returns:
         PIL.Image.Image: PIL representation of the image.
@@ -110,8 +127,8 @@ def load_pil_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
         raise ValueError("No image bytes.")
 
     try:
-        pil_image = convert_pil_image_to_rgb_mode_if_needed(
-            PIL.Image.open(io.BytesIO(image_bytes))
+        pil_image = ensure_pil_image_mode(
+            PIL.Image.open(io.BytesIO(image_bytes)), mode=mode
         )
     except Exception:
         logger.error(
@@ -121,41 +138,50 @@ def load_pil_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
     return pil_image
 
 
-def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
+def create_png_bytes_from_image_bytes(
+    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
     """Loads an image from raw image bytes, and converts to PNG image bytes.
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
+        mode: The requested image mode.
 
     Returns:
         bytes: PNG bytes representation of the image.
     """
-    pil_image = load_pil_image_from_bytes(image_bytes)
+    pil_image = load_pil_image_from_bytes(image_bytes, mode=mode)
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> bytes:
+def load_image_png_bytes_from_path(
+    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
     """Loads an image from a path, converts it to PNG, and returns image bytes.
 
     Args:
         input_image_filepath: A file path of an image.
             The image can be in any format supported by PIL.
+        mode: The requested image mode.
 
     Returns:
         bytes: PNG bytes representation of the image.
     """
-    pil_image = load_pil_image_from_path(input_image_filepath)
+    pil_image = load_pil_image_from_path(input_image_filepath, mode=mode)
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_png_bytes_from_url(input_image_url: str) -> bytes:
+def load_image_png_bytes_from_url(
+    input_image_url: str, mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
     """Loads an image from a URL, converts it to PNG, and returns image bytes.
 
     Args:
         input_image_url: An image URL.
+        mode: The requested image mode.
 
     Returns:
         bytes: PNG bytes representation of the image.
     """
-    pil_image = load_pil_image_from_url(input_image_url)
+    pil_image = load_pil_image_from_url(input_image_url, mode=mode)
     return create_png_bytes_from_image(pil_image)
