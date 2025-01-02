@@ -152,7 +152,8 @@ def convert_message_to_json_content(
         message: The message to get the content for.
 
     Returns:
-        list[Dict[str, Any]]: The content for the message for all content items.
+        The content for the message returned either as a single string,
+        or as a list of content items.
     """
     if isinstance(message.content, str):
         return message.content
@@ -174,8 +175,6 @@ def create_list_of_message_json_dicts(
         messages: The input messages.
         group_adjacent_same_role_turns: Whether to pack adjacent messages
             from the same role into a single element in output list.
-            For multimodal conversations, adjacent image and text turns from
-            the same role must be grouped together.
 
     Returns:
         list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
