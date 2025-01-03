@@ -126,6 +126,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         for json_dict in create_list_of_message_json_dicts(
             conversation.messages, group_adjacent_same_role_turns=True
         ):
+            for key in ("role", "content"):
+                if key not in json_dict:
+                    raise RuntimeError(f"The required field '{key}' is missing!")
+            if not isinstance(json_dict["content"], (str, list)):
+                raise RuntimeError(
+                    "The 'content' field must be `str` or `list`. "
+                    f"Actual: {type(json_dict['content'])}."
+                )
             result.append({"role": json_dict["role"], "content": json_dict["content"]})
         return result
 
