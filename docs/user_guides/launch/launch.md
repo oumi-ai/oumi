@@ -47,7 +47,7 @@ You can add the `-a` flag to show all GPUs. Example GPUs include `A100` (40GB), 
 To launch a job on your desired cloud, run:
 
 ```shell
-oumi launch up --cluster oumi-cluster -c configs/recipes/smollm/launch/135m_gcp_train_quickstart.yaml
+oumi launch up --cluster oumi-cluster -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 ```
 
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.

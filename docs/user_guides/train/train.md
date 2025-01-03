@@ -33,7 +33,7 @@ For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-
 ::::{tab-set-code}
 :::{code-block} bash
 # Train a small model (SmolLM-135M)
-oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :::
 
 :::{code-block} python
@@ -41,7 +41,7 @@ from oumi.core.train import train
 from oumi.core.configs import TrainingConfig
 
 # Load config from file
-config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/train_quickstart.yaml")
+config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Start training
 train(config)

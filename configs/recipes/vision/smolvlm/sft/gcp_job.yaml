@@ -45,7 +45,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/smolvlm/sft/sft_train.yaml \
+      -c configs/recipes/vision/smolvlm/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
       --training.max_steps 20 \

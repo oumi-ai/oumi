@@ -73,7 +73,7 @@
             "args": [
                 "evaluate",
                 "-c",
-                "configs/recipes/smollm/evaluation/135m_eval.yaml"
+                "configs/recipes/smollm/evaluation/135m/eval.yaml"
             ],
             "justMyCode": false
         },
