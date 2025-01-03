@@ -1,6 +1,6 @@
 # Sample command:
 # oumi launch up --config configs/recipes/vision/phi3/sft/trl_gcp_job.yaml --cluster my-oumi-cluster
-name: phi3-sft-oumi-train
+name: phi3-sft-trl-train
 
 resources:
   cloud: gcp
@@ -24,7 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: phi3.fft.oumi
+  OUMI_RUN_NAME: phi3.fft.trl
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
