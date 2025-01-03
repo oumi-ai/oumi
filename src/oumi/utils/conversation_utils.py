@@ -24,7 +24,9 @@ def load_image_bytes_to_content_item(
 
     Args:
         item: An input message content item.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         A content item guaranteed to be `IMAGE_BINARY` if an input content item
@@ -53,7 +55,9 @@ def load_pil_image_from_content_item(
 
     Args:
         image_item: A content item representing an image.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         Image.Image: A PIL image.
@@ -72,7 +76,7 @@ def load_pil_image_from_content_item(
         image_bin = load_pil_image_from_bytes(image_item.binary, mode=mode)
     else:
         raise ValueError(
-            f"Unsupported content item type: {image_item.type}. " "Not an image!"
+            f"Unsupported content item type: {image_item.type}. Not an image!"
         )
 
     return image_bin

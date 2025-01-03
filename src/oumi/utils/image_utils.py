@@ -7,6 +7,8 @@ import requests
 
 from oumi.utils.logging import logger
 
+# For details on image modes, see
+# https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 DEFAULT_IMAGE_MODE: Final[str] = "RGB"
 
 
@@ -28,14 +30,16 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
-def ensure_pil_image_mode(
+def convert_pil_image_mode(
     image: PIL.Image.Image, *, mode: Optional[str]
 ) -> PIL.Image.Image:
     """Converts a PIL image to the requested mode (if it's not in that mode already) .
 
     Args:
         image: An input image.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         An image in the requested mode . If an input image was already in the correct
@@ -63,7 +67,9 @@ def load_pil_image_from_path(
     Args:
         input_image_filepath: A file path of an image.
             The image can be in any format supported by PIL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -79,7 +85,7 @@ def load_pil_image_from_path(
         )
 
     try:
-        pil_image = ensure_pil_image_mode(
+        pil_image = convert_pil_image_mode(
             PIL.Image.open(input_image_filepath), mode=mode
         )
     except Exception:
@@ -95,7 +101,9 @@ def load_pil_image_from_url(
 
     Args:
         input_image_url: An image URL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -119,7 +127,9 @@ def load_pil_image_from_bytes(
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         PIL.Image.Image: PIL representation of the image.
@@ -128,7 +138,7 @@ def load_pil_image_from_bytes(
         raise ValueError("No image bytes.")
 
     try:
-        pil_image = ensure_pil_image_mode(
+        pil_image = convert_pil_image_mode(
             PIL.Image.open(io.BytesIO(image_bytes)), mode=mode
         )
     except Exception:
@@ -146,7 +156,9 @@ def create_png_bytes_from_image_bytes(
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -163,7 +175,9 @@ def load_image_png_bytes_from_path(
     Args:
         input_image_filepath: A file path of an image.
             The image can be in any format supported by PIL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
@@ -179,7 +193,9 @@ def load_image_png_bytes_from_url(
 
     Args:
         input_image_url: An image URL.
-        mode: The requested image mode.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.

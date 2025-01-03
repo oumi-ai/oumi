@@ -6,9 +6,9 @@ import PIL.Image
 import pytest
 
 from oumi.utils.image_utils import (
+    convert_pil_image_mode,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
-    ensure_pil_image_mode,
     load_image_png_bytes_from_path,
     load_pil_image_from_bytes,
 )
@@ -50,15 +50,15 @@ def test_create_png_bytes_from_image_bytes():
 
 def test_ensure_pil_image_mode():
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
-    assert id(ensure_pil_image_mode(pil_image, mode="RGB")) == id(pil_image)
-    assert id(ensure_pil_image_mode(pil_image, mode="")) == id(pil_image)
+    assert id(convert_pil_image_mode(pil_image, mode="RGB")) == id(pil_image)
+    assert id(convert_pil_image_mode(pil_image, mode="")) == id(pil_image)
 
-    pil_image_rgba = ensure_pil_image_mode(pil_image, mode="RGBA")
+    pil_image_rgba = convert_pil_image_mode(pil_image, mode="RGBA")
     assert id(pil_image_rgba) != id(pil_image)
     assert pil_image_rgba.size == pil_image.size
-    assert id(ensure_pil_image_mode(pil_image_rgba, mode="")) == id(pil_image_rgba)
+    assert id(convert_pil_image_mode(pil_image_rgba, mode="")) == id(pil_image_rgba)
 
-    pil_image_rgb2 = ensure_pil_image_mode(pil_image_rgba, mode="RGB")
+    pil_image_rgb2 = convert_pil_image_mode(pil_image_rgba, mode="RGB")
     assert id(pil_image_rgb2) != id(pil_image)
     assert pil_image_rgb2.size == pil_image.size
 
