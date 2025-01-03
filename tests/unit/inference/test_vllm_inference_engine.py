@@ -10,7 +10,10 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.inference import VLLMInferenceEngine
-from oumi.utils.image_utils import create_png_bytes_from_image
+from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
+from oumi.utils.image_utils import (
+    create_png_bytes_from_image,
+)
 
 try:
     vllm_import_failed = False
@@ -99,6 +102,13 @@ def _create_test_png_image_bytes() -> bytes:
     return create_png_bytes_from_image(_create_test_pil_image())
 
 
+def _create_test_png_image_base64_str() -> str:
+    return base64encode_content_item_image_bytes(
+        ContentItem(binary=_create_test_png_image_bytes(), type=Type.IMAGE_BINARY),
+        add_mime_prefix=True,
+    )
+
+
 #
 # Tests
 #
@@ -141,23 +151,18 @@ def test_infer_online(mock_vllm):
     result = engine.infer_online([conversation], _get_default_inference_config())
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
-    mock_vllm_instance.chat.assert_called_once_with(
+    assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
+    assert mock_vllm_instance.chat.call_args_list[0][0][0] == [
         [
-            [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Hello world!"},
-                        {"type": "text", "text": "Hello again!"},
-                    ],
-                }
-            ]
-        ],
-        sampling_params=ANY,
-        guided_decoding=None,
-        lora_request=None,
-        use_tqdm=False,
-    )
+            {
+                "content": [
+                    {"text": "Hello world!", "type": "text"},
+                    {"text": "Hello again!", "type": "text"},
+                ],
+                "role": "user",
+            }
+        ]
+    ]
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -171,10 +176,6 @@ def test_infer_online_multimodal(mock_vllm):
     engine = VLLMInferenceEngine(_get_default_model_params())
     conversation = Conversation(
         messages=[
-            Message(
-                content="Hello world!",
-                role=Role.USER,
-            ),
             Message(
                 role=Role.USER,
                 content=[
@@ -204,6 +205,24 @@ def test_infer_online_multimodal(mock_vllm):
     result = engine.infer_online([conversation], _get_default_inference_config())
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
+    assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
+    assert mock_vllm_instance.chat.call_args_list[0][0][0] == [
+        [
+            {
+                "content": [
+                    {
+                        "image_url": {"url": _create_test_png_image_base64_str()},
+                        "type": "image_url",
+                    },
+                    {
+                        "text": "Describe this image!",
+                        "type": "text",
+                    },
+                ],
+                "role": "user",
+            }
+        ]
+    ]
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
