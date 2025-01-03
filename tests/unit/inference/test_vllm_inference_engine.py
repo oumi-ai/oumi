@@ -124,7 +124,11 @@ def test_infer_online(mock_vllm):
     conversation = Conversation(
         messages=[
             Message(
-                content="Hello world!",
+                content="You're a good assistant!",
+                role=Role.SYSTEM,
+            ),
+            Message(
+                content="Hi there",
                 role=Role.USER,
             ),
             Message(
@@ -155,12 +159,22 @@ def test_infer_online(mock_vllm):
     assert mock_vllm_instance.chat.call_args_list[0][0][0] == [
         [
             {
+                "content": "You're a good assistant!",
+                "role": "system",
+            },
+            {
                 "content": [
-                    {"text": "Hello world!", "type": "text"},
-                    {"text": "Hello again!", "type": "text"},
+                    {
+                        "text": "Hi there",
+                        "type": "text",
+                    },
+                    {
+                        "text": "Hello again!",
+                        "type": "text",
+                    },
                 ],
                 "role": "user",
-            }
+            },
         ]
     ]
 
