@@ -342,4 +342,3 @@ Section under construction. Contributions welcome!
 
 - Explore {doc}`training methods <training_methods>` for specific tasks
 - Check out {doc}`configuration options </user_guides/train/configuration>` for detailed settings
-
