@@ -1,7 +1,7 @@
-# Config to evaluate smollm 135M on 1 GCP node.
+# Config to tune smollm 135M on 1 GCP node.
 # Example command:
-# oumi launch up -c configs/recipes/smollm/launch/135m_gcp_evaluate_quickstart.yaml --cluster smollm-135m-eval
-name: smollm-135m-eval
+# oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --cluster smollm-135m-fft
+name: smollm-135m-sft
 
 resources:
   cloud: gcp
@@ -12,7 +12,7 @@ resources:
 working_dir: .
 
 envs:
-  OUMI_RUN_NAME: smollm135m.eval
+  OUMI_RUN_NAME: smollm135m.train
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
 
@@ -25,6 +25,6 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
-  echo "Evaluation complete!"
+  echo "Training complete!"

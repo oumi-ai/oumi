@@ -1,6 +1,6 @@
 # Sample command:
-# oumi launch up --config configs/recipes/vision/llava_7b/sft/7b_trl_gcp_job.yaml --cluster my-oumi-cluster
-name: llava-7b-sft-trl-train
+# oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
+name: llava-7b-sft-oumi-train
 
 resources:
   cloud: gcp
@@ -20,7 +20,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llava.7b.fft.trl
+  OUMI_RUN_NAME: llava.7b.fft.oumi
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -38,8 +38,9 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml \
+      -c configs/recipes/vision/llava_7b/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.trainer_type OUMI \
       --training.max_steps 20 \
       --training.save_steps 0 \
       --training.save_final_model false

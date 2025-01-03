@@ -281,8 +281,8 @@ We aim to provide a comprehensive (and growing) set of recipes for all the commo
 
 This example shows how to fine-tune a small model ('SmolLM2-135M') without any parameter-efficient methods:
 
-````{dropdown} configs/recipes/smollm/sft/135m/train_quickstart.yaml
-```{literalinclude} ../../../configs/recipes/smollm/sft/135m/train_quickstart.yaml
+````{dropdown} configs/recipes/smollm/sft/135m/quickstart_train.yaml
+```{literalinclude} ../../../configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :language: yaml
 ```
 ````
@@ -311,8 +311,8 @@ This example shows how to fine-tune a medium-sized model ('Llama-3.1-8b') using 
 
 This example shows how to fine-tune a vision-language model ('LLaVA-7B'):
 
-````{dropdown} configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml
-```{literalinclude} ../../../configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml
+````{dropdown} configs/recipes/vision/llava_7b/sft/train.yaml
+```{literalinclude} ../../../configs/recipes/vision/llava_7b/sft/train.yaml
 :language: yaml
 ```
 ````
