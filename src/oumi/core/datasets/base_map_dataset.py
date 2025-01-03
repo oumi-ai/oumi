@@ -250,7 +250,9 @@ class BaseMapDataset(MapDataPipe, ABC):
         assert num_proc >= 1
         return num_proc
 
-    def to_hf(self) -> datasets.Dataset:
+    def to_hf(
+        self, iterable: bool = True
+    ) -> Union[datasets.Dataset, datasets.IterableDataset]:
         """Converts the dataset to a Hugging Face dataset."""
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
         dataset_type_name = self.__class__.__name__
@@ -308,21 +310,34 @@ class BaseMapDataset(MapDataPipe, ABC):
                 for item in zip(starts, stops)
             ]
 
-            result = datasets.Dataset.from_generator(
-                self._as_generator_over_shards,
-                gen_kwargs={"shards": shards},
-                keep_in_memory=False,
-                num_proc=(num_proc if num_proc > 1 else None),
-                features=feature_map,
-                writer_batch_size=writer_batch_size,
-            )
+            if iterable:
+                result = datasets.IterableDataset.from_generator(
+                    self._as_generator_over_shards,
+                    gen_kwargs={"shards": shards},
+                    features=feature_map,
+                )
+            else:
+                result = datasets.Dataset.from_generator(
+                    self._as_generator_over_shards,
+                    gen_kwargs={"shards": shards},
+                    keep_in_memory=False,
+                    num_proc=(num_proc if num_proc > 1 else None),
+                    features=feature_map,
+                    writer_batch_size=writer_batch_size,
+                )
         else:
-            result = datasets.Dataset.from_generator(
-                self.as_generator,
-                keep_in_memory=False,
-                features=feature_map,
-                writer_batch_size=writer_batch_size,
-            )
+            if iterable:
+                result = datasets.IterableDataset.from_generator(
+                    self.as_generator,
+                    features=feature_map,
+                )
+            else:
+                result = datasets.Dataset.from_generator(
+                    self.as_generator,
+                    keep_in_memory=False,
+                    features=feature_map,
+                    writer_batch_size=writer_batch_size,
+                )
         duration_sec = time.perf_counter() - start_time
 
         logger.info(
@@ -332,12 +347,15 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"Duration: {duration_sec:.1f} sec. Transform workers: {num_proc}."
         )
 
-        result = cast(datasets.Dataset, result)
-
-        logger.debug(
-            f"{dataset_type_name}: {result}\n\n"
-            f"Arrow schema: {result.features.arrow_schema}"
-        )
+        if iterable:
+            result = cast(datasets.IterableDataset, result)
+            logger.debug(f"{dataset_type_name}: IterableDataset:{result}")
+        else:
+            result = cast(datasets.Dataset, result)
+            logger.debug(
+                f"{dataset_type_name}: MapDataset: {result}\n\n"
+                f"Arrow schema: {result.features.arrow_schema}"
+            )
         return result
 
     #
