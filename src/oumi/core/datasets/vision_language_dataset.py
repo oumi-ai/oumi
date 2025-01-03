@@ -188,8 +188,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
         if self._text_col:
             # `text_col` isn't really used for training for SFT datasets
-            # (only `input_ids` is used), but we're saving it for debugging purposes.
-            # FIXME Clean-up `text_col` usage.
+            # (only `input_ids` is used) but we're saving text prompts here
+            # for debugging purposes. FIXME Clean-up `text_col` usage.
             if self._text_col in inputs.keys():
                 raise ValueError(
                     f"target_col: '{self._text_col}' already exists "
