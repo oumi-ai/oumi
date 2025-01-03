@@ -5,104 +5,185 @@
 :caption: Training
 :hidden:
 
-finetuning
-training_config
-trainers
+training_methods
+environments/environments
+configuration
+monitoring
 ```
 
-## Training Process
+## Overview
 
-1. **Model Selection**: Choose from a variety of pre-trained models or define your own.
+Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-   ```{seealso}
-   Explore available model recipes in the {doc}`Model Recipes <../../models/recipes>` page.
-   ```
+Our goal is to allow you to start small, in a notebook or local machine, and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
-2. **Dataset Preparation**: Prepare your dataset for training. Oumi supports various dataset formats and provides tools for custom dataset creation.
+Key features include:
 
-   ```{admonition} Dataset Options
-   :class: note
+- **Multiple Training Methods**: {ref}`Supervised Fine-Tuning (SFT) <supervised-fine-tuning-sft>` to adapt models to your specific tasks, {ref}`Vision-Language SFT <vision-language-sft>` for multimodal models, {ref}`Pretraining <pretraining>` for training from scratch, and {ref}`Direct Preference Optimization (DPO) <direct-preference-optimization-dpo>` for preference-based fine-tuning
+- **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment <environments/cloud>`
+- **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
+- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using DDP or FSDP
 
-   - **Local dataset**: Load your own data in supported formats. See {doc}`Local Datasets <../../datasets/local_datasets>` for details.
-   - **Existing dataset classes**: Utilize pre-defined dataset classes for common tasks:
-     - Supervised fine-tuning (SFT): {doc}`SFT Datasets <../../datasets/sft>`
-     - Vision-Language SFT: {doc}`VL-SFT Datasets <../../datasets/vl_sft>`
-     - Pre-training: {doc}`Pretraining Datasets <../../datasets/pretraining>`
-     - Preference tuning: {doc}`Preference Tuning Datasets <../../datasets/preference_tuning>`
-   - **Custom dataset**: Create a custom dataset class for specific needs. Learn how in {doc}`Custom Datasets <../../advanced/custom_datasets>`.
-   ```
+## Quick Start
 
-3. **Training Configuration**: Set up your training parameters using YAML configuration files.
+The fastest way to get started with training is using one of our pre-configured recipes.
 
-   ```{tip}
-   For detailed information on configuration options, refer to the {doc}`Training Configuration <training_config>` page.
-   ```
+For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-lab/alpaca`), you can use the following command:
 
-4. **Trainer Selection**: Oumi offers different trainers for various training scenarios.
+::::{tab-set-code}
+:::{code-block} bash
+# Train a small model (SmolLM-135M)
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+:::
 
-   ```{seealso}
-   Explore available trainers and their use cases in the {doc}`Trainers <trainers>` page.
-   ```
+:::{code-block} python
+from oumi.core.train import train
+from oumi.core.configs import TrainingConfig
 
-5. **Distributed Training**: For large-scale training, Oumi supports distributed training across multiple GPUs and nodes.
+# Load config from file
+config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
-   ```{note}
-   Learn more about distributed training setups in the {doc}`Distributed Training <../../advanced/distributed_training>` guide.
-   ```
+# Start training
+train(config)
+:::
+::::
 
-## Running a Training Job
+Running this config will:
 
-1. **Preparing Configuration**: Create or modify a YAML configuration file with your desired training settings.
+1. Download a small pre-trained model: `SmolLM-135M`
+2. Load a sample dataset: `tatsu-lab/alpaca`
+3. Run supervised fine-tuning using the `TRL_SFT` trainer
+4. Save the trained model to `config.output_dir`
 
-   ```{code-block} yaml
-   model:
-     model_name: "gpt2"
+## Configuration Guide
 
-   data:
-     train:
-       datasets:
-         - dataset_name: "tatsu-lab/alpaca"
-           split: "train"
+At the heart of Oumi's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
 
-   training:
-     output_dir: "output/my_training_run"
-     num_train_epochs: 3
-     learning_rate: 5e-5
-   ```
+Here's a basic example with key parameters explained:
 
-2. **Starting Training**: Use the Oumi CLI to start the training process:
+```yaml
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"  # Base model to fine-tune
+  trust_remote_code: true  # Required for some model architectures
+  dtype: "bfloat16"  # Training precision (float32, float16, or bfloat16)
 
-   ```{code-block} bash
-   oumi train -c path/to/your/config.yaml
-   ```
+data:
+  train:  # Training dataset mixture
+    datasets:
+      - dataset_name: "tatsu-lab/alpaca"  # Training dataset
+        split: "train"  # Dataset split to use
 
-   ```{tip}
-   You can override configuration parameters directly from the command line:
+training:
+  output_dir: "output/my_training_run" # Where to save outputs
+  num_train_epochs: 3 # Number of training epochs
+  learning_rate: 5e-5 # Learning rate
+  save_steps: 100  # Checkpoint frequency
+```
 
-   ```{code-block} bash
-   oumi train -c path/to/your/config.yaml --training.learning_rate 1e-4
-   ```
+You can override any value either through the CLI or programmatically:
 
-3. **Monitoring Progress**: Track the training progress using TensorBoard or Weights & Biases (if configured).
+::::{tab-set-code}
+:::{code-block} bash
+oumi train -c config.yaml \
+  --training.learning_rate 1e-4 \
+  --training.num_train_epochs 5
+:::
 
-   ```{code-block} bash
-   tensorboard --logdir output/my_training_run/tensorboard
-   ```
+:::{code-block} python
+from oumi.core.configs import TrainingConfig
+from oumitrain import train
 
-4. **Next Steps**: After training, we can:
-    - **Evaluate** the model's performance using the `oumi evaluate` command. See the {doc}`Evaluation Guide <../evaluate/evaluate>` for details.
-    - **Run inference** with the `oumi infer` command. Learn more on the {doc}`Inference Guide <../infer/infer>` page.
-    - **Judge** your model's outputs using the `oumi judge` command. Refer to the {doc}`Judge Guide <../judge/judge>` for guidance.
+# Load base config
+config = TrainingConfig.from_yaml("config.yaml")
 
-## Advanced Topics
+# Override specific values
+config.training.learning_rate = 1e-4
+config.training.num_train_epochs = 5
 
-- {doc}`finetuning`: Learn about fine-tuning techniques and best practices.
-- {doc}`llama`: Specific guide for training LLaMA models.
-- {doc}`../../advanced/performance_optimization`: Tips for optimizing training performance.
-- {doc}`../../advanced/custom_models`: Guide on implementing custom model architectures.
+# Start training
+train(config)
+:::
+::::
 
-## Troubleshooting
+## Common Workflows
 
-If you encounter issues during training, check the {doc}`Troubleshooting Guide <../../faq/troubleshooting>` for common problems and solutions.
+In the following sections, we'll cover some common workflows for training.
 
-For more help, don't hesitate to open an issue on the [Oumi GitHub repository](https://github.com/oumi-ai/oumi/issues).
+### Fine-tuning a Pre-trained Model
+
+The simplest workflow is to fine-tune a pre-trained model on a dataset. This will perform fully finetune the model using SFT (supervised fine-tuning).
+
+```yaml
+model:
+  model_name: "meta-llama/Meta-Llama-3.2-3B-Instruct"  # Replace with your model
+  trust_remote_code: true
+  dtype: "bfloat16"
+
+data:
+  train:  # Training dataset mixture, can be a single dataset or a list of datasets
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned" # Replace with your dataset, or add more datasets
+        split: "train"
+
+training:
+  output_dir: "output/llama-finetuned"  # Where to save outputs
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  max_steps: 10  # Number of training steps
+```
+
+### Multi-GPU Training
+
+To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
+
+```bash
+# Using DDP (DistributedDataParallel)
+oumi distributed torchrun -m oumi train \
+  -c configs/recipes/llama3_2/sft/3b_full/train.yaml
+
+# Using FSDP (Fully Sharded Data Parallel)
+oumi distributed torchrun -m oumi train \
+  -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
+  --fsdp.enable_fsdp true \
+  --fsdp.sharding_strategy FULL_SHARD
+```
+
+### Launch Remote Training
+
+To kick off a training run on a cloud environment, you can use the launcher system.
+
+This will create a GCP job with the specified configuration and start training:
+
+```bash
+oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster llama3b-sft
+```
+
+Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/latest/), most cloud providers are supported -- make sure to check out {doc}`/user_guides/launch/launch` for more details.
+
+### Using Custom Datasets
+
+To use your own datasets, you can specify the path to the dataset in the configuration.
+
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: "text_sft_jsonl"
+        dataset_path: "/path/to/dataset.jsonl"
+```
+
+In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats, and {doc}`/resources/datasets/custom_datasets` for customizing the preprocessing at runtime if needed.
+
+## Training Output
+
+Throughout the training process, we generate logs and artifacts to help you track progress and debug issues in the `config.output_dir` directory.
+
+This includes model checkpoints for resuming training, detailed training logs, TensorBoard events for visualization, and a backup of the training configuration.
+
+## Next Steps
+
+Now that we covered the basics, as a next step you can:
+
+- Learn about different {doc}`training methods <training_methods>`
+- Set up your {doc}`training environment <environments/environments>` and get started training
+- Explore {doc}`configuration options <configuration>`

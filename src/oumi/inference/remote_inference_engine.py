@@ -25,25 +25,16 @@ from oumi.core.configs import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
-    ContentItem,
     Conversation,
     Message,
     Role,
-    Type,
 )
-from oumi.utils.image_utils import (
-    base64encode_image_bytes,
-    load_image_bytes_to_content_item,
+from oumi.utils.conversation_utils import (
+    convert_message_to_json_content_list,
+    create_list_of_message_json_dicts,
 )
 
-_CONTENT_KEY: str = "content"
-_MESSAGE_KEY: str = "message"
-_ROLE_KEY: str = "role"
-_TYPE_KEY: str = "type"
-_TEXT_KEY: str = "text"
-_IMAGE_URL_KEY: str = "image_url"
 _AUTHORIZATION_KEY: str = "Authorization"
-_URL_KEY: str = "url"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 
@@ -199,111 +190,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._remote_params = copy.deepcopy(remote_params)
 
     @staticmethod
-    def _get_content_for_message(message: Message) -> list[dict[str, Any]]:
-        """Returns the content for a message.
-
-        Args:
-            message: The message to get the content for.
-
-        Returns:
-            list[Dict[str, Any]]: The content for the message for all content items.
-        """
-        return [
-            RemoteInferenceEngine._get_content_for_message_content_item(item)
-            for item in message.content_items
-        ]
-
-    @staticmethod
-    def _get_content_for_message_content_item(
-        item: ContentItem,
-    ) -> dict[str, Any]:
-        """Returns the content for a message content item.
-
-        Args:
-            item: The message content item to get the content for.
-
-        Returns:
-            Dict[str, Any]: The content for the message.
-        """
-        if item.type == Type.TEXT:
-            return {_TYPE_KEY: Type.TEXT.value, _TEXT_KEY: (item.content or "")}
-        elif not item.is_image():
-            raise ValueError(f"Unsupported message type: {item.type}")
-
-        if not item.binary and item.type != Type.IMAGE_URL:
-            item = load_image_bytes_to_content_item(item)
-
-        if item.binary:
-            b64_image = base64encode_image_bytes(item, add_mime_prefix=True)
-            return {
-                _TYPE_KEY: Type.IMAGE_URL.value,
-                _IMAGE_URL_KEY: {_URL_KEY: b64_image},
-            }
-
-        assert (
-            item.type == Type.IMAGE_URL
-        ), f"Unexpected message type: {item.type}. Must be a code bug."
-        return {
-            _TYPE_KEY: Type.IMAGE_URL.value,
-            _IMAGE_URL_KEY: {_URL_KEY: item.content or ""},
-        }
-
-    @staticmethod
     def _get_list_of_message_json_dicts(
         messages: list[Message],
         *,
         group_adjacent_same_role_turns: bool,
     ) -> list[dict[str, Any]]:
-        """Returns a list of JSON dictionaries representing messages.
-
-        Loads image bytes and encodes them as base64.
-
-        Args:
-            messages: The input messages.
-            group_adjacent_same_role_turns: Whether to pack adjacent messages
-                from the same role into a single element in output list.
-                For multimodal conversations, adjacent image and text turns from
-                the same role must be grouped together.
-
-        Returns:
-            list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
-        """
-        num_messages = len(messages)
-        result = []
-        idx = 0
-        while idx < num_messages:
-            end_idx = idx + 1
-            if group_adjacent_same_role_turns:
-                while end_idx < num_messages and (
-                    messages[idx].role == messages[end_idx].role
-                ):
-                    end_idx += 1
-
-            item: dict[str, Any] = {
-                _ROLE_KEY: messages[idx].role.value,
-            }
-            group_size = end_idx - idx
-            if (
-                group_size == 1
-                and messages[idx].contains_single_text_content_item_only()
-            ):
-                # Set "content" to a primitive string value, which is the common
-                # convention for text-only models.
-                item[_CONTENT_KEY] = messages[idx].text_content_items[0].content
-            else:
-                # Set "content" to be a list of dictionaries for more complex cases.
-                content_list = []
-                while idx < end_idx:
-                    content_list.extend(
-                        RemoteInferenceEngine._get_content_for_message(messages[idx])
-                    )
-                    idx += 1
-                item[_CONTENT_KEY] = content_list
-
-            idx = end_idx
-            result.append(item)
-
-        return result
+        return create_list_of_message_json_dicts(
+            messages, group_adjacent_same_role_turns=group_adjacent_same_role_turns
+        )
 
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams
@@ -323,8 +217,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "model": self._model,
             "messages": [
                 {
-                    _CONTENT_KEY: self._get_content_for_message(message),
-                    _ROLE_KEY: message.role.value,
+                    "content": convert_message_to_json_content_list(message),
+                    "role": message.role.value,
                 }
                 for message in conversation.messages
             ],
@@ -393,13 +287,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
-        message = response["choices"][0][_MESSAGE_KEY]
+        message = response["choices"][0]["message"]
         return Conversation(
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message[_CONTENT_KEY],
-                    role=Role(message[_ROLE_KEY]),
+                    content=message["content"],
+                    role=Role(message["role"]),
                 ),
             ],
             metadata=original_conversation.metadata,

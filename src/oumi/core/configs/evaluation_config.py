@@ -1,23 +1,20 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.params.evaluation_params import LMHarnessParams
+from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.utils.str_utils import sanitize_run_name
-
-
-class EvaluationFramework(Enum):
-    """Enum representing the evaluation framework to use."""
-
-    OUMI = "oumi"
-    LM_HARNESS = "lm_harness"
 
 
 @dataclass
 class EvaluationConfig(BaseConfig):
+    tasks: list[EvaluationTaskParams] = field(default_factory=list)
+    """List of all the evaluation tasks to run."""
+
     model: ModelParams = field(default_factory=ModelParams)
     """Parameters for the model to be evaluated.
 
@@ -33,13 +30,17 @@ class EvaluationConfig(BaseConfig):
     text generation process.
     """
 
-    lm_harness_params: Optional[LMHarnessParams] = None
-    """Parameters for the LM Harness evaluation framework.
+    inference_engine: Optional[InferenceEngineType] = InferenceEngineType.NATIVE
+    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
+    inference engine is required to generate model responses. This parameter specifies
+    the inference engine to use for generation. If not defined, the default is the
+    `NATIVE` inference engine."""
 
-    LM Harness is a comprehensive benchmarking suite for evaluating language models
-    across various tasks.
-    If specified, the tasks provided in the LMHarnessParams will be evaluated.
-    """
+    inference_remote_params: Optional[RemoteParams] = None
+    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
+    inference engine is required to generate model responses. If the model is accessed
+    via a remote API, these parameters specify how to run inference against the remote
+    API."""
 
     run_name: Optional[str] = None
     """A unique identifier for the current training run.
@@ -59,14 +60,3 @@ class EvaluationConfig(BaseConfig):
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
-        if self.lm_harness_params is not None:
-            if (
-                self.lm_harness_params.num_fewshot
-                and self.lm_harness_params.num_fewshot < 0
-            ):
-                raise ValueError("`num_fewshot` must be non-negative.")
-            if (
-                self.lm_harness_params.num_samples is not None
-                and self.lm_harness_params.num_samples <= 0
-            ):
-                raise ValueError("`num_samples` must be None or a positive integer.")

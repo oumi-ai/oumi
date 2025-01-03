@@ -26,11 +26,11 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 mkdir -p "$TMPDIR"
 
-ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp", "deepspeed")
+ALLOWED_TRAINING_MODES=("ddp", "ddp1gpu", "fsdp")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp|deepspeed)"
+    echo "Usage: $0 -m (ddp|ddp1gpu|fsdp)"
     echo -e "\t-m The training mode: ${ALLOWED_TRAINING_MODES[@]}."
     exit 1 # Exit script after printing help
 }
@@ -41,7 +41,7 @@ TRAINING_MODE="fsdp"
 ENABLE_PYTORCH_PROFILER="false"
 ENABLE_OUMI_TELEMETRY="false"
 
-while getopts "m:pt" opt; do
+while getopts ":m:p:t" opt; do
     case "$opt" in
     m) TRAINING_MODE="$OPTARG" ;;
     p) ENABLE_PYTORCH_PROFILER="true" ;;
@@ -84,7 +84,7 @@ if "${ENABLE_PYTORCH_PROFILER}" || "${ENABLE_OUMI_TELEMETRY}"; then
 fi
 
 # Local copy of "HuggingFaceFW/fineweb-edu" dataset stored on Polaris.
-TRAIN_DATASETS="--data.train.datasets
+TRAIN_DATASETS="--data.train.datasets=
 - dataset_name: '/eagle/community_ai/datasets/fineweb-edu/sample-10BT'
   subset: 'default'
   split: 'train'
@@ -99,6 +99,7 @@ SHARED_TRAINING_PARAMS="--data.train.use_async_dataset true
 --training.dataloader_main_process_only false
 --training.dataloader_num_workers 8
 --training.log_model_summary false
+--training.run_name 'polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}'
 ${TRAINING_OUTPUT_DIR_PARAM}
 ${PROFILER_TRAINING_PARAMS}
 ${OUMI_TELEMETRY_PARAMS}"
@@ -109,11 +110,7 @@ if [ "$TRAINING_MODE" == "ddp" ]; then
     oumi distributed torchrun \
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
-        --training.per_device_train_batch_size 4 \
-        --training.gradient_accumulation_steps 64
+        $SHARED_TRAINING_PARAMS
 elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
     export CUDA_VISIBLE_DEVICES=$((${OUMI_POLARIS_NUM_GPUS_PER_NODE} - 1 - ${PMI_LOCAL_RANK} % ${OUMI_POLARIS_NUM_GPUS_PER_NODE}))
     set -x
@@ -129,32 +126,15 @@ elif [ "$TRAINING_MODE" == "ddp1gpu" ]; then
         -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
         "$TRAIN_DATASETS" \
         $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
         --training.per_device_train_batch_size 4 \
         --training.gradient_accumulation_steps 64
-elif [ "$TRAINING_MODE" == "deepspeed" ]; then
-    set -x
-    pip install deepspeed # Deepspeed is not installed by default
-    oumi distributed accelerate launch \
-        --use_deepspeed \
-        --config_file configs/examples/fineweb_ablation_pretraining/fsdp/accelerate.yaml \
-        -m oumi train \
-        -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml \
-        "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}" \
-        --training.per_device_train_batch_size 4 \
-        --training.gradient_accumulation_steps 64 \
-        --model.torch_dtype_str float32 \
-        --training.mixed_precision_dtype BF16
 else # FSDP
     set -x
     oumi distributed torchrun \
         -m oumi train \
         -c configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml \
         "$TRAIN_DATASETS" \
-        $SHARED_TRAINING_PARAMS \
-        --training.run_name "polaris.fineweb.${TRAINING_MODE}.${OUMI_JOBNUM}"
+        $SHARED_TRAINING_PARAMS
 fi
 
 echo "${LOG_PREFIX} All done!"

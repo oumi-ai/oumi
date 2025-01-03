@@ -1,4 +1,7 @@
-name: fineweb-pt
+# Config to FSDP pretrain the FineWeb ablation model on Polaris.
+# Example command:
+# oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/polaris_job.yaml --cluster debug-scaling.$ALCF_USER --user $ALCF_USER --num_nodes 2 --log-level DEBUG
+name: fineweb-pt-fsdp
 # NOTE: Replace with your username.
 user: your_username
 num_nodes: 2
@@ -6,12 +9,8 @@ num_nodes: 2
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/fineweb_pt.
 working_dir: .
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=00:30:00
@@ -29,8 +28,8 @@ run: |
 
   set -x
   mpiexec --verbose \
-      --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
-      ./scripts/polaris/jobs/fineweb_pt_worker.sh -m fsdp
+    --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+    ./scripts/polaris/jobs/fineweb_pt_worker.sh -m fsdp -t
 
   echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
   echo "Polaris job is all done!"

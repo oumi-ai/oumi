@@ -219,9 +219,10 @@ class TrainingParams(BaseParams):
     save_final_model: bool = True
     """Whether to save the model at the end of training.
 
+    For different options for saving PEFT models, see `PeftParams.peft_save_mode`.
     This should normally be set to `True` to ensure the final trained model
     is saved. However, in some cases, you may want to disable it, for example:
-    - If saving a large model takes a long time
+    - If saving a large model which takes a long time
     - When quickly testing training speed or metrics
     - During debugging or experimentation phases
     """
@@ -497,8 +498,8 @@ class TrainingParams(BaseParams):
     """
 
     ddp_find_unused_parameters: Optional[bool] = None
-    """When using distributed training, the value of the flag `find_unused_parameters`
-    passed to `DistributedDataParallel`.
+    """When using PyTorch's DistributedDataParallel training, the value of this flag is
+    passed to `find_unused_parameters`.
 
     Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """

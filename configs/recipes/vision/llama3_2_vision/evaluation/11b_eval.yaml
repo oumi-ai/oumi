@@ -10,41 +10,8 @@ model:
 generation:
   batch_size: 1
 
-lm_harness_params:
-  tasks:
-    - "mmmu_val"
-    # To enable individual sub-tasks, uncomment the entries of interest below:
-    # - "mmmu_val_accounting"
-    # - "mmmu_val_agriculture"
-    # - "mmmu_val_architecture_and_engineering"
-    # - "mmmu_val_art"
-    # - "mmmu_val_art_theory"
-    # - "mmmu_val_basic_medical_science"
-    # - "mmmu_val_biology"
-    # - "mmmu_val_chemistry"
-    # - "mmmu_val_clinical_medicine"
-    # - "mmmu_val_computer_science"
-    # - "mmmu_val_design"
-    # - "mmmu_val_diagnostics_and_laboratory_medicine"
-    # - "mmmu_val_economics"
-    # - "mmmu_val_electronics"
-    # - "mmmu_val_energy_and_power"
-    # - "mmmu_val_finance"
-    # - "mmmu_val_geography"
-    # - "mmmu_val_history"
-    # - "mmmu_val_literature"
-    # - "mmmu_val_manage"
-    # - "mmmu_val_marketing"
-    # - "mmmu_val_materials"
-    # - "mmmu_val_math"
-    # - "mmmu_val_mechanical_engineering"
-    # - "mmmu_val_music"
-    # - "mmmu_val_pharmacy"
-    # - "mmmu_val_physics"
-    # - "mmmu_val_psychology"
-    # - "mmmu_val_public_health"
-    # - "mmmu_val_sociology"
-  # num_fewshot: 5
-  # num_samples: 20
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmmu_val
 
 enable_wandb: True

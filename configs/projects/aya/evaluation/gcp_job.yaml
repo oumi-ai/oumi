@@ -1,0 +1,29 @@
+name: llama3-8b-aya-sft
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  use_spot: true
+  disk_size: 200  # Disk size in GB
+
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: llama3.8b.aya.eval
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  oumi evaluate \
+    -c configs/projects/aya/evaluation/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"

@@ -101,13 +101,6 @@ def torch_profile(
 ):
     """Creates PyTorch Profiler context manager.
 
-    Example:
-        with torch_profile(profiler_params, record_function_name="oumi.train") as prof:
-            for i in range(n):
-                training_step()
-                if prof is not None:
-                    prof.step()
-
     Args:
         params: Profiler config.
         training_output_dir: If `ProfilerParams.save_dir` is not specified, then
@@ -117,8 +110,17 @@ def torch_profile(
             for top-level `train()` operation.
 
     Yields:
-            The newly-created Profiler object if profiling is enabled,
-            or `None` otherwise.
+        torch.profiler.profile or None: The newly-created Profiler object if profiling
+            is enabled, or `None` otherwise.
+
+    Example:
+        To profile a training loop::
+
+            with torch_profile(params, record_function_name="oumi.train") as prof:
+                for i in range(n):
+                    training_step()
+                    if prof is not None:
+                        prof.step()
     """
     params = _configure_torch_profile_save_dir(params, training_output_dir)
 

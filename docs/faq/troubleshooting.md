@@ -22,11 +22,7 @@ For more help, check the [Oumi GitHub Issues](https://github.com/oumi-ai/oumi/is
 
 ### Out of Memory (OOM)
 
-See {doc}`oom` and {doc}`gpu_sizing` for more information.
-
-### Slow training / Low GPU utilization
-
-See {doc}`../advanced/performance_optimization` for more information.
+See {doc}`oom` for more information.
 
 ### Training Stability & NaN Loss
 

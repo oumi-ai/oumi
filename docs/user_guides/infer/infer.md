@@ -6,48 +6,132 @@
 :hidden:
 
 inference_engines
-vllm_gcp
+common_workflows
+configuration
+cli_reference
 ```
+
+Oumi Infer provides a unified interface for running language models, whether you're deploying your own models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
+
+## Why Use Oumi Infer?
+
+Running language models in production environments presents several challenges that Oumi helps address:
+
+- **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Vertex AI, OpenAI, Parasail) through a single, consistent interface
+- **Production-Ready**: Built-in features for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
+- **Scalable Architecture**: Deploy anywhere from a single GPU to distributed systems without code changes
+- **Unified Configuration**: Control all aspects of model execution through a single config file
 
 ## Quick Start
 
-To run local interactive inference using the Oumi CLI:
+Let's jump right in with a simple example. Here's how to run interactive inference using the CLI:
 
-```{code-block} bash
-oumi infer -i -c configs/recipes/llama3_2/inference/1b_infer.yaml
+```bash
+oumi infer -i -c configs/recipes/smollm/inference/135m_infer.yaml
 ```
 
-## Inference Configuration
+Or use the Python API for a basic chat interaction:
 
-Create an inference configuration file (e.g., `infer_config.yaml`) with the following structure.
+```{testcode} python
+from oumi.inference import VLLMInferenceEngine
+from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.types.conversation import Conversation, Message, Role
 
-For a complete list of configuration options, refer to the {py:class}`~oumi.core.configs.InferenceConfig` class:
+# Initialize with a small, free model
+engine = VLLMInferenceEngine(
+    ModelParams(
+        model_name="meta-llama/Meta-Llama-3.2-1B-Instruct",
+        model_kwargs={"device_map": "auto"}
+    )
+)
 
-```{code-block} yaml
-model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B"
+# Create a conversation
+conversation = Conversation(
+    messages=[Message(role=Role.USER, content="What is Oumi?")]
+)
 
-generation:
-  max_new_tokens: 100
-  temperature: 0.7
-  top_p: 0.9
-  batch_size: 1
-
-engine: "VLLM"  # or "LLAMACPP", "NATIVE", etc.
+# Get response
+result = engine.infer_online([conversation], InferenceConfig())
+print(result[0].messages[-1].content)
 ```
+
+## Core Concepts
+
+### System Architecture
+
+The inference system is built around three main components:
+
+1. **Inference Engines**: Handle model execution and generation
+2. **Configuration System**: Manage model and runtime settings
+3. **Conversation Format**: Structure inputs and outputs
+
+Here's how these components work together:
+
+```python
+# 1. Initialize engine
+engine = VLLMInferenceEngine(model_params)
+
+# 2. Prepare input
+conversation = Conversation(messages=[...])
+
+# 3. Configure inference
+config = InferenceConfig(...)
+
+# 4. Run inference
+result = engine.infer_online([conversation], config)
+
+# 5. Process output
+response = result[0].messages[-1].content
+```
+
+### Inference Engines
+
+Inference Engines are simple tools for running inference on models in Oumi. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and Open AI.
+
+#### Choosing an Engine
+
+Our engines are broken into two categories: local inference vs remote inference. But how do you decide between the two?
+
+Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
+
+If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the Open AI Chat API format (including Open AI's native API).
+
+
+For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
 
 ```{note}
-Adjust the parameters according to your specific inference needs. For a complete list of configuration options, refer to the {doc}`Configuration Guide <../../get_started/configuration>` and {py:class}`~oumi.core.configs.InferenceConfig` class.
+Still unsure which engine to use? Try {py:obj}`~oumi.inference.VLLMInferenceEngine` to get started locally.
 ```
 
-## Input Data
+#### Loading an Engine
+
+Now that you've decided on the engine you'd like to use, you'll need to create a small config to instantiate your engine.
+
+All engines require a model, specified via {py:obj}`~oumi.core.configs.ModelParams`. Any engine calling an external API / service (such as Anthropic, Gemini, Open AI, or a self-hosted server) will also require {py:obj}`~oumi.core.configs.RemoteParams`.
+
+See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a local inference engine.
+
+See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
+
+```python
+from oumi.inference import VLLMInferenceEngine
+from oumi.core.configs import InferenceConfig, ModelParams
+
+vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
+engine = VLLMInferenceEngine(vllmModelParams)
+input_conversation = [] #Add your inputs here
+inference_config = InferenceConfig()
+outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+```
+
+#### Input Data
 
 Oumi supports several input formats for inference:
 
 1. JSONL files
 
 - Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
-- See {doc}`../../datasets/local_datasets` for more details.
+- See {doc}`/resources/datasets/custom_datasets` for more details.
 
 2. Interactive console input
 
@@ -57,16 +141,11 @@ Oumi supports several input formats for inference:
 oumi infer -c infer_config.yaml -i
 ```
 
-## Supported Inference Engines
+## Supported Engines
 
-Oumi supports multiple inference engines:
-
-```{include} ../../api/summary/inference_engines.md
+```{include} /api/summary/inference_engines.md
 ```
 
-```{seealso}
-For detailed information on each inference engine, see the {doc}`Inference Engines documentation <inference_engines>`.
-```
 
 ## Advanced Topics
 
@@ -104,10 +183,11 @@ outputConversations = engine.infer_online(input=input_conversation, inference_co
 
 ### Distributed Inference
 
-For large-scale inference across multiple GPUs or machines, see the following tutorials
-for inference with Llama 3.1 70B on {doc}`GCP <vllm_gcp>` and
-{doc}`Polaris <vllm_polaris>`.
+For large-scale inference across multiple GPUs or machines, see the following tutorial
+for inference with Llama 3.1 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
 
-## Troubleshooting
+## Next Steps
 
-For more help, consult the {doc}`troubleshooting guide <../../faq/troubleshooting>` or open an issue on the [Oumi GitHub repository](https://github.com/oumi-ai/oumi/issues).
+- Learn about the supported {doc}`inference_engines`
+- Review {doc}`common_workflows` for practical examples
+- See the {doc}`configuration` section for detailed configuration options.

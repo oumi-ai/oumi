@@ -1,10 +1,42 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
 
 from oumi.core.configs.params.base_params import BaseParams
+
+
+class PeftSaveMode(Enum):
+    """Enum representing how to save the final model during PEFT training.
+
+    While models saved with any of these options can be loaded by Oumi, those saved
+    with `ADAPTER_ONLY` are not self-contained; the base model will be loaded
+    separately from the local HF cache or downloaded from HF Hub if not in the cache.
+    """
+
+    ADAPTER_ONLY = "adapter_only"
+    """Only save the model adapter.
+
+    Note that when loading this saved model, the base model will be loaded separately
+    from the local HF cache or downloaded from HF Hub.
+    """
+
+    ADAPTER_AND_BASE_MODEL = "adapter_and_base_model"
+    """Save the base model in addition to the adapter.
+
+    This is similar to `ADAPTER_ONLY`, but the base model's weights are also saved in
+    the same directory as the adapter weights, making the output dir self-contained.
+    """
+
+    MERGED = "merged"
+    """Merge the adapter and base model's weights and save as a single model.
+
+    Note that the resulting model is a standard HF Transformers model, and is no longer
+    a PEFT model. This means that it's no longer possible to continue fine-tuning the
+    adapter on its own.
+    """
 
 
 @dataclass
@@ -26,7 +58,7 @@ class PeftParams(BaseParams):
     )
     """The scaling factor for the LoRA update.
 
-    This value is typically set equal to `lora_r` for stable training.
+    This value is typically set equal to `lora_r` or `2*lora_r` for stable training.
     """
 
     lora_dropout: float = field(
@@ -157,6 +189,17 @@ class PeftParams(BaseParams):
     - "float64" for 64-bit floating point
 
     Defaults to "float16" for half precision.
+    """
+
+    peft_save_mode: PeftSaveMode = PeftSaveMode.ADAPTER_ONLY
+    """How to save the final model during PEFT training.
+
+    This option is only used if `TrainingParams.save_final_model` is True.
+    By default, only the model adapter is saved to reduce disk usage.
+    Options are defined in the `PeftSaveMode` enum and include:
+    - ADAPTER_ONLY: Only save the model adapter.
+    - ADAPTER_AND_BASE_MODEL: Save the base model in addition to the adapter.
+    - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
 
     def to_bits_and_bytes(self) -> BitsAndBytesConfig:

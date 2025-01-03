@@ -34,15 +34,13 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.training_params.MixedPrecisionDtype`
     - :class:`~oumi.core.configs.params.training_params.SchedulerType`
     - :class:`~oumi.core.configs.params.training_params.TrainerType`
+    - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
 - Profiling:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
     - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
 - Judge:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
-
-For more information on using these configurations, see the
-:doc:`/get_started/configuration` guide.
 
 Example:
     >>> from oumi.core.configs import TrainingConfig, ModelParams
@@ -62,10 +60,7 @@ Note:
 
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.evaluation_config import (
-    EvaluationConfig,
-    EvaluationFramework,
-)
+from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeAttribute, JudgeConfig
@@ -77,8 +72,11 @@ from oumi.core.configs.params.data_params import (
     MixtureStrategy,
 )
 from oumi.core.configs.params.evaluation_params import (
+    AlpacaEvalTaskParams,
     CustomEvaluationParams,
-    LMHarnessParams,
+    EvaluationPlatform,
+    EvaluationTaskParams,
+    LMHarnessTaskParams,
 )
 from oumi.core.configs.params.fsdp_params import (
     AutoWrapPolicy,
@@ -90,7 +88,7 @@ from oumi.core.configs.params.fsdp_params import (
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.peft_params import PeftParams
+from oumi.core.configs.params.peft_params import PeftParams, PeftSaveMode
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
@@ -103,6 +101,7 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
+    "AlpacaEvalTaskParams",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
@@ -112,8 +111,9 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "EvaluationTaskParams",
     "EvaluationConfig",
-    "EvaluationFramework",
+    "EvaluationPlatform",
     "FSDPParams",
     "GenerationParams",
     "GuidedDecodingParams",
@@ -123,11 +123,12 @@ __all__ = [
     "JobResources",
     "JudgeAttribute",
     "JudgeConfig",
-    "LMHarnessParams",
+    "LMHarnessTaskParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",
     "PeftParams",
+    "PeftSaveMode",
     "ProfilerParams",
     "RemoteParams",
     "SchedulerType",

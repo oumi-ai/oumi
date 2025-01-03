@@ -5,7 +5,7 @@ inferring with machine learning models, particularly focused on language tasks.
 
 Modules:
     - :mod:`~oumi.models`: Contains model architectures and related utilities.
-    - :mod:`~oumi.evaluate` : Functions for evaluating models using Oumi and LM Harness.
+    - :mod:`~oumi.evaluate`: Functions for evaluating models using LM Harness.
     - :mod:`~oumi.evaluate_async`: Asynchronous evaluation functionality.
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
@@ -15,8 +15,7 @@ Modules:
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
-    - :func:`~oumi.evaluate.evaluate_lm_harness`: Evaluate a model using Language
-        Model Harness.
+    - :func:`~oumi.evaluate.evaluate`: Evaluate a model using LM Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
@@ -111,20 +110,6 @@ def evaluate(config: EvaluationConfig) -> None:
     import oumi.evaluate
 
     return oumi.evaluate.evaluate(config)
-
-
-def evaluate_lm_harness(config: EvaluationConfig) -> None:
-    """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
-
-    For detailed documentation, we refer you to the following readme:
-       https://github.com/EleutherAI/lm-evaluation-harness
-
-    Args:
-        config: The desired configuration for evaluation.
-    """
-    import oumi.evaluate
-
-    return oumi.evaluate.evaluate_lm_harness(config)
 
 
 def infer_interactive(
@@ -248,7 +233,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
 __all__ = [
     "evaluate_async",
-    "evaluate_lm_harness",
     "evaluate",
     "infer_interactive",
     "infer",

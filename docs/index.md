@@ -14,15 +14,17 @@ E2E Foundation Model Research Platform - Community-first & Enterprise-grade
 :hidden:
 :caption: Get started
 
+Home <self>
 get_started/installation
 get_started/quickstart
+get_started/core_concepts
 get_started/tutorials
 ```
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: User Guide
+:caption: User Guides
 
 user_guides/train/train
 user_guides/infer/infer
@@ -34,32 +36,21 @@ user_guides/launch/launch
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Advanced Topics
+:caption: Resources
 
-advanced/customization
-advanced/quantization
-advanced/performance_optimization
-advanced/distributed_training
+resources/models/models
+resources/datasets/datasets
+resources/recipes
+
 ```
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Models
+:caption: Reference
 
-models/recipes
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: Datasets
-
-datasets/local_datasets
-datasets/pretraining
-datasets/sft
-datasets/preference_tuning
-datasets/vl_sft
+API Reference <api/oumi>
+CLI Reference <cli/commands>
 ```
 
 ```{toctree}
@@ -69,16 +60,6 @@ datasets/vl_sft
 
 faq/troubleshooting
 faq/oom
-faq/gpu_sizing
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: API Reference
-
-API Reference <api/oumi>
-CLI Reference <cli/commands>
 ```
 
 ```{toctree}
@@ -110,29 +91,39 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 
 Oumi is designed to be fully flexible yet easy to use:
 
-- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
+### 🤖 Model Support
 
-- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) to evaluation. Built for both research exploration and production deployment.
+- **Comprehensive Model Coverage**: Support for leading models including Llama 3.1/3.2/3.3 (up to 405B), Mistral, Gemma, Qwen2, and more
+- **Vision-Language Models**: First-class support for multimodal models like Llama 3.2 Vision, LLaVA-1.5, and Qwen2-VL
+- **Unified Interface**: One consistent API for all models, whether from HuggingFace Hub or custom implementations
 
-- **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
+### 🚀 Training & Optimization
 
-- **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
+- **End-to-End Training**: Support for the full training lifecycle (pre-training, SFT, DPO, guardrails, and more)
+- **Full Parameter Training**: Full fine-tuning with DDP, FSDP support and long context capabilities
+- **Efficient Fine-tuning**: LoRA, QLoRA for parameter-efficient fine-tuning
+- **Built for Scale**: Efficiently handle models up to 405B parameters with distributed training and inference on large clusters
 
-- **Unified Interface**: One consistent interface for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
+### 📊 Inference & Deployment
 
-- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
+- **Multiple Backends**: Native PyTorch, vLLM/SG-Lang for optimized serving
+- **Flexible Deployment**: Run anywhere from local machines to cloud clusters
+- **Production Ready**: Enterprise-grade reliability and comprehensive testing
 
-- **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
+### 🔧 Development Tools
 
-If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
+- **Rich Configuration**: Version-controlled YAML configs for reproducible experiments
+- **Extensible Platform**: Easy model & dataset registration and customization
+- **Comprehensive Documentation**: Detailed guides, examples, and API reference
 
 ## Getting Started
 
-If you're new to Oumi, we recommend starting with the following sections:
-
-1. [Installation](get_started/installation) - Install Oumi on your system.
-2. [Quickstart](get_started/quickstart) - Quickstart guide to get you up and running with training, evaluation and inference in no time.
-3. [Recipes](get_started/tutorials) - Tutorials and recipes to get you started with Oumi with various models, datasets and workflows.
+| Category | Description | Links |
+|----------|-------------|-------|
+| 🚀 Getting Started | Get up and running quickly with Oumi | [→ Installation](get_started/installation)<br>[→ Quickstart](get_started/quickstart)<br>[→ Core Concepts](get_started/core_concepts) |
+| 📚 User Guides | Learn how to use Oumi effectively | [→ Training](user_guides/train/train)<br>[→ Inference](user_guides/infer/infer)<br>[→ Evaluation](user_guides/evaluate/evaluate) |
+| 🤖 Models | Explore available models and recipes | [→ Overview](resources/models/models)<br>[→ Recipes](resources/recipes)<br>[→ Custom Models](resources/models/custom_models) |
+| 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
 
 ## API Reference
 
@@ -144,10 +135,12 @@ This includes comprehensive documentation for all modules, classes, and function
 
 We welcome contributions! See our [Contributing Guide](development/contributing) for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
 
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
+
 ## Need Help?
 
 If you encounter any issues or have questions, please don't hesitate to:
 
-1. Check our [FAQ section](faq/troubleshooting) for common questions and answers.
+1. Check our [FAQ section](/faq/troubleshooting) for common questions and answers.
 2. Open an issue on our [GitHub Issues page](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests.
-3. Send us a message on [Discord](https://discord.gg/S74NxTDh7v) to chat with the team and other users.
+3. Join our [Discord community](https://discord.gg/oumi) to chat with the team and other users.

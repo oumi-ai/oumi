@@ -12,9 +12,11 @@ model:
 
 generation:
   batch_size: 3  # 4 will OOM on a Polaris node
-lm_harness_params:
-  tasks:
-    - "m_mmlu_en"
-  num_fewshot: 5
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: m_mmlu_en
+    eval_kwargs:
+      num_fewshot: 5
 
 enable_wandb: True

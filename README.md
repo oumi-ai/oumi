@@ -75,11 +75,11 @@ pip install -e ".[gpu]"  # For GPU training
 
    ```shell
    # Training
-   oumi train -c configs/recipes/smollm/sft/135m/train_quickstart.yaml
+   oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
    # Evaluation
-   oumi evaluate -c configs/recipes/smollm/evaluation/135m_eval_quickstart.yaml \
-   --lm_harness_params.tasks "[m_mmlu_en]"
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
+   --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
 
    # Inference
    oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
@@ -88,7 +88,7 @@ pip install -e ".[gpu]"  # For GPU training
    --interactive
    ```
 
-   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/advanced/distributed_training.md).
+   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/user_guides/train/distributed_training.md).
 
 ### Examples &  Recipes
 
@@ -98,36 +98,36 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.1 8b | [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
-| Llama3.1 70b | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
-| Llama3.1 405b | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
-| Llama3.2 3b | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
-| Llama3.2 Vision 11b | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
+| Llama 3.1 8B | [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
+| Llama 3.1 70B | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
+| Llama 3.1 405B | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
+| Llama 3.2 3B | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
+| Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 
 #### 🎨 Vision Models
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.2 Vision 11b | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_sft_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
-| LLaVA 7b | [SFT](/configs/recipes/vision/llava_7b/sft/7b_sft_train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
-| Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/sft_train.yaml) |
-| Qwen2-VL 2b | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/sft_train.yaml) |
+| Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
+| LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
+| Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
+| Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) |
 
 #### 🎯 Training Techniques
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.1 8b | [FSDP Training](/configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml) • [Long Context](/configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml) |
+| Llama 3.1 8B | [FSDP Training](/configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml) • [Long Context](/configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml) |
 | Phi-3 | [DPO](/configs/recipes/phi3/dpo/train.yaml) • [DPO+FSDP](/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml) |
-| Fineweb | [DDP Pre-training](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) • [DeepSpeed](/configs/examples/fineweb_ablation_pretraining/deepspeed/train.yaml) • [FSDP](/configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml) |
+| FineWeb Pretraining | [DDP](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) • [FSDP](/configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml) |
 
 #### 🚀 Inference
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama3.1 8b | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) |
-| Llama3.1 70b | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) |
-| Llama3.2 Vision 11b | [Native](/configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml) • [vLLM](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_vllm.yaml) • [SG-Lang](/configs/recipes/vision/llama3_2_vision/inference/11b_infer_sglang.yaml) |
+| Llama 3.1 8B | [Native](/configs/recipes/llama3_1/inference/8b_infer.yaml) |
+| Llama 3.1 70B | [Native](/configs/recipes/llama3_1/inference/70b_infer.yaml) |
+| Llama 3.2 Vision 11B | [Native](/configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml) • [vLLM](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [SG-Lang](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) |
 | GPT-2 | [Native](/configs/recipes/gpt2/inference/infer.yaml) |
 | Mistral | [Bulk Inference](/configs/examples/bulk_inference/mistral_small_infer.yaml) |
 

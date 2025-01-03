@@ -11,7 +11,7 @@ Possible contributions include:
 * Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
-* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
+* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
 
 If you want to contribute but you are short of ideas or have any questions, just reach out (<contact@oumi.ai>) and we can help.
 
@@ -75,7 +75,7 @@ To run pre-commit hooks manually, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure, and format your code.
+See the [Oumi Style Guide](style_guide.md) for guidelines on how to structure, and format your code.
 
 ## Copyright & License Headers
 

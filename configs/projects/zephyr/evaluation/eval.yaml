@@ -9,10 +9,11 @@ model:
   chat_template: "zephyr"
   attn_implementation: "sdpa"
 
-lm_harness_params:
-  tasks:
-    - "mmlu"
-  num_fewshot: 5
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
 
 generation:
   batch_size: 32

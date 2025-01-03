@@ -1,4 +1,4 @@
-# Description:
+# Description
 
 <!--
 Thank you for contributing to Oumi! Before sending your PR out for review, please take a quick read through this template.
@@ -9,7 +9,6 @@ After you've updated your title, please replace this section with a detailed des
 The more information you provide, the faster we can review your change!
 -->
 <!--↓↓↓↓↓↓↓↓↓↓ Describe your change below ↓↓↓↓↓↓↓↓↓↓-->
-
 
 <!--↑↑↑↑↑↑↑↑↑↑ Describe your change above ↑↑↑↑↑↑↑↑↑↑-->
 
@@ -25,11 +24,11 @@ Fixes # (issue)
 <!--↑↑↑↑↑↑↑↑↑↑ List your related issues above ↑↑↑↑↑↑↑↑↑↑-->
 
 ## Before submitting
+
 - [ ] This PR only changes documentation. (You can ignore the following checks in that case)
 - [ ] Did you read the [contributor guideline](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) Pull Request guidelines?
 - [ ] Did you link the issue(s) related to this PR in the section above?
 - [ ] Did you add / update tests where needed?
-
 
 ## Reviewers
 

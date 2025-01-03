@@ -83,18 +83,19 @@ docs = [
     "myst-nb",                 # Allows us to include ipython notebooks in the docs
     "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
     "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
+    "sphinx-design",           # Allows us to include tabs in the docs
     "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
     "sphinx",                  # Used to build the docs
     "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
+    "sphinxcontrib-mermaid",   # Enable mermaid diagrams in the docs
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
-    "sphinx-design",           # Allows us to include tabs in the docs
 ]
 
 # Dependencies that require a GPU to install
 gpu = [
     "liger-kernel>=0.3.1",
     "nvidia-ml-py",
-    "bitsandbytes", # Used for QLora, and PagedAdam implemenation
+    "bitsandbytes",        # Used for QLora, and PagedAdam implemenation
 ]
 
 # Targets for supported cloud providers
@@ -110,12 +111,15 @@ gcp = [
 ]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
-cloud = ["oumi[azure,gcp,lambda,runpod]"] # aws excluded due to version conflicts
+cloud = [
+    "oumi[azure,gcp,lambda,runpod]",
+] # aws excluded due to version conflicts
 
 # Optional dependencies
 optional = [
     "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
+    "alpaca-eval",
 ]
 
 cambrian = [

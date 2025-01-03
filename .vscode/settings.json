@@ -1,5 +1,6 @@
 {
     "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.rulers": [88],
     "python.testing.pytestArgs": [
         "tests"
     ],

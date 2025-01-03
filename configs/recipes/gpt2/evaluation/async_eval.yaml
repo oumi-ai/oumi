@@ -1,5 +1,6 @@
 evaluation:
-  output_dir: "" # "/output_dir_gcs/matthew/gpt2.pt.4xA10080GB.5000steps/hellaswag/"
+  output_dir: "output/gpt2.pt" # NOTE: Update to your output directory.
+
   model:
     model_name: "gpt2"  # 124M params
     # For local testing.
@@ -10,14 +11,14 @@ evaluation:
     compile: True
     trust_remote_code: True
 
-  lm_harness_params:
-    tasks:
-      - "hellaswag"
+  tasks:
+    - evaluation_platform: lm_harness
+      task_name: hellaswag
 
   generation:
     batch_size: 32
 
   enable_wandb: True
 
-checkpoints_dir: "" # "/output_dir_gcs/wizeng/runs/20240703_gpt2_fullrun_drop0.pt/"
+checkpoints_dir: "" # NOTE: Update to directory containing checkpoints.
 polling_interval: 5

@@ -12,7 +12,6 @@ Subpackages
    :maxdepth: 2
 
    oumi.core.callbacks
-   oumi.core.cli
    oumi.core.collators
    oumi.core.configs
    oumi.core.datasets
