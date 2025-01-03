@@ -42,6 +42,12 @@ class BaseSftDataset(BaseMapDataset, ABC):
             **kwargs,
         )
 
+        if not text_col:
+            raise ValueError(
+                "Empty `text_col`! "
+                "You can define it using `data.train.target_col` config parameter."
+            )
+
         self._task = task
         self._text_col = text_col
         self._tokenizer = tokenizer
