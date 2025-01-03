@@ -14,6 +14,7 @@ from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
+    load_pil_image_from_content_item,
 )
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -451,3 +452,67 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                         assert json_item["image_url"]["url"].startswith(
                             "data:image/png;base64,"
                         ), debug_info
+
+
+def test_load_pil_image_from_content_item():
+    test_pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    test_png_bytes = create_png_bytes_from_image(test_pil_image)
+
+    pil_image = load_pil_image_from_content_item(
+        ContentItem(type=Type.IMAGE_BINARY, binary=test_png_bytes)
+    )
+    assert pil_image.mode == "RGB"
+    assert pil_image.size == test_pil_image.size
+
+    pil_image = load_pil_image_from_content_item(
+        ContentItem(type=Type.IMAGE_BINARY, binary=test_png_bytes), mode="RGBA"
+    )
+    assert pil_image.mode == "RGBA"
+    assert pil_image.size == test_pil_image.size
+
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        png_filename: Path = Path(output_temp_dir) / "test.png"
+        with png_filename.open(mode="wb") as f:
+            f.write(test_png_bytes)
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_PATH, content=str(png_filename))
+        )
+        assert pil_image.mode == "RGB"
+        assert pil_image.size == test_pil_image.size
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_PATH, content=str(png_filename)), mode=""
+        )
+        assert pil_image.mode == "RGB"
+        assert pil_image.size == test_pil_image.size
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_PATH, content=str(png_filename)), mode="RGBA"
+        )
+        assert pil_image.mode == "RGBA"
+        assert pil_image.size == test_pil_image.size
+
+    with responses.RequestsMock() as m:
+        m.add(
+            responses.GET, "http://oumi.ai/logo.png", body=test_png_bytes, stream=True
+        )
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_URL, content="http://oumi.ai/logo.png")
+        )
+        assert pil_image.mode == "RGB"
+        assert pil_image.size == test_pil_image.size
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_URL, content="http://oumi.ai/logo.png"), mode=""
+        )
+        assert pil_image.mode == "RGB"
+        assert pil_image.size == test_pil_image.size
+
+        pil_image = load_pil_image_from_content_item(
+            ContentItem(type=Type.IMAGE_URL, content="http://oumi.ai/logo.png"),
+            mode="RGBA",
+        )
+        assert pil_image.mode == "RGBA"
+        assert pil_image.size == test_pil_image.size

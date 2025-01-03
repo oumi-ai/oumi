@@ -52,6 +52,7 @@ dependencies = [
     "tensorboard",                  # Optional, for monitoring training
     "torch>=2.4.0,<2.5.0",
     "torchdata>=0.8.0,<0.10.0",     # Used by data pipes loader
+    "torchvision",                  # Used by some VLM-s (multimodal)
     "tqdm",
     "transformers>=4.45.2,<4.46",
     "trl>=0.9.0,<0.12.2",
