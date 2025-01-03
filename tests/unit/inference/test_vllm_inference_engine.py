@@ -3,12 +3,17 @@ from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import jsonlines
+import PIL.Image
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.inference import VLLMInferenceEngine
+from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
+from oumi.utils.image_utils import (
+    create_png_bytes_from_image,
+)
 
 try:
     vllm_import_failed = False
@@ -88,6 +93,22 @@ def _setup_input_conversations(filepath: str, conversations: list[Conversation])
         f.write("\n\n\n")
 
 
+def _create_test_pil_image() -> PIL.Image.Image:
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    return pil_image
+
+
+def _create_test_png_image_bytes() -> bytes:
+    return create_png_bytes_from_image(_create_test_pil_image())
+
+
+def _create_test_png_image_base64_str() -> str:
+    return base64encode_content_item_image_bytes(
+        ContentItem(binary=_create_test_png_image_bytes(), type=Type.IMAGE_BINARY),
+        add_mime_prefix=True,
+    )
+
+
 #
 # Tests
 #
@@ -103,7 +124,11 @@ def test_infer_online(mock_vllm):
     conversation = Conversation(
         messages=[
             Message(
-                content="Hello world!",
+                content="You're a good assistant!",
+                role=Role.SYSTEM,
+            ),
+            Message(
+                content="Hi there",
                 role=Role.USER,
             ),
             Message(
@@ -130,6 +155,88 @@ def test_infer_online(mock_vllm):
     result = engine.infer_online([conversation], _get_default_inference_config())
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
+    assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
+    assert mock_vllm_instance.chat.call_args_list[0][0][0] == [
+        [
+            {
+                "content": "You're a good assistant!",
+                "role": "system",
+            },
+            {
+                "content": [
+                    {
+                        "text": "Hi there",
+                        "type": "text",
+                    },
+                    {
+                        "text": "Hello again!",
+                        "type": "text",
+                    },
+                ],
+                "role": "user",
+            },
+        ]
+    ]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_multimodal(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(
+                        type=Type.IMAGE_BINARY, binary=_create_test_png_image_bytes()
+                    ),
+                    ContentItem(type=Type.TEXT, content="Describe this image!"),
+                ],
+            ),
+        ],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+    expected_result = [
+        Conversation(
+            messages=[
+                *conversation.messages,
+                Message(
+                    content="The first time I saw",
+                    role=Role.ASSISTANT,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+    ]
+    result = engine.infer_online([conversation], _get_default_inference_config())
+    assert expected_result == result
+    mock_vllm_instance.chat.assert_called_once()
+    assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
+    assert mock_vllm_instance.chat.call_args_list[0][0][0] == [
+        [
+            {
+                "content": [
+                    {
+                        "image_url": {"url": _create_test_png_image_base64_str()},
+                        "type": "image_url",
+                    },
+                    {
+                        "text": "Describe this image!",
+                        "type": "text",
+                    },
+                ],
+                "role": "user",
+            }
+        ]
+    ]
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
