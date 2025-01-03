@@ -85,10 +85,10 @@ To download logs and artifacts from remote jobs:
 
 ```bash
 # Download all logs from a cluster
-sky storage ls oumi-cluster:/path/to/output --download .
+sky logs --sync-down oumi-cluster
 
 # Download specific files
-sky storage cp oumi-cluster:/path/to/output/logs/* ./local_logs/
+rsync -Pavz oumi-cluster:/path/to/file .
 ```
 
 **Log Locations**
@@ -116,7 +116,7 @@ training:
     # Enable profiling
     enable_cpu_profiling: true
     enable_cuda_profiling: true
-    profile_memory: true
+    profile_memory: false
 
     # Configure profiling schedule
     schedule:
@@ -127,12 +127,12 @@ training:
       active: 3
       repeat: 2
 
-    # Output configuration
+    # Output configuration, enable as needed
     save_dir: "profiler_output"
-    record_shapes: true
-    with_stack: true
-    with_flops: true
-    with_modules: true
+    record_shapes: false
+    with_stack: false
+    with_flops: false
+    with_modules: false
 ```
 
 ### Distributed Training
@@ -152,7 +152,7 @@ Here's an example configuration:
 training:
   telemetry:
     # Collection settings
-    collect_telemetry_for_all_ranks: false  # Only collect from main rank
+    collect_telemetry_for_all_ranks: true  # Collect from all ranks
     track_gpu_temperature: true  # Monitor GPU temperatures
 
   # Enable performance metrics for telemetry
