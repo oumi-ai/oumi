@@ -12,7 +12,7 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     target_col: "prompt"
-    stream: True
+    stream: False
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -22,7 +22,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct"
-          # limit: 8192
+          limit: 8192
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
