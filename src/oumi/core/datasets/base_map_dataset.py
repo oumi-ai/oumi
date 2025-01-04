@@ -361,7 +361,7 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         if return_iterable:
             result = cast(datasets.IterableDataset, result)
-            logger.debug(f"{dataset_type_name}: IterableDataset:{result}")
+            logger.debug(f"{dataset_type_name}: IterableDataset: {result}")
         else:
             result = cast(datasets.Dataset, result)
             logger.debug(
