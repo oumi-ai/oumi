@@ -49,7 +49,7 @@ run: |
       -c configs/recipes/vision/phi3/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.dataloader_main_process_only=False \
-      --training.dataloader_num_workers=4 \
+      --training.dataloader_num_workers=2 \
       --training.trainer_type TRL_SFT \
       --training.max_steps 20 \
       --training.save_steps 0 \

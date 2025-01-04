@@ -284,8 +284,9 @@ def _load_dataset(
     """Loads a dataset with the specified name and subset."""
     # Streaming is not fully supported yet for custom datasets. The current logic is
     # as follows: The original dataset is always a "map" dataset, but
-    # if `stream=True` then the dataset is not post-processed before training
-    # starts: Instead, it's returned as `IterableDataset` with lazy feature generation.
+    # if `stream=True` then the raw dataset is not post-processed (not "transformed")
+    # before training starts: Instead, it's returned as `IterableDataset` with
+    # lazy feature generation i.e., `transform()` is called on-demand during training.
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
