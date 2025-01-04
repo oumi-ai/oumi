@@ -12,7 +12,7 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: True
-    target_col: "text" # TODO: useless col, but required by the trainer
+    target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
