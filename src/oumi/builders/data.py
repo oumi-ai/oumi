@@ -282,31 +282,30 @@ def _load_dataset(
     datasets.IterableDataset,
 ]:
     """Loads a dataset with the specified name and subset."""
-    if not stream or True:
-        # Streaming is not fully supported yet for custom datasets. The current logic is
-        # as follows: The original dataset is always a "map" dataset, but
-        # if `stream=True` then the dataset is not fully post-processed before training
-        # starts: it's returned as `IterableDataset` with lazy feature generation.
-        dataset_class = REGISTRY.get_dataset(
-            dataset_params.dataset_name, subset=dataset_params.subset
-        )
+    # Streaming is not fully supported yet for custom datasets. The current logic is
+    # as follows: The original dataset is always a "map" dataset, but
+    # if `stream=True` then the dataset is not post-processed before training
+    # starts: Instead, it's returned as `IterableDataset` with lazy feature generation.
+    dataset_class = REGISTRY.get_dataset(
+        dataset_params.dataset_name, subset=dataset_params.subset
+    )
 
-        if dataset_class is not None:
-            dataset_kwargs = {**dataset_params.dataset_kwargs}
-            if dataset_params.transform_num_workers is not None:
-                dataset_kwargs["transform_num_workers"] = (
-                    dataset_params.transform_num_workers
-                )
-
-            dataset = dataset_class(
-                split=dataset_params.split,
-                subset=dataset_params.subset,
-                dataset_path=dataset_params.dataset_path,
-                tokenizer=tokenizer,
-                trust_remote_code=dataset_params.trust_remote_code,
-                **dataset_kwargs,
+    if dataset_class is not None:
+        dataset_kwargs = {**dataset_params.dataset_kwargs}
+        if dataset_params.transform_num_workers is not None:
+            dataset_kwargs["transform_num_workers"] = (
+                dataset_params.transform_num_workers
             )
-            return dataset.to_hf(return_iterable=stream)
+
+        dataset = dataset_class(
+            split=dataset_params.split,
+            subset=dataset_params.subset,
+            dataset_path=dataset_params.dataset_path,
+            tokenizer=tokenizer,
+            trust_remote_code=dataset_params.trust_remote_code,
+            **dataset_kwargs,
+        )
+        return dataset.to_hf(return_iterable=stream)
 
     dataset_path = dataset_params.dataset_path
     if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
