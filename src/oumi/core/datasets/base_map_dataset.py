@@ -251,9 +251,21 @@ class BaseMapDataset(MapDataPipe, ABC):
         return num_proc
 
     def to_hf(
-        self, iterable: bool = True
+        self, return_iterable: bool = False
     ) -> Union[datasets.Dataset, datasets.IterableDataset]:
-        """Converts the dataset to a Hugging Face dataset."""
+        """Converts the dataset to a Hugging Face dataset.
+
+        Args:
+            return_iterable: Whether to return an iterable dataset.
+                Iterable datasets aren't cached to disk, which can sometimes be
+                advantageous. For example, if transformed examples are very large
+                (e.g., if `pixel_values` are large for multimodal data), or if you don't
+                want to post-process the whole dataset before training starts.
+
+        Returns:
+            A HuggingFace dataset. Can be `datasets.Dataset` or
+            `datasets.IterableDataset` depending on the value of `return_iterable`.
+        """
         _MAX_SHARD_SIZE = 1 * 1024 * 1024 * 1024  # ~1GB
         dataset_type_name = self.__class__.__name__
         num_proc = self._compute_effective_transform_num_workers()
@@ -310,7 +322,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                 for item in zip(starts, stops)
             ]
 
-            if iterable:
+            if return_iterable:
                 result = datasets.IterableDataset.from_generator(
                     self._as_generator_over_shards,
                     gen_kwargs={"shards": shards},
@@ -326,7 +338,7 @@ class BaseMapDataset(MapDataPipe, ABC):
                     writer_batch_size=writer_batch_size,
                 )
         else:
-            if iterable:
+            if return_iterable:
                 result = datasets.IterableDataset.from_generator(
                     self.as_generator,
                     features=feature_map,
@@ -347,7 +359,7 @@ class BaseMapDataset(MapDataPipe, ABC):
             f"Duration: {duration_sec:.1f} sec. Transform workers: {num_proc}."
         )
 
-        if iterable:
+        if return_iterable:
             result = cast(datasets.IterableDataset, result)
             logger.debug(f"{dataset_type_name}: IterableDataset:{result}")
         else:
