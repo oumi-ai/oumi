@@ -12,10 +12,10 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     target_col: "text" # TODO: useless col, but required by the trainer
+    stream: True
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
-        stream: True
         shuffle: True
         seed: 42
         trust_remote_code: True
