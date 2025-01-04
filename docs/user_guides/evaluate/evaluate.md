@@ -5,14 +5,14 @@
 :caption: Evaluation
 :hidden:
 
-mcqa
-generative
-custom_lm_harness
+standardized_benchmarks
+generative_benchmarks
+leaderboards
 ```
 
 ## Overview
 
-Oumi provides comprehensive evaluation capabilities through multiple benchmark types and frameworks, allowing you to assess language models across various dimensions and tasks. The framework is designed for reproducibility and extensibility, featuring batch processing optimization, flexible configuration system, and comprehensive experiment tracking through Weights & Biases integration.
+Oumi provides comprehensive evaluation capabilities through multiple benchmark types and frameworks, allowing you to assess language models across various dimensions and tasks. The framework is designed for reproducibility and extensibility, featuring batch processing optimization, a flexible configuration system, and comprehensive experiment tracking through Weights & Biases integration.
 
 All evaluations are automatically logged and versioned, capturing model configurations, evaluation parameters, and environmental details to ensure reproducible results. The framework supports both local execution and distributed evaluation for larger experiments.
 
@@ -20,35 +20,35 @@ All evaluations are automatically logged and versioned, capturing model configur
 
 | Type | Description | When to Use | Get Started |
 |------|-------------|-------------|-------------|
-| **Generative Benchmarks** | Evaluate model's ability to generate contextual responses | Best for assessing instruction-following capabilities, response quality, and multi-turn dialogue performance | See {doc}`Generative Evaluation page </user_guides/evaluate/generative>` |
-| **Multiple Choice (LM-Eval)** | Assess knowledge and reasoning through structured questions | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See [Basic Configuration](#basic-configuration) and [Supported Tasks](#supported-tasks) |
-| **LLM as Judge** | Qualitative assessment using LLMs | Perfect for subjective evaluation of response quality, safety, and alignment with custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
+| **Standardized Benchmarks** | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
+| **Open-Ended Generation** | Evaluate model's ability to effectively respond to open-ended questions | Best for assessing instruction-following capabilities, response quality, and conciseness | See {doc}`Generative benchmarks page </user_guides/evaluate/generative_benchmarks>` |
+| **LLM as Judge** | Qualitative assessment using LLMs | Suitable for subjective evaluation of response quality, safety, and alignment with custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
 
 ## Quick Start
 
 ### Using the CLI
 
-The simplest way to evaluate a model is through the Oumi CLI:
+The simplest way to evaluate a model is by authoring a [yaml](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/phi3/evaluation/eval.yaml) file, and calling the Oumi CLI:
 
 ```bash
-oumi evaluate -c configs/oumi/phi3.eval.lm_harness.yaml
+oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
 To run evaluation with multiple GPUs:
 ```bash
-oumi distributed torchrun -m oumi evaluate -c configs/oumi/phi3.eval.lm_harness.yaml
+oumi distributed torchrun -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
 ### Using the Python API
 
-For more programmatic control, you can use the Python API:
+For more programmatic control, you can use the Python API to load the {py:class}`~oumi.core.configs.EvaluationConfig` class:
 
 ```python
 from oumi import evaluate
 from oumi.core.configs import EvaluationConfig
 
 # Load configuration from YAML
-config = EvaluationConfig.from_yaml("configs/oumi/phi3.eval.lm_harness.yaml")
+config = EvaluationConfig.from_yaml("configs/recipes/phi3/evaluation/eval.yaml")
 
 # Run evaluation
 evaluate(config)
@@ -58,7 +58,7 @@ evaluate(config)
 
 ### Basic Configuration
 
-A minimal evaluation configuration file looks like this:
+A minimal evaluation configuration file looks as follows. The `model_name` can be a HuggingFace model name or a local path to a model.
 
 ```yaml
 model:
@@ -67,23 +67,14 @@ model:
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: huggingface_leaderboard_v1
-    num_fewshot: 0
-    num_samples: 100
+    task_name: mmlu
 
-generation:
-  batch_size: "auto"  # Let LM Harness optimize batch size
-  max_new_tokens: 512
-  temperature: 0.0
-
-enable_wandb: true
-output_dir: "evaluation_results"
-run_name: "phi3-evaluation"
+output_dir: "my_evaluation_results"
 ```
 
 ### Advanced Configuration
 
-For more complex evaluations, you can specify multiple tasks:
+For more complex evaluations, you can specify multiple tasks. We recommend to browse all available options of the overall {py:class}`~oumi.core.configs.EvaluationConfig` class, as well as {py:class}`~oumi.core.configs.params.model_params.ModelParams`, {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`, and {py:class}`~oumi.core.configs.params.generation_params.GenerationParams` parameters that you can provide.
 
 ```yaml
 model:
@@ -95,53 +86,56 @@ tasks:
   # LM Harness Tasks
   - evaluation_platform: lm_harness
     task_name: mmlu
-    num_fewshot: 5
     num_samples: 100
+    eval_kwargs:
+      num_fewshot: 5
   - evaluation_platform: lm_harness
     task_name: arc_challenge
-    num_fewshot: 25
+    eval_kwargs:
+      num_fewshot: 25
   - evaluation_platform: lm_harness
     task_name: hellaswag
-    num_fewshot: 10
+    eval_kwargs:
+      num_fewshot: 10
 
-# AlpacaEval Task
+  # AlpacaEval Task
   - evaluation_platform: alpaca_eval
     version: 2.0  # or 1.0
-    num_samples: 100
+    num_samples: 805
 
 generation:
   batch_size: 16
   max_new_tokens: 512
   temperature: 0.0
 
+output_dir: "my_evaluation_results"
 enable_wandb: true
-output_dir: "evaluation_results"
 run_name: "phi3-evaluation"
 ```
 
 #### Configuration Options
 
-- `model`: Model-specific configuration
+- `model`: Model-specific configuration ({py:class}`~oumi.core.configs.params.model_params.ModelParams`)
   - `model_name`: HuggingFace model identifier or local path
   - `trust_remote_code`: Whether to trust remote code (for custom models)
   - `adapter_model`: Path to adapter weights (optional)
   - `adapter_type`: Type of adapter ("lora" or "qlora")
 
-- `tasks`: List of evaluation tasks
-  - LM Harness Task Parameters:
+- `tasks`: List of evaluation tasks ({py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`)
+  - LM Harness Task Parameters:   ({py:class}`~oumi.core.configs.params.evaluation_params.LMHarnessTaskParams`)
     - `evaluation_platform`: "lm_harness"
     - `task_name`: Name of the LM Harness task
     - `num_fewshot`: Number of few-shot examples (0 for zero-shot)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 
-  - AlpacaEval Task Parameters:
+  - AlpacaEval Task Parameters: ({py:class}`~oumi.core.configs.params.evaluation_params.AlpacaEvalTaskParams`)
     - `evaluation_platform`: "alpaca_eval"
     - `version`: AlpacaEval version (1.0 or 2.0)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 
-- `generation`: Generation parameters
+- `generation`: Generation parameters ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`)
   - `batch_size`: Batch size for inference ("auto" for automatic selection)
   - `max_new_tokens`: Maximum number of tokens to generate
   - `temperature`: Sampling temperature
@@ -150,43 +144,20 @@ run_name: "phi3-evaluation"
 - `output_dir`: Directory for saving results
 - `run_name`: Name of the evaluation run
 
-## Supported Tasks
-
-### HuggingFace Leaderboard Tasks
-
-The `huggingface_leaderboard_v1` task suite includes:
-
-- ARC (Challenge & Easy)
-- HellaSwag
-- MMLU
-- TruthfulQA
-- Winogrande
-- GSM8K
-
-### Additional Tasks
-
-- BIG-bench
-- LAMBADA
-- PIQA
-- SQuAD
-- And many more...
-
-To see all available tasks:
-
-```bash
-lm-eval --tasks list
-```
 
 ## Results and Logging
 
 ### Evaluation Results
 
-Results are saved in the specified `output_dir` with the following files:
+Results are saved under the specified `output_dir`, in a folder named `<platform>_<timestamp>`, which includes the following files:
 
-- `lm_harness_{timestamp}_results.json`: Detailed evaluation metrics
-- `lm_harness_{timestamp}_task_config.json`: Task configuration
-- `lm_harness_{timestamp}_evaluation_config.yaml`: Evaluation configuration
-- `lm_harness_{timestamp}_package_versions.json`: Package version information for reproducibility
+- `platform_results.json`: Detailed evaluation metrics
+- `platform_task_config.json`: Task configuration parameters of the underlying platform
+- `task_params.json`: Task parameters for Oumi (see {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`)
+- `model_params.json`: Model parameters (see {py:class}`~oumi.core.configs.params.model_params.ModelParams`)
+- `generation_params.json`: Generation parameters (see {py:class}`~oumi.core.configs.params.generation_params.GenerationParams`)
+- `inference_config.json`: Inference configuration; only applicable to generative benchmarks (see {py:class}`~oumi.core.configs.inference_config.InferenceConfig`)
+- `package_versions.json`: Package version information for reproducibility
 
 ### Weights & Biases Integration
 
@@ -196,8 +167,3 @@ When `enable_wandb` is true, results are automatically logged to W&B:
 # Environment variable for W&B project name
 os.environ["WANDB_PROJECT"] = "my-evaluation-project"
 ```
-
-## API Reference
-
-- See the {py:class}`~oumi.core.configs.EvaluationConfig` class for complete configuration options.
-- See {py:func}`~oumi.evaluate` function documentation for programmatic usage.
