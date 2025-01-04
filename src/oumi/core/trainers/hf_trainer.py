@@ -69,13 +69,18 @@ class HuggingFaceTrainer(BaseTrainer):
                 # Saving the merged model only saves the model weights, not the
                 # tokenizer files and training args. To ensure we're saving all relevant
                 # files, we save the PEFT model first, delete the adapter files, then
-                # save the merged model. The adapter files are deleted so that the model
-                # will be loaded correctly as a non-PEFT model.
+                # save the merged model.
+                # The adapter files are moved to the "adapter/" subdirectory to not
+                # interfere with the other saved model files.
+
                 self._hf_trainer.save_model(output_dir)
+                output_dir_path = pathlib.Path(output_dir)
+                adapter_dir = output_dir_path / "adapter"
+                adapter_dir.mkdir(parents=True, exist_ok=True)
                 for filename in ["adapter_config.json", "adapter_model.safetensors"]:
-                    file_path = pathlib.Path(output_dir) / filename
+                    file_path = output_dir_path / filename
                     if file_path.exists():
-                        file_path.unlink()
+                        file_path.rename(adapter_dir / filename)
                     else:
                         logger.warning(
                             f"{filename} not found in {output_dir} when "
