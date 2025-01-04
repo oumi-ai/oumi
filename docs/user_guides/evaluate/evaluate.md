@@ -20,8 +20,8 @@ All evaluations are automatically logged and versioned, capturing model configur
 
 | Type | Description | When to Use | Get Started |
 |------|-------------|-------------|-------------|
-| **Standardized Benchmarks** (LM Harness platform) | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
-| **Open-Ended Generation** (Alpaca Eval platform) | Evaluate model's ability to effectively respond to open-ended questions | Best for assessing instruction-following capabilities, response quality, and conciseness | See {doc}`Generative benchmarks page </user_guides/evaluate/generative_benchmarks>` |
+| **Standardized Benchmarks** | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
+| **Open-Ended Generation** | Evaluate model's ability to effectively respond to open-ended questions | Best for assessing instruction-following capabilities, response quality, and conciseness | See {doc}`Generative benchmarks page </user_guides/evaluate/generative_benchmarks>` |
 | **LLM as Judge** | Qualitative assessment using LLMs | Suitable for subjective evaluation of response quality, safety, and alignment with custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
 
 ## Quick Start
@@ -74,12 +74,7 @@ output_dir: "my_evaluation_results"
 
 ### Advanced Configuration
 
-For more complex evaluations, you can specify multiple tasks. We recommend to browse all available options of the overall
-{py:class}`~oumi.core.configs.EvaluationConfig` class ([GitHub](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py)),
-as well as
-{py:class}`~oumi.core.configs.params.model_params.ModelParams` ([GitHub](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/model_params.py)),
-{py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams` ([GitHub](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/evaluation_params.py)), and
-{py:class}`~oumi.core.configs.params.generation_params.GenerationParams` ([GitHub](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/generation_params.py)) parameters that you can provide.
+For more complex evaluations, you can specify multiple tasks. We recommend to browse all available options of the overall {py:class}`~oumi.core.configs.EvaluationConfig` class, as well as {py:class}`~oumi.core.configs.params.model_params.ModelParams`, {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`, and {py:class}`~oumi.core.configs.params.generation_params.GenerationParams` parameters that you can provide.
 
 ```yaml
 model:
@@ -120,27 +115,27 @@ run_name: "phi3-evaluation"
 
 #### Configuration Options
 
-- `model`: Model-specific configuration ([all options](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/model_params.py))
+- `model`: Model-specific configuration ({py:class}`~oumi.core.configs.params.model_params.ModelParams`)
   - `model_name`: HuggingFace model identifier or local path
   - `trust_remote_code`: Whether to trust remote code (for custom models)
   - `adapter_model`: Path to adapter weights (optional)
   - `adapter_type`: Type of adapter ("lora" or "qlora")
 
-- `tasks`: List of evaluation tasks ([all options](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/evaluation_params.py))
-  - LM Harness Task Parameters:
+- `tasks`: List of evaluation tasks ({py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`)
+  - LM Harness Task Parameters:   ({py:class}`~oumi.core.configs.params.evaluation_params.LMHarnessTaskParams`)
     - `evaluation_platform`: "lm_harness"
     - `task_name`: Name of the LM Harness task
     - `num_fewshot`: Number of few-shot examples (0 for zero-shot)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 
-  - AlpacaEval Task Parameters:
+  - AlpacaEval Task Parameters: ({py:class}`~oumi.core.configs.params.evaluation_params.AlpacaEvalTaskParams`)
     - `evaluation_platform`: "alpaca_eval"
     - `version`: AlpacaEval version (1.0 or 2.0)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 
-- `generation`: Generation parameters ([all options](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/generation_params.py))
+- `generation`: Generation parameters ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`)
   - `batch_size`: Batch size for inference ("auto" for automatic selection)
   - `max_new_tokens`: Maximum number of tokens to generate
   - `temperature`: Sampling temperature
