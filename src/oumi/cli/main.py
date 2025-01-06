@@ -1,3 +1,4 @@
+import os
 import sys
 
 import typer
@@ -37,7 +38,8 @@ _ASCII_LOGO = """
 
 
 def _oumi_welcome(verbose: bool = True):
-    if verbose:
+    is_process_zero = os.environ.get("RANK", 0) == 0
+    if verbose and is_process_zero:
         print(_ASCII_LOGO)
 
 
