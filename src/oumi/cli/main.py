@@ -1,4 +1,3 @@
-import os
 import sys
 
 import typer
@@ -37,9 +36,9 @@ _ASCII_LOGO = """
 """
 
 
-def _oumi_welcome(verbose: bool = True):
-    is_process_zero = os.environ.get("RANK", 0) == 0
-    if verbose and is_process_zero:
+def _oumi_welcome(ctx: typer.Context):
+    is_distributed_cmd = ctx.invoked_subcommand == "distributed"
+    if not is_distributed_cmd:
         print(_ASCII_LOGO)
 
 
