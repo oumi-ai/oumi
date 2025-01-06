@@ -37,8 +37,7 @@ _ASCII_LOGO = """
 
 
 def _oumi_welcome(ctx: typer.Context):
-    is_distributed_cmd = ctx.invoked_subcommand == "distributed"
-    if not is_distributed_cmd:
+    if ctx.invoked_subcommand != "distributed":
         print(_ASCII_LOGO)
 
 
