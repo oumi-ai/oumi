@@ -8,14 +8,14 @@ This guide covers how to use Oumi in `Jupyter` notebooks, `VSCode`, and `Google 
 
 You can install `oumi` with `Jupyter` in two ways:
 
-Option 1: Install everything at once with dev dependencies:
+**Option 1:** Install everything at once with dev dependencies:
 
 ```bash
 # Install Oumi with development dependencies (includes Jupyter)
 pip install oumi[dev]
 ```
 
-Option 2: Install Jupyter and Oumi separately:
+**Option 2:** Install Jupyter and Oumi separately:
 
 ```bash
 # Install Jupyter
