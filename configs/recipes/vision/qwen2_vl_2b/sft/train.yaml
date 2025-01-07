@@ -30,7 +30,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
-          # limit: 8192
+          limit: 8192
           return_tensors: True
 
 training:
