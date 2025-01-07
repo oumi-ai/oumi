@@ -88,7 +88,7 @@ pip install -e ".[gpu]"  # For GPU training
    --interactive
    ```
 
-   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/user_guides/train/distributed_training.md).
+   For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), and [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html) guides.
 
 ### Examples &  Recipes
 
