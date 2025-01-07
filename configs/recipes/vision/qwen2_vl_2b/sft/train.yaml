@@ -12,7 +12,7 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: False
-    target_col: "text"
+    target_col: "prompt"
     stream: True
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -57,7 +57,7 @@ training:
 
   logging_steps: 5
   save_steps: 0
-  dataloader_main_process_only: True
+  dataloader_main_process_only: False
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
