@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Optional
 
@@ -117,9 +117,8 @@ class EvaluationTaskParams(BaseParams):
         # Find all keys in `eval_kwargs` which are known to the target class.
         known_keys = []
         if self.eval_kwargs:
-            for key in self.eval_kwargs:
-                if key in target_class.all_params():
-                    known_keys.append(key)
+            field_names = [field.name for field in fields(target_class)]
+            known_keys.extend(key for key in self.eval_kwargs if key in field_names)
 
         # Identify all kwargs known to the current class.
         init_keys = [
@@ -131,6 +130,11 @@ class EvaluationTaskParams(BaseParams):
 
         # Move known kwargs one level up: from `eval_kwargs` to the top-level dict.
         for key in known_keys:
+            if key in init_kwargs:
+                raise ValueError(
+                    f"Parameter `{key}` is present twice, in both task parameters and "
+                    "`eval_kwargs` dictionary. Please remove it from one of them."
+                )
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
