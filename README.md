@@ -39,7 +39,7 @@ Oumi is designed to support all common foundation model workflows. As a few exam
 - Perform **inference** with most common inference engines and **evaluation** with most common benchmarks.
 - Do many more things out of the box and **anything else** you desire easily thanks to Oumi’s composable and extensible design.
 
-Some of Oumi's key features and design principles incude:
+Some of Oumi's key features and design principles include:
 
 - **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
 
