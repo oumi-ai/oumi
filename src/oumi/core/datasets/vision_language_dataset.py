@@ -186,17 +186,17 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         else:
             inputs["labels"] = copy.deepcopy(input_ids)
 
-        if self.text_col:
+        if self._text_col:
             # `text_col` isn't really used for training for SFT datasets
             # (only `input_ids` is used) but we're saving text prompts here
             # for debugging purposes. FIXME Clean-up `text_col` usage.
-            if self.text_col in inputs.keys():
+            if self._text_col in inputs.keys():
                 raise ValueError(
-                    f"target_col: '{self.text_col}' already exists "
+                    f"target_col: '{self._text_col}' already exists "
                     f"in dataset features: {sorted(list(inputs.keys()))}! "
                     "Consider using a different value to resolve the name collision."
                 )
-            # inputs[self.text_col] = [str(prompt)]
+            inputs[self._text_col] = [str(prompt)]
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader
