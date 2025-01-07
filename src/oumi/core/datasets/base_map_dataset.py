@@ -291,6 +291,9 @@ class BaseMapDataset(MapDataPipe, ABC):
             1, min(elements_per_shard, 200 if output_features.multimodal else 1000)
         )
 
+        logger.info(
+            f"{dataset_type_name}: features={output_features.feature_map.keys()}"
+        )
         logger.debug(
             f"{dataset_type_name}: features={output_features} "
             f"examples={total_examples} "
