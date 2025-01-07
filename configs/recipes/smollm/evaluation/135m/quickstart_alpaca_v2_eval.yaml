@@ -13,5 +13,5 @@ generation:
 
 tasks:
   - evaluation_platform: alpaca_eval
-    version: 2.0
-    num_samples: 805
+    eval_kwargs:
+      version: 2.0
