@@ -1,6 +1,6 @@
 # Generative Benchmarks
 
-Evaluating language models oftentimes requires specialized approaches beyond standardized benchmarks and traditional metrics. In this section, we discuss several established methods for assessing model performance with generative benchmarks. Generative benchmarks consist of open-ended questions, allowing the model to generate a free-form output, rather than adhere to a pre-defined "correct" answer. The focus of such evaluations is to assess the model's ability to follow the prompt instructions and generate human-like, high-quality, coherent, and creative responses.
+Evaluating language models on open-ended generation tasks requires specialized approaches beyond standardized benchmarks and traditional metrics. In this section, we discuss several established methods for assessing model performance with generative benchmarks. Generative benchmarks consist of open-ended questions, allowing the model to generate a free-form output, rather than adhere to a pre-defined "correct" answer. The focus of such evaluations is to assess the model's ability to follow the prompt instructions and generate human-like, high-quality, coherent, and creative responses.
 
 ## Overview
 
@@ -63,10 +63,9 @@ HumanEval is a benchmark designed to evaluate language models' capabilities in g
 - [Dataset Documentation](https://huggingface.co/datasets/openai_humaneval)
 -->
 
-
 ## Custom Benchmarks (LLM-as-a-judge)
 
-Using LLMs as response judges provides a flexible approach to evaluate model outputs. If you want to use your own prompts to evaluate a model, extend or mix-and-match prompts from various platforms, then we recommend to build your own judge. Defining a custom judge also allows you to adopt a custom configuration and judgment prompts, while you can tailor the scoring criteria to meet your specific needs.
+Using LLMs as response judges provides a flexible approach to evaluate model outputs. If you have a custom set of judgement prompts, a special model configuration for the judge, or you need to tailor the scoring criteria to meet your specific needs, we recommend that you define a custom judge.
 
 See {doc}`/user_guides/judge/judge` to get started.
 
