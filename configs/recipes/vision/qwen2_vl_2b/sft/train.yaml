@@ -14,14 +14,22 @@ data:
     experimental_use_torch_datapipes: False
     target_col: "prompt"
     datasets:
-      - dataset_name: "merve/vqav2-small"
-        split: "validation"
+      # - dataset_name: "merve/vqav2-small"
+      #   split: "validation"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+      #     limit: 4096
+      #     return_tensors: True
+      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+        split: "train"
         shuffle: True
         seed: 42
-        transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
-          limit: 4096
+          # limit: 8192
           return_tensors: True
 
 training:
