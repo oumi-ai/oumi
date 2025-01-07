@@ -114,7 +114,7 @@ def test_build_dataset_mixture(
                         mixture_proportion=0.7,
                     ),
                     DatasetParams(
-                        dataset_name="text_sft_jsonl",
+                        dataset_name="text_sft",
                         dataset_path=str(sample_conversations_jsonl),
                         mixture_proportion=0.3,
                     ),
