@@ -97,7 +97,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: text_sft_jsonl
+      - dataset_name: text_sft
         dataset_path: path/to/data
     stream: true
 
