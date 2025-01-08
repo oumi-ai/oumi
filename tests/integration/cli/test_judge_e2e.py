@@ -61,7 +61,7 @@ def test_judge_dataset_with_output_file(app):
             ],
         )
 
-        assert result.exit_code == 0, f"CLI command failed with: {result}"
+        assert result.exit_code == 0
         assert Path(output_file).exists()
 
 
@@ -92,7 +92,7 @@ def test_judge_conversations_runs(app):
             ],
         )
 
-        assert result.exit_code == 0, f"CLI command failed with: {result}"
+        assert result.exit_code == 0
 
 
 def test_judge_conversations_with_output_file(app):
@@ -125,5 +125,5 @@ def test_judge_conversations_with_output_file(app):
             ],
         )
 
-        assert result.exit_code == 0, f"CLI command failed with: {result}"
+        assert result.exit_code == 0
         assert Path(output_file).exists()
