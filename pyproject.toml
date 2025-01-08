@@ -48,7 +48,7 @@ dependencies = [
     "pillow>=10.3.0,<10.4",            # Used by image datasets
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
-    "skypilot>=0.7.0,<0.8",            # Used by launcher
+    "skypilot>=0.6.1,<0.8",            # Used by launcher
     "tensorboard>=2.18.0,<2.19",       # Optional, for monitoring training
     "torch>=2.4.0,<2.5.0",
     "torchdata>=0.9.0,<0.10.0",        # Used by data pipes loader
@@ -100,25 +100,25 @@ gpu = [
 ]
 
 # Targets for supported cloud providers
-aws = ["skypilot[aws]>=0.7.0,<0.8"]
-azure = ["skypilot[azure]>=0.7.0,<0.8"]
+aws = ["skypilot[aws]>=0.6.1,<0.8"]
+azure = ["skypilot[azure]>=0.6.1,<0.8", "azure-cli==2.53.1"]
 gcp = [
     "google-api-core>=2.19.0",
     "google-api-python-client",
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
-    "skypilot[gcp]>=0.7.0,<0.8",
+    "skypilot[gcp]>=0.6.1,<0.8",
 ]
-lambda = ["skypilot[lambda]>=0.7.0,<0.8"]
-runpod = ["skypilot[runpod]>=0.7.0,<0.8"]
+lambda = ["skypilot[lambda]>=0.6.1,<0.8"]
+runpod = ["skypilot[runpod]>=0.6.1,<0.8"]
 cloud = [
     "oumi[azure,gcp,lambda,runpod]",
 ] # aws excluded due to version conflicts
 
 # Optional dependencies
 optional = [
-    "llama-cpp-python",   # for local cpu/gpu inference. TODO: resolve install issues
+    "llama-cpp-python",        # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
     "alpaca-eval>=0.6.6,<0.7",
 ]
