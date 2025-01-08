@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 # General makefile
 # Conda environment name
-CONDA_ENV := oumitestfresh
+CONDA_ENV := oumi
 CONDA_ACTIVE := $(shell conda info --envs | grep -q "*" && echo "true" || echo "false")
 CONDA_RUN := conda run -n $(CONDA_ENV)
 CONDA_INSTALL_PATH := $(HOME)/miniconda3
