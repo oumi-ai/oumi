@@ -34,8 +34,8 @@ Arguments:
 
 ### Available Queues
 
-- `debug`: For quick testing (limited time)
-- `debug-scaling`: For testing multi-node jobs
+- `debug`: For quick testing (max 1 node, limited time)
+- `debug-scaling`: For testing multi-node jobs (max 10 nodes)
 - `preemptable`: For regular jobs (can be interrupted)
 - `prod`: For production runs
 
