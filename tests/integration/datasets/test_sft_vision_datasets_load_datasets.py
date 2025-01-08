@@ -20,8 +20,8 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "meta-llama/Llama-3.2-11B-Vision-Instruct"
-_DEFAULT_CHAT_TEMPLATE: Final[str] = "llama3-instruct"
+_DEFAULT_MODEL_NAME: Final[str] = "llava-hf/llava-1.5-7b-hf"
+_DEFAULT_CHAT_TEMPLATE: Final[str] = "llava"
 
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
