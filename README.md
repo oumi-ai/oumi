@@ -17,10 +17,10 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built to be flexible and enterprise-grade, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 <p align="center">
-   <b>Check out our docs!</b>
+   <b>Check out the detailed Oumi docs!</b>
    <br>
    ↓↓↓↓↓↓
    <br>
@@ -35,27 +35,27 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 
 Oumi is designed to be fully flexible yet easy to use:
 
-- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
+- **End-to-end Unified Platform**: Support for the full ML lifecycle with one consistent interface - from pretraining to data curation, data synthesis, fine-tuning (SFT, LoRA, QLoRA, DPO), inference, and evaluation. Seamlessly work with both open models (Llama, QWEN, Phi and others) and commercial APIs (OpenAI, Anthropic, Vertex AI), with both text and multimodal models.
 
-- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) to evaluation. Built for both research exploration and production deployment.
+- **Easy To Use**: Prebuilt ready-to-use workflows and recipes for post training and other common operations.
+
+- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity and extensibility in mind.
+
+- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters and clouds (AWS, Azure, GCP, Lambda), with native support for Jupyter notebooks and VS Code debugging.
 
 - **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
 
-- **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
+- **Research-Grade**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines. Standardization of datasets, evaluation and other experimentation steps make it easy to share, collaborate and build on each other's work.
 
-- **Unified Interface**: One consistent interface for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
-
-- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
-
-- **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
+- **Enterprise-Grade**: Comprehensive test coverage, detailed documentation, and strong support make Oumi reliable for both research and production use cases.
 
 If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
 
-For a full tour of what Oumi can do, dive into our [documentation](https://oumi.ai/docs).
+For a full tour of what Oumi can do, dive into the [documentation](https://oumi.ai/docs).
 
 ## Getting Started
 
-With just a couple commands you can install Oumi, train, infer, and evaluate. All it would take is something like the following:
+With just a couple commands you can install Oumi, train, infer, and evaluate.
 
 ### Installation
 
@@ -92,7 +92,7 @@ pip install -e ".[gpu]"  # For GPU training
 
 ### Examples &  Recipes
 
-Explore our growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
+Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
 #### 🦙 Llama Family
 
@@ -157,19 +157,19 @@ See the [Oumi documentation](https://oumi.ai/docs) to learn more about all the p
 
 ## Contributing
 
-Did we mention that this is a community-first effort? All contributions are welcome!
+This is a community-first effort. Contributions are very welcome! 🚀
 
-Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidelines on how to contribute to the project.
 
-If you want to contribute but you are short of ideas, please reach out (<contact@oumi.ai>)!
+If you want to contribute, but you are short of ideas, please reach out (<contact@oumi.ai>)!
 
 ## Acknowledgements
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🚀
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🙏
 
 ## Citation
 
-If you find Oumi useful in your research, please consider citing it using the following entry:
+If you find Oumi useful in your research, please consider citing it:
 
 ```bibtex
 @software{oumi2024,
