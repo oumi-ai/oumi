@@ -78,8 +78,8 @@ def test_build_dataset_conversations(
     assert len(items) == 2
 
     # Check first conversation
-    assert isinstance(items[0], dict)
-    assert isinstance(items[1], dict)
+    assert isinstance(items[0], dict), f"{type(items[0])}"
+    assert isinstance(items[1], dict), f"{type(items[1])}"
 
 
 def test_build_dataset_invalid_path():
