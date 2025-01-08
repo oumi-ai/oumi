@@ -177,8 +177,8 @@ def _mix_datasets(
     seed: Optional[int],
 ) -> DatasetType:
     """Joins multiple datasets using the provided `mixture_strategy`."""
-    if len(dataset_list) == 1:
-        return dataset_list[0]
+    # if len(dataset_list) == 1:
+    #    return dataset_list[0]
 
     if any([proportion is None for proportion in mixture_proportions]):
         # All datasets should be concatenated when no proportion is specified.
