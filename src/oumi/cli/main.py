@@ -40,7 +40,7 @@ _ASCII_LOGO = """
 def _oumi_welcome(ctx: typer.Context):
     if ctx.invoked_subcommand == "distributed":
         return
-    # Skip logo for ranks>1 for multi-GPU jobs to reduce noise in logs.
+    # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
     if int(os.environ.get("RANK", 0)) > 0:
         return
     print(_ASCII_LOGO)
