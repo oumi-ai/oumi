@@ -14,6 +14,7 @@ from oumi.core.configs import (
     MixtureStrategy,
     TrainingConfig,
 )
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -87,20 +88,22 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.use_async_dataset:
-            dataset = PretrainingAsyncTextDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
-        else:
-            dataset = ConstantLengthDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
+        if not isinstance(dataset, BasePretrainingDataset):
+            if dataset_split_params.use_async_dataset:
+                dataset = PretrainingAsyncTextDataset(
+                    tokenizer,
+                    dataset,
+                    dataset_text_field=dataset_split_params.target_col,
+                    **dataset_kwargs,
+                )
+            else:
+                pass
+                # dataset = ConstantLengthDataset(
+                #     tokenizer,
+                #     dataset,
+                #     dataset_text_field=dataset_split_params.target_col,
+                #     **dataset_kwargs,
+                # )
 
     return dataset
 
@@ -290,8 +293,6 @@ def _load_dataset(
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
-    print('potato')
-    print(dataset_class)
 
     if dataset_class is not None:
         dataset_kwargs = {**dataset_params.dataset_kwargs}
