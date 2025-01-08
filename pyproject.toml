@@ -118,7 +118,7 @@ cloud = [
 
 # Optional dependencies
 optional = [
-    "llama-cpp-python",        # for local cpu/gpu inference. TODO: resolve install issues
+    "llama-cpp-python>=0.3.5,<0.4", # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
     "alpaca-eval>=0.6.6,<0.7",
 ]
