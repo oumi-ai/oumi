@@ -51,6 +51,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_path = dataset_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
+        self.trust_remote_code = trust_remote_code
         self.stream = stream
         self._data = self._load_data()
 
@@ -66,7 +67,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         """Iterates over the raw dataset."""
         yield from self.data
 
-    def to_hf(self) -> datasets.IterableDataset:
+    def to_hf(self, **kwargs) -> datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset."""
         return datasets.IterableDataset.from_generator(self.__iter__)
 

@@ -290,6 +290,8 @@ def _load_dataset(
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
+    print('potato')
+    print(dataset_class)
 
     if dataset_class is not None:
         dataset_kwargs = {**dataset_params.dataset_kwargs}
@@ -299,6 +301,7 @@ def _load_dataset(
             )
 
         dataset = dataset_class(
+            dataset_name=dataset_params.dataset_name,
             split=dataset_params.split,
             subset=dataset_params.subset,
             dataset_path=dataset_params.dataset_path,
