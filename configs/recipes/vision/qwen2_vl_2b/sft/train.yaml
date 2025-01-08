@@ -57,7 +57,7 @@ training:
 
   logging_steps: 5
   save_steps: 0
-  dataloader_main_process_only: False
+  dataloader_main_process_only: True # False
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
