@@ -34,4 +34,4 @@ jobs:
       run: |
         # Verify NVIDIA GPU is available
         nvidia-smi
-        pytest -s -v -m gpu --duration=0
+        pytest -s -v -m gpu --durations=0
