@@ -1,3 +1,4 @@
+import os
 import sys
 
 import typer
@@ -37,8 +38,12 @@ _ASCII_LOGO = """
 
 
 def _oumi_welcome(ctx: typer.Context):
-    if ctx.invoked_subcommand != "distributed":
-        print(_ASCII_LOGO)
+    if ctx.invoked_subcommand == "distributed":
+        return
+    # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
+    if int(os.environ.get("RANK", 0)) > 0:
+        return
+    print(_ASCII_LOGO)
 
 
 def get_app() -> typer.Typer:
