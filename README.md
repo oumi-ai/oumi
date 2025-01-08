@@ -33,7 +33,13 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 
 ## Features
 
-Oumi is designed to be fully flexible yet easy to use:
+Oumi is designed to support all common foundation model workflows. As a few examples, with Oumi you can:
+-  **Tune** all the most popular and highest performing open text and multimodal models with the latest techniques for the highest quality and efficiency. From the smallest models to the largest ones. On your laptop, your cluster, or any common cloud. 
+- **Synthesize** data with the largest open models, curate it with LLM judges and readily use it to train and evaluate.
+- Perform **inference** with most common inference engines and **evaluation** with most common benchmarks.
+- Do many more things out of the box and **anything else** you desire easily thanks to Oumi’s composable and extensible design.
+
+Some of Oumi's key features and design principles include:
 
 - **End-to-end Unified Platform**: Support for the full ML lifecycle with one consistent interface - from pretraining to data curation, data synthesis, fine-tuning (SFT, LoRA, QLoRA, DPO), inference, and evaluation. Seamlessly work with both open models (Llama, QWEN, Phi and others) and commercial APIs (OpenAI, Anthropic, Vertex AI), with both text and multimodal models.
 
