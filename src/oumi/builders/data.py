@@ -14,7 +14,6 @@ from oumi.core.configs import (
     MixtureStrategy,
     TrainingConfig,
 )
-from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -88,22 +87,21 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if not isinstance(dataset, BasePretrainingDataset):
-            if dataset_split_params.use_async_dataset:
-                dataset = PretrainingAsyncTextDataset(
-                    tokenizer,
-                    dataset,
-                    dataset_text_field=dataset_split_params.target_col,
-                    **dataset_kwargs,
-                )
-            else:
-                pass
-                # dataset = ConstantLengthDataset(
-                #     tokenizer,
-                #     dataset,
-                #     dataset_text_field=dataset_split_params.target_col,
-                #     **dataset_kwargs,
-                # )
+        if dataset_split_params.use_async_dataset:
+            dataset = PretrainingAsyncTextDataset(
+                tokenizer,
+                dataset,
+                dataset_text_field=dataset_split_params.target_col,
+                **dataset_kwargs,
+            )
+        else:
+            pass
+            # dataset = ConstantLengthDataset(
+            #     tokenizer,
+            #     dataset,
+            #     dataset_text_field=dataset_split_params.target_col,
+            #     **dataset_kwargs,
+            # )
 
     return dataset
 

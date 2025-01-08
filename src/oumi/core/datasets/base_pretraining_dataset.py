@@ -46,8 +46,6 @@ class BasePretrainingDataset(BaseIterableDataset):
         **kwargs,
     ):
         """Initializes a new instance of the BasePretrainingDataset class."""
-        print('in pt dataset')
-        print(kwargs)
         if append_concat_token and tokenizer.eos_token_id is None:
             raise ValueError(
                 "Tokenizer must have an EOS token if append_concat_token is enabled."
