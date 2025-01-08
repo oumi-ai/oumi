@@ -34,7 +34,7 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
 ## Features
 
 Oumi is designed to support all common foundation model workflows. As a few examples, with Oumi you can:
--  **Tune** all the most popular and highest performing open text and multimodal models with the latest techniques for the highest quality and efficiency. From the smallest models to the largest ones. On your laptop, your cluster, or any common cloud. 
+-  **Tune** all the most popular and highest performing open text and multimodal models with the latest techniques for the highest quality and efficiency. From the smallest models to the largest ones. On your laptop, your cluster, or any common cloud.
 - **Synthesize** data with the largest open models, curate it with LLM judges and readily use it to train and evaluate.
 - Perform **inference** with most common inference engines and **evaluation** with most common benchmarks.
 - Do many more things out of the box and **anything else** you desire easily thanks to Oumi’s composable and extensible design.
@@ -79,19 +79,15 @@ pip install -e ".[gpu]"  # For GPU training
 
 ### Usage
 
-   ```shell
+  ```shell
    # Training
    oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
    # Evaluation
-   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-   --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
 
    # Inference
-   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-   --generation.max_new_tokens 40 \
-   --generation.temperature 0.7 \
-   --interactive
+   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
    ```
 
    For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), and [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html) guides.
@@ -104,10 +100,10 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama 3.1 8B | [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
-| Llama 3.1 70B | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
-| Llama 3.1 405B | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
-| Llama 3.2 3B | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
+| Llama 3.1 8B | [FFT](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
+| Llama 3.1 70B | [FFT](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
+| Llama 3.1 405B | [FFT](/configs/recipes/llama3_1/sft/405b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) |
+| Llama 3.2 3B | [FFT](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml)  • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml)|
 | Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 
 #### 🎨 Vision Models
