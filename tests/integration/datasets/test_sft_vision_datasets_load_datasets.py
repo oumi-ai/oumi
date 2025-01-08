@@ -49,7 +49,7 @@ class LoadDatasetInfo(NamedTuple):
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     # Special case datasets that should be excluded from default testing.
-    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl"})
+    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl", "vl_sft"})
 
     all_dataset_names = set(_get_all_sft_vision_dataset_names())
     result = [

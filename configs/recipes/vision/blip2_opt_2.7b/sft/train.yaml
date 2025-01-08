@@ -26,6 +26,7 @@ data:
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "Salesforce/blip2-opt-2.7b"
       #     limit: 1024

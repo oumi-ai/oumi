@@ -55,7 +55,7 @@ The `data` section in the configuration file specifies the dataset to use for tr
 data:
   train:
     datasets:
-      - dataset_name: "text_sft_jsonl"
+      - dataset_name: "text_sft"
         dataset_path: "/path/to/data"
         split: "train"
     collator_name: "text_with_padding"

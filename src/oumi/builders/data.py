@@ -245,15 +245,6 @@ def _sample_dataset(
     return cast(DatasetType, oversampled_dataset)
 
 
-def _preprocess_dataset(
-    dataset: DatasetType,
-    dataset_params: DatasetParams,
-    tokenizer: Optional[BaseTokenizer],
-) -> DatasetType:
-    """Applies preprocessing to a dataset given an optional preprocessing function."""
-    return dataset
-
-
 def _build_iterable_dataset_sampler(
     dataset: datasets.IterableDataset, n: int
 ) -> Callable:
@@ -281,12 +272,17 @@ def _load_dataset(
     datasets.IterableDatasetDict,
     datasets.IterableDataset,
 ]:
-    """Loads a dataset with the specified name and subset."""
-    # Streaming is not fully supported yet for custom datasets. The current logic is
-    # as follows: The original dataset is always a "map" dataset, but
-    # if `stream=True` then the raw dataset is not post-processed (not "transformed")
-    # before training starts: Instead, it's returned as `IterableDataset` with
-    # lazy feature generation i.e., `transform()` is called on-demand during training.
+    """Loads a dataset with the specified name and subset.
+
+    Note:
+        For custom map datasets, streaming is only partially supported:
+         - The full dataset is downloaded (or loaded from disk), and loaded in memory.
+         - However, transformations are applied lazily in streaming mode. The raw
+           dataset is not post-processed (i.e., not "transformed") before
+           training starts. Instead, it's returned as `IterableDataset` with lazy
+           feature generation i.e., `transform()` is called on-demand during
+           training.
+    """
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
@@ -308,6 +304,9 @@ def _load_dataset(
         )
         return dataset.to_hf(return_iterable=stream)
 
+    # Load a fully preprocessed (tokenized, etc) dataset from disk.
+    # The raw data will be used for training, with any processing
+    # other than collation (if enabled).
     dataset_path = dataset_params.dataset_path
     if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
         return datasets.Dataset.load_from_disk(dataset_path)
