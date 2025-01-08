@@ -4,8 +4,8 @@ on: [pull_request]
 
 jobs:
   gpu-tests:
-    runs-on: ubuntu-24.04
-
+    runs-on: linux-gpu-runner
+    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -32,4 +32,6 @@ jobs:
 
     - name: Run GPU tests
       run: |
+        # Verify NVIDIA GPU is available
+        nvidia-smi
         pytest -s -v -m gpu --duration=0
