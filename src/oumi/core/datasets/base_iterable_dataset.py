@@ -15,7 +15,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     dataset_path: Optional[str] = None
     default_dataset: Optional[str] = None
     default_subset: Optional[str] = None
-    trust_remote_code: bool
+    trust_remote_code: bool = False
 
     def __init__(
         self,
@@ -40,6 +40,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
 
         dataset_name = dataset_name or self.default_dataset
 
+        # TODO: Is it possible for this to be None now?
         if dataset_name is None:
             raise ValueError(
                 "Please specify a dataset_name or "
@@ -51,6 +52,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.dataset_path = dataset_path
         self.dataset_subset = subset or self.default_subset
         self.split = split
+        self.trust_remote_code = trust_remote_code
         self.stream = stream
         self._data = self._load_data()
 
@@ -66,8 +68,10 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         """Iterates over the raw dataset."""
         yield from self.data
 
-    def to_hf(self) -> datasets.IterableDataset:
+    def to_hf(self, return_iterable: bool = False) -> datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset."""
+        if not return_iterable:
+            raise NotImplementedError("Only returning IterableDataset is supported.")
         return datasets.IterableDataset.from_generator(self.__iter__)
 
     @property

@@ -112,9 +112,6 @@ gcp = [
 ]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
-cloud = [
-    "oumi[gcp,lambda,runpod]",
-] # azure, aws excluded due to version conflicts
 
 # Optional dependencies
 optional = [
@@ -131,7 +128,7 @@ cambrian = [
 ]
 
 # CI targets
-ci_cpu = ["oumi[dev,docs,cloud,optional]"]
+ci_cpu = ["oumi[dev,docs,cloud,optional]"] #
 ci_gpu = [
     "oumi[dev,docs,cloud,gpu]",
     "vllm>=0.6.3,<0.7.0",
