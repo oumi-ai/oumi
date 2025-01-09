@@ -42,7 +42,7 @@ run: |
       -c configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
-      --training.max_steps 20 \
+      --training.max_steps 200 \
       --training.save_steps 0 \
       --training.save_final_model false
 

@@ -25,7 +25,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import get_first_dim_len
+from oumi.utils.torch_utils import get_first_dim_len, get_shape_as_list
 
 
 class _SpecialTokens(NamedTuple):
@@ -185,6 +185,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             inputs["labels"] = input_ids.clone()
         else:
             inputs["labels"] = copy.deepcopy(input_ids)
+
+        for feature_name, feature_val in inputs.items():
+            logger.info(f"{feature_name} {get_shape_as_list(feature_val)}")
 
         # Processors by default return a list of tensors for each key
         # We need to squeeze the first dimension so that it works with the data-loader

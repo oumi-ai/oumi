@@ -3,7 +3,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
   trust_remote_code: True
-  chat_template: "llava"
+  chat_template: "default"
   freeze_layers:
     - "vision_model"
 
