@@ -1,3 +1,4 @@
+import functools
 from collections import namedtuple
 from enum import Enum, auto
 from typing import Any, Callable, Optional
@@ -26,7 +27,27 @@ class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
         return super().__new__(cls, name.lower(), registry_type)
 
 
+def _register_dependencies(cls_function):
+    """Decorator to ensure core dependencies are added to the Registry."""
+
+    @functools.wraps(cls_function)
+    def wrapper(self, *args, **kwargs):
+        if not self._initialized:
+            # Import all core dependencies.
+            import oumi.datasets  # noqa: F401
+            import oumi.judges  # noqa: F401
+            import oumi.launcher  # noqa: F401
+            import oumi.models  # noqa: F401
+
+            self._initialized = True
+        return cls_function(self, *args, **kwargs)
+
+    return wrapper
+
+
 class Registry:
+    _initialized: bool = False
+
     def __init__(self):
         """Initializes the class Registry."""
         self._registry = dict()
@@ -34,14 +55,17 @@ class Registry:
     #
     # Public functions
     #
+    @_register_dependencies
     def contains(self, name: str, type: RegistryType) -> bool:
         """Indicates whether a record exists in the registry."""
         return self._contains(RegistryKey(name, type))
 
+    @_register_dependencies
     def clear(self) -> None:
         """Clears the registry."""
         self._registry = dict()
 
+    @_register_dependencies
     def register(self, name: str, type: RegistryType, value: Any) -> None:
         """Registers a new record."""
         registry_key = RegistryKey(name, type)
@@ -53,6 +77,7 @@ class Registry:
             )
         self._registry[registry_key] = value
 
+    @_register_dependencies
     def get(
         self,
         name: str,
@@ -62,6 +87,7 @@ class Registry:
         registry_key = RegistryKey(name, type)
         return self._registry.get(registry_key)
 
+    @_register_dependencies
     def get_all(self, type: RegistryType) -> dict:
         """Gets all records of a specific type."""
         return {
