@@ -132,7 +132,11 @@ cambrian = [
 
 # CI targets
 ci_cpu = ["oumi[dev,docs,cloud,optional]"]
-ci_gpu = ["oumi[ci_cpu,gpu]"]
+ci_gpu = [
+    "oumi[dev,docs,cloud,gpu]",
+    "vllm>=0.6.3,<0.7.0",
+    "alpaca-eval>=0.6.6,<0.7",
+]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
