@@ -20,7 +20,7 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "llava-hf/llava-1.5-7b-hf"
+_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruc"
 _DEFAULT_CHAT_TEMPLATE: Final[str] = "llava"
 
 
@@ -102,6 +102,10 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     return result
 
 
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 @pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
 def test_build_dataset_mixture(info: LoadDatasetInfo):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"

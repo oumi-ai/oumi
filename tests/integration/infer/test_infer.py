@@ -56,7 +56,7 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
-            model_name="llava-hf/llava-1.5-7b-hf",
+            model_name="Qwen/Qwen2-VL-2B-Instruc",
             model_max_length=1024,
             trust_remote_code=True,
             chat_template="llava",
@@ -116,7 +116,7 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2)])
 def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
     model_params = ModelParams(
-        model_name="llava-hf/llava-1.5-7b-hf",
+        model_name="Qwen/Qwen2-VL-2B-Instruc",
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="llava",
