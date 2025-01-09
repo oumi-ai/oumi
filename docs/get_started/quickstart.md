@@ -33,13 +33,7 @@ Let's go through some examples of each command.
 
 ## Training
 
-To start training a model:
-
-```bash
-oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
-```
-
-This uses the configuration in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
+You can quickly start training a model using any of existing {doc}`recipes </resources/recipes>` or your own {doc}`custom configs </user_guides/train/configuration>`. The following command will start training using the recipe in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
 
 ````{dropdown} configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```{literalinclude} ../../configs/recipes/smollm/sft/135m/quickstart_train.yaml
@@ -47,7 +41,11 @@ This uses the configuration in `configs/recipes/smollm/sft/135m/quickstart_train
 ```
 ````
 
-You can easily override any parameters:
+```bash
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+```
+
+You can easily override any parameters directly in the command line, for example:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
@@ -56,7 +54,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft
 ```
 
-To run the same recipe on your own dataset, you can override the dataset name:
+To run the same recipe on your own dataset, you can override the dataset name and path:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
@@ -64,13 +62,16 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-You can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
+You can also run training on multiple GPUs (make sure to [install the GPU dependencies](/get_started/installation.md#optional-dependencies) if not already installed).
+
+For example, if you have a machine with 4 GPUs, you can run:
 
 ```bash
 oumi distributed torchrun -m \
   oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-dist
 ```
+
 
 ## Evaluation
 
