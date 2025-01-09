@@ -24,7 +24,7 @@ To use AlpacaEval, you can run the following command:
 
 ```bash
 OPENAI_API_KEY="your_key"
-oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval_alpaca_v2.yaml
+oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml
 ```
 
 If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
