@@ -166,11 +166,6 @@ class LMHarnessTaskParams(EvaluationTaskParams):
     If set to 0: no few-shot examples will be added in the prompt.
     """
 
-    @classmethod
-    def all_params(cls) -> list[str]:
-        """Returns all parameters of the class."""
-        return list(cls.__dict__.keys())
-
     def __post_init__(self):
         """Verifies params."""
         if self.num_fewshot and self.num_fewshot < 0:
@@ -191,6 +186,11 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
 
     version: Optional[float] = 2.0
     """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
+
+    def __post_init__(self):
+        """Verifies params."""
+        if self.version not in [1.0, 2.0]:
+            raise ValueError("AlpacaEval `version` must be 1.0 or 2.0.")
 
 
 @dataclass
