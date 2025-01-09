@@ -4,9 +4,16 @@ on: [pull_request]
 
 jobs:
   gpu-tests:
-    runs-on: linux-gpu-runner, ubuntu-24.04
+    runs-on: linux-gpu-runner
 
     steps:
+    - name: Fix GLIBC
+      run: |
+        # This is required to install llama-cpp-python
+        # because the GPU runner is running an older version of Ubuntu
+        sudo apt-get update
+        sudo apt-get install -y libc6
+
     - name: Checkout
       uses: actions/checkout@v4
       with:
