@@ -33,7 +33,7 @@ def _get_default_text_model_params() -> ModelParams:
 
 def _get_default_image_model_params() -> ModelParams:
     return ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruc",
+        model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="llava",
