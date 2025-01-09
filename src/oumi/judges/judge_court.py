@@ -112,9 +112,7 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
 
     config = JudgeConfig(
         attributes=attributes,
-        model=ModelParams(
-            model_name="gpt-4o-mini",
-        ),
+        model=ModelParams(model_name="gpt-4o-2024-08-06"),
         engine=InferenceEngineType.REMOTE,
         generation=GenerationParams(
             max_new_tokens=1024,
