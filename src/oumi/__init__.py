@@ -5,7 +5,7 @@ inferring with machine learning models, particularly focused on language tasks.
 
 Modules:
     - :mod:`~oumi.models`: Contains model architectures and related utilities.
-    - :mod:`~oumi.evaluate`: Functions for evaluating models using LM Harness.
+    - :mod:`~oumi.evaluate`: Functions for evaluating models.
     - :mod:`~oumi.evaluate_async`: Asynchronous evaluation functionality.
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.

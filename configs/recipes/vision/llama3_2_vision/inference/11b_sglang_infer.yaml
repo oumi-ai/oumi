@@ -9,6 +9,11 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
+# Sample command to start SGLang server:
+# CUDA_VISIBLE_DEVICES=0 python3 -m sglang.launch_server \
+#     --model-path meta-llama/Llama-3.2-11B-Vision-Instruct \
+#     --tokenizer-path meta-llama/Llama-3.2-11B-Vision-Instruct \
+#     --port 30000 --disable-cuda-graph --mem-fraction-static=0.99
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).
   # For production use, set it to a remote address/port.
