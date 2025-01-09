@@ -315,7 +315,6 @@ def torchrun(
         raise
 
     try:
-        print(run_info)
         cmds: list[str] = [
             "torchrun",
             f"--nnodes={run_info.num_nodes}",
