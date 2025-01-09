@@ -51,6 +51,7 @@ def oumi_v1_xml_claude_sonnet_judge() -> JudgeConfig:
             api_key_env_varname="ANTHROPIC_API_KEY",
             max_retries=3,
         ),
+        engine=InferenceEngineType.ANTHROPIC,
     )
     return config
 
@@ -111,9 +112,7 @@ def oumi_v1_xml_gpt4o_judge() -> JudgeConfig:
 
     config = JudgeConfig(
         attributes=attributes,
-        model=ModelParams(
-            model_name="gpt-4o-2024-08-06",
-        ),
+        model=ModelParams(model_name="gpt-4o-2024-08-06"),
         engine=InferenceEngineType.REMOTE,
         generation=GenerationParams(
             max_new_tokens=1024,

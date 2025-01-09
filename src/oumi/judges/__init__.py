@@ -9,9 +9,11 @@ from oumi.judges.judge_court import (
     oumi_v1_xml_gpt4o_judge,
     oumi_v1_xml_local_judge,
 )
+from oumi.judges.oumi_judge import OumiXmlJudge
 
 __all__ = [
     "oumi_v1_xml_claude_sonnet_judge",
     "oumi_v1_xml_gpt4o_judge",
     "oumi_v1_xml_local_judge",
+    "OumiXmlJudge",
 ]

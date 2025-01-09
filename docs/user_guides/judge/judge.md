@@ -40,8 +40,7 @@ The Oumi Judge V1 comes in two flavors: local and remote. Let's explore both opt
 
 ```{testcode}
 from oumi.core.types import Conversation, Message, Role
-from oumi.judges import oumi_v1_xml_local_judge
-from oumi.judges.oumi_judge import OumiXmlJudge
+from oumi.judges import OumiXmlJudge, oumi_v1_xml_local_judge
 
 # Initialize the judge with local GGUF model
 judge = OumiXmlJudge(oumi_v1_xml_local_judge())
