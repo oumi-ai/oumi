@@ -86,14 +86,13 @@ Using a model downloaded from HuggingFace:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+  --model.model_name HuggingFaceTB/SmolLM2-135M-Instruct
 ```
 
 Or with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]" \
   --model.model_name output/smollm-135m-sft
 ```
 
