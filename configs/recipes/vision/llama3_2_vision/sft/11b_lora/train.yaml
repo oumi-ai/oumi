@@ -1,3 +1,7 @@
+##
+# LoRA config for sft-training Llama-11B-Vision with #FIX-ME dataset.
+##
+
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
@@ -51,7 +55,7 @@ training:
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
   use_peft: True
-  per_device_train_batch_size: 8
+  per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
   max_steps: 10 # Train for a few steps only (demonstration purposes)
 
@@ -76,6 +80,7 @@ training:
   enable_wandb: True
 
 peft:
+  # The LoRA parameter values are inspired from Llama recipes: https://github.com/huggingface/huggingface-llama-recipes/blob/main/fine_tune/Llama-Vision%20FT.ipynb
   q_lora: False
   lora_r: 8
   lora_alpha: 8
@@ -88,8 +93,8 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  # lora_init_weights: "gaussian"
-  # use_dora: True
+  init_lora_weights: "gaussian"
+  use_dora: True
 
 fsdp:
   enable_fsdp: True

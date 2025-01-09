@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -121,10 +121,41 @@ class PeftParams(BaseParams):
     https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
+    use_dora: bool = field(
+        default=False,
+        metadata={"help": "Weather to use DoRA."},
+    )
+    """Whether to use 'Weight-Decomposed Low-Rank Adaptation' (DoRA) (https://arxiv.org/abs/2402.09353).
+
+    DoRA decouples the learned weights into a magnitude and direction component.
+
+    The decoupling can improve performance compared to LoRA.
+
+    DoRA, however, introduces a bigger overhead than pure LoRA.
+    It is hence recommended to merge weights when doing inference.
+    """
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
     """The task type for LoRA adaptation.
 
     Defaults to CAUSAL_LM (Causal Language Modeling).
+    """
+
+    init_lora_weights: Union[bool, str] = field(
+        default=True,
+        metadata={
+            "help": ("Weights initialization for LoRA adapters."),
+        },
+    )
+    """Passing `True' will use the underlying reference implementation of the
+    corresponding model from Microsoft.
+
+    Other valid (str) options include:
+        - "gaussian" for Gaussian initialization.
+        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659)
+
+    For more information, see HF at:
+        https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
     # Q-Lora Params
