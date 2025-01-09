@@ -32,17 +32,10 @@ def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
             if min_gb * (1 - eps) > total_memory_gb:
                 device_name = torch.cuda.get_device_name(device_idx)
                 error_message = (
-                    (
-                        "Not enough GPU memory to run the test: "
-                        f"requires {min_gb:.3f}GB, got {total_memory_gb:.3f}GB"
-                    )
-                    + (
-                        f" on GPU {device_idx+1} of {gpu_count}"
-                        if gpu_count > 1
-                        else ""
-                    )
-                    + f" GPU: {device_name}"
-                )
+                    "Not enough GPU memory to run the test: "
+                    f"requires {min_gb:.3f}GB, got {total_memory_gb:.3f}GB. "
+                    f"GPU: {device_name}"
+                ) + (f" ({device_idx+1} of {gpu_count})" if gpu_count > 1 else "")
 
     return pytest.mark.skipif(len(error_message) > 0, reason=error_message)
 
