@@ -32,7 +32,8 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Llama 3.2 Vision | 11B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-11b-vision) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ LLaVA-1.5 | 7B | [Paper](https://arxiv.org/abs/2310.03744) | [Hub](https://huggingface.co/llava-hf/llava-1.5-7b-hf) | [License](https://ai.meta.com/llama/license) | ❌ | |
 | ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ | |
-| ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ | |
+| ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
 | ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
 
 
