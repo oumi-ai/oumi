@@ -327,19 +327,32 @@ def _load_dataset(
 
 
 def _is_mixture_packed(dataset_split_params: DatasetSplitParams) -> bool:
-    """Returns True if all datasets in the mixture are packed."""
+    """Returns whether all datasets in the mixture are packed.
+
+    Raises:
+        ValueError: If a mixture of packed and unpacked datasets is detected.
+    """
+    num_packed = 0
     for dataset in dataset_split_params.datasets:
         dataset_class = REGISTRY.get_dataset(
             dataset.dataset_name, subset=dataset.subset
         )
 
-        if dataset_class is None or not issubclass(
+        if dataset_class is not None and issubclass(
             dataset_class,  # type: ignore
             BasePretrainingDataset,
         ):
-            return False
-    # All datasets in mixture are packed.
-    return True
+            num_packed += 1
+    if num_packed == len(dataset_split_params.datasets):
+        return True
+    elif num_packed == 0:
+        return False
+    else:
+        # Currently, registered datasets get packed and unregistered ones don't. We
+        # don't support mixing both at the moment.
+        raise ValueError(
+            "We currently don't support mixing registered and unregistered datasets."
+        )
 
 
 if __name__ == "__main__":
