@@ -4,7 +4,7 @@ on: [pull_request]
 
 jobs:
   gpu-tests:
-    runs-on: linux-gpu-runner
+    runs-on: linux-gpu-runner, ubuntu-24.04
 
     steps:
     - name: Checkout
