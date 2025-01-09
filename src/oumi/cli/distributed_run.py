@@ -7,6 +7,7 @@ from subprocess import Popen
 from sys import stderr, stdout
 from typing import Any, Final, NamedTuple, Optional
 
+import torch
 import typer
 
 import oumi.cli.cli_utils as cli_utils
@@ -32,6 +33,7 @@ _POLARIS_ENV_VARS = {
 class _RunBackend(str, enum.Enum):
     SKYPILOT = "SkyPilot"
     POLARIS = "Polaris"
+    LOCAL_MACHINE = "LocalMachine"
 
 
 class _WorldInfo(NamedTuple):
@@ -217,7 +219,25 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
             node_rank = 0
 
     if backend is None:
-        raise RuntimeError("None of supported distributed backends found!")
+        # Attempt to produce a local configuration
+        if not torch.cuda.is_available():
+            raise RuntimeError("None of supported distributed backends found and no GPUs found on local machine!")
+            
+        num_gpus_available = torch.cuda.device_count()
+        if num_gpus_available > 0:
+            logger.debug("Running on the local machine!")
+            backend = _RunBackend.LOCAL_MACHINE
+            oumi_master_address = "127.0.0.1"
+            oumi_num_nodes = 1
+            oumi_total_gpus = num_gpus_available
+            node_ips = [oumi_master_address]
+            node_rank = 0
+            gpus_per_node = num_gpus_available
+            os.environ["ACCELERATE_LOG_LEVEL"] = "info"
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        else:
+            raise RuntimeError("CUDA available but no GPUs found on local machine!")
+            
 
     assert len(node_ips) > 0, "Empty list of nodes!"
     assert node_rank is not None
@@ -295,6 +315,7 @@ def torchrun(
         raise
 
     try:
+        print(run_info)
         cmds: list[str] = [
             "torchrun",
             f"--nnodes={run_info.num_nodes}",

@@ -37,6 +37,10 @@ def mock_popen():
     with patch("oumi.cli.distributed_run.Popen") as popen_mock:
         yield popen_mock
 
+@pytest.fixture
+def mock_torch():
+    with patch("oumi.cli.distributed_run.torch") as torch_mock:
+        yield torch_mock
 
 def test_torchrun_skypilot_single_gpu(
     app,
@@ -280,3 +284,59 @@ def test_accelerate_skypilot_multi_gpu(
         universal_newlines=True,
     )
     assert logger.level == logging.DEBUG
+
+def test_torchrun_localmachine_multi_gpu(
+    app,
+    mock_os,
+    mock_popen,
+    mock_torch,
+    monkeypatch,
+):
+    test_env_vars = {
+        # No environment vars set
+    }
+    mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+    mock_torch.cuda.device_count.return_value = 8
+
+    mock_process = Mock()
+    mock_popen.return_value = mock_process
+    mock_process.wait.return_value = 0
+
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
+
+    _ = runner.invoke(
+        app,
+        [
+            "torchrun",
+            "-m",
+            "oumi",
+            "train",
+            "--training.max_steps",
+            "20",
+            "--log-level",
+            "ERROR",
+        ],
+    )
+
+    mock_popen.assert_called_once_with(
+        [
+            "torchrun",
+            "--nnodes=1",
+            "--node-rank=0",
+            "--nproc-per-node=8",
+            "--master-addr=127.0.0.1",
+            "--master-port=8007",
+            "-m",
+            "oumi",
+            "train",
+            "--training.max_steps",
+            "20",
+        ],
+        env=copy.deepcopy(test_env_vars),
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    assert logger.level == logging.ERROR
