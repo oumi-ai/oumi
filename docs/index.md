@@ -118,15 +118,15 @@ Oumi is designed to be fully flexible yet easy to use:
 
 ## Where to go next?
 
-Our documentation is organized into comprehensive sections covering everything from getting started guides to advanced development topics. You'll find detailed user guides for training and deploying models, extensive API references, troubleshooting resources, and development guidelines. While you can dive directly into any section that interests you, we recommend following the suggested path below to get the most out of Oumi.
+While you can dive directly into any section that interests you, we recommend following the suggested path below to get the most out of Oumi.
 
 | Category | Description | Links |
 |----------|-------------|-------|
-| 🚀 Getting Started | Get up and running quickly with Oumi | [→ Installation](get_started/installation)<br>[→ Quickstart](get_started/quickstart)<br>[→ Core Concepts](get_started/core_concepts) |
+| 🚀 Getting Started | Get up and running quickly with Oumi | [→ Quickstart](get_started/quickstart)<br>[→ Installation](get_started/installation)<br>[→ Core Concepts](get_started/core_concepts) |
 | 📚 User Guides | Learn how to use Oumi effectively | [→ Training](user_guides/train/train)<br>[→ Inference](user_guides/infer/infer)<br>[→ Evaluation](user_guides/evaluate/evaluate) |
 | 🤖 Models | Explore available models and recipes | [→ Overview](resources/models/models)<br>[→ Recipes](resources/recipes)<br>[→ Custom Models](resources/models/custom_models) |
 | 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
-| 📖 API Reference | Detailed documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
+| 📖 API Reference | Documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
 
 ## Contributing
 
