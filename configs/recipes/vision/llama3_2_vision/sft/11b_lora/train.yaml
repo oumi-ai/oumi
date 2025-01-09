@@ -50,9 +50,10 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
+  use_peft: True
   per_device_train_batch_size: 8
   gradient_accumulation_steps: 1
-  max_steps: 20 # Train for only a few steps (testing)
+  max_steps: 10 # Train for a few steps only (demonstration purposes)
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
@@ -67,16 +68,13 @@ training:
   weight_decay: 0.0
   lr_scheduler_type: "cosine"
 
-  logging_steps: 5
+  logging_steps: 2
   save_steps: 0
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True
-  log_model_summary: False
   enable_wandb: True
 
-# Currently trying, this lora config: https://github.com/huggingface/huggingface-llama-recipes/blob/main/fine_tune/Llama-Vision%20FT.ipynb
-# TODO: remove above comment.
 peft:
   q_lora: False
   lora_r: 8
@@ -90,8 +88,8 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  lora_init_weights: "gaussian"
-  use_dora: True
+  # lora_init_weights: "gaussian"
+  # use_dora: True
 
 fsdp:
   enable_fsdp: True
