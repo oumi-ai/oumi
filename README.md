@@ -26,8 +26,6 @@ Oumi is a community-first, end-to-end platform for advanced AI research and deve
    <br>
    https://oumi.ai/docs
    <br>
-   <b>Password:</b> c155c7d02520
-   <br>
    ↑↑↑↑↑↑
 </p>
 
