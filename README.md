@@ -144,14 +144,11 @@ Comprehensive tutorials and guides to help you master Oumi:
 | [🎯 Getting Started: A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | Comprehensive overview of Oumi's architecture and core capabilities |
 | **Model Training & Finetuning** |
 | [🔧 Model Finetuning Guide](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide to efficient model finetuning techniques |
-| [🦙 Advanced Llama Training](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | In-depth walkthrough of Llama model training and optimization |
 | **Deployment & Infrastructure** |
-| [🚀 Distributed Inference](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guide to scaling inference across multiple compute nodes |
 | [🔄 vLLM Inference Engine](/notebooks/Oumi%20-%20Using%20vLLM%20Engine%20for%20Inference.ipynb) | High-performance inference using vLLM |
 | [☁️ Remote Training](/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb) | Guide to running jobs on cloud platforms |
 | [🖥️ Custom Clusters](/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb) | Setting up and using custom compute clusters |
 | **Datasets & Evaluation** |
-| [📊 Dataset Management](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Best practices for dataset preparation and processing |
 | [⚖️ Custom Judge](/notebooks/Oumi%20-%20Custom%20Judge.ipynb) | Creating custom evaluation metrics and judges |
 | [📈 Oumi Judge](/notebooks/Oumi%20-%20Oumi%20Judge.ipynb) | Using Oumi's built-in evaluation framework |
 
@@ -179,8 +176,8 @@ If you find Oumi useful in your research, please consider citing it:
 @software{oumi2024,
   author = {Oumi Community},
   title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
-  month = {November},
-  year = {2024},
+  month = {January},
+  year = {2025},
   url = {https://github.com/oumi-ai/oumi}
 }
 ```
