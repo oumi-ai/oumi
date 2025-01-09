@@ -114,6 +114,8 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
 | Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) |
+| Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) |
+
 
 #### 🎯 Training Techniques
 
