@@ -59,7 +59,7 @@ def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
             model_name="Qwen/Qwen2-VL-2B-Instruct",
             model_max_length=1024,
             trust_remote_code=True,
-            chat_template="llava",
+            chat_template="qwen2-vl-instruct",
         ),
         generation=GenerationParams(max_new_tokens=16, temperature=0.0, seed=42),
     )
@@ -119,7 +119,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="llava",
+        chat_template="qwen2-vl-instruct",
     )
     generation_params = GenerationParams(
         max_new_tokens=10, temperature=0.0, seed=42, batch_size=batch_size
@@ -153,7 +153,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 ),
                 Message(
                     role=Role.ASSISTANT,
-                    content="2 boats are in the middle of a large wave",
+                    content="A Japanese print depicting a large wave crashing with two",
                 ),
             ]
         )
