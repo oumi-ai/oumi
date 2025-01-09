@@ -208,5 +208,6 @@ pythonPlatform = "All"                                 # Include linux, mac, win
 reportPrivateImportUsage = "none"
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
