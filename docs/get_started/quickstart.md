@@ -35,22 +35,8 @@ Let's go through some examples of each command.
 
 To start training a model:
 
-```{termynal} termynal:oumi-train
----
-typeDelay: 40
-lineDelay: 700
----
-- value: oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
-  type: input
-- Loading configuration...
-- "Initializing model: SmolLM-135M"
-- type: progress
-- Starting training...
-- "Epoch 1/3: 100%|██████████| 1000/1000 [00:45<00:00, 22.22it/s]"
-- "Epoch 2/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
-- "Epoch 3/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
-- "Training complete!"
-- "Saving model to output/smollm-135m-fft..."
+```bash
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```
 
 This uses the configuration in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
@@ -70,7 +56,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft
 ```
 
-To run the same recipe on a different dataset, you can override the dataset name:
+To run the same recipe on your own dataset, you can override the dataset name:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
@@ -78,11 +64,11 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-We can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
+You can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
 
 ```bash
-torchrun --standalone --nproc-per-node=4 oumi train \
-  -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+oumi distributed torchrun -m \
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-dist
 ```
 
@@ -107,8 +93,8 @@ Or with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --model.model_name output/smollm-135m-sft \
-  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]" \
+  --model.model_name output/smollm-135m-sft
 ```
 
 ## Inference
@@ -167,6 +153,4 @@ To launch an evaluation job:
 oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 ```
 
-```{tip}
-Join our [Discord community](https://discord.gg/oumi) for help and discussions!
-```
+If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.

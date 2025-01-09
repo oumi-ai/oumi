@@ -2,7 +2,7 @@
 
 ## Overview
 
-Oumi aims to combine production-grade reliability with researcher-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
+Oumi combines production-grade reliability with researcher-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
 
 This guide introduces the core concepts, and terminology used throughout Oumi, as well as the architecture and guiding design principles. Understanding these core terms will help you navigate Oumi's documentation and features effectively.
 

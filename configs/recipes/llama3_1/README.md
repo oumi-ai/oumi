@@ -48,8 +48,7 @@ oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster l
 
 ## 405B
 
-This model is **very** memory-intensive, so be prepared to increase the number of nodes or use memory-reducing parameters to avoid OOMs (see [our documentation page](https://oumi.ai/docs/latest/faq/oom.html) for some examples). Since multi-node training in GCP via Skypilot is very slow, it's recommended to do training in Polaris.
-
+This model is **very** memory-intensive, so be prepared to increase the number of nodes or use memory-reducing parameters to avoid OOMs (see [our documentation page](https://oumi.ai/docs/latest/faq/oom.html) for some examples).
 ### Model Info
 
 | Attribute | Value |

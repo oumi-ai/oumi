@@ -12,11 +12,11 @@ E2E Foundation Model Research Platform - Community-first & Enterprise-grade
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Get started
+:caption: Getting Started
 
 Home <self>
-get_started/installation
 get_started/quickstart
+get_started/installation
 get_started/core_concepts
 get_started/tutorials
 ```
@@ -116,7 +116,9 @@ Oumi is designed to be fully flexible yet easy to use:
 - **Extensible Platform**: Easy model & dataset registration and customization
 - **Comprehensive Documentation**: Detailed guides, examples, and API reference
 
-## Getting Started
+## Where to go next?
+
+Our documentation is organized into comprehensive sections covering everything from getting started guides to advanced development topics. You'll find detailed user guides for training and deploying models, extensive API references, troubleshooting resources, and development guidelines. While you can dive directly into any section that interests you, we recommend following the suggested path below to get the most out of Oumi.
 
 | Category | Description | Links |
 |----------|-------------|-------|
@@ -124,12 +126,7 @@ Oumi is designed to be fully flexible yet easy to use:
 | 📚 User Guides | Learn how to use Oumi effectively | [→ Training](user_guides/train/train)<br>[→ Inference](user_guides/infer/infer)<br>[→ Evaluation](user_guides/evaluate/evaluate) |
 | 🤖 Models | Explore available models and recipes | [→ Overview](resources/models/models)<br>[→ Recipes](resources/recipes)<br>[→ Custom Models](resources/models/custom_models) |
 | 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
-
-## API Reference
-
-For detailed information about the Oumi library, check out the [API Reference](api/oumi) section.
-
-This includes comprehensive documentation for all modules, classes, and functions in the Oumi library.
+| 📖 API Reference | Detailed documentation of all modules | [→ API Overview](api/oumi)<br>[→ Core APIs](api/oumi/core)<br>[→ Model APIs](api/oumi/models) |
 
 ## Contributing
 
