@@ -17,9 +17,7 @@ import datasets
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.builders import (
-    build_tokenizer,
-)
+from oumi.builders import build_tokenizer
 from oumi.core.configs import TrainingConfig
 from oumi.utils.logging import logger
 
