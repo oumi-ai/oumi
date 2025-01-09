@@ -68,7 +68,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         """Iterates over the raw dataset."""
         yield from self.data
 
-    def to_hf(self, return_iterable: bool = False) -> datasets.IterableDataset:
+    def to_hf(self, return_iterable: bool = True) -> datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset."""
         if not return_iterable:
             raise NotImplementedError("Only returning IterableDataset is supported.")
