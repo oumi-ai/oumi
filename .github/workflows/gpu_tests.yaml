@@ -7,12 +7,12 @@ jobs:
     runs-on: linux-gpu-runner
 
     steps:
-    - name: Fix GLIBC
-      run: |
-        # This is required to install llama-cpp-python
-        # because the GPU runner is running an older version of Ubuntu
-        sudo apt-get update
-        sudo apt-get install -y libc6
+    # - name: Fix GLIBC
+    #   run: |
+    #     # This is required to install llama-cpp-python
+    #     # because the GPU runner is running an older version of Ubuntu
+    #     sudo apt-get update
+    #     sudo apt-get install -y libc6
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_gpu]' --system --prerelease=allow
+        CMAKE_ARGS="-DLLAMA_CLBLAST=OFF" FORCE_CMAKE=1 uv pip install -e '.[ci_gpu]' --system --prerelease=allow
 
     - name: Run GPU tests
       run: |
