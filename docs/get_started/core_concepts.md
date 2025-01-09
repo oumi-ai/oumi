@@ -2,7 +2,7 @@
 
 ## Overview
 
-Oumi combines production-grade reliability with researcher-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
+Oumi combines enterprise-grade reliability with research-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
 
 This guide introduces the core concepts, and terminology used throughout Oumi, as well as the architecture and guiding design principles. Understanding these core terms will help you navigate Oumi's documentation and features effectively.
 
@@ -12,7 +12,7 @@ The following diagram illustrates the typical workflow in Oumi. You can either s
 %%{init: {'theme': 'base', 'themeVariables': { 'background': '#f5f5f5'}}}%%
 graph LR
     %% Data stage connections
-    DS[Datasets] --> |Open Datasets| TR[Training]
+    DS[Datasets] --> |Existing Datasets| TR[Training]
     DS --> |Data Synthesis| TR
 
     %% Training methods
@@ -61,7 +61,7 @@ See {doc}`/cli/commands` for full CLI details.
 
 ### Python API
 
-The Python API allows you to use Oumi to `train`, `evaluate`, and `infer` models in a notebook, a script, or any custom workflow.
+The Python API allows you to use Oumi to `train`, `evaluate`, `infer`, `judge`, and more. You can use it in a notebook, a script, or any custom workflow.
 
 For example, to train a model, you can use the `train` function:
 
@@ -77,7 +77,7 @@ See {doc}`/api/oumi` for full API details.
 
 ### Configs
 
-Configs are Oumi's way of providing reproducible configurations for common workflows.
+To provide recordability and reproducibility for common workflows, Oumi uses Configs.
 
 | Config Type | Purpose | Documentation |
 |------------|---------|---------------|

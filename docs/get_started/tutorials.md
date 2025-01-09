@@ -1,9 +1,6 @@
 # Tutorials
 
-### Examples &  Recipes
-
-Explore our growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
-
+Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
 | Tutorial | Description | Links |
 |----------|-------------|--------|
