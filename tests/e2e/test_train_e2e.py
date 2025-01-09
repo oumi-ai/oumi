@@ -128,7 +128,7 @@ def get_train_test_id_fn(val):
     ],
     ids=get_train_test_id_fn,
 )
-# @pytest.mark.skip(reason="Skipping until the markers are configured")
+@pytest.mark.skip(reason="Skipping until the markers are configured")
 def test_train(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
