@@ -40,7 +40,6 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
 
         dataset_name = dataset_name or self.default_dataset
 
-        # TODO: Is it possible for this to be None now?
         if dataset_name is None:
             raise ValueError(
                 "Please specify a dataset_name or "
