@@ -266,7 +266,7 @@ The telemetry tracker provides:
 - GPU temperature monitoring via `record_gpu_temperature()`
 - Automatic statistics calculation and reporting with `print_summary()`
 
-For distributed training scenarios, see the [Distributed Training Telemetry](#distributed-training-telemetry) section above.
+For distributed training scenarios, see the [Distributed Training Telemetry](#distributed-training) section above.
 
 ### Callbacks
 

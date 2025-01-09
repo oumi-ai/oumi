@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -70,43 +71,27 @@ class DebugClassificationDataset(Dataset):
 
 
 @register_dataset("debug_pretraining")
-class DebugPretrainingDataset(Dataset):
+class DebugPretrainingDataset(BasePretrainingDataset):
+    default_dataset = "debug_pretraining"
+
     def __init__(
         self,
         dataset_size: int = 1000,
-        vocab_size: int = 10000,
-        sequence_length: int = 1024,
-        preprocessing_time_ms: float = 0,
         **kwargs,
     ):
         """Initializes a DebugPretrainingDataset.
 
         Args:
             dataset_size: The size of the dataset.
-            vocab_size: The size of the vocabulary.
-            sequence_length: The length of each sequence.
-            preprocessing_time_ms: The time taken for preprocessing in milliseconds.
             **kwargs: Additional keyword arguments.
 
         """
         self.size = dataset_size
-        self.vocab_size = vocab_size
-        self.sequence_length = sequence_length
-        self.preprocessing_time_ms = preprocessing_time_ms
 
-        self.data = torch.randint(
-            low=0, high=self.vocab_size, size=(self.size, self.sequence_length)
-        )
+        super().__init__(**kwargs)
 
-    def __len__(self):
-        """Return the size of the dataset."""
-        return self.size
-
-    def __getitem__(self, idx):
-        """Return the data and label at the given index."""
-        if self.preprocessing_time_ms > 0:
-            time.sleep(self.preprocessing_time_ms * 1000)
-        return {"input_ids": self.data[idx], "labels": self.data[idx]}
+    def _load_data(self) -> list[dict]:
+        return [{"text": f"This is document number {idx}."} for idx in range(self.size)]
 
 
 @register_dataset("debug_sft")
@@ -141,8 +126,14 @@ class DebugSftDataset(BaseSftDataset):
     def _load_data(self) -> pd.DataFrame:
         return pd.DataFrame(
             {
-                "user_message": ["Hello, how are you?" for _ in range(self.size)],
-                "assistant_message": ["I'm fine, thank you!" for _ in range(self.size)],
+                "user_message": [
+                    f"Hello, how are you? (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "assistant_message": [
+                    f"I'm fine, thank you! (Document number {idx})"
+                    for idx in range(self.size)
+                ],
             }
         )
 
@@ -173,8 +164,16 @@ class DebugDpoDataset(BaseExperimentalDpoDataset):
     def _load_data(self) -> pd.DataFrame:
         return pd.DataFrame(
             {
-                "prompt": ["Hello, how are you?" for _ in range(self.size)],
-                "chosen": ["I'm fine, thank you!" for _ in range(self.size)],
-                "rejected": ["fine" for _ in range(self.size)],
+                "prompt": [
+                    f"Hello, how are you? (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "chosen": [
+                    f"I'm fine, thank you! (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "rejected": [
+                    f"fine (Document number {idx})" for idx in range(self.size)
+                ],
             }
         )
