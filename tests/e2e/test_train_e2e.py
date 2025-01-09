@@ -10,6 +10,7 @@ from typing import NamedTuple, Optional
 import pytest
 import yaml
 
+from oumi.core.configs import TrainingConfig
 from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_gpus
 
@@ -145,6 +146,14 @@ def test_train(
             test_config.config_path.is_file()
         ), f"{test_tag} Path is not a file: {test_config.config_path}"
 
+        # Verify the config is loadable
+        try:
+            TrainingConfig.from_yaml(str(test_config.config_path))
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load training config from: {test_config.config_path}"
+            ) from e
+
         assert test_config.max_steps > 0, f"max_steps: {test_config.max_steps}"
 
         # Execute training command
@@ -203,9 +212,10 @@ def test_train(
             if not interactive_logs:
                 print(f"{test_tag} STDOUT:\n\n{result.stdout}\n\n")
                 print(f"{test_tag} STDERR:\n\n{result.stderr}\n\n")
-            assert (
-                result.returncode == 0
-            ), f"{test_tag} Training failed with error code: {result.returncode}"
+            assert result.returncode == 0, (
+                f"{test_tag} Training failed with error code: {result.returncode}"
+                + ("" if interactive_logs else f"\nSTDERR:\n\n{result.stderr}\n")
+            )
 
         # Check output directory exists
         train_output_dir = output_dir / "train"
