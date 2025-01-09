@@ -153,7 +153,10 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 ),
                 Message(
                     role=Role.ASSISTANT,
-                    content="A Japanese print depicting a large wave crashing with two",
+                    content=(
+                        "A detailed Japanese print depicting a "
+                        "large wave crashing with"
+                    ),
                 ),
             ]
         )

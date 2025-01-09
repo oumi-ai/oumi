@@ -36,7 +36,7 @@ def _get_default_image_model_params() -> ModelParams:
         model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="llava",
+        chat_template="qwen2-vl-instruct",
     )
 
 
