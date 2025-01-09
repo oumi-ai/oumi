@@ -77,7 +77,7 @@ See {doc}`/api/oumi` for full API details.
 
 ### Configs
 
-To provide recordability and reproducibility for common workflows, Oumi uses Configs.
+To provide recordability and reproducibility for common workflows, Oumi uses exhaustive configs to define all the parameters for each step.
 
 | Config Type | Purpose | Documentation |
 |------------|---------|---------------|

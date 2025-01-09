@@ -126,7 +126,7 @@ Our documentation is organized into comprehensive sections covering everything f
 | 📚 User Guides | Learn how to use Oumi effectively | [→ Training](user_guides/train/train)<br>[→ Inference](user_guides/infer/infer)<br>[→ Evaluation](user_guides/evaluate/evaluate) |
 | 🤖 Models | Explore available models and recipes | [→ Overview](resources/models/models)<br>[→ Recipes](resources/recipes)<br>[→ Custom Models](resources/models/custom_models) |
 | 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
-| 📖 API Reference | Detailed documentation of all modules | [→ API Overview](api/oumi)<br>[→ Core APIs](api/oumi/core)<br>[→ Model APIs](api/oumi/models) |
+| 📖 API Reference | Detailed documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
 
 ## Contributing
 
