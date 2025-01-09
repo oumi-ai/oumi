@@ -111,9 +111,11 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Model | Example Configurations |
 |-------|------------------------|
 | Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
-| LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
-| Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
+| LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference (vLLM)](configs/recipes/vision/llava_7b/inference/vllm_infer.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
+| Phi3 Vision 4.2B | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) |
+| SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
+
 
 #### 🎯 Training Techniques
 
