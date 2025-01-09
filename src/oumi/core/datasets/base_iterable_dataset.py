@@ -20,7 +20,7 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
+        dataset_name: Optional[str],
         dataset_path: Optional[str] = None,
         subset: Optional[str] = None,
         split: Optional[str] = None,
