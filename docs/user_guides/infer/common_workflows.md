@@ -54,7 +54,7 @@ Structured decoding helps ensure the model outputs data in a consistent, parseab
 Here's an example of how to use guided decoding to generate data in a structured format:
 
 ```{code-block} python
-:emphasize-lines: 2, 6, 7, 8, 9, 10, 11, 25, 26, 27, 41
+:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 52
 
 from pydantic import BaseModel
 from oumi.inference import RemoteInferenceEngine
