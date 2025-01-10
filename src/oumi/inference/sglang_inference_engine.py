@@ -5,7 +5,6 @@ import functools
 import json
 from typing import Any, NamedTuple
 
-import pydantic
 from typing_extensions import override
 
 from oumi.builders import (
@@ -93,22 +92,25 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             if generation_params.guided_decoding.regex is not None:
                 regex = generation_params.guided_decoding.regex
             else:
-                val = None
+                json_schema_value = None
                 if generation_params.guided_decoding.json is not None:
-                    val = generation_params.guided_decoding.json
+                    json_schema_value = generation_params.guided_decoding.json
                 elif (
                     generation_params.guided_decoding.choice is not None
                     and len(generation_params.guided_decoding.choice) > 0
                 ):
-                    val = {"enum": generation_params.guided_decoding.choice}
+                    json_schema_value = {
+                        "enum": generation_params.guided_decoding.choice
+                    }
 
-                if isinstance(val, str):
-                    json_schema = val
-                elif isinstance(val, dict):
-                    json_schema = json.dumps(val, ensure_ascii=False)
-                elif isinstance(val, pydantic.BaseModel):
-                    json_schema = val.model_dump_json(
-                        exclude_unset=True, exclude_defaults=False, exclude_none=True
+                if isinstance(json_schema_value, str):
+                    json_schema = json_schema_value
+                elif isinstance(json_schema_value, dict):
+                    json_schema = json.dumps(json_schema_value, ensure_ascii=False)
+                else:
+                    raise ValueError(
+                        "Unsupported type of generation_params.guided_decoding.json: "
+                        f"{type(generation_params.guided_decoding.json)}"
                     )
 
         return _SamplingParams(
