@@ -56,8 +56,7 @@ dependencies = [
     "torchvision>=0.20.0,<0.21",    # Used by some VLM-s (multimodal)
     "tqdm",
     # >=4.46.1 because  Liger kernel will deprecate support for older versions.
-    # <4.47 because it deprecates Datapipes, which we currently depend on.
-    "transformers>=4.46.1,<4.47",
+    "transformers>=4.47.0,<4.48",
     "trl>=0.13.0,<0.14",
     "typer",                        # Used by CLI
     "typing_extensions",            # Backports of typing updates to python 3.9
