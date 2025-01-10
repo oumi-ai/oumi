@@ -7,6 +7,7 @@ def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
 
     Args:
         count (int): The number of GPUs required for the test. Defaults to 1.
+        min_gb: Min required GPU VRAM in GB-s. Has no effect if zero or negative.
 
     Returns:
         pytest.MarkDecorator: A decorator that skips the test if the required
