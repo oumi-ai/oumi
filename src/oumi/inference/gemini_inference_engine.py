@@ -19,7 +19,7 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
     ) -> dict[str, Any]:
         """Converts a conversation to an Gemini API input.
 
-        Documentation: https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/call-vertex-using-openai-library
+        Documentation: https://ai.google.dev/docs
 
         Args:
             conversation: The conversation to convert.
