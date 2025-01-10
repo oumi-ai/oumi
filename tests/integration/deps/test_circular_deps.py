@@ -1,6 +1,6 @@
 import glob
-import importlib
 import os
+from multiprocessing import Process, set_start_method
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +27,7 @@ def _get_oumi_path_recursively(path: Path) -> str:
 def _get_all_py_paths(exclude_suffixes: Optional[set[str]]) -> list[str]:
     """Recursively returns all py files in the /src/oumi/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
-    repo_root = _backtrack_on_path(path_to_current_file, 3)
+    repo_root = _backtrack_on_path(path_to_current_file, 4)
     py_pattern = str(Path(repo_root) / "src" / "oumi" / "**" / "*.py")
     all_py_files = glob.glob(py_pattern, recursive=True)
     exclude_files = []
@@ -46,16 +46,31 @@ def _get_all_py_paths(exclude_suffixes: Optional[set[str]]) -> list[str]:
     return all_py_files
 
 
+all_paths = _get_all_py_paths(
+    exclude_suffixes={"__init__.py"},
+)
+
+
+def _load_module(module_path: str):
+    """Loads a module from a path."""
+    import importlib
+
+    return importlib.import_module(module_path)
+
+
 @pytest.mark.parametrize(
     "py_path",
-    _get_all_py_paths(
-        exclude_suffixes=None,
-    ),
-    ids=_get_all_py_paths(
-        exclude_suffixes=None,
-    ),
+    all_paths,
+    ids=all_paths,
 )
 def test_load_py_files(py_path: str):
     # Load all python files in our src/oumi/ directory.
     # Circular dependencies will manifest as an ImportError.
-    _ = importlib.import_module(py_path)
+    set_start_method("spawn", force=True)
+    # Create a new process with a clean dependency tree.
+    process = Process(target=_load_module, args=[py_path])
+    process.start()
+    process.join()
+    assert (
+        process.exitcode == 0
+    ), f"Error loading {py_path}. Exitcode: {process.exitcode}"
