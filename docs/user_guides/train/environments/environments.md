@@ -15,7 +15,7 @@ Training machine learning models requires different environments as you progress
 
 Oumi supports training in various environments to suit different workflows and preferences. Moving between environments is streamlined through consistent configuration:
 -  The `train.yaml` config file outlines your model, dataset, and training parameters,
--  The `job_config.yaml` contains your resource requirements (optinal for training locally).
+-  The `job_config.yaml` contains your resource requirements (optional for training locally).
 
 
 

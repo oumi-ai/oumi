@@ -1,4 +1,4 @@
-# Judge
+# LLM Judges
 
 ```{toctree}
 :maxdepth: 2
