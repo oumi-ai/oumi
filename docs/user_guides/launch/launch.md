@@ -10,11 +10,11 @@ remote
 custom_cluster
 ```
 
-Oumi launcher allows you to run jobs on remote clusters. It provides a unified interface, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
+In addition to running training locally, you can use the `launch` command in the Oumi CLI to run jobs on remote clusters. It provides a unified interface for running your code, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
 
 ## Setup
 
-Oumi launcher integrates with SkyPilot to launch jobs on popular cloud providers. To run on a cloud GPU cluster, first make sure to have all the dependencies installed for your desired cloud provider:
+Oumi launcher integrates with SkyPilot to launch jobs on various cloud providers. To run on a cloud GPU cluster, first make sure to have all the dependencies installed for your desired cloud provider:
 
   ```shell
   pip install oumi[aws]     # For Amazon Web Services
@@ -27,6 +27,8 @@ Oumi launcher integrates with SkyPilot to launch jobs on popular cloud providers
 Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).
 
 ## Overview
+
+For a complete overview of all `oumi launch` commands, see our [CLI Launch Reference](cli/commands.html#launch)
 
 To view your existing clusters, run:
 
@@ -58,7 +60,11 @@ To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--
 oumi launch which
 ```
 
-To return immediatly when the job is scheduled and not poll for the job's completion, specify the `--detach` flag.
+To return immediately when the job is scheduled and not poll for the job's completion, specify the `--detach` flag:
+
+```shell
+oumi launch up --cluster oumi-cluster -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --detach
+```
 
 If you made any code changes to the codebase (not including configs), you need to run
 `pip install '.'` in the `run` section of the job config to install the
@@ -66,7 +72,7 @@ changes on the cluster.
 
 #### Mount Cloud Storage
 
-You can mount cloud storage like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. You may want to do this if you want to easily read data from an existing bucket, or write data/model checkpoints to a bucket.
+You can mount cloud storage like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. This is a fantastic way to write important information (such as data or model checkpoints) to a persistent disk that outlives your cluster's lifetime.
 
 ```{tip}
 Writing your job's output to cloud storage is recommended for preemptable cloud instances, or jobs outputting a large amount of data like large model checkpoints. Data on local disk will be lost on job preemption, and your job's local disk may not have enough storage for multiple large model checkpoints.
