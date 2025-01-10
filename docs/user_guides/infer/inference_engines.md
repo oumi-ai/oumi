@@ -270,6 +270,12 @@ python -m sglang.launch_server \
     --port 6864 \
     --disable-cuda-graph \
     --mem-fraction-static=0.99
+
+python -m sglang.launch_server \
+    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --disable-cuda-graph \
+    --mem-fraction-static=0.99
 ```
 
 Please refer to [SGLang documentation](https://sgl-project.github.io/backend/server_arguments.html) for more advanced configuration options.
@@ -279,7 +285,6 @@ Please refer to [SGLang documentation](https://sgl-project.github.io/backend/ser
 The client can be configured with different reliability and performance options similar to any other remote engine:
 
 ```python
-# Basic client with timeout and retry settings
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -288,6 +293,12 @@ engine = SGLangInferenceEngine(
         api_url="http://localhost:6864"
     )
 )
+```
+
+To run inference interactively, use the `oumi infer` command with the `-i` flag.
+
+```
+oumi infer -c configs/recipes/llama3_1/inference/8b_sglang_infer.yaml -i
 ```
 
 ## Cloud APIs

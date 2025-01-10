@@ -13,9 +13,8 @@ generation:
   max_new_tokens: 2048
 
 # Sample command to start SGLang server:
-# CUDA_VISIBLE_DEVICES=0 python3 -m sglang.launch_server \
+# CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
 #     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
-#     --tokenizer-path meta-llama/Meta-Llama-3.1-8B-Instruct \
 #     --port 6864 --disable-cuda-graph --mem-fraction-static=0.99
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).
