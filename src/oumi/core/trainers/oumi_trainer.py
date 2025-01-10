@@ -24,8 +24,6 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
-from oumi.builders.lr_schedules import build_lr_scheduler
-from oumi.builders.optimizers import build_optimizer
 from oumi.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams, StateDictType
 from oumi.core.distributed import (
@@ -75,6 +73,10 @@ class Trainer(BaseTrainer):
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
+        # Importing these here to avoid circular dependencies
+        from oumi.builders.lr_schedules import build_lr_scheduler
+        from oumi.builders.optimizers import build_optimizer
+
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
