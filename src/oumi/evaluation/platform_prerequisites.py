@@ -3,6 +3,40 @@ from typing import Optional
 from oumi.core.configs.params.evaluation_params import EvaluationPlatform
 from oumi.utils.packaging import PackagePrerequisites, check_package_prerequisites
 
+# The `PLATFORM_PREREQUISITES` dictionary is 2-levels deep (`dict` of nested `dict`s)
+# and contains the list of prerequisites (`PackagePrerequisites`) for each evaluation
+# platform. Specifically:
+# - The 1st-level key is the evaluation platform (`EvaluationPlatform` class).
+# - The 2nd-level key is either:
+#   - The task name (str) of the task to be executed in the platform.
+#   - The key `ALL_TASK_PREREQUISITES_KEY`, which returns the aggregate platform
+#     package prerequisites, applicable to every task that may be executed.
+ALL_TASK_PREREQUISITES_KEY = "all_task_prerequisites"
+PLATFORM_PREREQUISITES: dict[
+    EvaluationPlatform, dict[Optional[str], list[PackagePrerequisites]]
+] = {
+    EvaluationPlatform.LM_HARNESS: {
+        ALL_TASK_PREREQUISITES_KEY: [],
+        "leaderboard_ifeval": [
+            PackagePrerequisites("langdetect"),
+            PackagePrerequisites("immutabledict"),
+            PackagePrerequisites("nltk", "3.9.1"),
+        ],
+        "leaderboard_math_hard": [
+            # FIXME: This benchmark is currently NOT compatible with Oumi; MATH
+            # requires antlr4 version 4.11, but Oumi's omegaconf (2.3.0) requires
+            # antlr4 version 4.9.*. This is a known issue and will be fixed when we
+            # upgrade omegaconf to version 2.4.0.
+            PackagePrerequisites("antlr4-python3-runtime", "4.11", "4.11"),
+            PackagePrerequisites("sympy", "1.12"),
+            PackagePrerequisites("sentencepiece", "0.1.98"),
+        ],
+    },
+    EvaluationPlatform.ALPACA_EVAL: {
+        ALL_TASK_PREREQUISITES_KEY: [PackagePrerequisites("alpaca_eval")]
+    },
+}
+
 
 def check_prerequisites(
     evaluation_platform: EvaluationPlatform,
@@ -31,34 +65,12 @@ def check_prerequisites(
     )
 
     # Per platform prerequisite checks.
-    if evaluation_platform == EvaluationPlatform.LM_HARNESS:
-        if task_name == "leaderboard_ifeval":
-            check_package_prerequisites(
-                [
-                    PackagePrerequisites("langdetect"),
-                    PackagePrerequisites("immutabledict"),
-                    PackagePrerequisites("nltk", "3.9.1", ">="),
-                ],
-                runtime_error_prefix=runtime_error_prefix,
-                runtime_error_suffix=runtime_error_suffix,
-            )
-        if task_name == "leaderboard_math_hard":
-            # FIXME: This benchmark is currently NOT compatible with Oumi; MATH
-            # requires antlr4 version 4.11, but Oumi's omegaconf (2.3.0) requires
-            # antlr4 version 4.9.*. This is a known issue and will be fixed when we
-            # upgrade omegaconf to version 2.4.0.
-            check_package_prerequisites(
-                [
-                    PackagePrerequisites("antlr4-python3-runtime", "4.11", "=="),
-                    PackagePrerequisites("sympy", "1.12", ">="),
-                    PackagePrerequisites("sentencepiece", "0.1.98", ">="),
-                ],
-                runtime_error_prefix=runtime_error_prefix,
-                runtime_error_suffix=runtime_error_suffix,
-            )
-    elif evaluation_platform == EvaluationPlatform.ALPACA_EVAL:
-        check_package_prerequisites(
-            [PackagePrerequisites("alpaca_eval")],
-            runtime_error_prefix=runtime_error_prefix,
-            runtime_error_suffix=runtime_error_suffix,
-        )
+    platform_prerequisites_dict = PLATFORM_PREREQUISITES[evaluation_platform]
+    package_prerequisites_list = platform_prerequisites_dict[ALL_TASK_PREREQUISITES_KEY]
+    if task_name and task_name in platform_prerequisites_dict:
+        package_prerequisites_list.extend(platform_prerequisites_dict[task_name])
+    check_package_prerequisites(
+        package_prerequisites=package_prerequisites_list,
+        runtime_error_prefix=runtime_error_prefix,
+        runtime_error_suffix=runtime_error_suffix,
+    )
