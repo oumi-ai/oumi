@@ -214,7 +214,7 @@ model_params = ModelParams(
 )
 ```
 
-### Remote VLLM
+### Remote vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) can be deployed as a server, providing high-performance inference capabilities over HTTP. This section covers different deployment scenarios and configurations.
 
@@ -233,14 +233,15 @@ python -m vllm.entrypoints.openai.api_server \
 ```bash
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Meta-Llama-3.1-70B-Instruct \
-    --tensor-parallel-size 4 \
-    --port 8000
+    --port 8000 \
+    --tensor-parallel-size 4
+
 ```
 
 
 #### Client Configuration
 
-The client can be configured with different reliability and performance options:
+The client can be configured with different reliability and performance options similar to any other remote engine:
 
 ```python
 # Basic client with timeout and retry settings
@@ -250,6 +251,8 @@ engine = RemoteVLLMInferenceEngine(
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:8000",
+        max_retries=3,      # Maximum number of retries
+        num_workers=10,    # Number of parallel threads
     )
 )
 ```
@@ -301,6 +304,9 @@ pip install "oumi[gcp]"
 **Basic Usage**
 
 ```python
+from oumi.inference import GoogleVertexInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = GoogleVertexInferenceEngine(
     model_params=ModelParams(
         model_name="google/gemini-1.5-pro"
@@ -318,7 +324,10 @@ engine = GoogleVertexInferenceEngine(
 
 **Basic Usage**
 ```python
-engine = RemoteInferenceEngine(
+from oumi.inference import GoogleGeminiInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = GoogleGeminiInferenceEngine(
     model_params=ModelParams(
         model_name="gemini-1.5-flash"
     ),
@@ -339,6 +348,9 @@ engine = RemoteInferenceEngine(
 **Basic Usage**
 
 ```python
+from oumi.inference import RemoteInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = RemoteInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"
