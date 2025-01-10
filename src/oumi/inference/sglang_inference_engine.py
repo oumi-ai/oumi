@@ -108,7 +108,10 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                     json_schema = json_schema_value
                 elif isinstance(json_schema_value, dict):
                     json_schema = json.dumps(json_schema_value, ensure_ascii=False)
-                elif isinstance(json_schema_value, pydantic.BaseModel):
+                elif isinstance(json_schema_value, pydantic.BaseModel) or (
+                    isinstance(json_schema_value, type)
+                    and issubclass(json_schema_value, pydantic.BaseModel)
+                ):
                     json_schema = json.dumps(json_schema_value.model_json_schema())
                 else:
                     raise ValueError(

@@ -79,6 +79,7 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
                 GuidedDecodingParams(choice=["apple", "pear"]),
                 GuidedDecodingParams(json={"enum": ["apple", "pear"]}),
                 GuidedDecodingParams(json=SamplePydanticType(name="hey", score=0.7)),
+                GuidedDecodingParams(json=type(SamplePydanticType)),
                 GuidedDecodingParams(regex="(apple|pear)"),
             ],
         )
