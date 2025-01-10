@@ -6,14 +6,14 @@ from oumi.utils.packaging import PackagePrerequisites, check_package_prerequisit
 # The `PLATFORM_PREREQUISITES` dictionary is 2-levels deep (`dict` of nested `dict`s)
 # and contains the list of prerequisites (`PackagePrerequisites`) for each evaluation
 # platform. Specifically:
-# - The 1st-level key is the evaluation platform (`EvaluationPlatform` class).
-# - The 2nd-level key is either:
-#   - The task name (str) of the task to be executed in the platform.
+# - The 1st-level key determines the evaluation platform (`EvaluationPlatform` Enum).
+# - The 2nd-level key is an `str` that signifies either:
+#   - The task name of the task to be executed in the platform.
 #   - The key `ALL_TASK_PREREQUISITES_KEY`, which returns the aggregate platform
-#     package prerequisites, applicable to every task that may be executed.
+#     package prerequisites, applicable to every task that is executed.
 ALL_TASK_PREREQUISITES_KEY = "all_task_prerequisites"
 PLATFORM_PREREQUISITES: dict[
-    EvaluationPlatform, dict[Optional[str], list[PackagePrerequisites]]
+    EvaluationPlatform, dict[str, list[PackagePrerequisites]]
 ] = {
     EvaluationPlatform.LM_HARNESS: {
         ALL_TASK_PREREQUISITES_KEY: [],
