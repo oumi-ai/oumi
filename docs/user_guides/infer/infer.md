@@ -53,8 +53,6 @@ conversation = Conversation(
 # Get response
 result = engine.infer_online([conversation], InferenceConfig())
 print(result[0].messages[-1].content)
-
-del engine
 ```
 
 ## Core Concepts
