@@ -99,6 +99,7 @@ def test_train_pack():
                         DatasetParams(
                             dataset_name="Salesforce/wikitext",
                             subset="wikitext-2-raw-v1",
+                            dataset_kwargs={"seq_length": 128},
                         )
                     ],
                     stream=True,

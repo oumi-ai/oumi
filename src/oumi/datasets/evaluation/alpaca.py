@@ -32,22 +32,24 @@ class AlpacaEvalDataset(BaseSftDataset):
         *,
         include_system_prompt: bool = False,
         unused_entries_to_metadata: bool = False,
+        trust_remote_code: bool = True,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the AlpacaDataset class.
 
         Args:
-            include_system_prompt (bool): Whether to include a system prompt in the
+            include_system_prompt: Whether to include a system prompt in the
                 conversation.
             unused_entries_to_metadata (bool): Whether to save entries that were not
                 used in the conversation (entries other than `instruction`, `input`)
                 as metadata.
+            trust_remote_code: Whether to trust remote code.
             **kwargs: Additional keyword arguments.
         """
         self.include_system_prompt = include_system_prompt
         self.unused_entries_to_metadata = unused_entries_to_metadata
 
-        super().__init__(**kwargs)
+        super().__init__(**kwargs, trust_remote_code=trust_remote_code)
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
