@@ -119,7 +119,7 @@ from oumi.core.configs import InferenceConfig, ModelParams
 
 vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] #Add your inputs here
+input_conversation = [] # Add your inputs here
 inference_config = InferenceConfig()
 outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
 ```

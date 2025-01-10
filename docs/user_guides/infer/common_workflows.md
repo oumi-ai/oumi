@@ -54,36 +54,43 @@ Structured decoding helps ensure the model outputs data in a consistent, parseab
 Here's an example of how to use guided decoding to generate data in a structured format:
 
 ```{code-block} python
-:emphasize-lines: 2, 6, 7, 8, 9, 10, 11, 25, 26, 27, 41
+:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 52
 
-from typing import List
 from pydantic import BaseModel
 from oumi.inference import RemoteInferenceEngine
-from oumi.core.configs import ModelParams, RemoteParams, GenerationParams, GuidedDecodingParams
+from oumi.core.configs import (
+    ModelParams,
+    RemoteParams,
+    GenerationParams,
+    GuidedDecodingParams,
+)
+
 
 # Define output schema using Pydantic
 class ProductInfo(BaseModel):
     name: str
     price: float
-    features: List[str]
+    features: list[str]
     color: str
 
-# Configure engine for JSON output
-engine = RemoteInferenceEngine(
-    model_params=ModelParams(
-        model_name="gpt-4o-mini",
-    ),
+
+config = InferenceConfig(
+    model=ModelParams(model_name="gpt-4o-mini"),
     remote_params=RemoteParams(
         api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY"
+        api_key_env_varname="OPENAI_API_KEY",
     ),
     generation=GenerationParams(
         max_new_tokens=512,
         temperature=0,  # Use deterministic output for structured data
-        guided_decoding=GuidedDecodingParams(
-            json=ListOfQAPairs.model_json_schema()
-        ),
-    )
+        guided_decoding=GuidedDecodingParams(json=ProductInfo.model_json_schema()),
+    ),
+)
+
+# Configure engine for JSON output
+engine = RemoteInferenceEngine(
+    model_params=config.model,
+    remote_params=config.remote_params,
 )
 
 # Extract and validate structured data
@@ -92,10 +99,14 @@ text = (
     "some amazing features including the A17 Pro chip, USB-C connectivity, and a premium "
     "Titanium design."
 )
-conversation = Conversation(messages=[
-    Message(role=Role.USER, content=f"Extract product information as JSON from: {text}")
-])
-result = engine.infer_online([conversation], config)
+conversation = Conversation(
+    messages=[
+        Message(
+            role=Role.USER, content=f"Extract product information as JSON from: {text}"
+        )
+    ]
+)
+result = engine.infer_online([conversation], inference_config=config)
 product = ProductInfo.model_validate_json(result[0].messages[-1].content)
 ```
 
@@ -115,7 +126,7 @@ config = InferenceConfig(
     model=ModelParams(model_name="gpt-4"),
     remote_params=RemoteParams(
         api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY"
+        api_key_env_varname="OPENAI_API_KEY",
         max_retries=3,  # Number of retry attempts on failure
         num_workers=4,  # Process 4 requests concurrently
         politeness_policy=1.  # Sleep duration in seconds after an error
@@ -157,7 +168,7 @@ config = InferenceConfig(
     model=ModelParams(model_name="gpt-4"),
     remote_params=RemoteParams(
         api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY"
+        api_key_env_varname="OPENAI_API_KEY",
         batch_completion_window="24h"  # Time window for processing
     )
 )

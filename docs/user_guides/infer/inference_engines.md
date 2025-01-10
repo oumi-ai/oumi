@@ -304,6 +304,9 @@ pip install "oumi[gcp]"
 **Basic Usage**
 
 ```python
+from oumi.inference import GoogleVertexInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = GoogleVertexInferenceEngine(
     model_params=ModelParams(
         model_name="google/gemini-1.5-pro"
@@ -321,7 +324,10 @@ engine = GoogleVertexInferenceEngine(
 
 **Basic Usage**
 ```python
-engine = RemoteInferenceEngine(
+from oumi.inference import GeminiInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = GeminiInferenceEngine(
     model_params=ModelParams(
         model_name="gemini-1.5-flash"
     ),
@@ -342,6 +348,9 @@ engine = RemoteInferenceEngine(
 **Basic Usage**
 
 ```python
+from oumi.inference import RemoteInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = RemoteInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"
