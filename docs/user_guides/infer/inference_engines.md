@@ -134,7 +134,7 @@ For multi-GPU setups, you can leverage tensor parallelism:
 ```python
 # Tensor parallel inference
 model_params = ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.2-1B-Instruct",
         model_kwargs={
             "tensor_parallel_size": 2,        # Set to number of GPUs
             "gpu_memory_utilization": 1.0,    # Memory usage
@@ -193,7 +193,7 @@ While it may not offer the same performance optimizations as vLLM or LlamaCPP, i
 ```python
 engine = NativeTextInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.2-1B-Instruct",
         model_kwargs={
             "device_map": "auto",
             "torch_dtype": "float16"
