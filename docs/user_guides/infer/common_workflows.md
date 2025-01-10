@@ -6,9 +6,7 @@ The examples below can be used with multiple different inference engines. Check 
 
 ## Chat Completion
 
-The most common use case is interactive chat using foundation models. Here's how to set up a basic chat system, using the `VLLMInferenceEngine` engine:
-
-You can easily switch between different inference engines by changing the engine in the `engine` variable, and customize the generation by updating the `GenerationParams` config.
+The most common use case is interactive chat using foundation models. You can set up a basic chat system, using the `VLLMInferenceEngine` engine. You can easily switch between different inference engines by changing the engine in the `engine` variable, and customize the generation by updating the `GenerationParams` config:
 
 ```{code-block} python
 :emphasize-lines:  1, 6,7, 8, 9, 10, 11, 21, 22, 23, 24, 25
