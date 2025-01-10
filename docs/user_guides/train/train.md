@@ -85,17 +85,17 @@ You can override any value either through the CLI or programmatically:
 
 ::::{tab-set-code}
 :::{code-block} bash
-oumi train -c config.yaml \
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.learning_rate 1e-4 \
   --training.num_train_epochs 5
 :::
 
 :::{code-block} python
 from oumi.core.configs import TrainingConfig
-from oumitrain import train
+from oumi import train
 
 # Load base config
-config = TrainingConfig.from_yaml("config.yaml")
+config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Override specific values
 config.training.learning_rate = 1e-4
