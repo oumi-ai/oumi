@@ -104,6 +104,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                         "enum": generation_params.guided_decoding.choice
                     }
 
+                print(f"json_schema_value: {type(json_schema_value)}")
+                print(f"json_schema_value: {json_schema_value}")
                 if isinstance(json_schema_value, str):
                     json_schema = json_schema_value
                 elif isinstance(json_schema_value, dict):
