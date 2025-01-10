@@ -91,8 +91,8 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
 :::
 
 :::{code-block} python
-from oumi.core.configs import TrainingConfig
 from oumi import train
+from oumi.core.configs import TrainingConfig
 
 # Load base config
 config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
