@@ -38,7 +38,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :::
 
 :::{code-block} python
-from oumi.core.train import train
+from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load config from file
