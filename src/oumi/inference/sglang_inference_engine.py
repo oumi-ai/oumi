@@ -87,7 +87,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     def _create_sampling_params(
         self, generation_params: GenerationParams
     ) -> _SamplingParams:
-        regex = None
+        regex: str | None = None
+        json_schema: str | None = None
         if generation_params.guided_decoding is not None:
             if generation_params.guided_decoding.regex is not None:
                 regex = generation_params.guided_decoding.regex

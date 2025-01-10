@@ -1,10 +1,18 @@
 import functools
+import itertools
+import json
+from typing import Optional
 from unittest.mock import patch
 
 import PIL.Image
 import pytest
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    GuidedDecodingParams,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -56,10 +64,22 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
 
 
 @pytest.mark.parametrize(
-    "engine",
-    _generate_all_engines(),
+    "engine,guided_decoding",
+    list(
+        itertools.product(
+            _generate_all_engines(),
+            [
+                None,
+                GuidedDecodingParams(choice=["apple", "pear"]),
+                GuidedDecodingParams(json={"enum": ["apple", "pear"]}),
+                GuidedDecodingParams(regex="(apple|pear)"),
+            ],
+        )
+    ),
 )
-def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
+def test_convert_conversation_to_api_input(
+    engine: SGLangInferenceEngine, guided_decoding: Optional[GuidedDecodingParams]
+):
     is_vision_language: bool = "llava" in engine._model.lower()
 
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
@@ -96,6 +116,7 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
         presence_penalty=0.4,
         stop_strings=["stop it"],
         stop_token_ids=[32000],
+        guided_decoding=guided_decoding,
     )
 
     result = engine._convert_conversation_to_api_input(conversation, generation_params)
@@ -145,6 +166,34 @@ def test_convert_conversation_to_api_input(engine: SGLangInferenceEngine):
     assert result["sampling_params"]["presence_penalty"] == 0.4, result
     assert result["sampling_params"]["stop"] == ["stop it"], result
     assert result["sampling_params"]["stop_token_ids"] == [32000], result
+
+    expect_valid_regex = False
+    expect_valid_json_schema = False
+    if guided_decoding is not None:
+        if guided_decoding.regex is not None:
+            assert "regex" in result["sampling_params"]
+            assert result["sampling_params"]["regex"] == guided_decoding.regex
+            expect_valid_regex = True
+        elif guided_decoding.json is not None:
+            assert "json_schema" in result["sampling_params"]
+            assert (
+                json.loads(result["sampling_params"]["json_schema"])
+                == guided_decoding.json
+            )
+            expect_valid_json_schema = True
+        elif guided_decoding.choice is not None:
+            assert "json_schema" in result["sampling_params"]
+            assert json.loads(result["sampling_params"]["json_schema"]) == {
+                "enum": list(guided_decoding.choice)
+            }
+            expect_valid_json_schema = True
+
+    if not expect_valid_regex:
+        assert "regex" in result["sampling_params"]
+        assert result["sampling_params"]["regex"] is None
+    if not expect_valid_json_schema:
+        assert "json_schema" in result["sampling_params"]
+        assert result["sampling_params"]["json_schema"] is None
 
 
 @pytest.mark.parametrize(
