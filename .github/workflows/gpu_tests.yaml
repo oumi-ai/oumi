@@ -33,4 +33,6 @@ jobs:
     - name: Run GPU tests
       run: |
         nvidia-smi
+
+        cd ./tests/integration/
         pytest -s --durations=20
