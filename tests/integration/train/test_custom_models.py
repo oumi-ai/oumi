@@ -31,6 +31,7 @@ def _get_default_config(output_temp_dir):
                     DatasetParams(
                         dataset_name="Salesforce/wikitext",
                         subset="wikitext-2-raw-v1",
+                        dataset_kwargs={"seq_length": 128},
                     )
                 ],
                 stream=True,
