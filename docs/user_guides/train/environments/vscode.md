@@ -2,7 +2,7 @@
 
 VSCode provides a powerful IDE environment with debugging, testing, and code intelligence features to quickly debug your training and inference jobs. This guide covers how to configure vscode and how to get started debugging `oumi` jobs.
 
-This guide will also work for other IDEs base on vscode, such as [Cursor](https://www.cursor.com/).
+This guide will also work for other IDEs based on vscode, such as [Cursor](https://www.cursor.com/).
 
 ## Environment Setup
 
