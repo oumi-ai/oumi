@@ -5,7 +5,6 @@ from typing import Callable, Optional, TypeVar, Union, cast
 import datasets
 from trl.trainer import ConstantLengthDataset
 
-import oumi.datasets  # should always be imported here to register datasets
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -14,6 +13,7 @@ from oumi.core.configs import (
     MixtureStrategy,
     TrainingConfig,
 )
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -44,7 +44,6 @@ def build_dataset_mixture(
         dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
-
     if dataset_split_params.experimental_use_torch_datapipes:
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
@@ -57,6 +56,10 @@ def build_dataset_mixture(
         # IterableDataset. This is a temporary workaround until torchdata is stable
         # and becomes the default processign pipeline.
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
+
+    # Check if the underlying dataset is already packed, or if we need to pack it
+    # ourselves.
+    is_packed = _is_mixture_packed(dataset_split_params)
 
     datasets = [
         _sample_dataset(
@@ -81,7 +84,7 @@ def build_dataset_mixture(
         dataset_split_params.mixture_strategy,
         dataset_split_params.seed,
     )
-    if dataset_split_params.pack:
+    if dataset_split_params.pack and not is_packed:
         # Fetch max sequence length. If not specified, defaults to 1024.
         dataset_kwargs = {}
         if config.model.model_max_length:
@@ -245,15 +248,6 @@ def _sample_dataset(
     return cast(DatasetType, oversampled_dataset)
 
 
-def _preprocess_dataset(
-    dataset: DatasetType,
-    dataset_params: DatasetParams,
-    tokenizer: Optional[BaseTokenizer],
-) -> DatasetType:
-    """Applies preprocessing to a dataset given an optional preprocessing function."""
-    return dataset
-
-
 def _build_iterable_dataset_sampler(
     dataset: datasets.IterableDataset, n: int
 ) -> Callable:
@@ -281,12 +275,17 @@ def _load_dataset(
     datasets.IterableDatasetDict,
     datasets.IterableDataset,
 ]:
-    """Loads a dataset with the specified name and subset."""
-    # Streaming is not fully supported yet for custom datasets. The current logic is
-    # as follows: The original dataset is always a "map" dataset, but
-    # if `stream=True` then the raw dataset is not post-processed (not "transformed")
-    # before training starts: Instead, it's returned as `IterableDataset` with
-    # lazy feature generation i.e., `transform()` is called on-demand during training.
+    """Loads a dataset with the specified name and subset.
+
+    Note:
+        For custom map datasets, streaming is only partially supported:
+         - The full dataset is downloaded (or loaded from disk), and loaded in memory.
+         - However, transformations are applied lazily in streaming mode. The raw
+           dataset is not post-processed (i.e., not "transformed") before
+           training starts. Instead, it's returned as `IterableDataset` with lazy
+           feature generation i.e., `transform()` is called on-demand during
+           training.
+    """
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
@@ -299,15 +298,19 @@ def _load_dataset(
             )
 
         dataset = dataset_class(
+            dataset_name=dataset_params.dataset_name,
+            dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
-            dataset_path=dataset_params.dataset_path,
             tokenizer=tokenizer,
             trust_remote_code=dataset_params.trust_remote_code,
             **dataset_kwargs,
         )
         return dataset.to_hf(return_iterable=stream)
 
+    # Load a fully preprocessed (tokenized, etc) dataset from disk.
+    # The raw data will be used for training, with any processing
+    # other than collation (if enabled).
     dataset_path = dataset_params.dataset_path
     if dataset_path and is_cached_to_disk_hf_dataset(dataset_path):
         return datasets.Dataset.load_from_disk(dataset_path)
@@ -322,9 +325,30 @@ def _load_dataset(
         )
 
 
-if __name__ == "__main__":
-    # Print all available datasets.
-    # Note: this is mostly to avoid a not-used import for `oumi.datasets`.
-    print("Available datasets:")
-    for dataset in sorted(oumi.datasets.__all__):
-        print(f"- {dataset}")
+def _is_mixture_packed(dataset_split_params: DatasetSplitParams) -> bool:
+    """Returns whether all datasets in the mixture are packed.
+
+    Raises:
+        ValueError: If a mixture of packed and unpacked datasets is detected.
+    """
+    num_packed = 0
+    for dataset in dataset_split_params.datasets:
+        dataset_class = REGISTRY.get_dataset(
+            dataset.dataset_name, subset=dataset.subset
+        )
+
+        if dataset_class is not None and issubclass(
+            dataset_class,  # type: ignore
+            BasePretrainingDataset,
+        ):
+            num_packed += 1
+    if num_packed == len(dataset_split_params.datasets):
+        return True
+    elif num_packed == 0:
+        return False
+    else:
+        # Currently, registered datasets get packed and unregistered ones don't. We
+        # don't support mixing both at the moment.
+        raise ValueError(
+            "We currently don't support mixing registered and unregistered datasets."
+        )

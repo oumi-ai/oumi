@@ -17,9 +17,11 @@ def cleanup():
             snapshot.register(key, reg_type, value)
     # Clear the registry before each test.
     REGISTRY.clear()
+    REGISTRY._initialized = False
     yield
     # Clear the registry after each test.
     REGISTRY.clear()
+    REGISTRY._initialized = False
     # Restore the registry after each test.
     for reg_type in RegistryType:
         for key, value in snapshot.get_all(reg_type).items():
@@ -284,3 +286,31 @@ def test_registry_case_insensitive_get_all():
     all_builders = REGISTRY.get_all(RegistryType.CLOUD)
     assert set(all_builders.keys()) == {"class_one", "class_two"}
     assert list(all_builders.values()) == [builder_one, builder_two]
+
+
+def test_registry_contains_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.contains("foo", RegistryType.CLOUD)
+    assert REGISTRY._initialized
+
+
+def test_registry_register_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.register("foo", RegistryType.CLOUD, "bar")
+    assert REGISTRY._initialized
+
+
+def test_registry_get_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.get("foo", RegistryType.CLOUD)
+    assert REGISTRY._initialized
+
+
+def test_registry_get_all_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.get_all(RegistryType.CLOUD)
+    assert REGISTRY._initialized

@@ -76,7 +76,7 @@ _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
 _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
-        chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
+        chat_template="default",
         freeze_layers=["vision_model"],
     ),
     ModelName.LLAVA: ModelInfo(

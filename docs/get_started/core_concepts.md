@@ -2,7 +2,7 @@
 
 ## Overview
 
-Oumi aims to combine production-grade reliability with researcher-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
+Oumi combines enterprise-grade reliability with research-friendly flexibility, supporting the complete foundation model lifecycle from pretraining to deployment.
 
 This guide introduces the core concepts, and terminology used throughout Oumi, as well as the architecture and guiding design principles. Understanding these core terms will help you navigate Oumi's documentation and features effectively.
 
@@ -12,7 +12,7 @@ The following diagram illustrates the typical workflow in Oumi. You can either s
 %%{init: {'theme': 'base', 'themeVariables': { 'background': '#f5f5f5'}}}%%
 graph LR
     %% Data stage connections
-    DS[Datasets] --> |Open Datasets| TR[Training]
+    DS[Datasets] --> |Existing Datasets| TR[Training]
     DS --> |Data Synthesis| TR
 
     %% Training methods
@@ -61,7 +61,7 @@ See {doc}`/cli/commands` for full CLI details.
 
 ### Python API
 
-The Python API allows you to use Oumi to `train`, `evaluate`, and `infer` models in a notebook, a script, or any custom workflow.
+The Python API allows you to use Oumi to `train`, `evaluate`, `infer`, `judge`, and more. You can use it in a notebook, a script, or any custom workflow.
 
 For example, to train a model, you can use the `train` function:
 
@@ -77,7 +77,7 @@ See {doc}`/api/oumi` for full API details.
 
 ### Configs
 
-Configs are Oumi's way of providing reproducible configurations for common workflows.
+To provide recordability and reproducibility for common workflows, Oumi uses exhaustive configs to define all the parameters for each step.
 
 | Config Type | Purpose | Documentation |
 |------------|---------|---------------|
@@ -97,7 +97,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: text_sft_jsonl
+      - dataset_name: text_sft
         dataset_path: path/to/data
     stream: true
 
@@ -157,3 +157,4 @@ To contribute to Oumi or troubleshoot issues, it's helpful to understand how the
 1. **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
 2. **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
 3. **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.
+4. **Learn more about key functionalities:** Explore detailed guides on {doc}`training </user_guides/train/training_methods>`, {doc}`inference </user_guides/infer/infer>`, {doc}`evaluation </user_guides/evaluate/evaluate>`, and {doc}`model judging </user_guides/judge/judge>`.

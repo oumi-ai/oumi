@@ -42,7 +42,7 @@ The Oumi Judge V1 is available via multiple different implementations:
    - Lower latency, higher throughput
 
    ```python
-   from oumi.judges import oumi_v1_xml_local_judge
+   from oumi.judges import OumiXmlJudge, oumi_v1_xml_local_judge
    judge = OumiXmlJudge(oumi_v1_xml_local_judge())
    ```
 
@@ -51,7 +51,7 @@ The Oumi Judge V1 is available via multiple different implementations:
    - GPT-4o judge is the reference implementation of the Oumi Judge V1
 
    ```python
-   from oumi.judges import oumi_v1_xml_gpt4o_judge
+   from oumi.judges import OumiXmlJudge, oumi_v1_xml_gpt4o_judge
    judge = OumiXmlJudge(oumi_v1_xml_gpt4o_judge())
    ```
 
@@ -60,9 +60,26 @@ The Oumi Judge V1 is available via multiple different implementations:
    - The Claude-based judge is the best at judging prompts that require reasoning.
 
    ```python
-   from oumi.judges import oumi_v1_xml_claude_sonnet_judge
+   from oumi.judges import OumiXmlJudge, oumi_v1_xml_claude_sonnet_judge
    judge = OumiXmlJudge(oumi_v1_xml_claude_sonnet_judge())
    ```
+
+You can use any of them with the following code:
+
+```python
+from oumi.core.types import Conversation, Message, Role
+
+# Judge conversations
+conversations = [
+    Conversation(messages=[
+      Message(role=Role.USER, content="What is Python?"),
+      Message(role=Role.ASSISTANT, content="Python is a high-level programming language.")
+   ])
+]
+
+results = judge.judge(conversations)
+print(results)
+```
 
 ## Supported Judges
 

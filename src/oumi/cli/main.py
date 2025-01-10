@@ -1,3 +1,4 @@
+import os
 import sys
 
 import typer
@@ -11,41 +12,35 @@ from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
-from oumi.core.distributed import is_world_process_zero
 
 _ASCII_LOGO = """
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@************%@@%**#@@@@@@***@@@@@
-@@@@@.           #@@*  :@@@@@@. .@@@@@
-@@@@@. .%@@@@@:  #@@*  :@@@@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@*  :@@@@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@*  :@@@@@@. .@@@@@
-@@@@@. .+*****.  #@@*  .*****+. .@@@@@
-@@@@@.           #@@*           .@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@.                    .@@@. .@@@@@
-@@@@@. .++++++.  =+++++=  .@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@@@@%  .@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@@@@%  .@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@@@@%  .@@@. .@@@@@
-@@@@@. .@@@@@@:  #@@@@@%  .@@@. .@@@@@
-@@@@@***@@@@@@***%@@@@@@***@@@***@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@
+@                 @
+@   @@@@@  @  @   @
+@   @   @  @  @   @
+@   @@@@@  @@@@   @
+@                 @
+@   @@@@@@@   @   @
+@   @  @  @   @   @
+@   @  @  @   @   @
+@                 @
+@@@@@@@@@@@@@@@@@@@
 """
 
 
-def _oumi_welcome():
+def _oumi_welcome(ctx: typer.Context):
+    if ctx.invoked_subcommand == "distributed":
+        return
+    # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
+    if int(os.environ.get("RANK", 0)) > 0:
+        return
     print(_ASCII_LOGO)
 
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
-    if is_world_process_zero():
-        app.callback()(_oumi_welcome)
+    app.callback()(_oumi_welcome)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",

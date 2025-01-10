@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 
 from omegaconf import OmegaConf
 
@@ -24,6 +25,9 @@ def test_config_serialization():
         assert loaded_config.model.model_name == "my_test_model"
         assert len(loaded_config.data.train.datasets) == 1
         assert loaded_config.data.train.datasets[0].dataset_name == "my_test_dataset"
+        assert original_config == loaded_config
+
+        loaded_config = TrainingConfig.from_yaml(Path(filename))
         assert original_config == loaded_config
 
 

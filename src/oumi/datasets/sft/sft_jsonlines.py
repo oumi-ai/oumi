@@ -10,6 +10,7 @@ from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_json, load_jsonlines
 
 
+@register_dataset("text_sft")
 @register_dataset("text_sft_jsonl")
 class TextSftJsonLinesDataset(BaseSftDataset):
     """TextSftJsonLinesDataset for loading SFT data in oumi and alpaca formats.
