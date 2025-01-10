@@ -21,7 +21,7 @@ from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
 _DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruc"
-_DEFAULT_CHAT_TEMPLATE: Final[str] = "llava"
+_DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
