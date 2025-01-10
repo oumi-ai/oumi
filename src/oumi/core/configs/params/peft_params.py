@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -37,44 +37,6 @@ class PeftSaveMode(Enum):
     a PEFT model. A copy of the adapter before merging is saved in the "adapter/"
     subdirectory.
     """
-
-
-class LoraWeightInitialization(str, Enum):
-    """Enum representing the supported weight initializations for LoRA adapters."""
-
-    GAUSSIAN = "gaussian"
-    EVA = "eva"
-    OLORA = "olora"
-    PISA = "pissa"
-    PISSA_NITER = "pissa_niter_[number of iters]"
-    LOFTQ = "loftq"
-
-    def get_literal_value(
-        self,
-    ) -> Literal[
-        "gaussian",
-        "eva",
-        "olora",
-        "pissa",
-        "loftq",
-        "pissa_niter_[number of iters]",
-        "loftq",
-    ]:
-        """Returns a literal value of the enum."""
-        if self.value == LoraWeightInitialization.GAUSSIAN:
-            return "gaussian"
-        elif self.value == LoraWeightInitialization.EVA:
-            return "eva"
-        elif self.value == LoraWeightInitialization.OLORA:
-            return "olora"
-        elif self.value == LoraWeightInitialization.PISA:
-            return "pissa"
-        elif self.value == LoraWeightInitialization.PISSA_NITER:
-            return "pissa_niter_[number of iters]"
-        elif self.value == LoraWeightInitialization.LOFTQ:
-            return "loftq"
-        else:
-            raise ValueError("Unsupported value for LoraWeightInitialization")
 
 
 @dataclass
@@ -179,24 +141,6 @@ class PeftParams(BaseParams):
     Defaults to CAUSAL_LM (Causal Language Modeling).
     """
 
-    init_lora_weights: Union[bool, LoraWeightInitialization] = field(
-        default=True,
-        metadata={
-            "help": ("Weights initialization for LoRA adapters."),
-        },
-    )
-    """Passing `True` will use the underlying reference implementation of the
-    corresponding model from Microsoft.
-
-    Other valid (str) options include:
-        - "gaussian" for Gaussian initialization.
-        - TODO finish other valid options
-        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659)
-
-    For more information, see HF at:
-        https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
-    """
-
     # Q-Lora Params
     q_lora: bool = field(default=False, metadata={"help": "Use model quantization."})
     """Whether to use quantization for LoRA (Q-LoRA).
@@ -286,19 +230,3 @@ class PeftParams(BaseParams):
             bnb_4bit_quant_storage=self.bnb_4bit_quant_storage,
         )
         return quantization_config
-
-    def __post_init__(self):
-        """Verifies params."""
-        if not isinstance(
-            self.init_lora_weights, bool
-        ) and self.init_lora_weights not in [
-            LoraWeightInitialization.GAUSSIAN,
-            LoraWeightInitialization.LOFTQ,
-        ]:
-            raise ValueError(
-                "`init_lora_weights` must be one of "
-                f'["{LoraWeightInitialization.GAUSSIAN.value}", '
-                f'"{LoraWeightInitialization.LOFTQ.value}"].'
-            )
-        if not isinstance(self.init_lora_weights, bool):
-            self.init_lora_weights = self.init_lora_weights.get_literal_value()  # type: ignore
