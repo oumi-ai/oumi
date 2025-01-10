@@ -35,7 +35,7 @@ class AlpacaEvalDataset(BaseSftDataset):
         trust_remote_code: bool = True,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the AlpacaDataset class.
+        """Initializes a new instance of the AlpacaEvalDataset class.
 
         Args:
             include_system_prompt: Whether to include a system prompt in the
