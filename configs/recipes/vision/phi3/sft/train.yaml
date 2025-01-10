@@ -28,6 +28,8 @@ data:
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   trust_remote_code: True
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
       #     limit: 8192

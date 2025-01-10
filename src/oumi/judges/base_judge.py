@@ -205,7 +205,11 @@ class BaseJudge(ABC):
 
         # Wrap the generation params in an inference config for inference.
         # Only the generations params are used by the inference engine.
-        inference_config = InferenceConfig(generation=self._config.generation)
+        inference_config = InferenceConfig(
+            model=self._config.model,
+            generation=self._config.generation,
+            remote_params=self._config.remote_params,
+        )
         responses = self.inference_engine.infer(
             input=conversations, inference_config=inference_config
         )

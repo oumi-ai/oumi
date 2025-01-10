@@ -70,10 +70,12 @@ def evaluate(
         os.environ["IS_ALPACA_EVAL_2"] = str(False)
         annotators_config = "alpaca_eval_gpt4"
         fn_metric = "get_winrate"
+        sort_by_metric = "win_rate"
     elif task_params.version == 2.0:
         os.environ["IS_ALPACA_EVAL_2"] = str(True)
         annotators_config = "weighted_alpaca_eval_gpt4_turbo"
         fn_metric = "get_length_controlled_winrate"
+        sort_by_metric = "length_controlled_winrate"
     else:
         raise ValueError(
             "The `version` field in `AlpacaEvalTaskParams` must be either 1.0 or 2.0."
@@ -129,6 +131,7 @@ def evaluate(
         is_return_instead_of_print=True,
         is_overwrite_leaderboard=True,
         max_instances=task_params.num_samples,
+        sort_by=sort_by_metric,
         **task_params.eval_kwargs,
     )  # type: ignore
     elapsed_time_sec = time.time() - start_time

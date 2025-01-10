@@ -77,6 +77,7 @@ def _create_llava_vlm_config() -> InternalModelConfig:
 
 def _create_blip2_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config()
+    config.chat_template = "default"
     assert config.visual_config is not None
     config.processor_kwargs.update({"num_query_tokens": 32})
     return config
