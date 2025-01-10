@@ -95,7 +95,7 @@ def get_train_test_id_fn(val):
     return val.test_name
 
 
-@requires_gpus(count=1)
+@requires_gpus(count=1, min_gb=24.0)
 @pytest.mark.parametrize(
     "test_config",
     [
