@@ -119,11 +119,14 @@ See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an infe
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 
-vllm_model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
-engine = VLLMInferenceEngine(vllm_model_params)
-input_conversation = [] # Add your inputs here
+model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
+engine = VLLMInferenceEngine(model_params)
+input_conversation = []  # Add your inputs here
 inference_config = InferenceConfig()
-output_conversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+output_conversations = engine.infer_online(
+    input=input_conversation, inference_config=inference_config
+)
+print(output_conversations)
 ```
 
 #### Input Data
