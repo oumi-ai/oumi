@@ -130,9 +130,9 @@ While you can dive directly into any section that interests you, we recommend fo
 
 ## Contributing
 
-We welcome contributions! See our [Contributing Guide](development/contributing) for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
+We welcome contributions! See our {doc}`Contributing Guide <development/contributing>` for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
 
-If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+l), or {doc}`contributing directly <development/contributing>!
 
 ## Need Help?
 

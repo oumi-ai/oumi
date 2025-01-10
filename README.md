@@ -53,7 +53,7 @@ Some of Oumi's key features and design principles include:
 
 - **Enterprise-Grade**: Comprehensive test coverage, detailed documentation, and strong support make Oumi reliable for both research and production use cases.
 
-If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+l), or [contributing directly](CONTRIBUTING.md)!
 
 For a full tour of what Oumi can do, dive into the [documentation](https://oumi.ai/docs).
 
