@@ -47,7 +47,9 @@ class BaseConfig:
         OmegaConf.save(config=self, f=config_path)
 
     @classmethod
-    def from_yaml(cls: type[T], config_path: str, ignore_interpolation=True) -> T:
+    def from_yaml(
+        cls: type[T], config_path: Union[str, Path], ignore_interpolation=True
+    ) -> T:
         """Loads a configuration from a YAML file.
 
         Args:
@@ -60,7 +62,7 @@ class BaseConfig:
         """
         schema = OmegaConf.structured(cls)
         if ignore_interpolation:
-            stringified_config = _read_config_without_interpolation(config_path)
+            stringified_config = _read_config_without_interpolation(str(config_path))
             file_config = OmegaConf.create(stringified_config)
         else:
             file_config = OmegaConf.load(config_path)

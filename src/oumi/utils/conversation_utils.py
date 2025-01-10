@@ -1,17 +1,22 @@
 import base64
 from typing import Any, Union
 
-import requests
+import PIL.Image
 
 from oumi.core.types.conversation import ContentItem, Message, Type
 from oumi.utils.image_utils import (
-    create_png_bytes_from_image_bytes,
+    DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
+    load_image_png_bytes_from_url,
+    load_pil_image_from_bytes,
+    load_pil_image_from_path,
+    load_pil_image_from_url,
 )
-from oumi.utils.logging import logger
 
 
-def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
+def load_image_bytes_to_content_item(
+    item: ContentItem, mode: str = DEFAULT_IMAGE_MODE
+) -> ContentItem:
     """Ensures that message content item contains inline image bytes if it's an image.
 
     Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
@@ -19,6 +24,9 @@ def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
 
     Args:
         item: An input message content item.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         A content item guaranteed to be `IMAGE_BINARY` if an input content item
@@ -28,22 +36,50 @@ def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
         if item.type == Type.IMAGE_PATH:
             if item.content is None:
                 raise ValueError("Image path is None")
-            png_bytes = load_image_png_bytes_from_path(item.content)
+            png_bytes = load_image_png_bytes_from_path(item.content, mode=mode)
         else:
             assert item.type == Type.IMAGE_URL
             if item.content is None:
                 raise ValueError("Image URL is None")
-            try:
-                response = requests.get(item.content, stream=True)
-                response.raise_for_status()
-            except requests.exceptions.RequestException:
-                logger.exception(f"Failed to download image: '{item.content}'")
-                raise
-            png_bytes = create_png_bytes_from_image_bytes(response.content)
+            png_bytes = load_image_png_bytes_from_url(item.content, mode=mode)
 
         return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
 
     return item
+
+
+def load_pil_image_from_content_item(
+    image_item: ContentItem, mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
+    """Loads a PIL image from a message content item.
+
+    Args:
+        image_item: A content item representing an image.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        Image.Image: A PIL image.
+    """
+    if image_item.type == Type.IMAGE_PATH:
+        if image_item.content is None:
+            raise ValueError("Image path is None")
+        image_bin = load_pil_image_from_path(image_item.content, mode=mode)
+    elif image_item.type == Type.IMAGE_URL:
+        if image_item.content is None:
+            raise ValueError("Image URL is None")
+        image_bin = load_pil_image_from_url(image_item.content, mode=mode)
+    elif image_item.type == Type.IMAGE_BINARY:
+        if image_item.binary is None:
+            raise ValueError("Image binary is None")
+        image_bin = load_pil_image_from_bytes(image_item.binary, mode=mode)
+    else:
+        raise ValueError(
+            f"Unsupported content item type: {image_item.type}. Not an image!"
+        )
+
+    return image_bin
 
 
 def base64encode_content_item_image_bytes(
@@ -152,7 +188,8 @@ def convert_message_to_json_content(
         message: The message to get the content for.
 
     Returns:
-        list[Dict[str, Any]]: The content for the message for all content items.
+        The content for the message returned either as a single string,
+        or as a list of content items.
     """
     if isinstance(message.content, str):
         return message.content
@@ -174,8 +211,6 @@ def create_list_of_message_json_dicts(
         messages: The input messages.
         group_adjacent_same_role_turns: Whether to pack adjacent messages
             from the same role into a single element in output list.
-            For multimodal conversations, adjacent image and text turns from
-            the same role must be grouped together.
 
     Returns:
         list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.

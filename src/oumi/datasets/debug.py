@@ -1,5 +1,5 @@
 import time
-from typing import List, Union
+from typing import Union
 
 import pandas as pd
 import torch
@@ -90,7 +90,7 @@ class DebugPretrainingDataset(BasePretrainingDataset):
 
         super().__init__(**kwargs)
 
-    def _load_data(self) -> List[dict]:
+    def _load_data(self) -> list[dict]:
         return [{"text": f"This is document number {idx}."} for idx in range(self.size)]
 
 

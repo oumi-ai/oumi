@@ -168,7 +168,7 @@ To use your own datasets, you can specify the path to the dataset in the configu
 data:
   train:
     datasets:
-      - dataset_name: "text_sft_jsonl"
+      - dataset_name: "text_sft"
         dataset_path: "/path/to/dataset.jsonl"
 ```
 

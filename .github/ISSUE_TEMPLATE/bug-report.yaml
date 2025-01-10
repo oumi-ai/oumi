@@ -1,7 +1,7 @@
 name: Bug Report
 description: File a bug report to help us improve Oumi
 title: "[Bug]: "
-labels: ["bug", "triage"]
+labels: ["Bug"]
 body:
   - type: markdown
     attributes:
@@ -37,7 +37,13 @@ body:
     id: system-info
     attributes:
       label: System Info
-      description: Please share as much information about your system as possible.
-      placeholder: operating system, python version, oumi version, torch version, etc.
+      description: Please share your system information by running `oumi env` and pasting its output below.
+      placeholder: |
+        Please paste the output of `oumi env` here. If you can't run this command, please provide:
+        - Operating system
+        - Python version
+        - Oumi version
+        - PyTorch version
+        - Any other relevant system information
     validations:
       required: true

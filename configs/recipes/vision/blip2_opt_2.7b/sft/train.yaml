@@ -3,7 +3,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
   trust_remote_code: True
-  chat_template: "llava"
+  chat_template: "default"
   freeze_layers:
     - "vision_model"
 
@@ -11,7 +11,7 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: False
-    target_col: "text" # TODO: useless col, but required by the trainer
+    target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -20,12 +20,13 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Salesforce/blip2-opt-2.7b"
-          limit: 2048
+          limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "Salesforce/blip2-opt-2.7b"
       #     limit: 1024

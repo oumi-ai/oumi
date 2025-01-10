@@ -18,7 +18,7 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.utils.image_utils import load_image_from_bytes
+from oumi.utils.image_utils import load_pil_image_from_bytes
 from oumi.utils.logging import logger
 
 
@@ -176,7 +176,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                             "No image bytes in a binary image message (`IMAGE_BINARY`)!"
                         )
                     )
-                image = load_image_from_bytes(image_item.binary)
+                image = load_pil_image_from_bytes(image_item.binary)
                 pil_images.append(image)
 
         batch = self._processor(

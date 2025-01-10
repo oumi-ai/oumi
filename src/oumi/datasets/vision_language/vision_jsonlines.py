@@ -10,6 +10,7 @@ from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_jsonlines
 
 
+@register_dataset("vl_sft")
 @register_dataset("vision_language_jsonl")
 class VLJsonlinesDataset(VisionLanguageSftDataset):
     """VLJsonlinesDataset for loading Vision-Language SFT data in Oumi format.

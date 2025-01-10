@@ -34,8 +34,8 @@ class PeftSaveMode(Enum):
     """Merge the adapter and base model's weights and save as a single model.
 
     Note that the resulting model is a standard HF Transformers model, and is no longer
-    a PEFT model. This means that it's no longer possible to continue fine-tuning the
-    adapter on its own.
+    a PEFT model. A copy of the adapter before merging is saved in the "adapter/"
+    subdirectory.
     """
 
 

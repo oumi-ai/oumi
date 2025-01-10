@@ -11,8 +11,8 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: True
-    target_col: "text" # TODO: useless col, but required by the trainer
+    target_col: "prompt"
+    stream: False
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -28,6 +28,8 @@ data:
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   trust_remote_code: True
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
       #     limit: 8192
@@ -56,7 +58,7 @@ training:
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  ddp_find_unused_parameters: True
+  ddp_find_unused_parameters: False
   empty_device_cache_steps: 2
   compile: False
 
@@ -68,6 +70,7 @@ training:
 
   logging_steps: 5
   save_steps: 0
+  dataloader_main_process_only: True
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
   include_performance_metrics: True

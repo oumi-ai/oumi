@@ -9,6 +9,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.peft_utils import get_lora_rank
 
@@ -121,14 +122,20 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
-        # FIXME Handle multimodal e.g., raise an error.
-        return [
-            {
-                "content": message.compute_flattened_text_content(),
-                "role": message.role,
-            }
-            for message in conversation.messages
-        ]
+        result: list[ChatCompletionMessageParam] = []
+        for json_dict in create_list_of_message_json_dicts(
+            conversation.messages, group_adjacent_same_role_turns=True
+        ):
+            for key in ("role", "content"):
+                if key not in json_dict:
+                    raise RuntimeError(f"The required field '{key}' is missing!")
+            if not isinstance(json_dict["content"], (str, list)):
+                raise RuntimeError(
+                    "The 'content' field must be `str` or `list`. "
+                    f"Actual: {type(json_dict['content'])}."
+                )
+            result.append({"role": json_dict["role"], "content": json_dict["content"]})
+        return result
 
     def _infer(
         self, input: list[Conversation], inference_config: InferenceConfig

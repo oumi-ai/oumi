@@ -1,10 +1,8 @@
 import copy
-import io
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
 
 import numpy as np
-import requests
 import torch
 from PIL import Image
 from typing_extensions import override
@@ -24,8 +22,8 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
-    Type,
 )
+from oumi.utils.conversation_utils import load_pil_image_from_content_item
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_first_dim_len
 
@@ -359,26 +357,4 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         """
         if self._image_processor is None:
             raise ValueError("Processor required for transform")
-
-        if image_item.type == Type.IMAGE_PATH:
-            if image_item.content is None:
-                raise ValueError("Image path is None")
-            image_bin = Image.open(image_item.content).convert("RGB")
-        elif image_item.type == Type.IMAGE_URL:
-            if image_item.content is None:
-                raise ValueError("Image URL is None")
-            try:
-                response = requests.get(image_item.content, stream=True)
-                response.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                logger.exception(f"Failed to download image: '{image_item.content}'")
-                raise e
-            image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
-        elif image_item.type == Type.IMAGE_BINARY:
-            if image_item.binary is None:
-                raise ValueError("Image binary is None")
-            image_bin = Image.open(io.BytesIO(image_item.binary)).convert("RGB")
-        else:
-            raise ValueError(f"Unsupported image type: {image_item.type}")
-
-        return image_bin
+        return load_pil_image_from_content_item(image_item)
