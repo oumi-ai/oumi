@@ -1,6 +1,5 @@
 import os
 import tempfile
-from io import StringIO
 from pathlib import Path
 
 from omegaconf import OmegaConf
@@ -29,9 +28,6 @@ def test_config_serialization():
         assert original_config == loaded_config
 
         loaded_config = TrainingConfig.from_yaml(Path(filename))
-        assert original_config == loaded_config
-
-        loaded_config = TrainingConfig.from_yaml(StringIO(filename))
         assert original_config == loaded_config
 
 

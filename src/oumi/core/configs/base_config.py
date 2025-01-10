@@ -48,7 +48,7 @@ class BaseConfig:
 
     @classmethod
     def from_yaml(
-        cls: type[T], config_path: Union[str, Path, StringIO], ignore_interpolation=True
+        cls: type[T], config_path: Union[str, Path], ignore_interpolation=True
     ) -> T:
         """Loads a configuration from a YAML file.
 
