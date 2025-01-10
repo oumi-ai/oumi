@@ -78,3 +78,7 @@ def test_compute_utf8_len():
     assert compute_utf8_len("a b c") == 5
     assert compute_utf8_len("Wir müssen") == 11
     assert compute_utf8_len("Мы должны") == 17
+
+
+def bzz():
+    pass

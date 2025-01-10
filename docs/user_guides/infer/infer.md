@@ -40,7 +40,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 # Initialize with a small, free model
 engine = VLLMInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.2-1B-Instruct",
+        model_name="HuggingFaceTB/SmolLM2-135M-Instruct",
         model_kwargs={"device_map": "auto"}
     )
 )
@@ -53,6 +53,8 @@ conversation = Conversation(
 # Get response
 result = engine.infer_online([conversation], InferenceConfig())
 print(result[0].messages[-1].content)
+
+del engine
 ```
 
 ## Core Concepts
@@ -117,11 +119,11 @@ See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an infe
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 
-vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
-engine = VLLMInferenceEngine(vllmModelParams)
+vllm_model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
+engine = VLLMInferenceEngine(vllm_model_params)
 input_conversation = [] # Add your inputs here
 inference_config = InferenceConfig()
-outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+output_conversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
 ```
 
 #### Input Data
@@ -173,13 +175,42 @@ For models that support multi-modal inputs (e.g., text and images):
 
 ```python
 from oumi.inference import VLLMInferenceEngine
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import InferenceConfig, InferenceEngineType, ModelParams, GenerationParams
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
 
-vllmModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
-engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] # Add your inputs here
-inference_config = InferenceConfig()
-outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+model_params = ModelParams(
+    model_name="llava-hf/llava-1.5-7b-hf",
+    model_max_length=1024,
+    chat_template="llava",
+)
+
+engine = VLLMInferenceEngine(model_params)
+```
+
+```python
+input_conversation = Conversation(
+    messages=[
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(
+                    content=content="https://oumi.ai/favicon.ico",
+                    type=Type.IMAGE_URL,
+                ),
+                ContentItem(content="Describe this image", type=Type.TEXT),
+            ],
+        )
+    ]
+)
+inference_config = InferenceConfig(
+    model=model_params,
+    generation=GenerationParams(max_new_tokens=64),
+    engine=InferenceEngineType.VLLM,
+)
+output_conversations = engine.infer_online(
+    input=[input_conversation], inference_config=inference_config
+)
+print(output_conversations)
 ```
 
 ### Distributed Inference
