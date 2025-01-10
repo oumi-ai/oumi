@@ -17,45 +17,49 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built to be flexible and enterprise-grade, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 <p align="center">
-   <b>Check out our docs!</b>
+   <b>Check out the detailed Oumi docs!</b>
    <br>
    ↓↓↓↓↓↓
    <br>
    https://oumi.ai/docs
-   <br>
-   <b>Password:</b> c155c7d02520
    <br>
    ↑↑↑↑↑↑
 </p>
 
 ## Features
 
-Oumi is designed to be fully flexible yet easy to use:
+Oumi is designed to support all common foundation model workflows. As a few examples, with Oumi you can:
+-  **Tune** all the most popular and highest performing open text and multimodal models with the latest techniques for the highest quality and efficiency. From the smallest models to the largest ones. On your laptop, your cluster, or any common cloud.
+- **Synthesize** data with the largest open models, curate it with LLM judges and readily use it to train and evaluate.
+- Perform **inference** with most common inference engines and **evaluation** with most common benchmarks.
+- Do many more things out of the box and **anything else** you desire easily thanks to Oumi’s composable and extensible design.
 
-- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters, with native support for Jupyter notebooks and VS Code debugging.
+Some of Oumi's key features and design principles include:
 
-- **Comprehensive Training**: Support for the full ML lifecycle - from pretraining to fine-tuning (SFT, LoRA, QLoRA, DPO) to evaluation. Built for both research exploration and production deployment.
+- **End-to-end Unified Platform**: Support for the full ML lifecycle with one consistent interface - from pretraining to data curation, data synthesis, fine-tuning (SFT, LoRA, QLoRA, DPO), inference, and evaluation. Seamlessly work with both open models (Llama, QWEN, Phi and others) and commercial APIs (OpenAI, Anthropic, Vertex AI), with both text and multimodal models.
+
+- **Easy To Use**: Prebuilt ready-to-use workflows and recipes for post training and other common operations.
+
+- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity and extensibility in mind.
+
+- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters and clouds (AWS, Azure, GCP, Lambda), with native support for Jupyter notebooks and VS Code debugging.
 
 - **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
 
-- **Reproducible Research**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines.
+- **Research-Grade**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines. Standardization of datasets, evaluation and other experimentation steps make it easy to share, collaborate and build on each other's work.
 
-- **Unified Interface**: One consistent interface for everything - data processing, training, evaluation, and inference. Seamlessly work with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI).
-
-- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity in mind.
-
-- **Production Ready**: Comprehensive test coverage, detailed documentation, and enterprise-grade support make Oumi reliable for both research and production use cases.
+- **Enterprise-Grade**: Comprehensive test coverage, detailed documentation, and strong support make Oumi reliable for both research and production use cases.
 
 If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?template=feature_request.md), or [contributing directly](development/contributing)!
 
-For a full tour of what Oumi can do, dive into our [documentation](https://oumi.ai/docs).
+For a full tour of what Oumi can do, dive into the [documentation](https://oumi.ai/docs).
 
 ## Getting Started
 
-With just a couple commands you can install Oumi, train, infer, and evaluate. All it would take is something like the following:
+With just a couple commands you can install Oumi, train, infer, and evaluate.
 
 ### Installation
 
@@ -73,35 +77,31 @@ pip install -e ".[gpu]"  # For GPU training
 
 ### Usage
 
-   ```shell
+  ```shell
    # Training
    oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
    # Evaluation
-   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-   --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
 
    # Inference
-   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-   --generation.max_new_tokens 40 \
-   --generation.temperature 0.7 \
-   --interactive
+   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
    ```
 
-   For more advanced training options, see the [training guide](/docs/user_guides/train/train.md) and [distributed training](docs/user_guides/train/distributed_training.md).
+   For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), and [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html) guides.
 
 ### Examples &  Recipes
 
-Explore our growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
+Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
 #### 🦙 Llama Family
 
 | Model | Example Configurations |
 |-------|------------------------|
-| Llama 3.1 8B | [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
-| Llama 3.1 70B | [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
-| Llama 3.1 405B | [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) • [Full Finetune](/configs/recipes/llama3_1/sft/405b_full/train.yaml) |
-| Llama 3.2 3B | [Full Finetune](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml) |
+| Llama 3.1 8B | [FFT](/configs/recipes/llama3_1/sft/8b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/8b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/8b_qlora/train.yaml) • [Pre-training](/configs/recipes/llama3_1/pretraining/8b/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/8b_eval.yaml) |
+| Llama 3.1 70B | [FFT](/configs/recipes/llama3_1/sft/70b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/70b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/70b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_1/inference/70b_infer.yaml) • [Evaluation](/configs/recipes/llama3_1/evaluation/70b_eval.yaml) |
+| Llama 3.1 405B | [FFT](/configs/recipes/llama3_1/sft/405b_full/train.yaml) • [LoRA](/configs/recipes/llama3_1/sft/405b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_1/sft/405b_qlora/train.yaml) |
+| Llama 3.2 3B | [FFT](/configs/recipes/llama3_2/sft/3b_full/train.yaml) • [LoRA](/configs/recipes/llama3_2/sft/3b_lora/train.yaml) • [QLoRA](/configs/recipes/llama3_2/sft/3b_qlora/train.yaml) • [Inference](/configs/recipes/llama3_2/inference/3b_infer.yaml)  • [Evaluation](/configs/recipes/llama3_2/evaluation/3b_eval.yaml)|
 | Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
 
 #### 🎨 Vision Models
@@ -109,9 +109,12 @@ Explore our growing collection of ready-to-use configurations for state-of-the-a
 | Model | Example Configurations |
 |-------|------------------------|
 | Llama 3.2 Vision 11B | [SFT](/configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml) • [Inference (SG-Lang)](/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml) • [Inference (vLLM)](/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml) • [Evaluation](/configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml) |
-| LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
-| Phi3 Vision | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
+| LLaVA 7B | [SFT](/configs/recipes/vision/llava_7b/sft/train.yaml) • [Inference (vLLM)](configs/recipes/vision/llava_7b/inference/vllm_infer.yaml) • [Inference](/configs/recipes/vision/llava_7b/inference/infer.yaml) |
+| Phi3 Vision 4.2B | [SFT](/configs/recipes/vision/phi3/sft/train.yaml) |
+| BLIP-2 3.6B | [SFT](/configs/recipes/vision/blip2_opt_2.7b/sft/oumi_gcp_job.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) |
+| SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
+
 
 #### 🎯 Training Techniques
 
@@ -140,14 +143,11 @@ Comprehensive tutorials and guides to help you master Oumi:
 | [🎯 Getting Started: A Tour](/notebooks/Oumi%20-%20A%20Tour.ipynb) | Comprehensive overview of Oumi's architecture and core capabilities |
 | **Model Training & Finetuning** |
 | [🔧 Model Finetuning Guide](/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) | Step-by-step guide to efficient model finetuning techniques |
-| [🦙 Advanced Llama Training](/notebooks/Oumi%20-%20Tuning%20Llama.ipynb) | In-depth walkthrough of Llama model training and optimization |
 | **Deployment & Infrastructure** |
-| [🚀 Distributed Inference](/notebooks/Oumi%20-%20Multinode%20Inference%20on%20Polaris.ipynb) | Guide to scaling inference across multiple compute nodes |
 | [🔄 vLLM Inference Engine](/notebooks/Oumi%20-%20Using%20vLLM%20Engine%20for%20Inference.ipynb) | High-performance inference using vLLM |
 | [☁️ Remote Training](/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb) | Guide to running jobs on cloud platforms |
 | [🖥️ Custom Clusters](/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb) | Setting up and using custom compute clusters |
 | **Datasets & Evaluation** |
-| [📊 Dataset Management](/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb) | Best practices for dataset preparation and processing |
 | [⚖️ Custom Judge](/notebooks/Oumi%20-%20Custom%20Judge.ipynb) | Creating custom evaluation metrics and judges |
 | [📈 Oumi Judge](/notebooks/Oumi%20-%20Oumi%20Judge.ipynb) | Using Oumi's built-in evaluation framework |
 
@@ -157,26 +157,26 @@ See the [Oumi documentation](https://oumi.ai/docs) to learn more about all the p
 
 ## Contributing
 
-Did we mention that this is a community-first effort? All contributions are welcome!
+This is a community-first effort. Contributions are very welcome! 🚀
 
-Please check the `CONTRIBUTING.md` file for guidelines on how to contribute to the project.
+Please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidelines on how to contribute to the project.
 
-If you want to contribute but you are short of ideas, please reach out (<contact@oumi.ai>)!
+If you want to contribute, but you are short of ideas, please reach out (<contact@oumi.ai>)!
 
 ## Acknowledgements
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🚀
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🙏
 
 ## Citation
 
-If you find Oumi useful in your research, please consider citing it using the following entry:
+If you find Oumi useful in your research, please consider citing it:
 
 ```bibtex
 @software{oumi2024,
   author = {Oumi Community},
   title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
-  month = {November},
-  year = {2024},
+  month = {January},
+  year = {2025},
   url = {https://github.com/oumi-ai/oumi}
 }
 ```

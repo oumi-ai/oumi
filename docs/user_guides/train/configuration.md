@@ -94,7 +94,7 @@ Configure datasets and data loading using the {py:obj}`~oumi.core.configs.params
 data:
   train:  # Training dataset configuration
     datasets:  # List of datasets for this split
-      - dataset_name: "text_sft_jsonl"      # Required: Dataset format/type
+      - dataset_name: "text_sft"            # Required: Dataset format/type
         dataset_path: "/path/to/data"       # Optional: Path for local datasets
         subset: null                        # Optional: Dataset subset name
         split: "train"                      # Dataset split (default: "train")
@@ -119,7 +119,7 @@ data:
 
   validation:  # Optional validation dataset config
     datasets:
-      - dataset_name: "text_sft_jsonl"
+      - dataset_name: "text_sft"
         dataset_path: "/path/to/val"
         split: "validation"
 ```

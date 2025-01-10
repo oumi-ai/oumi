@@ -9,6 +9,21 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
+# Sample command to start vLLM server:
+# python -u -m vllm.entrypoints.openai.api_server \
+#   --port 30000 \
+#   --model meta-llama/Llama-3.2-11B-Vision-Instruct  \
+#   --trust-remote-code \
+#   --dtype=bfloat16 \
+#   --device=cuda \
+#   --max-model-len 256 \
+#   --enforce-eager \
+#   --disable-custom-all-reduce \
+#   --disable-log-requests \
+#   --max_num_seqs=2 \
+#   --enable-chunked-prefill=false \
+#   --gpu-memory-utilization=0.95 \
+#   --tensor-parallel-size 1
 remote_params:
   # This address is just an example (it's what you may get when you start vllm sever locally).
   # For details, see https://platform.openai.com/docs/api-reference/chat/create

@@ -1,48 +1,58 @@
-# Generative Evaluations
+# Generative Benchmarks
 
-Evaluating generative language models requires specialized approaches beyond traditional metrics. Here we cover several established methods for assessing model performance.
+Evaluating language models on open-ended generation tasks requires specialized approaches beyond standardized benchmarks and traditional metrics. In this section, we discuss several established methods for assessing model performance with generative benchmarks. Generative benchmarks consist of open-ended questions, allowing the model to generate a free-form output, rather than adhere to a pre-defined "correct" answer. The focus of such evaluations is to assess the model's ability to follow the prompt instructions and generate human-like, high-quality, coherent, and creative responses.
+
+## Overview
+
+Generative benchmarks are vital to evaluate conversational agents, as well as tasks such as creative writing or editing (storytelling, essays and articles), summarization, translation, planning, and code generation. In addition, assessing capabilities such as instruction following, safety, trust, and groundedness, require generative responses.
+
+That said, generative evaluations are significantly more challenging than closed-form evaluations, due to lack of a clear "correct" answer. This makes the evaluation criteria subjective to human judgment. But, even for an established set of criteria, aligning across raters ultimately depends on human perception, making consistent evaluations a very hard problem. Alternatively, fully-automating the rating process, by leveraging LLMs as judges of responses is recently getting more traction. LLM-as-a-judge platforms are significantly more cost- and time-effective, while they can provide reproducible and consistent results (under certain conditions).
+
+This section discusses the LLM-as-a-judge platforms that Oumi is using as its backend to provide reliable insights on generative model performance. The evaluation process consists of 2 steps: inference and judgement. Inference generates model responses for a predefined set of open-ended prompts, while judgement leverages an LLM to judge the quality of these responses. Oumi enables generative evaluation by integrating with popular platforms (AlpacaEval and MT-Bench), as well as offering a flexible framework (see {doc}`/user_guides/judge/judge`) for users to develop their own custom generative evaluations.
 
 All evaluations in Oumi are automatically logged and versioned, capturing model configurations, evaluation parameters, and environmental details to ensure reproducible results.
 
+## Supported Out-of-the-box Benchmarks
 
-## Established Benchmarks
+### AlpacaEval (1.0 and 2.0)
 
-### AlpacaEval
+[AlpacaEval](https://github.com/tatsu-lab/alpaca_eval) is a framework for automatically evaluating the instruction-following capabilities of language models, as well as whether their responses are helpful, accurate, and relevant. The framework prioritizes human-aligned evaluation, aiming to assess whether the model’s response meets the expectations of human evaluators. The instruction set consists of 805 open-ended questions, such as "How did US states get their names?".
 
-AlpacaEval is a framework for evaluating instruction-following capabilities of language models. It uses GPT-4 as a judge to compare model outputs against reference responses.
-
-AlpacaEval provides automated evaluation capabilities using GPT-4 as a judge to assess instruction-following abilities of language models. The framework focuses specifically on measuring how well models follow instructions by comparing their outputs against reference responses.
-
-It generates standardized win rates against baseline models and has been widely adopted as a benchmark in research papers. This makes it particularly useful for evaluating instruction-tuned models, comparing performance against established baselines, and conducting automated evaluations at scale.
+The latest update (2.0) uses GPT-4 Turbo as a judge, comparing the model outputs against a set of reference responses, and calculating standardized win-rates against these responses. AlpacaEval 2.0 has been widely adopted as a benchmark in research papers and it is particularly useful for evaluating instruction-tuned models, comparing performance against established baselines (see [leaderboard](https://tatsu-lab.github.io/alpaca_eval/)), and conducting automated evaluations at scale.
 
 To use AlpacaEval, you can run the following command:
 
 ```bash
-oumi evaluate -c configs/examples/evaluation/alpaca/alpaca_v2.yaml
+OPENAI_API_KEY="your_key"
+oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml
 ```
 
-You can also run the example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
+If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
 
 **Resources:**
 - {gh}`Evaluation Tutorial <notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb>`
-- [AlpacaEval Paper](https://arxiv.org/abs/2305.14387)
+- [AlpacaEval V1.0 Paper](https://arxiv.org/abs/2305.14387)
+- [AlpacaEval V2.0 Paper](https://arxiv.org/abs/2404.04475)
+- [AlpacaEval V2.0 Dataset](https://huggingface.co/datasets/tatsu-lab/alpaca_eval)
+- [Leaderboard](https://tatsu-lab.github.io/alpaca_eval/)
 - [Official Repository](https://github.com/tatsu-lab/alpaca_eval)
 
 ### MT-Bench
 
-MT-Bench (Multi-Turn Benchmark) is an evaluation framework specifically designed for assessing chat assistants in multi-turn conversations. It tests models' abilities to maintain context, provide consistent responses across turns, and engage in coherent dialogues.
+[MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) (Multi-Turn Benchmark) is an evaluation framework specifically designed for assessing chat assistants in multi-turn conversations. It tests a model's ability to maintain context, provide consistent responses across turns, and engage in coherent dialogues. The instruction set consists of 80 open-ended multi-turn questions, which span across 8 popular categories: writing, roleplay, extraction, reasoning, math, coding, STEM knowledge, knowledge of social sciences.
 
-MT-Bench offers several key features including multi-turn conversation evaluation with increasing complexity, diverse question categories spanning various domains, and a standardized scoring system powered by GPT-4 judgments.
+MT-Bench uses GPT-4 as a judge to score each answer on a scale of 10, or perform pairwise scoring between 2 models, and calculates standardized win-rates. It can also breakdown the scoring per category (see [notebook](https://colab.research.google.com/drive/15O3Y8Rxq37PuMlArE291P4OC6ia37PQK#scrollTo=5i8R0l-XqkgO)). Overall, it offers several key features including multi-turn conversation evaluation with increasing complexity, diverse question categories spanning various domains, and a standardized scoring system powered by GPT-4 judgments.
 
 To evaluate a model with MT-Bench, see the example notebook {gh}`Oumi - Evaluation with MT Bench.ipynb`.
-
 
 **Resources:**
 - {gh}`MT-Bench Tutorial <notebooks/Oumi - Evaluation with MT Bench.ipynb>`
 - [MT-Bench Paper](https://arxiv.org/abs/2306.05685)
-- [Official Implementation](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge)
 - [Human Annotation Dataset](https://huggingface.co/datasets/lmsys/mt_bench_human_judgments)
+- [Leaderboard](https://huggingface.co/spaces/lmarena-ai/chatbot-arena-leaderboard)
+- [Official Repository](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge)
 
+<!--- Commented; we do NOT support HumanEval yet.
 ### HumanEval
 
 HumanEval is a benchmark designed to evaluate language models' capabilities in generating functional code from natural language descriptions. It consists of programming challenges that test both understanding of requirements and ability to generate correct, efficient code solutions.
@@ -51,12 +61,13 @@ HumanEval is a benchmark designed to evaluate language models' capabilities in g
 - [HumanEval Paper](https://arxiv.org/abs/2107.03374)
 - [Official Repository](https://github.com/openai/human-eval)
 - [Dataset Documentation](https://huggingface.co/datasets/openai_humaneval)
+-->
 
-## LLM-as-a-judge
+## Custom Benchmarks (LLM-as-a-judge)
 
-Using LLMs as judges provides a flexible approach to evaluate model outputs.
+Using LLMs as response judges provides a flexible approach to evaluate model outputs. If you have a custom set of judgement prompts, a special model configuration for the judge, or you need to tailor the scoring criteria to meet your specific needs, we recommend that you define a custom judge.
 
-Oumi supports various judge configurations and scoring criteria. See {doc}`/user_guides/judge/judge` to get started.
+See {doc}`/user_guides/judge/judge` to get started.
 
 **Resources:**
 - {gh}`Custom Judge Implementation <notebooks/Oumi - Custom Judge.ipynb>`
@@ -67,7 +78,7 @@ Oumi supports various judge configurations and scoring criteria. See {doc}`/user
 
 All evaluation results are automatically saved and can be tracked:
 
-- **Local Results**: Saved in the specified `output_dir` with detailed metrics, configurations, and version information
+- **Local Results**: Saved in the specified `output_dir` with detailed metrics, configurations, and version information.
 - **Weights & Biases**: When enabled, results are automatically logged along with model configurations, generation parameters, and environmental details.
 
 For more details on configuration options and advanced usage, see the {doc}`/user_guides/evaluate/evaluate` documentation.

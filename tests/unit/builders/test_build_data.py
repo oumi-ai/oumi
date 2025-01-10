@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import datasets
 import pytest
 
 from oumi.builders.data import build_dataset, build_dataset_mixture
@@ -50,13 +51,27 @@ def sample_conversations_jsonl(single_turn_conversation):
     Path(f.name).unlink()  # Cleanup temp file
 
 
-def test_build_dataset_conversations(sample_conversations_jsonl, gpt2_tokenizer):
+@pytest.mark.parametrize(
+    "stream",
+    [
+        False,
+        True,
+    ],
+)
+def test_build_dataset_conversations(
+    sample_conversations_jsonl, gpt2_tokenizer, stream: bool
+):
     """Test building dataset from conversations format JSONL."""
     dataset = build_dataset(
         dataset_name="text_sft_jsonl",
         tokenizer=gpt2_tokenizer,
         dataset_path=str(sample_conversations_jsonl),
+        stream=stream,
     )
+    if stream:
+        assert isinstance(dataset, datasets.IterableDataset)
+    else:
+        assert isinstance(dataset, datasets.Dataset)
 
     # Convert to list to access items
     items = list(dataset)
@@ -77,7 +92,16 @@ def test_build_dataset_invalid_path():
         )
 
 
-def test_build_dataset_mixture(sample_conversations_jsonl, gpt2_tokenizer):
+@pytest.mark.parametrize(
+    "stream",
+    [
+        False,
+        True,
+    ],
+)
+def test_build_dataset_mixture(
+    sample_conversations_jsonl, gpt2_tokenizer, stream: bool
+):
     """Test building a mixture of datasets with specified proportions."""
     # Create config with dataset mixture
     config = TrainingConfig(
@@ -90,13 +114,14 @@ def test_build_dataset_mixture(sample_conversations_jsonl, gpt2_tokenizer):
                         mixture_proportion=0.7,
                     ),
                     DatasetParams(
-                        dataset_name="text_sft_jsonl",
+                        dataset_name="text_sft",
                         dataset_path=str(sample_conversations_jsonl),
                         mixture_proportion=0.3,
                     ),
                 ],
                 mixture_strategy="all_exhausted",
                 seed=42,
+                stream=stream,
             )
         )
     )
@@ -106,6 +131,10 @@ def test_build_dataset_mixture(sample_conversations_jsonl, gpt2_tokenizer):
         tokenizer=gpt2_tokenizer,
         dataset_split=DatasetSplit.TRAIN,
     )
+    if stream:
+        assert isinstance(dataset, datasets.IterableDataset)
+    else:
+        assert isinstance(dataset, datasets.Dataset)
 
     # Convert to list to access items
     items = list(dataset)

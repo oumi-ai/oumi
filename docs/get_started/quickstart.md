@@ -33,27 +33,7 @@ Let's go through some examples of each command.
 
 ## Training
 
-To start training a model:
-
-```{termynal} termynal:oumi-train
----
-typeDelay: 40
-lineDelay: 700
----
-- value: oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
-  type: input
-- Loading configuration...
-- "Initializing model: SmolLM-135M"
-- type: progress
-- Starting training...
-- "Epoch 1/3: 100%|██████████| 1000/1000 [00:45<00:00, 22.22it/s]"
-- "Epoch 2/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
-- "Epoch 3/3: 100%|██████████| 1000/1000 [00:44<00:00, 22.73it/s]"
-- "Training complete!"
-- "Saving model to output/smollm-135m-fft..."
-```
-
-This uses the configuration in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
+You can quickly start training a model using any of existing {doc}`recipes </resources/recipes>` or your own {doc}`custom configs </user_guides/train/configuration>`. The following command will start training using the recipe in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
 
 ````{dropdown} configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```{literalinclude} ../../configs/recipes/smollm/sft/135m/quickstart_train.yaml
@@ -61,7 +41,11 @@ This uses the configuration in `configs/recipes/smollm/sft/135m/quickstart_train
 ```
 ````
 
-You can easily override any parameters:
+```bash
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+```
+
+You can easily override any parameters directly in the command line, for example:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
@@ -70,21 +54,24 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft
 ```
 
-To run the same recipe on a different dataset, you can override the dataset name:
+To run the same recipe on your own dataset, you can override the dataset name and path:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
-  --data.train.datasets "[{dataset_name: text_sft_jsonl, dataset_path: /path/to/local/dataset}]" \
+  --data.train.datasets "[{dataset_name: text_sft, dataset_path: /path/to/local/dataset}]" \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-We can also run training on multiple GPUs. For example, if you have a machine with 4 GPUs, you can run:
+You can also run training on multiple GPUs (make sure to [install the GPU dependencies](/get_started/installation.md#optional-dependencies) if not already installed).
+
+For example, if you have a machine with 4 GPUs, you can run:
 
 ```bash
-torchrun --standalone --nproc-per-node=4 oumi train \
-  -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+oumi distributed torchrun -m \
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-dist
 ```
+
 
 ## Evaluation
 
@@ -100,15 +87,14 @@ Using a model downloaded from HuggingFace:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+  --model.model_name HuggingFaceTB/SmolLM2-135M-Instruct
 ```
 
 Or with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --model.model_name output/smollm-135m-sft \
-  --tasks "[{evaluation_platform: lm_harness, task_name: m_mmlu_en}]"
+  --model.model_name output/smollm-135m-sft
 ```
 
 ## Inference
@@ -167,6 +153,4 @@ To launch an evaluation job:
 oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 ```
 
-```{tip}
-Join our [Discord community](https://discord.gg/oumi) for help and discussions!
-```
+If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.

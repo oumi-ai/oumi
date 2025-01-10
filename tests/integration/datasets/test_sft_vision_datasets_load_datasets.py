@@ -20,8 +20,8 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "meta-llama/Llama-3.2-11B-Vision-Instruct"
-_DEFAULT_CHAT_TEMPLATE: Final[str] = "llama3-instruct"
+_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruc"
+_DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
@@ -49,7 +49,7 @@ class LoadDatasetInfo(NamedTuple):
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     # Special case datasets that should be excluded from default testing.
-    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl"})
+    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl", "vl_sft"})
 
     all_dataset_names = set(_get_all_sft_vision_dataset_names())
     result = [
@@ -102,6 +102,10 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     return result
 
 
+@pytest.skip(
+    "This test is very time consuming, and should be run manually.",
+    allow_module_level=True,
+)
 @pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
 def test_build_dataset_mixture(info: LoadDatasetInfo):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"

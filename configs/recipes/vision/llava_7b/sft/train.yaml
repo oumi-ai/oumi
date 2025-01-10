@@ -27,6 +27,7 @@ data:
       #   split: "train"
       #   shuffle: True
       #   seed: 42
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "llava-hf/llava-1.5-7b-hf"
       #     limit: 8192

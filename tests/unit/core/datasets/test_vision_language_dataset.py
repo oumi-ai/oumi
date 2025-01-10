@@ -181,7 +181,7 @@ def test_dataset_image_binary_label_ignore_index(
             pass
 
     return TestDatasetImageBinary(
-        processor=mock_processor, tokenizer=mock_image_tokenizer, text_col="prompt"
+        processor=mock_processor, tokenizer=mock_image_tokenizer
     )
 
 
@@ -208,9 +208,6 @@ def test_transform_simple_model_using_image_path(
     assert np.all(np.array(result["labels"]) == np.array(result["input_ids"]))
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
-
-    assert "text" in result
-    assert result["text"] == ["A beautiful sunset over the ocean."]
 
 
 def test_transform_simple_model_using_image_binary(
@@ -239,9 +236,6 @@ def test_transform_simple_model_using_image_binary(
     assert np.all(np.array(result["labels"]) == np.array([101, 102, -100, 104]))
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
-
-    assert "prompt" in result
-    assert result["prompt"] == ["A beautiful sunset over the ocean."]
 
 
 def test_transform_instruct_model_using_image_path(
@@ -275,9 +269,6 @@ def test_transform_instruct_model_using_image_path(
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor_no_label_ignore_index.apply_chat_template.assert_called_once()
 
-    assert "text" in result
-    assert result["text"] == ["Processed template"]
-
 
 def test_transform_instruct_model_using_image_binary(
     test_dataset_image_binary_label_ignore_index, mock_processor: Mock
@@ -309,9 +300,6 @@ def test_transform_instruct_model_using_image_binary(
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()
-
-    assert "prompt" in result
-    assert result["prompt"] == ["Processed template"]
 
 
 def test_dataset_no_tokenizer(

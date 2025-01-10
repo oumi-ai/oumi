@@ -16,7 +16,35 @@ We recommend using a virtual environment to install Oumi. You can find instructi
 
 You can install Oumi using one of the following methods:
 
-### 1. Install from Source (Recommended)
+### 1. Install from PyPI (Recommended)
+
+To prevent dependency conflicts, let's start by creating a virtual environment. We'll use `venv` below, but you are welcome to use the environment manager of your choice ([conda](/development/dev_setup), [uvx](https://docs.astral.sh/uv/concepts/tools/), etc):
+
+::::{tab-set}
+:::{tab-item} Linux / MacOs
+```{code-block} shell
+python -m venv .env
+source .env/bin/activate
+```
+:::
+
+:::{tab-item} Windows
+```{code-block} shell
+python -m venv .env
+.env/Scripts/activate
+```
+:::
+::::
+
+Once that's done, you're ready to install Oumi!
+
+To install the latest stable version of Oumi, run:
+
+```bash
+pip install oumi
+```
+
+### 2. Install from Source
 
 For the latest development version, you can install Oumi directly from the GitHub repository:
 
@@ -34,7 +62,7 @@ pip install git+https://github.com/oumi-ai/oumi.git
 :::
 ::::
 
-### 2. Clone and Install
+### 3. Clone and Install
 
 If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
 
@@ -60,14 +88,6 @@ For more information on setting up your dev environment for contributing to Oumi
 see our [dev setup guide](../development/dev_setup.md).
 
 The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
-
-### 3. Install from PyPI
-
-To install the latest stable version of Oumi, run:
-
-```bash
-pip install oumi
-```
 
 ## Optional Dependencies
 
