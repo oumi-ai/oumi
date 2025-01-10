@@ -70,7 +70,7 @@ def log_versioning_info() -> None:
 
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
-        f"CUDA version: {torch.version.cuda} "
+        f"CUDA version: {torch.version.cuda} "  # type: ignore
         f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 

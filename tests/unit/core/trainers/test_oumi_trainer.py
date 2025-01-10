@@ -121,7 +121,7 @@ def test_trainer_initialization(
     trainer, model, mock_tokenizer, mock_params, mock_dataset
 ):
     assert trainer.model == model
-    assert trainer.tokenizer == mock_tokenizer
+    assert trainer.processing_class == mock_tokenizer
     assert trainer.params == mock_params
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset

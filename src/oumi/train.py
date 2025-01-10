@@ -252,7 +252,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
             trainer = create_trainer_fn(
                 model=model,
-                processing_class=tokenizer,
+                tokenizer=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,

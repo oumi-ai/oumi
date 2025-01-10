@@ -16,5 +16,6 @@
     "[markdown]": {
         "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
     },
-    "notebook.formatOnSave.enabled": true
+    "notebook.formatOnSave.enabled": true,
+    "makefile.configureOnOpen": false
 }
