@@ -171,7 +171,7 @@ VSCode's Test Explorer provides several useful features for testing, including t
 
 ### 3. Remote Development Support
 
-VSCode's Remote Development extension pack allows you to use a remote machine, container, or WSL as a full development environment.
+VSCode's Remote Development extension pack allows you to use a remote machine, container, or Windows Subsystem for Linux (WSL) as a full development environment.
 
 This is particularly useful for training models on remote GPU servers. For detailed information, see the [Remote Development Guide](https://code.visualstudio.com/docs/remote/remote-overview).
 
