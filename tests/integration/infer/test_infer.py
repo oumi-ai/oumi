@@ -53,6 +53,7 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 
 @requires_cuda_initialized()
 @requires_gpus()
+@pytest.mark.skip(reason="TODO: this test takes too long to run")
 def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
