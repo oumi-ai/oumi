@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional, Union
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -38,6 +38,33 @@ class PeftSaveMode(Enum):
     subdirectory.
     """
 
+
+class LoraWeightInitialization(str, Enum):
+    """Enum representing the supported weight initializations for LoRA adapters."""
+
+    GAUSSIAN = "gaussian"
+    EVA = "eva"    
+    PISA = "pissa"
+    PISSA_NITER = "pissa_niter_[number of iters]"
+    LOFTQ = "loftq"
+
+    def get_literal_value(self) -> Literal[
+        "gaussian",
+        "eva",
+        "pissa",
+        "loftq",
+        "pissa_niter_[number of iters]"
+    ]:
+        """Returns a literal value of the enum."""
+        if self.value not in {
+            "gaussian",
+            "eva",
+            "pissa",
+            "loftq",
+            "pissa_niter_[number of iters]",
+        }:
+            raise ValueError(f"Invalid enum value: {self.value}")
+        return self.value
 
 @dataclass
 class PeftParams(BaseParams):
@@ -135,6 +162,25 @@ class PeftParams(BaseParams):
     It is hence recommended to merge weights when doing inference.
     """
 
+    init_lora_weights: Union[bool, LoraWeightInitialization] = field(
+        default=True,
+        metadata={
+            "help": ("Weights initialization for LoRA adapters."),
+        },
+    )
+    """Passing `True` will use the underlying reference implementation of the
+    corresponding model from Microsoft. `False` will use random initialization.
+
+    Other valid (LoraWeightInitialization) options include:
+        - "gaussian" for Gaussian initialization.
+        - "eva" for Explained Variance Adaptation (EVA) (https://arxiv.org/abs/2410.07170).
+        - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
+        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659)
+
+    For more information, see HF:
+        https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
+    """
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
     """The task type for LoRA adaptation.
 
@@ -230,3 +276,19 @@ class PeftParams(BaseParams):
             bnb_4bit_quant_storage=self.bnb_4bit_quant_storage,
         )
         return quantization_config
+
+    def __post_init__(self):
+        """Verifies params."""
+
+        if not isinstance(self.init_lora_weights, bool) and not isinstance(
+            self.init_lora_weights, LoraWeightInitialization
+        ):
+            raise ValueError(
+                "`init_lora_weights` should be a boolean or an instance of `LoraWeightInitialization`"
+            )
+
+        if isinstance(
+            self.init_lora_weights, LoraWeightInitialization
+        ):
+            self.init_lora_weights = \
+                self.init_lora_weights.get_literal_value() # type: ignore

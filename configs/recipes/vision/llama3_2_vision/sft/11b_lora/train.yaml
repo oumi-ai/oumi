@@ -93,8 +93,8 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  # init_lora_weights: "gaussian"
-  use_dora: True
+  init_lora_weights: "gaussian"
+  # use_dora: True # optional
 
 fsdp:
   enable_fsdp: True
