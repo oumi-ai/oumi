@@ -324,10 +324,10 @@ engine = GoogleVertexInferenceEngine(
 
 **Basic Usage**
 ```python
-from oumi.inference import GeminiInferenceEngine
+from oumi.inference import GoogleGeminiInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = GeminiInferenceEngine(
+engine = GoogleGeminiInferenceEngine(
     model_params=ModelParams(
         model_name="gemini-1.5-flash"
     ),
