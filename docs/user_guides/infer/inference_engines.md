@@ -259,18 +259,11 @@ engine = RemoteVLLMInferenceEngine(
 
 ### Remote SGLang
 
-[SGLang](https://sgl-project.github.io/) can be deployed as a server, providing high-performance inference capabilities over HTTP.
+[SGLang](https://sgl-project.github.io/) is another model server, providing high-performance LLM inference capabilities.
 
 #### Server Setup
 
 ```bash
-python -m sglang.launch_server \
-    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --tokenizer-path meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --port 6864 \
-    --disable-cuda-graph \
-    --mem-fraction-static=0.99
-
 python -m sglang.launch_server \
     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
     --port 6864 \
