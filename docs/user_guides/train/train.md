@@ -15,7 +15,7 @@ monitoring
 
 Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Our goal is to allow you to start small, in a notebook or local machine, and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Our goal is to allow you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
@@ -23,7 +23,7 @@ Key features include:
 - **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple PEFT methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
 - **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment <environments/cloud>`
 - **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
-- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using DDP or FSDP
+- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using Distributed Data Parallel (DDP) or Fully Sharded Data Parallel (FSDP)
 
 ## Quick Start
 
