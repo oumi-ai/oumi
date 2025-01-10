@@ -35,7 +35,7 @@ class InferenceEngineType(str, Enum):
     GOOGLE_VERTEX = "GOOGLE_VERTEX"
     """The inference engine for Google Vertex AI."""
 
-    GEMINI = "GEMINI"
+    GOOGLE_GEMINI = "GEMINI"
     """The inference engine for Gemini."""
 
 
