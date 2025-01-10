@@ -5,59 +5,9 @@ import pydantic
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, RemoteParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-
-
-def _replace_refs_in_schema(schema: dict) -> dict:
-    """Replace $ref references in a JSON schema with their actual definitions.
-
-    Args:
-        schema: The JSON schema dictionary
-
-    Returns:
-        dict: Schema with all references replaced by their definitions and $defs removed
-    """
-
-    def _get_ref_value(ref: str) -> dict:
-        # Remove the '#/' prefix and split into parts
-        parts = ref.replace("#/", "").split("/")
-
-        # Navigate through the schema to get the referenced value
-        current = schema
-        for part in parts:
-            current = current[part]
-        return current.copy()  # Return a copy to avoid modifying the original
-
-    def _replace_refs(obj: dict) -> dict:
-        if not isinstance(obj, dict):
-            return obj
-
-        result = {}
-        for key, value in obj.items():
-            if key == "$ref":
-                # If we find a $ref, replace it with the actual value
-                return _replace_refs(_get_ref_value(value))
-            elif isinstance(value, dict):
-                result[key] = _replace_refs(value)
-            elif isinstance(value, list):
-                result[key] = [
-                    _replace_refs(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
-            else:
-                result[key] = value
-
-        return result
-
-    # Replace all references first
-    resolved = _replace_refs(schema.copy())
-
-    # Remove the $defs key if it exists
-    if "$defs" in resolved:
-        del resolved["$defs"]
-
-    return resolved
 
 
 class GoogleVertexInferenceEngine(RemoteInferenceEngine):
@@ -120,7 +70,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             generation_params: Parameters for generation during inference.
 
         Returns:
-            Dict[str, Any]: A dictionary representing the OpenAI input.
+            Dict[str, Any]: A dictionary representing the Vertex input.
         """
         api_input = {
             "model": self._model,
@@ -139,42 +89,9 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             api_input["stop"] = generation_params.stop_strings
 
         if generation_params.guided_decoding:
-            json_schema = generation_params.guided_decoding.json
-
-            if json_schema is not None:
-                if isinstance(json_schema, type) and issubclass(
-                    json_schema, pydantic.BaseModel
-                ):
-                    schema_name = json_schema.__name__
-                    schema_value = json_schema.model_json_schema()
-                elif isinstance(json_schema, dict):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    schema_value = json_schema
-                elif isinstance(json_schema, str):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    # Try to parse as JSON string
-                    schema_value = json.loads(json_schema)
-                else:
-                    raise ValueError(
-                        f"Got unsupported JSON schema type: {type(json_schema)}"
-                        "Please provide a Pydantic model or a JSON schema as a "
-                        "string or dict."
-                    )
-
-                api_input["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema_name,
-                        "schema": _replace_refs_in_schema(schema_value),
-                    },
-                }
-            else:
-                raise ValueError(
-                    "Only JSON schema guided decoding is supported, got '%s'",
-                    generation_params.guided_decoding,
-                )
+            api_input["response_format"] = _convert_guided_decoding_config_to_api_input(
+                generation_params.guided_decoding
+            )
 
         return api_input
 
@@ -190,3 +107,97 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+
+#
+# Helper functions
+#
+def _convert_guided_decoding_config_to_api_input(
+    guided_config: GuidedDecodingParams,
+) -> dict:
+    """Converts a guided decoding configuration to an API input."""
+    if guided_config.json is None:
+        raise ValueError(
+            "Only JSON schema guided decoding is supported, got '%s'",
+            guided_config,
+        )
+
+    json_schema = guided_config.json
+
+    if isinstance(json_schema, type) and issubclass(json_schema, pydantic.BaseModel):
+        schema_name = json_schema.__name__
+        schema_value = json_schema.model_json_schema()
+    elif isinstance(json_schema, dict):
+        # Use a generic name if no schema is provided.
+        schema_name = "Response"
+        schema_value = json_schema
+    elif isinstance(json_schema, str):
+        # Use a generic name if no schema is provided.
+        schema_name = "Response"
+        # Try to parse as JSON string
+        schema_value = json.loads(json_schema)
+    else:
+        raise ValueError(
+            f"Got unsupported JSON schema type: {type(json_schema)}"
+            "Please provide a Pydantic model or a JSON schema as a "
+            "string or dict."
+        )
+
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": schema_name,
+            "schema": _replace_refs_in_schema(schema_value),
+        },
+    }
+
+
+def _replace_refs_in_schema(schema: dict) -> dict:
+    """Replace $ref references in a JSON schema with their actual definitions.
+
+    Args:
+        schema: The JSON schema dictionary
+
+    Returns:
+        dict: Schema with all references replaced by their definitions and $defs removed
+    """
+
+    def _get_ref_value(ref: str) -> dict:
+        # Remove the '#/' prefix and split into parts
+        parts = ref.replace("#/", "").split("/")
+
+        # Navigate through the schema to get the referenced value
+        current = schema
+        for part in parts:
+            current = current[part]
+        return current.copy()  # Return a copy to avoid modifying the original
+
+    def _replace_refs(obj: dict) -> dict:
+        if not isinstance(obj, dict):
+            return obj
+
+        result = {}
+        for key, value in obj.items():
+            if key == "$ref":
+                # If we find a $ref, replace it with the actual value
+                return _replace_refs(_get_ref_value(value))
+            elif isinstance(value, dict):
+                result[key] = _replace_refs(value)
+            elif isinstance(value, list):
+                result[key] = [
+                    _replace_refs(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+
+        return result
+
+    # Replace all references first
+    resolved = _replace_refs(schema.copy())
+
+    # Remove the $defs key if it exists
+    if "$defs" in resolved:
+        del resolved["$defs"]
+
+    return resolved
