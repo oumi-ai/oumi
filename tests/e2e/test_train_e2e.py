@@ -148,7 +148,7 @@ def test_train(
 
         # Verify the config is loadable
         try:
-            TrainingConfig.from_yaml(str(test_config.config_path))
+            TrainingConfig.from_yaml(test_config.config_path)
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load training config from: {test_config.config_path}"
