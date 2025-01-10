@@ -12,7 +12,7 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.gcp_inference_engine import GeminiInferenceEngine
+from oumi.inference.gemini_inference_engine import GeminiInferenceEngine
 
 
 @pytest.fixture
