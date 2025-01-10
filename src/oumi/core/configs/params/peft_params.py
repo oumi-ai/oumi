@@ -162,7 +162,7 @@ class PeftParams(BaseParams):
     init_lora_weights: Union[bool, LoraWeightInitialization] = field(
         default=True,
         metadata={
-            "help": ("Weights initialization for LoRA adapters."),
+            "help": "Weights initialization for LoRA adapters.",
         },
     )
     """Passing `True` will use the underlying reference implementation of the
