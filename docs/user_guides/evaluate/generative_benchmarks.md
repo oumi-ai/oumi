@@ -30,7 +30,6 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eva
 If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
 
 **Resources:**
-- {gh}`Evaluation Tutorial <notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb>`
 - [AlpacaEval V1.0 Paper](https://arxiv.org/abs/2305.14387)
 - [AlpacaEval V2.0 Paper](https://arxiv.org/abs/2404.04475)
 - [AlpacaEval V2.0 Dataset](https://huggingface.co/datasets/tatsu-lab/alpaca_eval)
