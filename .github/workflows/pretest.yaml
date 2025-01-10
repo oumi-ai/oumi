@@ -43,4 +43,4 @@ jobs:
     - name: Run tests
       run: |
         cd ./tests/unit/
-        pytest -s
+        pytest -s --durations=50
