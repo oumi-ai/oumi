@@ -43,7 +43,7 @@ If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebo
 
 MT-Bench uses GPT-4 as a judge to score each answer on a scale of 10, or perform pairwise scoring between 2 models, and calculates standardized win-rates. It can also breakdown the scoring per category (see [notebook](https://colab.research.google.com/drive/15O3Y8Rxq37PuMlArE291P4OC6ia37PQK#scrollTo=5i8R0l-XqkgO)). Overall, it offers several key features including multi-turn conversation evaluation with increasing complexity, diverse question categories spanning various domains, and a standardized scoring system powered by GPT-4 judgments.
 
-To evaluate a model with MT-Bench, see the example notebook {gh}`Oumi - Evaluation with MT Bench.ipynb`.
+To evaluate a model with MT-Bench, see the example notebook {gh}`notebooks/Oumi - Evaluation with MT Bench.ipynb`.
 
 **Resources:**
 - {gh}`MT-Bench Tutorial <notebooks/Oumi - Evaluation with MT Bench.ipynb>`
