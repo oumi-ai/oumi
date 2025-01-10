@@ -172,7 +172,7 @@ class PeftParams(BaseParams):
         - "gaussian" for Gaussian initialization.
         - "eva" for Explained Variance Adaptation (EVA) (https://arxiv.org/abs/2410.07170).
         - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
-        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659)
+        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659).
 
     For more information, see HF:
         https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
