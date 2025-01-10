@@ -132,12 +132,12 @@ While you can dive directly into any section that interests you, we recommend fo
 
 We welcome contributions! See our {doc}`Contributing Guide <development/contributing>` for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
 
-If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+l), or {doc}`contributing directly <development/contributing>!
+If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+), or {doc}`contributing directly <development/contributing>`!
 
 ## Need Help?
 
 If you encounter any issues or have questions, please don't hesitate to:
 
-1. Check our [FAQ section](/faq/troubleshooting) for common questions and answers.
+1. Check our {doc}`FAQ section <faq/troubleshooting>` for common questions and answers.
 2. Open an issue on our [GitHub Issues page](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests.
 3. Join our [Discord community](https://discord.gg/oumi) to chat with the team and other users.
