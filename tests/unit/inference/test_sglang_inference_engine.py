@@ -5,6 +5,7 @@ from typing import Optional
 from unittest.mock import patch
 
 import PIL.Image
+import pydantic
 import pytest
 
 from oumi.core.configs import (
@@ -25,6 +26,11 @@ from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
 from oumi.utils.logging import logger
+
+
+class SamplePydanticType(pydantic.BaseModel):
+    name: str
+    score: float
 
 
 def create_test_remote_params():
@@ -72,6 +78,7 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
                 None,
                 GuidedDecodingParams(choice=["apple", "pear"]),
                 GuidedDecodingParams(json={"enum": ["apple", "pear"]}),
+                GuidedDecodingParams(json=SamplePydanticType(name="hey", score=0.7)),
                 GuidedDecodingParams(regex="(apple|pear)"),
             ],
         )
@@ -176,10 +183,16 @@ def test_convert_conversation_to_api_input(
             expect_valid_regex = True
         elif guided_decoding.json is not None:
             assert "json_schema" in result["sampling_params"]
-            assert (
-                json.loads(result["sampling_params"]["json_schema"])
-                == guided_decoding.json
-            )
+            if isinstance(guided_decoding.json, pydantic.BaseModel):
+                assert (
+                    json.loads(result["sampling_params"]["json_schema"])
+                    == guided_decoding.json.model_json_schema()
+                )
+            else:
+                assert (
+                    json.loads(result["sampling_params"]["json_schema"])
+                    == guided_decoding.json
+                )
             expect_valid_json_schema = True
         elif guided_decoding.choice is not None:
             assert "json_schema" in result["sampling_params"]

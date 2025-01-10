@@ -5,6 +5,7 @@ import functools
 import json
 from typing import Any, NamedTuple
 
+import pydantic
 from typing_extensions import override
 
 from oumi.builders import (
@@ -107,6 +108,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                     json_schema = json_schema_value
                 elif isinstance(json_schema_value, dict):
                     json_schema = json.dumps(json_schema_value, ensure_ascii=False)
+                elif isinstance(json_schema_value, pydantic.BaseModel):
+                    json_schema = json.dumps(json_schema_value.model_json_schema())
                 else:
                     raise ValueError(
                         "Unsupported type of generation_params.guided_decoding.json: "
