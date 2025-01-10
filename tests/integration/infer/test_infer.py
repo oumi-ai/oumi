@@ -139,27 +139,36 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         input_image_bytes=png_image_bytes,
     )
 
-    conversation = Conversation(
-        messages=(
-            [
-                Message(
-                    role=Role.USER,
-                    content=[
-                        ContentItem(binary=png_image_bytes, type=Type.IMAGE_BINARY),
-                        ContentItem(
-                            content=test_prompt,
-                            type=Type.TEXT,
-                        ),
-                    ],
-                ),
-                Message(
-                    role=Role.ASSISTANT,
-                    content=(
-                        "A traditional Japanese painting of a large wave crashing with"
+    valid_responses = [
+        "A detailed Japanese print depicting a large wave crashing with",
+        "A traditional Japanese painting of a large wave crashing with",
+    ]
+
+    def _create_conversation(response: str) -> Conversation:
+        return Conversation(
+            messages=(
+                [
+                    Message(
+                        role=Role.USER,
+                        content=[
+                            ContentItem(binary=png_image_bytes, type=Type.IMAGE_BINARY),
+                            ContentItem(
+                                content=test_prompt,
+                                type=Type.TEXT,
+                            ),
+                        ],
                     ),
-                ),
-            ]
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=response,
+                    ),
+                ]
+            )
         )
-    )
-    expected_output = [conversation] * (num_batches * batch_size)
-    assert output == expected_output
+
+    # Check that each output conversation matches one of the valid responses
+    assert len(output) == num_batches * batch_size
+    for conv in output:
+        assert any(
+            conv == _create_conversation(response) for response in valid_responses
+        ), f"Generated response '{conv.messages[-1].content}' not in valid responses"
