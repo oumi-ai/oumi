@@ -33,10 +33,10 @@ def _get_default_text_model_params() -> ModelParams:
 
 def _get_default_image_model_params() -> ModelParams:
     return ModelParams(
-        model_name="llava-hf/llava-1.5-7b-hf",
+        model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="llava",
+        chat_template="qwen2-vl-instruct",
     )
 
 
@@ -350,7 +350,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="2 boats are in the",
+                        content="A detailed Japanese print depicting",
                         role=Role.ASSISTANT,
                     ),
                 ],
@@ -361,7 +361,7 @@ def test_infer_from_file_to_file_with_images():
                 messages=[
                     *conversation_2.messages,
                     Message(
-                        content="4 white squares make up",
+                        content="The image features a black",
                         role=Role.ASSISTANT,
                     ),
                 ],
