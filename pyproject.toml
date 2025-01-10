@@ -129,7 +129,15 @@ cambrian = [
 
 # CI targets
 ci_cpu = ["oumi[dev,docs,gcp,optional]"]
-ci_gpu = ["oumi[ci_cpu,gpu]"]
+# llama-cpp-python is not compatible with the github
+# gpu actions runner, so we skip it for now
+# all the other dependencies are copied here
+# from the optional dependencies section
+ci_gpu = [
+    "oumi[dev,docs,gcp,gpu]",
+    "vllm>=0.6.3,<0.7.0",
+    "alpaca-eval>=0.6.6,<0.7",
+]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"

@@ -11,14 +11,14 @@ configuration
 cli_reference
 ```
 
-Oumi Infer provides a unified interface for running language models, whether you're deploying your own models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
+Oumi Infer provides a unified interface for running models, whether you're deploying models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
 
 ## Why Use Oumi Infer?
 
-Running language models in production environments presents several challenges that Oumi helps address:
+Running models in production environments presents several challenges that Oumi helps address:
 
 - **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Vertex AI, OpenAI, Parasail) through a single, consistent interface
-- **Production-Ready**: Built-in features for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
+- **Production-Ready**: Support for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
 - **Scalable Architecture**: Deploy anywhere from a single GPU to distributed systems without code changes
 - **Unified Configuration**: Control all aspects of model execution through a single config file
 
@@ -86,7 +86,7 @@ response = result[0].messages[-1].content
 
 ### Inference Engines
 
-Inference Engines are simple tools for running inference on models in Oumi. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and Open AI.
+Inference Engines are simple tools for running inference on models in Oumi. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and OpenAI.
 
 #### Choosing an Engine
 
@@ -94,7 +94,7 @@ Our engines are broken into two categories: local inference vs remote inference.
 
 Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
 
-If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the Open AI Chat API format (including Open AI's native API).
+If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API).
 
 
 For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
@@ -107,7 +107,7 @@ Still unsure which engine to use? Try {py:obj}`~oumi.inference.VLLMInferenceEngi
 
 Now that you've decided on the engine you'd like to use, you'll need to create a small config to instantiate your engine.
 
-All engines require a model, specified via {py:obj}`~oumi.core.configs.ModelParams`. Any engine calling an external API / service (such as Anthropic, Gemini, Open AI, or a self-hosted server) will also require {py:obj}`~oumi.core.configs.RemoteParams`.
+All engines require a model, specified via {py:obj}`~oumi.core.configs.ModelParams`. Any engine calling an external API / service (such as Anthropic, Gemini, OpenAI, or a self-hosted server) will also require {py:obj}`~oumi.core.configs.RemoteParams`.
 
 See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a local inference engine.
 
@@ -119,7 +119,7 @@ from oumi.core.configs import InferenceConfig, ModelParams
 
 vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] #Add your inputs here
+input_conversation = [] # Add your inputs here
 inference_config = InferenceConfig()
 outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
 ```
@@ -130,12 +130,13 @@ Oumi supports several input formats for inference:
 
 1. JSONL files
 
-- Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
-- See {doc}`/resources/datasets/custom_datasets` for more details.
+Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
+
+See {doc}`/resources/datasets/custom_datasets` for more details.
 
 2. Interactive console input
 
-- To run inference interactively, use the `oumi infer` command with the `-i` flag.
+To run inference interactively, use the `oumi infer` command with the `-i` flag.
 
 ```{code-block} bash
 oumi infer -c infer_config.yaml -i
