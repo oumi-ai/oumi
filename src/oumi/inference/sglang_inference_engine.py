@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import copy
 import functools
+import json
 from typing import Any, NamedTuple
 
+import pydantic
 from typing_extensions import override
 
 from oumi.builders import (
@@ -45,11 +47,11 @@ class _SamplingParams(NamedTuple):
     # logprob_start_len: int | None = None
     # top_logprobs_num: int | None = None
     # return_text_in_logprobs: bool | None = None
-    # json_schema: str | None = None
+    json_schema: str | None = None
 
     # For constrained generation:
     # dtype: str | None = None
-    # regex: str| None = None
+    regex: str | None = None
 
 
 class SGLangInferenceEngine(RemoteInferenceEngine):
@@ -85,6 +87,38 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     def _create_sampling_params(
         self, generation_params: GenerationParams
     ) -> _SamplingParams:
+        regex: str | None = None
+        json_schema: str | None = None
+        if generation_params.guided_decoding is not None:
+            if generation_params.guided_decoding.regex is not None:
+                regex = generation_params.guided_decoding.regex
+            else:
+                json_schema_value = None
+                if generation_params.guided_decoding.json is not None:
+                    json_schema_value = generation_params.guided_decoding.json
+                elif (
+                    generation_params.guided_decoding.choice is not None
+                    and len(generation_params.guided_decoding.choice) > 0
+                ):
+                    json_schema_value = {
+                        "enum": generation_params.guided_decoding.choice
+                    }
+
+                if isinstance(json_schema_value, str):
+                    json_schema = json_schema_value
+                elif isinstance(json_schema_value, dict):
+                    json_schema = json.dumps(json_schema_value, ensure_ascii=False)
+                elif isinstance(json_schema_value, pydantic.BaseModel) or (
+                    isinstance(json_schema_value, type)
+                    and issubclass(json_schema_value, pydantic.BaseModel)
+                ):
+                    json_schema = json.dumps(json_schema_value.model_json_schema())
+                else:
+                    raise ValueError(
+                        "Unsupported type of generation_params.guided_decoding.json: "
+                        f"{type(generation_params.guided_decoding.json)}"
+                    )
+
         return _SamplingParams(
             max_new_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
@@ -94,6 +128,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             presence_penalty=generation_params.presence_penalty,
             stop=(generation_params.stop_strings or []),
             stop_token_ids=generation_params.stop_token_ids,
+            regex=regex,
+            json_schema=json_schema,
         )
 
     def _create_sampling_params_as_dict(
@@ -207,8 +243,14 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     @functools.cache
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
-        result = set(_SamplingParams()._asdict().keys())
-        # Replace "stop" with "stop_strings"
-        result.remove("stop")
-        result.add("stop_strings")
-        return result
+        return {
+            "frequency_penalty",
+            "guided_decoding",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "stop_strings",
+            "stop_token_ids",
+            "temperature",
+            "top_p",
+        }
