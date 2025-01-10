@@ -37,10 +37,12 @@ def mock_popen():
     with patch("oumi.cli.distributed_run.Popen") as popen_mock:
         yield popen_mock
 
+
 @pytest.fixture
 def mock_torch():
     with patch("oumi.cli.distributed_run.torch") as torch_mock:
         yield torch_mock
+
 
 def test_torchrun_skypilot_single_gpu(
     app,
@@ -284,6 +286,7 @@ def test_accelerate_skypilot_multi_gpu(
         universal_newlines=True,
     )
     assert logger.level == logging.DEBUG
+
 
 def test_torchrun_localmachine_multi_gpu(
     app,
