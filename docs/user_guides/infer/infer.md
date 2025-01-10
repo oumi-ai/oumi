@@ -195,7 +195,7 @@ input_conversation = Conversation(
             role=Role.USER,
             content=[
                 ContentItem(
-                    content=content="https://oumi.ai/favicon.ico",
+                    content="https://oumi.ai/favicon.ico",
                     type=Type.IMAGE_URL,
                 ),
                 ContentItem(content="Describe this image", type=Type.TEXT),
