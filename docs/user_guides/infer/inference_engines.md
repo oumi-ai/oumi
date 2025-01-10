@@ -272,7 +272,7 @@ python -m sglang.launch_server \
     --mem-fraction-static=0.99
 ```
 
-Please refer to [SGLang documentation](https://sgl-project.github.io/backend/server_arguments.html) for more advanced configuraitons.
+Please refer to [SGLang documentation](https://sgl-project.github.io/backend/server_arguments.html) for more advanced configuration options.
 
 #### Client Configuration
 
@@ -289,7 +289,6 @@ engine = SGLangInferenceEngine(
     )
 )
 ```
-
 
 ## Cloud APIs
 
