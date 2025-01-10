@@ -10,7 +10,7 @@ from oumi.inference.gcp_inference_engine import (
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
-class GeminiInferenceEngine(RemoteInferenceEngine):
+class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Gemini API."""
 
     @override

@@ -12,13 +12,13 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.gemini_inference_engine import GeminiInferenceEngine
+from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
 
 
 @pytest.fixture
 def gemini_engine():
     model_params = ModelParams(model_name="gemini-model")
-    return GeminiInferenceEngine(
+    return GoogleGeminiInferenceEngine(
         model_params,
         remote_params=RemoteParams(
             api_url="https://example.com/api",
