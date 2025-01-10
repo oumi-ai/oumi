@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import copy
 import functools
+import json
 from typing import Any, NamedTuple
 
+import pydantic
 from typing_extensions import override
 
 from oumi.builders import (
@@ -45,11 +47,11 @@ class _SamplingParams(NamedTuple):
     # logprob_start_len: int | None = None
     # top_logprobs_num: int | None = None
     # return_text_in_logprobs: bool | None = None
-    # json_schema: str | None = None
+    json_schema: str | None = None
 
     # For constrained generation:
     # dtype: str | None = None
-    # regex: str| None = None
+    regex: str | None = None
 
 
 class SGLangInferenceEngine(RemoteInferenceEngine):
@@ -85,6 +87,29 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     def _create_sampling_params(
         self, generation_params: GenerationParams
     ) -> _SamplingParams:
+        regex = None
+        if generation_params.guided_decoding is not None:
+            if generation_params.guided_decoding.regex is not None:
+                regex = generation_params.guided_decoding.regex
+            else:
+                val = None
+                if generation_params.guided_decoding.json is not None:
+                    val = generation_params.guided_decoding.json
+                elif (
+                    generation_params.guided_decoding.choice is not None
+                    and len(generation_params.guided_decoding.choice) > 0
+                ):
+                    val = {"enum": generation_params.guided_decoding.choice}
+
+                if isinstance(val, str):
+                    json_schema = val
+                elif isinstance(val, dict):
+                    json_schema = json.dumps(val, ensure_ascii=False)
+                elif isinstance(val, pydantic.BaseModel):
+                    json_schema = val.model_dump_json(
+                        exclude_unset=True, exclude_defaults=False, exclude_none=True
+                    )
+
         return _SamplingParams(
             max_new_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
@@ -94,6 +119,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             presence_penalty=generation_params.presence_penalty,
             stop=(generation_params.stop_strings or []),
             stop_token_ids=generation_params.stop_token_ids,
+            regex=regex,
+            json_schema=json_schema,
         )
 
     def _create_sampling_params_as_dict(
