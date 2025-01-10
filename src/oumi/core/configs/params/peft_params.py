@@ -43,18 +43,14 @@ class LoraWeightInitialization(str, Enum):
     """Enum representing the supported weight initializations for LoRA adapters."""
 
     GAUSSIAN = "gaussian"
-    EVA = "eva"    
+    EVA = "eva"
     PISA = "pissa"
     PISSA_NITER = "pissa_niter_[number of iters]"
     LOFTQ = "loftq"
 
-    def get_literal_value(self) -> Literal[
-        "gaussian",
-        "eva",
-        "pissa",
-        "loftq",
-        "pissa_niter_[number of iters]"
-    ]:
+    def get_literal_value(
+        self,
+    ) -> Literal["gaussian", "eva", "pissa", "loftq", "pissa_niter_[number of iters]"]:
         """Returns a literal value of the enum."""
         if self.value not in {
             "gaussian",
@@ -65,6 +61,7 @@ class LoraWeightInitialization(str, Enum):
         }:
             raise ValueError(f"Invalid enum value: {self.value}")
         return self.value
+
 
 @dataclass
 class PeftParams(BaseParams):
@@ -279,16 +276,13 @@ class PeftParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
-
         if not isinstance(self.init_lora_weights, bool) and not isinstance(
             self.init_lora_weights, LoraWeightInitialization
         ):
             raise ValueError(
-                "`init_lora_weights` should be a boolean or an instance of `LoraWeightInitialization`"
+                "`init_lora_weights` should be a boolean or an instance of "
+                "`LoraWeightInitialization`"
             )
 
-        if isinstance(
-            self.init_lora_weights, LoraWeightInitialization
-        ):
-            self.init_lora_weights = \
-                self.init_lora_weights.get_literal_value() # type: ignore
+        if isinstance(self.init_lora_weights, LoraWeightInitialization):
+            self.init_lora_weights = self.init_lora_weights.get_literal_value()  # type: ignore

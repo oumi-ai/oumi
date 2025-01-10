@@ -439,7 +439,7 @@ def build_peft_model(
         bias=peft_params.lora_bias,  # type: ignore
         task_type=peft_params.lora_task_type,
         use_dora=peft_params.use_dora,
-        init_lora_weights=peft_params.init_lora_weights, # type: ignore
+        init_lora_weights=peft_params.init_lora_weights,  # type: ignore
     )
 
     if peft_params.q_lora:
