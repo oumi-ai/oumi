@@ -1,10 +1,10 @@
-name: "Pre-review Tests"
+name: "GPU Tests"
 
 on: [pull_request]
 
 jobs:
-  static-checks:
-    runs-on: ubuntu-24.04
+  gpu-tests:
+    runs-on: linux-gpu-runner
 
     steps:
     - name: Checkout
@@ -28,19 +28,11 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_cpu]' --system --prerelease=allow
+        uv pip install -e '.[ci_gpu]' --system --prerelease=allow
 
-    - name: Cache pre-commit
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pre-commit
-        key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-
-    - name: Run pre-commit checks
+    - name: Run GPU tests
       run: |
-        pre-commit run --all-files --show-diff-on-failure
+        nvidia-smi
 
-    - name: Run tests
-      run: |
-        cd ./tests/unit/
+        cd ./tests/integration/
         pytest -s --durations=50
