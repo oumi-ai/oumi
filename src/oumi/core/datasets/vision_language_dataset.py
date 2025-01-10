@@ -7,7 +7,6 @@ import torch
 from PIL import Image
 from typing_extensions import override
 
-from oumi.builders.processors import build_processor
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalModelConfig,
@@ -78,6 +77,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(tokenizer=tokenizer, **kwargs)
+        # Importing these here to avoid circular dependencies
+        from oumi.builders.processors import build_processor
 
         if tokenizer is None:
             raise ValueError(
