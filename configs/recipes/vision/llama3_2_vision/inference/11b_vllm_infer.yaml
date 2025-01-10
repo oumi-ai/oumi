@@ -11,7 +11,7 @@ generation:
 
 # Sample command to start vLLM server:
 # python -u -m vllm.entrypoints.openai.api_server \
-#   --port 30000 \
+#   --port 6864 \
 #   --model meta-llama/Llama-3.2-11B-Vision-Instruct  \
 #   --trust-remote-code \
 #   --dtype=bfloat16 \
@@ -27,6 +27,6 @@ generation:
 remote_params:
   # This address is just an example (it's what you may get when you start vllm sever locally).
   # For details, see https://platform.openai.com/docs/api-reference/chat/create
-  api_url: "http://localhost:30000/v1/chat/completions"
+  api_url: "http://localhost:6864/v1/chat/completions"
 
 engine: REMOTE_VLLM

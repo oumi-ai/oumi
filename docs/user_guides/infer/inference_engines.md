@@ -225,7 +225,7 @@ model_params = ModelParams(
 ```bash
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --port 8000
+    --port 6864
 ```
 
 2. **Multi-GPU Server** - For large models requiring multiple GPUs:
@@ -233,7 +233,7 @@ python -m vllm.entrypoints.openai.api_server \
 ```bash
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Meta-Llama-3.1-70B-Instruct \
-    --port 8000 \
+    --port 6864 \
     --tensor-parallel-size 4
 
 ```
@@ -250,12 +250,46 @@ engine = RemoteVLLMInferenceEngine(
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
-        api_url="http://localhost:8000",
+        api_url="http://localhost:6864",
         max_retries=3,      # Maximum number of retries
         num_workers=10,    # Number of parallel threads
     )
 )
 ```
+
+### Remote SGLang
+
+[SGLang](https://sgl-project.github.io/) can be deployed as a server, providing high-performance inference capabilities over HTTP.
+
+#### Server Setup
+
+```bash
+python -m sglang.launch_server \
+    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --tokenizer-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --disable-cuda-graph \
+    --mem-fraction-static=0.99
+```
+
+Please refer to [SGLang documentation](https://sgl-project.github.io/backend/server_arguments.html) for more advanced configuraitons.
+
+#### Client Configuration
+
+The client can be configured with different reliability and performance options similar to any other remote engine:
+
+```python
+# Basic client with timeout and retry settings
+engine = SGLangInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
 
 ## Cloud APIs
 
