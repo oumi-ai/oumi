@@ -120,6 +120,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
+        torch_dtype_str="float16",
     )
     generation_params = GenerationParams(
         max_new_tokens=10, temperature=0.0, seed=42, batch_size=batch_size
@@ -153,10 +154,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
                 ),
                 Message(
                     role=Role.ASSISTANT,
-                    content=(
-                        "A detailed Japanese print depicting a "
-                        "large wave crashing with"
-                    ),
+                    content="A detailed Japanese print depicting a large wave crashing with",
                 ),
             ]
         )
