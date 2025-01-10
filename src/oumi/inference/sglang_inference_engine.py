@@ -235,8 +235,14 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     @functools.cache
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
-        result = set(_SamplingParams()._asdict().keys())
-        # Replace "stop" with "stop_strings"
-        result.remove("stop")
-        result.add("stop_strings")
-        return result
+        return {
+            "frequency_penalty",
+            "guided_decoding",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "stop_strings",
+            "stop_token_ids",
+            "temperature",
+            "top_p",
+        }

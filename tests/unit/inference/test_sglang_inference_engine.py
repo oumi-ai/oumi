@@ -247,11 +247,10 @@ def test_get_supported_params(engine):
     assert engine.get_supported_params() == set(
         {
             "frequency_penalty",
-            "json_schema",
+            "guided_decoding",
             "max_new_tokens",
             "min_p",
             "presence_penalty",
-            "regex",
             "stop_strings",
             "stop_token_ids",
             "temperature",
