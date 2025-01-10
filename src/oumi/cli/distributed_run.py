@@ -221,8 +221,10 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     if backend is None:
         # Attempt to produce a local configuration
         if not torch.cuda.is_available():
-            raise RuntimeError("None of supported distributed backends found and no GPUs found on local machine!")
-            
+            raise RuntimeError(
+                "No supported distributed backends found and no GPUs on local machine!"
+            )
+
         num_gpus_available = torch.cuda.device_count()
         if num_gpus_available > 0:
             logger.debug("Running on the local machine!")
@@ -237,7 +239,6 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
         else:
             raise RuntimeError("CUDA available but no GPUs found on local machine!")
-            
 
     assert len(node_ips) > 0, "Empty list of nodes!"
     assert node_rank is not None
