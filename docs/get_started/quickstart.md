@@ -1,6 +1,6 @@
 # Quickstart
 
-Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` CLI to train, evaluate, and run inference with a model.
+Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` command-line interface (CLI) to train, evaluate, and run inference with a model.
 
 We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
 
