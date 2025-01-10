@@ -17,7 +17,7 @@ Oumi Infer provides a unified interface for running models, whether you're deplo
 
 Running models in production environments presents several challenges that Oumi helps address:
 
-- **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Vertex AI, OpenAI, Parasail) through a single, consistent interface
+- **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Gemini, OpenAI, Parasail, Vertex AI) through a single, consistent interface
 - **Production-Ready**: Support for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
 - **Scalable Architecture**: Deploy anywhere from a single GPU to distributed systems without code changes
 - **Unified Configuration**: Control all aspects of model execution through a single config file
