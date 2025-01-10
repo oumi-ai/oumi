@@ -147,7 +147,7 @@ class PeftParams(BaseParams):
             "help": ("Weights initialization for LoRA adapters."),
         },
     )
-    """Passing `True' will use the underlying reference implementation of the
+    """Passing `True` will use the underlying reference implementation of the
     corresponding model from Microsoft.
 
     Other valid (str) options include:
