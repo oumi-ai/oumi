@@ -1,7 +1,7 @@
 name: Bug Report
 description: File a bug report to help us improve Oumi
 title: "[Bug]: "
-labels: ["bug", "triage"]
+labels: ["Bug"]
 body:
   - type: markdown
     attributes:
