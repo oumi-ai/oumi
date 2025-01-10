@@ -79,7 +79,7 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
                 GuidedDecodingParams(choice=["apple", "pear"]),
                 GuidedDecodingParams(json={"enum": ["apple", "pear"]}),
                 GuidedDecodingParams(json=SamplePydanticType(name="hey", score=0.7)),
-                GuidedDecodingParams(json=type(SamplePydanticType)),
+                GuidedDecodingParams(json=SamplePydanticType),
                 GuidedDecodingParams(regex="(apple|pear)"),
             ],
         )
@@ -184,11 +184,15 @@ def test_convert_conversation_to_api_input(
             expect_valid_regex = True
         elif guided_decoding.json is not None:
             assert "json_schema" in result["sampling_params"]
-            if isinstance(guided_decoding.json, pydantic.BaseModel):
+            if isinstance(guided_decoding.json, pydantic.BaseModel) or (
+                isinstance(guided_decoding.json, type)
+                and issubclass(guided_decoding.json, pydantic.BaseModel)
+            ):
                 assert (
                     json.loads(result["sampling_params"]["json_schema"])
                     == guided_decoding.json.model_json_schema()
                 )
+
             else:
                 assert (
                     json.loads(result["sampling_params"]["json_schema"])
