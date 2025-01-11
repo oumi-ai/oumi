@@ -1,6 +1,10 @@
 import functools
+import importlib.util
+import os
+import sys
 from collections import namedtuple
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 
@@ -27,19 +31,50 @@ class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
         return super().__new__(cls, name.lower(), registry_type)
 
 
+def _load_user_requirements(requirements_file: str):
+    """Loads user-defined requirements from a file."""
+    requirements_path = Path(requirements_file)
+    if not requirements_path.exists():
+        raise FileNotFoundError(
+            f"OUMI_REGISTRY_REQUIREMENTS file not found: {requirements_file}"
+        )
+    with open(requirements_path) as f:
+        for ind, line in enumerate(f):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            import_path = Path(line)
+            mod_name = f"oumi_registry_user_defined_module_{ind}"
+            spec = importlib.util.spec_from_file_location(mod_name, import_path)
+            if not spec or not spec.loader:
+                raise ImportError(f"Failed to load user-defined module: {line}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[mod_name] = module
+            try:
+                spec.loader.exec_module(module)
+            except Exception as e:
+                raise ImportError(f"Failed to load user-defined module: {line}") from e
+
+
 def _register_dependencies(cls_function):
     """Decorator to ensure core dependencies are added to the Registry."""
 
     @functools.wraps(cls_function)
     def wrapper(self, *args, **kwargs):
         if not self._initialized:
+            # Immediately set the initialized flag to avoid infinite recursion.
+            self._initialized = True
             # Import all core dependencies.
             import oumi.datasets  # noqa: F401
             import oumi.judges  # noqa: F401
             import oumi.launcher  # noqa: F401
             import oumi.models  # noqa: F401
 
-            self._initialized = True
+            # Import user-defined dependencies.
+            user_req_file = os.environ.get("OUMI_REGISTRY_REQUIREMENTS", None)
+            if user_req_file:
+                _load_user_requirements(user_req_file)
+
         return cls_function(self, *args, **kwargs)
 
     return wrapper
