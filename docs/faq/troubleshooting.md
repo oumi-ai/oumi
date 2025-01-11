@@ -44,15 +44,15 @@ Simply remove the offending line from your yaml file's {py:attr}`~oumi.core.conf
 ### Training Stability & NaN Loss
 
 - Lower the initial learning rate
-- Enable gradient clipping
+- Apply more drastic gradient clipping
 - Add learning rate warmup
 
 ```python
 config = TrainingConfig(
     training=TrainingParams(
-        max_grad_norm=1.0,
+        max_grad_norm=0.5,
         optimizer="adamw_torch_fused",
-        warmup_steps=100,
+        warmup_ratio=0.01,
         lr_scheduler_type="cosine",
         learning_rate=1e-5,
     ),
