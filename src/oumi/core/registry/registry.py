@@ -7,6 +7,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from oumi.utils.logging import logger
+
 
 class RegistryType(Enum):
     CLOUD = auto()
@@ -35,6 +37,7 @@ def _load_user_requirements(requirements_file: str):
     """Loads user-defined requirements from a file."""
     requirements_path = Path(requirements_file)
     if not requirements_path.exists():
+        logger.error(f"OUMI_REGISTRY_REQUIREMENTS file not found: {requirements_file}")
         raise FileNotFoundError(
             f"OUMI_REGISTRY_REQUIREMENTS file not found: {requirements_file}"
         )
@@ -53,6 +56,10 @@ def _load_user_requirements(requirements_file: str):
             try:
                 spec.loader.exec_module(module)
             except Exception as e:
+                logger.error(
+                    "Failed to load a user-defined module in "
+                    f"OUMI_REGISTRY_REQUIREMENTS: {line}"
+                )
                 raise ImportError(f"Failed to load user-defined module: {line}") from e
 
 
