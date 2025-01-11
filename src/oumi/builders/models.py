@@ -363,7 +363,7 @@ def build_tokenizer(
 
     tokenizer_pad_token = model_params.tokenizer_pad_token
     if not tokenizer_pad_token:
-        # Try to find the default chat template by model type.
+        # Try to find the default `tokenizer_pad_token` by model type.
         internal_config: Optional[InternalModelConfig] = find_internal_model_config(
             model_params
         )

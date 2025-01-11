@@ -301,7 +301,6 @@ def find_internal_model_config_using_model_name(
         return None
 
     hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
-    print(f"model_name: {model_name} model_type: {hf_config.model_type}")
     llm_info = get_all_models_map().get(hf_config.model_type, None)
     return llm_info.config if llm_info is not None else None
 
