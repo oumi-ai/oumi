@@ -74,6 +74,13 @@ class InternalModelConfig(BaseConfig):
     chat_template: str = "default"
     """Default chat template."""
 
+    tokenizer_pad_token: Optional[str] = None
+    """The default padding token used by the tokenizer.
+
+    If specified in internal model type config and unspecified
+    in `ModelParams.tokenizer_pad_token`, then this value will be used.
+    """
+
     model_input_features: dict[str, InternalFeatureSpec] = field(
         default_factory=_default_model_input_features_factory
     )

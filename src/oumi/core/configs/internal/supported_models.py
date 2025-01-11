@@ -60,6 +60,12 @@ def _create_default_vlm_config(
     return config
 
 
+def _create_gpt2_config() -> InternalModelConfig:
+    return InternalModelConfig(
+        chat_template="gpt2", tokenizer_pad_token="<|endoftext|>"
+    )
+
+
 @functools.cache
 def get_default_vlm_model_config() -> InternalModelConfig:
     """Returns default VLM model config."""
@@ -169,7 +175,7 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
 
 
 @functools.cache
-def get_all_vlms_map() -> (
+def get_all_models_map() -> (
     Mapping[
         str,  # model type
         _ModelTypeInfo,
@@ -178,8 +184,16 @@ def get_all_vlms_map() -> (
     """Creates a map of all supported VLMs with related configs."""
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
+    default_llm_class = transformers.AutoModelForCausalLM
     default_vlm_class = transformers.AutoModelForVision2Seq
+
     all_models_list: list[_ModelTypeInfo] = [
+        _ModelTypeInfo(
+            model_type="gpt2",
+            model_class=default_llm_class,
+            tested=True,
+            config=_create_gpt2_config(),
+        ),
         _ModelTypeInfo(
             model_type="blip-2",
             model_class=default_vlm_class,
@@ -287,8 +301,9 @@ def find_internal_model_config_using_model_name(
         return None
 
     hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
-    vlm_info = get_all_vlms_map().get(hf_config.model_type, None)
-    return vlm_info.config if vlm_info is not None else None
+    print(f"model_name: {model_name} model_type: {hf_config.model_type}")
+    llm_info = get_all_models_map().get(hf_config.model_type, None)
+    return llm_info.config if llm_info is not None else None
 
 
 def find_internal_model_config(
