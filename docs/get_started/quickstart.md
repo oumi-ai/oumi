@@ -98,7 +98,7 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
   --model.model_name HuggingFaceTB/SmolLM2-135M-Instruct
 ```
 
-Or with our newly trained model saved on disk:
+Or, with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
@@ -124,7 +124,7 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
   --interactive
 ```
 
-Or with our newly trained model saved on disk:
+Or, with our newly trained model saved on disk:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
