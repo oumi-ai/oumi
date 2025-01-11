@@ -268,7 +268,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 new_batch_data = []
                 for response_index, response in enumerate(output_batch.data):
                     prompt = input_batches[batch_index]["input_ids"][response_index]  # type: ignore
-                    assert prompt.tolist() == response[: len(prompt)].tolist()
+                    # Sanity check
+                    prompt_as_list = prompt.tolist()
+                    response_prefix_as_list = response[: len(prompt)].tolist()
+                    if prompt_as_list != response_prefix_as_list:
+                        raise RuntimeError(
+                            "Inconsistent prompt prefix content! "
+                            f"\nRequest: {prompt_as_list} "
+                            f"\nResponse: {response_prefix_as_list}"
+                        )
+
                     new_batch_data.append(response[len(prompt) :])
                 output_batch.data = torch.stack(new_batch_data, dim=0)
 

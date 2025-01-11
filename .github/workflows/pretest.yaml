@@ -1,6 +1,12 @@
 name: "Pre-review Tests"
 
-on: [pull_request]
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'notebooks/**'
+      - 'scripts/**'
+      - 'README.md'
 
 jobs:
   static-checks:

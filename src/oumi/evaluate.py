@@ -6,6 +6,7 @@ from oumi.core.configs.params.evaluation_params import (
 )
 from oumi.evaluation.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.evaluation.lm_harness import evaluate as evaluate_lm_harness
+from oumi.evaluation.platform_prerequisites import check_prerequisites
 
 
 def evaluate(config: EvaluationConfig) -> None:
@@ -18,6 +19,11 @@ def evaluate(config: EvaluationConfig) -> None:
         None.
     """
     for task in config.tasks:
+        check_prerequisites(
+            evaluation_platform=task.get_evaluation_platform(),
+            task_name=task.task_name,
+        )
+
         if task.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
             lm_harness_task_params = task.get_evaluation_platform_task_params()
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)

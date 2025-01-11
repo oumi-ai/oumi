@@ -40,7 +40,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 # Initialize with a small, free model
 engine = VLLMInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.2-1B-Instruct",
+        model_name="HuggingFaceTB/SmolLM2-135M-Instruct",
         model_kwargs={"device_map": "auto"}
     )
 )
@@ -94,7 +94,7 @@ Our engines are broken into two categories: local inference vs remote inference.
 
 Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
 
-If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API).
+If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API), or use {py:obj}`~oumi.inference.SGLangInferenceEngine` or {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine` to call external SGLang or vLLM servers started remotely or locally outside of Oumi.
 
 
 For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
@@ -117,11 +117,14 @@ See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an infe
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 
-vllmModelParams = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
-engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] # Add your inputs here
+model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
+engine = VLLMInferenceEngine(model_params)
+input_conversation = []  # Add your inputs here
 inference_config = InferenceConfig()
-outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+output_conversations = engine.infer_online(
+    input=input_conversation, inference_config=inference_config
+)
+print(output_conversations)
 ```
 
 #### Input Data
@@ -173,13 +176,42 @@ For models that support multi-modal inputs (e.g., text and images):
 
 ```python
 from oumi.inference import VLLMInferenceEngine
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import InferenceConfig, InferenceEngineType, ModelParams, GenerationParams
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
 
-vllmModelParams = ModelParams(model_name="llava-hf/llava-1.5-7b-hf")
-engine = VLLMInferenceEngine(vllmModelParams)
-input_conversation = [] # Add your inputs here
-inference_config = InferenceConfig()
-outputConversations = engine.infer_online(input=input_conversation, inference_config=inference_config)
+model_params = ModelParams(
+    model_name="llava-hf/llava-1.5-7b-hf",
+    model_max_length=1024,
+    chat_template="llava",
+)
+
+engine = VLLMInferenceEngine(model_params)
+```
+
+```python
+input_conversation = Conversation(
+    messages=[
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(
+                    content="https://oumi.ai/favicon.ico",
+                    type=Type.IMAGE_URL,
+                ),
+                ContentItem(content="Describe this image", type=Type.TEXT),
+            ],
+        )
+    ]
+)
+inference_config = InferenceConfig(
+    model=model_params,
+    generation=GenerationParams(max_new_tokens=64),
+    engine=InferenceEngineType.VLLM,
+)
+output_conversations = engine.infer_online(
+    input=[input_conversation], inference_config=inference_config
+)
+print(output_conversations)
 ```
 
 ### Distributed Inference
