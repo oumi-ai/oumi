@@ -66,7 +66,8 @@ def infer(
 
     input_image_png_bytes: Optional[bytes] = None
     if image:
-        if image.lower().startswith("http"):  # Also matches "https"
+        image_lower = image.lower()
+        if image_lower.startswith("http://") or image_lower.startswith("https://"):
             input_image_png_bytes = load_image_png_bytes_from_url(image)
         else:
             input_image_png_bytes = load_image_png_bytes_from_path(image)
