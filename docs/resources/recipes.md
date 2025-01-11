@@ -1,6 +1,6 @@
 # Recipes
 
-To help you get started with Oumi, we've prepared a set of recipes for common use cases. These recipes are designed to be easy to understand and modify, and should be a good starting point for your own projects. Each recipe is a YAML file that can be used to train, evaluate, or deploy a model. We also have corresponding job configs for most recipes that let you run the job remotely.
+To help you get started with Oumi, we've prepared a set of recipes for common use cases. These recipes are designed to be easy to understand and modify, and should be a good starting point for your own projects. Each recipe is a YAML file that can be used to train, evaluate, or deploy a model. We also have corresponding job configs for most recipes that let you run the job remotely; they're usually files ending in `_job.yaml` in the same directory as the recipe config.
 
 ## Overview
 
