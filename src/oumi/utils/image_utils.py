@@ -11,6 +11,8 @@ from oumi.utils.logging import logger
 # https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 DEFAULT_IMAGE_MODE: Final[str] = "RGB"
 
+_FILE_URL_PREFIX: Final[str] = "file://"
+
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
     """Encodes PIL image into PNG format, and returns PNG image bytes.
@@ -76,6 +78,12 @@ def load_pil_image_from_path(
     """
     if not input_image_filepath:
         raise ValueError("Empty image file path.")
+
+    if isinstance(
+        input_image_filepath, str
+    ) and input_image_filepath.lower().startswith(_FILE_URL_PREFIX):
+        input_image_filepath = input_image_filepath[len(_FILE_URL_PREFIX) :]
+
     input_image_filepath = Path(input_image_filepath)
     if not input_image_filepath.is_file():
         raise ValueError(

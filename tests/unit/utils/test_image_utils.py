@@ -94,3 +94,9 @@ def test_load_image_png_bytes_from_path():
 
         loaded_png_bytes2 = load_image_png_bytes_from_path(Path(png_filename))
         assert loaded_png_bytes1 == loaded_png_bytes2
+
+        loaded_png_bytes2 = load_image_png_bytes_from_path(str(png_filename))
+        assert loaded_png_bytes1 == loaded_png_bytes2
+
+        loaded_png_bytes2 = load_image_png_bytes_from_path(f"file://{png_filename}")
+        assert loaded_png_bytes1 == loaded_png_bytes2
