@@ -58,7 +58,7 @@ You can easily override any parameters directly in the command line, for example
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.max_steps 2000 \
-  --training.learning_rate 1e-4  
+  --training.learning_rate 1e-4
 ```
 
 To run the same recipe on your own dataset, you can override the dataset name and path:
