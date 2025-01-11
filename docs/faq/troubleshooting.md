@@ -61,12 +61,13 @@ config = TrainingConfig(
 
 ### Inference Issues
 
-- Verify model and tokenizer paths are correct
-- Ensure input data is correctly formatted and preprocessed
-- Validate that the inference engine is compatible with your model type
+- Verify {doc}`model </resources/models/models>` and [tokenizer](/resources/models/models.md#tokenizer-integration) paths are correct
+- Ensure [input data](/user_guides/infer/infer.md#input-data) is correctly formatted and preprocessed
+- Validate that the {doc}`inference engine </user_guides/infer/inference_engines>` is compatible with your model type
 
 ### Quantization-Specific Issues
 
 Decreased model performance:
 
 - Increase `lora_r` and `lora_alpha` parameters in {py:obj}`oumi.core.configs.PeftParams`
+- Use a quantization-aware weight initializations like `LoftQ` #TODO-cite-in-oumi-pending-PR-1027
