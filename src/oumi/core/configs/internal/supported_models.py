@@ -13,6 +13,7 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalModelConfig,
     InternalVisualModelConfig,
 )
+from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.logging import logger
 
 
@@ -260,6 +261,16 @@ def get_all_vlms_map() -> (
     return types.MappingProxyType({x.model_type: x for x in all_models_list})
 
 
+def is_custom_model(model_name: str):
+    """Determines whether the model is a custom model defined in oumi registry."""
+    if len(model_name) > 0 and REGISTRY.contains(
+        name=model_name, type=RegistryType.MODEL
+    ):
+        return True
+
+    return False
+
+
 def find_internal_model_config_using_model_name(
     model_name: str, trust_remote_code: bool
 ) -> Optional[InternalModelConfig]:
@@ -272,6 +283,9 @@ def find_internal_model_config_using_model_name(
     Returns:
         Model config, or `None` if model is not recognized.
     """
+    if is_custom_model(model_name):
+        return None
+
     hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
     vlm_info = get_all_vlms_map().get(hf_config.model_type, None)
     return vlm_info.config if vlm_info is not None else None
