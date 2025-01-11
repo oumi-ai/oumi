@@ -393,14 +393,13 @@ def build_tokenizer(
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length
 
+    template_name: str = ""
     if model_params.chat_template:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
             "specified in model config!"
         )
-        tokenizer.chat_template = build_chat_template(
-            template_name=model_params.chat_template
-        )
+        template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.
         internal_config: Optional[InternalModelConfig] = find_internal_model_config(
@@ -412,10 +411,8 @@ def build_tokenizer(
                 f"Using the chat template '{template_name}', which is the default "
                 f"for model '{model_params.model_name}'."
             )
-            tokenizer.chat_template = build_chat_template(template_name=template_name)
         elif not tokenizer.chat_template:
-            print(f"model_params.chat_template: {model_params.chat_template}")
-            print(f"tokenizer.chat_template: {tokenizer.chat_template}")
+            template_name = "default"
             logger.warning(
                 "No chat template found for tokenizer. "
                 "Please specify a chat template using the `chat_template` field. "
@@ -427,7 +424,9 @@ def build_tokenizer(
                 "The 'default' template does not use any special tokens, "
                 "and is unlikely to yield good results."
             )
-            tokenizer.chat_template = build_chat_template(template_name="default")
+
+    if template_name:
+        tokenizer.chat_template = build_chat_template(template_name=template_name)
 
     return tokenizer
 
