@@ -57,9 +57,8 @@ You can easily override any parameters directly in the command line, for example
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
-  --training.max_steps 5 \
-  --training.learning_rate 1e-4 \
-  --training.output_dir output/smollm-135m-sft
+  --training.max_steps 2000 \
+  --training.learning_rate 1e-4  
 ```
 
 To run the same recipe on your own dataset, you can override the dataset name and path:
@@ -102,7 +101,7 @@ Or, with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --model.model_name output/smollm-135m-sft
+  --model.model_name output/smollm-135m-fft
 ```
 
 ## Inference
@@ -128,7 +127,7 @@ Or, with our newly trained model saved on disk:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-  --model.model_name output/smollm-135m-sft \
+  --model.model_name output/smollm-135m-fft \
   --generation.max_new_tokens 40 \
   --generation.temperature 0.7 \
   --interactive
