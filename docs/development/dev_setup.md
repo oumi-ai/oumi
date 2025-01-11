@@ -20,13 +20,26 @@ You can create a fork of Oumi by clicking the [Fork button](https://github.com/o
 
 ### 2.2 Clone your fork of the Oumi repository
 
+Now you're ready to clone your fork to your local disk and set up the original repository as a remote:
 ```shell
 git clone git@github.com:<your Github handle>/oumi.git
 cd oumi
 git remote add upstream https://github.com/oumi-ai/oumi.git
 ```
 
-### 2.3 Install Oumi package and its dependencies
+### 2.3 Create a development branch
+
+```{warning}
+Do not make changes directly to the `main` branch, even on your fork!
+```
+
+Your changes should live on a development branch so you can later create a Pull Request to merge your changes into `main`.
+
+```shell
+git checkout -b the-name-of-your-branch
+```
+
+### 2.4 Install Oumi package and its dependencies
 
 This command creates a new Conda env, installs relevant packages, and installs pre-commit.
 
@@ -41,11 +54,11 @@ pre-commit uninstall
 pre-commit install --install-hooks --hook-type pre-push
 ```
 
-#### 2.3.1 Optional dependencies
+#### 2.4.1 Optional dependencies
 
 Follow [these instructions](../get_started/installation.md#optional-dependencies) to install optional dependencies you may want depending on your use case.
 
-### 2.4 [optional] Add an Oumi alias to your shell
+### 2.5 [optional] Add an Oumi alias to your shell
 
 Add the following alias to {.zshrc or .bashrc}:
 
