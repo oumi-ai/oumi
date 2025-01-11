@@ -275,7 +275,7 @@ Please refer to [SGLang documentation](https://sgl-project.github.io/backend/ser
 
 #### Client Configuration
 
-The client can be configured with different reliability and performance options similar to any other remote engine:
+The client can be configured with different reliability and performance options similar to any other remote engines:
 
 ```python
 engine = SGLangInferenceEngine(
