@@ -25,7 +25,7 @@ def infer(
         typer.Option(
             "--image",
             help=(
-                "File path of an input image to be used with `image+text` VLLMs. "
+                "File path or URL of an input image to be used with image+text VLLMs. "
                 "Only used in interactive mode."
             ),
         ),
@@ -51,7 +51,10 @@ def infer(
     from oumi import infer as oumi_infer
     from oumi import infer_interactive as oumi_infer_interactive
     from oumi.core.configs import InferenceConfig
-    from oumi.utils.image_utils import load_image_png_bytes_from_path
+    from oumi.utils.image_utils import (
+        load_image_png_bytes_from_path,
+        load_image_png_bytes_from_url,
+    )
     # End imports
 
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
@@ -61,9 +64,13 @@ def infer(
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    input_image_png_bytes: Optional[bytes] = (
-        load_image_png_bytes_from_path(image) if image else None
-    )
+    input_image_png_bytes: Optional[bytes] = None
+    if image:
+        image_lower = image.lower()
+        if image_lower.startswith("http://") or image_lower.startswith("https://"):
+            input_image_png_bytes = load_image_png_bytes_from_url(image)
+        else:
+            input_image_png_bytes = load_image_png_bytes_from_path(image)
 
     if interactive:
         if parsed_config.input_path:
