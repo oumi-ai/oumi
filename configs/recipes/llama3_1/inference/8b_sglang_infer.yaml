@@ -1,4 +1,8 @@
 # Inference config for Llama 8B Instruct.
+# Sample command to start SGLang server:
+# CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
+#     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --port 6864 --disable-cuda-graph --mem-fraction-static=0.99
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -12,10 +16,6 @@ model:
 generation:
   max_new_tokens: 2048
 
-# Sample command to start SGLang server:
-# CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
-#     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
-#     --port 6864 --disable-cuda-graph --mem-fraction-static=0.99
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).
   # For production use, set it to a remote address/port.
