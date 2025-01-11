@@ -7,7 +7,9 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_vlms_map,
@@ -401,18 +403,30 @@ def build_tokenizer(
         )
         tokenizer.chat_template = build_chat_template(model_params.chat_template)
 
-    if tokenizer.chat_template is None:
+    if not tokenizer.chat_template:
         logger.warning(
             "No chat template found for tokenizer. "
             "Please specify a chat template using the `chat_template` field. "
             "This will be required in future versions of Oumi."
         )
-        logger.warning(
-            "Setting tokenizer to use the 'default' chat template. "
-            "The 'default' template does not use any special tokens, "
-            "and is unlikely to yield good results. "
+
+        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
+            model_params
         )
-        tokenizer.chat_template = build_chat_template(template_name="default")
+
+        if internal_config is not None and internal_config.chat_template:
+            template_name = internal_config.chat_template
+            logger.info(
+                f"Setting tokenizer to use the '{template_name}' chat template."
+            )
+        else:
+            template_name = "default"
+            logger.warning(
+                "Setting tokenizer to use the 'default' chat template. "
+                "The 'default' template does not use any special tokens, "
+                "and is unlikely to yield good results."
+            )
+        tokenizer.chat_template = build_chat_template(template_name=template_name)
 
     return tokenizer
 
