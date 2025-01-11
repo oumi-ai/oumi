@@ -24,7 +24,7 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # If the remote machine is not accessible after evaluation completes, which is the
-# common case when provisioning a GCP node and setting an autostop timer, you need a
+# common case when provisioning a GCP node and setting an autostop timer, you need
 # to mount your output directory to persistent storage. In this case, we are using a
 # GCS Bucket (`my-gcs-bucket`) to store and later retrieve the evaluation results.
 # Note: Autostop is a feature that allows you to set a timer to ensure that the machine
