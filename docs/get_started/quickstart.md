@@ -6,6 +6,14 @@ We'll use a small model (`SmolLM-135M`) so that the examples can run fast on bot
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page </resources/recipes>`.
 
+---
+
+🎉 *Like our project?*
+If you find it helpful, consider giving it a ⭐ on [GitHub](https://github.com/oumi-ai/oumi). Your support means the world to us and helps others discover the project!
+
+---
+
+
 ## Oumi CLI
 
 The general structure of Oumi CLI commands is:
@@ -153,4 +161,9 @@ To launch an evaluation job:
 oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 ```
 
-If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.
+---
+
+💡 *Want to get involved?*
+We’d love your contributions! Check out our [Contributor’s Guide](#) to learn how you can help us grow and improve.
+
+---
