@@ -53,8 +53,6 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         self.split = split
         self.trust_remote_code = trust_remote_code
         self.stream = stream
-        self.trust_remote_code = trust_remote_code
-
         self._data = self._load_data()
 
     #
