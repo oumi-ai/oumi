@@ -100,7 +100,6 @@ def test_train_pack():
                     datasets=[
                         DatasetParams(
                             dataset_name="debug_pretraining",
-                            dataset_kwargs={"seq_length": 128},
                         )
                     ],
                     stream=True,

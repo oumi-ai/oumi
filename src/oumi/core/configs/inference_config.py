@@ -32,6 +32,12 @@ class InferenceEngineType(str, Enum):
     ANTHROPIC = "ANTHROPIC"
     """The inference engine for Anthropic's API."""
 
+    GOOGLE_VERTEX = "GOOGLE_VERTEX"
+    """The inference engine for Google Vertex AI."""
+
+    GOOGLE_GEMINI = "GEMINI"
+    """The inference engine for Gemini."""
+
 
 @dataclass
 class InferenceConfig(BaseConfig):

@@ -11,3 +11,5 @@ model:
 
 generation:
   max_new_tokens: 2048
+
+engine: NATIVE

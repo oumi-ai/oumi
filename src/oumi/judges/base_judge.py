@@ -6,15 +6,9 @@ from typing import Any, Optional, Union
 from tqdm.auto import tqdm
 from typing_extensions import Self
 
-from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, JudgeConfig
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
-from oumi.inference import (
-    AnthropicInferenceEngine,
-    LlamaCppInferenceEngine,
-    RemoteInferenceEngine,
-)
 from oumi.utils.logging import logger
 
 
@@ -97,9 +91,7 @@ class BaseJudge(ABC):
             self.inference_engine = inference_engine
         else:
             logger.debug("Initializing inference engine.")
-            self.inference_engine = build_inference_engine(
-                config.engine, config.model, config.remote_params
-            )
+            self.inference_engine = self._create_inference_engine(config)
 
     def judge(
         self,
@@ -223,24 +215,13 @@ class BaseJudge(ABC):
 
     def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
         """Create the inference engine."""
-        # TODO: Initialize the appropriate inference engine based on the config
-        # For now, we default to the remote inference engine
-        # Users can override this method to provide their own inference engine
-        # to the constructor of the Judge class.
-        model_name = config.model.model_name.lower()
-        if "gguf" in model_name:
-            return LlamaCppInferenceEngine(config.model)
-        else:
-            if config.remote_params is None:
-                raise ValueError("remote_params must be provided in inference config.")
-            if "claude" in model_name:
-                return AnthropicInferenceEngine(
-                    config.model, remote_params=config.remote_params
-                )
-            else:
-                return RemoteInferenceEngine(
-                    config.model, remote_params=config.remote_params
-                )
+        from oumi.builders.inference_engines import build_inference_engine
+
+        return build_inference_engine(
+            engine_type=config.engine,
+            model_params=config.model,
+            remote_params=config.remote_params,
+        )
 
     @abstractmethod
     def _transform_conversation_input(self, conversation: Conversation) -> Message:
