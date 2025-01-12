@@ -97,6 +97,8 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
   --model.model_name output/smollm-135m-sft
 ```
 
+To explore the benchmarks that our evaluations support, including HuggingFace leaderboards and AlpacaEval, visit our {doc}`evaluation guide </user_guides/evaluate/evaluate>`.
+
 ## Inference
 
 To run inference with a trained model:
@@ -126,6 +128,8 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
   --interactive
 ```
 
+To learn more about running inference locally or remotely (including OpenAI, Google, Anthropic APIs) and leveraging inference engines to parallelize and speed up your jobs, visit our {doc}`inference guide </user_guides/infer/infer>`.
+
 ## Launching Jobs
 
 So far we have been using the `train`, `evaluate`, and `infer` commands to run jobs locally.
@@ -152,5 +156,7 @@ To launch an evaluation job:
 ```bash
 oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 ```
+
+To explore the Cloud providers that we support for running jobs on remote clusters, details on remote job management, and authoring configuration files, visit {doc}`running jobs remotely </user_guides/launch/remote>`.
 
 If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.
