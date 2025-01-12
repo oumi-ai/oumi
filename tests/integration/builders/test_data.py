@@ -20,6 +20,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -70,7 +71,12 @@ def _get_dataset_size(
     if stream:
         if pack:
             assert isinstance(
-                dataset, (ConstantLengthDataset, PretrainingAsyncTextDataset)
+                dataset,
+                (
+                    ConstantLengthDataset,
+                    BasePretrainingDataset,
+                    PretrainingAsyncTextDataset,
+                ),
             )
         else:
             assert isinstance(dataset, (IterableDataset))
@@ -390,69 +396,34 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
 
 
 def test_data_multiple_datasets_packing(stream: bool):
-    if stream:
-        config = _get_default_config(
-            [
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.1,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.4,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.5,
-                ),
-            ],
-            stream,
-            DatasetSplit.TEST,
-            pack=True,
-        )
-        config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
-        config.data.get_split(DatasetSplit.TEST).seed = 1
-        tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
-        # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, stream, pack=True) == 3
-    else:
-        # Raise an exception as streaming is requried for packing.
-        with pytest.raises(Exception):
-            _ = _get_default_config(
-                [
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.1,
-                    ),
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=50,
-                        mixture_proportion=0.4,
-                    ),
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.5,
-                    ),
-                ],
-                stream,
-                DatasetSplit.TEST,
-                pack=True,
-            )
+    config = _get_default_config(
+        [
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.1,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.4,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.5,
+            ),
+        ],
+        stream,
+        DatasetSplit.TEST,
+        pack=True,
+    )
+    config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
+    config.data.get_split(DatasetSplit.TEST).seed = 1
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
+    # The packed dataset should be even smaller.
+    assert _get_dataset_size(dataset, stream, pack=True) == 3
