@@ -80,6 +80,7 @@ dev = [
     "ruff",
     "torchfix",       # Tool for automatically fixing common PyTorch issues
     "pytest-asyncio", # Asyncio plugin for pytest
+    "pytest-timeout", # Timeout plugin for pytest
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
