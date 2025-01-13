@@ -138,7 +138,9 @@ class JobConfig(BaseConfig):
     setup: Optional[str] = None
     """The setup script to run on every node. Optional.
 
-    `setup` will always be executed before `run`.
+    `setup` will always be executed before `run`. In sky-based clouds, `setup` is
+    executed only once upon cluster creation, not once per job.
+
     ex) pip install -r requirements.txt
     """
 
