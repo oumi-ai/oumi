@@ -22,21 +22,24 @@ Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.buil
 
 ```python
 # Example using Oumi's main model interface
+import torch
 from oumi.builders import build_model, build_tokenizer
 from oumi.core.configs import ModelParams
 
 # Specify parameters to customize your model
-model_params = ModelParams(model_name=...,)
+model_params = ModelParams(model_name="HuggingFaceTB/SmolLM-135M", tokenizer_kwargs={'pad_token': '<|endoftext|>'})
+device = torch.device("cpu") # or gpu, or mps, etc.
 
 # Build the model
 model = build_model(model_params)
 
 # Build a corresponding tokenizer
 tokenizer = build_tokenizer(model_params)
-input_ids = tokenizer(...)
+input_data = tokenizer("What are the benefits of open source coding?", return_tensors="pt")
 
 # Use the same interface regardless of model type for generation
-outputs = model.generate(input_ids)
+outputs = model.generate(input_data['input_ids'], attention_mask=input_data['attention_mask'])
+print(tokenizer.decode(outputs[0]))
 ```
 
 ### Hugging Face Hub Integration
