@@ -100,7 +100,7 @@ For details on handling special tokens, refer to {py:func}`core.tokenizers.get_d
 
 ### Parameter Adapters and Quantization
 
-Oumi supports loading models with <a target="_blank" href="https://arxiv.org/pdf/2403.14608">PEFT adapters</a> and quantization for efficiency purposes. You can configure these through `ModelParams`:
+Oumi supports loading models with [PEFT adapters](https://arxiv.org/pdf/2403.14608){target="_blank"} and quantization for efficiency purposes. You can configure these through `ModelParams`:
 
 ```python
 from oumi.core.configs import ModelParams, PeftParams
