@@ -119,11 +119,11 @@ training:
 
 ### Overview
 The most common pretraining method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
-Pretraining is the process of training a language model from scratch or adapting it to a new domain using large amounts of unlabeled text data. This is a computationally expensive process, but it can result in models with strong general language understanding capabilities.
+Pretraining is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. This is a computationally expensive process, but it can result in models with strong general language understanding capabilities.
 
 Pretraining is typically used for:
 - **Training models from scratch:** This involves training a new language model from scratch on a massive text corpus.
-- **Continuing training on new data:** This involves taking a pre-trained model and continuing to train it on additional data, either to improve its performance on existing tasks or to adapt it to a new domain.
+- **Continuing training on new data:** This involves taking a pre-trained model and continuing to train it on additional data, to improve its performance on existing tasks.
 - **Domain adaptation:** This involves adapting a pre-trained model to a specific domain, such as scientific literature or legal documents.
 
 

@@ -117,7 +117,16 @@ runpod = ["skypilot[runpod]"]
 optional = [
     "llama-cpp-python>=0.3.5,<0.4", # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
+]
+
+evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
+    "langdetect",  # leaderboard_ifeval
+    "immutabledict",  # leaderboard_ifeval
+    "nltk>=3.9.1",
+    # "antlr4-python3-runtime==4.11",  # leaderboard_math_hard (incompatible)
+    "sympy>=1.12",  # leaderboard_math_hard
+    "sentencepiece>=0.1.98",
 ]
 
 cambrian = [
@@ -129,7 +138,15 @@ cambrian = [
 
 # CI targets
 ci_cpu = ["oumi[dev,docs,gcp,optional]"]
-ci_gpu = ["oumi[ci_cpu,gpu]"]
+# llama-cpp-python is not compatible with the github
+# gpu actions runner, so we skip it for now
+# all the other dependencies are copied here
+# from the optional dependencies section
+ci_gpu = [
+    "oumi[dev,docs,gcp,gpu]",
+    "vllm>=0.6.3,<0.7.0",
+    "alpaca-eval>=0.6.6,<0.7",
+]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"

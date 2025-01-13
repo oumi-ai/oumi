@@ -28,7 +28,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_rtd_theme",
-    "sphinx_term.termynal",
+    # "sphinx_term.termynal",  # Not currently used, but could be useful in the future
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",

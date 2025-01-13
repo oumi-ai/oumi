@@ -2,7 +2,7 @@
 
 VSCode provides a powerful IDE environment with debugging, testing, and code intelligence features to quickly debug your training and inference jobs. This guide covers how to configure vscode and how to get started debugging `oumi` jobs.
 
-This guide will also work for other IDEs base on vscode, such as [Cursor](https://www.cursor.com/).
+This guide will also work for other IDEs based on vscode, such as [Cursor](https://www.cursor.com/).
 
 ## Environment Setup
 
@@ -171,7 +171,7 @@ VSCode's Test Explorer provides several useful features for testing, including t
 
 ### 3. Remote Development Support
 
-VSCode's Remote Development extension pack allows you to use a remote machine, container, or WSL as a full development environment.
+VSCode's Remote Development extension pack allows you to use a remote machine, container, or Windows Subsystem for Linux (WSL) as a full development environment.
 
 This is particularly useful for training models on remote GPU servers. For detailed information, see the [Remote Development Guide](https://code.visualstudio.com/docs/remote/remote-overview).
 

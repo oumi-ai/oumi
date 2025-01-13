@@ -209,6 +209,9 @@ def test_generation_params_defaults_used_in_inference(
 def test_supported_params_exist_in_config(
     engine_class, model_params, generation_params_fields
 ):
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
     mock_ctx = _mock_engine(engine_class)
 
     with mock_ctx:
@@ -243,6 +246,9 @@ def test_supported_params_exist_in_config(
 def test_unsupported_params_warning(
     engine_class, unsupported_param, value, model_params, sample_conversation, caplog
 ):
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
     mock_ctx = _mock_engine(engine_class)
 
     with (
@@ -292,6 +298,9 @@ def test_unsupported_params_warning(
 def test_no_warning_for_default_values(
     engine_class, param, default_value, model_params, sample_conversation, caplog
 ):
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
     mock_ctx = _mock_engine(engine_class)
 
     with (
@@ -332,6 +341,9 @@ def test_no_warning_for_default_values(
 )
 def test_supported_params_are_accessed(engine_class, model_params, sample_conversation):
     """Test that all supported parameters are actually accessed during inference."""
+    if _should_skip_engine(engine_class):
+        pytest.skip(f"{engine_class.__name__} is not available")
+
     mock_ctx = _mock_engine(engine_class)
 
     class AccessTrackingGenerationParams(GenerationParams):
