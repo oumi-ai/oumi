@@ -10,7 +10,7 @@ custom_models
 ```
 
 
-Oumi provides a _unified_ and intuitive interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi simplifies the process with _seamless_ integrations.
+Oumi provides a _unified_ interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi simplifies the process with _seamless_ integrations.
 
 Out-of-the-box, Oumi supports popular causal LLMs and large vision-language models, with optimized implementations available for efficient use. For a comprehensive list of supported models, configuration examples, and best practices, see the {doc}`/resources/recipes` page.
 
@@ -39,9 +39,9 @@ input_ids = tokenizer(...)
 outputs = model.generate(input_ids)
 ```
 
-### HuggingFace Hub Integration
+### Hugging Face Hub Integration
 
-Oumi integrates directly with the HuggingFace Hub and HuggingFace `transformers` library, allowing you to use any model available on their platform:
+Oumi integrates directly with the Hugging Face Hub and Hugging Face `transformers` library, allowing you to use any model available on Hugging Face Hub:
 
 ```python
 from oumi.builders import build_model, build_tokenizer
