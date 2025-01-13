@@ -10,7 +10,9 @@ remote
 custom_cluster
 ```
 
-In addition to running training locally, you can use the `launch` command in the Oumi CLI to run jobs on remote clusters. It provides a unified interface for running your code, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
+In addition to running Oumi locally, you can use the `launch` command in the Oumi CLI to run jobs on remote clusters. It provides a unified interface for running your code, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
+
+## Overview
 
 ## Setup
 
