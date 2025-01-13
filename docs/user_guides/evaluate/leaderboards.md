@@ -32,7 +32,7 @@ A few things to pay attention to:
 
 ## HuggingFace Leaderboard V1
 
-Before HuggingFace's leaderboard V2 was introduced, the most popular benchmarks were captured in the [V1 leaderboard](https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive). You can find how to evaluate with these benchmarks in our {doc}`Leaderboards page </user_guides/evaluate/leaderboards>`. However, due to the fast advancement of AI models, many of these benchmarks have been saturated (i.e., they became too easy to measure meaningful improvements for recent models) while newer models also showed signs of contamination, indicating that data very similar to these benchmarks may exist in their training sets.
+Before HuggingFace's leaderboard V2 was introduced, the most popular benchmarks were captured in the [V1 leaderboard](https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive). Note that due to the fast advancement of AI models, many of these benchmarks have been saturated (i.e., they became too easy to measure meaningful improvements for recent models) while newer models also showed signs of contamination, indicating that data very similar to these benchmarks may exist in their training sets.
 
 - ARC (AI2 Reasoning Challenge) [[paper](https://arxiv.org/abs/1803.05457)]
 - MMLU (Massive Multitask Language Understanding) [[paper](https://arxiv.org/abs/2009.03300)]
@@ -55,7 +55,7 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingfac
 
 ## Running Remotely
 
-Running leaderboard evaluations can be resource-intensive, particularly when working with large models that require GPU acceleration. As such, users may need to execute on remote machines with the necessary hardware resources. Provisioning and running evaluations on a remote GCP machine can be achieved with the following sample yaml code.
+Running leaderboard evaluations can be resource-intensive, particularly when working with large models that require GPU acceleration. As such, you may need to execute on remote machines with the necessary hardware resources. Provisioning and running leaderboard evaluations on a remote GCP machine can be achieved with the following sample yaml code.
 
 - HuggingFace Leaderboard V2:
 
@@ -87,7 +87,7 @@ In addition to GCP, Oumi supports out-of-the-box various cloud providers (includ
 
 A few things to pay attention to:
 
-- **Output folder**. When executing in a remote machine, which is not accessible after the evaluation completes, you need to re-direct your output to persistent storage. For GCP, you can store your output into a mounted GCS Bucket. For example, assuming your bucket is `gs://my-gcs-bucket`, mount to it and set `output_dir` as shown below.
+- **Output folder**. When executing in a remote machine that is not accessible after the evaluation completes, you need to re-direct your output to persistent storage. For GCP, you can store your output into a mounted GCS Bucket. For example, assuming your bucket is `gs://my-gcs-bucket`, mount to it and set `output_dir` as shown below.
 
 ```yaml
 storage_mounts:
@@ -111,7 +111,7 @@ file_mounts:
   ~/.netrc: ~/.netrc
 ```
 
-- **Dependencies**. If you need to deploy packages in the remote machine, such as Oumi's evaluation packages, make sure that these are included in the setup script, which is executed before the job starts (typically during cluster creation).
+- **Dependencies**. If you need to deploy packages in the remote machine, such as Oumi's evaluation packages, make sure that these are installed in the setup script, which is executed before the job starts (typically during cluster creation).
 
 ```yaml
 setup: |
