@@ -6,3 +6,5 @@ model:
 
 generation:
   batch_size: 1
+
+engine: NATIVE

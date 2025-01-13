@@ -72,6 +72,8 @@ dev = [
     "ipykernel",
     "ipywidgets",     # Interactive widgets for Jupyter notebooks
     "jupyterlab",
+    "nbformat",       # For notebook execution in tests
+    "nbconvert",      # For notebook execution in tests
     "pre-commit",
     "pyright",
     "pytest-cov",     # Test coverage plugin for pytest
@@ -123,11 +125,11 @@ optional = [
 
 evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
-    "langdetect",  # leaderboard_ifeval
-    "immutabledict",  # leaderboard_ifeval
+    "langdetect",              # leaderboard_ifeval
+    "immutabledict",           # leaderboard_ifeval
     "nltk>=3.9.1",
     # "antlr4-python3-runtime==4.11",  # leaderboard_math_hard (incompatible)
-    "sympy>=1.12",  # leaderboard_math_hard
+    "sympy>=1.12",           # leaderboard_math_hard
     "sentencepiece>=0.1.98",
 ]
 

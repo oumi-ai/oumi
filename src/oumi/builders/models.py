@@ -7,10 +7,13 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
-    get_all_vlms_map,
+    get_all_models_map,
+    is_custom_model,
 )
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
@@ -42,7 +45,7 @@ def build_model(
     Returns:
         model: The built model.
     """
-    if REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+    if is_custom_model(model_params.model_name):
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
@@ -226,11 +229,11 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
-    vlm_info = get_all_vlms_map().get(config.model_type, None)
+    llm_info = get_all_models_map().get(config.model_type, None)
 
-    if vlm_info is not None:
-        auto_model_class = vlm_info.model_class
-        if not vlm_info.tested:
+    if llm_info is not None:
+        auto_model_class = llm_info.model_class
+        if not llm_info.tested:
             logger.warning(
                 f"Model type {config.model_type} not tested. "
                 f"Using {auto_model_class} as the model class. "
@@ -242,23 +245,10 @@ def _get_transformers_model_class(config):
     return auto_model_class
 
 
-def is_custom_model(model_name: str):
-    """Determines whether the model is a custom model defined in oumi registry."""
-    if len(model_name) > 0 and REGISTRY.contains(
-        name=model_name, type=RegistryType.MODEL
-    ):
-        return True
-
-    return False
-
-
 def is_image_text_llm_using_model_name(
     model_name: str, trust_remote_code: bool
 ) -> bool:
     """Determines whether the model is a basic image+text LLM."""
-    # For now, assume that custom models are not image+text LLMs.
-    if is_custom_model(model_name):
-        return False
     model_config = find_internal_model_config_using_model_name(
         model_name, trust_remote_code=trust_remote_code
     )
@@ -371,9 +361,18 @@ def build_tokenizer(
         **model_params.tokenizer_kwargs,
     )
 
-    if model_params.tokenizer_pad_token:
+    tokenizer_pad_token = model_params.tokenizer_pad_token
+    if not tokenizer_pad_token:
+        # Try to find the default `tokenizer_pad_token` by model type.
+        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
+            model_params
+        )
+        if internal_config is not None and internal_config.tokenizer_pad_token:
+            tokenizer_pad_token = internal_config.tokenizer_pad_token
+
+    if tokenizer_pad_token:
         tokenizer.add_special_tokens(
-            special_tokens_dict={"pad_token": model_params.tokenizer_pad_token}
+            special_tokens_dict={"pad_token": tokenizer_pad_token}
         )
 
     # Ensure that the tokenizer has a pad token set.
@@ -394,25 +393,40 @@ def build_tokenizer(
     if model_params.model_max_length:
         tokenizer.model_max_length = model_params.model_max_length
 
+    template_name: str = ""
     if model_params.chat_template:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
             "specified in model config!"
         )
-        tokenizer.chat_template = build_chat_template(model_params.chat_template)
+        template_name = model_params.chat_template
+    else:
+        # Try to find the default chat template by model type.
+        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
+            model_params
+        )
+        if internal_config is not None and internal_config.chat_template:
+            template_name = internal_config.chat_template
+            logger.info(
+                f"Using the chat template '{template_name}', which is the default "
+                f"for model '{model_params.model_name}'."
+            )
+        elif not tokenizer.chat_template:
+            template_name = "default"
+            logger.warning(
+                "No chat template found for tokenizer. "
+                "Please specify a chat template using the `chat_template` field. "
+                "This will be required in future versions of Oumi."
+            )
+            logger.warning(
+                "Setting tokenizer to use the 'default' chat template "
+                f"for model '{model_params.model_name}'."
+                "The 'default' template does not use any special tokens, "
+                "and is unlikely to yield good results."
+            )
 
-    if tokenizer.chat_template is None:
-        logger.warning(
-            "No chat template found for tokenizer. "
-            "Please specify a chat template using the `chat_template` field. "
-            "This will be required in future versions of Oumi."
-        )
-        logger.warning(
-            "Setting tokenizer to use the 'default' chat template. "
-            "The 'default' template does not use any special tokens, "
-            "and is unlikely to yield good results. "
-        )
-        tokenizer.chat_template = build_chat_template(template_name="default")
+    if template_name:
+        tokenizer.chat_template = build_chat_template(template_name=template_name)
 
     return tokenizer
 

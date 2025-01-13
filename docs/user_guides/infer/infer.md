@@ -214,6 +214,12 @@ output_conversations = engine.infer_online(
 print(output_conversations)
 ```
 
+To run multimodal inference interactively, use the `oumi infer` command with the `-i` and `--image` flags.
+
+```{code-block} bash
+oumi infer -c infer_config.yaml -i --image="https://oumi.ai/favicon.ico"
+```
+
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
