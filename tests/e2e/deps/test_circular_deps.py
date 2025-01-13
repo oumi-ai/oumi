@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 from multiprocessing import Process, set_start_method
 from pathlib import Path
 from typing import Optional
@@ -24,17 +25,17 @@ def _get_oumi_path_recursively(path: Path) -> str:
     return f"{_get_oumi_path_recursively(path.parent)}.{path.stem}"
 
 
-def _get_all_py_paths(exclude_suffixes: Optional[set[str]]) -> list[str]:
+def _get_all_py_paths(exclude_patterns: Optional[set[str]]) -> list[str]:
     """Recursively returns all py files in the /src/oumi/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)
     py_pattern = str(Path(repo_root) / "src" / "oumi" / "**" / "*.py")
     all_py_files = glob.glob(py_pattern, recursive=True)
     exclude_files = []
-    if exclude_suffixes:
+    if exclude_patterns:
         for file in all_py_files:
-            for exclude_suffix in exclude_suffixes:
-                if file.endswith(exclude_suffix):
+            for exclude_pattern in exclude_patterns:
+                if re.fullmatch(exclude_pattern, file):
                     exclude_files.append(file)
                     break
     all_py_files = [
@@ -47,7 +48,7 @@ def _get_all_py_paths(exclude_suffixes: Optional[set[str]]) -> list[str]:
 
 
 all_paths = _get_all_py_paths(
-    exclude_suffixes={"__init__.py"},
+    exclude_patterns={".*__init__.py", str(Path(".*") / "experimental" / ".*")},
 )
 
 
