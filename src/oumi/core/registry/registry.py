@@ -37,14 +37,13 @@ def _load_user_requirements(requirements_file: str):
     """Loads user-defined requirements from a file."""
     logger.info(f"Loading user-defined registry from: {requirements_file}")
     logger.info(
-        "This value can be set using the OUMI_REGISTRY_REQUIREMENTS "
-        "environment variable."
+        "This value can be set using the OUMI_EXTRA_DEPS_FILE " "environment variable."
     )
     requirements_path = Path(requirements_file)
     if not requirements_path.exists():
-        logger.error(f"OUMI_REGISTRY_REQUIREMENTS file not found: {requirements_file}")
+        logger.error(f"OUMI_EXTRA_DEPS_FILE file not found: {requirements_file}")
         raise FileNotFoundError(
-            f"OUMI_REGISTRY_REQUIREMENTS file not found: {requirements_file}"
+            f"OUMI_EXTRA_DEPS_FILE file not found: {requirements_file}"
         )
     with open(requirements_path) as f:
         import_count = 0
@@ -66,7 +65,7 @@ def _load_user_requirements(requirements_file: str):
             except Exception as e:
                 logger.error(
                     "Failed to load a user-defined module in "
-                    f"OUMI_REGISTRY_REQUIREMENTS: {line}"
+                    f"OUMI_EXTRA_DEPS_FILE: {line}"
                 )
                 raise ImportError(f"Failed to load user-defined module: {line}") from e
         logger.info(f"Loaded {import_count} user-defined registry modules.")
@@ -87,7 +86,7 @@ def _register_dependencies(cls_function):
             import oumi.models  # noqa: F401
 
             # Import user-defined dependencies.
-            user_req_file = os.environ.get("OUMI_REGISTRY_REQUIREMENTS", None)
+            user_req_file = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
             if user_req_file:
                 _load_user_requirements(user_req_file)
 

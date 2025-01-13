@@ -65,7 +65,7 @@ def env():
             "ACCELERATE_USE_FSDP",
             "LOCAL_RANK",
             "LOCAL_WORLD_SIZE",
-            "OUMI_REGISTRY_REQUIREMENTS",
+            "OUMI_EXTRA_DEPS_FILE",
             "RANK",
             "WORLD_SIZE",
         ]

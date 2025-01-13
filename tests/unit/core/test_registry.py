@@ -23,15 +23,15 @@ def cleanup():
     REGISTRY.clear()
     REGISTRY._initialized = False
     # Clear our registry env variable.
-    oumi_registry_reqs = os.environ.get("OUMI_REGISTRY_REQUIREMENTS", None)
+    oumi_registry_reqs = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
     if oumi_registry_reqs:
-        del os.environ["OUMI_REGISTRY_REQUIREMENTS"]
+        del os.environ["OUMI_EXTRA_DEPS_FILE"]
     yield
     # Restore our registry env variable.
-    if os.environ.get("OUMI_REGISTRY_REQUIREMENTS", None):
-        del os.environ["OUMI_REGISTRY_REQUIREMENTS"]
+    if os.environ.get("OUMI_EXTRA_DEPS_FILE", None):
+        del os.environ["OUMI_EXTRA_DEPS_FILE"]
     if oumi_registry_reqs:
-        os.environ["OUMI_REGISTRY_REQUIREMENTS"] = oumi_registry_reqs
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = oumi_registry_reqs
     # Clear the registry after each test.
     REGISTRY.clear()
     REGISTRY._initialized = False
@@ -335,7 +335,7 @@ def test_registry_user_classes():
         file_1 = Path(output_temp_dir) / "file_1.py"
         file_2 = Path(output_temp_dir) / "another_file.py"
         file_3 = Path(output_temp_dir) / "last_one.py"
-        os.environ["OUMI_REGISTRY_REQUIREMENTS"] = str(req_file)
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
         with open(req_file, "w") as f:
             f.write(str(file_1) + "\n\n")  # Add an empty line
             f.write(str(file_2) + "\n")
@@ -377,7 +377,7 @@ def test_registry_user_classes():
 def test_registry_user_classes_empty_requirements():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
-        os.environ["OUMI_REGISTRY_REQUIREMENTS"] = str(req_file)
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
         with open(req_file, "w") as f:
             f.write("\n")
         assert not REGISTRY._initialized
@@ -389,7 +389,7 @@ def test_registry_user_classes_malformed_dep():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
         file_1 = Path(output_temp_dir) / "file_1.py"
-        os.environ["OUMI_REGISTRY_REQUIREMENTS"] = str(req_file)
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
         with open(req_file, "w") as f:
             f.write(str(file_1) + "\n\n")  # Add an empty line
             f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
@@ -411,7 +411,7 @@ def test_registry_user_classes_missing_dep():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
         file_1 = Path(output_temp_dir) / "file_1.py"
-        os.environ["OUMI_REGISTRY_REQUIREMENTS"] = str(req_file)
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
         with open(req_file, "w") as f:
             f.write(str(file_1) + "\n\n")  # Add an empty line
             f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
