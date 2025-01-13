@@ -129,7 +129,7 @@ model = build_model(model_params)
 
 The framework supports:
 - **PEFT Adapters**: Load trained LoRA or other PEFT adapters using the `adapter_model` parameter
-- **Quantization**: Enable 4-bit (or 8-bit) quantization through `PeftParams` with `q_lora` and `q_lora_bits`
+- **Quantization**: Enable 8-bit (or 4-bit) quantization through `PeftParams` with `q_lora` and `q_lora_bits`
 - **Mixed Precision**: Control model precision using `torch_dtype` parameter
 
 For more details on training with adapters and quantization, see {doc}`/user_guides/train/configuration`.
