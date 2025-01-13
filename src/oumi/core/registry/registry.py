@@ -47,14 +47,14 @@ def _load_user_requirements(requirements_file: str):
         )
     with open(requirements_path) as f:
         import_count = 0
-        for ind, line in enumerate(f):
+        for idx, line in enumerate(f):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
             import_count += 1
             import_path = Path(line)
             logger.debug(f"Loading user-defined registry module: {import_path}")
-            mod_name = f"oumi_registry_user_defined_module_{ind}"
+            mod_name = f"oumi_registry_user_defined_module_{idx}"
             spec = importlib.util.spec_from_file_location(mod_name, import_path)
             if not spec or not spec.loader:
                 raise ImportError(f"Failed to load user-defined module: {line}")
