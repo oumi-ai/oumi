@@ -275,14 +275,12 @@ def get_all_models_map() -> (
     return types.MappingProxyType({x.model_type: x for x in all_models_list})
 
 
-def is_custom_model(model_name: str):
+def is_custom_model(model_name: str) -> bool:
     """Determines whether the model is a custom model defined in oumi registry."""
-    if len(model_name) > 0 and REGISTRY.contains(
+    result: bool = len(model_name) > 0 and REGISTRY.contains(
         name=model_name, type=RegistryType.MODEL
-    ):
-        return True
-
-    return False
+    )
+    return result
 
 
 def find_internal_model_config_using_model_name(
