@@ -7,7 +7,6 @@ from subprocess import Popen
 from sys import stderr, stdout
 from typing import Any, Final, NamedTuple, Optional
 
-import torch
 import typer
 
 import oumi.cli.cli_utils as cli_utils
@@ -226,6 +225,8 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
 
     oumi_master_port = _DEFAULT_MASTER_PORT
     if backend is None:
+        import torch  # Importing torch takes time so only load it in this scenario.
+
         # Attempt to produce a local configuration
         if not torch.cuda.is_available():
             raise RuntimeError(
