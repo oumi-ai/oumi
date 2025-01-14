@@ -1,5 +1,9 @@
 # Vision-Language
 
+Vision-Language Supervised Finetuning (VL-SFT) extends the concept of Supervised Fine-Tuning (SFT) to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications.
+
+This guide covers Vision-Language datasets used for instruction tuning and supervised learning in Oumi.
+
 ## VL-SFT Datasets
 
 ```{include} /api/summary/vl_sft_datasets.md
@@ -86,7 +90,7 @@ VL-SFT batches typically include additional keys for image data, such as `pixel_
 
 ### VisionLanguageSftDataset Base Class
 
-All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseLMSftDataset` to handle image data alongside text.
+All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseSftDataset` to handle image data alongside text.
 
 ### Adding a New VL-SFT Dataset
 
