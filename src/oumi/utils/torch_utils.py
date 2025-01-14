@@ -70,7 +70,8 @@ def log_versioning_info() -> None:
 
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
-        f"CUDA version: {torch.version.cuda} "
+        # This exists, even when CUDA isn't available; not sure why type checker errors
+        f"CUDA version: {torch.version.cuda} "  # type: ignore
         f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 

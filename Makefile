@@ -42,7 +42,6 @@ help:
 	@echo "  docs-serve  - Serve docs locally and open in browser"
 	@echo "  docs-rebuild  - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
 	@echo "  doctest     - Run doctests on documentation files"
-	@echo "  jupyter     - Run Jupyter Lab with the project environment"
 
 setup:
 	@if command -v conda >/dev/null 2>&1; then \

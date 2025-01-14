@@ -15,7 +15,7 @@ Training machine learning models requires different environments as you progress
 
 Oumi supports training in various environments to suit different workflows and preferences. Moving between environments is streamlined through consistent configuration:
 -  The `train.yaml` config file outlines your model, dataset, and training parameters,
--  The `job_config.yaml` contains your resource requirements (optinal for training locally).
+-  The `job_config.yaml` contains your resource requirements (optional for training locally).
 
 
 
@@ -26,7 +26,7 @@ Oumi supports training in various environments to suit different workflows and p
 | {doc}`Local <local>` | Initial development, algorithmic testing | Provides rapid development cycles with immediate feedback loops | CPU only, Single GPU, Multi-GPU (1-8) | 🟢 Easy:<br>Python + GPU drivers |
 | {doc}`VSCode, Cursor <vscode>` | Debugging | Step-by-step debugging capabilities with seamless Git integration and remote development support which allows you to debug your code running on a remote GPU machine| CPU only, Single GPU, Multi-GPU (1-8) | 🟡 Moderate:<br>IDE setup + extensions |
 | {doc}`Notebooks <notebooks>` | Research, interactive experimentation, visualization | Enables fluid experimentation with real-time code execution and immediate feedback. | CPU only, Single GPU, Multi-GPU (1-8) | 🟢 Easy:<br>Jupyter setup |
-| {doc}`Remote </user_guides/launch/launch>` | Production training, large-scale deployment, hyper-parameter tuning | Enterprise-grade deployment capabilities with automated resource allocation and cluster management. Integrates seamlessly with major cloud providers. | Multi-node deployments (16+ GPUs)<br>Frontier-scale (1000+ GPUs) | Scales with size:<br>• 🟡 Moderate: Single node (1-8 GPUs)<br>• 🔴 Complex: Multi-node (16-64 GPUs)<br>• 🔴 Advanced: Large cluster (64+ GPUs) |
+| {doc}`Remote </user_guides/launch/launch>` | Production training, large-scale deployment, hyper-parameter tuning | Enterprise-grade deployment capabilities with automated resource allocation and cluster management. Integrates seamlessly with major cloud providers. | Multi-node deployments (16+ GPUs)<br>Frontier-scale (1000+ GPUs) | Scales with size:<br> 🟡 Moderate: Single node (1-8 GPUs)<br> 🔴 Complex: Multi-node (16-64 GPUs)<br> 🔴 Advanced: Large cluster (64+ GPUs) |
 
 
 ## Recommended Workflow

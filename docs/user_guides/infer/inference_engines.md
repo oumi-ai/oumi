@@ -134,7 +134,7 @@ For multi-GPU setups, you can leverage tensor parallelism:
 ```python
 # Tensor parallel inference
 model_params = ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.2-1B-Instruct",
         model_kwargs={
             "tensor_parallel_size": 2,        # Set to number of GPUs
             "gpu_memory_utilization": 1.0,    # Memory usage
@@ -193,7 +193,7 @@ While it may not offer the same performance optimizations as vLLM or LlamaCPP, i
 ```python
 engine = NativeTextInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.2-1B-Instruct",
         model_kwargs={
             "device_map": "auto",
             "torch_dtype": "float16"
@@ -214,7 +214,7 @@ model_params = ModelParams(
 )
 ```
 
-### Remote VLLM
+### Remote vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) can be deployed as a server, providing high-performance inference capabilities over HTTP. This section covers different deployment scenarios and configurations.
 
@@ -225,7 +225,7 @@ model_params = ModelParams(
 ```bash
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --port 8000
+    --port 6864
 ```
 
 2. **Multi-GPU Server** - For large models requiring multiple GPUs:
@@ -233,14 +233,15 @@ python -m vllm.entrypoints.openai.api_server \
 ```bash
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Meta-Llama-3.1-70B-Instruct \
-    --tensor-parallel-size 4 \
-    --port 8000
+    --port 6864 \
+    --tensor-parallel-size 4
+
 ```
 
 
 #### Client Configuration
 
-The client can be configured with different reliability and performance options:
+The client can be configured with different reliability and performance options similar to any other remote engine:
 
 ```python
 # Basic client with timeout and retry settings
@@ -249,9 +250,48 @@ engine = RemoteVLLMInferenceEngine(
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
-        api_url="http://localhost:8000",
+        api_url="http://localhost:6864",
+        max_retries=3,      # Maximum number of retries
+        num_workers=10,    # Number of parallel threads
     )
 )
+```
+
+### Remote SGLang
+
+[SGLang](https://sgl-project.github.io/) is another model server, providing high-performance LLM inference capabilities.
+
+#### Server Setup
+
+```bash
+python -m sglang.launch_server \
+    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --disable-cuda-graph \
+    --mem-fraction-static=0.99
+```
+
+Please refer to [SGLang documentation](https://sgl-project.github.io/backend/server_arguments.html) for more advanced configuration options.
+
+#### Client Configuration
+
+The client can be configured with different reliability and performance options similar to any other remote engines:
+
+```python
+engine = SGLangInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+To run inference interactively, use the `oumi infer` command with the `-i` flag.
+
+```
+oumi infer -c configs/recipes/llama3_1/inference/8b_sglang_infer.yaml -i
 ```
 
 ## Cloud APIs
@@ -301,6 +341,9 @@ pip install "oumi[gcp]"
 **Basic Usage**
 
 ```python
+from oumi.inference import GoogleVertexInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = GoogleVertexInferenceEngine(
     model_params=ModelParams(
         model_name="google/gemini-1.5-pro"
@@ -318,7 +361,10 @@ engine = GoogleVertexInferenceEngine(
 
 **Basic Usage**
 ```python
-engine = RemoteInferenceEngine(
+from oumi.inference import GoogleGeminiInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = GoogleGeminiInferenceEngine(
     model_params=ModelParams(
         model_name="gemini-1.5-flash"
     ),
@@ -339,6 +385,9 @@ engine = RemoteInferenceEngine(
 **Basic Usage**
 
 ```python
+from oumi.inference import RemoteInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
 engine = RemoteInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"

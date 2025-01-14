@@ -531,6 +531,7 @@ def test_infer_from_file_to_file(mock_vllm):
             assert expected_result == parsed_conversations
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_guided_decoding_json(
     mock_vllm, single_turn_conversation, mock_sampling_params
 ):
@@ -540,7 +541,7 @@ def test_guided_decoding_json(
     }
     config = InferenceConfig(
         model=ModelParams(
-            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+            model_name="MlpEncoder", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
         ),
         generation=GenerationParams(guided_decoding=GuidedDecodingParams(json=schema)),
     )
@@ -562,12 +563,13 @@ def test_guided_decoding_json(
     assert call_kwargs["guided_decoding"].json == schema
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
     pattern = r"\d{3}-\d{2}-\d{4}"
 
     config = InferenceConfig(
         model=ModelParams(
-            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+            model_name="MlpEncoder", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
         ),
         generation=GenerationParams(
             guided_decoding=GuidedDecodingParams(regex=pattern)
@@ -596,11 +598,12 @@ def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
     assert call_kwargs["guided_decoding"].regex == pattern
 
 
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
     choices = ["option1", "option2"]
     config = InferenceConfig(
         model=ModelParams(
-            model_name="test-model", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
+            model_name="MlpEncoder", tokenizer_name="gpt2", tokenizer_pad_token="<eos>"
         ),
         generation=GenerationParams(
             guided_decoding=GuidedDecodingParams(choice=choices)
