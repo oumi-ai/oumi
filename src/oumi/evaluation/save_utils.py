@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any, Optional
 
+import git
+
 from oumi.core.configs import (
     EvaluationTaskParams,
     GenerationParams,
@@ -19,6 +21,7 @@ OUTPUT_FILENAME_MODEL_PARAMS = "model_params.json"
 OUTPUT_FILENAME_GENERATION_PARAMS = "generation_params.json"
 OUTPUT_FILENAME_INFERENCE_CONFIG = "inference_config.json"
 OUTPUT_FILENAME_PACKAGE_VERSIONS = "package_versions.json"
+OUTPUT_FILENAME_OUMI_COMMIT_HASH = "oumi_commit_hash.txt"
 
 
 def _save_to_file(output_path: Path, data: Any) -> None:
@@ -82,3 +85,9 @@ def save_evaluation_output(
     # Save python environment (package versions).
     package_versions = get_python_package_versions()
     _save_to_file(output_dir / OUTPUT_FILENAME_PACKAGE_VERSIONS, package_versions)
+
+    # Save the Oumi repository's git commit hash.
+    oumi_repo = git.Repo(search_parent_directories=True)
+    oumi_commit_hash = oumi_repo.head.commit.hexsha
+    with open(output_dir / OUTPUT_FILENAME_OUMI_COMMIT_HASH, "w") as file_out:
+        file_out.write(oumi_commit_hash)
