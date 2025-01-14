@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from oumi.core.configs import TrainingConfig
+from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_gpus
 
@@ -86,6 +87,8 @@ class TrainTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     max_steps: int
+    skip: bool = False
+    trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
     save_steps: Optional[int] = None
 
@@ -98,8 +101,12 @@ def get_train_test_id_fn(val):
 def _do_test_train_impl(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    _START_TIME = time.perf_counter()
     test_tag = f"[{test_config.test_name}]"
+    if test_config.skip:
+        print(f"{test_tag} Skipped the test '{test_config.test_name}'!")
+        return
+
+    _START_TIME = time.perf_counter()
     output_dir = _get_output_dir(test_config.test_name, tmp_path=tmp_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -132,6 +139,14 @@ def _do_test_train_impl(
             "--training.output_dir",
             str(output_dir / "train"),
         ]
+        if test_config.trainer_type is not None:
+            cmd.extend(
+                [
+                    "--training.trainer_type",
+                    str(test_config.trainer_type),
+                ]
+            )
+
         if (
             test_config.model_max_length is not None
             and test_config.model_max_length > 0
@@ -262,7 +277,7 @@ def _do_test_train_impl(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama_1b",
+            test_name="train_llama_1b_trl_sft",
             config_path=(
                 CONFIG_FOLDER_ROOT
                 / "recipes"
@@ -271,6 +286,7 @@ def _do_test_train_impl(
                 / "1b_full"
                 / "train.yaml"
             ),
+            trainer_type=TrainerType.TRL_SFT,
             max_steps=10,
             model_max_length=128,
         ),

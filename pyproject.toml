@@ -42,6 +42,7 @@ dependencies = [
     "lm_eval[wandb]>=0.4.5,<0.5.0",
     "numpy>=1.26.4,<2.0",
     "omegaconf>=2.3.0,<2.4",
+    "packaging",
     "pandas>=2.0.3,<2.1",
     "peft>=0.14.0,<0.15",
     "pexpect>=4.8.0,<4.9",          # Used by Polaris client
