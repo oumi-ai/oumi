@@ -228,7 +228,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor
+        config.training.trainer_type, processor=processor
     )
 
     metrics_function = build_metrics_function(config.training)

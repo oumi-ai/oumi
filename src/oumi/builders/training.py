@@ -76,6 +76,12 @@ def build_trainer(
                         "Different processor instances passed to Oumi trainer, "
                         "and build_trainer()."
                     )
+
+            print(f"args: {args}")
+            print(f"kwargs: {kwargs}")
+            if "tokenizer" in kwargs and "processing_class" not in kwargs:
+                kwargs["processing_class"] = kwargs["tokenizer"]
+
             return OumiTrainer(*args, **kwargs)
 
         return _init_oumi_trainer
