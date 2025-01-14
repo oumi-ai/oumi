@@ -298,7 +298,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         with torch.profiler.record_function("train"):
             logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
             logger.info(
-                f"Starting training...\ntransformers=={transformers.__version__}"
+                f"Starting training... "
+                f"({config.training.trainer_type}, "
+                f"transformers: {transformers.__version__})"
             )
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
