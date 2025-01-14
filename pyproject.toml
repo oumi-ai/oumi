@@ -52,15 +52,15 @@ dependencies = [
     "tensorboard>=2.18.0,<2.19",    # Optional, for monitoring training
     "torch>=2.5.0,<2.6.0",
     # 0.10 drops support for datapipes which we currently use
-    "torchdata>=0.9.0,<0.10.0",     # Used by data pipes loader
-    "torchvision>=0.20.0,<0.21",    # Used by some VLM-s (multimodal)
+    "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
+    "torchvision>=0.20.0,<0.21", # Used by some VLM-s (multimodal)
     "tqdm",
     # >=4.46.1 because  Liger kernel will deprecate support for older versions.
     "transformers>=4.47.0,<4.48",
     "trl>=0.13.0,<0.14",
-    "typer",                        # Used by CLI
-    "typing_extensions",            # Backports of typing updates to python 3.9
-    "wandb==0.18.4",                # Logging to Weights and Biases. # TODO: Un-pin version when lm-eval is updated to include https://github.com/EleutherAI/lm-evaluation-harness/pull/2484
+    "typer",                      # Used by CLI
+    "typing_extensions",          # Backports of typing updates to python 3.9
+    "wandb==0.18.4",              # Logging to Weights and Biases. # TODO: Un-pin version when lm-eval is updated to include https://github.com/EleutherAI/lm-evaluation-harness/pull/2484
 ]
 
 [project.urls]
@@ -72,16 +72,17 @@ dev = [
     "ipykernel",
     "ipywidgets",     # Interactive widgets for Jupyter notebooks
     "jupyterlab",
-    "nbformat",       # For notebook execution in tests
     "nbconvert",      # For notebook execution in tests
+    "nbformat",       # For notebook execution in tests
     "pre-commit",
     "pyright",
+    "pytest-asyncio", # Asyncio plugin for pytest
     "pytest-cov",     # Test coverage plugin for pytest
+    "pytest-timeout", # Timeout plugin for pytest
     "pytest",
     "responses",
     "ruff",
     "torchfix",       # Tool for automatically fixing common PyTorch issues
-    "pytest-asyncio", # Asyncio plugin for pytest
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
@@ -229,3 +230,6 @@ reportPrivateImportUsage = "none"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
+markers = [
+    "e2e: Slow e2e integration tests",
+]
