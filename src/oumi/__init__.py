@@ -10,7 +10,7 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
-    - :mod:`~oumi.judge`: Functions for judging datasets and model responses.
+    - :mod:`~oumi.judges`: Functions for judging datasets and model responses.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
