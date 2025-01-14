@@ -108,6 +108,7 @@ def resolve_transformer_layer_cls_string_as_module_set(
     for class_name in _parse_transformer_layer_cls_string(class_names):
         parts = class_name.rsplit(".", maxsplit=1)
         if len(parts) == 1:
+            # Assume `transformers` by default.
             module_name = "transformers"
         else:
             module_name, class_name = parts
@@ -122,6 +123,9 @@ def simplify_transformer_layer_cls_string(class_names: str) -> str:
     """Replaces fully-qualified class names with pure class names.
 
     For example, converts 'foo.Block,foo.util.Decoder' to 'Block,Decoder'.
+
+    The `accelerate` library expects the simplified format, while OUMI trainer requires
+    fully-qualified class names.
     """
     result = []
     for class_name in _parse_transformer_layer_cls_string(class_names):
