@@ -45,7 +45,7 @@ run: |
   oumi distributed torchrun \
       -m oumi train \
       -c configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml \
-      --training.trainer_type OUMI \
+      --training.trainer_type TRL_SFT \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.output_dir "${OUMI_RUN_NAME}" \
       --training.logging_dir "${OUMI_RUN_NAME}/runs"

@@ -72,7 +72,7 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True
-  log_model_summary: False
+  log_model_summary: True
   enable_wandb: True
 
 fsdp:
@@ -80,4 +80,4 @@ fsdp:
   sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "MllamaSelfAttentionDecoderLayer,MllamaCrossAttentionDecoderLayer,MllamaVisionEncoderLayer"
+  transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
