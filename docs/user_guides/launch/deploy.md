@@ -1,6 +1,6 @@
 # Deploying a Job
 
-In this tutorial we'll take a working [JobConfig](https://github.com/oumi-ai/oumi/tree/main/src/oumi/core/configs/job_config.py) and deploy it remotely on a cluster of your choice.
+In this tutorial we'll take a working {py:class}`~oumi.core.configs.JobConfig` and deploy it remotely on a cluster of your choice.
 
 This guide dovetails nicely with our [Finetuning Tutorial](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb) where you create your own TrainingConfig and run it locally. Give it a try if you haven't already!
 
@@ -59,7 +59,7 @@ For example, GCP, RunPod, and Lambda require accounts with billing enabled.
 Once you've picked a cloud, move on to the next step.
 
 ## Preparing Your JobConfig
-Let's get started by creating your JobConfig. In the config below, feel free to change `cloud: local` to the cloud you chose in the previous step.
+Let's get started by creating your {py:class}`~oumi.core.configs.JobConfig`. In the config below, feel free to change `cloud: local` to the cloud you chose in the previous step.
 
 A sample job is provided below:
 ````{dropdown} deploy_training_tutorial/job.yaml
@@ -68,6 +68,7 @@ name: job-tutorial
 resources:
   cloud: local
   # Accelerators is ignored for the local cloud.
+  # This is required for other clouds like GCP, AWS, etc.
   accelerators: A100
 
 # Upload working directory to remote.
@@ -78,10 +79,9 @@ envs:
   TEST_ENV_VARIABLE: '"Hello, World!"'
   OUMI_LOGGING_DIR: "deploy_training_tutorial/logs"
 
-# `setup` will always be executed before `run`.
-# No setup is required for this job.
-#setup: |
-#  echo "Running setup..."
+# `setup` will always be executed once when a cluster is created
+setup: |
+  echo "Running setup..."
 
 run: |
   set -e  # Exit if any command failed.
@@ -102,12 +102,12 @@ oumi launch up --cluster my-cluster -c deploy_training_tutorial/job.yaml
 At any point you can easily change the cloud where your job will run by modifying the job's `resources.cloud` parameter:
 
 ```{code-block} shell
-oumi launch up --cluster my-cluster -c deploy_training_tutorial/job.yaml --resources.cloud gcp
+oumi launch up --cluster my-cluster -c deploy_training_tutorial/job.yaml --resources.cloud local
 ```
 :::
 
 :::{tab-item} Python
-First let's load your JobConfig:
+First let's load your {py:class}`~oumi.core.configs.JobConfig`:
 ``` {code-block} python
 import oumi.launcher as launcher
 # Read our JobConfig from the YAML file.
@@ -198,7 +198,7 @@ In our [Finetuning Tutorial](https://github.com/oumi-ai/oumi/blob/main/notebooks
 oumi train -c "$tutorial_dir/train.yaml"
 ```
 
-You can also run that command as a job! Simply update the "run" section of the JobConfig with your desired command:
+You can also run that command as a job! Simply update the "run" section of the {py:class}`~oumi.core.configs.JobConfig` with your desired command:
 
 
 ::::{tab-set}
