@@ -1,6 +1,6 @@
 import copy
 from collections.abc import Sequence
-from typing import Callable, Optional, TypeVar, Union, cast
+from typing import Any, Callable, Optional, TypeVar, Union, cast
 
 import datasets
 from trl.trainer import ConstantLengthDataset
@@ -94,12 +94,14 @@ def build_dataset_mixture(
             dataset = PretrainingAsyncTextDataset(
                 tokenizer,
                 dataset,
+                formatting_func=_identity_formatting_func,
                 **dataset_kwargs,
             )
         else:
             dataset = ConstantLengthDataset(
                 tokenizer,
                 dataset,
+                formatting_func=_identity_formatting_func,
                 **dataset_kwargs,
             )
 
@@ -350,3 +352,8 @@ def _is_mixture_packed(dataset_split_params: DatasetSplitParams) -> bool:
         raise ValueError(
             "We currently don't support mixing registered and unregistered datasets."
         )
+
+
+def _identity_formatting_func(x: Any) -> Any:
+    """Identity formatting function."""
+    return x
