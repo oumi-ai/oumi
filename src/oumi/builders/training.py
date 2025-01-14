@@ -4,6 +4,7 @@ from typing import Callable, Optional, cast
 
 import transformers
 import trl
+from packaging import version
 
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
@@ -76,6 +77,14 @@ def build_trainer(
                         "Different processor instances passed to Oumi trainer, "
                         "and build_trainer()."
                     )
+
+            # FIXME Remove the special case once we fully migrate to ">=4.46"
+            if (
+                "tokenizer" in kwargs
+                and "processing_class" not in kwargs
+                and version.parse(transformers.__version__) >= version.parse("4.46.0")
+            ):
+                kwargs["processing_class"] = kwargs["tokenizer"]
             return OumiTrainer(*args, **kwargs)
 
         return _init_oumi_trainer

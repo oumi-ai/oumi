@@ -28,10 +28,17 @@ _POLARIS_ENV_VARS = {
     "PBS_JOBID",
 }
 
+_MASTER_ADDR_ENV = "MASTER_ADDRESS"
+_MASTER_PORT_ENV = "MASTER_PORT"
+
+_DEFAULT_MASTER_ADDR = "127.0.0.1"
+_DEFAULT_MASTER_PORT = 8007
+
 
 class _RunBackend(str, enum.Enum):
     SKYPILOT = "SkyPilot"
     POLARIS = "Polaris"
+    LOCAL_MACHINE = "LocalMachine"
 
 
 class _WorldInfo(NamedTuple):
@@ -216,8 +223,31 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         if node_rank is None:
             node_rank = 0
 
+    oumi_master_port = _DEFAULT_MASTER_PORT
     if backend is None:
-        raise RuntimeError("None of supported distributed backends found!")
+        import torch  # Importing torch takes time so only load it in this scenario.
+
+        # Attempt to produce a local configuration
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "No supported distributed backends found and no GPUs on local machine!"
+            )
+
+        num_gpus_available = torch.cuda.device_count()
+        if num_gpus_available > 0:
+            logger.debug("No backend detected, attempting to run on local machine.")
+            backend = _RunBackend.LOCAL_MACHINE
+            oumi_num_nodes = 1
+            oumi_master_address = env.get(_MASTER_ADDR_ENV, _DEFAULT_MASTER_ADDR)
+            oumi_master_port = int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT))
+            oumi_total_gpus = num_gpus_available
+            node_ips = [oumi_master_address]
+            node_rank = 0
+            gpus_per_node = num_gpus_available
+            os.environ["ACCELERATE_LOG_LEVEL"] = "info"
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        else:
+            raise RuntimeError("CUDA available but no GPUs found on local machine!")
 
     assert len(node_ips) > 0, "Empty list of nodes!"
     assert node_rank is not None
@@ -246,7 +276,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=(oumi_master_address or node_ips[0]),
-        master_port=8007,
+        master_port=oumi_master_port,
     )
     return result
 
