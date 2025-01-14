@@ -2,10 +2,8 @@ name: "Pre-review Tests"
 
 on:
   pull_request:
-    paths-ignore:
+    paths:
       - 'docs/**'
-      - 'notebooks/**'
-      - 'scripts/**'
       - 'README.md'
 
 jobs:
@@ -46,7 +44,6 @@ jobs:
       run: |
         pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run tests
-      run: |
-        cd ./tests/unit/
-        pytest -s --durations=50 --timeout=300
+    # - name: Run doctests
+    #   run: |
+    #     make doctest
