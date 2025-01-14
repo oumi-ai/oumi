@@ -50,7 +50,7 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 8
   gradient_accumulation_steps: 1
   max_steps: 20
 
@@ -58,7 +58,6 @@ training:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
   ddp_find_unused_parameters: False
-  nccl_default_timeout_minutes: 20
   empty_device_cache_steps: 1
   compile: False
 
@@ -70,10 +69,11 @@ training:
 
   logging_steps: 5
   save_steps: 0
+  save_final_model: True
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True
-  log_model_summary: True
+  log_model_summary: False
   enable_wandb: True
 
 fsdp:

@@ -435,9 +435,15 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     env_vars["FSDP_AUTO_WRAP_POLICY"] = config.fsdp.auto_wrap_policy.value
     env_vars["FSDP_MIN_NUM_PARAMS"] = str(config.fsdp.min_num_params)
     if config.fsdp.transformer_layer_cls:
-        env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = (
-            simplify_transformer_layer_cls_string(config.fsdp.transformer_layer_cls)
+        simplified_value = simplify_transformer_layer_cls_string(
+            config.fsdp.transformer_layer_cls
         )
+        if simplified_value != config.fsdp.transformer_layer_cls:
+            logger.info(
+                f"'FSDP_TRANSFORMER_CLS_TO_WRAP' is set to '{simplified_value}' "
+                f"based on '{config.fsdp.transformer_layer_cls}'."
+            )
+        env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = simplified_value
     env_vars["FSDP_SYNC_MODULE_STATES"] = str(config.fsdp.sync_module_states).lower()
 
     # This is set from TrainingParams.

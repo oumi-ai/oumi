@@ -39,13 +39,10 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  pip install -e '.[gpu]'
-
   set -x
   oumi distributed torchrun \
       -m oumi train \
       -c configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml \
-      --training.trainer_type OUMI \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.output_dir "${OUMI_RUN_NAME}" \
       --training.logging_dir "${OUMI_RUN_NAME}/runs"
