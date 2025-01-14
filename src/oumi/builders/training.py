@@ -77,6 +77,8 @@ def build_trainer(
                         "Different processor instances passed to Oumi trainer, "
                         "and build_trainer()."
                     )
+
+            # FIXME Remove the special case once we fully migrate to ">=4.46"
             if (
                 "tokenizer" in kwargs
                 and "processing_class" not in kwargs
