@@ -13,7 +13,6 @@ generation:
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: hellaswag
-    num_samples: 40
+    task_name: mmlu_college_computer_science
     eval_kwargs:
       num_fewshot: 5
