@@ -156,6 +156,7 @@ while job_status and not job_status.done:
     print("Job is running...")
     time.sleep(15)
     job_status = cluster.get_job(job_status.id)
+
 print("Job is done!")
 ```
 
