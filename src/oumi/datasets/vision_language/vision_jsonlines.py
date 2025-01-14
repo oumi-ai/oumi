@@ -28,6 +28,8 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
                 ... )
 
             Loading from a list of data samples:
+                >>> from oumi.builders import build_processor, build_tokenizer
+                >>> from oumi.core.configs import ModelParams
                 >>> from oumi.datasets import VLJsonlinesDataset
                 >>> data_samples = [
                 ...     {
@@ -50,8 +52,12 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
                 ...         ]
                 ...     }
                 ... ]
+                >>> tokenizer = build_tokenizer(
+                ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
+                ... )
                 >>> dataset = VLJsonlinesDataset(
                 ...     data=data_samples,
+                ...     tokenizer=tokenizer,
                 ...     processor_name="openai/clip-vit-base-patch32",
                 ... )
     """

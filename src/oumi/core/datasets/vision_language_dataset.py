@@ -50,6 +50,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         multimodal architectures.
 
     Example:
+        >>> from oumi.builders import build_processor, build_tokenizer
+        >>> from oumi.core.configs import ModelParams
         >>> from oumi.core.types.conversation import Conversation
         >>> from oumi.core.datasets import VisionLanguageSftDataset
         >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
@@ -57,7 +59,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         ...         # Implement the abstract method
         ...         # Convert the raw example into a Conversation object
         ...         pass
+        >>> tokenizer = build_tokenizer(
+        ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
+        ... )
         >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
+        ...     tokenizer=tokenizer,
         ...     processor_name="openai/clip-vit-base-patch32",
         ...     dataset_name="coco_captions",
         ...     split="train"

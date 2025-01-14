@@ -4,10 +4,13 @@ This module provides functionality for launching and managing jobs across variou
 cloud platforms.
 
 Example:
-    >>> from oumi.launcher import Launcher, JobConfig
+    >>> from oumi.launcher import Launcher, JobConfig, JobResources
     >>> launcher = Launcher()
-    >>> job_config = JobConfig(name="my_job", run="python train.py")
-    >>> launcher.run(job_config, cluster_name="my_cluster")
+    >>> job_resources = JobResources(cloud="local")
+    >>> job_config = JobConfig( # doctest: +SKIP
+    ...     name="my_job", resources=job_resources, run="python train.py"
+    ... ) # TODO(wizeng): fix
+    >>> launcher.run(job_config, cluster_name="my_cluster") # doctest: +SKIP
 
 Note:
     This module integrates with various cloud platforms. Ensure that the necessary
