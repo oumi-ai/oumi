@@ -58,6 +58,7 @@ training:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
   ddp_find_unused_parameters: False
+  nccl_default_timeout_minutes: 20
   empty_device_cache_steps: 1
   compile: False
 
