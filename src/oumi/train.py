@@ -5,6 +5,7 @@ from pprint import pformat
 from typing import Callable, Optional, Union
 
 import torch
+import transformers
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
@@ -296,7 +297,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
         with torch.profiler.record_function("train"):
             logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
-            logger.info("Starting training...")
+
+            logger.info(
+                f"Starting training... "
+                f"({config.training.trainer_type} "
+                f"transformers=={transformers.__version__})"
+            )
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
