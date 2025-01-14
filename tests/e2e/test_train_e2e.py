@@ -321,7 +321,7 @@ def test_train_1gpu_24gb(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.skip(reason="Skipping until the markers are configured")
-def test_train_4gpu_80gb(
+def test_train_fsdp_4gpu_80gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _do_test_train_impl(
