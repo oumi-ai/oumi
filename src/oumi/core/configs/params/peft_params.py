@@ -161,19 +161,6 @@ class PeftParams(BaseParams):
     https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
-    use_dora: bool = field(
-        default=False,
-        metadata={"help": "Weather to use DoRA."},
-    )
-    """Whether to use 'Weight-Decomposed Low-Rank Adaptation' (DoRA) (https://arxiv.org/abs/2402.09353).
-
-    DoRA decouples the learned weights into a magnitude and direction component.
-
-    The decoupling can improve performance compared to LoRA.
-
-    DoRA, however, introduces a bigger overhead than pure LoRA.
-    It is hence recommended to merge weights when doing inference.
-    """
 
     init_lora_weights: LoraWeightInitialization = field(
         default=LoraWeightInitialization.DEFAULT,

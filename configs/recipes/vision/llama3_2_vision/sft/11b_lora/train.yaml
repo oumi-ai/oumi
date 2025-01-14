@@ -72,7 +72,6 @@ peft:
     - "up_proj"
     - "down_proj"
   init_lora_weights: DEFAULT
-  # use_dora: True # optional
 
 fsdp:
   enable_fsdp: True
