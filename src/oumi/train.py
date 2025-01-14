@@ -314,6 +314,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
         logger.info("Saving final state...")
         trainer.save_state()
 
+        barrier()
+
         logger.info("Saving final model...")
         trainer.save_model(config=config)
 
