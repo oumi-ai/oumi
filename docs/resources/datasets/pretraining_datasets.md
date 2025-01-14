@@ -1,5 +1,7 @@
 # Pretraining
 
+Pretraining is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. The most common pretraining method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
+
 This guide covers pretraining datasets used for training language models from scratch or continuing pretraining in Oumi.
 
 ## Supported Datasets
@@ -39,9 +41,6 @@ In this configuration:
 - {py:attr}`~oumi.core.configs.DatasetParams.pack` activates sequence packing
 - {py:attr}`~oumi.core.configs.DatasetParams.dataset_kwargs` allows you to pass additional parameters specific to your dataset
 
-```{important}
-Setting {py:attr}`~oumi.core.configs.DatasetSplitParams.experimental_use_async_dataset` to `True` enables the use of {py:class}`~oumi.datasets.pretraining_async_text_dataset.PretrainingAsyncTextDataset`, which is optimized for asynchronous data processing.
-```
 
 ### Python API
 
