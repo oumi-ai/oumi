@@ -17,7 +17,7 @@ As of early 2025, the most popular standardized benchmarks, used across academia
 You can evaluate a model on Hugging Face's latest leaderboard by creating a yaml file and invoking the CLI with the following command:
 
 ````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
-```{literalinclude} ../../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
 :language: yaml
 ```
 ````
@@ -44,7 +44,7 @@ Before HuggingFace's leaderboard V2 was introduced, the most popular benchmarks 
 You can evaluate a model on Hugging Face's V1 leaderboard by creating a yaml file and invoking the CLI with the following command:
 
 ````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
-```{literalinclude} ../../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
 :language: yaml
 ```
 ````
@@ -60,7 +60,7 @@ Running leaderboard evaluations can be resource-intensive, particularly when wor
 - HuggingFace Leaderboard V2:
 
 ````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
-```{literalinclude} ../../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
 :language: yaml
 ```
 ````
@@ -72,7 +72,7 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingfac
 - HuggingFace Leaderboard V1:
 
 ````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
-```{literalinclude} ../../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
 :language: yaml
 ```
 ````
