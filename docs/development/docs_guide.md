@@ -3,9 +3,10 @@
 
 ## Suggesting Edits Using the UI
 
-You need to submit PRs to update documentation. The easiest way to modify an existing page is to click “Suggest edits” on the page, as shown below:
-
-![](/_static/screenshots/suggest_edit.png)
+You need to submit PRs to update documentation. The easiest way to modify an existing page is to use the "Suggest Edit" UI:
+1. Navigate to the page you'd like to edit in the [documentation website](https://oumi.ai/docs/latest/),
+2. Click on the Github icon in the top right
+3. Click on the "Suggest Edit" button, and make your changes.
 
 To add a new page, you can add a new Markdown file in our Oumi GitHub repo. For example, the quickstart guide is located [here](https://github.com/oumi-ai/oumi/blame/main/docs/get_started/quickstart.md).
 
