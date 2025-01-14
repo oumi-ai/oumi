@@ -17,6 +17,7 @@ working_dir: .
 # to access non-public (or gated) models and datasets in the HuggingFace Hub.
 file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.netrc: ~/.netrc # WandB credentials
 
 # If the remote machine is not accessible after evaluation completes, which is the
 # common case when provisioning a GCP node and setting an autostop timer, you need

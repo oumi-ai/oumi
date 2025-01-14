@@ -8,7 +8,6 @@ from oumi.builders.data import build_dataset_mixture
 from oumi.builders.models import (
     build_model,
     build_tokenizer,
-    is_custom_model,
     is_image_text_llm,
 )
 from oumi.core.configs import (
@@ -20,6 +19,9 @@ from oumi.core.configs import (
     TrainerType,
     TrainingConfig,
     TrainingParams,
+)
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
 )
 
 
@@ -81,7 +83,7 @@ def test_train_native_pt_model_from_api():
 
         trainer = Trainer(
             model=model,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             args=training_args,
             train_dataset=dataset,
         )

@@ -22,6 +22,7 @@ working_dir: .
 # token when launching the evaluation job.
 file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.netrc: ~/.netrc # WandB credentials
 
 # If the remote machine is not accessible after evaluation completes, which is the
 # common case when provisioning a GCP node and setting an autostop timer, you need
