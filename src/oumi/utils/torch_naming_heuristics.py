@@ -91,14 +91,21 @@ def guess_transformer_layer_cls(model: nn.Module) -> type[nn.Module]:
     )
 
 
-def get_module_classes_from_name(class_names: str) -> set[type[nn.Module]]:
-    """Get a module class from its string name."""
-    result: set[type[nn.Module]] = set()
+def _parse_transformer_layer_cls_string(class_names: str) -> list[str]:
+    result: list[str] = []
     for class_name in class_names.split(","):
         class_name = class_name.strip()
-        if not class_name:
-            continue
+        if class_name:
+            result.append(class_name)
+    return result
 
+
+def resolve_transformer_layer_cls_string_as_module_set(
+    class_names: str,
+) -> set[type[nn.Module]]:
+    """Get a module class from its string name."""
+    result: set[type[nn.Module]] = set()
+    for class_name in _parse_transformer_layer_cls_string(class_names):
         parts = class_name.rsplit(".", maxsplit=1)
         if len(parts) == 1:
             module_name = "transformers"
@@ -109,3 +116,15 @@ def get_module_classes_from_name(class_names: str) -> set[type[nn.Module]]:
         result.add(transformer_cls)
 
     return result
+
+
+def simplify_transformer_layer_cls_string(class_names: str) -> str:
+    """Replaces fully-qualified class names with pure class names.
+
+    For example, converts 'foo.Block,foo.util.Decoder' to 'Block,Decoder'.
+    """
+    result = []
+    for class_name in _parse_transformer_layer_cls_string(class_names):
+        parts = class_name.rsplit(".")
+        result.append(parts[-1])
+    return ",".join(result)
