@@ -71,13 +71,3 @@ See {doc}`/user_guides/judge/judge` to get started.
 **Resources:**
 - {gh}`Custom Judge Implementation <notebooks/Oumi - Custom Judge.ipynb>`
 - {gh}`Oumi Judge Framework <notebooks/Oumi - Oumi Judge.ipynb>`
-
-
-## Results and Logging
-
-All evaluation results are automatically saved and can be tracked:
-
-- **Local Results**: Saved in the specified `output_dir` with detailed metrics, configurations, and version information.
-- **Weights & Biases**: When enabled, results are automatically logged along with model configurations, generation parameters, and environmental details.
-
-For more details on configuration options and advanced usage, see the {doc}`/user_guides/evaluate/evaluate` documentation.
