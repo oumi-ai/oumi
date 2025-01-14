@@ -1,12 +1,12 @@
 from pathlib import Path
-from typing import Optional, Union, cast
+from typing import Literal, Optional, Union, cast
 
 import torch
 import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
-from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     find_model_hf_config,
@@ -417,6 +417,24 @@ def build_tokenizer(
     return tokenizer
 
 
+def _convert_init_lora_weights_to_lora_config(
+    param: Union[bool, LoraWeightInitialization],
+) -> Union[
+    bool,
+    Literal[
+        "gaussian",
+        "eva",
+        "olora",
+        "pissa",
+        "pissa_niter_[number of iters]",
+        "loftq",
+    ],
+]:
+    if isinstance(param, bool):
+        return param
+    return param.get_literal_value()
+
+
 def build_peft_model(
     base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
@@ -439,7 +457,9 @@ def build_peft_model(
         bias=peft_params.lora_bias,  # type: ignore
         task_type=peft_params.lora_task_type,
         use_dora=peft_params.use_dora,
-        init_lora_weights=peft_params.init_lora_weights,  # type: ignore
+        init_lora_weights=(
+            _convert_init_lora_weights_to_lora_config(peft_params.init_lora_weights)
+        ),
     )
 
     if peft_params.q_lora:

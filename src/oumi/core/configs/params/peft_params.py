@@ -273,16 +273,3 @@ class PeftParams(BaseParams):
             bnb_4bit_quant_storage=self.bnb_4bit_quant_storage,
         )
         return quantization_config
-
-    def __post_init__(self):
-        """Verifies params."""
-        if not isinstance(self.init_lora_weights, bool) and not isinstance(
-            self.init_lora_weights, LoraWeightInitialization
-        ):
-            raise ValueError(
-                "`init_lora_weights` should be a boolean or an instance of "
-                "`LoraWeightInitialization`"
-            )
-
-        if isinstance(self.init_lora_weights, LoraWeightInitialization):
-            self.init_lora_weights = self.init_lora_weights.get_literal_value()  # type: ignore
