@@ -40,7 +40,8 @@ def mock_popen():
 
 @pytest.fixture
 def mock_torch():
-    with patch("oumi.cli.distributed_run.torch") as torch_mock:
+    torch_mock = Mock()
+    with patch.dict("sys.modules", {"torch": torch_mock}):
         yield torch_mock
 
 
