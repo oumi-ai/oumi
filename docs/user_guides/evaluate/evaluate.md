@@ -13,14 +13,16 @@ leaderboards
 
 ## Overview
 
-Oumi offers a powerful and flexible evaluation framework designed to assess and benchmark Large Language Models (LLMs). The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized way.
+Oumi offers a flexible evaluation framework designed to assess and benchmark Large Language Models (LLMs). The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized way.
 
 Key features include:
 - **Seamless Setup**: Single-step installation for all packages and dependencies, ensuring quick and conflict-free setup.
 - **Consistency**: Platform ensures deterministic execution and [reproducible results](/user_guides/evaluate/evaluate.md#results-and-logging). Reproducibility is achieved by automatically logging and versioning all environmental parameters and experimental configurations.
 - **Diversity**: Offering a [wide range of benchmarks](/user_guides/evaluate/evaluate.md#benchmark-types) across domains. Oumi enables a comprehensive evaluation of LLMs on tasks ranging from natural language understanding to creative text generation, providing holistic assessment across various real-world applications.
 - **Scalability**: Supports [multi-GPU and multi-node evaluations](/user_guides/infer/infer.md#distributed-inference), along with the ability to shard large models across multiple GPUs/nodes. Incorporates batch processing optimizations to effectively manage memory constraints and ensure efficient resource utilization.
-- **Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
+<!-- Consider adding later:
+**Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
+-->
 
 Our benchmark diversity is enabled through seamless integration with leading platforms such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
 
@@ -40,7 +42,7 @@ Our benchmark diversity is enabled through seamless integration with leading pla
 The simplest way to evaluate a model is by authoring a `YAML` configuration, and calling the Oumi CLI:
 
 ````{dropdown} configs/recipes/phi3/evaluation/eval.yaml
-```{literalinclude} ../../configs/recipes/phi3/evaluation/eval.yaml
+```{literalinclude} /../configs/recipes/phi3/evaluation/eval.yaml
 :language: yaml
 ```
 ````
