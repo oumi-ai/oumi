@@ -68,7 +68,7 @@ def _get_dataset_size(
     stream: bool,
     pack: bool = False,
 ) -> int:
-    if stream:
+    if stream or pack:
         if pack:
             assert isinstance(
                 dataset,
