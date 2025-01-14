@@ -7,6 +7,7 @@ from oumi.builders.models import (
     _get_model_type,
     _patch_model_for_liger_kernel,
     build_chat_template,
+    build_tokenizer,
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
@@ -132,10 +133,30 @@ def test_build_chat_template_removes_indentation_and_newlines():
         # ("HuggingFaceTB/SmolVLM-Instruct", False, True), # requires transformers>=4.46
     ],
 )
-def test_is_image_text_llm(model_name, trust_remote_code, expected_result):
+def test_is_image_text_llm(
+    model_name: str, trust_remote_code: bool, expected_result: bool
+):
     assert (
         is_image_text_llm(
             ModelParams(model_name=model_name, trust_remote_code=trust_remote_code)
         )
         == expected_result
     )
+
+
+@pytest.mark.parametrize(
+    "model_name, trust_remote_code, template_name",
+    [
+        ("openai-community/gpt2", False, "gpt2"),
+        ("llava-hf/llava-1.5-7b-hf", False, "llava"),
+        ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct"),
+    ],
+)
+def test_default_chat_template_in_build_tokenizer(
+    model_name: str, trust_remote_code: bool, template_name: str
+):
+    tokenizer = build_tokenizer(
+        ModelParams(model_name=model_name, trust_remote_code=trust_remote_code)
+    )
+    expected = build_chat_template(template_name=template_name)
+    assert tokenizer.chat_template == expected, f"template_name: {template_name}"

@@ -1,0 +1,12 @@
+model:
+  model_name: "microsoft/Phi-3-vision-128k-instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+  chat_template: "phi3-instruct"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 64
+  batch_size: 1
+
+engine: VLLM
