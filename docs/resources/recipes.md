@@ -40,6 +40,9 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | Llama 3.1 405B | `recipes/llama3_1/sft/405b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_full/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_full/train.yaml` |
 | | `recipes/llama3_1/sft/405b_lora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_lora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_lora/train.yaml` |
 | | `recipes/llama3_1/sft/405b_qlora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_qlora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_qlora/train.yaml` |
+| Llama 3.2 1B | `recipes/llama3_2/sft/1b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_2/sft/1b_full/train.yaml>` {gh}`configs/recipes/llama3_2/sft/1b_full/train.yaml` |
+| | `recipes/llama3_2/evaluation/1b_eval.yaml` | {download}`Download </../configs/recipes/llama3_2/evaluation/1b_eval.yaml>` {gh}`configs/recipes/llama3_2/evaluation/1b_eval.yaml` |
+| | `recipes/llama3_2/inference/1b_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/1b_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/1b_infer.yaml` |
 | Llama 3.2 3B | `recipes/llama3_2/sft/3b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_2/sft/3b_full/train.yaml>` {gh}`configs/recipes/llama3_2/sft/3b_full/train.yaml` |
 | | `recipes/llama3_2/sft/3b_lora/train.yaml` | {download}`Download </../configs/recipes/llama3_2/sft/3b_lora/train.yaml>` {gh}`configs/recipes/llama3_2/sft/3b_lora/train.yaml` |
 | | `recipes/llama3_2/sft/3b_qlora/train.yaml` | {download}`Download </../configs/recipes/llama3_2/sft/3b_qlora/train.yaml>` {gh}`configs/recipes/llama3_2/sft/3b_qlora/train.yaml` |
@@ -50,14 +53,21 @@ You can also check out the `README.md` in each recipe's directory for more detai
 
 | Model | Configuration | Links |
 |-------|--------------|-------|
+| BLIP-2 OPT-2.7B | `recipes/vision/blip2_opt_2.7b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml>` {gh}`configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml` |
 | Llama 3.2 Vision 11B | `recipes/vision/llama3_2_vision/sft/11b_train.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml` |
 | | `recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` |
 | LLaVA 7B | `recipes/vision/llava_7b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/sft/train.yaml>` {gh}`configs/recipes/vision/llava_7b/sft/train.yaml` |
 | | `recipes/vision/llava_7b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/inference/infer.yaml>` {gh}`configs/recipes/vision/llava_7b/inference/infer.yaml` |
+| | `recipes/vision/llava_7b/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/llava_7b/inference/vllm_infer.yaml` |
 | Phi3 Vision | `recipes/vision/phi3/sft/train.yaml` | {download}`Download </../configs/recipes/vision/phi3/sft/train.yaml>` {gh}`configs/recipes/vision/phi3/sft/train.yaml` |
+| | `recipes/vision/phi3/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/phi3/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/phi3/inference/vllm_infer.yaml` |
 | Qwen2-VL 2B | `recipes/vision/qwen2_vl_2b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/sft/train.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/sft/train.yaml` |
+| | `recipes/vision/qwen2_vl_2b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml` |
+| | `recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml` |
+| | `recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml` |
+| SmolVLM | `recipes/vision/smolvlm/sft/train.yaml` | {download}`Download </../configs/recipes/vision/smolvlm/sft/train.yaml>` {gh}`configs/recipes/vision/smolvlm/sft/train.yaml` |
 
 ### 🎯 Training Techniques
 
@@ -77,10 +87,18 @@ This section lists an example config for various training techniques supported b
 | Model | Configuration | Links |
 |-------|--------------|-------|
 | Llama 3.1 8B | `recipes/llama3_1/inference/8b_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/8b_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/8b_infer.yaml` |
+| | `recipes/llama3_1/inference/8b_sglang_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/8b_sglang_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/8b_sglang_infer.yaml` |
+| | `recipes/llama3_1/inference/8b_vllm_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/8b_vllm_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/8b_vllm_infer.yaml` |
 | Llama 3.1 70B | `recipes/llama3_1/inference/70b_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/70b_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/70b_infer.yaml` |
+| Llama 3.2 1B | `recipes/llama3_2/inference/1b_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/1b_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/1b_infer.yaml` |
+| | `recipes/llama3_2/inference/1b_sglang_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/1b_sglang_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/1b_sglang_infer.yaml` |
+| | `recipes/llama3_2/inference/1b_vllm_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/1b_vllm_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/1b_vllm_infer.yaml` |
+| Llama 3.2 3B | `recipes/llama3_2/inference/3b_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/3b_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/3b_infer.yaml` |
+| | `recipes/llama3_2/inference/3b_sglang_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/3b_sglang_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/3b_sglang_infer.yaml` |
+| | `recipes/llama3_2/inference/3b_vllm_infer.yaml` | {download}`Download </../configs/recipes/llama3_2/inference/3b_vllm_infer.yaml>` {gh}`configs/recipes/llama3_2/inference/3b_vllm_infer.yaml` |
 | Llama 3.2 Vision 11B | `recipes/vision/llama3_2_vision/inference/11b_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml` |
-| | `recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` |
+| | `recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml` |
 | GPT-2 | `recipes/gpt2/inference/infer.yaml` | {download}`Download </../configs/recipes/gpt2/inference/infer.yaml>` {gh}`configs/recipes/gpt2/inference/infer.yaml` |
 | Mistral | `examples/bulk_inference/mistral_small_infer.yaml` | {download}`Download </../configs/examples/bulk_inference/mistral_small_infer.yaml>` {gh}`configs/examples/bulk_inference/mistral_small_infer.yaml` |
 
