@@ -91,8 +91,21 @@ def guess_transformer_layer_cls(model: nn.Module) -> type[nn.Module]:
     )
 
 
-def get_module_class_from_name(class_name: str) -> type[nn.Module]:
+def get_module_classes_from_name(class_names: str) -> set[type[nn.Module]]:
     """Get a module class from its string name."""
-    module_name, class_name = class_name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
+    result: set[type[nn.Module]] = set()
+    for class_name in class_names.split(","):
+        class_name = class_name.strip()
+        if not class_name:
+            continue
+
+        parts = class_name.rsplit(".", maxsplit=1)
+        if len(parts) == 1:
+            module_name = "transformers"
+        else:
+            module_name, class_name = parts
+        module = importlib.import_module(module_name)
+        transformer_cls = getattr(module, class_name)
+        result.add(transformer_cls)
+
+    return result

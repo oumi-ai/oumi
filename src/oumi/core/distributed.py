@@ -23,7 +23,7 @@ from torch.nn.parallel import DistributedDataParallel
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.utils.logging import logger
-from oumi.utils.torch_naming_heuristics import get_module_class_from_name
+from oumi.utils.torch_naming_heuristics import get_module_classes_from_name
 
 
 #
@@ -315,24 +315,26 @@ def prepare_model_for_distributed(
             guess_transformer_layer_cls,
         )
 
+        transformer_layer_classes = set()
         if fsdp_params.transformer_layer_cls is None:
             transformer_layer_cls = guess_transformer_layer_cls(model)
             logger.info(
                 "Automatically inferred transformer layer class to wrap: "
                 f"{transformer_layer_cls}"
             )
+            transformer_layer_classes.add(transformer_layer_cls)
         else:
             logger.info(
                 "Using transformer layer class to wrap: "
                 f"{fsdp_params.transformer_layer_cls}"
             )
-            transformer_layer_cls = get_module_class_from_name(
+            transformer_layer_classes = get_module_classes_from_name(
                 fsdp_params.transformer_layer_cls
             )
 
         wrapping_policy = functools.partial(
             transformer_auto_wrap_policy,
-            transformer_layer_cls={transformer_layer_cls},
+            transformer_layer_cls=transformer_layer_classes,
             recurse=True,
             nonwrapped_numel=0,
         )
