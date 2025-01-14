@@ -432,21 +432,24 @@ def build_tokenizer(
 
 
 def _convert_init_lora_weights_to_lora_config(
-    param: Union[bool, LoraWeightInitialization],
+    param: LoraWeightInitialization,
 ) -> Union[
     bool,
     Literal[
         "gaussian",
         "eva",
-        "olora",
         "pissa",
         "pissa_niter_[number of iters]",
         "loftq",
+        "olora",
     ],
 ]:
-    if isinstance(param, bool):
-        return param
-    return param.get_literal_value()
+    if param == LoraWeightInitialization.RANDOM:
+        return False
+    if param == LoraWeightInitialization.DEFAULT:
+        return True
+
+    return param.value
 
 
 def build_peft_model(

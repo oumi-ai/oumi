@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -42,24 +42,40 @@ class PeftSaveMode(Enum):
 class LoraWeightInitialization(str, Enum):
     """Enum representing the supported weight initializations for LoRA adapters."""
 
+    DEFAULT = "default"
+    RANDOM = "random"
     GAUSSIAN = "gaussian"
     EVA = "eva"
     PISA = "pissa"
     PISSA_NITER = "pissa_niter_[number of iters]"
     LOFTQ = "loftq"
+    OLORA = "olora"
 
     def get_literal_value(
         self,
-    ) -> Literal["gaussian", "eva", "pissa", "loftq", "pissa_niter_[number of iters]"]:
+    ) -> Literal[
+        "default",
+        "random",
+        "gaussian",
+        "eva",
+        "pissa",
+        "pissa_niter_[number of iters]",
+        "loftq",
+        "olora",
+    ]:
         """Returns a literal value of the enum."""
         if self.value not in {
+            "default",
+            "random",
             "gaussian",
             "eva",
             "pissa",
-            "loftq",
             "pissa_niter_[number of iters]",
+            "loftq",
+            "olora",
         }:
             raise ValueError(f"Invalid enum value: {self.value}")
+
         return self.value
 
 
@@ -159,20 +175,23 @@ class PeftParams(BaseParams):
     It is hence recommended to merge weights when doing inference.
     """
 
-    init_lora_weights: Union[bool, LoraWeightInitialization] = field(
-        default=True,
+    init_lora_weights: LoraWeightInitialization = field(
+        default=LoraWeightInitialization.DEFAULT,
         metadata={
             "help": "Weights initialization for LoRA adapters.",
         },
     )
-    """Passing `True` will use the underlying reference implementation of the
-    corresponding model from Microsoft. `False` will use random initialization.
+    """
+    Passing `LoraWeightInitialization.DEFAULT` will use the underlying reference
+    implementation of the corresponding model from Microsoft.
 
     Other valid (LoraWeightInitialization) options include:
+        - "random" which will use fully random initialization and is discouraged.
         - "gaussian" for Gaussian initialization.
         - "eva" for Explained Variance Adaptation (EVA) (https://arxiv.org/abs/2410.07170).
-        - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
         - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659).
+        - "olora" for Orthonormal Low-Rank Adaptation of Large Language Models (OLoRA) (https://arxiv.org/html/2406.01775v1).
+        - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
 
     For more information, see HF:
         https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py

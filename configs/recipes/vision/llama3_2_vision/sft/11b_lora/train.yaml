@@ -19,7 +19,7 @@ data:
     target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
-        split: "train"
+        split: "validation"
         shuffle: True
         seed: 42
         transform_num_workers: "auto"
@@ -71,7 +71,7 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  init_lora_weights: GAUSSIAN
+  init_lora_weights: DEFAULT
   # use_dora: True # optional
 
 fsdp:
