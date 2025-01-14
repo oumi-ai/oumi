@@ -42,7 +42,7 @@ Our benchmark diversity is enabled through seamless integration with leading pla
 The simplest way to evaluate a model is by authoring a `YAML` configuration, and calling the Oumi CLI:
 
 ````{dropdown} configs/recipes/phi3/evaluation/eval.yaml
-```{literalinclude} ../../configs/recipes/phi3/evaluation/eval.yaml
+```{literalinclude} /../configs/recipes/phi3/evaluation/eval.yaml
 :language: yaml
 ```
 ````
