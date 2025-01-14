@@ -71,7 +71,7 @@ development/dev_setup
 development/contributing
 development/code_of_conduct
 development/style_guide
-development/git_workflow
+development/docs_guide
 ```
 
 ```{toctree}
