@@ -29,6 +29,9 @@ _POLARIS_ENV_VARS = {
     "PBS_JOBID",
 }
 
+_MASTER_ADDR_ENV = "MASTER_ADDRESS"
+_MASTER_PORT_ENV = "MASTER_PORT"
+
 
 class _RunBackend(str, enum.Enum):
     SKYPILOT = "SkyPilot"
@@ -218,6 +221,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         if node_rank is None:
             node_rank = 0
 
+    oumi_master_port = 8007
     if backend is None:
         # Attempt to produce a local configuration
         if not torch.cuda.is_available():
@@ -227,10 +231,11 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
 
         num_gpus_available = torch.cuda.device_count()
         if num_gpus_available > 0:
-            logger.debug("Running on the local machine!")
+            logger.debug("No backend detected, attempting to run on local machine.")
             backend = _RunBackend.LOCAL_MACHINE
-            oumi_master_address = "127.0.0.1"
             oumi_num_nodes = 1
+            oumi_master_address = env.get(_MASTER_ADDR_ENV, "127.0.0.1")
+            oumi_master_port = int(env.get(_MASTER_PORT_ENV, oumi_master_port))
             oumi_total_gpus = num_gpus_available
             node_ips = [oumi_master_address]
             node_rank = 0
@@ -267,7 +272,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=(oumi_master_address or node_ips[0]),
-        master_port=8007,
+        master_port=oumi_master_port,
     )
     return result
 
