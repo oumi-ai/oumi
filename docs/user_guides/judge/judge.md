@@ -61,11 +61,20 @@ results = judge.judge(conversations)
 For more accurate results or when you need more powerful models, you might prefer using a remote API. Here's how to use GPT-4 as your judge:
 
 ```{testcode}
+from oumi.core.types import Conversation, Message, Role
 from oumi.judges import oumi_v1_xml_gpt4o_judge
 from oumi.judges.oumi_judge import OumiXmlJudge
 
 # Initialize judge with GPT-4
 judge = OumiXmlJudge(oumi_v1_xml_gpt4o_judge())
+
+# Judge conversations
+conversations = [
+    Conversation(messages=[
+      Message(role=Role.USER, content="What is Python?"),
+      Message(role=Role.ASSISTANT, content="Python is a high-level programming language.")
+   ])
+]
 
 # Judge conversations
 results = judge.judge(conversations)

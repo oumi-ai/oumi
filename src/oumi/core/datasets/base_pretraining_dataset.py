@@ -8,7 +8,7 @@ from oumi.core.tokenizers import BaseTokenizer
 
 
 class BasePretrainingDataset(BaseIterableDataset):
-    """Abstract base class for pretraining iterable datasets.
+    """Base class for pretraining iterable datasets.
 
     This class extends BaseIterableDataset to provide functionality specific to
     pretraining tasks.
@@ -20,16 +20,14 @@ class BasePretrainingDataset(BaseIterableDataset):
 
     Example:
         >>> from transformers import AutoTokenizer
-        >>> from oumi.core.datasets import PretrainingDataset
-        >>>
+        >>> from oumi.core.datasets import BasePretrainingDataset
         >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        >>> dataset = PretrainingDataset(
+        >>> dataset = BasePretrainingDataset(
         ...     dataset_name="wikimedia/wikipedia",
         ...     subset="20231101.en",
         ...     tokenizer=tokenizer,
         ...     seq_length=512
         ... )
-        >>>
         >>> for batch in dataset:
         ...     print(batch)  # Process the batch
     """

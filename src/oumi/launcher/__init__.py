@@ -6,8 +6,8 @@ cloud platforms.
 Example:
     >>> from oumi.launcher import Launcher, JobConfig
     >>> launcher = Launcher()
-    >>> job_config = JobConfig(name="my_job", command="python train.py")
-    >>> launcher.run(job_config)
+    >>> job_config = JobConfig(name="my_job", run="python train.py")
+    >>> launcher.run(job_config, cluster_name="my_cluster")
 
 Note:
     This module integrates with various cloud platforms. Ensure that the necessary

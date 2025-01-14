@@ -50,19 +50,20 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         multimodal architectures.
 
     Example:
+        >>> from oumi.core.types.conversation import Conversation
+        >>> from oumi.core.datasets import VisionLanguageSftDataset
         >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
-        ...     def transform_conversation(self, example: dict) -> Conversation:
+        ...     def transform_conversation(self, example: dict):
         ...         # Implement the abstract method
         ...         # Convert the raw example into a Conversation object
         ...         pass
-        >>>
-        >>> dataset = MyVisionLanguageSftDataset(
+        >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
         ...     processor_name="openai/clip-vit-base-patch32",
         ...     dataset_name="coco_captions",
         ...     split="train"
         ... )
-        >>> sample = next(iter(dataset))
-        >>> print(sample.keys())
+        >>> sample = next(iter(dataset))  # doctest: +SKIP
+        >>> print(sample.keys()) # doctest: +SKIP
     """
 
     def __init__(

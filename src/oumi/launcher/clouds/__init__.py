@@ -6,7 +6,7 @@ with the Oumi launcher for running and managing jobs.
 Example:
     >>> from oumi.launcher.clouds import LocalCloud
     >>> local_cloud = LocalCloud()
-    >>> local_cloud.run_job(job_config)
+    >>> local_cloud.up_cluster(job_config)
 
 Note:
     Ensure that you have the necessary credentials and configurations set up

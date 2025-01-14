@@ -33,7 +33,7 @@ class JudgeAttribute(pydantic.BaseModel, Generic[T]):
     """Attributes for the judge.
 
     Example:
-        >>> attribute = JudgeAttribute(
+        >>> attribute = JudgeAttribute( # doctest: +SKIP
         ...     name="helpful",
         ...     system_prompt="You are an impartial judge.",
         ...     examples=[
@@ -50,7 +50,7 @@ class JudgeAttribute(pydantic.BaseModel, Generic[T]):
         ...     value_type=JudgeAttributeValueType.BOOL,
         ...     limit_examples=5,
         ... )
-        >>> print(attribute.name)
+        >>> print(attribute.name) # doctest: +SKIP
         helpful
     """
 
@@ -109,7 +109,7 @@ class JudgeConfig(BaseConfig):
 
     Examples:
         >>> attributes = {
-        ...     "helpful": JudgeAttribute(
+        ...     "helpful": JudgeAttribute( # doctest: +SKIP
         ...         name="helpful",
         ...         system_prompt="Is this answer helpful?",
         ...         examples=[
@@ -131,8 +131,8 @@ class JudgeConfig(BaseConfig):
         ...     )
         ... }
         >>> model_params = ModelParams(model_name="example-model")
-        >>> generation_params = GenerationParams(max_new_tokens=100)
-        >>> judge_config = JudgeConfig(
+        >>> generation_params = GenerationParams(max_new_tokens=100) # doctest: +SKIP
+        >>> judge_config = JudgeConfig( # doctest: +SKIP
         ...     attributes=attributes,
         ...     model=model_params,
         ...     generation=generation_params

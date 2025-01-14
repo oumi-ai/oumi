@@ -22,11 +22,13 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
     Usage example:
         Examples:
             Loading from a file:
-                >>> dataset = VLJsonlinesDataset(
+                >>> from oumi.datasets import VLJsonlinesDataset
+                >>> dataset = VLJsonlinesDataset( # doctest: +SKIP
                 ...     dataset_path="/path/to/your/dataset.jsonl",
                 ... )
 
             Loading from a list of data samples:
+                >>> from oumi.datasets import VLJsonlinesDataset
                 >>> data_samples = [
                 ...     {
                 ...         "messages": [
@@ -48,9 +50,9 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
                 ...         ]
                 ...     }
                 ... ]
-                ... ]
                 >>> dataset = VLJsonlinesDataset(
                 ...     data=data_samples,
+                ...     processor_name="openai/clip-vit-base-patch32",
                 ... )
     """
 

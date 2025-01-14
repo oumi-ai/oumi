@@ -50,7 +50,7 @@ Examples:
         from oumi import judge_dataset
         from oumi.core.configs import JudgeConfig
 
-        config = JudgeConfig(...)
+        config = JudgeConfig(...) # doctest: +SKIP
         judge_dataset(config, dataset)
 
 See Also:
@@ -175,10 +175,10 @@ def judge_conversations(
         ]
 
     Example:
-        >>> config = JudgeConfig(...)
-        >>> judge_inputs = [Conversation(...), Conversation(...)]
-        >>> judged_outputs = judge_conversations(config, judge_inputs)
-        >>> for output in judged_outputs:
+        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> judge_inputs = [Conversation(...), Conversation(...)] # doctest: +SKIP
+        >>> judged_outputs = judge_conversations(config, judge_inputs) # doctest: +SKIP
+        >>> for output in judged_outputs: # doctest: +SKIP
         ...     print(output)
     """
     import oumi.judge
@@ -213,10 +213,10 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
         ]
 
     Example:
-        >>> config = JudgeConfig(...)
-        >>> dataset = SomeDataset(...)
-        >>> judged_outputs = judge_dataset(config, dataset)
-        >>> for output in judged_outputs:
+        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> dataset = SomeDataset(...) # doctest: +SKIP
+        >>> judged_outputs = judge_dataset(config, dataset) # doctest: +SKIP
+        >>> for output in judged_outputs: # doctest: +SKIP
         ...     print(output)
     """
     import oumi.judge

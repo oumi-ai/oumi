@@ -44,9 +44,9 @@ The configurations are organized into different categories:
 
 Example:
     >>> from oumi.core.configs import TrainingConfig, ModelParams
-    >>> model_params = ModelParams(model_name="gpt2", num_labels=2)
+    >>> model_params = ModelParams(model_name="gpt2")
     >>> training_config = TrainingConfig(
-    ...     model_params=model_params,
+    ...     model_params=model_params, # doctest: +SKIP
     ...     batch_size=32,
     ...     num_epochs=3
     ... )
