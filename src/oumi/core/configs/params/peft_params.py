@@ -42,8 +42,8 @@ class PeftSaveMode(Enum):
 class LoraWeightInitialization(str, Enum):
     """Enum representing the supported weight initializations for LoRA adapters."""
 
-    DEFAULT = "default"
-    RANDOM = "random"
+    DEFAULT = "default"  # Use the model reference initialization from Microsoft.
+    RANDOM = "random"  # Fully random initialization, discouraged.
     GAUSSIAN = "gaussian"
     EVA = "eva"
     PISA = "pissa"
