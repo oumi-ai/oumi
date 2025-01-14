@@ -1,4 +1,4 @@
-![# Oumi: Open Universal Machine Intelligence](assets/header_logo.png)
+![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
 
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
