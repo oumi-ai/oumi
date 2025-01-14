@@ -299,7 +299,7 @@ def test_train_1gpu_24gb(
     )
 
 
-@requires_gpus(count=4, min_gb=80.0)
+@requires_gpus(count=4, min_gb=79.0)
 @pytest.mark.parametrize(
     "test_config",
     [
