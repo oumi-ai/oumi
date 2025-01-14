@@ -28,6 +28,5 @@
     "down_proj"
   ],
   "task_type": "CAUSAL_LM",
-  "use_dora": false,
   "use_rslora": false
 }
