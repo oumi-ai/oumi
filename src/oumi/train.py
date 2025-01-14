@@ -300,8 +300,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
             logger.info(
                 f"Starting training... "
-                f"({config.training.trainer_type} "
-                f"transformers=={transformers.__version__})"
+                f"({config.training.trainer_type}, "
+                f"transformers: {transformers.__version__})"
             )
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
