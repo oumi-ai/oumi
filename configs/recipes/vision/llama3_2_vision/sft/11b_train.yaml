@@ -50,7 +50,7 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 8
+  per_device_train_batch_size: 4
   gradient_accumulation_steps: 1
   max_steps: 20
 
@@ -80,4 +80,5 @@ fsdp:
   sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
+  # transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
+  transformer_layer_cls: "MllamaCrossAttentionDecoderLayer,MllamaSelfAttentionDecoderLayer"
