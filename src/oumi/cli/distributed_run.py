@@ -244,8 +244,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
             node_ips = [oumi_master_address]
             node_rank = 0
             gpus_per_node = num_gpus_available
-            os.environ["ACCELERATE_LOG_LEVEL"] = "info"
-            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            cli_utils.configure_common_env_vars()
         else:
             raise RuntimeError("CUDA available but no GPUs found on local machine!")
 
@@ -268,8 +267,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         )
     elif oumi_master_address and oumi_master_address not in node_ips:
         raise ValueError(
-            f"Master address '{oumi_master_address}' "
-            f"not found in the list of nodes."
+            f"Master address '{oumi_master_address}' not found in the list of nodes."
         )
 
     result = _ProcessRunInfo(
@@ -300,8 +298,7 @@ def _run_subprocess(cmds: list[str], *, rank: int) -> None:
     duration_str = f"Duration: {duration_sec:.1f} sec"
     if rc != 0:
         logger.error(
-            f"{cmds[0]} failed with exit code: {rc} ({duration_str}). "
-            f"Command: {cmds}"
+            f"{cmds[0]} failed with exit code: {rc} ({duration_str}). Command: {cmds}"
         )
         sys.exit(rc)
 
