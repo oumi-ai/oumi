@@ -195,7 +195,7 @@ input_conversation = Conversation(
             role=Role.USER,
             content=[
                 ContentItem(
-                    content="https://oumi.ai/favicon.ico",
+                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg",
                     type=Type.IMAGE_URL,
                 ),
                 ContentItem(content="Describe this image", type=Type.TEXT),
@@ -217,7 +217,7 @@ print(output_conversations)
 To run multimodal inference interactively, use the `oumi infer` command with the `-i` and `--image` flags.
 
 ```{code-block} bash
-oumi infer -c infer_config.yaml -i --image="https://oumi.ai/favicon.ico"
+oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
 ```
 
 ### Distributed Inference
