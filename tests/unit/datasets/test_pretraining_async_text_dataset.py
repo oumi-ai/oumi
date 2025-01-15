@@ -35,6 +35,7 @@ def test_iter():
         formatting_func=lambda x: x,
         seq_length=_SEQ_LEN,
         sequence_buffer_size=_BATCH_SIZE * 2,
+        pretokenized=False,
     )
 
     items = [x for x in dataset]

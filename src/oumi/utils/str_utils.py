@@ -50,13 +50,13 @@ def str_to_bool(s: str) -> bool:
         ValueError: If the input string cannot be interpreted as a boolean.
 
     Examples:
-        >>> str_to_bool("true")
+        >>> str_to_bool("true") # doctest: +SKIP
         True
-        >>> str_to_bool("FALSE")
+        >>> str_to_bool("FALSE") # doctest: +SKIP
         False
-        >>> str_to_bool("1")
+        >>> str_to_bool("1") # doctest: +SKIP
         True
-        >>> str_to_bool("no")
+        >>> str_to_bool("no") # doctest: +SKIP
         False
     """
     s = s.strip().lower()

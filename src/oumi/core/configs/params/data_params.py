@@ -181,7 +181,6 @@ class DatasetSplitParams(BaseParams):
     Each chunk will be the size of the model's max input length.
     This will stream the dataset, and tokenize on the fly
     if the dataset isn't already tokenized (i.e. has an `input_ids` column).
-    Requires `stream` to be set to True.
     """
 
     stream: bool = False
@@ -240,12 +239,6 @@ class DatasetSplitParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
-        if self.pack:
-            # TODO: why is this check necessary?
-            if not self.stream:
-                raise ValueError("`stream` must be enabled if `pack` is enabled.")
-            if not self.target_col:
-                raise ValueError("`target_col` must be specified if `pack` is enabled.")
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]

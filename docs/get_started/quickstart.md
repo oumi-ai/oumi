@@ -109,8 +109,10 @@ Or with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --model.model_name output/smollm-135m-sft
+  --model.model_name output/smollm135m.fft
 ```
+
+If you saved your model to a different directory such as `output/smollm-135m-sft-dist`, you need only change `--model.model_name`.
 
 To explore the benchmarks that our evaluations support, including HuggingFace leaderboards and AlpacaEval, visit our {doc}`evaluation guide </user_guides/evaluate/evaluate>`.
 
@@ -137,7 +139,7 @@ Or with our newly trained model saved on disk:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-  --model.model_name output/smollm-135m-sft \
+  --model.model_name output/smollm135m.fft \
   --generation.max_new_tokens 40 \
   --generation.temperature 0.7 \
   --interactive

@@ -19,6 +19,7 @@ The configuration for VL-SFT datasets is similar to regular SFT datasets, with s
 training:
   data:
     train:
+      collator_name: vision_language_with_padding
       datasets:
         - dataset_name: "your_vl_sft_dataset_name"
           split: "train"
@@ -27,7 +28,6 @@ training:
           dataset_kwargs:
             processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
             return_tensors: True
-      collator_name: vision_language_with_padding
 ```
 In this configuration:
 
@@ -41,7 +41,7 @@ In this configuration:
 Using a VL-SFT dataset in code is similar to using a regular SFT dataset, with the main difference being in the batch contents:
 
 ```python
-from oumi.builders import build_dataset
+from oumi.builders import build_dataset, build_processor, build_tokenizer
 from oumi.core.configs import DatasetSplit, ModelParams
 from torch.utils.data import DataLoader
 
@@ -103,8 +103,10 @@ Here's a basic example:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
+from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
+@register_dataset("custom_vl_dataset")
 class CustomVLDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
