@@ -2,7 +2,6 @@ model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
-  trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "llama3-instruct"
   freeze_layers:
@@ -34,7 +33,6 @@ data:
       #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
-      #   trust_remote_code: True
       #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
