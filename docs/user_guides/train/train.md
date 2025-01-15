@@ -175,7 +175,7 @@ data:
         dataset_path: "/path/to/dataset.jsonl"
 ```
 
-In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats, and {doc}`/resources/datasets/custom_datasets` for customizing the preprocessing at runtime if needed.
+In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats.
 
 ## Training Output
 
