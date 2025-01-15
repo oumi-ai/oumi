@@ -257,8 +257,15 @@ def init_distributed(
     timeout = (
         timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
     )
-    torch.distributed.init_process_group(backend=backend, timeout=timeout)
     torch.cuda.set_device(int(device_rank_info.local_rank))
+    torch.distributed.init_process_group(
+        backend=backend,
+        rank=device_rank_info.rank,
+        world_size=device_rank_info.world_size,
+        device_id=torch.device(int(device_rank_info.local_rank)),
+        timeout=timeout,
+    )
+    logger.info(f"Initialized distributed: {device_rank_info}")
 
 
 def cleanup_distributed():

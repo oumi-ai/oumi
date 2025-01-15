@@ -19,6 +19,7 @@ The configuration for VL-SFT datasets is similar to regular SFT datasets, with s
 training:
   data:
     train:
+      collator_name: vision_language_with_padding
       datasets:
         - dataset_name: "your_vl_sft_dataset_name"
           split: "train"
@@ -27,7 +28,6 @@ training:
           dataset_kwargs:
             processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
             return_tensors: True
-      collator_name: vision_language_with_padding
 ```
 In this configuration:
 
