@@ -15,16 +15,12 @@ We'll cover the following topics:
 # Prerequisites
 
 ## Oumi Installation
-First, let's install Oumi. You can find detailed instructions [here](https://github.com/oumi-ai/oumi/blob/main/README.md), but it should be as simple as:
-
-```bash
-pip install -e ".[dev]"
-```
+First, let's install Oumi. You can find detailed instructions [here](/get_started/installation.md).
 
 # The Oumi Launcher Hierarchy
 
 ### Preface
-Before diving into this tutorial, lets discuss the hierarchy of the Oumi Launcher. At this point, it's worth reading through our tutorial on [Running Jobs Remotely](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb) to better understand the end-to-end flow of the launcher. Already read it? Great!
+Before diving into this tutorial, lets discuss the hierarchy of the Oumi Launcher. At this point, it's worth reading through our tutorial on {doc}`/deploy.md` to better understand the end-to-end flow of the launcher. Already read it? Great!
 
 ### Overview
 At a high level, the Oumi Launcher is composed of 3 tiers of objects: `Clouds`, `Clusters`, and `Clients`. The Launcher holds an instance of each unique `Cloud`. These `Clouds`, in turn, are responsible for creating compute `Clusters`. And `Clusters` coordinate running jobs. All communication with remote APIs happens via the `Client`.
