@@ -1,7 +1,7 @@
 # Custom Clusters
-Similar to custom dataset and model classes, you can register a custom class for your own cluster so you can launch Oumi jobs on custom clusters that are not supported out of the box.
+Similar to custom dataset and model classes, you can register a class for your own cluster so you can launch Oumi jobs on custom clusters that are not supported out of the box.
 
-Specifically, this guide is geared towards individuals who have access to a compute cluster that's not hosted on a common cloud provider (e.g. University/personal compute clusters).
+This guide is specifically geared towards individuals who have access to a compute cluster that's not hosted on a common cloud provider (e.g. University/personal compute clusters).
 
 We'll cover the following topics:
 1. Prerequisites
