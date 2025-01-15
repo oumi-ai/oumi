@@ -11,7 +11,6 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    target_col: "prompt"
     stream: False
     datasets:
       - dataset_name: "merve/vqav2-small"
