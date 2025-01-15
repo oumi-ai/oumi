@@ -37,31 +37,30 @@ With just a couple commands you can install Oumi, train, infer, and evaluate.
 ### Installation
 
 ```shell
-# Clone the repository
-git clone git@github.com:oumi-ai/oumi.git
-cd oumi
-
 # Install the package (CPU & NPU only)
-pip install -e .  # For local development & testing
+pip install oumi  # For local development & testing
 
 # OR, with GPU support (Requires Nvidia or AMD GPU)
-pip install -e ".[gpu]"  # For GPU training
+pip install oumi[gpu]  # For GPU training
+
+# To get the latest version, install from the source
+pip install git+https://github.com/oumi-ai/oumi.git
 ```
 
 ### Usage
 
   ```shell
-   # Training
-   oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+  # Training
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
-   # Evaluation
-   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
+  # Evaluation
+  oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
 
-   # Inference
-   oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
-   ```
+  # Inference
+  oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
+  ```
 
-   For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), and [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html) guides.
+  For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), and [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html) guides.
 
 ### Examples &  Recipes
 
