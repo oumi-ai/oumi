@@ -71,7 +71,7 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  init_lora_weights: GAUSSIAN
+  init_lora_weights: "GAUSSIAN"
 
 fsdp:
   enable_fsdp: True
