@@ -83,7 +83,7 @@ def test_train_native_pt_model_from_api():
 
         trainer = Trainer(
             model=model,
-            processing_class=tokenizer,
+            tokenizer=tokenizer,
             args=training_args,
             train_dataset=dataset,
         )
