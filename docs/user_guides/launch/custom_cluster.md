@@ -20,18 +20,18 @@ First, let's install Oumi. You can find detailed instructions [here](/get_starte
 # The Oumi Launcher Hierarchy
 
 ### Preface
-Before diving into this tutorial, lets discuss the hierarchy of the Oumi Launcher. At this point, it's worth reading through our tutorial on {doc}`/deploy.md` to better understand the end-to-end flow of the launcher. Already read it? Great!
+Before diving into this tutorial, lets discuss the hierarchy of the Oumi Launcher. At this point, it's worth reading through our tutorial on {doc}`/user_guides/launch/deploy` to better understand the end-to-end flow of the launcher. Already read it? Great!
 
 ### Overview
 At a high level, the Oumi Launcher is composed of 3 tiers of objects: `Clouds`, `Clusters`, and `Clients`. The Launcher holds an instance of each unique `Cloud`. These `Clouds`, in turn, are responsible for creating compute `Clusters`. And `Clusters` coordinate running jobs. All communication with remote APIs happens via the `Client`.
 
 #### Clouds
-A Cloud class must implement the [`BaseCloud`](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/types/base_cloud.py) abstract class. The Launcher will only create one instance of each Cloud, so it's important that a single Cloud object is capable of turning up and down multiple clusters.
+A Cloud class must implement the {class}`~oumi.core.launcher.BaseCloud` abstract class. The Launcher will only create one instance of each Cloud, so it's important that a single Cloud object is capable of turning up and down multiple clusters.
 
 You can find several implementations of Clouds [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/launcher/clouds).
 
 #### Clusters
-A Cluster class must implement the [`BaseCluster`](https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/types/base_cluster.py) abstract class. A cluster represents a single instance of hardware. For a custom clusters (such as having a single super computer), it may be the case that you only need 1 cluster to represent your hardware setup.
+A Cluster class must implement the {class}`~oumi.core.launcher.BaseCluster` abstract class. A cluster represents a single instance of hardware. For custom clusters (such as having access to a super computer that can only run one job at a time), it may be the case that you only need one cluster to represent your hardware setup.
 
 You can find several implementations of Clusters [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/launcher/clusters).
 
@@ -41,7 +41,7 @@ Clients are a completely optional but highly encouraged class. Clients should en
 You can find several implementations of Clients [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/launcher/clients).
 
 # Creating a CustomClient Class
-Let's get started by creating a client for our new cloud, `Foobar`. Let's create a simple client that randomly sets the state of the job on submission. It also supports canceling jobs, and turning down clusters:
+Let's get started by creating a client for our new cloud, `CustomCloud`. Let's create a simple client that randomly sets the state of the job on submission. It also supports canceling jobs, and turning down clusters:
 
 ``` {code-block} python
 import random
@@ -128,7 +128,7 @@ class CustomClient:
 ```
 
 # Creating a CustomCluster Class
-Now that we have a client that talk's to our API, we can use the Client to build a Cluster!
+Now that we have a client that talks to our API, we can use the Client to build a Cluster!
 
 ``` {code-block} python
 from typing import Any, Optional
@@ -285,10 +285,62 @@ print(launcher.which_clouds())
 
 Great, our CustomCloud is there!
 
+## Using Your CustomCloud via the CLI
+
+**‼️ Important ‼️** A few extra steps are needed to use your cloud from the CLI.
+
+First, you need to create a `requirements.txt` file.
+
+This is a simple text file where each line contains the absolute filepath to any python
+that interface with the Oumi registry. In this guide, that means any files we wrote that
+contain a `@register_cloud_builder` decorator.
+
+Let's say you created your CustomCloud class in a file saved at
+`/path/to/custom_cloud.py`, and your `requirements` file at
+`/another/path/requirements.txt`.
+Your `requirements.txt` file should look like:
+```
+/path/to/custom_cloud.py
+```
+
+Now that you've created your `requirements.txt` file, you simply need to set the
+`OUMI_EXTRA_DEPS_FILE` environment variable with the path of your `requirements.txt`
+file and the Oumi CLI will automatically pick up your changes!
+
+``` {code-block} shell
+export OUMI_EXTRA_DEPS_FILE=/another/path/requirements.txt
+```
+
+You can verify that your cloud is now installed by running:
+
+``` {code-block} shell
+oumi launch which
+```
+
 # Running a Job on Your Cloud
 
 Let's take our new Cloud for a spin:
 
+
+
+::::{tab-set}
+:::{tab-item} CLI
+
+We can kick off a job:
+``` {code-block} shell
+oumi launch up --cluster first_cluster -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml  --resources.cloud custom
+
+oumi launch status
+```
+
+And now let's turn down our cluster:
+
+``` {code-block} shell
+oumi launch down --cluster first_cluster
+```
+:::
+
+:::{tab-item} Python
 ``` {code-block} python
 job = launcher.JobConfig(name="test")
 job.resources.cloud = "custom"
@@ -310,3 +362,5 @@ for cluster in launcher.get_cloud("custom").list_clusters():
     print(f"Cluster {cluster.name()} is down. Listing jobs...")
     print(cluster.get_jobs())
 ```
+:::
+::::
