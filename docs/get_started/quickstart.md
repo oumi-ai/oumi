@@ -2,7 +2,7 @@
 
 ## Pre-requisites
 
-Let's start by installing Oumi. Assuming you have Python and pip installed, you can install Oumi with the following commands:
+Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
 
 ```bash
 pip install oumi
@@ -11,7 +11,7 @@ pip install oumi
 pip install oumi[gpu]
 ```
 
-We highly recommend setting up a virtual environment to install Oumi. If you need help setting up your environment, you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
+If you need help setting up your environment (python, pip, git, etc), you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
 
 ## Introduction
 
@@ -176,6 +176,6 @@ To explore the Cloud providers that we support for running jobs on remote cluste
 
 ## 🔗 Community
 
-🌟 If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
+⭐ If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
 
 👋 If you are interested in contributing, please read the [Contributor’s Guide](/development/contributing).
