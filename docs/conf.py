@@ -15,8 +15,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Oumi"
-copyright = "2025, Oumi"
-author = "Oumi"
+copyright = "2025 - Oumi"
+author = "Oumi Community"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
