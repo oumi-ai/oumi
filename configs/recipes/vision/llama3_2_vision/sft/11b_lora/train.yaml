@@ -6,7 +6,6 @@ model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
-  trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "llama3-instruct"
   freeze_layers:
