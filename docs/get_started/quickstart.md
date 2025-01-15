@@ -159,4 +159,8 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 
 To explore the Cloud providers that we support for running jobs on remote clusters, details on remote job management, and authoring configuration files, visit {doc}`running jobs remotely </user_guides/launch/remote>`.
 
-If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.
+## 🔗 Community
+
+🌟 If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
+
+👋 If you are interested in contributing, please read the [Contributor’s Guide](/development/contributing).
