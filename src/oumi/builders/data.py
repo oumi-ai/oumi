@@ -90,20 +90,11 @@ def build_dataset_mixture(
         if config.model.model_max_length:
             dataset_kwargs["seq_length"] = config.model.model_max_length
 
-        if dataset_split_params.use_async_dataset:
-            dataset = PretrainingAsyncTextDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
-        else:
-            dataset = ConstantLengthDataset(
-                tokenizer,
-                dataset,
-                dataset_text_field=dataset_split_params.target_col,
-                **dataset_kwargs,
-            )
+        dataset = PretrainingAsyncTextDataset(
+            tokenizer,
+            dataset,
+            **dataset_kwargs,
+        )
 
     return dataset
 
