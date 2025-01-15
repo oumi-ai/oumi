@@ -36,7 +36,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         shuffle: bool = False,
         append_concat_token: bool = True,
         add_special_tokens: bool = True,
-        pretokenized: bool = False,
+        pretokenized: bool = True,
     ):
         """Iterable dataset that returns constant length chunks of tokens.
 
@@ -108,9 +108,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
         else:
             self.tokenized_example_queue = queue.Queue(maxsize=sequence_buffer_size)
 
-        if formatting_func is None:
-            self.formatting_func = lambda x: x[dataset_text_field]
-        else:
+        if formatting_func is not None:
             self.formatting_func = formatting_func
 
             if formatting_func.__code__.co_argcount != 1:
@@ -118,6 +116,10 @@ class PretrainingAsyncTextDataset(IterableDataset):
                     "The passed formatting_func does not have exactly 1 argument. Note "
                     "that additional arguments will remain unused."
                 )
+        elif dataset_text_field is not None:
+            self.formatting_func = lambda x: x[dataset_text_field]
+        else:
+            self.formatting_func = lambda x: x
 
     def _add_example_to_queue(self, example):
         """Adds a single example to the queue."""

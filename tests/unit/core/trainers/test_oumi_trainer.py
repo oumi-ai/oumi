@@ -106,7 +106,7 @@ def mock_params():
 def trainer(model, mock_tokenizer, mock_params, mock_dataset):
     return Trainer(
         model=model,
-        processing_class=mock_tokenizer,
+        tokenizer=mock_tokenizer,
         processor=None,
         args=mock_params,
         train_dataset=mock_dataset,
@@ -121,7 +121,7 @@ def test_trainer_initialization(
     trainer, model, mock_tokenizer, mock_params, mock_dataset
 ):
     assert trainer.model == model
-    assert trainer.processing_class == mock_tokenizer
+    assert trainer.tokenizer == mock_tokenizer
     assert trainer.params == mock_params
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
@@ -287,7 +287,7 @@ def test_cuda_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu
     trainer = Trainer(
         model=model,
-        processing_class=mock_tokenizer,
+        tokenizer=mock_tokenizer,
         processor=None,
         args=mock_params,
         train_dataset=mock_dataset,
@@ -302,7 +302,7 @@ def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     assert next(model.parameters()).is_cpu, "Model should initially be on CPU"
     trainer = Trainer(
         model=model,
-        processing_class=mock_tokenizer,
+        tokenizer=mock_tokenizer,
         processor=None,
         args=mock_params,
         train_dataset=mock_dataset,

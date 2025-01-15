@@ -74,7 +74,7 @@ def test_fsdp_trainer():
     # Initialize trainer
     trainer = Trainer(
         model=model,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,
@@ -92,7 +92,7 @@ def test_fsdp_trainer():
     new_model = MLPEncoder(input_dim=1024, hidden_dim=128, output_dim=1024)
     new_trainer = Trainer(
         model=new_model,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,

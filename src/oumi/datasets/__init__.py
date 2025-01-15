@@ -17,6 +17,7 @@ See Also:
 
 Example:
     >>> from oumi.datasets import AlpacaDataset
+    >>> from torch.utils.data import DataLoader
     >>> dataset = AlpacaDataset()
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
