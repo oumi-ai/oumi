@@ -146,6 +146,7 @@ data:
     datasets:
       - dataset_name: "vl_sft_jsonl"
         dataset_path: "/path/to/data"
+        trust_remote_code: False # Set to true if needed for model-specific processors
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Feature generator
 
