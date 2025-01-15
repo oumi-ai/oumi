@@ -4,9 +4,14 @@ This module provides implementations for various cloud platforms that can be use
 with the Oumi launcher for running and managing jobs.
 
 Example:
+    >>> from oumi.launcher import JobConfig, JobResources
     >>> from oumi.launcher.clouds import LocalCloud
     >>> local_cloud = LocalCloud()
-    >>> local_cloud.run_job(job_config)
+    >>> job_resources = JobResources(cloud="local")
+    >>> job_config = JobConfig(
+    ...     name="my_job", resources=job_resources, run="python train.py"
+    ... )
+    >>> job_status = local_cloud.up_cluster(job_config, name="my_cluster")
 
 Note:
     Ensure that you have the necessary credentials and configurations set up
