@@ -14,7 +14,7 @@ in the Oumi framework.
 Example:
     >>> from oumi.models import MLPEncoder
     >>> encoder = MLPEncoder(input_dim=784, hidden_dim=256, output_dim=10)
-    >>> output = encoder(input_data)
+    >>> output = encoder(input_data) # doctest: +SKIP
 
 Note:
     For detailed information on each model, please refer to their respective

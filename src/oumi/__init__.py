@@ -10,7 +10,7 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
-    - :mod:`~oumi.judge`: Functions for judging datasets and model responses.
+    - :mod:`~oumi.judges`: Functions for judging datasets and model responses.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
@@ -23,35 +23,31 @@ Functions:
 Examples:
     Training a model::
 
-        from oumi import train
-        from oumi.core.configs import TrainingConfig
-
-        config = TrainingConfig(...)
-        train(config)
+        >>> from oumi import train
+        >>> from oumi.core.configs import TrainingConfig
+        >>> config = TrainingConfig(...)
+        >>> train(config)
 
     Evaluating a model::
 
-        from oumi import evaluate
-        from oumi.core.configs import EvaluationConfig
-
-        config = EvaluationConfig(...)
-        results = evaluate(config)
+        >>> from oumi import evaluate
+        >>> from oumi.core.configs import EvaluationConfig
+        >>> config = EvaluationConfig(...)
+        >>> results = evaluate(config)
 
     Performing inference::
 
-        from oumi import infer
-        from oumi.core.configs import InferenceConfig
-
-        config = InferenceConfig(...)
-        outputs = infer(config)
+        >>> from oumi import infer
+        >>> from oumi.core.configs import InferenceConfig
+        >>> config = InferenceConfig(...)
+        >>> outputs = infer(config)
 
     Judging a dataset::
 
-        from oumi import judge_dataset
-        from oumi.core.configs import JudgeConfig
-
-        config = JudgeConfig(...)
-        judge_dataset(config, dataset)
+        >>> from oumi import judge_dataset
+        >>> from oumi.core.configs import JudgeConfig
+        >>> config = JudgeConfig(...)
+        >>> judge_dataset(config, dataset)
 
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
@@ -175,10 +171,10 @@ def judge_conversations(
         ]
 
     Example:
-        >>> config = JudgeConfig(...)
-        >>> judge_inputs = [Conversation(...), Conversation(...)]
-        >>> judged_outputs = judge_conversations(config, judge_inputs)
-        >>> for output in judged_outputs:
+        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> judge_inputs = [Conversation(...), Conversation(...)] # doctest: +SKIP
+        >>> judged_outputs = judge_conversations(config, judge_inputs) # doctest: +SKIP
+        >>> for output in judged_outputs: # doctest: +SKIP
         ...     print(output)
     """
     import oumi.judge
@@ -213,10 +209,10 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
         ]
 
     Example:
-        >>> config = JudgeConfig(...)
-        >>> dataset = SomeDataset(...)
-        >>> judged_outputs = judge_dataset(config, dataset)
-        >>> for output in judged_outputs:
+        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> dataset = SomeDataset(...) # doctest: +SKIP
+        >>> judged_outputs = judge_dataset(config, dataset) # doctest: +SKIP
+        >>> for output in judged_outputs: # doctest: +SKIP
         ...     print(output)
     """
     import oumi.judge

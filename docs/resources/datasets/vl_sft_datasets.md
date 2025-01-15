@@ -41,7 +41,7 @@ In this configuration:
 Using a VL-SFT dataset in code is similar to using a regular SFT dataset, with the main difference being in the batch contents:
 
 ```python
-from oumi.builders import build_dataset
+from oumi.builders import build_dataset, build_processor, build_tokenizer
 from oumi.core.configs import DatasetSplit, ModelParams
 from torch.utils.data import DataLoader
 

@@ -74,6 +74,8 @@ exclude_patterns = [
     "api/oumi.models.experimental.*",
 ]
 
+trim_doctest_flags = True
+
 # Importing these modules causes errors in the docs build
 autodoc_mock_imports = ["oumi.models.experimental"]
 

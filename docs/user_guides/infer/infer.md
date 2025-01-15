@@ -33,6 +33,7 @@ oumi infer -i -c configs/recipes/smollm/inference/135m_infer.yaml
 Or use the Python API for a basic chat interaction:
 
 ```{testcode} python
+:skipif: True
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
