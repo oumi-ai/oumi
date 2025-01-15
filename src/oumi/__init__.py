@@ -23,35 +23,35 @@ Functions:
 Examples:
     Training a model::
 
-        from oumi import train
-        from oumi.core.configs import TrainingConfig
+        >>> from oumi import train
+        >>> from oumi.core.configs import TrainingConfig
 
-        config = TrainingConfig(...)
-        train(config)
+        >>> config = TrainingConfig(...)
+        >>> train(config)
 
     Evaluating a model::
 
-        from oumi import evaluate
-        from oumi.core.configs import EvaluationConfig
+        >>> from oumi import evaluate
+        >>> from oumi.core.configs import EvaluationConfig
 
-        config = EvaluationConfig(...)
-        results = evaluate(config)
+        >>> config = EvaluationConfig(...)
+        >>> results = evaluate(config)
 
     Performing inference::
 
-        from oumi import infer
-        from oumi.core.configs import InferenceConfig
+        >>> from oumi import infer
+        >>> from oumi.core.configs import InferenceConfig
 
-        config = InferenceConfig(...)
-        outputs = infer(config)
+        >>> config = InferenceConfig(...)
+        >>> outputs = infer(config)
 
     Judging a dataset::
 
-        from oumi import judge_dataset
-        from oumi.core.configs import JudgeConfig
+        >>> from oumi import judge_dataset
+        >>> from oumi.core.configs import JudgeConfig
 
-        config = JudgeConfig(...) # doctest: +SKIP
-        judge_dataset(config, dataset)
+        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> judge_dataset(config, dataset)
 
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi

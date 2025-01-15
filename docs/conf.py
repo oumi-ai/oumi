@@ -49,6 +49,7 @@ nb_execution_mode = "off"
 nitpick = True
 myst_heading_anchors = 5
 
+trim_doctest_flags = True
 napoleon_use_admonition_for_examples = False
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
