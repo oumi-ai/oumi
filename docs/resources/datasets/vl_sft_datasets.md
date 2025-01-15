@@ -103,8 +103,10 @@ Here's a basic example:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
+from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
+@register_dataset("custom_vl_dataset")
 class CustomVLDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
