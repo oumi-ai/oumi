@@ -38,27 +38,7 @@ While standardized benchmarks offer several advantages, they also come with seve
 
 ## Popular Benchmarks
 
-### HuggingFace Leaderboard V2
-
-As of early 2025, the most popular standardized benchmarks, used across academia and industry, are the benchmarks introduced by HuggingFace's latest (V2) leaderboard. HuggingFace has posted [a blog](https://huggingface.co/spaces/open-llm-leaderboard/blog) elaborating on why these benchmarks have been selected, while EleutherAI has also provided a comprehensive [README](https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/leaderboard/README.md) discussing the benchmark evaluation goals, coverage, and applicability. You can find how to evaluate with these benchmarks in our {doc}`Leaderboards page </user_guides/evaluate/leaderboards>`.
-
-- MMLU-Pro (Massive Multitask Language Understanding) [[paper](https://arxiv.org/abs/2406.01574)]
-- GPQA (Google-Proof Q&A Benchmark) [[paper](https://arxiv.org/abs/2311.12022)]
-- MuSR (Multistep Soft Reasoning) [[paper](https://arxiv.org/abs/2310.16049)]
-- MATH (Mathematics Aptitude Test of Heuristics, Level 5). [[paper](https://arxiv.org/abs/2103.03874)]
-- IFEval (Instruction Following Evaluation) [[paper](https://arxiv.org/abs/2311.07911)]
-- BBH (Big Bench Hard) [[paper](https://arxiv.org/abs/2210.09261)]
-
-### HuggingFace Leaderboard V1
-
-Before HuggingFace's leaderboard V2 was introduced, the most popular benchmarks were captured in the [V1 leaderboard](https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive). You can find how to evaluate with these benchmarks in our {doc}`Leaderboards page </user_guides/evaluate/leaderboards>`. However, due to the fast advancement of AI models, many of these benchmarks have been saturated (i.e., they became too easy to measure meaningful improvements for recent models) while newer models also showed signs of contamination, indicating that data very similar to these benchmarks may exist in their training sets.
-
-- ARC (AI2 Reasoning Challenge) [[paper](https://arxiv.org/abs/1803.05457)]
-- MMLU (Massive Multitask Language Understanding) [[paper](https://arxiv.org/abs/2009.03300)]
-- Winogrande (Adversarial Winograd Schema Challenge at Scale) [[paper](https://arxiv.org/abs/1907.10641)]
-- HellaSwag (Harder Endings, Longer contexts, and Low-shot Activities for Situations With Adversarial Generations) [[paper](https://arxiv.org/abs/1905.07830)]
-- GSM 8K (Grade School Math) [[paper](https://arxiv.org/abs/2110.14168)]
-- TruthfulQA (Measuring How Models Mimic Human Falsehoods) [[paper](https://arxiv.org/abs/2109.07958)]
+FIXME: Add the 12 leaderboard benchmarks back (with descriptions), merge with the table below, then segment the table below meaningfully (task types / use cases).
 
 ### Other Benchmarks
 

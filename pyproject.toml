@@ -34,14 +34,15 @@ classifiers = [
 
 dependencies = [
     "accelerate>=1.2.1,<1.3",
-    "aiohttp>=3.10.9,<3.11",        # Used by infererence engine
+    "aiohttp>=3.10.9,<3.11",        # Used by inference engine
     "aiofiles>=22.1.0,<22.2",       # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
     "datasets>=3.2.0,<3.3",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
-    "numpy>=1.25.2,<1.26",
+    "numpy>=1.26.4,<2.0",
     "omegaconf>=2.3.0,<2.4",
+    "packaging",
     "pandas>=2.0.3,<2.1",
     "peft>=0.14.0,<0.15",
     "pexpect>=4.8.0,<4.9",          # Used by Polaris client
@@ -51,9 +52,12 @@ dependencies = [
     "skypilot>=0.7.0,<0.8",         # Used by launcher
     "tensorboard>=2.18.0,<2.19",    # Optional, for monitoring training
     "torch>=2.4.0,<2.5.0",
+    # 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",     # Used by data pipes loader
     "torchvision>=0.19.0,<0.20",    # Used by some VLM-s (multimodal)
     "tqdm",
+    # NOTE: Liger kernel will soon deprecate support for versions < 4.46.1.
+    # https://github.com/linkedin/Liger-Kernel/blob/5c5a7b4f67772f2196efd69d0821b28c0e4ac45e/src/liger_kernel/transformers/monkey_patch.py#L40
     "transformers>=4.45.2,<4.46",
     "trl>=0.11.4,<0.12",
     "typer",                        # Used by CLI
@@ -70,14 +74,17 @@ dev = [
     "ipykernel",
     "ipywidgets",     # Interactive widgets for Jupyter notebooks
     "jupyterlab",
+    "nbconvert",      # For notebook execution in tests
+    "nbformat",       # For notebook execution in tests
     "pre-commit",
     "pyright",
+    "pytest-asyncio", # Asyncio plugin for pytest
     "pytest-cov",     # Test coverage plugin for pytest
+    "pytest-timeout", # Timeout plugin for pytest
     "pytest",
     "responses",
     "ruff",
     "torchfix",       # Tool for automatically fixing common PyTorch issues
-    "pytest-asyncio", # Asyncio plugin for pytest
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
@@ -96,7 +103,7 @@ docs = [
 gpu = [
     "liger-kernel>=0.3.1,<0.4",
     "nvidia-ml-py>=12.560.30,<12.561",
-    "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implemenation
+    "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
 ]
 
 # Targets for supported cloud providers
@@ -117,7 +124,16 @@ runpod = ["skypilot[runpod]"]
 optional = [
     "llama-cpp-python>=0.3.5,<0.4", # for local cpu/gpu inference. TODO: resolve install issues
     "vllm>=0.6.3,<0.7.0",
+]
+
+evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
+    "langdetect",              # leaderboard_ifeval
+    "immutabledict",           # leaderboard_ifeval
+    "nltk>=3.9.1",
+    # "antlr4-python3-runtime==4.11",  # leaderboard_math_hard (incompatible)
+    "sympy>=1.12",           # leaderboard_math_hard
+    "sentencepiece>=0.1.98",
 ]
 
 cambrian = [
@@ -216,3 +232,4 @@ reportPrivateImportUsage = "none"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
+markers = ["e2e: Slow e2e integration tests"]

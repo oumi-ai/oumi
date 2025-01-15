@@ -30,7 +30,6 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eva
 If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
 
 **Resources:**
-- {gh}`Evaluation Tutorial <notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb>`
 - [AlpacaEval V1.0 Paper](https://arxiv.org/abs/2305.14387)
 - [AlpacaEval V2.0 Paper](https://arxiv.org/abs/2404.04475)
 - [AlpacaEval V2.0 Dataset](https://huggingface.co/datasets/tatsu-lab/alpaca_eval)
@@ -43,7 +42,7 @@ If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebo
 
 MT-Bench uses GPT-4 as a judge to score each answer on a scale of 10, or perform pairwise scoring between 2 models, and calculates standardized win-rates. It can also breakdown the scoring per category (see [notebook](https://colab.research.google.com/drive/15O3Y8Rxq37PuMlArE291P4OC6ia37PQK#scrollTo=5i8R0l-XqkgO)). Overall, it offers several key features including multi-turn conversation evaluation with increasing complexity, diverse question categories spanning various domains, and a standardized scoring system powered by GPT-4 judgments.
 
-To evaluate a model with MT-Bench, see the example notebook {gh}`Oumi - Evaluation with MT Bench.ipynb`.
+To evaluate a model with MT-Bench, see the example notebook {gh}`notebooks/Oumi - Evaluation with MT Bench.ipynb`.
 
 **Resources:**
 - {gh}`MT-Bench Tutorial <notebooks/Oumi - Evaluation with MT Bench.ipynb>`
@@ -72,13 +71,3 @@ See {doc}`/user_guides/judge/judge` to get started.
 **Resources:**
 - {gh}`Custom Judge Implementation <notebooks/Oumi - Custom Judge.ipynb>`
 - {gh}`Oumi Judge Framework <notebooks/Oumi - Oumi Judge.ipynb>`
-
-
-## Results and Logging
-
-All evaluation results are automatically saved and can be tracked:
-
-- **Local Results**: Saved in the specified `output_dir` with detailed metrics, configurations, and version information.
-- **Weights & Biases**: When enabled, results are automatically logged along with model configurations, generation parameters, and environmental details.
-
-For more details on configuration options and advanced usage, see the {doc}`/user_guides/evaluate/evaluate` documentation.

@@ -42,4 +42,4 @@ jobs:
         nvidia-smi
 
         cd ./tests/integration/
-        pytest -s --durations=50
+        pytest -s --durations=50 --timeout=300

@@ -1,18 +1,25 @@
-# Supported Formats
+# Chat Formats
 
-Oumi uses a structured data format for representing conversations and messages.
+Oumi supports multiple popular input formats for representing conversations and messages for AI applications. For example, you can use the `Oumi Conversation` format, which is an extension of OpenAI's JSON format, or the `Alpaca Instruction` format, which is a simplified format that is easier to work with for single-turn instruction models.
 
-This format is implemented using pydantic models, which provide type checking and data validation.
+The chat data representation is designed to be:
+- **Type-Safe**: Built on pydantic models for strong type checking and validation
+- **Flexible**: Supports various content types including text, images, and multimodal conversations
+- **Extensible**: Easy to add metadata and custom attributes
+- **Standardized**: Follows common conventions for AI conversation formats
 
-Let's look at some examples of compatible datasets and how to work with them.
+In this guide, we will look at examples of each supported format, and how to use each format in oumi. This is essential for using your own chat data with oumi `train`, `infer`, and `judge` commands.
 
-## Supported File Formats
+## Using Your Own Chat Data
+In general, to use your own data with Oumi, you need to convert it into a format that can be loaded by one of the existing {py:mod}`oumi.datasets`  classes.
 
-### JSONL Format
+For chat datasets in particular, which are used for {doc}`Supervised Fine-tuning </resources/datasets/sft_datasets>`, {doc}`Preference Tuning </resources/datasets/preference_datasets>`, {doc}`Vision-Language SFT </resources/datasets/vl_sft_datasets>` training, and for all {doc}`inference tasks </user_guides/infer/infer>`, we recommend using {py:class}`~oumi.datasets.sft.sft_jsonlines.TextSftJsonLinesDataset` (registered as `text_sft`) for text-only conversations, or {py:class}`~oumi.datasets.vision_language.vision_jsonlines.VLJsonlinesDataset` (registered as `vl_sft`) for multimodal conversations.
 
-The primary format for conversation datasets is JSONL (JSON Lines). Each line contains a complete conversation:
+### Individual Example Formats
+::::{tab-set}
+:::{tab-item} Conversation Format
+The conversation format is used internally by all the SFT, Preference Tuning, and Vision-Language dataset classes. Each example is a JSON object with a list of messages:
 
-````{dropdown} Basic Conversation Example
 ```json
 {
   "messages": [
@@ -27,7 +34,93 @@ The primary format for conversation datasets is JSONL (JSON Lines). Each line co
   ]
 }
 ```
-````
+
+This format is:
+- Used by internally by Oumi for most tasks. We recommend using it by default for your chat data.
+- Supports multi-turn conversations with system messages
+- Can handle multimodal content (text + images)
+- Allows for additional metadata
+:::
+
+:::{tab-item} Alpaca Format
+The Alpaca format can be used as an alternative to the conversation format. Each example is a JSON object with instruction/input/output fields:
+
+```json
+{
+  "instruction": "What's the weather like in Seattle today?",
+  "input": "",
+  "output": "I apologize, but I don't have access to real-time weather information for Seattle."
+}
+```
+
+This format is:
+- Simple and straightforward for single-turn interactions
+- However, it does not support system messages or multi-turn conversations
+:::
+::::
+
+### Loading Your Data
+Once you have converted each individual example into a `Conversation` or `Alpaca` object, and saved it to a file (with the appropriate extension: `.jsonl` for `jsonlines`, or `.json` for `json`), you can easily load it for training or inference.
+
+For example, let's look at a training config:
+
+::::{tab-set}
+:::{tab-item} Text Conversations
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: path/to/conversations.jsonl
+```
+
+This dataset class:
+- Handles both conversation (similar to OpenAI's format) and instruction (alpaca) formats
+- Supports system messages and multi-turn conversations
+:::
+
+:::{tab-item} Vision-Language
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: vl_sft
+        dataset_path: path/to/multimodal.jsonl
+```
+
+This dataset class:
+- Handles conversations with both text and images (similar to OpenAI's format)
+- Supports multiple image formats (URL, local path, base64)
+- Can process image-text pairs and multi-turn visual conversations
+:::
+::::
+
+You can also load it with the python API:
+
+```python
+from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
+
+text_dataset = TextSftJsonLinesDataset(dataset_path="path/to/conversations.jsonl")
+print(text_dataset.conversation(0))  # prints the first conversation
+
+vl_dataset = VLJsonlinesDataset(dataset_path="path/to/multimodal.jsonl")
+print(vl_dataset.conversation(0))  # prints the first conversation
+```
+
+Or build examples from scratch:
+
+```python
+from oumi.core.types.conversation import Conversation, Message, Role
+
+conversation = Conversation(
+    messages=[Message(role=Role.USER, content="Hi there!")],
+    metadata={"timestamp": "2025-01-01"}
+)
+```
+
+## Examples
+
+Let's looks at some examples of how these formats look in practice.
 
 ### Multi-turn with System Message
 
@@ -110,7 +203,12 @@ Oumi uses structured data formats implemented with pydantic models for robust ty
 
 ### Message Format
 
-The basic unit of conversation is the `Message` class:
+The basic unit of conversation is the `Message` class, which represents a single message in a conversation. Key attributes include:
+
+- `id`: Optional unique identifier for the message
+- `role`: The role of the entity sending the message
+- `content`: Text content of the message for text messages, or a list of `ContentItem`-s for multimodal messages e.g., an image and text content items.
+
 
 ```python
 from oumi.core.types.conversation import Message, Role
@@ -127,6 +225,14 @@ Available roles:
 - `Role.USER`: User messages
 - `Role.ASSISTANT`: AI assistant responses
 - `Role.TOOL`: Tool/function calls
+
+### Conversation
+
+The `Conversation` class represents a sequence of messages. Key attributes include:
+
+- `conversation_id`: Optional unique identifier for the conversation
+- `messages`: List of `Message` objects that make up the conversation
+- `metadata`: Optional dictionary for storing additional information about the conversation
 
 ### Content Types
 
@@ -155,13 +261,6 @@ Available types:
 - `Type.IMAGE_URL`: Remote image URL
 - `Type.IMAGE_BINARY`: Raw image data
 
-### Message
-
-The `Message` class represents a single message in a conversation. Key attributes include:
-
-- `id`: Optional unique identifier for the message
-- `role`: The role of the entity sending the message
-- `content`: Text content of the message for text messages, or a list of `ContentItem`-s for multimodal messages e.g., an image and text content items.
 
 ### ContentItem
 
@@ -173,13 +272,6 @@ The `ContentItem` class represents a single type part of content used in multimo
 
 Either `content` or `binary` must be provided when creating a `ContentItem` instance.
 
-### Conversation
-
-The `Conversation` class represents a sequence of messages. Key attributes include:
-
-- `conversation_id`: Optional unique identifier for the conversation
-- `messages`: List of `Message` objects that make up the conversation
-- `metadata`: Optional dictionary for storing additional information about the conversation
 
 ## Working with Conversations
 
@@ -198,7 +290,7 @@ conversation = Conversation(
 ```
 
 ```python
->>> from oumi.core.types.conversation import ContentItem, Message, Role, Type
+>>> from oumi.core.types.conversation import ContentItem, Message, Role
 >>> # Create a simple text message
 >>> text_message = Message(role=Role.USER, content="Hello, world!")
 >>> text_message.role
