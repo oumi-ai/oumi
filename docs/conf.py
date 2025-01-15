@@ -14,9 +14,9 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Open Universal Machine Intelligence"
-copyright = "2024, Open Universal Machine Intelligence"
-author = "Open Universal Machine Intelligence"
+project = "Oumi"
+copyright = "2025, Oumi"
+author = "Oumi"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
