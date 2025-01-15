@@ -327,6 +327,7 @@ def test_train_1gpu_24gb(
                 / "vision"
                 / "llama3_2_vision"
                 / "sft"
+                / "11b_full"
                 / "11b_train.yaml"
             ),
             max_steps=5,

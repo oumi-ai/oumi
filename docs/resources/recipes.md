@@ -54,7 +54,7 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | Model | Configuration | Links |
 |-------|--------------|-------|
 | BLIP-2 OPT-2.7B | `recipes/vision/blip2_opt_2.7b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml>` {gh}`configs/recipes/vision/blip2_opt_2.7b/sft/train.yaml` |
-| Llama 3.2 Vision 11B | `recipes/vision/llama3_2_vision/sft/11b_train.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml` |
+| Llama 3.2 Vision 11B | `recipes/vision/llama3_2_vision/sft/11b_full/11b_train.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/sft/11b_full/11b_train.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/sft/11b_full/11b_train.yaml` |
 | | `recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` |
