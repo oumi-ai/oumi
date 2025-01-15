@@ -44,12 +44,12 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
 
 Example:
-    >>> from oumi.core.configs import TrainingConfig, ModelParams
+    >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
     >>> model_params = ModelParams(model_name="gpt2")
+    >>> training_params = TrainingParams(num_train_epochs=3)
     >>> training_config = TrainingConfig(
-    ...     model_params=model_params, # doctest: +SKIP
-    ...     batch_size=32,
-    ...     num_epochs=3
+    ...     model=model_params,
+    ...     training=training_params,
     ... )
     >>> # Use the training_config in your training pipeline
 

@@ -42,6 +42,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 engine = VLLMInferenceEngine(
     ModelParams(
         model_name="HuggingFaceTB/SmolLM2-135M-Instruct",
+        model_kwargs={"device_map": "auto"}
     )
 )
 

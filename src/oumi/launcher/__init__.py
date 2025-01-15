@@ -7,10 +7,10 @@ Example:
     >>> from oumi.launcher import Launcher, JobConfig, JobResources
     >>> launcher = Launcher()
     >>> job_resources = JobResources(cloud="local")
-    >>> job_config = JobConfig( # doctest: +SKIP
+    >>> job_config = JobConfig(
     ...     name="my_job", resources=job_resources, run="python train.py"
-    ... ) # TODO(wizeng): fix
-    >>> launcher.run(job_config, cluster_name="my_cluster") # doctest: +SKIP
+    ... )
+    >>> job_status = launcher.up(job_config, cluster_name="my_cluster")
 
 Note:
     This module integrates with various cloud platforms. Ensure that the necessary

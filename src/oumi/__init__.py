@@ -25,7 +25,6 @@ Examples:
 
         >>> from oumi import train
         >>> from oumi.core.configs import TrainingConfig
-
         >>> config = TrainingConfig(...)
         >>> train(config)
 
@@ -33,7 +32,6 @@ Examples:
 
         >>> from oumi import evaluate
         >>> from oumi.core.configs import EvaluationConfig
-
         >>> config = EvaluationConfig(...)
         >>> results = evaluate(config)
 
@@ -41,7 +39,6 @@ Examples:
 
         >>> from oumi import infer
         >>> from oumi.core.configs import InferenceConfig
-
         >>> config = InferenceConfig(...)
         >>> outputs = infer(config)
 
@@ -49,8 +46,7 @@ Examples:
 
         >>> from oumi import judge_dataset
         >>> from oumi.core.configs import JudgeConfig
-
-        >>> config = JudgeConfig(...) # doctest: +SKIP
+        >>> config = JudgeConfig(...)
         >>> judge_dataset(config, dataset)
 
 See Also:
