@@ -154,7 +154,7 @@ To contribute to Oumi or troubleshoot issues, it's helpful to understand how the
 
 ## Next Steps
 
-1. **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
+1. **Get started with Oumi:** First {doc}`install Oumi </get_started/installation>`, then follow the {doc}`/get_started/quickstart` guide to run your first training job.
 2. **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
 3. **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.
 4. **Learn more about key functionalities:** Explore detailed guides on {doc}`training </user_guides/train/training_methods>`, {doc}`inference </user_guides/infer/infer>`, {doc}`evaluation </user_guides/evaluate/evaluate>`, and {doc}`model judging </user_guides/judge/judge>`.

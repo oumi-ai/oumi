@@ -1,5 +1,20 @@
 # Quickstart
 
+## Pre-requisites
+
+Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
+
+```bash
+pip install oumi
+
+# Optional: If you have an Nvidia or AMD GPU, you can install the GPU dependencies
+pip install oumi[gpu]
+```
+
+If you need help setting up your environment (python, pip, git, etc), you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
+
+## Introduction
+
 Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` command-line interface (CLI) to train, evaluate, and run inference with a model.
 
 We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
@@ -159,4 +174,8 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 
 To explore the Cloud providers that we support for running jobs on remote clusters, details on remote job management, and authoring configuration files, visit {doc}`running jobs remotely </user_guides/launch/remote>`.
 
-If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.
+## 🔗 Community
+
+⭐ If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
+
+👋 If you are interested in contributing, please read the [Contributor’s Guide](/development/contributing).
