@@ -206,7 +206,7 @@ class TrainingParams(BaseParams):
     If both `save_steps` and `save_epoch` are set, then `save_steps` takes precedence.
     """
 
-    save_steps: int = 500
+    save_steps: int = 100
     """Save a checkpoint every `save_steps` training steps.
 
     This parameter determines the frequency of saving checkpoints during
@@ -300,7 +300,7 @@ class TrainingParams(BaseParams):
     This includes TensorBoard logs and other training-related output.
     """
 
-    logging_steps: int = 500
+    logging_steps: int = 50
     """Number of update steps between two logs if logging_strategy="steps".
 
     Ignored if logging_strategy is not "steps".
@@ -329,7 +329,7 @@ class TrainingParams(BaseParams):
     - "epoch": Evaluation is done at the end of each epoch.
     """
 
-    eval_steps: Optional[int] = None
+    eval_steps: int = 100
     """Number of update steps between two evaluations if eval_strategy="steps".
 
     Ignored if eval_strategy is not "steps".
