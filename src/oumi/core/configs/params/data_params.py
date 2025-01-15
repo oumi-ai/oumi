@@ -225,6 +225,9 @@ class DatasetSplitParams(BaseParams):
 
     use_async_dataset: bool = False
     """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
     """
 
     # EXPERIMENTAL PARAMS -------------------------
