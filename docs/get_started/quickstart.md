@@ -1,5 +1,20 @@
 # Quickstart
 
+## Pre-requisites
+
+Let's start by installing Oumi. Assuming you have Python and pip installed, you can install Oumi with the following commands:
+
+```bash
+pip install oumi
+
+# Optional: If you have an Nvidia or AMD GPU, you can install the GPU dependencies
+pip install oumi[gpu]
+```
+
+We highly recommend setting up a virtual environment to install Oumi. If you need help setting up your environment, you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
+
+## Introduction
+
 Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` command-line interface (CLI) to train, evaluate, and run inference with a model.
 
 We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
