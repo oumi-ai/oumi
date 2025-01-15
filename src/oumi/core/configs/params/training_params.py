@@ -333,7 +333,6 @@ class TrainingParams(BaseParams):
     """Number of update steps between two evaluations if eval_strategy="steps".
 
     Ignored if eval_strategy is not "steps".
-    If not set, will default to the value of `logging_steps`
     """
 
     learning_rate: float = 5e-05
