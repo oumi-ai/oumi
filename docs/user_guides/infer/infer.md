@@ -135,7 +135,7 @@ Oumi supports several input formats for inference:
 
 Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
 
-See {doc}`/resources/datasets/custom_datasets` for more details.
+See {doc}`/resources/datasets/data_formats` for more details.
 
 2. Interactive console input
 

@@ -85,7 +85,7 @@ about/license
 about/citations
 ```
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pre-training and post-training, to data curation, synthesis, and evaluation. Built with enterprise-grade quality and reliability, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
 
 ## Features
 
@@ -93,7 +93,7 @@ Oumi is designed to be fully flexible yet easy to use:
 
 ### 🤖 Model Support
 
-- **Comprehensive Model Coverage**: Support for leading models including Llama 3.1/3.2/3.3 (up to 405B), Mistral, Gemma, Qwen2, and more
+- **Comprehensive Model Coverage**: Support for leading models including Llama 3.1/3.2/3.3 (up to 405B), Mistral, Gemma, Qwen2, {doc}`and more <resources/models/supported_models>`
 - **Vision-Language Models**: First-class support for multimodal models like Llama 3.2 Vision, LLaVA-1.5, and Qwen2-VL
 - **Unified Interface**: One consistent API for all models, whether from HuggingFace Hub or custom implementations
 
@@ -128,13 +128,13 @@ While you can dive directly into any section that interests you, we recommend fo
 | 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
 | 📖 API Reference | Documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
 
-## Contributing
+## 🔗 Contributing
 
 We welcome contributions! See our {doc}`Contributing Guide <development/contributing>` for information on how to get involved, including guidelines for code style, testing, and submitting pull requests.
 
 If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+), or {doc}`contributing directly <development/contributing>`!
 
-## Need Help?
+## ❓ Need Help?
 
 If you encounter any issues or have questions, please don't hesitate to:
 
