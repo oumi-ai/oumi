@@ -95,7 +95,7 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 |-------|------------------------|
 | Llama 3.1 8B | [FSDP Training](/configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml) • [Long Context](/configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml) |
 | Phi-3 | [DPO](/configs/recipes/phi3/dpo/train.yaml) • [DPO+FSDP](/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml) |
-| FineWeb Pretraining | [DDP](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) • [FSDP](/configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml) |
+| FineWeb Pre-training | [DDP](/configs/examples/fineweb_ablation_pretraining/ddp/train.yaml) • [FSDP](/configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml) |
 
 #### 🚀 Inference
 
