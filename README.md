@@ -7,43 +7,26 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-Oumi is a community-first, end-to-end platform for advanced AI research and development. It provides comprehensive support for foundation model workflows - from pretraining and post-training, to data curation, synthesis, and evaluation. Built to be flexible and enterprise-grade, Oumi serves both researchers pushing the boundaries of AI and organizations building production-ready solutions.
+Oumi is a platform for building state-of-the-art foundation models, end-to-end.
 
-<p align="center">
-   <b>Check out the detailed Oumi docs!</b>
-   <br>
-   ↓↓↓↓↓↓
-   <br>
-   https://oumi.ai/docs
-   <br>
-   ↑↑↑↑↑↑
-</p>
+With Oumi, you can:
 
-## Features
+- 🚀 Train and fine-tune models from 1B to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, and more)
+- 🤖 Work with both text and multimodal models (Llama, QWEN, Phi, and others)
+- 🔄 Synthesize and curate training data with LLM judges
+- ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
+- 📊 Evaluate models comprehensively across standard benchmarks
+- 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
+- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail, ...)
 
-Oumi is designed to support all common foundation model workflows. As a few examples, with Oumi you can:
--  **Tune** all the most popular and highest performing open text and multimodal models with the latest techniques for the highest quality and efficiency. From the smallest models to the largest ones. On your laptop, your cluster, or any common cloud.
-- **Synthesize** data with the largest open models, curate it with LLM judges and readily use it to train and evaluate.
-- Perform **inference** with most common inference engines and **evaluation** with most common benchmarks.
-- Do many more things out of the box and **anything else** you desire easily thanks to Oumi’s composable and extensible design.
+Built on key design principles:
 
-Some of Oumi's key features and design principles include:
+- 🔄 **Unified Interface**: One consistent API for the full ML lifecycle - from pretraining to deployment
+- 🎯 **Complete Workflows**: First-class support for all foundation model workflows out of the box
+- 🌐 **Open by Default**: Built on and for open source, with seamless integration of commercial services when needed
+- 📝 **Reproducible**: Version-controlled configs and standardized workflows ensure reproducible research
+- 📈 **Scalable & Efficient**: Optimized for performance at any scale, from laptops to large clusters
 
-- **End-to-end Unified Platform**: Support for the full ML lifecycle with one consistent interface - from pretraining to data curation, data synthesis, fine-tuning (SFT, LoRA, QLoRA, DPO), inference, and evaluation. Seamlessly work with both open models (Llama, QWEN, Phi and others) and commercial APIs (OpenAI, Anthropic, Vertex AI), with both text and multimodal models.
-
-- **Easy To Use**: Prebuilt ready-to-use workflows and recipes for post training and other common operations.
-
-- **Extensible Architecture**: Easily add new models, datasets, training approaches and evaluation metrics. Built with modularity and extensibility in mind.
-
-- **Run Anywhere**: Train and evaluate models seamlessly across environments - from local machines to remote clusters and clouds (AWS, Azure, GCP, Lambda), with native support for Jupyter notebooks and VS Code debugging.
-
-- **Built for Scale**: First-class support for distributed training with PyTorch DDP and FSDP. Efficiently handle models up to 405B parameters.
-
-- **Research-Grade**: Version-controlled configurations via YAML files and CLI arguments ensure fully reproducible experiments across training and evaluation pipelines. Standardization of datasets, evaluation and other experimentation steps make it easy to share, collaborate and build on each other's work.
-
-- **Enterprise-Grade**: Comprehensive test coverage, detailed documentation, and strong support make Oumi reliable for both research and production use cases.
-
-If there's a feature that you think is missing, let us know or join us in making it a reality by sending a [feature request](https://github.com/oumi-ai/oumi/issues/new?assignees=&labels=Enhancement&projects=&template=feature-request.yaml&title=%5BFeature%5D%3A+), or [contributing directly](CONTRIBUTING.md)!
 
 For a full tour of what Oumi can do, dive into the [documentation](https://oumi.ai/docs).
 
