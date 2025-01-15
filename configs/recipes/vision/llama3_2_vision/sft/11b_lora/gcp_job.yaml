@@ -46,6 +46,6 @@ run: |
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.output_dir "${OUMI_RUN_NAME}" \
       --training.logging_dir "${OUMI_RUN_NAME}/runs" \
-      --training.save_final_model false
+      --training.save_final_model true
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
