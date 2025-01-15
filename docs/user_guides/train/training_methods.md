@@ -81,16 +81,18 @@ Vision-Language SFT uses the {class}`~oumi.core.types.conversation.Conversation`
 ::::{tab-set-code}
 :::{code-block} python
 
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
+
 Conversation(
     messages=[
         Message(
             role=Role.USER,
             content=[
                 ContentItem(
-                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg",
                     type=Type.IMAGE_URL,
+                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
                 ),
-                ContentItem(content="What is in this image?", type=Type.TEXT),
+                ContentItem(type=Type.TEXT, content="What is in this image?"),
             ],
         ),
         Message(
@@ -134,15 +136,18 @@ The configuration for Vision-Language SFT is similar to SFT, but with additional
 
 ```yaml
 model:
-  freeze_layers: ["vision_encoder"]  # freeze specific layers to only train the language model, and not the vision encoder
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  chat_template: "llama3-instruct"
+  freeze_layers: ["vision_encoder"]  # Freeze specific layers to only train the language model, and not the vision encoder
 
 data:
   train:
+    collator_name: "vision_language_with_padding" # Visual features collator
     datasets:
       - dataset_name: "vl_sft_jsonl"
         dataset_path: "/path/to/data"
-    collator_name: "vision_language_with_padding
-
+        dataset_kwargs:
+          processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Feature generator
 
 training:
   trainer_type: "TRL_SFT"
