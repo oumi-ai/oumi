@@ -388,8 +388,7 @@ def _detect_local_machine_process_run_info(env: dict[str, str]) -> _ProcessRunIn
         node_rank = 0
         gpus_per_node = num_gpus_available
         node_ips = [oumi_master_address]
-        os.environ["ACCELERATE_LOG_LEVEL"] = "info"
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        cli_utils.configure_common_env_vars()
     else:
         raise RuntimeError("CUDA available but no GPUs found on local machine!")
 
