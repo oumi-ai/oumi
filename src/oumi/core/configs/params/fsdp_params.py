@@ -193,6 +193,7 @@ class FSDPParams(BaseParams):
     forward_prefetch: bool = False
     """If True, prefetches the forward pass results."""
 
+    # Different than default of False, but potentially more useful to auto-set.
     use_orig_params: Optional[bool] = None
     """If True, uses the PyTorch Module's original parameters for FSDP.
 
@@ -203,7 +204,7 @@ class FSDPParams(BaseParams):
     state_dict_type: StateDictType = StateDictType.FULL_STATE_DICT
     """Specifies the type of state dict to use for checkpointing."""
 
-    auto_wrap_policy: AutoWrapPolicy = AutoWrapPolicy.SIZE_BASED_WRAP
+    auto_wrap_policy: AutoWrapPolicy = AutoWrapPolicy.NO_WRAP
     """Policy for automatically wrapping layers in FSDP."""
 
     min_num_params: int = 100_000
