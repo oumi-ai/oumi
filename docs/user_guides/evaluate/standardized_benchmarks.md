@@ -115,13 +115,13 @@ To see all available tasks:
 lm-eval --tasks list
 ```
 
-## Multimodal Benchmarks
+### Multimodal Benchmarks
 
 Benchmarks to evaluate vision-language (image + text) models.
 
 | Task | Description | Task Name | Introduced |
 |------|-------------|-----------|------------|
-MMMU | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines. | `mmmu_val` | 2023, by OSU and others
+MMMU (Massive Multi-discipline Multimodal Understanding) | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines [details](https://arxiv.org/abs/2311.16502) | `mmmu_val` | 2023, by OSU and others
 
 ## Custom LM-Harness Tasks
 
