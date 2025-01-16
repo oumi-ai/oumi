@@ -1,3 +1,6 @@
+import os
+from unittest import mock
+
 import pytest
 import typer
 from typer.testing import CliRunner
@@ -6,6 +9,7 @@ from oumi.cli.cli_utils import (
     CONFIG_FLAGS,
     CONTEXT_ALLOW_EXTRA_ARGS,
     LogLevel,
+    configure_common_env_vars,
     parse_extra_cli_args,
 )
 
@@ -81,3 +85,43 @@ def test_valid_log_levels():
     expected_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
     supported_levels = set(LogLevel.__members__.keys())
     assert expected_levels == supported_levels
+
+
+@mock.patch.dict(os.environ, {"FOO": "1"}, clear=True)
+def test_configure_common_env_vars_empty():
+    configure_common_env_vars()
+    assert os.environ == {
+        "FOO": "1",
+        "ACCELERATE_LOG_LEVEL": "info",
+        "TOKENIZERS_PARALLELISM": "false",
+    }
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "TOKENIZERS_PARALLELISM": "true",
+        "FOO": "1",
+    },
+    clear=True,
+)
+def test_configure_common_env_vars_partially_preconfigured():
+    configure_common_env_vars()
+    assert os.environ == {
+        "FOO": "1",
+        "ACCELERATE_LOG_LEVEL": "info",
+        "TOKENIZERS_PARALLELISM": "true",
+    }
+
+
+@mock.patch.dict(
+    os.environ,
+    {"TOKENIZERS_PARALLELISM": "true", "ACCELERATE_LOG_LEVEL": "debug"},
+    clear=True,
+)
+def test_configure_common_env_vars_fully_preconfigured():
+    configure_common_env_vars()
+    assert os.environ == {
+        "ACCELERATE_LOG_LEVEL": "debug",
+        "TOKENIZERS_PARALLELISM": "true",
+    }
