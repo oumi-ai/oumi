@@ -108,13 +108,14 @@ Benchmarks focused on evaluating a model's ability to perform mathematical calcu
 MATH (Mathematics Aptitude Test of Heuristics), Level 5  | Challenging competition mathematics problems that require step-by-step solutions [[details](https://arxiv.org/abs/2103.03874)] | `leaderboard_math_hard` | 2021, by UC Berkeley
 GSM 8K (Grade School Math) | Grade school-level math word problems [[details](https://arxiv.org/abs/2110.14168)] | `gsm8k` | 2021, by OpenAi
 
-### Multimodal Benchmarks
+(multi-modal-standardized-benchmarks)=
+### Multi-modal Benchmarks
 
 Benchmarks to evaluate vision-language (image + text) models.
 
 | Task | Description | Task Name | Introduced |
 |------|-------------|-----------|------------|
-MMMU (Massive Multi-discipline Multimodal Understanding) | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines [details](https://arxiv.org/abs/2311.16502) | `mmmu_val` | 2023, by OSU and others
+MMMU (Massive Multi-discipline Multimodal Understanding) | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines [[details](https://arxiv.org/abs/2311.16502)] | `mmmu_val` | 2023, by OSU and others
 
 ### Other Tasks
 To see all available tasks:

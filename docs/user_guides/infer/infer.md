@@ -171,6 +171,7 @@ generation:
 Ensure the selected inference engine supports the specific quantization method used in your model.
 ```
 
+(multi-modal-inference)=
 ### Multi-modal Inference
 
 For models that support multi-modal inputs (e.g., text and images):
