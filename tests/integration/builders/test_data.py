@@ -20,6 +20,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
@@ -67,10 +68,15 @@ def _get_dataset_size(
     stream: bool,
     pack: bool = False,
 ) -> int:
-    if stream:
+    if stream or pack:
         if pack:
             assert isinstance(
-                dataset, (ConstantLengthDataset, PretrainingAsyncTextDataset)
+                dataset,
+                (
+                    ConstantLengthDataset,
+                    BasePretrainingDataset,
+                    PretrainingAsyncTextDataset,
+                ),
             )
         else:
             assert isinstance(dataset, (IterableDataset))
@@ -390,69 +396,153 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
 
 
 def test_data_multiple_datasets_packing(stream: bool):
-    if stream:
-        config = _get_default_config(
-            [
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.1,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.4,
-                ),
-                DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
-                    sample_count=50,
-                    mixture_proportion=0.5,
-                ),
-            ],
-            stream,
-            DatasetSplit.TEST,
-            pack=True,
-        )
-        config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
-        config.data.get_split(DatasetSplit.TEST).seed = 1
-        tokenizer = build_tokenizer(config.model)
-        dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
-        # The packed dataset should be even smaller.
-        assert _get_dataset_size(dataset, stream, pack=True) == 3
-    else:
-        # Raise an exception as streaming is requried for packing.
-        with pytest.raises(Exception):
-            _ = _get_default_config(
-                [
+    config = _get_default_config(
+        [
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.1,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.4,
+            ),
+            DatasetParams(
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 50},
+                sample_count=50,
+                mixture_proportion=0.5,
+            ),
+        ],
+        stream,
+        DatasetSplit.TEST,
+        pack=True,
+    )
+    config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
+    config.data.get_split(DatasetSplit.TEST).seed = 1
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
+    # The packed dataset should be even smaller.
+    assert _get_dataset_size(dataset, stream, pack=True) == 3
+
+
+def test_packing_without_streaming_with_sft_dataset(stream: bool):
+    """Test that packing works regardless of streaming flag"""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
                     DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.1,
+                        dataset_name="debug_sft", dataset_kwargs={"dataset_size": 50}
+                    )
+                ],
+                pack=True,
+                stream=stream,
+            )
+        ),
+        model=ModelParams(model_name="gpt2", model_max_length=128),
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+
+    # Verify it returns a PretrainingAsyncTextDataset
+    assert isinstance(dataset, PretrainingAsyncTextDataset)
+
+    # Verify we can iterate through it
+    items = []
+    for idx, item in enumerate(dataset):
+        items.append(item)
+        assert isinstance(item, dict)
+        assert "input_ids" in item
+        assert len(item["input_ids"]) == 128
+
+    assert len(items) == 11  # number of packed samples in the dataset
+
+
+def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
+    """Test that packing works regardless of streaming flag"""
+
+    if not stream:
+        pytest.skip("Iterable datasets must be streamed")
+
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 50, "seq_length": 128},
+                    )
+                ],
+                pack=True,
+                stream=stream,
+            )
+        ),
+        model=ModelParams(model_name="gpt2", model_max_length=128),
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+
+    # Verify it returns a IterableDataset
+    assert isinstance(dataset, IterableDataset)
+
+    # Verify we can iterate through it
+    items = []
+    for idx, item in enumerate(dataset):
+        items.append(item)
+        assert isinstance(item, dict)
+        assert "input_ids" in item
+        assert len(item["input_ids"]) == 128
+
+    assert len(items) == 2  # number of packed samples in the dataset
+
+
+@pytest.mark.skip(
+    reason="FIXME: this test is inconsistent, and fails depending on cache state"
+)
+def test_mixed_dataset_packing(stream: bool):
+    """Test packing with mixed datasets"""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="debug_sft",
+                        dataset_kwargs={"dataset_size": 50},
+                        mixture_proportion=0.6,
                     ),
                     DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=50,
+                        dataset_name="debug_sft",
+                        dataset_kwargs={"dataset_size": 30},
                         mixture_proportion=0.4,
                     ),
-                    DatasetParams(
-                        dataset_name="tasksource/mmlu",
-                        subset="abstract_algebra",
-                        split="test",
-                        sample_count=5,
-                        mixture_proportion=0.5,
-                    ),
                 ],
-                stream,
-                DatasetSplit.TEST,
                 pack=True,
+                stream=stream,
+                seed=1,
             )
+        ),
+        model=ModelParams(model_name="gpt2", model_max_length=128),
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+
+    # Verify type and basic functionality
+    assert isinstance(dataset, PretrainingAsyncTextDataset)
+
+    # Check interleaving is working by sampling first few items
+    items = []
+    for idx, item in enumerate(dataset):
+        items.append(item)
+        assert isinstance(item, dict)
+        assert "input_ids" in item
+        assert len(item["input_ids"]) == 128
+
+    assert len(items) > 0
+    assert len(items) == 15

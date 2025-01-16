@@ -1,5 +1,20 @@
 # Quickstart
 
+## Pre-requisites
+
+Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
+
+```bash
+pip install oumi
+
+# Optional: If you have an Nvidia or AMD GPU, you can install the GPU dependencies
+pip install oumi[gpu]
+```
+
+If you need help setting up your environment (python, pip, git, etc), you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
+
+## Introduction
+
 Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` command-line interface (CLI) to train, evaluate, and run inference with a model.
 
 We'll use a small model (`SmolLM-135M`) so that the examples can run fast on both CPU and GPU. `SmolLM` is a family of state-of-the-art small models with 135M, 360M, and 1.7B parameters, trained on a new high-quality dataset. You can learn more about about them in [this blog post](https://huggingface.co/blog/smollm).
@@ -94,8 +109,12 @@ Or with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
-  --model.model_name output/smollm-135m-sft
+  --model.model_name output/smollm135m.fft
 ```
+
+If you saved your model to a different directory such as `output/smollm-135m-sft-dist`, you need only change `--model.model_name`.
+
+To explore the benchmarks that our evaluations support, including HuggingFace leaderboards and AlpacaEval, visit our {doc}`evaluation guide </user_guides/evaluate/evaluate>`.
 
 ## Inference
 
@@ -120,11 +139,13 @@ Or with our newly trained model saved on disk:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
-  --model.model_name output/smollm-135m-sft \
+  --model.model_name output/smollm135m.fft \
   --generation.max_new_tokens 40 \
   --generation.temperature 0.7 \
   --interactive
 ```
+
+To learn more about running inference locally or remotely (including OpenAI, Google, Anthropic APIs) and leveraging inference engines to parallelize and speed up your jobs, visit our {doc}`inference guide </user_guides/infer/infer>`.
 
 ## Launching Jobs
 
@@ -153,4 +174,10 @@ To launch an evaluation job:
 oumi launch up -c configs/recipes/smollm/evaluation/135m/quickstart_gcp_job.yaml
 ```
 
-If you like our project, please give it a star on GitHub. If you are interested in contributing, please read Contributor’s Guide.
+To explore the Cloud providers that we support for running jobs on remote clusters, details on remote job management, and authoring configuration files, visit {doc}`running jobs remotely </user_guides/launch/remote>`.
+
+## 🔗 Community
+
+⭐ If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
+
+👋 If you are interested in contributing, please read the [Contributor’s Guide](/development/contributing).

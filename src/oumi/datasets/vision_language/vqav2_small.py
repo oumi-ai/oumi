@@ -13,6 +13,8 @@ from oumi.core.types.conversation import (
 
 @register_dataset("merve/vqav2-small")
 class Vqav2SmallDataset(VisionLanguageSftDataset):
+    """Dataset class for the `merve/vqav2-small` dataset."""
+
     default_dataset = "merve/vqav2-small"
 
     def _process_text_value(self, s: str) -> str:

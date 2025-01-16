@@ -6,8 +6,8 @@ types of models and tasks.
 
 Example:
     >>> from oumi.core.trainers import Trainer
-    >>> trainer = Trainer(model=my_model, dataset=my_dataset)
-    >>> trainer.train()
+    >>> trainer = Trainer(model=my_model, dataset=my_dataset) # doctest: +SKIP
+    >>> trainer.train() # doctest: +SKIP
 
 Note:
     For detailed information on each trainer, please refer to their respective

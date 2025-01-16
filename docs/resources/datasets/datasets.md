@@ -10,37 +10,37 @@ sft_datasets
 pretraining_datasets
 preference_datasets
 vl_sft_datasets
-custom_datasets
 ```
 
-This guide will help you integrate datasets into your AI inference and training pipelines, whether you're using our pre-built datasets or creating custom ones.
+## Overview
 
-### Working with Your Data
+Oumi provides a dataset framework designed to handle everything from small custom datasets to web-scale pre-training datasets. Our goal is to make it easy to work with any type of data while maintaining consistent interfaces and optimal performance.
 
-1. **Standard Format Datasets**
-  If your data matches our [supported formats](/resources/datasets/data_formats), use it directly with minimal setup.
+Key features include:
 
-2. **Custom Processing Needs**
-  For datasets requiring special handling, follow our [custom dataset guide](/resources/datasets/custom_datasets).
-
-3. **Pre-built Datasets** We have a collection of pre-built, popular open source datasets for various training objectives and tasks. These are available for download and use in your training and inference pipelines, and can be used to complement your own datasets. See [Pre-built Datasets](#pre-built-datasets) for more information.
-
-
-### Pre-Built Datasets
-
-Our dataset collection covers various training objectives and tasks:
-
-| Dataset Type | Key Features | Documentation |
-|--------------|--------------|---------------|
-| **Pretraining** | • Large-scale corpus training for foundational models<br>• Domain adaptation through continued pretraining<br>• Efficient sequence packing and streaming | [→ Pretraining guide](pretraining_datasets.md) |
-| **Supervised Fine-Tuning (SFT)** | • Instruction-following datasets<br>• Conversation format support for chat models<br>• Task-specific fine-tuning capabilities | [→ SFT guide](sft_datasets.md) |
-| **Preference** | • Human preference data for RLHF training<br>• Direct preference optimization (DPO) support<br>• Quality and alignment tuning | [→ Preference learning guide](preference_datasets.md) |
-| **Vision-Language** | • Image-text pairs for multi-modal training<br>• Visual question answering datasets<br>• Image captioning collections | [→ Vision-language guide](vl_sft_datasets.md) |
+- **Multiple Dataset Types**: Support for Supervised Fine-Tuning (SFT), Pre-training, Preference Tuning, Vision-Language datasets, and more.
+- **Flexible Data Formats**: Work with standard formats like ChatML, or implement custom data processing
+- **Scalable Processing**: Handle datasets of any size through streaming and efficient data loading
+- **Pre-built Datasets**: Access to a curated collection of popular open-source datasets ready for immediate use
 
 ## Quick Start
 
-Let's begin with a simple example using the python API:
+### Using Pre-built Datasets
 
+The fastest way to get started is using one of our pre-built datasets. These datasets are ready to use and require minimal setup. You can load them directly using either the Python API or configure them through YAML files.
+
+::::{tab-set}
+:::{tab-item} YAML Config
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: tatsu-lab/alpaca
+        split: train
+```
+:::
+
+:::{tab-item} Python API
 ```python
 from oumi.builders import build_dataset
 from oumi.core.configs import DatasetSplit
@@ -59,13 +59,34 @@ for batch in dataloader:
     # Your training code here
     pass
 ```
+:::
+::::
 
-You can also build a mixture of datasets, to train on multiple datasets at once:
+### Working with Dataset Mixtures
 
+For more complex training scenarios, you might want to combine multiple datasets. Oumi makes it easy to create and configure dataset mixtures, allowing you to train on multiple datasets simultaneously with configurable mixing strategies.
+
+::::{tab-set}
+:::{tab-item} YAML Config
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: tatsu-lab/alpaca
+        split: train
+      - dataset_name: databricks/dolly
+        split: train
+    mixture_strategy: first_exhausted  # Strategy for combining multiple datasets
+    collator_name: text_with_padding
+```
+:::
+
+:::{tab-item} Python API
 ```python
 from oumi.core.configs import DataParams, DatasetParams
 from oumi.builders import build_dataset_mixture
 
+# Build a mixture of datasets
 config = DataParams(
     train=DatasetSplitParams(
         datasets=[
@@ -81,29 +102,62 @@ dataset = build_dataset_mixture(
     split=DatasetSplit.TRAIN
 )
 ```
+:::
+::::
 
-Configuration can be done via YAML:
+## Core Concepts
+
+### How Datasets Work
+
+At its core, each dataset in Oumi consists of two main components:
+
+1. **Dataset Class**: Specified by `dataset_name`, this defines how the data should be processed. Dataset classes are registered in the codebase and map to specific Python classes. For example:
+   - `"tatsu-lab/alpaca"` maps to the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class, which handles JSON Lines data in Alpaca format
+   - `"text_sft"` maps to the {py:class}`~oumi.datasets.sft.sft_jsonlines.TextSftJsonLinesDataset` class, which handles generic SFT data
+   - Each class knows how to parse its input format and convert examples into the right format for training
+
+2. **Dataset Path**: Specified by `dataset_path`, this points to where the actual data is stored. It can be:
+   - A local file path (e.g., `"data/my_dataset.jsonl"`), or path to a cached dataset
+   - Left empty to use the default data source for pre-built datasets
+
+Here are two examples showing how this works in configuration:
 
 ```yaml
-training:
-  data:
-    train:
-      datasets:
-        - dataset_name: oumi/sft-basic
-          split: train
-          stream: true  # Enable for large datasets
-      collator_name: text_with_padding
+data:
+  train:
+    datasets:
+      # Example 1: Using pre-built Alpaca dataset
+      - dataset_name: tatsu-lab/alpaca  # Uses AlpacaDataset class
+        # No dataset_path needed - will use default Alpaca data from
+        # https://huggingface.co/tatsu-lab/alpaca
+
+      # Example 2: Using custom data with text_sft format
+      - dataset_name: text_sft  # Uses TextSFTDataset class
+        dataset_path: path/to/my_custom_data.jsonl  # Your data in text_sft format
 ```
 
-## Next Steps
+This separation between the dataset class and data source makes it easy to:
+- Use the same processing logic with different data sources.
+  - For example, the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class can be used with both the default Alpaca data (`"tatsu-lab/alpaca"`), or one of the cleaned verions (`yahma/alpaca-cleaned`), or any other file that follows the same format.
+- Apply consistent formatting across your own datasets
+- Mix and match different dataset types in training
 
-Start with our pre-built datasets for common use cases, and move to custom implementations when you need more control over data processing and loading.
+### Dataset Types
+
+Our dataset collection covers various training objectives and tasks:
+
+| Dataset Type | Key Features | Documentation |
+|--------------|--------------|---------------|
+| **Pretraining** | • Large-scale corpus training for foundational models<br>• Efficient sequence packing and streaming | [→ Pretraining guide](pretraining_datasets.md) |
+| **Supervised Fine-Tuning (SFT)** | • Instruction-following datasets<br>• Conversation format support for chat models<br>• Task-specific fine-tuning capabilities | [→ SFT guide](sft_datasets.md) |
+| **Preference Tuning** | • Human preference data for RLHF or DPOtraining | [→ Preference learning guide](preference_datasets.md) |
+| **Vision-Language** | • Image-text pairs for multi-modal training <br>• Conversation format support for chat models| [→ Vision-language guide](vl_sft_datasets.md) |
+
+
+## Next Steps
 
 1. **New to Oumi Datasets?**
    - Start with our [Data Formats Guide](/resources/datasets/data_formats) to understand basic concepts and structures
 
 2. **Using Existing Datasets?**
    - Explore the available [SFT Datasets](/resources/datasets/sft_datasets), [Pretraining Datasets](/resources/datasets/pretraining_datasets), [Preference Datasets](/resources/datasets/preference_datasets), and [Vision-Language Datasets](/resources/datasets/vl_sft_datasets)
-
-3. **Building Datasets with Custom Processing?**
-   - Follow our [Custom Dataset Guide](/resources/datasets/custom_datasets)

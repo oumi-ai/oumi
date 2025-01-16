@@ -25,6 +25,7 @@ class ChatTemplateTestSpec(NamedTuple):
     chat_template_name: str
     model_name: str
     test_image: bool = False
+    trust_remote_code: bool = False
     image_placeholder: Optional[str] = None
 
 
@@ -84,15 +85,14 @@ def create_test_conversation(
 
 
 @functools.cache
-def creat_test_tokenizer(model_name: str, chat_template_name: str) -> BaseTokenizer:
-    tokenizer_pad_token = None
-    if model_name == "openai-community/gpt2":
-        tokenizer_pad_token = "<|endoftext|>"
+def create_test_tokenizer(
+    model_name: str, chat_template_name: str, trust_remote_code: bool
+) -> BaseTokenizer:
     return build_tokenizer(
         model_params=ModelParams(
             model_name=model_name,
-            tokenizer_pad_token=tokenizer_pad_token,
             chat_template=chat_template_name,
+            trust_remote_code=trust_remote_code,
         ),
     )
 
@@ -121,6 +121,7 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         chat_template_name="phi3-instruct",
         model_name="microsoft/Phi-3-vision-128k-instruct",
         test_image=True,
+        trust_remote_code=True,
         image_placeholder="<|image_1|>",
     ),
     ChatTemplateTestSpec(
@@ -166,7 +167,11 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
     random.seed(hash(test_spec))
 
     chat_template: str = build_chat_template(test_spec.chat_template_name)
-    tokenizer = creat_test_tokenizer(test_spec.model_name, test_spec.chat_template_name)
+    tokenizer = create_test_tokenizer(
+        test_spec.model_name,
+        test_spec.chat_template_name,
+        trust_remote_code=test_spec.trust_remote_code,
+    )
     tokenizer.chat_template = chat_template
 
     for include_image in (False, True) if test_spec.test_image else (False,):

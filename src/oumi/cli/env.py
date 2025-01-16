@@ -65,6 +65,7 @@ def env():
             "ACCELERATE_USE_FSDP",
             "LOCAL_RANK",
             "LOCAL_WORLD_SIZE",
+            "OUMI_EXTRA_DEPS_FILE",
             "RANK",
             "WORLD_SIZE",
         ]
@@ -98,6 +99,7 @@ def env():
             "timm",
             "torch",
             "torchdata",
+            "torchvision",
             "tqdm",
             "transformers",
             "trl",
@@ -128,9 +130,12 @@ def env():
         print(f"CUDA available: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
             print(f"CUDA version: {torch.version.cuda}")
+            print(
+                f"cuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
+            )
             print(f"Number of GPUs: {torch.cuda.device_count()}")
             print(f"GPU type: {torch.cuda.get_device_name()}")
-            print(
-                "cuDNN version: "
-                f"{format_cudnn_version(torch.backends.cudnn.version())}"
+            total_memory_gb = float(torch.cuda.mem_get_info()[1]) / float(
+                1024 * 1024 * 1024
             )
+            print(f"GPU memory: {total_memory_gb:.1f}GB")
