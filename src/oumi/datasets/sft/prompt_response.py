@@ -13,10 +13,10 @@ from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
+
 @register_dataset("RUC-AIBOX/long_form_thought_data_5k")
 @register_dataset("O1-OPEN/OpenO1-SFT")
 class PromptResponseDataset(BaseSftDataset):
-
     default_dataset = "O1-OPEN/OpenO1-SFT"
 
     def __init__(
