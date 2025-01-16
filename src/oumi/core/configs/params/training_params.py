@@ -206,7 +206,7 @@ class TrainingParams(BaseParams):
     If both `save_steps` and `save_epoch` are set, then `save_steps` takes precedence.
     """
 
-    save_steps: int = 100
+    save_steps: int = 500
     """Save a checkpoint every `save_steps` training steps.
 
     This parameter determines the frequency of saving checkpoints during
@@ -329,7 +329,7 @@ class TrainingParams(BaseParams):
     - "epoch": Evaluation is done at the end of each epoch.
     """
 
-    eval_steps: int = 100
+    eval_steps: int = 500
     """Number of update steps between two evaluations if eval_strategy="steps".
 
     Ignored if eval_strategy is not "steps".
