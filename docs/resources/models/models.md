@@ -10,33 +10,41 @@ custom_models
 ```
 
 
-Oumi aims to provide a unified interface for working with foundation models from multiple providers (`HuggingFace`, `Meta`, `NanoGPT`, etc.), as well as your own custom models for inference, fine-tuning, pre-training, evaluation, and more.
+Oumi provides a _unified_ interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi simplifies the process with _seamless_ integrations.
 
-Out-of-the-box, you can use most popular causal language models, and multimodal vision-language models from the HuggingFace `transformers` library.
+Out-of-the-box, Oumi supports popular causal LLMs and large vision-language models, with optimized implementations available for efficient use. For a comprehensive list of supported models, configuration examples, and best practices, see the {doc}`/resources/recipes` page.
 
-In this guide, we will briefly go over the available models, and how to work with them in oumi.
+This guide provides a quick overview of Oumi’s unified interface, demonstrating how to instantiate models, customize their parameters, configure underlying tokenizers, and more, enabling seamless integration with your applications.
 
-## Available Models
+## Main Model Interface
 
-Every model shares a common interface, simplifying development across different architectures:
+Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can robustly create models and handle textual input across diverse architectures. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
 
 ```python
-# Example using the unified interface
-from oumi.builders import build_model
+# Example using Oumi's main model interface
+import torch
+from oumi.builders import build_model, build_tokenizer
 from oumi.core.configs import ModelParams
 
-# Configure and build any supported model
-model_params = ModelParams(model_name="meta-llama/Llama-3.2-3B-Instruct")
+# Specify parameters to customize your model
+model_params = ModelParams(model_name="HuggingFaceTB/SmolLM-135M", tokenizer_kwargs={'pad_token': '<|endoftext|>'})
 
-model = build_model(model_params)
+# Build the model
+device = torch.device("cpu") # or gpu, or mps, etc.
+model = build_model(model_params).to(device)
 
-# Use the same interface regardless of model type
-outputs = model.generate(input_ids)
+# Build a corresponding tokenizer
+tokenizer = build_tokenizer(model_params)
+input_data = tokenizer("What are the benefits of open source coding?", return_tensors="pt")
+
+# Use the same interface regardless of model type for generation
+outputs = model.generate(input_data['input_ids'].to(device), attention_mask=input_data['attention_mask'].to(device), max_length=64)
+print(tokenizer.decode(outputs[0]))
 ```
 
-### HuggingFace Hub Integration
+### Hugging Face Hub Integration
 
-Oumi integrates with the HuggingFace Hub and HuggingFace `transformers` library, allowing you to use any model available on the platform:
+Oumi integrates directly with the Hugging Face Hub and Hugging Face `transformers` library, allowing you to use any model available on Hugging Face Hub:
 
 ```python
 from oumi.builders import build_model, build_tokenizer
@@ -50,15 +58,11 @@ model = build_model(model_params)
 tokenizer = build_tokenizer(model_params)
 ```
 
-The {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer` functions provide a unified interface for model creation. Configure your model using {py:class}`oumi.core.configs.ModelParams`.
 
-### Supported Models
-
-The framework includes optimized implementations of popular models. See our {doc}`/resources/recipes` for detailed configuration examples and best practices.
 
 ### Custom Models
 
-You can easily create custom models by extending our base classes. See the {doc}`/resources/models/custom_models` guide for details:
+You can also easily create custom models by extending our base classes:
 
 ```python
 from oumi.core.models import BaseModel
@@ -70,12 +74,12 @@ class MyCustomModel(BaseModel):
         # Define your architecture
 ```
 
-For detailed implementation guidance, see the {doc}`/resources/models/custom_models` documentation.
+For detailed implementation guidance on this subject, see the {doc}`/resources/models/custom_models` documentation.
 
 ## Advanced Topics
 ### Tokenizer Integration
 
-The framework provides consistent tokenizer handling through the {py:mod}`core.tokenizers` module. Tokenizers can be configured independently of models while maintaining compatibility:
+Oumi ensures consistent tokenizer handling through the {py:mod}`core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
 
 ```python
 from builders import build_tokenizer
@@ -84,7 +88,7 @@ from core.configs import ModelParams
 # Configure tokenizer with model
 model_params = ModelParams(
     model_name="meta-llama/Llama-3.2-3B-Instruct",
-    tokenizer_name="meta-llama/Llama-3.2-3B-Instruct",  # Optional: use different tokenizer
+    tokenizer_name="meta-llama/Llama-3.2-3B-Instruct",   # Optional: use different tokenizer
     model_max_length=4096,                               # Set custom max length
     chat_template="llama3-instruct"                      # Specify chat template
 )
@@ -93,13 +97,12 @@ model_params = ModelParams(
 tokenizer = build_tokenizer(model_params)
 ```
 
-See {py:func}`core.tokenizers.get_default_special_tokens` for information about special token handling.
+For details on handling special tokens, refer to {py:func}`core.tokenizers.get_default_special_tokens`.
 
-For advanced model configuration, see {py:class}`oumi.core.configs.ModelParams` and {py:class}`oumi.core.configs.PeftParams` for PEFT/LoRA support.
 
-### Model Adapters and Quantization
+### Parameter Adapters and Quantization
 
-Oumi supports loading models with PEFT adapters and quantization for efficient inference. You can configure these through `ModelParams`:
+Oumi supports loading models with [PEFT adapters](https://arxiv.org/pdf/2403.14608){target="_blank"} and quantization for efficiency purposes. You can configure these through `ModelParams`:
 
 ```python
 from oumi.core.configs import ModelParams, PeftParams
@@ -110,12 +113,13 @@ model_params = ModelParams(
     adapter_model="path/to/adapter",  # Load PEFT adapter
 )
 
-# Load a model with 4-bit quantization
+# Load a model with 8-bit quantization
 model_params = ModelParams(
     model_name="meta-llama/Llama-3.2-3B-Instruct",
     peft_params=PeftParams(
         q_lora=True,  # Enable quantization
-        lora_r=8,
+        q_lora_bits=8,
+        lora_r=16,
         lora_alpha=32,
         lora_dropout=0.1
     )
@@ -127,13 +131,13 @@ model = build_model(model_params)
 
 The framework supports:
 - **PEFT Adapters**: Load trained LoRA or other PEFT adapters using the `adapter_model` parameter
-- **Quantization**: Enable 4-bit quantization through `PeftParams` with `q_lora=True`
+- **Quantization**: Enable 8-bit (or 4-bit) quantization through `PeftParams` with `q_lora` and `q_lora_bits`
 - **Mixed Precision**: Control model precision using `torch_dtype` parameter
 
 For more details on training with adapters and quantization, see {doc}`/user_guides/train/configuration`.
 
 ### Chat Templates
-Oumi uses Jinja2 templates to format conversations for different model architectures. These templates ensure that messages are formatted correctly for each model's expected input format.
+Oumi uses Jinja2 templates to format conversations for different model architectures. Oumi's default templates ensure that messages are formatted correctly for each model's expected input format.
 
 Available templates include:
 - `default` - Basic template without special tokens
@@ -143,7 +147,7 @@ Available templates include:
 - `qwen2-vl-instruct` - For Qwen2-VL instruction models
 - `zephyr` - For Zephyr models
 
-All the templates expect a `messages` list, where each message is a dictionary with `role` and `content` keys in `oumi` format.
+All the templates expect a `messages` list, where each message is a dictionary with `role` and `content` keys in {doc}`oumi format </resources/datasets/data_formats>`.
 
 Here's an example of the Llama3 template:
 
@@ -161,4 +165,4 @@ For more detailed information about working with models, see:
 - {doc}`/resources/recipes` - Detailed configuration examples
 - {doc}`/user_guides/train/train` - Model fine-tuning guide
 - {doc}`/user_guides/evaluate/evaluate` - Model evaluation and benchmarking
-- {doc}`/user_guides/infer/infer` - Inference
+- {doc}`/user_guides/infer/infer` - Inference guide

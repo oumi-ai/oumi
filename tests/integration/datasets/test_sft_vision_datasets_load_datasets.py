@@ -119,7 +119,6 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
     tokenizer = build_tokenizer(model_params)
     train_split = DatasetSplitParams(
         collator_name=info.collator_name,
-        target_col="text",
         datasets=[
             DatasetParams(
                 dataset_name=info.dataset_name,

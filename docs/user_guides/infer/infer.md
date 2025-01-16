@@ -33,6 +33,7 @@ oumi infer -i -c configs/recipes/smollm/inference/135m_infer.yaml
 Or use the Python API for a basic chat interaction:
 
 ```{testcode} python
+:skipif: True
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -135,7 +136,7 @@ Oumi supports several input formats for inference:
 
 Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
 
-See {doc}`/resources/datasets/custom_datasets` for more details.
+See {doc}`/resources/datasets/data_formats` for more details.
 
 2. Interactive console input
 
@@ -195,7 +196,7 @@ input_conversation = Conversation(
             role=Role.USER,
             content=[
                 ContentItem(
-                    content="https://oumi.ai/favicon.ico",
+                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg",
                     type=Type.IMAGE_URL,
                 ),
                 ContentItem(content="Describe this image", type=Type.TEXT),
@@ -212,6 +213,12 @@ output_conversations = engine.infer_online(
     input=[input_conversation], inference_config=inference_config
 )
 print(output_conversations)
+```
+
+To run multimodal inference interactively, use the `oumi infer` command with the `-i` and `--image` flags.
+
+```{code-block} bash
+oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
 ```
 
 ### Distributed Inference

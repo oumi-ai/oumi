@@ -77,6 +77,14 @@ oumi.utils.logging module
    :undoc-members:
    :show-inheritance:
 
+oumi.utils.packaging module
+---------------------------
+
+.. automodule:: oumi.utils.packaging
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.utils.peft\_utils module
 -----------------------------
 

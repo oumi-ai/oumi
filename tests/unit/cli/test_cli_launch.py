@@ -107,7 +107,6 @@ def _create_training_config() -> TrainingConfig:
                         dataset_name="yahma/alpaca-cleaned",
                     )
                 ],
-                target_col="text",
             ),
         ),
         model=ModelParams(
