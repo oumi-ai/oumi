@@ -1,7 +1,7 @@
 # Eval config for Llama 3.2 11B Vision Instruct.
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-  model_max_length: 1024 # 256
+  model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
 
@@ -10,7 +10,7 @@ generation:
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: "mmmu_val_physics" # "mmmu_val"
+    task_name: "mmmu_val"
     # num_samples: 100  # Limit the number of eval samples.
     eval_kwargs:
       num_fewshot: 5
@@ -77,4 +77,5 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_sociology"
 
-enable_wandb: True
+enable_wandb: False
+inference_engine: NATIVE
