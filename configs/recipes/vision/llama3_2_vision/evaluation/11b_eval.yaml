@@ -76,5 +76,5 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_sociology"
 
-enable_wandb: False
+enable_wandb: True
 inference_engine: NATIVE

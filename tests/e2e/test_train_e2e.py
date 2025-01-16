@@ -91,6 +91,8 @@ class TrainTestConfig(NamedTuple):
     trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
     save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
 
 
 def get_train_test_id_fn(val):
@@ -101,10 +103,11 @@ def get_train_test_id_fn(val):
 def _do_test_train_impl(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    test_tag = f"[{test_config.test_name}]"
     if test_config.skip:
-        print(f"{test_tag} Skipped the test '{test_config.test_name}'!")
+        pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
+
+    test_tag = f"[{test_config.test_name}]"
 
     _START_TIME = time.perf_counter()
     output_dir = _get_output_dir(test_config.test_name, tmp_path=tmp_path)
@@ -138,6 +141,8 @@ def _do_test_train_impl(
             str(test_config.max_steps),
             "--training.output_dir",
             str(output_dir / "train"),
+            "--training.run_name",
+            test_config.test_name,
         ]
         if test_config.trainer_type is not None:
             cmd.extend(
@@ -163,6 +168,21 @@ def _do_test_train_impl(
                 [
                     "--training.save_steps",
                     str(test_config.save_steps),
+                ]
+            )
+        if test_config.save_final_model is not None:
+            cmd.extend(
+                [
+                    "--training.save_final_model",
+                    str(test_config.save_final_model),
+                ]
+            )
+
+        if test_config.enable_wandb is not None:
+            cmd.extend(
+                [
+                    "--training.enable_wandb",
+                    str(test_config.enable_wandb),
                 ]
             )
 
@@ -204,6 +224,13 @@ def _do_test_train_impl(
         assert (
             train_output_dir.is_dir()
         ), f"{test_tag} Output directory is not a directory"
+
+        # If saving is disabled, then return early.
+        if (test_config.save_steps is not None and test_config.save_steps <= 0) and (
+            test_config.save_final_model is not None
+            and not test_config.save_final_model
+        ):
+            return
 
         # Check main output directory structure
         _check_checkpoint_dir(train_output_dir)
@@ -277,7 +304,7 @@ def _do_test_train_impl(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama_1b_trl_sft",
+            test_name="train_llama_1b",
             config_path=(
                 CONFIG_FOLDER_ROOT
                 / "recipes"
@@ -286,12 +313,11 @@ def _do_test_train_impl(
                 / "1b_full"
                 / "train.yaml"
             ),
-            trainer_type=TrainerType.TRL_SFT,
             max_steps=10,
             model_max_length=128,
         ),
         TrainTestConfig(
-            test_name="train_qwen2_vl_2b",
+            test_name="train_qwen2_vl_2b_trl_sft",
             config_path=(
                 CONFIG_FOLDER_ROOT
                 / "recipes"
@@ -300,8 +326,24 @@ def _do_test_train_impl(
                 / "sft"
                 / "train.yaml"
             ),
+            trainer_type=TrainerType.TRL_SFT,
             max_steps=5,
             save_steps=5,
+        ),
+        TrainTestConfig(
+            test_name="train_qwen2_vl_2b_oumi",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.OUMI,
+            max_steps=5,
+            save_steps=0,
+            save_final_model=False,
         ),
     ],
     ids=get_train_test_id_fn,
