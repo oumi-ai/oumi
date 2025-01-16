@@ -44,6 +44,7 @@ user_guides/launch/launch
 :hidden:
 :caption: Resources
 
+resources/customization
 resources/models/models
 resources/datasets/datasets
 resources/recipes

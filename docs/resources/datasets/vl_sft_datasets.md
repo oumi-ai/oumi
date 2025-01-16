@@ -136,3 +136,7 @@ The key difference in VL-SFT datasets is the inclusion of image data, typically 
 ```
 
 For more advanced VL-SFT dataset implementations, explore the {py:mod}`oumi.datasets.vision_language` module.
+
+### Using Custom Datasets via the CLI
+
+See {docs}`/resources/customization` to quickly enable your dataset when using the CLI.
