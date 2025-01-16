@@ -64,7 +64,7 @@ You can easily override any parameters directly in the command line, for example
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
-  --training.max_steps 5 \
+  --training.max_steps 20 \
   --training.learning_rate 1e-4 \
   --training.output_dir output/smollm-135m-sft
 ```
@@ -105,7 +105,7 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
   --model.model_name HuggingFaceTB/SmolLM2-135M-Instruct
 ```
 
-Or with our newly trained model saved on disk:
+Or, with our newly trained model saved on disk:
 
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml \
@@ -135,7 +135,7 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
   --interactive
 ```
 
-Or with our newly trained model saved on disk:
+Or, with our newly trained model saved on disk:
 
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
