@@ -453,6 +453,7 @@ class Trainer(BaseTrainer):
     #
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model."""
+        self._cuda_sync_and_empty_cache()
         if is_world_process_zero():
             output_dir = Path(config.training.output_dir)
             output_dir.mkdir(exist_ok=True)
@@ -463,9 +464,11 @@ class Trainer(BaseTrainer):
             if self._processor is not None:
                 self._processor.save_config(output_dir)
                 logger.info(f"Processor config has been saved at {output_dir}.")
+        self._cuda_sync_and_empty_cache()
 
     def save_state(self):
         """Saves the training state."""
+        self._cuda_sync_and_empty_cache()
         checkpoint_dir = Path(self.params.output_dir)
 
         if is_local_process_zero():
@@ -516,6 +519,8 @@ class Trainer(BaseTrainer):
             torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
             save_json(data=self.state.model_dump(), filename=trainer_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
+
+        self._cuda_sync_and_empty_cache()
 
     def _load_from_checkpoint(self, checkpoint_dirname: str):
         """Loads the training state from a checkpoint."""

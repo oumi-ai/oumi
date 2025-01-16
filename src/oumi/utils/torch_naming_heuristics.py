@@ -91,8 +91,44 @@ def guess_transformer_layer_cls(model: nn.Module) -> type[nn.Module]:
     )
 
 
-def get_module_class_from_name(class_name: str) -> type[nn.Module]:
+def _parse_transformer_layer_cls_string(class_names: str) -> list[str]:
+    result: list[str] = []
+    for class_name in class_names.split(","):
+        class_name = class_name.strip()
+        if class_name:
+            result.append(class_name)
+    return result
+
+
+def resolve_transformer_layer_cls_string_as_module_set(
+    class_names: str,
+) -> set[type[nn.Module]]:
     """Get a module class from its string name."""
-    module_name, class_name = class_name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
+    result: set[type[nn.Module]] = set()
+    for class_name in _parse_transformer_layer_cls_string(class_names):
+        parts = class_name.rsplit(".", maxsplit=1)
+        if len(parts) == 1:
+            # Assume `transformers` by default.
+            module_name = "transformers"
+        else:
+            module_name, class_name = parts
+        module = importlib.import_module(module_name)
+        transformer_cls = getattr(module, class_name)
+        result.add(transformer_cls)
+
+    return result
+
+
+def simplify_transformer_layer_cls_string(class_names: str) -> str:
+    """Replaces fully-qualified class names with pure class names.
+
+    For example, converts 'foo.Block,foo.util.Decoder' to 'Block,Decoder'.
+
+    The `accelerate` library expects the simplified format, while OUMI trainer requires
+    fully-qualified class names.
+    """
+    result = []
+    for class_name in _parse_transformer_layer_cls_string(class_names):
+        parts = class_name.rsplit(".")
+        result.append(parts[-1])
+    return ",".join(result)

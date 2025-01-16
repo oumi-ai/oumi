@@ -23,7 +23,10 @@ from torch.nn.parallel import DistributedDataParallel
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.utils.logging import logger
-from oumi.utils.torch_naming_heuristics import get_module_class_from_name
+from oumi.utils.torch_naming_heuristics import (
+    resolve_transformer_layer_cls_string_as_module_set,
+    simplify_transformer_layer_cls_string,
+)
 
 
 #
@@ -322,24 +325,28 @@ def prepare_model_for_distributed(
             guess_transformer_layer_cls,
         )
 
+        transformer_layer_classes = set()
         if fsdp_params.transformer_layer_cls is None:
             transformer_layer_cls = guess_transformer_layer_cls(model)
             logger.info(
                 "Automatically inferred transformer layer class to wrap: "
                 f"{transformer_layer_cls}"
             )
+            transformer_layer_classes.add(transformer_layer_cls)
         else:
             logger.info(
                 "Using transformer layer class to wrap: "
                 f"{fsdp_params.transformer_layer_cls}"
             )
-            transformer_layer_cls = get_module_class_from_name(
-                fsdp_params.transformer_layer_cls
+            transformer_layer_classes = (
+                resolve_transformer_layer_cls_string_as_module_set(
+                    fsdp_params.transformer_layer_cls
+                )
             )
 
         wrapping_policy = functools.partial(
             transformer_auto_wrap_policy,
-            transformer_layer_cls={transformer_layer_cls},
+            transformer_layer_cls=transformer_layer_classes,
             recurse=True,
             nonwrapped_numel=0,
         )
@@ -435,7 +442,15 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     env_vars["FSDP_AUTO_WRAP_POLICY"] = config.fsdp.auto_wrap_policy.value
     env_vars["FSDP_MIN_NUM_PARAMS"] = str(config.fsdp.min_num_params)
     if config.fsdp.transformer_layer_cls:
-        env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = config.fsdp.transformer_layer_cls
+        simplified_value = simplify_transformer_layer_cls_string(
+            config.fsdp.transformer_layer_cls
+        )
+        if simplified_value != config.fsdp.transformer_layer_cls:
+            logger.info(
+                f"'FSDP_TRANSFORMER_CLS_TO_WRAP' is set to '{simplified_value}' "
+                f"based on '{config.fsdp.transformer_layer_cls}'."
+            )
+        env_vars["FSDP_TRANSFORMER_CLS_TO_WRAP"] = simplified_value
     env_vars["FSDP_SYNC_MODULE_STATES"] = str(config.fsdp.sync_module_states).lower()
 
     # This is set from TrainingParams.

@@ -44,15 +44,15 @@ Simply remove the offending line from your yaml file's {py:attr}`~oumi.core.conf
 ### Training Stability & NaN Loss
 
 - Lower the initial learning rate
-- Enable gradient clipping
+- Enable gradient clipping (or, apply further clipping if already enabled)
 - Add learning rate warmup
 
 ```python
 config = TrainingConfig(
     training=TrainingParams(
-        max_grad_norm=1.0,
+        max_grad_norm=0.5,
         optimizer="adamw_torch_fused",
-        warmup_steps=100,
+        warmup_ratio=0.01,
         lr_scheduler_type="cosine",
         learning_rate=1e-5,
     ),
@@ -61,9 +61,9 @@ config = TrainingConfig(
 
 ### Inference Issues
 
-- Verify model and tokenizer paths are correct
-- Ensure input data is correctly formatted and preprocessed
-- Validate that the inference engine is compatible with your model type
+- Verify {doc}`model </resources/models/models>` and [tokenizer](/resources/models/models.md#tokenizer-integration) paths are correct
+- Ensure [input data](/user_guides/infer/infer.md#input-data) is correctly formatted and preprocessed
+- Validate that the {doc}`inference engine </user_guides/infer/inference_engines>` is compatible with your model type
 
 ### Quantization-Specific Issues
 

@@ -189,8 +189,8 @@ class DatasetSplitParams(BaseParams):
     target_col: Optional[str] = None
     """The dataset column name containing the input for training/testing/validation.
 
-    Required for SFTTrainer. If specified, all datasets in this split must contain a
-    column with this name.
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
     """
 
     mixture_strategy: str = field(
@@ -225,6 +225,9 @@ class DatasetSplitParams(BaseParams):
 
     use_async_dataset: bool = False
     """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
+
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
     """
 
     # EXPERIMENTAL PARAMS -------------------------
