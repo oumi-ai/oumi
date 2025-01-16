@@ -1,6 +1,7 @@
 ![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/latest/index.html)
+[![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
 [![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -9,6 +10,7 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/oumi-ai/oumi)](https://github.com/oumi-ai/oumi)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
 
 ### Everything you need to build state-of-the-art foundation models, end-to-end.
 
@@ -171,45 +173,3 @@ If you find Oumi useful in your research, please consider citing it:
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-
-
-
-
-----
-
-
-## Core Features
-
-- 🚀 **Model Training**: Train and fine-tune models from 10M to 405B parameters using cutting-edge techniques like SFT, LoRA, QLoRA, and DPO
-- 🤖 **Model Support**: Work with both text and multimodal models including Llama, Qwen, Phi, and more
-- 🔄 **Data Pipeline**: Synthesize and curate training data using LLM-powered judges
-- ⚡️ **Efficient Deployment**: Deploy models at scale with optimized inference engines like vLLM and SGLang
-- 📊 **Comprehensive Evaluation**: Benchmark your models across standard industry metrics
-- 🌎 **Universal Runtime**: Run anywhere - from local machines to cloud platforms (AWS, Azure, GCP, Lambda)
-- 🔌 **Seamless Integration**: Connect with open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail)
-
-## Design Philosophy
-
-Oumi is built on principles that prioritize both research excellence and production reliability:
-
-### Unified Experience
-One consistent API spans the entire ML lifecycle, eliminating the need to switch between different tools and frameworks. This unified interface makes it easy to move from experimentation to production.
-
-### Complete Workflow Coverage
-Every aspect of foundation model development is supported out of the box - from data preparation to deployment. This comprehensive approach ensures you have all the tools you need in one place.
-
-### Open Architecture
-Built on and for open source, Oumi maintains transparency while offering seamless integration with commercial services when needed. This hybrid approach gives you the flexibility to choose the best tools for your needs.
-
-### Research Excellence
-Version-controlled configurations and standardized workflows ensure reproducible research. Track experiments, compare results, and share findings with confidence.
-
-### Enterprise-Grade Performance
-Optimized for performance at any scale, Oumi handles everything from research prototypes to production deployments efficiently.
-
-Systematic, reproducible model development is more effective than trial-and-error experimentation.
-
-   - Curate training data with built-in synthesis and filtering tools
-   - Validate data quality with LLM judges
-   - Set up evaluation benchmarks specific to your use case
-   - Start with proven recipes for your chosen model and task
