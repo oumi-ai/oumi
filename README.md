@@ -98,21 +98,22 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 
 ## Why use Oumi?
 
-There are many tools out there for training and deploying models, but Oumi is the only one that provides a unified experience for the entire ML lifecycle.
+If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
 
-- 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale
+Here are some of the key features that make Oumi stand out:
+
 - 🔧 **Zero Boilerplate**: Get started in minutes with ready-to-use recipes for popular models and workflows. No need to write training loops or data pipelines.
+- 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale
 - 🎯 **Research Ready**: Perfect for ML research with easily reproducible experiments, and flexible interfaces for customizing each component.
 - 🌐 **Broad Model Support**: Works with most popular model architectures - from tiny models to the largest ones, text-only to multimodal.
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
 
-For a full tour of what Oumi can do, dive into the [documentation](https://oumi.ai/docs).
-
-
 ### Examples &  Recipes
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
+
+**Note:** These configures are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
 
 #### 🦙 Llama Family
 
