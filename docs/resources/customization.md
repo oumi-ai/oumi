@@ -85,7 +85,7 @@ Take a look at our [custom cluster tutorial here](/user_guides/launch/custom_clu
 Don't forget to decorate your class with `@register_cloud_builder(...)`!
 ```
 
-### Custom Judges Configs
+### Custom Judge Configs
 
 For quick reference, you can register custom judge configs
 
