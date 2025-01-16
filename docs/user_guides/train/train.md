@@ -133,6 +133,11 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+### Fine-tuning a Pre-trained Vision-Language Model
+
+Multimodal support in Oumi is similar to tuning text-only models with few config changes e.g., data collator. You can find related details in {ref}`Vision-Language SFT <vision-language-sft>`,  {ref}`Multi-modal Inference <multi-modal-inference>`,  {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
+
+
 ### Multi-GPU Training
 
 To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
