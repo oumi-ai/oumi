@@ -5,6 +5,7 @@ model:
   model_name: "gpt2" # 124M params
   model_max_length: 128
   torch_dtype_str: "bfloat16"
+  tokenizer_pad_token: "<|endoftext|>"
   load_pretrained_weights: False
   trust_remote_code: True
   model_kwargs:
@@ -16,6 +17,8 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
+        dataset_kwargs:
+          seq_length: 128
     stream: True
     pack: True
     target_col: "text"
