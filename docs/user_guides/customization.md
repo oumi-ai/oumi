@@ -2,9 +2,9 @@
 
 Often times when using a new framework, you may find that something you'd like to use is
 missing. We always welcome [contributions](/development/contributing), but we also understand that sometimes it's
-simpler to prototype changes locally. Maybe you're working with a new sensitive model
-format, or perhaps you're gathering results for a paper and don't want to contribute
-your changes before publishing--in either case, Oumi provides a simple way to support
+simpler to prototype changes locally. Whether you want to quickly experiment with new
+features, test out different implementation approaches, or iterate rapidly on your ideas
+without impacting the main codebase, Oumi provides a simple way to support
 local customizations without any additional installations.
 
 ## The Oumi Registry
