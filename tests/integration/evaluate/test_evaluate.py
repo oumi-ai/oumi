@@ -1,10 +1,12 @@
 import json
 import os
 import tempfile
+from importlib.util import find_spec
 from typing import Any
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from oumi import evaluate
 from oumi.core.configs import (
@@ -191,6 +193,9 @@ def test_evaluate_lm_harness():
 
 @requires_gpus()
 def test_evaluate_alpaca_eval():
+    if find_spec("alpaca_eval") is None:
+        pytest.skip("Skipping because alpaca_eval is not installed")
+
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         config = _get_evaluation_config(ALPACA_EVAL, nested_output_dir)

@@ -33,6 +33,8 @@ def train(
         limit_per_process_memory,
     )
 
+    cli_utils.configure_common_env_vars()
+
     # End imports
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
