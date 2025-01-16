@@ -38,7 +38,6 @@ def _get_default_config(output_temp_dir):
                 ],
                 stream=True,
                 pack=True,
-                target_col="text",
             ),
         ),
         model=ModelParams(
@@ -83,7 +82,7 @@ def test_train_native_pt_model_from_api():
 
         trainer = Trainer(
             model=model,
-            processing_class=tokenizer,
+            tokenizer=tokenizer,
             args=training_args,
             train_dataset=dataset,
         )
