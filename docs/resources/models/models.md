@@ -28,17 +28,17 @@ from oumi.core.configs import ModelParams
 
 # Specify parameters to customize your model
 model_params = ModelParams(model_name="HuggingFaceTB/SmolLM-135M", tokenizer_kwargs={'pad_token': '<|endoftext|>'})
-device = torch.device("cpu") # or gpu, or mps, etc.
 
 # Build the model
-model = build_model(model_params)
+device = torch.device("cpu") # or gpu, or mps, etc.
+model = build_model(model_params).to(device)
 
 # Build a corresponding tokenizer
 tokenizer = build_tokenizer(model_params)
 input_data = tokenizer("What are the benefits of open source coding?", return_tensors="pt")
 
 # Use the same interface regardless of model type for generation
-outputs = model.generate(input_data['input_ids'], attention_mask=input_data['attention_mask'])
+outputs = model.generate(input_data['input_ids'].to(device), attention_mask=input_data['attention_mask'].to(device), max_length=64)
 print(tokenizer.decode(outputs[0]))
 ```
 
@@ -99,7 +99,6 @@ tokenizer = build_tokenizer(model_params)
 
 For details on handling special tokens, refer to {py:func}`core.tokenizers.get_default_special_tokens`.
 
-<!-- For advanced model configuration, see {py:class}`oumi.core.configs.ModelParams` and {py:class}`oumi.core.configs.PeftParams` for PEFT/LoRA support. -->
 
 ### Parameter Adapters and Quantization
 
