@@ -60,3 +60,7 @@ class CustomDpoDataset(BaseExperimentalDpoDataset):
             "rejected": example["worse_response"]
         }
 ```
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.
