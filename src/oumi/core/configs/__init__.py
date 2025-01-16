@@ -34,6 +34,7 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.training_params.MixedPrecisionDtype`
     - :class:`~oumi.core.configs.params.training_params.SchedulerType`
     - :class:`~oumi.core.configs.params.training_params.TrainerType`
+    - :class:`~oumi.core.configs.params.peft_params.LoraWeightInitialization`
     - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
 - Profiling:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
@@ -88,7 +89,11 @@ from oumi.core.configs.params.fsdp_params import (
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.peft_params import PeftParams, PeftSaveMode
+from oumi.core.configs.params.peft_params import (
+    LoraWeightInitialization,
+    PeftParams,
+    PeftSaveMode,
+)
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
@@ -124,6 +129,7 @@ __all__ = [
     "JudgeAttribute",
     "JudgeConfig",
     "LMHarnessTaskParams",
+    "LoraWeightInitialization",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",
