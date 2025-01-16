@@ -1,17 +1,18 @@
-# Eval config for Llama 3.2 11B Vision Instruct.
+# Eval config for Qwen2 VL 2B Instruct.
 model:
-  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
 
 generation:
-  batch_size: 1
+  batch_size: 4
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: "mmmu_val"
-    # num_samples: 100  # Limit the number of eval samples.
+    task_name: mmmu_val
     eval_kwargs:
       num_fewshot: 5
   # To enable individual sub-tasks, uncomment the entries of interest below:
@@ -77,4 +78,4 @@ tasks:
   #   task_name: "mmmu_val_sociology"
 
 enable_wandb: False
-inference_engine: NATIVE
+inference_engine: VLLM
