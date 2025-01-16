@@ -43,7 +43,7 @@ This section discusses the most popular standardized benchmarks, in order to giv
 ```yaml
 model:
   model_name: <HuggingFace model name or local path to model>
-  trust_remote_code: True
+  trust_remote_code: False # Set to true for HuggingFace models
 
 tasks:
   - evaluation_platform: lm_harness
