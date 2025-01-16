@@ -106,7 +106,6 @@ def build_dataset_from_params(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    use_async_dataset: bool = False,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
@@ -119,7 +118,6 @@ def build_dataset_from_params(
                 datasets=[dataset_params],
                 stream=stream,
                 pack=pack,
-                use_async_dataset=use_async_dataset,
                 experimental_use_torch_datapipes=experimental_use_torch_datapipes,
             )
         )
@@ -140,7 +138,6 @@ def build_dataset(
     stream: bool = False,
     pack: bool = False,
     experimental_use_torch_datapipes: bool = False,
-    use_async_dataset: bool = False,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
@@ -160,7 +157,6 @@ def build_dataset(
         stream=stream,
         pack=pack,
         experimental_use_torch_datapipes=experimental_use_torch_datapipes,
-        use_async_dataset=use_async_dataset,
     )
 
 
