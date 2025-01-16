@@ -115,7 +115,7 @@ Here are some of the key features that make Oumi stand out:
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
-**Note:** These configures are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
+**Note:** These configurations are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
 
 #### 🦙 Llama Family
 
