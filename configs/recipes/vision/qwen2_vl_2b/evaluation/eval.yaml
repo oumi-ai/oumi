@@ -13,6 +13,7 @@ generation:
 tasks:
   - evaluation_platform: lm_harness
     task_name: mmmu_val
+    num_samples: 10
     eval_kwargs:
       num_fewshot: 5
   # To enable individual sub-tasks, uncomment the entries of interest below:
@@ -78,4 +79,4 @@ tasks:
   #   task_name: "mmmu_val_sociology"
 
 enable_wandb: False
-inference_engine: VLLM
+inference_engine: NATIVE
