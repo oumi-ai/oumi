@@ -26,7 +26,6 @@ def test_train_basic():
                             dataset_name="yahma/alpaca-cleaned",
                         )
                     ],
-                    target_col="text",
                 ),
             ),
             model=ModelParams(
@@ -63,7 +62,6 @@ def test_train_unregistered_metrics_function():
                                 dataset_name="yahma/alpaca-cleaned",
                             )
                         ],
-                        target_col="text",
                     ),
                 ),
                 model=ModelParams(
@@ -139,7 +137,6 @@ def test_train_pack_with_sft_dataset():
                     ],
                     stream=False,
                     pack=True,
-                    target_col="text",
                 ),
             ),
             model=ModelParams(
