@@ -44,7 +44,7 @@ Simply remove the offending line from your yaml file's {py:attr}`~oumi.core.conf
 ### Training Stability & NaN Loss
 
 - Lower the initial learning rate
-- Apply more drastic gradient clipping
+- Enable gradient clipping (or, apply further clipping if already enabled)
 - Add learning rate warmup
 
 ```python
@@ -70,4 +70,3 @@ config = TrainingConfig(
 Decreased model performance:
 
 - Increase `lora_r` and `lora_alpha` parameters in {py:obj}`oumi.core.configs.PeftParams`
-- Use a quantization-aware weight initializations like `LoftQ` #TODO-cite-in-oumi-pending-PR-1027
