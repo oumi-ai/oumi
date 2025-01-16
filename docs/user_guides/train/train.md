@@ -136,7 +136,7 @@ training:
 ### Fine-tuning a Vision-Language Model
 
 Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
-You can find relevant details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
+You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
 {ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
 
 ### Multi-GPU Training
