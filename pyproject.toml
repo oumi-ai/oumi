@@ -62,7 +62,7 @@ dependencies = [
     "trl>=0.11.4,<0.12",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
-    "wandb==0.18.4",              # Logging to Weights and Biases. # TODO: Un-pin version when lm-eval is updated to include https://github.com/EleutherAI/lm-evaluation-harness/pull/2484
+    "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
 ]
 
 [project.urls]
