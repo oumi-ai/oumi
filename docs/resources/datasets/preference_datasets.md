@@ -63,4 +63,4 @@ class CustomDpoDataset(BaseExperimentalDpoDataset):
 
 ### Using Custom Datasets via the CLI
 
-See {docs}`/resources/customization` to quickly enable your dataset when using the CLI.
+See {doc}`/resources/customization` to quickly enable your dataset when using the CLI.

@@ -206,7 +206,7 @@ def criterion(self) -> Callable:
 
 ## Using Custom Models via the CLI
 
-See {docs}`/resources/customization` to quickly enable your model when using the CLI.
+See {doc}`/resources/customization` to quickly enable your model when using the CLI.
 
 ## Testing Models
 

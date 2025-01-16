@@ -110,6 +110,6 @@ class CustomSftDataset(BaseSftDataset):
 For more advanced SFT dataset implementations, explore the `oumi.datasets` module, which contains implementations of several [open source datasets](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 ```
 
-## Using Custom Datasets via the CLI
+### Using Custom Datasets via the CLI
 
-See {docs}`/resources/customization` to quickly enable your dataset when using the CLI.
+See {doc}`/resources/customization` to quickly enable your dataset when using the CLI.
