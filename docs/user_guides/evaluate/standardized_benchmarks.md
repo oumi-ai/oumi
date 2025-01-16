@@ -76,7 +76,7 @@ lm-eval --tasks list
 
 | Task | Type | Description | Focus |
 |------|------|-------------|-------|
-MMMU | Question Answering | Designed to evaluate multimodal models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines. | Multiple choice question answering
+MMMU | Question Answering | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines. | Multiple choice question answering based on input images and text
 
 ## Custom LM-Harness Tasks
 
