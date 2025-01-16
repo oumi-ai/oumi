@@ -73,28 +73,6 @@ class TrainingConfig(BaseConfig):
                 "`fsdp.use_orig_params` must be True for model compilation."
             )
 
-        # Verify dataset-related params for TRL_SFT.
-        if self.training.trainer_type == TrainerType.TRL_SFT:
-            if not self.data.train.target_col:
-                raise ValueError("`target_col` must be specified for TRL_SFT Trainer.")
-
-            # Set `dataset_text_field` in `trainer_kwargs` since it's required for
-            # `SFTTrainer`, and warn users if their value will be overridden.
-            existing_dataset_text_field = self.training.trainer_kwargs.get(
-                "dataset_text_field"
-            )
-            if (existing_dataset_text_field is not None) and (
-                existing_dataset_text_field != self.data.train.target_col
-            ):
-                logger.warning(
-                    "Overriding existing `dataset_text_field` value "
-                    f"'{existing_dataset_text_field}' with "
-                    f"'{self.data.train.target_col}'"
-                )
-            self.training.trainer_kwargs["dataset_text_field"] = (
-                self.data.train.target_col
-            )
-
         # Verify values for model dtype and mixed precision training.
         if self.training.mixed_precision_dtype in [
             MixedPrecisionDtype.FP16,

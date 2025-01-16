@@ -1,17 +1,4 @@
 # Inference config for Llama 8B Instruct.
-
-model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-  adapter_model: null  # Update for LoRA-tuned models.
-  model_max_length: 2048
-  torch_dtype_str: "bfloat16"
-  attn_implementation: "sdpa"
-  load_pretrained_weights: True
-  trust_remote_code: True
-
-generation:
-  max_new_tokens: 2048
-
 # Sample command to start vLLM server:
 # python -u -m vllm.entrypoints.openai.api_server \
 #   --port 6864 \
@@ -27,6 +14,19 @@ generation:
 #   --enable-chunked-prefill=false \
 #   --gpu-memory-utilization=0.95 \
 #   --tensor-parallel-size 1
+
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+
 remote_params:
   # This address is just an example (it's what you may get when you start vllm sever locally).
   # For details, see https://platform.openai.com/docs/api-reference/chat/create

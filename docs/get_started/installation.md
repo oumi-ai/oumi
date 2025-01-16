@@ -21,7 +21,7 @@ You can install Oumi using one of the following methods:
 To prevent dependency conflicts, let's start by creating a virtual environment. We'll use `venv` below, but you are welcome to use the environment manager of your choice ([conda](/development/dev_setup), [uvx](https://docs.astral.sh/uv/concepts/tools/), etc):
 
 ::::{tab-set}
-:::{tab-item} Linux / MacOs
+:::{tab-item} Linux / MacOS
 ```{code-block} shell
 python -m venv .env
 source .env/bin/activate

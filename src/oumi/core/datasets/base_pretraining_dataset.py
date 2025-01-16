@@ -8,7 +8,7 @@ from oumi.core.tokenizers import BaseTokenizer
 
 
 class BasePretrainingDataset(BaseIterableDataset):
-    """Abstract base class for pretraining iterable datasets.
+    """Base class for pretraining iterable datasets.
 
     This class extends BaseIterableDataset to provide functionality specific to
     pretraining tasks.
@@ -20,18 +20,18 @@ class BasePretrainingDataset(BaseIterableDataset):
 
     Example:
         >>> from transformers import AutoTokenizer
-        >>> from oumi.core.datasets import PretrainingDataset
-        >>>
-        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        >>> dataset = PretrainingDataset(
+        >>> from oumi.builders import build_tokenizer
+        >>> from oumi.core.configs import ModelParams
+        >>> from oumi.core.datasets import BasePretrainingDataset
+        >>> tokenizer = build_tokenizer(ModelParams(model_name="gpt2"))
+        >>> dataset = BasePretrainingDataset(
         ...     dataset_name="wikimedia/wikipedia",
         ...     subset="20231101.en",
+        ...     split="train",
         ...     tokenizer=tokenizer,
         ...     seq_length=512
         ... )
-        >>>
-        >>> for batch in dataset:
-        ...     print(batch)  # Process the batch
+        >>> example = next(iter(dataset))
     """
 
     def __init__(
@@ -66,7 +66,7 @@ class BasePretrainingDataset(BaseIterableDataset):
         """Iterates over the dataset and yields samples of a specified sequence length.
 
         The underlying dataset is a stream of documents. Each document is expected to
-        containt a text field `self._dataset_text_field` that will be tokenized.
+        contain a text field `self._dataset_text_field` that will be tokenized.
         Training samples are then yielded in sequences of length `self.seq_length`.
 
         Given this iterator might return samples from different documents, we optionally
