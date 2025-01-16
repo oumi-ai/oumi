@@ -37,6 +37,7 @@ user_guides/infer/infer
 user_guides/evaluate/evaluate
 user_guides/judge/judge
 user_guides/launch/launch
+user_guides/customization
 ```
 
 ```{toctree}
@@ -44,7 +45,6 @@ user_guides/launch/launch
 :hidden:
 :caption: Resources
 
-resources/customization
 resources/models/models
 resources/datasets/datasets
 resources/recipes

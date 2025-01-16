@@ -112,4 +112,4 @@ For more advanced SFT dataset implementations, explore the `oumi.datasets` modul
 
 ### Using Custom Datasets via the CLI
 
-See {doc}`/resources/customization` to quickly enable your dataset when using the CLI.
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.
