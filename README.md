@@ -12,9 +12,27 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
 
+### Table of Contents
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+  - [Installation](#installation)
+  - [Oumi CLI](#oumi-cli)
+  - [Running Jobs Remotely](#running-jobs-remotely)
+- [Why use Oumi?](#why-use-oumi)
+- [Examples & Recipes](#examples--recipes)
+- [Contributing](#contributing)
+- [License](#license)
+
+> [!NOTE]
+> Oumi is under active development. While the core features are stable, some advanced features might change as we improve the platform.
+
+> [!TIP]
+> Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
+
 ### Everything you need to build state-of-the-art foundation models, end-to-end.
 
-Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're experimenting on a laptop or deploying models in production, Oumi provides the tools and workflows you need.
+<details>
+<summary>🚀 Key Features</summary>
 
 With Oumi, you can:
 
@@ -25,6 +43,8 @@ With Oumi, you can:
 - 📊 Evaluate models comprehensively across standard benchmarks
 - 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
 - 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail, ...)
+
+</details>
 
 All with one consistent API, production-grade reliability, and all the flexibility you need for research.
 
@@ -102,14 +122,20 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 
 If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
 
-Here are some of the key features that make Oumi stand out:
+<details>
+<summary>🌟 Key Features that Make Oumi Stand Out</summary>
 
 - 🔧 **Zero Boilerplate**: Get started in minutes with ready-to-use recipes for popular models and workflows. No need to write training loops or data pipelines.
-- 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale
+- 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale[^1]
 - 🎯 **Research Ready**: Perfect for ML research with easily reproducible experiments, and flexible interfaces for customizing each component.
 - 🌐 **Broad Model Support**: Works with most popular model architectures - from tiny models to the largest ones, text-only to multimodal.
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
+
+</details>
+
+> [!IMPORTANT]
+> Oumi is designed to be modular. You can use just the components you need and integrate them with your existing workflows.
 
 ### Examples &  Recipes
 
@@ -173,3 +199,5 @@ If you find Oumi useful in your research, please consider citing it:
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+[^1]: Oumi has been tested and validated by teams training models with billions of parameters in production environments.
