@@ -96,8 +96,8 @@ WiC (Words in Context) | Word sense disambiguation task. Requires identifying if
 RTE (Recognizing Textual Entailment) | Given two text fragments, recognize whether the meaning of one fragment can be inferred from the other [[details](https://arxiv.org/abs/1905.00537)] | `rte` | 2019, as part of Superglue
 LAMBADA (LAnguage Modeling Broadened to Account for Discourse Aspects) | Word prediction task. Given a passage, predict the last word. Requires tracking information in the broader discourse, beyond the last sentence [[details](https://arxiv.org/abs/1606.06031)] | `lambada` | 2016, by CIMeC, University of Trento
 WMT 2016 (Workshop on Machine Translation) | Collection of parallel text data used to assess the performance of machine translation systems, primarily focusing on news articles, across various language pairs [[details](http://www.aclweb.org/anthology/W/W16/W16-2301)] | `wmt16` | 2016, by Charles University, FBK, and others
-RACE (ReAding Comprehension from Examinations) | Reading comprehension dataset collected from English examinations in China. Designed for middle school and high school students. Evaluates language understanding and reasoning [[details](https://arxiv.org/abs/1704.04683)] | `race` | 2017 by CMU
-IFEval (Instruction Following Evaluation) | Instruction-Following evaluation dataset. Focuses on formatting text, including imposing length constraints, paragraph composition, punctuation, enforcing lower/upper casing, including/exluding keywords, etc [[details](https://arxiv.org/abs/2311.07911)] | `ifeval` | 2023 by Google, Yale University
+RACE (ReAding Comprehension from Examinations) | Reading comprehension dataset collected from English examinations in China. Designed for middle school and high school students. Evaluates language understanding and reasoning [[details](https://arxiv.org/abs/1704.04683)] | `race` | 2017, by CMU
+IFEval (Instruction Following Evaluation) | Instruction-Following evaluation dataset. Focuses on formatting text, including imposing length constraints, paragraph composition, punctuation, enforcing lower/upper casing, including/exluding keywords, etc [[details](https://arxiv.org/abs/2311.07911)] | `ifeval` | 2023, by Google, Yale University
 <!-- FIXME: Move IFEval to generative Benchmarks-->
 
 ### Mathematical and Numerical Reasoning
@@ -105,8 +105,8 @@ Benchmarks focused on evaluating a model's ability to perform mathematical calcu
 
 | Task | Description | Task Name | Introduced |
 |------|-------------|-----------|------------|
-MATH (Mathematics Aptitude Test of Heuristics), Level 5  | Challenging competition mathematics problems that require step-by-step solutions [[details](https://arxiv.org/abs/2103.03874)] | `leaderboard_math_hard` | 2021 by UC Berkeley
-GSM 8K (Grade School Math) | Grade school-level math word problems [[details](https://arxiv.org/abs/2110.14168)] | `gsm8k` | 2021 by OpenAi
+MATH (Mathematics Aptitude Test of Heuristics), Level 5  | Challenging competition mathematics problems that require step-by-step solutions [[details](https://arxiv.org/abs/2103.03874)] | `leaderboard_math_hard` | 2021, by UC Berkeley
+GSM 8K (Grade School Math) | Grade school-level math word problems [[details](https://arxiv.org/abs/2110.14168)] | `gsm8k` | 2021, by OpenAi
 
 ### Other Tasks
 To see all available tasks:
