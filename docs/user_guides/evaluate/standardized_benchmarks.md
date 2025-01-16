@@ -72,6 +72,12 @@ To see all available tasks:
 lm-eval --tasks list
 ```
 
+## Multimodal Benchmarks
+
+| Task | Type | Description | Focus |
+|------|------|-------------|-------|
+MMMU | Question Answering | Designed to evaluate multimodal models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines. | Multiple choice question answering
+
 ## Custom LM-Harness Tasks
 
 While Oumi provides integration with the LM Evaluation Harness and its extensive task collection, you may need to create a custom evaluation tasks for specific use cases. For this case, we refer you to the [new task guide](https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/new_task_guide.md), which walks you through the process of creating and implementing custom evaluation tasks using the `LM Evaluation Harness` (`lm_eval`) framework.
