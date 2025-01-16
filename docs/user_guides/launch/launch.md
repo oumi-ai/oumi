@@ -6,7 +6,6 @@
 :hidden:
 
 deploy
-remote
 custom_cluster
 ```
 

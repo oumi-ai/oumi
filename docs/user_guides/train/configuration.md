@@ -111,10 +111,8 @@ data:
     collator_name: "text_with_padding"      # Data collator type
     pack: false                             # Pack text into constant-length chunks
     stream: false                           # Enable dataset streaming
-    target_col: null                        # Column name containing training input
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
     seed: null                              # Random seed for mixing
-    use_async_dataset: false                # Use async text dataset
     experimental_use_torch_datapipes: false # Use torch DataPipes (experimental)
 
   validation:  # Optional validation dataset config

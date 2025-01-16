@@ -10,7 +10,6 @@ sft_datasets
 pretraining_datasets
 preference_datasets
 vl_sft_datasets
-custom_datasets
 ```
 
 ## Overview
@@ -162,6 +161,3 @@ Our dataset collection covers various training objectives and tasks:
 
 2. **Using Existing Datasets?**
    - Explore the available [SFT Datasets](/resources/datasets/sft_datasets), [Pretraining Datasets](/resources/datasets/pretraining_datasets), [Preference Datasets](/resources/datasets/preference_datasets), and [Vision-Language Datasets](/resources/datasets/vl_sft_datasets)
-
-3. **Building Datasets with Custom Processing?**
-   - Follow our [Custom Dataset Guide](/resources/datasets/custom_datasets)

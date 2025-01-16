@@ -28,6 +28,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     Example:
         >>> from oumi.core.configs import ModelParams
+        >>> from oumi.inference import LlamaCppInferenceEngine
         >>> model_params = ModelParams(
         ...     model_name="path/to/model.gguf",
         ...     model_kwargs={
@@ -36,7 +37,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ...         "flash_attn": True
         ...     }
         ... )
-        >>> engine = LlamaCppInferenceEngine(model_params)
+        >>> engine = LlamaCppInferenceEngine(model_params) # doctest: +SKIP
         >>> # Use the engine for inference
     """
 

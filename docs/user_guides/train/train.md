@@ -133,6 +133,12 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+### Fine-tuning a Vision-Language Model
+
+Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
+You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
+{ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
+
 ### Multi-GPU Training
 
 To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
@@ -175,7 +181,7 @@ data:
         dataset_path: "/path/to/dataset.jsonl"
 ```
 
-In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats, and {doc}`/resources/datasets/custom_datasets` for customizing the preprocessing at runtime if needed.
+In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats.
 
 ## Training Output
 
