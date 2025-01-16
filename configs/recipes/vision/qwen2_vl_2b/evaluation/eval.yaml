@@ -1,17 +1,20 @@
-# Eval config for Llama 3.2 11B Vision Instruct.
+# Eval config for Qwen2 VL 2B Instruct.
 model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
-  model_max_length: 4096
+  model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
 
 generation:
-  batch_size: 1
+  batch_size: 8
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: mmmu_val
+    task_name: mmmu_val #  mmmu_val_physics
+    eval_kwargs:
+      num_fewshot: 5
 
-enable_wandb: True
+enable_wandb: False
+inference_engine: VLLM

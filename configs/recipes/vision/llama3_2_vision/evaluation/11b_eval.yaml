@@ -4,18 +4,17 @@ model:
   model_max_length: 1024 # 256
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  load_pretrained_weights: True
-  trust_remote_code: True
 
 generation:
   batch_size: 1
 
 tasks:
   - evaluation_platform: lm_harness
-    task_name: mmmu_val
+    task_name: "mmmu_val_physics" # "mmmu_val"
+    # num_samples: 100  # Limit the number of eval samples.
     eval_kwargs:
       num_fewshot: 5
-      num_samples: 100
+
   # To enable individual sub-tasks, uncomment the entries of interest below:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_accounting"

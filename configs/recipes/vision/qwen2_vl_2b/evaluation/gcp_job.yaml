@@ -1,4 +1,4 @@
-# Config to eval Llama 3.2 Vision 11B Instruct on GCP.
+# Config to eval Qwen2 VL 2B Instruct on GCP.
 # Example command:
 # oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml --cluster qwen2-vl-eval
 name: qwen2-vl-eval
