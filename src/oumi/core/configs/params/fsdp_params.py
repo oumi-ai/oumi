@@ -193,7 +193,6 @@ class FSDPParams(BaseParams):
     forward_prefetch: bool = False
     """If True, prefetches the forward pass results."""
 
-    # Different than default of False, but potentially more useful to auto-set.
     use_orig_params: Optional[bool] = None
     """If True, uses the PyTorch Module's original parameters for FSDP.
 

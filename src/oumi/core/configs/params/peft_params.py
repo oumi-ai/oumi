@@ -183,7 +183,7 @@ class PeftParams(BaseParams):
         https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
-    lora_task_type: Optional[TaskType] = None
+    lora_task_type: TaskType = TaskType.CAUSAL_LM
     """The task type for LoRA adaptation.
 
     Defaults to CAUSAL_LM (Causal Language Modeling).
@@ -196,8 +196,6 @@ class PeftParams(BaseParams):
     If True, enables quantization for more memory-efficient fine-tuning.
     """
 
-    # Bits and bytes has load in 4 bit and load in 8 bit as false
-    # 4 here seems reasonable
     q_lora_bits: int = field(
         default=4, metadata={"help": "Quantization (precision) bits."}
     )

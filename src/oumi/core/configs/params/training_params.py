@@ -493,8 +493,8 @@ class TrainingParams(BaseParams):
 
     If set to `False`, the dataloader is iterated through on each GPU process.
 
-    If set to `None` (default), it will be set to True if the training dataset is an
-    `IterableDataset`.
+    If set to `None` (default), then `True` or `False` is auto-selected based on
+    heuristics (properties of dataset, the number of nodes and/or GPUs, etc).
 
     NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
     """
@@ -636,6 +636,8 @@ class TrainingParams(BaseParams):
             #    "use_seedable_sampler": True,
             # },
             seed=self.seed,
+            # TODO: OPE-891 - Support setting a data seed.
+            # By default, HF will use the global seed for data loading.
             **self.trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
@@ -674,8 +676,6 @@ class TrainingParams(BaseParams):
 
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
             raise ValueError("max_grad_norm must be >= 0.")
-        # HF logging dir default seems reasonable. We had a bug in our override anyway
-        # Plus, our logging dir is used elsewhere
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
