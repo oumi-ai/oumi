@@ -135,8 +135,9 @@ training:
 
 ### Fine-tuning a Pre-trained Vision-Language Model
 
-Multimodal support in Oumi is similar to tuning text-only models with few config changes e.g., data collator. You can find related details in {ref}`Vision-Language SFT <vision-language-sft>`,  {ref}`Multi-modal Inference <multi-modal-inference>`,  {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
-
+Multimodal tuning in Oumi is similar to tuning text-only models with few config changes e.g., data collation.
+You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`,
+{ref}`Multi-modal Inference <multi-modal-inference>`,  and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
 
 ### Multi-GPU Training
 
