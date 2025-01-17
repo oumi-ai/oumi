@@ -27,11 +27,9 @@ _DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 def _get_all_sft_vision_dataset_names() -> list[str]:
     """List all SFT datasets in the registry."""
     datasets = []
-    for key, value in REGISTRY._registry.items():
-        if key.registry_type == RegistryType.DATASET and issubclass(
-            value, VisionLanguageSftDataset
-        ):
-            datasets.append(key.name)
+    for key, value in REGISTRY.get_all(RegistryType.DATASET).items():
+        if issubclass(value, VisionLanguageSftDataset):
+            datasets.append(key)
     return datasets
 
 

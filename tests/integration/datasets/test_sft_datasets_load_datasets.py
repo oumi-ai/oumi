@@ -9,9 +9,6 @@ def _get_all_sft_datasets_private_key() -> list[str]:
     """List all SFT datasets in the registry."""
     datasets = []
     for key, value in REGISTRY.get_all(RegistryType.DATASET).items():
-        print(f"{key}")
-        print(f"{value}")
-
         if issubclass(value, BaseSftDataset):
             datasets.append(key)
     return datasets
