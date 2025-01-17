@@ -100,8 +100,8 @@ To add a new VL-SFT dataset, follow these steps:
 1. Subclass {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.VisionLanguageSftDataset.transform_conversation` method to handle both text and image data.
 
-Here's a basic example, which loads data from the hypothetical `example/foo` dataset (image + text)
-hosted on HuggingFace, and formats the data as Oumi `Conversation`-s for SFT tuning:
+Here's a basic example, which loads data from the hypothetical `example/foo` HuggingFace dataset (image + text),
+and formats the data as Oumi `Conversation`-s for SFT tuning:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
