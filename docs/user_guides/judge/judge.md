@@ -5,7 +5,7 @@
 :caption: Judge
 :hidden:
 
-build_in_judge
+built_in_judge
 custom_prompt
 custom_infer
 ```
@@ -39,11 +39,11 @@ Our LLM Judge API is fully customizable and can be applied across a wide range o
 
 ## Oumi Offerrings
 
-Oumi offers a {doc}`Built-In Judge </user_guides/judge/build_in_judge>` that you can use out of the box, which evaluates model outputs based on multiple attributes such as helpfulness, honesty, and safety. Alternatively, you can tailor the judge to your specific project by customizing the {doc}`model prompts </user_guides/judge/custom_prompt>` or the {doc}`judge model and its generation parameters </user_guides/judge/custom_infer>`.
+Oumi offers a {doc}`Built-In Judge </user_guides/judge/built_in_judge>` that you can use out of the box, which evaluates model outputs based on multiple attributes such as helpfulness, honesty, and safety. Alternatively, you can tailor the judge to your specific project by customizing the {doc}`model prompts </user_guides/judge/custom_prompt>` or the {doc}`judge model and its generation parameters </user_guides/judge/custom_infer>`.
 
 ### Built-In Judge
 
-Our build-in judge has been tested and validated for accuracy and performance. It comes with a pre-defined set of attributes, which can be easily customized. The underlying model can be either local (using a PyTorch or GGML/GGUF model) or we can call a remote API (e.g. OpenAI, Anthropic, Google, etc.). Let's explore both options, starting with the local implementation which is great for development and testing.
+Our built-in judge has been tested and validated for accuracy and performance. It comes with a pre-defined set of attributes, which can be easily customized. The underlying model can be either local (using a PyTorch or GGML/GGUF model) or we can call a remote API (e.g. OpenAI, Anthropic, Google, etc.). Let's explore both options, starting with the local implementation which is great for development and testing.
 
 ##### Quick Start with a local model
 
