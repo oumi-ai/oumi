@@ -87,7 +87,7 @@ You can override any value either through the CLI or programmatically:
 :::{code-block} bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.learning_rate 1e-4 \
-  --training.num_train_epochs 5
+  --training.max_steps 30
 :::
 
 :::{code-block} python
@@ -99,7 +99,7 @@ config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_tr
 
 # Override specific values
 config.training.learning_rate = 1e-4
-config.training.num_train_epochs = 5
+config.training.max_steps = 30
 
 # Start training
 train(config)
