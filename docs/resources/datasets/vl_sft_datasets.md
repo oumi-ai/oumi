@@ -126,7 +126,7 @@ class CustomVLDataset(VisionLanguageSftDataset):
         conversation = Conversation(
             messages=[
                 Message(role=Role.USER, content=[
-                    ContentItem(type=Type.IMAGE_BINARY, content=example['image_bytes']),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=example['image_bytes']),
                     ContentItem(type=Type.TEXT, content=example['question']),
                 ]),
                 Message(role=Role.ASSISTANT, content=example['answer'])
