@@ -1,25 +1,25 @@
 # Contributing
 
-Oumi welcomes any contributions that help make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite you to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
+Oumi welcomes any contributions that help make it better for the community: this is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and a totally open future for frontier AI. Whether you are an individual contributor or an organization, we invite you to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
 
 Possible contributions include:
 
-* Bug fixes, incremental improvements and tests, no matter how small
+* Bug fixes, incremental improvements, and tests, no matter how small
 * New features and infrastructure improvements
-* Tuning datasets, new ones or existing ones adapted to the standardized Oumi format
-* Benchmarks, new or existing, integrated to Oumi's evaluation library
+* Tuning datasets, new ones or existing ones, adapted to the [standardized Oumi format](https://oumi.ai/docs/latest/resources/datasets/data_formats.html)
+* Benchmarks, new or existing, integrated to [Oumi's evaluation library](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html)
 * Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
-* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_PBC) to share knowledge and help each other.
+* Community participation in [GitHub issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_PBC), to share knowledge and help each other.
 
 If you want to contribute but you are short of ideas or have any questions, reach out (<contact@oumi.ai>) and we can help.
 
-## Prerequisites
+## 📢 Prerequisites
 
 To set up the development environment on your local machine, please follow the steps outlined in the [development setup documentation](/development/dev_setup).
 
-## Submitting a Contribution
+## 📤 Submitting a Contribution
 
 To submit a contribution:
 
@@ -43,7 +43,7 @@ for detailed steps.
 
 4. When you are ready, submit a pull request into the Oumi repository!
 
-## Pull request (PR) guidelines
+## 📥 Pull request (PR) guidelines
 
 Basic guidelines that will make your PR easier to review:
 
@@ -62,7 +62,7 @@ Basic guidelines that will make your PR easier to review:
   * Ensure you have it installed as described in the [Prerequisites](#prerequisites) section.
   * Run pre-commit hooks before submitting your PR.
 
-## Running Tests
+## 🏃🏽‍♀️ Running Tests
 
 To test your changes locally, run:
 
@@ -73,16 +73,16 @@ pytest -s -vv
 
 To run pre-commit hooks manually, run `pre-commit run --all-files`
 
-## Code Style & Typing
+## 🎩 Code Style & Typing
 
 See the [Oumi Style Guide](style_guide.md) for guidelines on how to structure, and format your code.
 
-## Copyright & License Headers
+## ©️ Copyright & License Headers
 
 To maintain proper copyright and license notices, please include the header at the top of each source code file.
 
 ```python
-// Copyright 2024 - Oumi Public Benefit Corp.
+// Copyright 2025 - Oumi Public Benefit Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,11 +97,11 @@ To maintain proper copyright and license notices, please include the header at t
 // limitations under the License.
 ```
 
-## Becoming a Code Reviewer or Maintainer
+## 🔗 Becoming a Code Reviewer or Maintainer
 
 Send an email to <contact@oumi.ai> if you would like to become a code reviewer, maintainer or contribute in any other way!
 
-## Recognition
+## 🏅 Recognition
 
 Join the Oumi community to be part of defining a better future for open frontier AI. We will recognize top contributors periodically and feature all of them in Oumi's wall of fame.
 
