@@ -1,6 +1,6 @@
-# Quickstart
+# 🏇 Quickstart
 
-## Pre-requisites
+## 📢 Pre-requisites
 
 Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
 
@@ -13,7 +13,7 @@ pip install oumi[gpu]
 
 If you need help setting up your environment (python, pip, git, etc), you can find detailed instructions in the {doc}`/development/dev_setup` guide. The {doc}`installation guide </get_started/installation>` offers more details on how to install Oumi for your specific environment and use case.
 
-## Introduction
+## 👋 Introduction
 
 Now that we have Oumi installed, let's get started with the basics! We're going to use the `oumi` command-line interface (CLI) to train, evaluate, and run inference with a model.
 
@@ -21,7 +21,7 @@ We'll use a small model (`SmolLM-135M`) so that the examples can run fast on bot
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page </resources/recipes>`.
 
-## Oumi CLI
+## 💲 Oumi CLI
 
 The general structure of Oumi CLI commands is:
 
@@ -46,7 +46,7 @@ The available commands are:
 
 Let's go through some examples of each command.
 
-## Training
+## 📚 Training
 
 You can quickly start training a model using any of existing {doc}`recipes </resources/recipes>` or your own {doc}`custom configs </user_guides/train/configuration>`. The following command will start training using the recipe in `configs/recipes/smollm/sft/135m/quickstart_train.yaml`:
 
@@ -88,7 +88,7 @@ oumi distributed torchrun -m \
 ```
 
 
-## Evaluation
+## 📝 Evaluation
 
 To evaluate a trained model:
 
@@ -116,7 +116,7 @@ If you saved your model to a different directory such as `output/smollm-135m-sft
 
 To explore the benchmarks that our evaluations support, including HuggingFace leaderboards and AlpacaEval, visit our {doc}`evaluation guide </user_guides/evaluate/evaluate>`.
 
-## Inference
+## 🧠 Inference
 
 To run inference with a trained model:
 
@@ -147,7 +147,7 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
 
 To learn more about running inference locally or remotely (including OpenAI, Google, Anthropic APIs) and leveraging inference engines to parallelize and speed up your jobs, visit our {doc}`inference guide </user_guides/infer/infer>`.
 
-## Launching Jobs
+## 💼 Launching Jobs
 
 So far we have been using the `train`, `evaluate`, and `infer` commands to run jobs locally.
 To launch a distributed training job:
