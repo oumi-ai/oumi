@@ -18,7 +18,7 @@ As of now, the only judge available is the `Oumi Judge V1`, which supports 3 att
 
 -->
 
-# Build-In Judge
+# Built-In Judge
 
 TODO: Add intro / motivation
 
