@@ -1,8 +1,6 @@
-"""Porting the Alpaca dataset with Oumi.
+"""Generic class for using HuggingFace datasets with input/output columns.
 
-For more info see:
-    (1) https://github.com/tatsu-lab/stanford_alpaca
-    (2) https://github.com/gururise/AlpacaDataCleaned
+Allows users to specify the prompt and response columns at the config level.
 """
 
 from typing import Union, cast
@@ -40,12 +38,11 @@ class PromptResponseDataset(BaseSftDataset):
                 `instruction`, and `output` entries.
 
         Returns:
-            dict: The input example converted to Alpaca dictionary format.
+            dict: The input example converted to messages dictionary format.
 
         """
         messages = []
 
-        # Use default Alpaca user prompt template
         user_prompt = cast(str, example[self.prompt_column])
         model_output = cast(str, example[self.response_column])
 
