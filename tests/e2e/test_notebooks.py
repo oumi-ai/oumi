@@ -9,7 +9,7 @@ from nbconvert.preprocessors import ExecutePreprocessor
 from oumi.utils.io_utils import get_oumi_root_directory
 
 # Notebooks whose tests we should skip, as they can't be run in an automated fashion.
-# Reasons include that they're too sow, they start remote jobs, etc.
+# Reasons include that they're too slow, they start remote jobs, etc.
 # An error will be thrown if a notebook in this set isn't found.
 _NOTEBOOKS_TO_SKIP = {
     # Requires calling GPT-4 API
