@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.InferenceConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+
 # Sample command to start vLLM server:
 # python -u -m vllm.entrypoints.openai.api_server \
 #   --port 6864 \

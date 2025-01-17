@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.EvaluationConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+
 evaluation:
   output_dir: "output/gpt2.pt" # NOTE: Update to your output directory.
 
