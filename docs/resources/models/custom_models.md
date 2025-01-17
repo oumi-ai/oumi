@@ -204,6 +204,10 @@ def criterion(self) -> Callable:
 - Implemented as a property following {py:class}`oumi.core.models.BaseModel` interface
 - Can be customized for different training objectives
 
+## Using Custom Models via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your model when using the CLI.
+
 ## Testing Models
 
 Oumi uses pytest for testing models. Here's an example test for the MLPEncoder:

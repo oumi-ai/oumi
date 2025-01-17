@@ -8,7 +8,7 @@ model:
   trust_remote_code: True
 
 generation:
-  batch_size: 4
+  batch_size: 2
 
 tasks:
   - evaluation_platform: lm_harness
@@ -77,5 +77,5 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_sociology"
 
-enable_wandb: False
-inference_engine: VLLM
+enable_wandb: True
+inference_engine: NATIVE
