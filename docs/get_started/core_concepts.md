@@ -51,6 +51,7 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
+
 | Command      | Purpose                                                               |
 |--------------|-----------------------------------------------------------------------|
 `train`        | Train a model.
@@ -59,7 +60,7 @@ The available commands are:
 `launch`       | Launch jobs remotely.
 `judge`        | Judge datasets, models or conversations.
 `env`          | Prints information about the current environment.
-`distributed`  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
+[`distributed`]({doc}`/cli/commands.html#oumi-distributed`)  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
 
 See {doc}`/cli/commands` for full CLI details.
 
