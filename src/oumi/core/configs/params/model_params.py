@@ -184,7 +184,7 @@ class ModelParams(BaseParams):
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
             "dtype": self.torch_dtype,
-            "device_map" : self.device_map,
+            "device_map": self.device_map,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
