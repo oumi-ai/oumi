@@ -1,4 +1,4 @@
-# Customizing Model and Generation Parameters
+# Custom Model
 
 This level allows you to change the underlying model and its parameters to balance speed, accuracy, and resource usage.
 
