@@ -7,7 +7,7 @@ Possible contributions include:
 * Bug fixes, incremental improvements, and tests, no matter how small
 * New features and infrastructure improvements
 * Tuning datasets, new ones or existing ones, adapted to the [standardized Oumi format](/resources/datasets/data_formats)
-* Benchmarks, new or existing, integrated to [Oumi's evaluation library](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html)
+* Benchmarks, new or existing, integrated to [Oumi's evaluation library](/user_guides/evaluate/evaluate)
 * Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
