@@ -15,14 +15,15 @@ monitoring
 
 Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Our goal is to allow you to start small, in a notebook or local machine, and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Our goal is to allow you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
 - **Multiple Training Methods**: {ref}`Supervised Fine-Tuning (SFT) <supervised-fine-tuning-sft>` to adapt models to your specific tasks, {ref}`Vision-Language SFT <vision-language-sft>` for multimodal models, {ref}`Pretraining <pretraining>` for training from scratch, and {ref}`Direct Preference Optimization (DPO) <direct-preference-optimization-dpo>` for preference-based fine-tuning
+- **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple PEFT methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
 - **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment <environments/cloud>`
 - **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
-- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using DDP or FSDP
+- **Scalable Training**: Scale from single-GPU training to multi-node distributed training using [Distributed Data Parallel (DDP)](https://pytorch.org/tutorials/beginner/ddp_series_theory.html) or [Fully Sharded Data Parallel (FSDP)](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html)
 
 ## Quick Start
 
@@ -37,7 +38,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :::
 
 :::{code-block} python
-from oumi.core.train import train
+from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load config from file
@@ -84,17 +85,17 @@ You can override any value either through the CLI or programmatically:
 
 ::::{tab-set-code}
 :::{code-block} bash
-oumi train -c config.yaml \
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.learning_rate 1e-4 \
   --training.num_train_epochs 5
 :::
 
 :::{code-block} python
+from oumi import train
 from oumi.core.configs import TrainingConfig
-from oumitrain import train
 
 # Load base config
-config = TrainingConfig.from_yaml("config.yaml")
+config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Override specific values
 config.training.learning_rate = 1e-4
@@ -132,17 +133,25 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+### Fine-tuning a Vision-Language Model
+
+Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
+You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
+{ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
+
 ### Multi-GPU Training
 
 To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
 
 ```bash
 # Using DDP (DistributedDataParallel)
-oumi distributed torchrun -m oumi train \
+oumi distributed torchrun -m \
+  oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml
 
 # Using FSDP (Fully Sharded Data Parallel)
-oumi distributed torchrun -m oumi train \
+oumi distributed torchrun -m \
+  oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
   --fsdp.enable_fsdp true \
   --fsdp.sharding_strategy FULL_SHARD
@@ -172,7 +181,7 @@ data:
         dataset_path: "/path/to/dataset.jsonl"
 ```
 
-In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats, and {doc}`/resources/datasets/custom_datasets` for customizing the preprocessing at runtime if needed.
+In this case, the dataset is expected to be in the `conversation` format. See {doc}`/resources/datasets/data_formats` for all the supported formats.
 
 ## Training Output
 

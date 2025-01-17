@@ -1,4 +1,5 @@
 import logging
+import os
 from enum import Enum
 from typing import Annotated, Optional
 
@@ -77,6 +78,14 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         )
     logger.debug(f"\n\nParsed CLI args:\n{args}\n\n")
     return args
+
+
+def configure_common_env_vars() -> None:
+    """Sets common environment variables if needed."""
+    if "ACCELERATE_LOG_LEVEL" not in os.environ:
+        os.environ["ACCELERATE_LOG_LEVEL"] = "info"
+    if "TOKENIZERS_PARALLELISM" not in os.environ:
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 class LogLevel(str, Enum):

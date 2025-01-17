@@ -1,6 +1,8 @@
 # Supervised Fine-Tuning
 
-This guide covers datasets used for instruction tuning and supervised learning in Oumi.
+Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trained language model to specific downstream tasks. This involves fine-tuning the model's parameters on a labeled dataset of input-output pairs, effectively teaching the model to perform the desired task.
+
+This guide covers datasets used for using SFT datasets in Oumi.
 
 ## SFT Datasets
 
@@ -64,16 +66,12 @@ for batch in loader:
 
 ## Adding a New SFT Dataset
 
-All SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.BaseLMSftDataset`.
-
-```{important}
-The {py:class}`~oumi.core.datasets.BaseLMSftDataset` is an abstract base class. Implement your specific dataset by subclassing it and overriding the {py:meth}`~oumi.core.datasets.BaseLMSftDataset.transform_conversation` method.
-```
+All SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.BaseSftDataset`.
 
 To add a new SFT dataset:
 
-1. Subclass {py:class}`~oumi.core.datasets.BaseLMSftDataset`
-2. Implement the {py:meth}`~oumi.core.datasets.BaseLMSftDataset.transform_conversation` method to define the dataset-specific transformation logic.
+1. Subclass {py:class}`~oumi.core.datasets.BaseSftDataset`
+2. Implement the {py:meth}`~oumi.core.datasets.BaseSftDataset.transform_conversation` method to define the dataset-specific transformation logic.
 
 For example:
 
@@ -83,7 +81,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.registry import register_dataset
 
 @register_dataset("custom_sft_dataset")
-class CustomSftDataset(BaseLMSftDataset):
+class CustomSftDataset(BaseSftDataset):
     def __init__(self, config: TrainingConfig,
                  tokenizer: BaseTokenizer,
                  dataset_split: DatasetSplit):
@@ -111,3 +109,7 @@ class CustomSftDataset(BaseLMSftDataset):
 ```{tip}
 For more advanced SFT dataset implementations, explore the `oumi.datasets` module, which contains implementations of several [open source datasets](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 ```
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.

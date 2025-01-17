@@ -111,10 +111,8 @@ data:
     collator_name: "text_with_padding"      # Data collator type
     pack: false                             # Pack text into constant-length chunks
     stream: false                           # Enable dataset streaming
-    target_col: null                        # Column name containing training input
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
     seed: null                              # Random seed for mixing
-    use_async_dataset: false                # Use async text dataset
     experimental_use_torch_datapipes: false # Use torch DataPipes (experimental)
 
   validation:  # Optional validation dataset config
@@ -187,13 +185,13 @@ training:
   try_resume_from_last_checkpoint: false  # Try auto-resume from last checkpoint
 
   # Evaluation
-  eval_strategy: "no"                     # When to evaluate ("no", "steps", "epoch")
+  eval_strategy: "steps"                  # When to evaluate ("no", "steps", "epoch")
   eval_steps: 50                          # Evaluate every N steps
   metrics_function: null                  # Name of metrics function to use
 
   # Logging
   log_level: "info"                       # Main logger level
-  dep_log_level: "warning"               # Dependencies logger level
+  dep_log_level: "warning"                # Dependencies logger level
   enable_wandb: false                     # Enable Weights & Biases logging
   enable_tensorboard: true                # Enable TensorBoard logging
   logging_strategy: "steps"               # When to log ("steps", "epoch", "no")
@@ -206,7 +204,7 @@ training:
   dataloader_main_process_only: null      # Iterate dataloader on main process only (auto if null)
 
   # Distributed training
-  ddp_find_unused_parameters: null        # Find unused parameters in DDP
+  ddp_find_unused_parameters: false       # Find unused parameters in DDP
   nccl_default_timeout_minutes: null      # NCCL timeout in minutes
 
   # Performance monitoring
@@ -229,7 +227,7 @@ peft:
   lora_target_modules: null           # Modules to apply LoRA to
   lora_modules_to_save: null          # Modules to unfreeze and train
   lora_bias: "none"                   # Bias training type
-  lora_task_type: "CAUSAL_LM"        # Task type for adaptation
+  lora_task_type: "CAUSAL_LM"         # Task type for adaptation
 
   # Q-LoRA settings
   q_lora: false                       # Enable quantization
@@ -273,7 +271,7 @@ Notes on FSDP sharding strategies:
 
 ## Example Configurations
 
-You can find these examples and many more in the {doc}'/resources/recipes' section.
+You can find these examples and many more in the {doc}`/resources/recipes` section.
 
 We aim to provide a comprehensive (and growing) set of recipes for all the common training scenarios:
 

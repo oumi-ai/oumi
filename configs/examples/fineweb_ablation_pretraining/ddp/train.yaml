@@ -13,6 +13,8 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
+        dataset_kwargs:
+          seq_length: 2048
       # Polaris copy of the dataset:
       # - dataset_name: "/eagle/community_ai/datasets/fineweb-edu/sample-10BT"
       #   subset: "default"

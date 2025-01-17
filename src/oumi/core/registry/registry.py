@@ -1,7 +1,13 @@
 import functools
+import importlib.util
+import os
+import sys
 from collections import namedtuple
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Callable, Optional
+
+from oumi.utils.logging import logger
 
 
 class RegistryType(Enum):
@@ -27,19 +33,63 @@ class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
         return super().__new__(cls, name.lower(), registry_type)
 
 
+def _load_user_requirements(requirements_file: str):
+    """Loads user-defined requirements from a file."""
+    logger.info(f"Loading user-defined registry from: {requirements_file}")
+    logger.info(
+        "This value can be set using the OUMI_EXTRA_DEPS_FILE " "environment variable."
+    )
+    requirements_path = Path(requirements_file)
+    if not requirements_path.exists():
+        logger.error(f"OUMI_EXTRA_DEPS_FILE file not found: {requirements_file}")
+        raise FileNotFoundError(
+            f"OUMI_EXTRA_DEPS_FILE file not found: {requirements_file}"
+        )
+    with open(requirements_path) as f:
+        import_count = 0
+        for idx, line in enumerate(f):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            import_count += 1
+            import_path = Path(line)
+            logger.debug(f"Loading user-defined registry module: {import_path}")
+            mod_name = f"oumi_registry_user_defined_module_{idx}"
+            spec = importlib.util.spec_from_file_location(mod_name, import_path)
+            if not spec or not spec.loader:
+                raise ImportError(f"Failed to load user-defined module: {line}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[mod_name] = module
+            try:
+                spec.loader.exec_module(module)
+            except Exception as e:
+                logger.error(
+                    "Failed to load a user-defined module in "
+                    f"OUMI_EXTRA_DEPS_FILE: {line}"
+                )
+                raise ImportError(f"Failed to load user-defined module: {line}") from e
+        logger.info(f"Loaded {import_count} user-defined registry modules.")
+
+
 def _register_dependencies(cls_function):
     """Decorator to ensure core dependencies are added to the Registry."""
 
     @functools.wraps(cls_function)
     def wrapper(self, *args, **kwargs):
         if not self._initialized:
+            # Immediately set the initialized flag to avoid infinite recursion.
+            self._initialized = True
             # Import all core dependencies.
             import oumi.datasets  # noqa: F401
             import oumi.judges  # noqa: F401
             import oumi.launcher  # noqa: F401
             import oumi.models  # noqa: F401
 
-            self._initialized = True
+            # Import user-defined dependencies.
+            user_req_file = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
+            if user_req_file:
+                _load_user_requirements(user_req_file)
+
         return cls_function(self, *args, **kwargs)
 
     return wrapper

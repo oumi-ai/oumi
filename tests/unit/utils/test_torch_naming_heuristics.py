@@ -10,11 +10,18 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
 )
+from transformers.models.mllama.modeling_mllama import (
+    MllamaCrossAttentionDecoderLayer,
+    MllamaSelfAttentionDecoderLayer,
+    MllamaVisionEncoderLayer,
+)
 
 from oumi.utils.torch_naming_heuristics import (
     disable_dropout,
     group_trainable_params,
     guess_transformer_layer_cls,
+    resolve_transformer_layer_cls_string_as_module_set,
+    simplify_transformer_layer_cls_string,
 )
 
 
@@ -134,3 +141,44 @@ def test_guess_transformer_layer_cls(model_name, expected_layer_name, builder_cl
 
     # Check if the guessed class name matches the expected name
     assert layer_cls.__name__ == expected_layer_name
+
+
+@pytest.mark.parametrize(
+    "input_name, simplified_name",
+    [
+        ("", ""),
+        ("  \t\n", ""),
+        ("Foo", "Foo"),
+        (" Foo ", "Foo"),
+        (" Foo, Bar ", "Foo,Bar"),
+        ("zoo.Foo, Bar ", "Foo,Bar"),
+        ("zoo.Foo,moo.Bar ", "Foo,Bar"),
+        ("zoo.Foo,,,Zzz,moo.Bar ", "Foo,Zzz,Bar"),
+    ],
+)
+def test_simplify_transformer_layer_cls_string(input_name: str, simplified_name: str):
+    assert simplify_transformer_layer_cls_string(input_name) == simplified_name
+
+
+def test_resolve_transformer_layer_cls_string_as_module_set():
+    assert resolve_transformer_layer_cls_string_as_module_set("") == set()
+
+    assert resolve_transformer_layer_cls_string_as_module_set(
+        "transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer"
+    ) == set(
+        {
+            MllamaCrossAttentionDecoderLayer,
+        }
+    )
+
+    assert resolve_transformer_layer_cls_string_as_module_set(
+        "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,"
+        "transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,"
+        "transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
+    ) == set(
+        {
+            MllamaSelfAttentionDecoderLayer,
+            MllamaCrossAttentionDecoderLayer,
+            MllamaVisionEncoderLayer,
+        }
+    )

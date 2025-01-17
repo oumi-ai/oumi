@@ -1,10 +1,12 @@
-# Pretraining
+# Pre-training
 
-This guide covers pretraining datasets used for training language models from scratch or continuing pretraining in Oumi.
+Pre-training is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. The most common pre-training method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
+
+This guide covers pre-training datasets used for training language models from scratch or continuing pre-training in Oumi.
 
 ## Supported Datasets
 
-Out of the box, we support multiple popular pretraining datasets:
+Out of the box, we support multiple popular pre-training datasets:
 
 ```{include} /api/summary/pretraining_datasets.md
 ```
@@ -13,7 +15,7 @@ Out of the box, we support multiple popular pretraining datasets:
 
 ### Configuration
 
-To use a specific pretraining dataset in your Oumi configuration, you need to specify it in the {py:class}`~oumi.core.configs.TrainingConfig`. Here's an example of how to configure a pretraining dataset:
+To use a specific pre-training dataset in your Oumi configuration, you need to specify it in the {py:class}`~oumi.core.configs.TrainingConfig`. Here's an example of how to configure a pre-training dataset:
 
 ```yaml
 training:
@@ -39,13 +41,10 @@ In this configuration:
 - {py:attr}`~oumi.core.configs.DatasetParams.pack` activates sequence packing
 - {py:attr}`~oumi.core.configs.DatasetParams.dataset_kwargs` allows you to pass additional parameters specific to your dataset
 
-```{important}
-Setting {py:attr}`~oumi.core.configs.DatasetSplitParams.experimental_use_async_dataset` to `True` enables the use of {py:class}`~oumi.datasets.pretraining_async_text_dataset.PretrainingAsyncTextDataset`, which is optimized for asynchronous data processing.
-```
 
 ### Python API
 
-To use a specific pretraining dataset in your code, you can leverage the {py:func}`~oumi.builders.data.build_dataset_mixture` function. Here's an example:
+To use a specific pre-training dataset in your code, you can leverage the {py:func}`~oumi.builders.data.build_dataset_mixture` function. Here's an example:
 
 ```python
 from oumi.builders import build_dataset_mixture
@@ -76,11 +75,11 @@ The {py:func}`~oumi.builders.data.build_dataset_mixture` function takes care of 
 - Configuring sequence packing if specified
 - Handling dataset mixtures if multiple datasets are defined
 
-## Adding a New Pretraining Dataset
+## Adding a New Pre-training Dataset
 
-All pretraining datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
+All pre-training datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
 
-This class extends {py:class}`~oumi.core.datasets.iterable_dataset.BaseIterableDataset` to offer functionality specific to pretraining tasks.
+This class extends {py:class}`~oumi.core.datasets.iterable_dataset.BaseIterableDataset` to offer functionality specific to pre-training tasks.
 
 ```{note}
 The {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset` is an abstract base class. You should implement your specific dataset by subclassing it and overriding the {py:meth}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset.transform` method.
@@ -116,3 +115,7 @@ class CustomPretrainingDataset(BasePretrainingDataset):
             "labels": tokens["input_ids"].copy()
         }
 ```
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.

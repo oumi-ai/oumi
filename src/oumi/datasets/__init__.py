@@ -17,6 +17,7 @@ See Also:
 
 Example:
     >>> from oumi.datasets import AlpacaDataset
+    >>> from torch.utils.data import DataLoader
     >>> dataset = AlpacaDataset()
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
@@ -26,6 +27,7 @@ from oumi.datasets.debug import (
     DebugPretrainingDataset,
     DebugSftDataset,
 )
+from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
@@ -59,6 +61,7 @@ from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 __all__ = [
     "AlpacaDataset",
+    "AlpacaEvalDataset",
     "ArgillaDollyDataset",
     "ArgillaMagpieUltraDataset",
     "AyaDataset",

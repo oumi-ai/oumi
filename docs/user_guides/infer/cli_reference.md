@@ -2,11 +2,9 @@
 
 ## Overview
 
-The Oumi CLI provides a simple interface for running inference tasks. The main command is `oumi infer`, which supports both interactive chat and batch processing modes.
-
-The Oumi CLI provides a great interface for quickly running a model. Interactive mode
-lets you send text inputs directly from your terminal, which batch mode lets you submit
-a jsonl file of conversations for batch processing.
+The Oumi CLI provides a simple interface for running inference tasks. The main command is `oumi infer`,
+which supports both interactive chat and batch processing modes. The interactive mode lets you send text inputs
+directly from your terminal, while the batch mode lets you submit a jsonl file of conversations for batch processing.
 
 To use the CLI you need an {py:obj}`~oumi.core.configs.InferenceConfig`. This config
 will specify which model and inference engine you're using, as well as any relevant

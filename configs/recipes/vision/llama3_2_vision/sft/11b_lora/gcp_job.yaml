@@ -1,6 +1,6 @@
 # Sample command:
-# oumi launch up --config configs/recipes/vision/llama3_2_vision/sft/11b_gcp_job.yaml --cluster llama3-2-vision
-name: llama32v-11b-sft-train
+# oumi launch up --config configs/recipes/vision/llama3_2_vision/sft/11b_lora/gcp_job.yaml --cluster llama3-2-vision
+name: llama32v-11b-sft-lora-train
 
 resources:
   cloud: gcp
@@ -24,7 +24,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: llama32v.11b.sft
+  OUMI_RUN_NAME: llama32v.11b.sft.lora
   ACCELERATE_LOG_LEVEL: info
   TOKENIZERS_PARALLELISM: false
 
@@ -42,9 +42,10 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml \
+      -c configs/recipes/vision/llama3_2_vision/sft/11b_lora/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.output_dir "${OUMI_RUN_NAME}" \
-      --training.logging_dir "${OUMI_RUN_NAME}/runs"
+      --training.logging_dir "${OUMI_RUN_NAME}/runs" \
+      --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
