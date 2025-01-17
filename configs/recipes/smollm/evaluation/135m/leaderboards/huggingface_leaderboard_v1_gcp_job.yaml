@@ -1,7 +1,10 @@
-# Config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Config to evaluate smollm 135M on HuggingFace's Leaderboard V1 (1 GCP node).
 # Example command:
-# oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml --cluster smollm-135m-lb-v2-eval
-name: smollm-135m-lb-v2-eval
+# oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml --cluster smollm-135m-lb-v1-eval
+name: smollm-135m-lb-v1-eval
 
 resources:
   cloud: gcp
@@ -15,11 +18,6 @@ working_dir: .
 # the remote node, such as HuggingFace's access token. Caching this in the machine that
 # executes the evaluation allows you to authenticate and verify your identity, in order
 # to access non-public (or gated) models and datasets in the HuggingFace Hub.
-# Specifically, for HuggingFace's Leaderboard V2 evaluation, access to GPQA is
-# restricted through gating mechanisms to minimize the risk of data contamination.
-# In order to evaluate with GPQA, you will have to accept the terms of use at
-# https://huggingface.co/datasets/Idavidrein/gpqa, and authenticate with the HuggingFace
-# token when launching the evaluation job.
 file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
   ~/.netrc: ~/.netrc # WandB credentials
@@ -43,13 +41,13 @@ envs:
 
 setup: |
   set -e
-  pip install '.[gpu,evaluation]'
+  pip install uv && uv pip install '.[gpu,evaluation]'
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
+  oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
 
-  echo "Evaluation with HuggingFace's Leaderboard V2 is complete!"
+  echo "Evaluation with HuggingFace's Leaderboard V1 is complete!"

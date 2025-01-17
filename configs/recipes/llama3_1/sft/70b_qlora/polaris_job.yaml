@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to QLoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/70b_qlora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER

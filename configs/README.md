@@ -3,11 +3,12 @@
 This directory contains YAML configs used for training, evaluation, and inference with Oumi, in addition to launching remote jobs for those tasks. We use [Omegaconf](https://omegaconf.readthedocs.io/en/) to load these config files into our [config classes](../src/oumi/core/configs).
 
 As a convention, we name these files according to their corresponding class. For example:
-- `*train.yaml`: [TrainingConfig](../src/oumi/core/configs/TrainingConfig)
-- `*eval.yaml`: [EvaluationConfig](../src/oumi/core/configs/EvaluationConfig)
-- `*infer.yaml`: [InferenceConfig](../src/oumi/core/configs/InferenceConfig)
-- `*gcp_job.yaml`: [JobConfig](../src/oumi/core/configs/JobConfig), GCP cloud
-- `*polaris_job.yaml`: [JobConfig](../src/oumi/core/configs/JobConfig), Polaris cloud
+
+- `*train.yaml`: [TrainingConfig](../src/oumi/core/configs/training_config.py)
+- `*eval.yaml`: [EvaluationConfig](../src/oumi/core/configs/evaluation_config.py)
+- `*infer.yaml`: [InferenceConfig](../src/oumi/core/configs/inference_config.py)
+- `*gcp_job.yaml`: [JobConfig](../src/oumi/core/configs/job_config.py), GCP cloud
+- `*polaris_job.yaml`: [JobConfig](../src/oumi/core/configs/job_config.py), Polaris cloud
 
 ## Structure
 

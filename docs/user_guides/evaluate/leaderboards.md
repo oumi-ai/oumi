@@ -104,6 +104,7 @@ output_dir: "/my-gcs-bucket/huggingface_leaderboard"
 file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 ```
+
 - **W&B Credentials**. If you are using [Weights & Biases](https://wandb.ai/site/) for experiment tracking, make sure you mount the locally cached credentials file (by default `~/.netrc`) to the remote machine, as shown below.
 
 ```yaml

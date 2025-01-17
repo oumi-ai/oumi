@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to HSDP (FSDP HYBRID_SHARD) pre-training of Llama 3.1 8B on 1 GCP node.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/pretraining/8b/gcp_job.yaml --cluster llama8b-pretrain-hsdp
