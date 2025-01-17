@@ -83,7 +83,7 @@ class LoraWeightInitialization(str, Enum):
 class PeftParams(BaseParams):
     # Lora Params
     lora_r: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA R value."},
     )
     """The rank of the update matrices in LoRA.
@@ -93,7 +93,7 @@ class PeftParams(BaseParams):
     """
 
     lora_alpha: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA alpha."},
     )
     """The scaling factor for the LoRA update.
@@ -102,7 +102,7 @@ class PeftParams(BaseParams):
     """
 
     lora_dropout: float = field(
-        default=0.05,
+        default=0.0,
         metadata={"help": "LoRA dropout."},
     )
     """The dropout probability applied to LoRA layers.
@@ -235,7 +235,7 @@ class PeftParams(BaseParams):
     """
 
     bnb_4bit_compute_dtype: str = field(
-        default="float16",
+        default="float32",
         metadata={"help": "The compute type of the quantized parameters."},
     )
     """Compute type of the quantized parameters.
