@@ -14,11 +14,11 @@ As Large Language Models (LLMs) continue to evolve, traditional evaluation bench
 
 ## Overview
 
-In LLM-based evaluations, an **LLM Judge** is utilized to assess the performance of a language **Language Model** according to a predefined set of criteria.
+In LLM-based evaluations, an **LLM Judge** is utilized to assess the performance of a **Language Model** according to a predefined set of criteria.
 
 The evaluation process is carried out in two distinct steps:
 
-- Step 1 (**Inference**): In the first step, the LLM generates responses to a series of evaluation prompts. These responses demonstrate the model's ability to interpret the prompt and generate a contextually relevant high-quality response.
+- Step 1 (**Inference**): In the first step, the language model generates responses to a series of evaluation prompts. These responses demonstrate the model's ability to interpret the prompt and generate a contextually relevant high-quality response.
 - Step 2 (**Judgments)**: In the second step, the LLM Judge evaluates the quality of the generated responses. The result is a set of judgments that quantify the model's performance, according to the specified evaluation criteria.
 
 The diagram below illustrates these two steps:
@@ -108,4 +108,4 @@ When evaluating AI model outputs, you often need to assess specific aspects of t
 
 The LLM Judge framework offers a range of customization options to tailor the evaluation process to your specific needs. You can modify the judgment prompts and their corresponding few-shot examples, as well as choose the type of judgment the underlying model will provide (`bool`, `categorical`, or `likert-5`). For a comprehensive guide on these options, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page.
 
-Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate ({py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`). Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
+Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
