@@ -299,7 +299,7 @@ def _do_test_train_impl(
             model_max_length=128,
         ),
         TrainTestConfig(
-            test_name="pretrain_fineweb_trl_sft",
+            test_name="pretrain_fineweb",
             config_path=(
                 CONFIG_FOLDER_ROOT
                 / "examples"
@@ -310,10 +310,8 @@ def _do_test_train_impl(
             batch_size=2,
             gradient_accumulation_steps=4,
             dataloader_num_workers=1,
-            dataloader_prefetch_factor=4,
+            dataloader_prefetch_factor=2,
             max_steps=5,
-            # save_steps=0,
-            # save_final_model=False,
             model_max_length=512,
         ),
     ],
