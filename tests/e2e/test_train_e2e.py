@@ -90,6 +90,10 @@ class TrainTestConfig(NamedTuple):
     skip: bool = False
     trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
     save_steps: Optional[int] = None
     save_final_model: Optional[bool] = None
     enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
@@ -144,47 +148,25 @@ def _do_test_train_impl(
             "--training.run_name",
             test_config.test_name,
         ]
-        if test_config.trainer_type is not None:
-            cmd.extend(
-                [
-                    "--training.trainer_type",
-                    str(test_config.trainer_type),
-                ]
-            )
 
-        if (
-            test_config.model_max_length is not None
-            and test_config.model_max_length > 0
-        ):
-            cmd.extend(
-                [
-                    "--model.model_max_length",
-                    str(test_config.model_max_length),
-                ]
-            )
+        for param_name, param_value in [
+            ("model_max_length", test_config.model_max_length),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--model.{param_name}={str(param_value)}")
 
-        if test_config.save_steps is not None:
-            cmd.extend(
-                [
-                    "--training.save_steps",
-                    str(test_config.save_steps),
-                ]
-            )
-        if test_config.save_final_model is not None:
-            cmd.extend(
-                [
-                    "--training.save_final_model",
-                    str(test_config.save_final_model),
-                ]
-            )
-
-        if test_config.enable_wandb is not None:
-            cmd.extend(
-                [
-                    "--training.enable_wandb",
-                    str(test_config.enable_wandb),
-                ]
-            )
+        for param_name, param_value in [
+            ("trainer_type", test_config.trainer_type),
+            ("per_device_train_batch_size", test_config.batch_size),
+            ("gradient_accumulation_steps", test_config.gradient_accumulation_steps),
+            ("dataloader_num_workers", test_config.dataloader_num_workers),
+            ("dataloader_prefetch_factor", test_config.dataloader_prefetch_factor),
+            ("save_steps", test_config.save_steps),
+            ("save_final_model", test_config.save_final_model),
+            ("enable_wandb", test_config.enable_wandb),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--training.{param_name}={str(param_value)}")
 
         env_vars = dict(os.environ)
         if "TOKENIZERS_PARALLELISM" not in env_vars:
@@ -317,6 +299,38 @@ def _do_test_train_impl(
             model_max_length=128,
         ),
         TrainTestConfig(
+            test_name="pretrain_fineweb",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "examples"
+                / "fineweb_ablation_pretraining"
+                / "ddp"
+                / "train.yaml"
+            ),
+            batch_size=2,
+            gradient_accumulation_steps=4,
+            dataloader_num_workers=1,
+            dataloader_prefetch_factor=2,
+            max_steps=5,
+            model_max_length=512,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+def test_train_1gpu_24gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _do_test_train_impl(
+        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    )
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
             test_name="train_qwen2_vl_2b_trl_sft",
             config_path=(
                 CONFIG_FOLDER_ROOT
@@ -349,7 +363,7 @@ def _do_test_train_impl(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
-def test_train_1gpu_24gb(
+def test_train_multimodal_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _do_test_train_impl(
