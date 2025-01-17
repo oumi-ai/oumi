@@ -307,14 +307,13 @@ def _do_test_train_impl(
                 / "ddp"
                 / "train.yaml"
             ),
-            trainer_type=TrainerType.TRL_SFT,
             batch_size=2,
             gradient_accumulation_steps=4,
             dataloader_num_workers=1,
             dataloader_prefetch_factor=4,
             max_steps=5,
-            save_steps=0,
-            save_final_model=False,
+            # save_steps=0,
+            # save_final_model=False,
             model_max_length=512,
         ),
     ],
