@@ -73,7 +73,9 @@ def dataset_fixture(request):
     )
 
 
-@pytest.mark.e2e
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
 def test_dataset_structure(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"

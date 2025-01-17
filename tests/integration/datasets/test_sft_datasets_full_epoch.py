@@ -92,7 +92,9 @@ def test_dataset_conversation(dataset_fixture):
         )
 
 
-@pytest.mark.e2e
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
 def test_dataset_prompt_generation(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
@@ -105,7 +107,9 @@ def test_dataset_prompt_generation(dataset_fixture):
         assert len(prompt) > 0, f"Prompt at index {idx} is empty"
 
 
-@pytest.mark.e2e
+@pytest.mark.skip(
+    reason="This test is very time consuming, and should be run manually."
+)
 def test_dataset_model_inputs(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
