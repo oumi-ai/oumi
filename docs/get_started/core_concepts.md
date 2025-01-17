@@ -51,11 +51,15 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-- `train`
-- `evaluate`
-- `infer`
-- `launch`
-- `judge`
+| Command      | Purpose                                                               |
+|--------------|-----------------------------------------------------------------------|
+`train`        | Train a model.
+`evaluate`     | Evaluate a model.
+`infer`        | Run inference on a model.
+`launch`       | Launch jobs remotely.
+`judge`        | Judge datasets, models or conversations.
+`env`          | Prints information about the current environment.
+`distributed`  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
 
 See {doc}`/cli/commands` for full CLI details.
 
