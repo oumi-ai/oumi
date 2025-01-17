@@ -1,17 +1,19 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
-  model_name: "Salesforce/blip2-opt-2.7b"
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
-  trust_remote_code: True
-  chat_template: "default"
+  attn_implementation: "sdpa"
+  chat_template: "llama3-instruct"
   freeze_layers:
     - "vision_model"
 
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: False
-    target_col: "prompt"
+    experimental_use_torch_datapipes: True
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -19,7 +21,7 @@ data:
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
-          processor_name: "Salesforce/blip2-opt-2.7b"
+          processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
           limit: 4096
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -28,35 +30,35 @@ data:
       #   seed: 42
       #   transform_num_workers: "auto"
       #   dataset_kwargs:
-      #     processor_name: "Salesforce/blip2-opt-2.7b"
-      #     limit: 1024
+      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+      #     limit: 4096
       #     return_tensors: True
       # - dataset_name: "coco_captions"
       #   split: "train"
-      #   trust_remote_code: True
+      #   transform_num_workers: "auto"
       #   dataset_kwargs:
-      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
       #     limit: 100
       #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
       #   dataset_kwargs:
       #     data_column: "messages"
-      #     processor_name: "Salesforce/blip2-opt-2.7b"
+      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
 
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 10
-  gradient_accumulation_steps: 4
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 1
   max_steps: 20
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
   ddp_find_unused_parameters: False
-  empty_device_cache_steps: 2
+  empty_device_cache_steps: 1
   compile: False
 
   optimizer: "adamw_torch_fused"
@@ -67,7 +69,16 @@ training:
 
   logging_steps: 5
   save_steps: 0
+  save_final_model: True
   dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  dataloader_prefetch_factor: 16
   include_performance_metrics: True
+  log_model_summary: False
   enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"

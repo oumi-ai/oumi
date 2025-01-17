@@ -202,9 +202,11 @@ class TrainingParams(BaseParams):
     each complete pass through the training data. This can be useful for
     tracking model progress over time and for resuming training from a
     specific epoch if needed.
+
+    If both `save_steps` and `save_epoch` are set, then `save_steps` takes precedence.
     """
 
-    save_steps: int = 100
+    save_steps: int = 500
     """Save a checkpoint every `save_steps` training steps.
 
     This parameter determines the frequency of saving checkpoints during
@@ -327,7 +329,7 @@ class TrainingParams(BaseParams):
     - "epoch": Evaluation is done at the end of each epoch.
     """
 
-    eval_steps: int = 50
+    eval_steps: int = 500
     """Number of update steps between two evaluations if eval_strategy="steps".
 
     Ignored if eval_strategy is not "steps".
@@ -339,7 +341,7 @@ class TrainingParams(BaseParams):
     This value can be adjusted by the learning rate scheduler during training.
     """
 
-    lr_scheduler_type: str = "cosine"
+    lr_scheduler_type: str = "linear"
     """The type of learning rate scheduler to use.
 
     Possible values include "linear", "cosine", "cosine_with_restarts",
@@ -358,13 +360,13 @@ class TrainingParams(BaseParams):
     """The ratio of total training steps used for a linear warmup from 0 to the
     learning rate.
 
-    Either this or warmup_steps should be set, not both.
+    If set along with `warmup_steps`, this value will be ignored.
     """
 
     warmup_steps: Optional[int] = None
     """The number of steps for the warmup phase of the learning rate scheduler.
 
-    Either this or warmup_ratio should be set, not both.
+    If set, will override the value of `warmup_ratio`.
     """
 
     # ---------------------
@@ -409,11 +411,11 @@ class TrainingParams(BaseParams):
     Default is 1e-08.
     """
 
-    sgd_momentum: float = 0.9
+    sgd_momentum: float = 0.0
     """Momentum factor for SGD optimizer.
 
-    Only used when optimizer is set to "sgd".
-    Default is 0.9.
+    Only used when optimizer is set to "sgd", and when `trainer_type` is set to OUMI.
+    Default is 0.0.
     """
 
     mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.NONE
@@ -571,15 +573,14 @@ class TrainingParams(BaseParams):
                 f"({self.dataloader_num_workers}). Must be `int`."
             )
 
+        dispatch_batches = self.dataloader_main_process_only
+
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         else:
             config_class = transformers.TrainingArguments
-
-        dispatch_batches = self.dataloader_main_process_only
-
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -635,8 +636,8 @@ class TrainingParams(BaseParams):
             #    "use_seedable_sampler": True,
             # },
             seed=self.seed,
-            # TODO Re-enable `data_seed`. Should it depend on RANK?
-            # data_seed=self.seed,
+            # TODO: OPE-891 - Support setting a data seed.
+            # By default, HF will use the global seed for data loading.
             **self.trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
@@ -675,10 +676,6 @@ class TrainingParams(BaseParams):
 
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
             raise ValueError("max_grad_norm must be >= 0.")
-
-        if self.logging_dir is None and self.output_dir:
-            # Push the logging_dir inside the output_dir.
-            self.logging_dir = str(Path(self.output_dir) / "logs")
 
     @property
     def telemetry_dir(self) -> Optional[Path]:

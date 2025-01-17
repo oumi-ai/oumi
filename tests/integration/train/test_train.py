@@ -92,7 +92,7 @@ def test_train_unregistered_metrics_function():
     assert "unregistered_function_name" in str(exception_info.value)
 
 
-def test_train_pack():
+def test_train_pack_with_pretraining_dataset():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config: TrainingConfig = TrainingConfig(
             data=DataParams(
@@ -100,11 +100,47 @@ def test_train_pack():
                     datasets=[
                         DatasetParams(
                             dataset_name="debug_pretraining",
+                            dataset_kwargs={"dataset_size": 25, "seq_length": 128},
                         )
                     ],
                     stream=True,
                     pack=True,
-                    use_async_dataset=True,
+                ),
+            ),
+            model=ModelParams(
+                model_name="openai-community/gpt2",
+                # The true max length is 1024, but a lower value works. This is done to
+                # reduce test runtime.
+                model_max_length=128,
+                trust_remote_code=True,
+                tokenizer_pad_token="<|endoftext|>",
+            ),
+            training=TrainingParams(
+                trainer_type=TrainerType.TRL_SFT,
+                max_steps=1,
+                logging_steps=1,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                output_dir=output_temp_dir,
+            ),
+        )
+
+        train(config)
+
+
+def test_train_pack_with_sft_dataset():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        config: TrainingConfig = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="debug_sft",
+                            dataset_kwargs={"dataset_size": 10},
+                        )
+                    ],
+                    stream=False,
+                    pack=True,
                 ),
             ),
             model=ModelParams(

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -39,11 +39,51 @@ class PeftSaveMode(Enum):
     """
 
 
+class LoraWeightInitialization(str, Enum):
+    """Enum representing the supported weight initializations for LoRA adapters."""
+
+    DEFAULT = "default"  # Use the model reference initialization from Microsoft.
+    RANDOM = "random"  # Fully random initialization, discouraged.
+    GAUSSIAN = "gaussian"
+    EVA = "eva"
+    PISA = "pissa"
+    PISSA_NITER = "pissa_niter_[number of iters]"
+    LOFTQ = "loftq"
+    OLORA = "olora"
+
+    def get_literal_value(
+        self,
+    ) -> Literal[
+        "default",
+        "random",
+        "gaussian",
+        "eva",
+        "pissa",
+        "pissa_niter_[number of iters]",
+        "loftq",
+        "olora",
+    ]:
+        """Returns a literal value of the enum."""
+        if self.value not in {
+            "default",
+            "random",
+            "gaussian",
+            "eva",
+            "pissa",
+            "pissa_niter_[number of iters]",
+            "loftq",
+            "olora",
+        }:
+            raise ValueError(f"Invalid enum value: {self.value}")
+
+        return self.value
+
+
 @dataclass
 class PeftParams(BaseParams):
     # Lora Params
     lora_r: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA R value."},
     )
     """The rank of the update matrices in LoRA.
@@ -53,7 +93,7 @@ class PeftParams(BaseParams):
     """
 
     lora_alpha: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA alpha."},
     )
     """The scaling factor for the LoRA update.
@@ -62,7 +102,7 @@ class PeftParams(BaseParams):
     """
 
     lora_dropout: float = field(
-        default=0.05,
+        default=0.0,
         metadata={"help": "LoRA dropout."},
     )
     """The dropout probability applied to LoRA layers.
@@ -121,6 +161,28 @@ class PeftParams(BaseParams):
     https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
+    init_lora_weights: LoraWeightInitialization = field(
+        default=LoraWeightInitialization.DEFAULT,
+        metadata={
+            "help": "Weights initialization for LoRA adapters.",
+        },
+    )
+    """
+    Passing `LoraWeightInitialization.DEFAULT` will use the underlying reference
+    implementation of the corresponding model from Microsoft.
+
+    Other valid (LoraWeightInitialization) options include:
+        - "random" which will use fully random initialization and is discouraged.
+        - "gaussian" for Gaussian initialization.
+        - "eva" for Explained Variance Adaptation (EVA) (https://arxiv.org/abs/2410.07170).
+        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659).
+        - "olora" for Orthonormal Low-Rank Adaptation of Large Language Models (OLoRA) (https://arxiv.org/html/2406.01775v1).
+        - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
+
+    For more information, see HF:
+        https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
+    """
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
     """The task type for LoRA adaptation.
 
@@ -173,7 +235,7 @@ class PeftParams(BaseParams):
     """
 
     bnb_4bit_compute_dtype: str = field(
-        default="float16",
+        default="float32",
         metadata={"help": "The compute type of the quantized parameters."},
     )
     """Compute type of the quantized parameters.

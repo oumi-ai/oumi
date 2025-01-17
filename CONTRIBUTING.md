@@ -68,7 +68,7 @@ To test your changes locally, run:
 
 ```shell
 cd ./tests/
-pytest -s
+pytest -s -vv
 ```
 
 To run pre-commit hooks manually, run `pre-commit run --all-files`

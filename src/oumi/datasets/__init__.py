@@ -17,6 +17,7 @@ See Also:
 
 Example:
     >>> from oumi.datasets import AlpacaDataset
+    >>> from torch.utils.data import DataLoader
     >>> dataset = AlpacaDataset()
     >>> train_loader = DataLoader(dataset, batch_size=32)
 """
@@ -49,6 +50,8 @@ from oumi.datasets.sft.chatqa import ChatqaDataset, ChatqaTatqaDataset
 from oumi.datasets.sft.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.sft.dolly import ArgillaDollyDataset
 from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
+from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
+from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
@@ -78,8 +81,10 @@ __all__ = [
     "Flickr30kDataset",
     "LlavaInstructMixVsftDataset",
     "MagpieProDataset",
+    "OpenO1SFTDataset",
     "OrpoDpoMix40kDataset",
     "PileV1Dataset",
+    "PromptResponseDataset",
     "RedPajamaDataV1Dataset",
     "RedPajamaDataV2Dataset",
     "SlimPajamaDataset",

@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 # GPT-2's implementation in nanoGPT: https://github.com/karpathy/build-nanogpt
 
 # Model automatically uses weight tying
@@ -5,6 +8,7 @@ model:
   model_name: "gpt2" # 124M params
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
+  tokenizer_pad_token: "<|endoftext|>"
   attn_implementation: "sdpa"
   load_pretrained_weights: False
   trust_remote_code: True
@@ -17,6 +21,8 @@ data:
       - dataset_name: "HuggingFaceFW/fineweb-edu"
         subset: "sample-10BT"
         split: "train"
+        dataset_kwargs:
+          seq_length: 1024
     stream: True
     pack: True
     target_col: "text"

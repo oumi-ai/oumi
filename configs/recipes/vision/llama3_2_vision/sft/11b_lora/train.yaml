@@ -1,8 +1,14 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
+##
+# LoRA config for sft-training Llama-11B-Vision with the vqav2-small dataset.
+##
+
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 1024
-  trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "llama3-instruct"
   freeze_layers:
@@ -12,7 +18,6 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: True
-    target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -23,36 +28,15 @@ data:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
           limit: 4096
           return_tensors: True
-      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #     limit: 4096
-      #     return_tensors: True
-      # - dataset_name: "coco_captions"
-      #   split: "train"
-      #   trust_remote_code: True
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #     limit: 100
-      #     return_tensors: True
-      # - dataset_name: vision_language_jsonl
-      #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
-      #   dataset_kwargs:
-      #     data_column: "messages"
-      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
 
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 8
+  use_peft: True
+  per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
-  max_steps: 20
+  max_steps: 10 # Train for a few steps only (demonstration purposes)
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
@@ -67,13 +51,28 @@ training:
   weight_decay: 0.0
   lr_scheduler_type: "cosine"
 
-  logging_steps: 5
+  logging_steps: 2
   save_steps: 0
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True
-  log_model_summary: False
   enable_wandb: True
+
+peft:
+  # The LoRA parameter values are inspired from Llama recipes: https://github.com/huggingface/huggingface-llama-recipes/blob/main/fine_tune/Llama-Vision%20FT.ipynb
+  q_lora: False
+  lora_r: 8
+  lora_alpha: 8
+  lora_dropout: 0.1
+  lora_target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "o_proj"
+    - "k_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  init_lora_weights: DEFAULT
 
 fsdp:
   enable_fsdp: True

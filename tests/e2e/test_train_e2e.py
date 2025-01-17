@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from oumi.core.configs import TrainingConfig
+from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_gpus
 
@@ -86,8 +87,16 @@ class TrainTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     max_steps: int
+    skip: bool = False
+    trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
     save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
 
 
 def get_train_test_id_fn(val):
@@ -95,45 +104,16 @@ def get_train_test_id_fn(val):
     return val.test_name
 
 
-@requires_gpus(count=1, min_gb=24.0)
-@pytest.mark.parametrize(
-    "test_config",
-    [
-        TrainTestConfig(
-            test_name="train_llama_1b",
-            config_path=(
-                CONFIG_FOLDER_ROOT
-                / "recipes"
-                / "llama3_2"
-                / "sft"
-                / "1b_full"
-                / "train.yaml"
-            ),
-            max_steps=10,
-            model_max_length=128,
-        ),
-        TrainTestConfig(
-            test_name="train_qwen2_vl_2b",
-            config_path=(
-                CONFIG_FOLDER_ROOT
-                / "recipes"
-                / "vision"
-                / "qwen2_vl_2b"
-                / "sft"
-                / "train.yaml"
-            ),
-            max_steps=5,
-            save_steps=5,
-        ),
-    ],
-    ids=get_train_test_id_fn,
-)
-@pytest.mark.skip(reason="Skipping until the markers are configured")
-def test_train(
+def _do_test_train_impl(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    _START_TIME = time.perf_counter()
+    if test_config.skip:
+        pytest.skip(f"Skipped the test '{test_config.test_name}'!")
+        return
+
     test_tag = f"[{test_config.test_name}]"
+
+    _START_TIME = time.perf_counter()
     output_dir = _get_output_dir(test_config.test_name, tmp_path=tmp_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -165,25 +145,28 @@ def test_train(
             str(test_config.max_steps),
             "--training.output_dir",
             str(output_dir / "train"),
+            "--training.run_name",
+            test_config.test_name,
         ]
-        if (
-            test_config.model_max_length is not None
-            and test_config.model_max_length > 0
-        ):
-            cmd.extend(
-                [
-                    "--model.model_max_length",
-                    str(test_config.model_max_length),
-                ]
-            )
 
-        if test_config.save_steps is not None:
-            cmd.extend(
-                [
-                    "--training.save_steps",
-                    str(test_config.save_steps),
-                ]
-            )
+        for param_name, param_value in [
+            ("model_max_length", test_config.model_max_length),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--model.{param_name}={str(param_value)}")
+
+        for param_name, param_value in [
+            ("trainer_type", test_config.trainer_type),
+            ("per_device_train_batch_size", test_config.batch_size),
+            ("gradient_accumulation_steps", test_config.gradient_accumulation_steps),
+            ("dataloader_num_workers", test_config.dataloader_num_workers),
+            ("dataloader_prefetch_factor", test_config.dataloader_prefetch_factor),
+            ("save_steps", test_config.save_steps),
+            ("save_final_model", test_config.save_final_model),
+            ("enable_wandb", test_config.enable_wandb),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--training.{param_name}={str(param_value)}")
 
         env_vars = dict(os.environ)
         if "TOKENIZERS_PARALLELISM" not in env_vars:
@@ -223,6 +206,13 @@ def test_train(
         assert (
             train_output_dir.is_dir()
         ), f"{test_tag} Output directory is not a directory"
+
+        # If saving is disabled, then return early.
+        if (test_config.save_steps is not None and test_config.save_steps <= 0) and (
+            test_config.save_final_model is not None
+            and not test_config.save_final_model
+        ):
+            return
 
         # Check main output directory structure
         _check_checkpoint_dir(train_output_dir)
@@ -289,3 +279,124 @@ def test_train(
         print(f"{test_tag} Test failed: {str(e)}")
         print(f"{test_tag} Test artifacts can be found in: {output_dir}")
         raise
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_llama_1b",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "llama3_2"
+                / "sft"
+                / "1b_full"
+                / "train.yaml"
+            ),
+            max_steps=10,
+            model_max_length=128,
+        ),
+        TrainTestConfig(
+            test_name="pretrain_fineweb",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "examples"
+                / "fineweb_ablation_pretraining"
+                / "ddp"
+                / "train.yaml"
+            ),
+            batch_size=2,
+            gradient_accumulation_steps=4,
+            dataloader_num_workers=1,
+            dataloader_prefetch_factor=2,
+            max_steps=5,
+            model_max_length=512,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+def test_train_1gpu_24gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _do_test_train_impl(
+        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    )
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_qwen2_vl_2b_trl_sft",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
+        TrainTestConfig(
+            test_name="train_qwen2_vl_2b_oumi",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.OUMI,
+            max_steps=5,
+            save_steps=0,
+            save_final_model=False,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+def test_train_multimodal_1gpu_24gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _do_test_train_impl(
+        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    )
+
+
+@requires_gpus(count=4, min_gb=79.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_llama3_2_vision_11b",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "llama3_2_vision"
+                / "sft"
+                / "11b_full"
+                / "train.yaml"
+            ),
+            max_steps=5,
+            save_steps=5,
+            model_max_length=1024,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+def test_train_fsdp_4gpu_80gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _do_test_train_impl(
+        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    )

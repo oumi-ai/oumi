@@ -1,5 +1,10 @@
 # Vision-Language
 
+Vision-Language Supervised Finetuning (VL-SFT) extends the concept of Supervised Fine-Tuning (SFT) to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications.
+
+This guide covers Vision-Language datasets used for instruction tuning and supervised learning in Oumi.
+
+(vl-sft-datasets)=
 ## VL-SFT Datasets
 
 ```{include} /api/summary/vl_sft_datasets.md
@@ -15,6 +20,7 @@ The configuration for VL-SFT datasets is similar to regular SFT datasets, with s
 training:
   data:
     train:
+      collator_name: vision_language_with_padding
       datasets:
         - dataset_name: "your_vl_sft_dataset_name"
           split: "train"
@@ -23,7 +29,6 @@ training:
           dataset_kwargs:
             processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
             return_tensors: True
-      collator_name: vision_language_with_padding
 ```
 In this configuration:
 
@@ -37,7 +42,7 @@ In this configuration:
 Using a VL-SFT dataset in code is similar to using a regular SFT dataset, with the main difference being in the batch contents:
 
 ```python
-from oumi.builders import build_dataset
+from oumi.builders import build_dataset, build_processor, build_tokenizer
 from oumi.core.configs import DatasetSplit, ModelParams
 from torch.utils.data import DataLoader
 
@@ -86,7 +91,7 @@ VL-SFT batches typically include additional keys for image data, such as `pixel_
 
 ### VisionLanguageSftDataset Base Class
 
-All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseLMSftDataset` to handle image data alongside text.
+All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseSftDataset` to handle image data alongside text.
 
 ### Adding a New VL-SFT Dataset
 
@@ -95,27 +100,33 @@ To add a new VL-SFT dataset, follow these steps:
 1. Subclass {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.VisionLanguageSftDataset.transform_conversation` method to handle both text and image data.
 
-Here's a basic example:
+Here's a basic example, which loads data from the hypothetical `example/foo` HuggingFace dataset (image + text),
+and formats the data as Oumi `Conversation`-s for SFT tuning:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
+from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
+@register_dataset("your_vl_sft_dataset_name")
 class CustomVLDataset(VisionLanguageSftDataset):
+    """Dataset class for the `example/foo` dataset."""
+    default_dataset = "example/foo" # Name of the original HuggingFace dataset (image + text)
+
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
         # Transform the raw example into a Conversation object
         # 'example' represents one row of the raw dataset
         # Structure of 'example':
         # {
-        #     'image_path': str,  # Path to the image file
-        #     'question': str,    # The user's question about the image
-        #     'answer': str       # The assistant's response
+        #     'image_bytes': bytes,  # PNG bytes of the image
+        #     'question': str,       # The user's question about the image
+        #     'answer': str          # The assistant's response
         # }
         conversation = Conversation(
             messages=[
                 Message(role=Role.USER, content=[
-                    ContentItem(type=Type.IMAGE_PATH, content=example['image_path']),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=example['image_bytes']),
                     ContentItem(type=Type.TEXT, content=example['question']),
                 ]),
                 Message(role=Role.ASSISTANT, content=example['answer'])
@@ -130,3 +141,7 @@ The key difference in VL-SFT datasets is the inclusion of image data, typically 
 ```
 
 For more advanced VL-SFT dataset implementations, explore the {py:mod}`oumi.datasets.vision_language` module.
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.

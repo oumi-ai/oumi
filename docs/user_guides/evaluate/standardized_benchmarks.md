@@ -38,54 +38,86 @@ While standardized benchmarks offer several advantages, they also come with seve
 
 ## Popular Benchmarks
 
-### HuggingFace Leaderboard V2
+This section discusses the most popular standardized benchmarks, in order to give you a starting point for your evaluations. You can kick-off evaluations using the following configuration template. For advanced configuration settings, please visit the {doc}`evaluation configuration </user_guides/evaluate/evaluation_config>` page.
 
-As of early 2025, the most popular standardized benchmarks, used across academia and industry, are the benchmarks introduced by HuggingFace's latest (V2) leaderboard. HuggingFace has posted [a blog](https://huggingface.co/spaces/open-llm-leaderboard/blog) elaborating on why these benchmarks have been selected, while EleutherAI has also provided a comprehensive [README](https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/leaderboard/README.md) discussing the benchmark evaluation goals, coverage, and applicability. You can find how to evaluate with these benchmarks in our {doc}`Leaderboards page </user_guides/evaluate/leaderboards>`.
+```yaml
+model:
+  model_name: <HuggingFace model name or local path to model>
+  trust_remote_code: False # Set to true for HuggingFace models
 
-- MMLU-Pro (Massive Multitask Language Understanding) [[paper](https://arxiv.org/abs/2406.01574)]
-- GPQA (Google-Proof Q&A Benchmark) [[paper](https://arxiv.org/abs/2311.12022)]
-- MuSR (Multistep Soft Reasoning) [[paper](https://arxiv.org/abs/2310.16049)]
-- MATH (Mathematics Aptitude Test of Heuristics, Level 5). [[paper](https://arxiv.org/abs/2103.03874)]
-- IFEval (Instruction Following Evaluation) [[paper](https://arxiv.org/abs/2311.07911)]
-- BBH (Big Bench Hard) [[paper](https://arxiv.org/abs/2210.09261)]
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: <`Task Name` from the tables below>
+    eval_kwargs:
+      num_fewshot: <number of few-shot prompts, if applicable>
 
-### HuggingFace Leaderboard V1
-
-Before HuggingFace's leaderboard V2 was introduced, the most popular benchmarks were captured in the [V1 leaderboard](https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive). You can find how to evaluate with these benchmarks in our {doc}`Leaderboards page </user_guides/evaluate/leaderboards>`. However, due to the fast advancement of AI models, many of these benchmarks have been saturated (i.e., they became too easy to measure meaningful improvements for recent models) while newer models also showed signs of contamination, indicating that data very similar to these benchmarks may exist in their training sets.
-
-- ARC (AI2 Reasoning Challenge) [[paper](https://arxiv.org/abs/1803.05457)]
-- MMLU (Massive Multitask Language Understanding) [[paper](https://arxiv.org/abs/2009.03300)]
-- Winogrande (Adversarial Winograd Schema Challenge at Scale) [[paper](https://arxiv.org/abs/1907.10641)]
-- HellaSwag (Harder Endings, Longer contexts, and Low-shot Activities for Situations With Adversarial Generations) [[paper](https://arxiv.org/abs/1905.07830)]
-- GSM 8K (Grade School Math) [[paper](https://arxiv.org/abs/2110.14168)]
-- TruthfulQA (Measuring How Models Mimic Human Falsehoods) [[paper](https://arxiv.org/abs/2109.07958)]
-
-### Other Benchmarks
-
-Other benchmarks that have been very popular in the past (especially in academia) but are becoming less relevant as LLMs are advancing are listed below. These are all still available for Oumi evaluations.
-
-| Task | Type | Description | Focus |
-|------|------|-------------|-------|
-BoolQ | Question Answering | BoolQ is a dataset for binary question answering, where the model is asked a yes/no question based on a passage, and it must decide whether the answer is "True" or "False." It is useful for testing a model’s ability to answer factual questions and assess whether it can reason about yes/no questions from provided contexts |  Binary question answering
-TriviaQA | Question Answering | TriviaQA is a large-scale dataset for question answering that includes trivia questions with answers that are retrieved from web documents. The dataset focuses on general knowledge and requires models to answer questions using factual information from the web | General knowledge question answering, fact retrieval.
-CommonsenseQA | Commonsense Reasoning | CommonsenseQA is a benchmark focused on commonsense reasoning. The task involves answering multiple-choice questions that test common knowledge about the world, requiring models to use reasoning based on everyday experiences and situations. The questions cover a wide variety of domains and situations that are difficult for models to answer without commonsense knowledge | Commonsense reasoning, multiple-choice question answering.
-CoQA (Conversational Question Answering) | Conversational Question Answering | CoQA is a conversational question answering dataset that tests a model's ability to engage in multi-turn dialogue and answer questions based on a given passage of text. The task requires maintaining context across multiple questions and answers, simulating the back-and-forth nature of real conversations | Conversational question answering, multi-turn dialogue
-WiC (Word-in-Context) | Word Sense Disambiguation | WiC is a benchmark for evaluating word sense disambiguation, where the task is to determine whether a word has the same meaning in two different contexts. The model is given two sentences with the same word, and it must decide if the word has the same meaning in both contexts | Word sense disambiguation and contextual understanding
-DROP (Discrete Reasoning Over Paragraphs) | Question Answering / Reasoning | DROP is a benchmark designed to test a model's ability to perform discrete reasoning over paragraphs. It includes questions that require arithmetic operations, counting, and other forms of reasoning on the text. The dataset includes questions with answers that involve direct retrieval, aggregation, and reasoning over the content of paragraphs | Discrete reasoning, arithmetic, and comprehension.
-NQ Open (Natural Questions Open) | Open-Domain Question Answering | NQ Open is a benchmark derived from the original Natural Questions (NQ) dataset, specifically focused on open-domain question answering. Unlike the original NQ, where the answers are typically in the text, NQ Open includes questions where the answer may not directly be present in the document, testing a model's ability to reason over text and provide a relevant, accurate response | Open-domain question answering, long-form reading comprehension.
-LAMBADA | Language Modeling | LAMBADA is a benchmark designed to test a model's ability to understand and predict the final word of a passage. It consists of a dataset of passages where the last word is omitted, and the model must predict it. The tasks assess the model's understanding of context, coherence, and long-range dependencies | Contextual understanding and word prediction
-PIQA | Physical Reasoning | The Physical Interaction Question Answering (PIQA) benchmark tests a model’s ability to reason about physical interactions and solve problems that require practical knowledge of how the world works | Commonsense physical reasoning and understanding of everyday interactions
-RTE (Recognizing Textual Entailment) | Natural Language Inference | RTE is a widely used benchmark for natural language inference (NLI), where the task is to determine whether a premise entails, contradicts, or is neutral towards a hypothesis. RTE involves diverse linguistic phenomena and tests a model's ability to understand relationships between sentences | Textual entailment and logical reasoning
-SIQA (Social-IQ) | Social Reasoning | SIQA is a dataset designed to evaluate social commonsense reasoning. It contains questions based on short scenarios that require understanding of social situations and behaviors (e.g., interpreting emotions, actions, or social dynamics). The task aims to assess how well models can reason about human social interactions | Social commonsense reasoning, emotion and behavior interpretation
-WMT 2016 | Machine Translation | WMT 2016 is part of the Workshop on Statistical Machine Translation (WMT) shared task, focusing on machine translation. It includes a set of parallel corpora for translation between English and various other languages, evaluating translation quality using metrics such as BLEU. WMT 2016 is one of the widely used benchmarks in the field of machine translation | Machine translation, cross-lingual language generation
-SWAG | Commonsense Reasoning / Story Completion | SWAG is a benchmark for commonsense reasoning, specifically focused on story completion. The task presents a short story and asks the model to select the most plausible continuation from a set of options | Commonsense reasoning in narrative contexts
-SQuAD (Stanford Question Answering Dataset) | Reading Comprehension | SQuAD is one of the most well-known benchmarks for evaluating a model's ability to answer questions based on a given passage of text. In SQuAD v1.1, questions are fact-based and answers are directly extracted from the text. SQuAD v2.0 also includes unanswerable questions to test a model's ability to determine when no answer is available | Question answering and reading comprehension
-LAMA (LAnguage Model Analysis) | Knowledge Probe | LAMA is a benchmark that evaluates a model’s ability to retrieve factual knowledge. It involves filling in blanks in a sentence (e.g., “The capital of France is __”) and testing whether the model can correctly answer based on its stored knowledge | Knowledge retrieval and fact-based reasoning
-ANLI (Adversarial NLI) | Natural Language Inference | ANLI is an adversarially constructed benchmark for natural language inference (NLI), designed to test models' ability to understand logical relationships between sentences. It’s a challenging task where models must determine whether a premise entails, contradicts, or is neutral toward a given hypothesis | Logical reasoning and sentence relationship understanding
-RACE (ReAding Comprehension from Examinations) | Reading Comprehension | RACE is a reading comprehension benchmark that contains a large number of English exam questions drawn from Chinese middle and high school exams. It’s designed to test the ability of LLMs to handle long, complex passages of text | Long-form reading comprehension
-CLOTH (Commonsense Reasoning in Texts) | Textual Commonsense Reasoning | CLOTH is a benchmark for commonsense reasoning involving textual entailment. It includes tasks that require a deep understanding of everyday situations and textual inference | Commonsense reasoning, textual entailment
+output_dir: <output directory>
+```
 
 
+### Question Answering and Knowledge Retrieval
+Benchmarks that evaluate a model's ability to understand questions and generate accurate answers, based on the provided context (Open-Book) or its internal knowledge (Closed-Book).
+
+| Task | Description | Type | Task Name | Introduced |
+|------|-------------|------|-----------|------------|
+BoolQ (Boolean Questions) | A question-answering task consisting of a short passage from a Wikipedia article and a yes/no question about the passage [[details](https://arxiv.org/abs/1905.00537)] | Open-Book (True/False answer) | `boolq` | 2019, as part of Superglue
+TriviaQA | Trivia question answering to test general knowledge, using evidence documents [[details](https://nlp.cs.washington.edu/triviaqa/)] | Open-Book (free-form answer) | `triviaqa` | 2017, by UW in ACL
+CoQA (Conversational Question Answering) | Measure the ability of machines to understand a text passage and answer a series of interconnected questions that appear in a conversation [[details](https://arxiv.org/abs/1808.07042)] | Open-Book (free-form answer) | `coqa` | 2018, by Stanford in TACL
+NQ (Natural Questions) | Open domain question answering benchmark that is derived from Natural Questions. The goal is to predict an answer for a  question in English [[details](https://research.google/pubs/natural-questions-a-benchmark-for-question-answering-research/)] | Closed-Book (free-form answer) | `nq_open` | 2019, by Google in TACL
+SQuAD V2 (Stanford Question Answering Dataset) | Reading comprehension dataset, consisting of questions posed by crowdworkers on a set of Wikipedia articles. The answer is either a segment of text from the reading passage or unanswerable [[details](https://arxiv.org/abs/1806.03822)] | Open-Book (free-form answer) | `squadv2` | 2018, by Stanford in ACL
+GPQA (Google-Proof Q&A) | Very difficult multiple-choice questions written by domain experts in biology, physics, and chemistry [[details](https://arxiv.org/abs/2311.12022)] | Closed-Book (multichoice answer) | `gpqa` | 2023, by NYU, Cohere, Anthropic
+ARC Challenge (AI2 Reasoning Challenge) | Challenging multiple-choice science questions from the ARC dataset. Answered incorrectly by standard retrieval-based and word co-occurrence algorithms [[details](https://arxiv.org/abs/1803.05457)] | Closed-Book (multichoice answer) | `arc_challenge` | 2018, by Allen AI
+MMLU (Massive Multitask Language Understanding) | Multiple choice QA benchmark on elementary mathematics, US history, computer science, law, and more [[details](https://arxiv.org/abs/2009.03300)] | Closed-Book (multichoice answer) | `mmlu` | 2021, by Berkeley, Columbia and others in ICLR
+MMLU Pro (Massive Multitask Language Understanding) | Enhanced MMLU extending the knowledge-driven questions by integrating more challenging, reasoning-focused questions and expanding the choice set from four to ten options [[details](https://arxiv.org/abs/2406.01574)] | Closed-Book (multichoice answer) | `mmlu_pro` | 2024, by U Waterloo, U Toronto, CMU
+Truthful QA | Measures if model mimics human falsehoods. Assesses truthfulness and ability to avoid humans' false beliefs or misconceptions (38 categories, including health, law, finance and politics) [[details](https://arxiv.org/abs/2109.07958)] | Open-Book (both multichoice and free-form) | `truthfulqa_mc2` | 2022, by University of Oxford, OpenAI
+
+### Commonsense and Logical Reasoning
+Benchmarks that assess a model's ability to perform reasoning tasks requiring commonsense understanding and logical thinking.
+
+| Task | Description | Task Name | Introduced |
+|------|-------------|-----------|------------|
+Commonsense QA | Multiple-choice question answering dataset that requires different types of commonsense knowledge to predict the correct answer among one correct answer and four distracting answers [[details](https://arxiv.org/pdf/1811.00937.pdf)] | `commonsense_qa` | 2019, by Tel-Aviv University and Allen AI
+PIQA (Physical Interaction QA) | Physical commonsense reasoning to investigate the physical knowledge of existing models, including basic properties of the real-world objects  [[details](https://arxiv.org/abs/1911.11641)] | `piqa` | 2019, by Allen AI, MSR, CMU, UW
+SocialIQA (Social Interaction QA) | Commonsense reasoning about social situations, probing emotional and social intelligence in a variety of everyday situations [[details](https://arxiv.org/abs/1904.09728)] | `siqa` | 2019, by Allen AI, UW
+SWAG (Situations With Adversarial Generations) | Grounded commonsense reasoning. Questions sourced from video captions with answers being what might happen next in the next scene (1 correct and 3 adversarially generated choices) [[details](https://arxiv.org/abs/1808.05326)] | `swag` | 2019, by UW, Allen AI
+HellaSWAG | Benchmark that builds on SWAG to evaluate understanding and common sense reasoning, particularly in the context of completing sentences or narratives [[details](https://arxiv.org/abs/1905.07830)] | `hellaswag` | 2019, by UW, Allen AI
+WinoGrande | Given a sentence which requires commonsense reasoning, choose the right option among multiple choices. Inspired by Winograd Schema Challenge (WSC) [[details](https://arxiv.org/abs/1907.10641)] | `winogrande` | 2019, by Allen AI
+MuSR (Multistep Soft Reasoning) | Multistep soft reasoning tasks specified in a natural language narrative. Includes solving murder mysteries, object placement, and team allocation [[details](https://arxiv.org/abs/2310.16049)] | `leaderboard_musr` | 2024, by UT Austin in ICLR
+DROP (Discrete Reasoning Over Paragraphs) | Reading comprehension benchmark. Requires reference resolution and performing discrete operations over the references (addition, counting, or sorting) [[details](https://arxiv.org/abs/1903.00161)] | `drop` | 2019, by UC Irvine, Peking University and others
+ANLI (Adversarial NLI) | Reasoning dataset. Given a premise, identify if a hypothesis is entailment, neutral, or contradictory [[details](https://arxiv.org/abs/1910.14599)] | `anli` | 2019, by UNC Chapel Hill and Meta
+BBH (Big Bench Hard) | Challenging tasks from the BIG-Bench evaluation suite, focusing on complex reasoning, multi-step problem solving, and requiring deep document understanding rather than surface-level pattern matching [[details](https://arxiv.org/abs/2210.09261)] | `bbh` | 2022, by Google Research and Stanford
+
+### Language Understanding
+Benchmarks that test a model's understanding of language semantics and syntax.
+
+| Task | Description | Task Name | Introduced |
+|------|-------------|-----------|------------|
+WiC (Words in Context) | Word sense disambiguation task. Requires identifying if occurrences of a word in two contexts correspond to the same meaning or not. Framed as a binary classification task [[details](https://arxiv.org/abs/1905.00537)] | `wic` | 2019, as part of Superglue
+RTE (Recognizing Textual Entailment) | Given two text fragments, recognize whether the meaning of one fragment can be inferred from the other [[details](https://arxiv.org/abs/1905.00537)] | `rte` | 2019, as part of Superglue
+LAMBADA (LAnguage Modeling Broadened to Account for Discourse Aspects) | Word prediction task. Given a passage, predict the last word. Requires tracking information in the broader discourse, beyond the last sentence [[details](https://arxiv.org/abs/1606.06031)] | `lambada` | 2016, by CIMeC, University of Trento
+WMT 2016 (Workshop on Machine Translation) | Collection of parallel text data used to assess the performance of machine translation systems, primarily focusing on news articles, across various language pairs [[details](http://www.aclweb.org/anthology/W/W16/W16-2301)] | `wmt16` | 2016, by Charles University, FBK, and others
+RACE (ReAding Comprehension from Examinations) | Reading comprehension dataset collected from English examinations in China. Designed for middle school and high school students. Evaluates language understanding and reasoning [[details](https://arxiv.org/abs/1704.04683)] | `race` | 2017, by CMU
+IFEval (Instruction Following Evaluation) | Instruction-Following evaluation dataset. Focuses on formatting text, including imposing length constraints, paragraph composition, punctuation, enforcing lower/upper casing, including/exluding keywords, etc [[details](https://arxiv.org/abs/2311.07911)] | `ifeval` | 2023, by Google, Yale University
+<!-- FIXME: Move IFEval to generative Benchmarks-->
+
+### Mathematical and Numerical Reasoning
+Benchmarks focused on evaluating a model's ability to perform mathematical calculations and reason about numerical information.
+
+| Task | Description | Task Name | Introduced |
+|------|-------------|-----------|------------|
+MATH (Mathematics Aptitude Test of Heuristics), Level 5  | Challenging competition mathematics problems that require step-by-step solutions [[details](https://arxiv.org/abs/2103.03874)] | `leaderboard_math_hard` | 2021, by UC Berkeley
+GSM 8K (Grade School Math) | Grade school-level math word problems [[details](https://arxiv.org/abs/2110.14168)] | `gsm8k` | 2021, by OpenAi
+
+(multi-modal-standardized-benchmarks)=
+### Multi-modal Benchmarks
+
+Benchmarks to evaluate vision-language (image + text) models.
+
+| Task | Description | Task Name | Introduced |
+|------|-------------|-----------|------------|
+MMMU (Massive Multi-discipline Multimodal Understanding) | Designed to evaluate multimodal (image + text) models on multi-discipline tasks demanding college-level subject knowledge and deliberate reasoning. MMMU includes 11.5K meticulously collected multimodal questions from college exams, quizzes, and textbooks, covering six core disciplines [[details](https://arxiv.org/abs/2311.16502)] | `mmmu_val` | 2023, by OSU and others
+
+### Other Tasks
 To see all available tasks:
 
 ```bash

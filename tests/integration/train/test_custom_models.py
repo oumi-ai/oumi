@@ -7,7 +7,6 @@ from oumi.builders.data import build_dataset_mixture
 from oumi.builders.models import (
     build_model,
     build_tokenizer,
-    is_custom_model,
     is_image_text_llm,
 )
 from oumi.core.configs import (
@@ -19,6 +18,9 @@ from oumi.core.configs import (
     TrainerType,
     TrainingConfig,
     TrainingParams,
+)
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
 )
 
 
@@ -35,7 +37,6 @@ def _get_default_config(output_temp_dir):
                 ],
                 stream=True,
                 pack=True,
-                use_async_dataset=True,
             ),
         ),
         model=ModelParams(

@@ -1,0 +1,84 @@
+# Class: oumi.core.configs.EvaluationConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+
+# Eval config for Qwen2 VL 2B Instruct.
+model:
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  batch_size: 2
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmmu_val
+    eval_kwargs:
+      num_fewshot: 5
+  # To enable individual sub-tasks, uncomment the entries of interest below:
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_accounting"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_agriculture"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_architecture_and_engineering"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_art"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_art_theory"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_basic_medical_science"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_biology"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_chemistry"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_clinical_medicine"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_computer_science"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_design"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_diagnostics_and_laboratory_medicine"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_economics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_electronics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_energy_and_power"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_finance"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_geography"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_history"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_literature"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_manage"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_marketing"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_materials"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_math"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_mechanical_engineering"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_music"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_pharmacy"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_physics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_psychology"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_public_health"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_sociology"
+
+enable_wandb: True
+inference_engine: NATIVE

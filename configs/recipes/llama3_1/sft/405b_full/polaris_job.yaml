@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Llama 3.1 405B Instruct FFT config
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster prod.$ALCF_USER --user $ALCF_USER

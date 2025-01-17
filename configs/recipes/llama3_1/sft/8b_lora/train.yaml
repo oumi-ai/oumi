@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 # Lora config for Llama 8B.
 # Borrows param values from:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_lora.yaml

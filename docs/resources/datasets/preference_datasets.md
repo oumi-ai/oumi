@@ -1,9 +1,10 @@
 # Preference Tuning
 
+Preference tuning is a technique for training language models to align with human preferences. It involves presenting the model with pairs of outputs (e.g., two different responses to the same prompt) and training it to prefer the output that humans prefer.
+
 This guide covers datasets used for RLHF (Reinforcement Learning from Human Feedback) and DPO (Direct Preference Optimization) in Oumi.
 
 ## Supported Datasets
-Used for RLHF (Reinforcement Learning from Human Feedback) and DPO (Direct Preference Optimization):
 
 ```{include} /api/summary/preference_tuning_datasets.md
 ```
@@ -59,3 +60,7 @@ class CustomDpoDataset(BaseExperimentalDpoDataset):
             "rejected": example["worse_response"]
         }
 ```
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.

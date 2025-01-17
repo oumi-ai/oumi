@@ -1,5 +1,8 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Sample command:
-# oumi launch up --config configs/recipes/vision/llama3_2_vision/sft/11b_gcp_job.yaml --cluster llama3-2-vision
+# oumi launch up --config configs/recipes/vision/llama3_2_vision/sft/11b_full/gcp_job.yaml --cluster llama3-2-vision
 name: llama32v-11b-sft-train
 
 resources:
@@ -42,7 +45,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/llama3_2_vision/sft/11b_train.yaml \
+      -c configs/recipes/vision/llama3_2_vision/sft/11b_full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.output_dir "${OUMI_RUN_NAME}" \
       --training.logging_dir "${OUMI_RUN_NAME}/runs"
