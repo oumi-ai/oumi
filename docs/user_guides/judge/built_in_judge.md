@@ -1,3 +1,5 @@
+<!-- ****** Planning to remove this in the next pass & ONLY focus on our built-in judge ******
+
 # Judge Court
 
 The `judge court` is a collection of judges, provided by the oumi community, that are used to evaluate the quality of a response.
@@ -14,7 +16,13 @@ As of now, the only judge available is the `Oumi Judge V1`, which supports 3 att
 
 ### Oumi Judge V1
 
-#### Evaluated Attributes
+-->
+
+# Built-In Judge
+
+TODO: Add intro / motivation
+
+## Evaluated Attributes
 
 The Oumi Judge evaluates responses based on three core attributes:
 
@@ -33,7 +41,7 @@ The Oumi Judge evaluates responses based on three core attributes:
    - Assesses ethical considerations, including bias, fairness, and compliance with established guidelines
    - Returns boolean judgment (True/False) based on overall safety assessment
 
-#### Available Implementations
+## Available Implementations
 
 The Oumi Judge V1 is available via multiple different implementations:
 1. **Local Judge** (`oumi_v1_xml_local_judge`)
@@ -79,9 +87,4 @@ conversations = [
 
 results = judge.judge(conversations)
 print(results)
-```
-
-## Supported Judges
-
-```{include} /api/summary/judges.md
 ```
