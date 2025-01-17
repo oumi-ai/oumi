@@ -15,7 +15,7 @@ from oumi.core.types.conversation import (
 
 @register_dataset("ylecun/mnist")
 class MnistSftDataset(VisionLanguageSftDataset):
-    """MNIST dataset in formatted as SFT data."""
+    """MNIST dataset formatted as SFT data."""
 
     default_dataset = "ylecun/mnist"
 
@@ -35,7 +35,7 @@ class MnistSftDataset(VisionLanguageSftDataset):
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform a single MNIST example into a Conversation object."""
-        input_text = "What digit is in the picture?"
+        input_text = "What digit is in this picture?"
         output_digit = self._to_digit(example["label"])
 
         return Conversation(
