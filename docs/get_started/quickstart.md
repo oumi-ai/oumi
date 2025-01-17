@@ -69,22 +69,32 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft
 ```
 
-To run the same recipe on your own dataset, you can override the dataset name and path:
+To run the same recipe on your own dataset (e.g., in our supported JSON or JSONL formats), you can override the dataset name and path. You can try this functionality out by downloading the `alpaca_cleaned` dataset manually via the huggingface CLI, then including that local path in your run.
 
 ```bash
+huggingface-cli download yahma/alpaca-cleaned --repo-type dataset --local-dir /path/to/local/dataset
+
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --data.train.datasets "[{dataset_name: text_sft, dataset_path: /path/to/local/dataset}]" \
   --training.output_dir output/smollm-135m-sft-custom
 ```
 
-You can also run training on multiple GPUs (make sure to [install the GPU dependencies](/get_started/installation.md#optional-dependencies) if not already installed).
+You can also train on multiple GPUs (make sure to [install the GPU dependencies](/get_started/installation.md#optional-dependencies) if not already installed).
 
-For example, if you have a machine with 4 GPUs, you can run:
+For example, if you have a machine with 4 GPUs, you can run this command to launch a local distributed training run:
 
 ```bash
 oumi distributed torchrun -m \
   oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-dist
+```
+
+You can also use torchrun directly in standalone mode.
+
+```bash
+torchrun --standalone --nproc-per-node 4 --log-dir ./logs \
+-m oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+--training.output_dir output/smollm-135m-sft-dist
 ```
 
 
