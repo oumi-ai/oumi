@@ -13,7 +13,7 @@ from oumi.core.types.conversation import (
 )
 
 
-@register_dataset("mnist_sft")
+@register_dataset("ylecun/mnist")
 class MnistSftDataset(VisionLanguageSftDataset):
     """MNIST dataset in formatted as SFT data."""
 
