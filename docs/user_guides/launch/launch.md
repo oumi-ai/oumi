@@ -78,7 +78,7 @@ oumi launch up --cluster my-cluster -c configs/recipes/smollm/sft/135m/quickstar
 ```
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
-To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud lambda`. Most of our configs run on GCP by default. See [this page](https://oumi.ai/docs/latest/api/oumi.launcher.html#oumi.launcher.JobResources.cloud) for all supported clouds, or run:
+To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud lambda`. Most of our configs run on GCP by default. See {attr}`~oumi.launcher.JobResources.cloud` for all supported clouds, or run:
 
 ```{code-block} shell
 oumi launch which
@@ -114,7 +114,7 @@ launcher.up(job_config, "your_cluster_name")
 ```
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
-To launch on the cloud of your choice, simply set `job_config.resources.cloud`, ex. `job_config.resources.cloud = "gcp"`. Most of our configs run on GCP by default. See [this page](https://oumi.ai/docs/latest/api/oumi.launcher.html#oumi.launcher.JobResources.cloud) for all supported clouds, or run:
+To launch on the cloud of your choice, simply set `job_config.resources.cloud`, ex. `job_config.resources.cloud = "gcp"`. Most of our configs run on GCP by default. See {attr}`~oumi.launcher.JobResources.cloud` for all supported clouds, or run:
 
 ```{code-block} python
 import oumi.launcher as launcher
