@@ -84,8 +84,8 @@ You can also train on multiple GPUs (make sure to [install the GPU dependencies]
 For example, if you have a machine with 4 GPUs, you can run this command to launch a local distributed training run:
 
 ```bash
-oumi distributed torchrun -m \
-  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+oumi distributed torchrun \
+  -m oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.output_dir output/smollm-135m-sft-dist
 ```
 

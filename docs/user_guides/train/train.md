@@ -145,13 +145,13 @@ To train with multiple GPUs, we can extend that same configuration to use distri
 
 ```bash
 # Using DDP (DistributedDataParallel)
-oumi distributed torchrun -m \
-  oumi train \
+oumi distributed torchrun \
+  -m oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml
 
 # Using FSDP (Fully Sharded Data Parallel)
-oumi distributed torchrun -m \
-  oumi train \
+oumi distributed torchrun \
+  -m oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
   --fsdp.enable_fsdp true \
   --fsdp.sharding_strategy FULL_SHARD
