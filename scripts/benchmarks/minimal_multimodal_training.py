@@ -138,7 +138,7 @@ class DatasetName(str, Enum):
     LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
-    MNIST_SFT = "ylecun/mnist"
+    MNIST_SFT = "mnist_sft"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:

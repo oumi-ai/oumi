@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -13,11 +13,27 @@ from oumi.core.types.conversation import (
 )
 
 
-@register_dataset("ylecun/mnist")
+@register_dataset("mnist_sft")
 class MnistSftDataset(VisionLanguageSftDataset):
-    """MNIST dataset formatted as SFT data."""
+    """MNIST dataset formatted as SFT data.
+
+    MNIST is a well-known small dataset, can be useful for quick tests, prototyping,
+    debugging.
+    """
 
     default_dataset = "ylecun/mnist"
+
+    def __init__(
+        self,
+        *,
+        dataset_name: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """Initializes a new instance of the MnistSftDataset class."""
+        super().__init__(
+            dataset_name="ylecun/mnist",
+            **kwargs,
+        )
 
     @staticmethod
     def _to_digit(value: Any) -> int:
