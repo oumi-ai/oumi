@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.EvaluationConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+
 model:
   # Note: update model_name or adapter_model with your checkpoint directories
   model_name: "mistralai/Mistral-7B-v0.1"
@@ -9,10 +12,11 @@ model:
   chat_template: "zephyr"
   attn_implementation: "sdpa"
 
-lm_harness_params:
-  tasks:
-    - "mmlu"
-  num_fewshot: 5
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
 
 generation:
   batch_size: 32

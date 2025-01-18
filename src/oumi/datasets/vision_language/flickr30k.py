@@ -13,6 +13,8 @@ from oumi.core.types.conversation import (
 
 @register_dataset("nlphuji/flickr30k")
 class Flickr30kDataset(VisionLanguageSftDataset):
+    """Dataset class for the `nlphuji/flickr30k` dataset."""
+
     default_dataset = "nlphuji/flickr30k"
 
     @override

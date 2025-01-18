@@ -1,15 +1,12 @@
 import copy
-import io
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
 
 import numpy as np
-import requests
 import torch
 from PIL import Image
 from typing_extensions import override
 
-from oumi.builders.processors import build_processor
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalModelConfig,
@@ -24,8 +21,8 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
-    Type,
 )
+from oumi.utils.conversation_utils import load_pil_image_from_content_item
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_first_dim_len
 
@@ -53,19 +50,26 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         multimodal architectures.
 
     Example:
+        >>> from oumi.builders import build_processor, build_tokenizer
+        >>> from oumi.core.configs import ModelParams
+        >>> from oumi.core.types.conversation import Conversation
+        >>> from oumi.core.datasets import VisionLanguageSftDataset
         >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
-        ...     def transform_conversation(self, example: dict) -> Conversation:
+        ...     def transform_conversation(self, example: dict):
         ...         # Implement the abstract method
         ...         # Convert the raw example into a Conversation object
         ...         pass
-        >>>
-        >>> dataset = MyVisionLanguageSftDataset(
+        >>> tokenizer = build_tokenizer(
+        ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
+        ... )
+        >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
+        ...     tokenizer=tokenizer,
         ...     processor_name="openai/clip-vit-base-patch32",
         ...     dataset_name="coco_captions",
         ...     split="train"
         ... )
-        >>> sample = next(iter(dataset))
-        >>> print(sample.keys())
+        >>> sample = next(iter(dataset))  # doctest: +SKIP
+        >>> print(sample.keys()) # doctest: +SKIP
     """
 
     def __init__(
@@ -80,6 +84,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(tokenizer=tokenizer, **kwargs)
+        # Importing these here to avoid circular dependencies
+        from oumi.builders.processors import build_processor
 
         if tokenizer is None:
             raise ValueError(
@@ -352,33 +358,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         """Loads an image from a message.
 
         Args:
-            image_item (MessageContentItem): A content item representing an image.
+            image_item (`ContentItem`): A content item representing an image.
 
         Returns:
             Image.Image: A PIL image.
         """
         if self._image_processor is None:
             raise ValueError("Processor required for transform")
-
-        if image_item.type == Type.IMAGE_PATH:
-            if image_item.content is None:
-                raise ValueError("Image path is None")
-            image_bin = Image.open(image_item.content).convert("RGB")
-        elif image_item.type == Type.IMAGE_URL:
-            if image_item.content is None:
-                raise ValueError("Image URL is None")
-            try:
-                response = requests.get(image_item.content, stream=True)
-                response.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                logger.exception(f"Failed to download image: '{image_item.content}'")
-                raise e
-            image_bin = Image.open(io.BytesIO(response.content)).convert("RGB")
-        elif image_item.type == Type.IMAGE_BINARY:
-            if image_item.binary is None:
-                raise ValueError("Image binary is None")
-            image_bin = Image.open(io.BytesIO(image_item.binary)).convert("RGB")
-        else:
-            raise ValueError(f"Unsupported image type: {image_item.type}")
-
-        return image_bin
+        return load_pil_image_from_content_item(image_item)

@@ -1,25 +1,16 @@
 # Tutorials
 
-We have several tutorials divided into the following categories:
+Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
-## Getting Started
-
-- [A tour of our library](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb)
-
-## Training
-
-- [Getting started with Finetuning](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb)
-
-## Running Jobs
-
-- [Using the Oumi job launcher](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Deploying%20a%20Job.ipynb)
-- [Running jobs remotely](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb)
-- [Launching jobs on custom clusters](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Launching%20Jobs%20on%20Custom%20Clusters.ipynb)
-
-## Datasets
-
-- [Datasets in Oumi](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Datasets%20Tutorial.ipynb)
-
-## Command Line Interface
-
-- [Quickstart](./quickstart.md)
+| Tutorial | Description | Links |
+|----------|-------------|--------|
+| {gh}`🎯 Getting Started: A Tour <notebooks/Oumi - A Tour.ipynb>` | Comprehensive overview of Oumi's architecture and core capabilities | {download}`Download </../notebooks/Oumi - A Tour.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - A Tour.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| **Model Training & Finetuning** |||
+| {gh}`🔧 Model Finetuning Guide <notebooks/Oumi - Finetuning Tutorial.ipynb>` | Step-by-step guide to efficient model finetuning techniques | {download}`Download </../notebooks/Oumi - Finetuning Tutorial.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Finetuning Tutorial.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| **Deployment & Infrastructure** |||
+| {gh}`🔄 vLLM Inference Engine <notebooks/Oumi - Using vLLM Engine for Inference.ipynb>` | High-performance inference using vLLM | {download}`Download </../notebooks/Oumi - Using vLLM Engine for Inference.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Using vLLM Engine for Inference.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| {gh}`☁️ Remote Training <notebooks/Oumi - Running Jobs Remotely.ipynb>` | Guide to running jobs on cloud platforms | {download}`Download </../notebooks/Oumi - Running Jobs Remotely.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| {gh}`🖥️ Custom Clusters <notebooks/Oumi - Launching Jobs on Custom Clusters.ipynb>` | Integrating your custom compute clusters | {download}`Download </../notebooks/Oumi - Launching Jobs on Custom Clusters.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Launching Jobs on Custom Clusters.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| **Datasets & Evaluation** |||
+| {gh}`⚖️ Custom Judge <notebooks/Oumi - Custom Judge.ipynb>` | Creating custom evaluation metrics and judges | {download}`Download </../notebooks/Oumi - Custom Judge.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Custom Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
+| {gh}`📈 Oumi Judge <notebooks/Oumi - Oumi Judge.ipynb>` | Using Oumi's built-in judge framework | {download}`Download </../notebooks/Oumi - Oumi Judge.ipynb>` <br> <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Oumi Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |

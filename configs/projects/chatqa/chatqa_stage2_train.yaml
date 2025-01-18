@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
   # model_name: "openai-community/gpt2"
   # torch_dtype_str: "float16"
@@ -11,7 +14,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
 
-  trust_remote_code: True
   attn_implementation: "sdpa"
 
 data:

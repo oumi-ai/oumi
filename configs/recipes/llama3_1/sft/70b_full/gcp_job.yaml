@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to FSDP full fine-tune Llama 3.1 70B Instruct.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
@@ -16,6 +19,13 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
 
 envs:
   WANDB_PROJECT: oumi-train

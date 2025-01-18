@@ -1,0 +1,46 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+name: llama3-8b-aya-sft
+
+num_nodes: 1  # Set it to N for multi-node training.
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB-SXM:8"
+  use_spot: true
+  disk_size: 500  # Disk size in GB
+
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama3.8b.aya.fft
+  TOKENIZERS_PARALLELISM: true
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/projects/aya/sft/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir train/ \
+      --training.enable_tensorboard true \
+      --training.include_performance_metrics true \
+      --training.dataloader_num_workers 1 \
+      --training.dataloader_prefetch_factor 1024 \
+      --training.logging_steps 10
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.EvaluationConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+
 # Eval config for Llama 1B Instruct.
 
 model:
@@ -11,9 +14,12 @@ model:
 
 generation:
   batch_size: 4
-lm_harness_params:
-  tasks:
-    - "m_mmlu_en"
-  num_fewshot: 5
+
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html
+  - evaluation_platform: lm_harness
+    task_name: mmlu_college_computer_science
+    eval_kwargs:
+      num_fewshot: 5
 
 enable_wandb: True

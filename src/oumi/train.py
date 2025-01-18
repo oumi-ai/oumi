@@ -5,6 +5,7 @@ from pprint import pformat
 from typing import Callable, Optional, Union
 
 import torch
+import transformers
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
@@ -158,7 +159,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
-    configure_logger("oumi", level=config.training.log_level, log_dir=log_dir)
+    for logger_name in ("oumi", "oumi.telemetry"):
+        configure_logger(logger_name, level=config.training.log_level, log_dir=log_dir)
 
     telemetry_dir = config.training.telemetry_dir
 
@@ -227,7 +229,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor
+        config.training.trainer_type, processor=processor
     )
 
     metrics_function = build_metrics_function(config.training)
@@ -295,7 +297,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
         with torch.profiler.record_function("train"):
             logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
-            logger.info("Starting training...")
+            logger.info(
+                f"Starting training... "
+                f"({config.training.trainer_type}, "
+                f"transformers: {transformers.__version__})"
+            )
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
@@ -307,6 +313,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if config.training.save_final_model:
         logger.info("Saving final state...")
         trainer.save_state()
+
+        barrier()
 
         logger.info("Saving final model...")
         trainer.save_model(config=config)

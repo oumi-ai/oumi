@@ -1,0 +1,58 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
+# Example command:
+# oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml --cluster smollm-135m-lb-v2-eval
+name: smollm-135m-lb-v2-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100:1"
+  use_spot: true
+  disk_size: 100 # Disk size in GBs
+
+working_dir: .
+
+# You can take advantage of `file_mounts` to mount important files and access them in
+# the remote node, such as HuggingFace's access token. Caching this in the machine that
+# executes the evaluation allows you to authenticate and verify your identity, in order
+# to access non-public (or gated) models and datasets in the HuggingFace Hub.
+# Specifically, for HuggingFace's Leaderboard V2 evaluation, access to GPQA is
+# restricted through gating mechanisms to minimize the risk of data contamination.
+# In order to evaluate with GPQA, you will have to accept the terms of use at
+# https://huggingface.co/datasets/Idavidrein/gpqa, and authenticate with the HuggingFace
+# token when launching the evaluation job.
+file_mounts:
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.netrc: ~/.netrc # WandB credentials
+
+# If the remote machine is not accessible after evaluation completes, which is the
+# common case when provisioning a GCP node and setting an autostop timer, you need
+# to mount your output directory to persistent storage. In this case, we are using a
+# GCS Bucket (`my-gcs-bucket`) to store and later retrieve the evaluation results.
+# Note: Autostop is a feature that allows you to set a timer to ensure that the machine
+# automatically stops after a certain period of inactivity. This is useful to save costs
+# and resources when the machine is not being actively used.
+storage_mounts:
+  /my-gcs-bucket:
+    source: gs://my-gcs-bucket
+    store: gcs
+
+envs:
+  OUMI_RUN_NAME: smollm135m.eval
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu,evaluation]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
+
+  echo "Evaluation with HuggingFace's Leaderboard V2 is complete!"

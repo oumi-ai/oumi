@@ -1,5 +1,6 @@
 from typing import Optional
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
@@ -8,15 +9,6 @@ from oumi.core.types.conversation import (
     Message,
     Role,
     Type,
-)
-from oumi.inference import (
-    AnthropicInferenceEngine,
-    LlamaCppInferenceEngine,
-    NativeTextInferenceEngine,
-    RemoteInferenceEngine,
-    RemoteVLLMInferenceEngine,
-    SGLangInferenceEngine,
-    VLLMInferenceEngine,
 )
 from oumi.utils.logging import logger
 
@@ -27,39 +19,11 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         logger.warning(
             "No inference engine specified. Using the default 'native' engine."
         )
-        return NativeTextInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.NATIVE:
-        return NativeTextInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.VLLM:
-        return VLLMInferenceEngine(config.model)
-    elif config.engine == InferenceEngineType.LLAMACPP:
-        return LlamaCppInferenceEngine(config.model)
-    elif config.engine in (
-        InferenceEngineType.REMOTE_VLLM,
-        InferenceEngineType.SGLANG,
-        InferenceEngineType.ANTHROPIC,
-        InferenceEngineType.REMOTE,
-    ):
-        if config.remote_params is None:
-            raise ValueError(
-                "remote_params must be configured "
-                f"for the '{config.engine}' inference engine in inference config."
-            )
-        if config.engine == InferenceEngineType.REMOTE_VLLM:
-            return RemoteVLLMInferenceEngine(config.model, config.remote_params)
-        elif config.engine == InferenceEngineType.SGLANG:
-            return SGLangInferenceEngine(config.model, config.remote_params)
-        elif config.engine == InferenceEngineType.ANTHROPIC:
-            return AnthropicInferenceEngine(config.model, config.remote_params)
-        else:
-            assert config.engine == InferenceEngineType.REMOTE
-            return RemoteInferenceEngine(config.model, config.remote_params)
-    else:
-        logger.warning(
-            f"Unsupported inference engine: {config.engine}. "
-            "Falling back to the default 'native' engine."
-        )
-        return NativeTextInferenceEngine(config.model)
+    return build_inference_engine(
+        engine_type=config.engine or InferenceEngineType.NATIVE,
+        model_params=config.model,
+        remote_params=config.remote_params,
+    )
 
 
 def infer_interactive(

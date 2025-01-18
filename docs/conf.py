@@ -14,9 +14,9 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Open Universal Machine Intelligence"
-copyright = "2024, Open Universal Machine Intelligence"
-author = "Open Universal Machine Intelligence"
+project = "Oumi"
+copyright = "2025 - Oumi"
+author = "Oumi Community"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -26,25 +26,30 @@ main_doc = "index"
 extensions = [
     "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
-    "sphinx_rtd_theme",
     "sphinx_design",
+    "sphinx_rtd_theme",
+    # "sphinx_term.termynal",  # Not currently used, but could be useful in the future
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
     "sphinx.ext.duration",
+    "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
+    "sphinxcontrib.mermaid",
     "sphinxcontrib.typer",
-    "sphinx_term.termynal",
 ]
 
 source_suffix = {
     ".rst": "restructuredtext",
 }
-
 nb_execution_mode = "off"
+nitpick = True
+myst_heading_anchors = 5
 
+napoleon_use_admonition_for_examples = False
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 napoleon_numpy_docstring = False
@@ -61,7 +66,15 @@ coverage_statistics_to_report = True
 coverage_show_missing_items = True
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "api/modules.rst",
+    "api/oumi.models.experimental.*",
+]
+
+trim_doctest_flags = True
 
 # Importing these modules causes errors in the docs build
 autodoc_mock_imports = ["oumi.models.experimental"]
@@ -142,3 +155,7 @@ suppress_warnings = [
     # Ignore warnings from autodoc
     # "autodoc",
 ]
+
+extlinks = {
+    "gh": ("https://github.com/oumi-ai/oumi/blob/main/%s", None),
+}

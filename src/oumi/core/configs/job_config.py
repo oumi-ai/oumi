@@ -29,7 +29,17 @@ class JobResources:
     """Resources required for a single node in a job."""
 
     cloud: str = MISSING
-    """The cloud used to run the job (required)."""
+    """The cloud used to run the job (required).
+
+    Options:
+        - aws: Amazon Web Services
+        - azure: Microsoft Azure
+        - gcp: Google Cloud Platform
+        - lambda: Lambda Cloud
+        - local: The local machine launching the job
+        - polaris: The Polaris cluster at Argonne National Laboratory
+        - runpod: RunPod
+    """
 
     region: Optional[str] = None
     """The region to use (optional). Supported values vary by environment."""
@@ -128,7 +138,9 @@ class JobConfig(BaseConfig):
     setup: Optional[str] = None
     """The setup script to run on every node. Optional.
 
-    `setup` will always be executed before `run`.
+    `setup` will always be executed before `run`. In sky-based clouds, `setup` is
+    executed only once upon cluster creation, not once per job.
+
     ex) pip install -r requirements.txt
     """
 

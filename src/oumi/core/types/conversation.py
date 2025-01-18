@@ -72,7 +72,7 @@ class ContentItem(pydantic.BaseModel):
     """A sub-part of `Message.content`.
 
     For example, a multimodal message from `USER` may include
-    two `MessageContentItem`-s: one for text, and another for image.
+    two `ContentItem`-s: one for text, and another for image.
 
     Note:
         Either content or binary must be provided when creating an instance.
@@ -128,7 +128,7 @@ class ContentItem(pydantic.BaseModel):
         return value
 
     def model_post_init(self, __context) -> None:
-        """Post-initialization method for the `MessageContentItem` model.
+        """Post-initialization method for the `ContentItem` model.
 
         This method is automatically called after the model is initialized.
         Performs additional validation e.g., to ensure that either content or binary

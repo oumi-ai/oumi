@@ -18,7 +18,7 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
-from oumi.utils.image_utils import load_image_from_bytes
+from oumi.utils.image_utils import load_pil_image_from_bytes
 from oumi.utils.logging import logger
 
 
@@ -176,7 +176,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                             "No image bytes in a binary image message (`IMAGE_BINARY`)!"
                         )
                     )
-                image = load_image_from_bytes(image_item.binary)
+                image = load_pil_image_from_bytes(image_item.binary)
                 pil_images.append(image)
 
         batch = self._processor(
@@ -268,7 +268,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 new_batch_data = []
                 for response_index, response in enumerate(output_batch.data):
                     prompt = input_batches[batch_index]["input_ids"][response_index]  # type: ignore
-                    assert prompt.tolist() == response[: len(prompt)].tolist()
+                    # Sanity check
+                    prompt_as_list = prompt.tolist()
+                    response_prefix_as_list = response[: len(prompt)].tolist()
+                    if prompt_as_list != response_prefix_as_list:
+                        raise RuntimeError(
+                            "Inconsistent prompt prefix content! "
+                            f"\nRequest: {prompt_as_list} "
+                            f"\nResponse: {response_prefix_as_list}"
+                        )
+
                     new_batch_data.append(response[len(prompt) :])
                 output_batch.data = torch.stack(new_batch_data, dim=0)
 

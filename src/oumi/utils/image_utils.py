@@ -1,13 +1,17 @@
-import base64
 import io
 from pathlib import Path
-from typing import Optional, Union
+from typing import Final, Optional, Union
 
 import PIL.Image
 import requests
 
-from oumi.core.types.conversation import ContentItem, Type
 from oumi.utils.logging import logger
+
+# For details on image modes, see
+# https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+DEFAULT_IMAGE_MODE: Final[str] = "RGB"
+
+_FILE_URL_PREFIX: Final[str] = "file://"
 
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -28,18 +32,58 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
-def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> bytes:
-    """Loads an image from a path, converts it to PNG, and returns image bytes.
+def convert_pil_image_mode(
+    image: PIL.Image.Image, *, mode: Optional[str]
+) -> PIL.Image.Image:
+    """Converts a PIL image to the requested mode (if it's not in that mode already) .
+
+    Args:
+        image: An input image.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        An image in the requested mode . If an input image was already in the correct
+        mode then return it for efficiency.
+        Otherwise, a different image object is returned.
+    """
+    if not mode or image.mode == mode:
+        # Return the original object for better performance.
+        return image
+
+    old_mode = image.mode
+    try:
+        return image.convert(mode)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to convert an image from {old_mode} to {mode} mode!"
+        ) from e
+
+
+def load_pil_image_from_path(
+    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
+    """Loads an image from a path.
 
     Args:
         input_image_filepath: A file path of an image.
             The image can be in any format supported by PIL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
     """
     if not input_image_filepath:
         raise ValueError("Empty image file path.")
+
+    if isinstance(
+        input_image_filepath, str
+    ) and input_image_filepath.lower().startswith(_FILE_URL_PREFIX):
+        input_image_filepath = input_image_filepath[len(_FILE_URL_PREFIX) :]
+
     input_image_filepath = Path(input_image_filepath)
     if not input_image_filepath.is_file():
         raise ValueError(
@@ -49,19 +93,51 @@ def load_image_png_bytes_from_path(input_image_filepath: Union[str, Path]) -> by
         )
 
     try:
-        pil_image = PIL.Image.open(input_image_filepath).convert("RGB")
+        pil_image = convert_pil_image_mode(
+            PIL.Image.open(input_image_filepath), mode=mode
+        )
     except Exception:
         logger.error(f"Failed to load an image from path: {input_image_filepath}")
         raise
+    return pil_image
 
-    return create_png_bytes_from_image(pil_image)
+
+def load_pil_image_from_url(
+    input_image_url: str, mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
+    """Loads a PIL image from a URL.
+
+    Args:
+        input_image_url: An image URL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
+    if not input_image_url:
+        raise ValueError("Empty image URL!")
+
+    try:
+        response = requests.get(input_image_url, stream=True)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        logger.exception(f"Failed to download image: '{input_image_url}'")
+        raise
+    return load_pil_image_from_bytes(response.content, mode=mode)
 
 
-def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
+def load_pil_image_from_bytes(
+    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+) -> PIL.Image.Image:
     """Loads an image from raw image bytes.
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         PIL.Image.Image: PIL representation of the image.
@@ -70,7 +146,9 @@ def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
         raise ValueError("No image bytes.")
 
     try:
-        pil_image = PIL.Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        pil_image = convert_pil_image_mode(
+            PIL.Image.open(io.BytesIO(image_bytes)), mode=mode
+        )
     except Exception:
         logger.error(
             f"Failed to load an image from raw image bytes ({len(image_bytes)} bytes)."
@@ -79,72 +157,56 @@ def load_image_from_bytes(image_bytes: Optional[bytes]) -> PIL.Image.Image:
     return pil_image
 
 
-def create_png_bytes_from_image_bytes(image_bytes: Optional[bytes]) -> bytes:
+def create_png_bytes_from_image_bytes(
+    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
     """Loads an image from raw image bytes, and converts to PNG image bytes.
 
     Args:
         image_bytes: A input image bytes. Can be in any image format supported by PIL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
         bytes: PNG bytes representation of the image.
     """
-    pil_image = load_image_from_bytes(image_bytes)
+    pil_image = load_pil_image_from_bytes(image_bytes, mode=mode)
     return create_png_bytes_from_image(pil_image)
 
 
-def load_image_bytes_to_content_item(item: ContentItem) -> ContentItem:
-    """Ensures that message content item contains inline image bytes if it's an image.
-
-    Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
-    Otherwise returns the input content item w/o any changes.
-
-    Args:
-        item: An input message content item.
-
-    Returns:
-        A content item guaranteed to be `IMAGE_BINARY` if an input content item
-        was any of image types (`IMAGE_URL`, `IMAGE_PATH`, `IMAGE_BINARY`).
-    """
-    if item.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
-        if item.type == Type.IMAGE_PATH:
-            if item.content is None:
-                raise ValueError("Image path is None")
-            png_bytes = load_image_png_bytes_from_path(item.content)
-        else:
-            assert item.type == Type.IMAGE_URL
-            if item.content is None:
-                raise ValueError("Image URL is None")
-            try:
-                response = requests.get(item.content, stream=True)
-                response.raise_for_status()
-            except requests.exceptions.RequestException:
-                logger.exception(f"Failed to download image: '{item.content}'")
-                raise
-            png_bytes = create_png_bytes_from_image_bytes(response.content)
-
-        return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
-
-    return item
-
-
-def base64encode_image_bytes(item: ContentItem, *, add_mime_prefix: bool = True) -> str:
-    """Creates base-64 encoded image bytes as ASCII string value.
+def load_image_png_bytes_from_path(
+    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
+    """Loads an image from a path, converts it to PNG, and returns image bytes.
 
     Args:
-        item: An input message content item of image type
-            (one of `IMAGE_BINARY`, `IMAGE_PATH, `IMAGE_URL`)
-            with the pre-populated `binary` field.
-        add_mime_prefix: Whether to add MIME prefix `data:image/png;base64,`
+        input_image_filepath: A file path of an image.
+            The image can be in any format supported by PIL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
-        String containing base64 encoded image bytes `<BASE64_VALUE>`.
-        If `add_mime_prefix` is True, then the following format is used:
-        `data:image/png;base64,<BASE64_VALUE>`.
+        bytes: PNG bytes representation of the image.
     """
-    if not item.is_image():
-        raise ValueError(f"Message type is not an image: {item.type}")
-    elif not item.binary:
-        raise ValueError(f"No image bytes in message: {item.type}")
+    pil_image = load_pil_image_from_path(input_image_filepath, mode=mode)
+    return create_png_bytes_from_image(pil_image)
 
-    base64_str = base64.b64encode(item.binary).decode(encoding="utf8")
-    return ("data:image/png;base64," + base64_str) if add_mime_prefix else base64_str
+
+def load_image_png_bytes_from_url(
+    input_image_url: str, mode: str = DEFAULT_IMAGE_MODE
+) -> bytes:
+    """Loads an image from a URL, converts it to PNG, and returns image bytes.
+
+    Args:
+        input_image_url: An image URL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        bytes: PNG bytes representation of the image.
+    """
+    pil_image = load_pil_image_from_url(input_image_url, mode=mode)
+    return create_png_bytes_from_image(pil_image)

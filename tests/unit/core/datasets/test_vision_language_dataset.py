@@ -181,8 +181,7 @@ def test_dataset_image_binary_label_ignore_index(
             pass
 
     return TestDatasetImageBinary(
-        processor=mock_processor,
-        tokenizer=mock_image_tokenizer,
+        processor=mock_processor, tokenizer=mock_image_tokenizer
     )
 
 

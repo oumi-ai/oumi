@@ -1,0 +1,42 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+name: gpt2-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  use_spot: true
+  disk_size: 200  # Disk size in GB
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# This is needed to do asynchronous evaluation for a training job writing checkpoints
+# to a cloud bucket.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: gpt2.eval
+  # The HellaSwag dataset requires trusted code to be enabled.
+  HF_DATASETS_TRUST_REMOTE_CODE: 1
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu,evaluation]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  python -m oumi.evaluate_async \
+    -c configs/recipes/gpt2/evaluation/async_eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"

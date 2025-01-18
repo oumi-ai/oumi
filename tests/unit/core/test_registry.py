@@ -1,3 +1,7 @@
+import os
+import tempfile
+from pathlib import Path
+
 import pytest
 
 from oumi.core.registry import (
@@ -17,9 +21,20 @@ def cleanup():
             snapshot.register(key, reg_type, value)
     # Clear the registry before each test.
     REGISTRY.clear()
+    REGISTRY._initialized = False
+    # Clear our registry env variable.
+    oumi_registry_reqs = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
+    if oumi_registry_reqs:
+        del os.environ["OUMI_EXTRA_DEPS_FILE"]
     yield
+    # Restore our registry env variable.
+    if os.environ.get("OUMI_EXTRA_DEPS_FILE", None):
+        del os.environ["OUMI_EXTRA_DEPS_FILE"]
+    if oumi_registry_reqs:
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = oumi_registry_reqs
     # Clear the registry after each test.
     REGISTRY.clear()
+    REGISTRY._initialized = False
     # Restore the registry after each test.
     for reg_type in RegistryType:
         for key, value in snapshot.get_all(reg_type).items():
@@ -284,3 +299,131 @@ def test_registry_case_insensitive_get_all():
     all_builders = REGISTRY.get_all(RegistryType.CLOUD)
     assert set(all_builders.keys()) == {"class_one", "class_two"}
     assert list(all_builders.values()) == [builder_one, builder_two]
+
+
+def test_registry_contains_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.contains("foo", RegistryType.CLOUD)
+    assert REGISTRY._initialized
+
+
+def test_registry_register_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.register("foo", RegistryType.CLOUD, "bar")
+    assert REGISTRY._initialized
+
+
+def test_registry_get_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.get("foo", RegistryType.CLOUD)
+    assert REGISTRY._initialized
+
+
+def test_registry_get_all_initialization():
+    assert REGISTRY._initialized is False
+    assert len(REGISTRY._registry) == 0
+    _ = REGISTRY.get_all(RegistryType.CLOUD)
+    assert REGISTRY._initialized
+
+
+def test_registry_user_classes():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        req_file = Path(output_temp_dir) / "requirements.txt"
+        file_1 = Path(output_temp_dir) / "file_1.py"
+        file_2 = Path(output_temp_dir) / "another_file.py"
+        file_3 = Path(output_temp_dir) / "last_one.py"
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
+        with open(req_file, "w") as f:
+            f.write(str(file_1) + "\n\n")  # Add an empty line
+            f.write(str(file_2) + "\n")
+            f.write(str(file_3) + "\n")
+        with open(file_1, "w") as f:
+            f.writelines(
+                [
+                    "from oumi.core.registry import register, RegistryType\n",
+                    "@register('file_1', RegistryType.CLOUD)\n",
+                    "class FileOne:\n",
+                    "    pass\n",
+                ]
+            )
+        with open(file_2, "w") as f:
+            f.writelines(
+                [
+                    "from oumi.core.registry import register, RegistryType\n",
+                    "@register('file_2', RegistryType.MODEL)\n",
+                    "class FileTwo:\n",
+                    "    pass\n",
+                ]
+            )
+        with open(file_3, "w") as f:
+            f.writelines(
+                [
+                    "from oumi.core.registry import register, RegistryType\n",
+                    "@register('file_3', RegistryType.METRICS_FUNCTION)\n",
+                    "class FileThree:\n",
+                    "    pass\n",
+                ]
+            )
+        assert not REGISTRY._initialized
+        assert REGISTRY.contains("file_1", RegistryType.CLOUD)
+        assert REGISTRY.contains("file_2", RegistryType.MODEL)
+        assert REGISTRY.contains("file_3", RegistryType.METRICS_FUNCTION)
+        assert REGISTRY._initialized
+
+
+def test_registry_user_classes_empty_requirements():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        req_file = Path(output_temp_dir) / "requirements.txt"
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
+        with open(req_file, "w") as f:
+            f.write("\n")
+        assert not REGISTRY._initialized
+        assert not REGISTRY.contains("file_1", RegistryType.CLOUD)
+        assert REGISTRY._initialized
+
+
+def test_registry_user_classes_malformed_dep():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        req_file = Path(output_temp_dir) / "requirements.txt"
+        file_1 = Path(output_temp_dir) / "file_1.py"
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
+        with open(req_file, "w") as f:
+            f.write(str(file_1) + "\n\n")  # Add an empty line
+            f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
+        with open(file_1, "w") as f:
+            f.writelines(
+                [
+                    "fr om thisisbadpython import fakemodulethatfails\n",
+                    "@register('file_1', RegistryType.CLOUD)\n",
+                    "class FileOne:\n",
+                    "    pass\n",
+                ]
+            )
+        assert not REGISTRY._initialized
+        with pytest.raises(ImportError, match="Failed to load user-defined module:"):
+            REGISTRY.contains("file_1", RegistryType.CLOUD)
+
+
+def test_registry_user_classes_missing_dep():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        req_file = Path(output_temp_dir) / "requirements.txt"
+        file_1 = Path(output_temp_dir) / "file_1.py"
+        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
+        with open(req_file, "w") as f:
+            f.write(str(file_1) + "\n\n")  # Add an empty line
+            f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
+        with open(file_1, "w") as f:
+            f.writelines(
+                [
+                    "from oumi.core.registry import register, RegistryType\n",
+                    "@register('file_1', RegistryType.CLOUD)\n",
+                    "class FileOne:\n",
+                    "    pass\n",
+                ]
+            )
+        assert not REGISTRY._initialized
+        with pytest.raises(ImportError, match="Failed to load user-defined module:"):
+            REGISTRY.contains("file_1", RegistryType.CLOUD)

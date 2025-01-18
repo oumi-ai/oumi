@@ -1,19 +1,19 @@
 # Contributing
 
-Oumi welcomes any contribution that helps make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
+Oumi welcomes any contributions that help make it better for the community. This is a community-first effort. If we all work together, we can ensure a better, more inclusive, safer, and open future for frontier AI. Whether you are an individual contributor or an organization, we invite you to be part of this bold mission to bring frontier AI back in the open. The future of AI is open source, and we can build that together.
 
 Possible contributions include:
 
 * Bug fixes, incremental improvements and tests, no matter how small
 * New features and infrastructure improvements
 * Tuning datasets, new ones or existing ones adapted to the standardized Oumi format
-* Benchmarks, new ones or existing ones integrated to Oumi's evaluation library
+* Benchmarks, new or existing, integrated to Oumi's evaluation library
 * Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi
-* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/S74NxTDh7v), and [X](https://x.com/Oumi_PBC) to share knoweledge and help each other.
+* Community participation in [issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_PBC) to share knowledge and help each other.
 
-If you want to contribute but you are short of ideas or have any questions, just reach out (<contact@oumi.ai>) and we can help.
+If you want to contribute but you are short of ideas or have any questions, reach out (<contact@oumi.ai>) and we can help.
 
 ## Prerequisites
 
@@ -68,14 +68,14 @@ To test your changes locally, run:
 
 ```shell
 cd ./tests/
-pytest -s
+pytest -s -vv
 ```
 
 To run pre-commit hooks manually, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-See the [Oumi Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure, and format your code.
+See the [Oumi Style Guide](style_guide.md) for guidelines on how to structure, and format your code.
 
 ## Copyright & License Headers
 

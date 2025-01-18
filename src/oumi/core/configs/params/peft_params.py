@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from enum import Enum
+from typing import Literal, Optional
 
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
@@ -7,11 +8,82 @@ from transformers import BitsAndBytesConfig
 from oumi.core.configs.params.base_params import BaseParams
 
 
+class PeftSaveMode(Enum):
+    """Enum representing how to save the final model during PEFT training.
+
+    While models saved with any of these options can be loaded by Oumi, those saved
+    with `ADAPTER_ONLY` are not self-contained; the base model will be loaded
+    separately from the local HF cache or downloaded from HF Hub if not in the cache.
+    """
+
+    ADAPTER_ONLY = "adapter_only"
+    """Only save the model adapter.
+
+    Note that when loading this saved model, the base model will be loaded separately
+    from the local HF cache or downloaded from HF Hub.
+    """
+
+    ADAPTER_AND_BASE_MODEL = "adapter_and_base_model"
+    """Save the base model in addition to the adapter.
+
+    This is similar to `ADAPTER_ONLY`, but the base model's weights are also saved in
+    the same directory as the adapter weights, making the output dir self-contained.
+    """
+
+    MERGED = "merged"
+    """Merge the adapter and base model's weights and save as a single model.
+
+    Note that the resulting model is a standard HF Transformers model, and is no longer
+    a PEFT model. A copy of the adapter before merging is saved in the "adapter/"
+    subdirectory.
+    """
+
+
+class LoraWeightInitialization(str, Enum):
+    """Enum representing the supported weight initializations for LoRA adapters."""
+
+    DEFAULT = "default"  # Use the model reference initialization from Microsoft.
+    RANDOM = "random"  # Fully random initialization, discouraged.
+    GAUSSIAN = "gaussian"
+    EVA = "eva"
+    PISA = "pissa"
+    PISSA_NITER = "pissa_niter_[number of iters]"
+    LOFTQ = "loftq"
+    OLORA = "olora"
+
+    def get_literal_value(
+        self,
+    ) -> Literal[
+        "default",
+        "random",
+        "gaussian",
+        "eva",
+        "pissa",
+        "pissa_niter_[number of iters]",
+        "loftq",
+        "olora",
+    ]:
+        """Returns a literal value of the enum."""
+        if self.value not in {
+            "default",
+            "random",
+            "gaussian",
+            "eva",
+            "pissa",
+            "pissa_niter_[number of iters]",
+            "loftq",
+            "olora",
+        }:
+            raise ValueError(f"Invalid enum value: {self.value}")
+
+        return self.value
+
+
 @dataclass
 class PeftParams(BaseParams):
     # Lora Params
     lora_r: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA R value."},
     )
     """The rank of the update matrices in LoRA.
@@ -21,16 +93,16 @@ class PeftParams(BaseParams):
     """
 
     lora_alpha: int = field(
-        default=16,
+        default=8,
         metadata={"help": "LoRA alpha."},
     )
     """The scaling factor for the LoRA update.
 
-    This value is typically set equal to `lora_r` for stable training.
+    This value is typically set equal to `lora_r` or `2*lora_r` for stable training.
     """
 
     lora_dropout: float = field(
-        default=0.05,
+        default=0.0,
         metadata={"help": "LoRA dropout."},
     )
     """The dropout probability applied to LoRA layers.
@@ -89,6 +161,28 @@ class PeftParams(BaseParams):
     https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
+    init_lora_weights: LoraWeightInitialization = field(
+        default=LoraWeightInitialization.DEFAULT,
+        metadata={
+            "help": "Weights initialization for LoRA adapters.",
+        },
+    )
+    """
+    Passing `LoraWeightInitialization.DEFAULT` will use the underlying reference
+    implementation of the corresponding model from Microsoft.
+
+    Other valid (LoraWeightInitialization) options include:
+        - "random" which will use fully random initialization and is discouraged.
+        - "gaussian" for Gaussian initialization.
+        - "eva" for Explained Variance Adaptation (EVA) (https://arxiv.org/abs/2410.07170).
+        - "loftq" for improved performance when LoRA is combined with with quantization (https://arxiv.org/abs/2310.08659).
+        - "olora" for Orthonormal Low-Rank Adaptation of Large Language Models (OLoRA) (https://arxiv.org/html/2406.01775v1).
+        - "pissa" for Principal Singular values and Singular vectors Adaptation (PiSSA) (https://arxiv.org/abs/2404.02948).
+
+    For more information, see HF:
+        https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
+    """
+
     lora_task_type: TaskType = TaskType.CAUSAL_LM
     """The task type for LoRA adaptation.
 
@@ -141,7 +235,7 @@ class PeftParams(BaseParams):
     """
 
     bnb_4bit_compute_dtype: str = field(
-        default="float16",
+        default="float32",
         metadata={"help": "The compute type of the quantized parameters."},
     )
     """Compute type of the quantized parameters.
@@ -157,6 +251,17 @@ class PeftParams(BaseParams):
     - "float64" for 64-bit floating point
 
     Defaults to "float16" for half precision.
+    """
+
+    peft_save_mode: PeftSaveMode = PeftSaveMode.ADAPTER_ONLY
+    """How to save the final model during PEFT training.
+
+    This option is only used if `TrainingParams.save_final_model` is True.
+    By default, only the model adapter is saved to reduce disk usage.
+    Options are defined in the `PeftSaveMode` enum and include:
+    - ADAPTER_ONLY: Only save the model adapter.
+    - ADAPTER_AND_BASE_MODEL: Save the base model in addition to the adapter.
+    - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
 
     def to_bits_and_bytes(self) -> BitsAndBytesConfig:

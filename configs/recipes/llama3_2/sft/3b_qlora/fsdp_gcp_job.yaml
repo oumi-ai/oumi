@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to FSDP QLoRA tune Llama 3.2 3B Instruct on 1 GCP node.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_2/sft/3b_qlora/fsdp_gcp_job.yaml --cluster llama3b-qlora-fsdp
@@ -32,8 +35,6 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  # Must use a float type for quantized data storage. See:
-  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
   oumi distributed torchrun \
       -m oumi train \
       -c configs/recipes/llama3_2/sft/3b_qlora/fsdp_train.yaml \

@@ -8,47 +8,86 @@ Before installing Oumi, ensure you have the following:
 
 - Python 3.9 or later
 - pip (Python package installer)
-- Git (for cloning the repository)
+- Git (if cloning the repository; required for steps 1 and 2)
 
-We recommend using a virtual environment to install Oumi. You can find instructions for setting up a conda environment in the {doc}`development/dev_setup` guide.
+We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
 
 ## Installation Methods
 
 You can install Oumi using one of the following methods:
 
-### 1. Install from Source (Recommended)
+### 1. Install from PyPI (Recommended)
 
-For the latest development version, you can install Oumi directly from the GitHub repository:
+To prevent dependency conflicts, let's start by creating a virtual environment. We'll use `venv` below, but you are welcome to use the environment manager of your choice ([conda](/development/dev_setup), [uvx](https://docs.astral.sh/uv/concepts/tools/), etc):
 
-::::{tab-set-code}
-:::{code-block} SSH
-pip install git+ssh://git@github.com/oumi-ai/oumi.git
+::::{tab-set}
+:::{tab-item} Linux / MacOS
+```{code-block} shell
+python -m venv .env
+source .env/bin/activate
+```
 :::
 
-:::{code-block} HTTP
-pip install git+<https://github.com/oumi-ai/oumi.git>
+:::{tab-item} Windows
+```{code-block} shell
+python -m venv .env
+.env/Scripts/activate
+```
 :::
 ::::
 
-### 2. Clone and Install
-
-If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
-
-```bash
-git clone https://github.com/oumi-ai/oumi.git
-cd oumi
-pip install -e ".[dev]"
-```
-
-The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
-
-### 3. Install from PyPI
+Once that's done, you're ready to install Oumi!
 
 To install the latest stable version of Oumi, run:
 
 ```bash
 pip install oumi
 ```
+
+### 2. Install from Source
+
+For the latest development version, you can install Oumi directly from the GitHub repository:
+
+::::{tab-set}
+:::{tab-item} SSH
+```{code-block} shell
+pip install git+ssh://git@github.com/oumi-ai/oumi.git
+```
+:::
+
+:::{tab-item} HTTPS
+```{code-block} shell
+pip install git+https://github.com/oumi-ai/oumi.git
+```
+:::
+::::
+
+### 3. Clone and Install
+
+If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
+
+::::{tab-set}
+:::{tab-item} SSH
+```{code-block} shell
+git clone git@github.com:oumi-ai/oumi.git
+cd oumi
+pip install -e ".[dev]"
+```
+:::
+
+:::{tab-item} HTTPS
+```{code-block} shell
+git clone https://github.com/oumi-ai/oumi.git
+cd oumi
+pip install -e ".[dev]"
+```
+:::
+::::
+
+For more information on setting up your dev environment for contributing to Oumi, please
+see our [dev setup guide](../development/dev_setup.md).
+
+The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
 
 ## Optional Dependencies
 
@@ -79,7 +118,7 @@ Oumi has several optional features that require additional dependencies:
   You can install multiple cloud dependencies by combining them, e.g.:
 
   ```bash
-  pip install oumi[aws,azure,gcp]
+  pip install ".[aws,azure,gcp]"
   ```
 
 ## Verifying the Installation
@@ -94,9 +133,9 @@ This should print the help message for Oumi.
 
 ## Troubleshooting
 
-If you encounter any issues during installation, please check the [troubleshooting guide](../faq/troubleshooting.md).
+If you encounter any issues during installation, please check the [troubleshooting guide](/faq/troubleshooting.md).
 
-If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/S74NxTDh7v).
+If you're still having problems, please [open an issue](https://github.com/oumi-ai/oumi/issues) on our GitHub repository, or send us a message on [Discord](https://discord.gg/oumi).
 
 ## Next Steps
 

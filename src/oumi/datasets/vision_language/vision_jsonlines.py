@@ -10,6 +10,7 @@ from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_jsonlines
 
 
+@register_dataset("vl_sft")
 @register_dataset("vision_language_jsonl")
 class VLJsonlinesDataset(VisionLanguageSftDataset):
     """VLJsonlinesDataset for loading Vision-Language SFT data in Oumi format.
@@ -21,11 +22,15 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
     Usage example:
         Examples:
             Loading from a file:
-                >>> dataset = VLJsonlinesDataset(
+                >>> from oumi.datasets import VLJsonlinesDataset
+                >>> dataset = VLJsonlinesDataset( # doctest: +SKIP
                 ...     dataset_path="/path/to/your/dataset.jsonl",
                 ... )
 
             Loading from a list of data samples:
+                >>> from oumi.builders import build_processor, build_tokenizer
+                >>> from oumi.core.configs import ModelParams
+                >>> from oumi.datasets import VLJsonlinesDataset
                 >>> data_samples = [
                 ...     {
                 ...         "messages": [
@@ -47,9 +52,13 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
                 ...         ]
                 ...     }
                 ... ]
-                ... ]
+                >>> tokenizer = build_tokenizer(
+                ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
+                ... )
                 >>> dataset = VLJsonlinesDataset(
                 ...     data=data_samples,
+                ...     tokenizer=tokenizer,
+                ...     processor_name="openai/clip-vit-base-patch32",
                 ... )
     """
 

@@ -10,6 +10,7 @@ from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_json, load_jsonlines
 
 
+@register_dataset("text_sft")
 @register_dataset("text_sft_jsonl")
 class TextSftJsonLinesDataset(BaseSftDataset):
     """TextSftJsonLinesDataset for loading SFT data in oumi and alpaca formats.
@@ -34,17 +35,20 @@ class TextSftJsonLinesDataset(BaseSftDataset):
 
     Examples:
         Loading conversations from a JSONL file with auto-detection:
-            >>> dataset = TextSftJsonLinesDataset(
+            >>> from oumi.datasets import TextSftJsonLinesDataset
+            >>> dataset = TextSftJsonLinesDataset( # doctest: +SKIP
             ...     dataset_path="/path/to/your/dataset.jsonl"
             ... )
 
         Loading Alpaca-style data from a JSON file:
-            >>> dataset = TextSftJsonLinesDataset(
+            >>> from oumi.datasets import TextSftJsonLinesDataset
+            >>> dataset = TextSftJsonLinesDataset( # doctest: +SKIP
             ...     dataset_path="/path/to/your/dataset.json",
             ...     format="alpaca"
             ... )
 
         Loading from a list of data samples:
+            >>> from oumi.datasets import TextSftJsonLinesDataset
             >>> data_samples = [
             ...     {"messages": [{"role": "user", "content": "Hello"},
             ...                   {"role": "assistant", "content": "Hi there!"}]},

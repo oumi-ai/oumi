@@ -1,0 +1,35 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+name: phi3-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+
+  disk_size: 200  # Disk size in GB
+
+  use_spot: true
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  # HF datasets require trusting remote code to be enabled.
+  HF_DATASETS_TRUST_REMOTE_CODE: 1
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: phi3.eval
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu,evaluation]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  oumi evaluate \
+    -c configs/recipes/phi3/evaluation/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
