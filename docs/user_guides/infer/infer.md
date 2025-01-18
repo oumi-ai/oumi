@@ -145,6 +145,12 @@ To run inference interactively, use the `oumi infer` command with the `-i` flag.
 oumi infer -c infer_config.yaml -i
 ```
 
+## Supported Engines
+
+```{include} /api/summary/inference_engines.md
+```
+
+
 ## Advanced Topics
 
 ### Inference with Quantized Models
