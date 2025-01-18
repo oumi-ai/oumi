@@ -79,30 +79,6 @@ Vision-Language SFT extends the concept of Supervised Fine-Tuning to handle both
 Vision-Language SFT uses the {class}`~oumi.core.types.conversation.Conversation` format with additional support for images. The `image` field contains the path to the image file.
 
 ::::{tab-set-code}
-:::{code-block} python
-
-from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
-
-Conversation(
-    messages=[
-        Message(
-            role=Role.USER,
-            content=[
-                ContentItem(
-                    type=Type.IMAGE_URL,
-                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
-                ),
-                ContentItem(type=Type.TEXT, content="What is in this image?"),
-            ],
-        ),
-        Message(
-            role=Role.ASSISTANT,
-            content="The image is a traditional Japanese ukiyo-e print."
-        )
-    ]
-)
-:::
-
 :::{code-block} JSON
 
 {
@@ -126,6 +102,30 @@ Conversation(
     }
   ]
 }
+:::
+
+:::{code-block} python
+
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
+
+Conversation(
+    messages=[
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(
+                    type=Type.IMAGE_URL,
+                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
+                ),
+                ContentItem(type=Type.TEXT, content="What is in this image?"),
+            ],
+        ),
+        Message(
+            role=Role.ASSISTANT,
+            content="The image is a traditional Japanese ukiyo-e print."
+        )
+    ]
+)
 :::
 ::::
 

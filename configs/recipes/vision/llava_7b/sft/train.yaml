@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
   model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
@@ -22,6 +25,8 @@ data:
           processor_name: "llava-hf/llava-1.5-7b-hf"
           limit: 8192
           return_tensors: True
+
+      # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True

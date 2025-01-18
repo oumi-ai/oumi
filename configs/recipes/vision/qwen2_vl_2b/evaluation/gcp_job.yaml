@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to eval Qwen2 VL 2B Instruct on GCP.
 # Example command:
 # oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-eval

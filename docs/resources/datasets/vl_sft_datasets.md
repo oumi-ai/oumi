@@ -100,29 +100,33 @@ To add a new VL-SFT dataset, follow these steps:
 1. Subclass {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.VisionLanguageSftDataset.transform_conversation` method to handle both text and image data.
 
-Here's a basic example:
+Here's a basic example, which loads data from the hypothetical `example/foo` HuggingFace dataset (image + text),
+and formats the data as Oumi `Conversation`-s for SFT tuning:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
-@register_dataset("custom_vl_dataset")
+@register_dataset("your_vl_sft_dataset_name")
 class CustomVLDataset(VisionLanguageSftDataset):
+    """Dataset class for the `example/foo` dataset."""
+    default_dataset = "example/foo" # Name of the original HuggingFace dataset (image + text)
+
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
         # Transform the raw example into a Conversation object
         # 'example' represents one row of the raw dataset
         # Structure of 'example':
         # {
-        #     'image_path': str,  # Path to the image file
-        #     'question': str,    # The user's question about the image
-        #     'answer': str       # The assistant's response
+        #     'image_bytes': bytes,  # PNG bytes of the image
+        #     'question': str,       # The user's question about the image
+        #     'answer': str          # The assistant's response
         # }
         conversation = Conversation(
             messages=[
                 Message(role=Role.USER, content=[
-                    ContentItem(type=Type.IMAGE_PATH, content=example['image_path']),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=example['image_bytes']),
                     ContentItem(type=Type.TEXT, content=example['question']),
                 ]),
                 Message(role=Role.ASSISTANT, content=example['answer'])

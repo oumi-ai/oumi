@@ -1,4 +1,4 @@
-# 🏇 Quickstart
+# Quickstart
 
 ## 📢 Pre-requisites
 
