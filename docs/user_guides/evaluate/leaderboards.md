@@ -59,30 +59,30 @@ Running leaderboard evaluations can be resource-intensive, particularly when wor
 
 - HuggingFace Leaderboard V2:
 
-````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
-```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
+````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job.yaml
 :language: yaml
 ```
 ````
 
 ```bash
-oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml
+oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job.yaml
 ```
 
 - HuggingFace Leaderboard V1:
 
-````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
-```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
+````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job.yaml
+```{literalinclude} /../configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job.yaml
 :language: yaml
 ```
 ````
 
 ```bash
-oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml
+oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job.yaml
 ```
 
 ```{tip}
-In addition to GCP, Oumi supports out-of-the-box various cloud providers (including AWS, Azure, Runpod, Lambda) or even your own custom cluster. To explore these, visit the {doc}`launch </user_guides/launch/launch>` page.
+In addition to GCP, Oumi supports out-of-the-box various cloud providers (including AWS, Azure, Runpod, Lambda) or even your own custom cluster. To explore these, visit the {doc}`running code on clusters </user_guides/launch/launch>` page.
 ```
 
 A few things to pay attention to:
@@ -120,5 +120,5 @@ setup: |
 ```
 
 ```{tip}
-To learn more on running jobs remotely, including attaching to various storage systems and mounting local files, visit the {doc}`running jobs remotely </user_guides/launch/remote>` page.
+To learn more on running jobs remotely, including attaching to various storage systems and mounting local files, visit the {doc}`running code on clusters </user_guides/launch/launch>` page.
 ```
