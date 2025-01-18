@@ -1,6 +1,6 @@
-# Customizing Prompts and Examples
+# Custom Prompts
 
-This is the simplest and most common way to customize a judge.
+The simplest and most common way to customize a judge is by customizing the prompts and the few-shot examples.
 
 ## Judge Attribute Structure
 

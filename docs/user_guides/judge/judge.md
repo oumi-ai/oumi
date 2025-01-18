@@ -14,16 +14,15 @@ As Large Language Models (LLMs) continue to evolve, traditional evaluation bench
 
 ## Overview
 
-In LLM-based evaluations, an **LLM Judge** is utilized to assess the performance of a language **Language Model** according to a predefined set of criteria.
+In LLM-based evaluations, an **LLM Judge** is utilized to assess the performance of a **Language Model** according to a predefined set of criteria.
 
 The evaluation process is carried out in two distinct steps:
 
-- Step 1 (**Inference**): In the first step, the LLM generates responses to a series of evaluation prompts. These responses demonstrate the model's ability to interpret the prompt and generate a contextually relevant high-quality response.
+- Step 1 (**Inference**): In the first step, the language model generates responses to a series of evaluation prompts. These responses demonstrate the model's ability to interpret the prompt and generate a contextually relevant high-quality response.
 - Step 2 (**Judgments)**: In the second step, the LLM Judge evaluates the quality of the generated responses. The result is a set of judgments that quantify the model's performance, according to the specified evaluation criteria.
 
 The diagram below illustrates these two steps:
-
-**IMAGE WILL BE ADDED HERE** ![Judge Figure](./figures/judge_figure.svg)
+![Judge Figure](/_static/judge/judge_figure.svg)
 
 Oumi offers flexible APIs for both {doc}`Inference </user_guides/infer/infer>` and Judgement ("LLM Judge" API).
 
@@ -40,23 +39,28 @@ Our LLM Judge API is fully customizable and can be applied across a wide range o
 
 ## Oumi Offerrings
 
-Oumi offers a {doc}`Built-In Judge </user_guides/judge/built_in_judge>` that you can use out of the box, which evaluates model outputs based on multiple attributes such as helpfulness, honesty, and safety. Alternatively, you can tailor the judge to your specific project by customizing the {doc}`model prompts </user_guides/judge/custom_prompt>` or the {doc}`judge model and its generation parameters </user_guides/judge/custom_infer>`.
+Oumi offers a {doc}`Built-In Judge </user_guides/judge/built_in_judge>` that you can use out-of-the-box. Alternatively, you can tailor the judge to your specific needs by customizing the {doc}`judgment prompts </user_guides/judge/custom_prompt>` or the {doc}`underlying judge model </user_guides/judge/custom_infer>` and its parameters.
 
 ### Built-In Judge
 
-Our built-in judge has been tested and validated for accuracy and performance. It comes with a pre-defined set of attributes, which can be easily customized. The underlying model can be either local (using a PyTorch or GGML/GGUF model) or we can call a remote API (e.g. OpenAI, Anthropic, Google, etc.). Let's explore both options, starting with the local implementation which is great for development and testing.
+Our {doc}`Built-In Judge </user_guides/judge/built_in_judge>` evaluates model outputs across multiple key attributes. By default, it assesses outputs based on three essential dimensions: helpfulness, honesty, and safety. These attributes have been rigorously tested and validated to ensure strong alignment with human judgment and consistent performance in the evaluation of AI-generated content. The selection of these attributes has been carefully considered for their pivotal role in assessing the quality, trustworthiness, and ethical integrity of model outputs, ensuring they meet the highest standards for responsible real-world applications. However, the system is fully customizable, allowing you to {doc}`customize </user_guides/judge/custom_prompt>` attributes to better suit your specific project requirements.
 
-##### Quick Start with a local model
+A built-in judge is instantiated using a configuration class, {py:class}`~oumi.core.configs.JudgeConfig`. A selection of standard configurations is available on our {gh}`judge court <src/oumi/judges/judge_court.py>`. Depending on the desired capabilities for the underlying judge model, you can choose between local configurations ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_local_judge>`) or access more powerful models via a remote API, such as GPT-4 ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_gpt4o_judge>`) or Sonnet ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_claude_sonnet_judge>`).
 
-```{testcode} python
-:skipif: True
+
+##### Quick Start
+
+```python
 from oumi.core.types import Conversation, Message, Role
-from oumi.judges import OumiXmlJudge, oumi_v1_xml_local_judge
+from oumi.judges import OumiXmlJudge
+from oumi.judges import oumi_v1_xml_local_judge as judge_local
+from oumi.judges import oumi_v1_xml_gpt4o_judge as judge_gpt4o
+from oumi.judges import oumi_v1_xml_claude_sonnet_judge as judge_sonnet
 
-# Initialize the judge with local GGUF model
-judge = OumiXmlJudge(oumi_v1_xml_local_judge())
+# Instantiate the judge.
+judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet()
 
-# Judge conversations
+# Define the `conversations` to be judged.
 conversations = [
     Conversation(messages=[
       Message(role=Role.USER, content="What is Python?"),
@@ -67,69 +71,31 @@ conversations = [
 results = judge.judge(conversations)
 ```
 
-##### Quick Start with a remote API
+The `results` variable is a dictionary, where each key corresponds to an attribute name (`helpful`, `honest`, `safe`). The associated values include a `judgement` ("Yes" if the response meets the criteria, "No" otherwise) and an `explanation` provided by the judge model. For example, the result for `helpful` is represented as follows:
 
-For more accurate results or when you need more powerful models, you might prefer using a remote API. Here's how to use GPT-4 as your judge:
-
-```{testcode} python
-:skipif: True
-from oumi.core.types import Conversation, Message, Role
-from oumi.judges import oumi_v1_xml_gpt4o_judge
-from oumi.judges.oumi_judge import OumiXmlJudge
-
-# Initialize judge with GPT-4
-judge = OumiXmlJudge(oumi_v1_xml_gpt4o_judge())
-
-# Judge conversations
-conversations = [
-    Conversation(messages=[
-      Message(role=Role.USER, content="What is Python?"),
-      Message(role=Role.ASSISTANT, content="Python is a high-level programming language.")
-   ])
-]
-
-# Judge conversations
-results = judge.judge(conversations)
+```
+"helpful": {
+   "fields": {
+      "judgement": "Yes",
+      "explanation": "The response is helpful because it provides a brief explanation of what Python is."
+   },
+   "label": True
+}
 ```
 
-### Custom Judges
+### Custom Judge
 
-When evaluating AI model outputs, you often need to assess specific aspects of the responses that go beyond standard metrics. Custom judges in Oumi allow you to:
+Custom judges offer significant value in a variety of specialized scenarios, such as:
 
-- Define precise evaluation criteria for your use case
-- Implement domain-specific validation rules
-- Create consistent evaluation frameworks across multiple models
-- Automate quality assurance for AI outputs
+1. **Code Quality Assessment**: Evaluate generated code for adherence to best practices, security standards, and proper documentation.
+2. **Content Moderation**: Assess responses for safety, appropriateness, and compliance with established guidelines.
+3. **Domain Expertise**:  Ensure technical accuracy and precision in specialized fields such as medicine, law, or engineering.
+4. **Multi-Criteria Evaluation**: Conduct comprehensive assessments of responses across multiple dimensions simultaneously.
 
-#### Common Use Cases
+This section provides an overview of the available customization options.
 
-Custom judges are particularly valuable in scenarios such as:
+#### Customization Options
 
-1. **Code Quality Assessment**: Evaluate generated code for best practices, security, and documentation
-2. **Content Moderation**: Check responses for safety, appropriateness, and adherence to guidelines
-3. **Domain Expertise**: Validate technical accuracy in specialized fields like medicine or law
-4. **Multi-criteria Evaluation**: Assess responses across multiple dimensions simultaneously
+The LLM Judge framework offers a range of customization options to tailor the evaluation process to your specific needs. You can modify the judgment prompts and their corresponding few-shot examples, as well as choose the type of judgment the underlying model will provide (`bool`, `categorical`, or `likert-5`). For a comprehensive guide on these options, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page.
 
-#### Customization Levels Overview
-
-The judge API provides two levels of customization:
-
-1. {doc}`Modify prompts and examples </user_guides/judge/custom_prompt>`
-2. {doc}`Configure inference engine and parameters </user_guides/judge/custom_infer>`
-
-Choose the level that matches your needs.
-
-<!--
-
-## API Reference
-
-Complete documentation for key classes:
-
-- {py:class}`~oumi.judges.base_judge.BaseJudge`: Abstract base class for judge implementations
-- {py:class}`~oumi.core.configs.JudgeConfig`: Configuration container and validator
-- {py:class}`~oumi.core.types.conversation.TemplatedMessage`: Base class for structured messages
-- {py:class}`~oumi.core.configs.JudgeAttribute`: Defines evaluation criteria and examples
-
-For detailed method signatures and usage examples, see the API Documentation.
-
--->
+Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
