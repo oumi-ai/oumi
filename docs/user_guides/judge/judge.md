@@ -24,7 +24,7 @@ The evaluation process is carried out in two distinct steps:
 The diagram below illustrates these two steps:
 
 <!-- Original image at: Oumi Company Shared Drive > Technical > Documentation Figures -->
-![Judge Figure](./figures/judge_figure.svg)
+![Judge Figure](/_static/judge/judge_figure.svg)
 
 Oumi offers flexible APIs for both {doc}`Inference </user_guides/infer/infer>` and Judgement ("LLM Judge" API).
 
@@ -52,8 +52,7 @@ A built-in judge is instantiated using a configuration class, {py:class}`~oumi.c
 
 ##### Quick Start
 
-```{testcode} python
-:skipif: True
+```python
 from oumi.core.types import Conversation, Message, Role
 from oumi.judges import OumiXmlJudge
 from oumi.judges import oumi_v1_xml_local_judge as judge_local
