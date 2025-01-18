@@ -232,4 +232,7 @@ reportPrivateImportUsage = "none"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
-markers = ["e2e: Slow e2e integration tests"]
+markers = [
+    "e2e: Slow e2e integration tests",
+    "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",
+]
