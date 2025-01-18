@@ -22,8 +22,6 @@ The evaluation process is carried out in two distinct steps:
 - Step 2 (**Judgments)**: In the second step, the LLM Judge evaluates the quality of the generated responses. The result is a set of judgments that quantify the model's performance, according to the specified evaluation criteria.
 
 The diagram below illustrates these two steps:
-
-<!-- Original image at: Oumi Company Shared Drive > Technical > Documentation Figures -->
 ![Judge Figure](/_static/judge/judge_figure.svg)
 
 Oumi offers flexible APIs for both {doc}`Inference </user_guides/infer/infer>` and Judgement ("LLM Judge" API).
