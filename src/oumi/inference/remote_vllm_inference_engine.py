@@ -44,7 +44,9 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
         api_input = {
-            "model": self._model,
+            "model": self._model
+            if self._adapter_model is None
+            else self._adapter_model,
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),
