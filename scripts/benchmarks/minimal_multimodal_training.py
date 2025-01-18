@@ -142,7 +142,7 @@ class DatasetName(str, Enum):
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
-    if dataset_name in (DatasetName.FLICKR, DatasetName.MNIST_SFT):
+    if dataset_name in (DatasetName.FLICKR,):
         # The dataset only has "test" split.
         return "test"
     elif dataset_name in (DatasetName.MERVE_VQAV2_SMALL,):
