@@ -96,15 +96,6 @@ This section provides an overview of the available customization options.
 
 #### Customization Options
 
-<!-- DROPPING THIS (unless Oussama wants to keep part of it)
-When evaluating AI model outputs, you often need to assess specific aspects of the responses that go beyond standard metrics. Custom judges in Oumi allow you to:
-
-- Define precise evaluation criteria for your use case
-- Implement domain-specific validation rules
-- Create consistent evaluation frameworks across multiple models
-- Automate quality assurance for AI outputs
--->
-
 The LLM Judge framework offers a range of customization options to tailor the evaluation process to your specific needs. You can modify the judgment prompts and their corresponding few-shot examples, as well as choose the type of judgment the underlying model will provide (`bool`, `categorical`, or `likert-5`). For a comprehensive guide on these options, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page.
 
 Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
