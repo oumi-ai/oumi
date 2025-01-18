@@ -40,6 +40,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         enable_prefix_caching: bool = True,
         gpu_memory_utilization: float = 1.0,
         enforce_eager: bool = True,
+        max_num_seqs: int = 2,
     ):
         """Initializes the inference Engine.
 
@@ -54,6 +55,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 full (100%) memory utilization.
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
+            max_num_seqs: Maximum number of sequences per iteration.
         """
         if not vllm:
             raise RuntimeError(
@@ -106,6 +108,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             max_model_len=model_params.model_max_length,
             gpu_memory_utilization=gpu_memory_utilization,
             enforce_eager=enforce_eager,
+            max_num_seqs=max_num_seqs,
             **vllm_kwargs,
         )
         # Ensure the tokenizer is set properly
