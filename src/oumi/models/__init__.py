@@ -22,5 +22,6 @@ Note:
 """
 
 from oumi.models.mlp import MLPEncoder
+from oumi.models.mnist_cnn import SampleMnistCNN
 
-__all__ = ["MLPEncoder"]
+__all__ = ["MLPEncoder", "SampleMnistCNN"]
