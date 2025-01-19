@@ -49,13 +49,11 @@ def test_instantiation_and_basic_usage(from_registry: bool):
                 outputs = model(
                     **_convert_example_to_model_input(inputs, device=model_device)
                 )
-            assert "logits" in outputs, test_tag
+            assert outputs.keys() == ({"logits", "loss"} if with_label else {"logits"})
             assert isinstance(outputs["logits"], torch.Tensor), test_tag
             logits = outputs["logits"].cpu().numpy()
             assert logits.shape == (batch_size, 10), test_tag
             assert logits.dtype == np.float32, test_tag
-
-            assert outputs.keys() == ({"logits", "loss"} if with_label else {"logits"})
             if with_label:
                 loss = outputs["loss"].cpu().numpy()
                 assert loss.shape == (), test_tag
