@@ -204,19 +204,21 @@ class Trainer(BaseTrainer):
             disable=not is_world_process_zero(),
         ) as progress_bar:
             while True:
-                # for epoch in range(self.state.epoch, self.params.num_train_epochs):
                 epoch = self.state.epoch
                 if (
                     self.params.num_train_epochs > 0
                     and epoch >= self.params.num_train_epochs
                 ):
-                    self.log(f"Reached {total_steps} epochs. Training completed.")
+                    self.log(f"Reached {epoch} epochs. Training completed.")
                     break
                 elif (
                     self.params.max_steps > 0
                     and self.state.global_step >= self.params.max_steps
                 ):
-                    self.log(f"Reached {total_steps} global steps. Training completed.")
+                    self.log(
+                        f"Reached {self.state.global_step} global steps. "
+                        "Training completed."
+                    )
                     break
 
                 with torch.profiler.record_function(f"epoch_{epoch}"):
