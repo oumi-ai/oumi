@@ -30,7 +30,7 @@ All with one consistent API, production-grade reliability, and all the flexibili
 
 Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quickstart guide](https://oumi.ai/docs/latest/get_started/quickstart.html).
 
-### Getting Started
+## 🚀 Getting Started
 
 | **Notebook** | **Try in Colab** | **Description** |
 |----------|--------------|-------------|
@@ -43,7 +43,7 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 
 
 
-## Usage
+## 🔧 Usage
 
 > [!NOTE]
 > Oumi is under active development. While the core features are stable, some advanced features might change as we improve the platform.
@@ -143,13 +143,13 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
 
 
-#### 🔍 More options
+#### 🔍 Even more options
 This section lists all the language models that can be used with Oumi. Thanks to the integration with the [🤗 Transformers](https://github.com/huggingface/transformers) library, you can easily use any of these models for training, evaluation, or inference.
 
 Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the [configs/recipes](configs/recipes) directory.
 
 <details>
-<summary>Supported Models</summary>
+<summary>**More supported models**</summary>
 
 #### Instruct Models
 
@@ -220,14 +220,14 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 </details>
 
-## Documentation
+## 📖 Documentation
 
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
 
-## How to Join the Community
+## 🤝 How to Join the Community
 
-`oumi` is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome! 🚀
+Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
 - Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
 - To contribute to the `oumi` project, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
