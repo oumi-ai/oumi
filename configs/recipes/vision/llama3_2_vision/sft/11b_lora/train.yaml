@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 ##
 # LoRA config for sft-training Llama-11B-Vision with the vqav2-small dataset.
 ##
@@ -15,7 +18,6 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: True
-    target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"

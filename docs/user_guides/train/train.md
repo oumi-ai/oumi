@@ -87,7 +87,7 @@ You can override any value either through the CLI or programmatically:
 :::{code-block} bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.learning_rate 1e-4 \
-  --training.num_train_epochs 5
+  --training.max_steps 30
 :::
 
 :::{code-block} python
@@ -99,7 +99,7 @@ config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_tr
 
 # Override specific values
 config.training.learning_rate = 1e-4
-config.training.num_train_epochs = 5
+config.training.max_steps = 30
 
 # Start training
 train(config)
@@ -133,19 +133,25 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+### Fine-tuning a Vision-Language Model
+
+Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
+You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
+{ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
+
 ### Multi-GPU Training
 
 To train with multiple GPUs, we can extend that same configuration to use distributed training, using either DDP or FSDP:
 
 ```bash
 # Using DDP (DistributedDataParallel)
-oumi distributed torchrun -m \
-  oumi train \
+oumi distributed torchrun \
+  -m oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml
 
 # Using FSDP (Fully Sharded Data Parallel)
-oumi distributed torchrun -m \
-  oumi train \
+oumi distributed torchrun \
+  -m oumi train \
   -c configs/recipes/llama3_2/sft/3b_full/train.yaml \
   --fsdp.enable_fsdp true \
   --fsdp.sharding_strategy FULL_SHARD

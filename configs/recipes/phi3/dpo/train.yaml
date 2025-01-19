@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
   trust_remote_code: True

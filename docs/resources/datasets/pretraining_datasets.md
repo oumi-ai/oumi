@@ -115,3 +115,7 @@ class CustomPretrainingDataset(BasePretrainingDataset):
             "labels": tokens["input_ids"].copy()
         }
 ```
+
+### Using Custom Datasets via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your dataset when using the CLI.

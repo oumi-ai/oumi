@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
@@ -11,7 +14,6 @@ data:
   train:
     collator_name: "vision_language_with_padding"
     experimental_use_torch_datapipes: True
-    target_col: "prompt"
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -67,6 +69,7 @@ training:
 
   logging_steps: 5
   save_steps: 0
+  save_final_model: True
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
   include_performance_metrics: True
@@ -78,4 +81,4 @@ fsdp:
   sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "MllamaSelfAttentionDecoderLayer,MllamaCrossAttentionDecoderLayer,MllamaVisionEncoderLayer"
+  transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"

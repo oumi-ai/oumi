@@ -32,13 +32,13 @@ class JobResources:
     """The cloud used to run the job (required).
 
     Options:
-        aws: Amazon Web Services
-        azure: Microsoft Azure
-        gcp: Google Cloud Platform
-        lambda: Lambda Cloud
-        local: The local machine launching the job
-        polaris: The Polaris cluster at Argonne National Laboratory
-        runpod: RunPod
+        - aws: Amazon Web Services
+        - azure: Microsoft Azure
+        - gcp: Google Cloud Platform
+        - lambda: Lambda Cloud
+        - local: The local machine launching the job
+        - polaris: The Polaris cluster at Argonne National Laboratory
+        - runpod: RunPod
     """
 
     region: Optional[str] = None
