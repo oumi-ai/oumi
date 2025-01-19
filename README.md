@@ -225,16 +225,13 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
 
-## Contributing
+## How to Join the Community
 
-This is a community-first effort. Contributions are very welcome! 🚀
+`oumi` is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome! 🚀
 
-Please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidelines on how to contribute to the project.
-
-If you want to contribute, but you are short of ideas, please reach out (<contact@oumi.ai>)!
-
-> [!TIP]
-> Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
+- Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
+- To contribute to the `oumi` project, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
+- If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/open-collaboration) page.
 
 ## Acknowledgements
 
