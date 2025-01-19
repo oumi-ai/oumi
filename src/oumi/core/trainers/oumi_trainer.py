@@ -293,10 +293,11 @@ class Trainer(BaseTrainer):
 
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
-                    num_tokens = (
-                        batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
-                    )
-                    self.state.total_tokens_seen += num_tokens
+                    if self.tokenizer is not None and "input_ids" in batch:
+                        num_tokens = (
+                            batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
+                        )
+                        self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
                     if not self.is_using_fsdp and not self.is_using_ring_attention:
