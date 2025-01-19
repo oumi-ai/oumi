@@ -233,25 +233,15 @@ Oumi is a community-first effort. Whether you are a developer, a researcher, or 
 - Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
 - If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/open-collaboration) page.
 
-## Acknowledgements
+## 🙏 Acknowledgements
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🙏
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! ✨ 🌟 💫
 
-## Citation
+## 📚 Citation
 
 If you find Oumi useful in your research, please consider citing it:
 
-```bibtex
-@software{oumi2025,
-  author = {Oumi Community},
-  title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
-  month = {January},
-  year = {2025},
-  url = {https://github.com/oumi-ai/oumi}
-}
-```
-
-## License
+## 📜 License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
