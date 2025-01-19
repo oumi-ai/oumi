@@ -48,6 +48,7 @@ Our {doc}`Built-In Judge </user_guides/judge/built_in_judge>` evaluates model ou
 A built-in judge is instantiated using a configuration class, {py:class}`~oumi.core.configs.JudgeConfig`. A selection of standard configurations is available on our {gh}`judge court <src/oumi/judges/judge_court.py>`. Depending on the desired capabilities for the underlying judge model, you can choose between local configurations ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_local_judge>`) or access more powerful models via a remote API, such as GPT-4 ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_gpt4o_judge>`) or Sonnet ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_claude_sonnet_judge>`).
 
 
+(judge_quickstart_link)=
 ##### Quick Start
 
 ```python
