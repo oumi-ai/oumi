@@ -13,9 +13,7 @@ def _convert_example_to_model_input(example: dict, device: torch.device) -> dict
             torch.from_numpy(value)
             if isinstance(value, np.ndarray)
             else torch.from_numpy(np.asarray(value))
-        )
-        .unsqueeze(0)
-        .to(device, non_blocking=True)
+        ).to(device, non_blocking=True)
         for key, value in example.items()
     }
 
@@ -26,23 +24,39 @@ def _convert_example_to_model_input(example: dict, device: torch.device) -> dict
 )
 def test_instantiation_and_basic_usage(from_registry: bool):
     if from_registry:
-        model_cls = REGISTRY.get("SimpleMnistCNN", RegistryType.MODEL)
+        model_cls = REGISTRY.get("SampleMnistCNN", RegistryType.MODEL)
         assert model_cls is not None
         model = model_cls()
     else:
         model_params = ModelParams(
-            model_name="SimpleMnistCNN", load_pretrained_weights=False
+            model_name="SampleMnistCNN", load_pretrained_weights=False
         )
         model = build_model(model_params)
 
     model_device = next(model.parameters()).device
 
-    for batch_size in (1, 2, 3):
-        test_image = np.zeros(shape=(batch_size, 28, 28))
+    for with_label in (False, True):
+        for batch_size in (1, 2, 3):
+            test_tag = f"bs={batch_size}, with_label: {with_label}"
 
-        outputs = model(
-            **_convert_example_to_model_input(
-                {"image": test_image}, device=model_device
-            )
-        )
-        assert "logits" in outputs
+            test_image = np.zeros(shape=(batch_size, 1, 28, 28), dtype=np.float32)
+
+            inputs: dict = {"images": test_image}
+            if with_label:
+                inputs["labels"] = [4] * batch_size
+
+            with torch.no_grad():
+                outputs = model(
+                    **_convert_example_to_model_input(inputs, device=model_device)
+                )
+            assert "logits" in outputs, test_tag
+            assert isinstance(outputs["logits"], torch.Tensor), test_tag
+            logits = outputs["logits"].cpu().numpy()
+            assert logits.shape == (batch_size, 10), test_tag
+            assert logits.dtype == np.float32, test_tag
+
+            assert outputs.keys() == ({"logits", "loss"} if with_label else {"logits"})
+            if with_label:
+                loss = outputs["loss"].cpu().numpy()
+                assert loss.shape == (), test_tag
+                assert loss.dtype == np.float32, test_tag
