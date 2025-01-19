@@ -733,7 +733,11 @@ class Trainer(BaseTrainer):
                 # Hacky way to get examples count from
                 # torchdata.datapipes.map.util.converter.MapToIterConverterIterDataPipe
                 # FIXME Remove DataPipes OPE-811
-                num_dataset_examples = len(self.train_dataset.datapipe)
+                try:
+                    num_dataset_examples = len(self.train_dataset.datapipe)  # type: ignore
+                except Exception:
+                    logger.warning("Failed to get size of DataPipe dataset!")
+                    num_dataset_examples = 0
 
             if num_dataset_examples > 0:
                 device_info = get_device_rank_info()
