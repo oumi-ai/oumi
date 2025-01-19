@@ -1,11 +1,12 @@
 import contextlib
 import copy
+import math
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Final, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -205,20 +206,18 @@ class Trainer(BaseTrainer):
         ) as progress_bar:
             while True:
                 epoch = self.state.epoch
-                if (
+                if self.params.max_steps > 0:
+                    if self.state.global_step >= self.params.max_steps:
+                        self.log(
+                            f"Reached {self.state.global_step} global steps. "
+                            "Training completed."
+                        )
+                        break
+                elif (
                     self.params.num_train_epochs > 0
                     and epoch >= self.params.num_train_epochs
                 ):
                     self.log(f"Reached {epoch} epochs. Training completed.")
-                    break
-                elif (
-                    self.params.max_steps > 0
-                    and self.state.global_step >= self.params.max_steps
-                ):
-                    self.log(
-                        f"Reached {self.state.global_step} global steps. "
-                        "Training completed."
-                    )
                     break
 
                 with torch.profiler.record_function(f"epoch_{epoch}"):
@@ -722,8 +721,32 @@ class Trainer(BaseTrainer):
         )
 
     def _get_total_training_steps(self) -> int:
-        # TODO: handle num_epochs, len(dataset), etc
-        return self.params.max_steps
+        # If max_steps is set, use it.
+        if self.params.max_steps > 0:
+            return self.params.max_steps
+
+        if self.params.num_train_epochs > 0:
+            num_dataset_examples = 0
+            if not isinstance(self.train_dataset, IterableDataset):
+                num_dataset_examples = len(self.train_dataset)
+            elif hasattr(self.train_dataset, "datapipe"):
+                # Hacky way to get examples count from
+                # torchdata.datapipes.map.util.converter.MapToIterConverterIterDataPipe
+                # FIXME Remove DataPipes OPE-811
+                num_dataset_examples = len(self.train_dataset.datapipe)
+            return int(
+                self.params.num_train_epochs
+                * math.ceil(
+                    float(num_dataset_examples)
+                    / self.params.per_device_train_batch_size
+                )
+            )
+
+        _DEFAULT_TOTAL_STEPS: Final[int] = 1000
+        logger.warning(
+            f"Unable to estimate `total_training_steps`, using {_DEFAULT_TOTAL_STEPS}"
+        )
+        return _DEFAULT_TOTAL_STEPS
 
     def _set_sampler_epoch(self, epoch: int) -> None:
         """Sets the current epoch on sampler, if it exists and supports it."""
