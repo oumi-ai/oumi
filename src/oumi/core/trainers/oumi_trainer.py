@@ -62,7 +62,7 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer: BaseTokenizer,
+        tokenizer: Optional[BaseTokenizer],
         args: TrainingParams,
         train_dataset: Dataset,
         processor: Optional[BaseProcessor] = None,
