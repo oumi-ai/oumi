@@ -96,7 +96,7 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_azure_job.yaml
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 ```
 
-Note: Oumi is in beta and under active development. The core features are stable, but some advanced features might change as the platform improves."
+**Note:** Oumi is in beta and under active development. The core features are stable, but some advanced features might change as the platform improves."
 
 
 ## 💻 Why use Oumi?
