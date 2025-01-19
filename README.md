@@ -14,7 +14,7 @@
 
 ### Everything you need to build state-of-the-art foundation models, end-to-end.
 
-Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're experimenting on a laptop or deploying models in production, Oumi provides the tools and workflows you need.
+Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
 
 With Oumi, you can:
 
@@ -30,9 +30,9 @@ All with one consistent API, production-grade reliability, and all the flexibili
 
 Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quickstart guide](https://oumi.ai/docs/latest/get_started/quickstart.html).
 
-### Getting Started
+## 🚀 Getting Started
 
-| **Notebook** | **Try in Colab** | **Description** |
+| **Notebook** | **Try in Colab** | **Goal** |
 |----------|--------------|-------------|
 | **🎯 Getting Started: A Tour** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - A Tour.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Quick tour of core features: training, evaluation, inference, and job management |
 | **🔧 Model Finetuning Guide** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Finetuning Tutorial.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | End-to-end guide to LoRA tuning with data prep, training, and evaluation |
@@ -41,9 +41,7 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 | **🔄 vLLM Inference Engine** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Using vLLM Engine for Inference.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Fast inference at scale with the vLLM engine |
 
 
-
-
-## Usage
+## 🔧 Usage
 
 ### Installation
 
@@ -98,7 +96,10 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_azure_job.yaml
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 ```
 
-## Why use Oumi?
+**Note:** Oumi is in beta and under active development. The core features are stable, but some advanced features might change as the platform improves."
+
+
+## 💻 Why use Oumi?
 
 If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
 
@@ -111,7 +112,7 @@ Here are some of the key features that make Oumi stand out:
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
 
-### Examples &  Recipes
+## 📚 Examples &  Recipes
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
@@ -138,37 +139,108 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
 
-## Documentation
+
+#### 🔍 Even more options
+This section lists all the language models that can be used with Oumi. Thanks to the integration with the [🤗 Transformers](https://github.com/huggingface/transformers) library, you can easily use any of these models for training, evaluation, or inference.
+
+Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the [configs/recipes](configs/recipes) directory.
+
+<details>
+<summary>📋 Click to see more supported models</summary>
+
+#### Instruct Models
+
+| Model | Size | Paper | HF Hub  | License  | Open [^1] | Recommended Parameters |
+|-------|------|-------|---------|----------|------|------------------------|
+| ✅ SmolLM-Instruct | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | Apache 2.0 | ✅ | |
+| ✅ Llama 3.1 Instruct | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ Llama 3.2 Instruct | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ Llama 3.3 Instruct | 70B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.3-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ Phi-3.5-Instruct | 4B/14B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌  | |
+| ✅ Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2309.16609) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ | |
+| MPT-Instruct | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b-instruct) | Apache 2.0 | ✅ | |
+| Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ | |
+| Granite-3.1-Instruct | 2B/8B | [Paper](https://github.com/ibm-granite/granite-3.0-language-models/blob/main/paper.pdf) | [Hub](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct) | Apache 2.0 | ❌ | |
+| Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
+| DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ | |
+| Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  | |
+
+#### Vision-Language Models
+
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
+|-------|------|-------|---------|----------|------|---------------------|
+| ✅ Llama 3.2 Vision | 11B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-11b-vision) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ LLaVA-1.5 | 7B | [Paper](https://arxiv.org/abs/2310.03744) | [Hub](https://huggingface.co/llava-hf/llava-1.5-7b-hf) | [License](https://ai.meta.com/llama/license) | ❌ | |
+| ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ | |
+| ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ | |
+| ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
+
+
+#### Base Models
+
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
+|-------|------|-------|---------|----------|------|---------------------|
+| ✅ SmolLM2 | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM2-135M) | Apache 2.0 | ✅ | |
+| ✅ Llama 3.2 | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ Llama 3.1 | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
+| ✅ GPT-2 | 124M-1.5B | [Paper](https://arxiv.org/abs/2005.14165) | [Hub](https://huggingface.co/gpt2) | MIT | ✅ | |
+| DeepSeek V2 | 7B/13B | [Blog](https://www.deepseek.com/blogs/deepseek-v2) | [Hub](https://huggingface.co/deepseek-ai/deepseek-llm-7b-v2) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌ | |
+| Gemma2 | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma2-7b) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
+| GPT-J | 6B | [Blog](https://www.eleuther.ai/artifacts/gpt-j) | [Hub](https://huggingface.co/EleutherAI/gpt-j-6b) | Apache 2.0 | ✅ | |
+| GPT-NeoX | 20B | [Paper](https://arxiv.org/abs/2204.06745) | [Hub](https://huggingface.co/EleutherAI/gpt-neox-20b) | Apache 2.0 | ✅ | |
+| Mistral | 7B | [Paper](https://arxiv.org/abs/2310.06825) | [Hub](https://huggingface.co/mistralai/Mistral-7B-v0.1) | Apache 2.0 | ❌  | |
+| Mixtral | 8x7B/8x22B | [Blog](https://mistral.ai/news/mixtral-of-experts/) | [Hub](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | Apache 2.0 | ❌  | |
+| MPT | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b) | Apache 2.0 | ✅ | |
+| OLMo | 1B/7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-7B-hf) | Apache 2.0 | ✅ | |
+
+#### Reasoning Models
+
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
+|-------|------|-------|---------|----------|------|---------------------|
+| Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ✅ | |
+
+#### Code Models
+
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
+|-------|------|-------|---------|----------|------|---------------------|
+| ✅ Qwen2.5 Coder | 0.5B-32B | [Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Hub](https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| DeepSeek Coder | 1.3B-33B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
+| StarCoder 2 | 3B/7B/15B | [Paper](https://arxiv.org/abs/2402.19173) | [Hub](https://huggingface.co/bigcode/starcoder2-15b) | [License](https://huggingface.co/spaces/bigcode/bigcode-model-license-agreement) | ✅ | |
+
+#### Math Models
+
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
+|-------|------|-------|---------|----------|------|---------------------|
+| DeepSeek Math | 7B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-math-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
+
+</details>
+
+## 📖 Documentation
 
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
 
-## Contributing
+## 🤝 How to Join the Community
 
-This is a community-first effort. Contributions are very welcome! 🚀
+Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
-Please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidelines on how to contribute to the project.
+- To contribute to the `oumi` repository, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
+- Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
+- If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/open-collaboration) page.
 
-If you want to contribute, but you are short of ideas, please reach out (<contact@oumi.ai>)!
+## 🙏 Acknowledgements
 
-## Acknowledgements
+Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! ✨ 🌟 💫
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! 🙏
-
-## Citation
+## 📝 Citation
 
 If you find Oumi useful in your research, please consider citing it:
 
-```bibtex
-@software{oumi2025,
-  author = {Oumi Community},
-  title = {Oumi: an Open, Collaborative Platform for Training Large Foundation Models},
-  month = {January},
-  year = {2025},
-  url = {https://github.com/oumi-ai/oumi}
-}
-```
-
-## License
+## 📜 License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+
+[^1]: Open models are defined as models with fully open weights, training code, and data, and a permissive license. See [Open Source Definitions](https://opensource.org/ai) for more information.

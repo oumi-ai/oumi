@@ -62,7 +62,7 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer: BaseTokenizer,
+        tokenizer: Optional[BaseTokenizer],
         args: TrainingParams,
         train_dataset: Dataset,
         processor: Optional[BaseProcessor] = None,
@@ -203,7 +203,24 @@ class Trainer(BaseTrainer):
             desc="Training",
             disable=not is_world_process_zero(),
         ) as progress_bar:
-            for epoch in range(self.state.epoch, self.params.num_train_epochs):
+            while True:
+                epoch = self.state.epoch
+                if (
+                    self.params.num_train_epochs > 0
+                    and epoch >= self.params.num_train_epochs
+                ):
+                    self.log(f"Reached {epoch} epochs. Training completed.")
+                    break
+                elif (
+                    self.params.max_steps > 0
+                    and self.state.global_step >= self.params.max_steps
+                ):
+                    self.log(
+                        f"Reached {self.state.global_step} global steps. "
+                        "Training completed."
+                    )
+                    break
+
                 with torch.profiler.record_function(f"epoch_{epoch}"):
                     self._set_sampler_epoch(epoch)
                     self._train_epoch(progress_bar)
@@ -224,12 +241,6 @@ class Trainer(BaseTrainer):
                     self.state.epoch += 1
 
                     barrier()
-
-                    if self.state.global_step >= total_steps:
-                        self.log(
-                            f"Reached {total_steps} global steps. Training completed."
-                        )
-                        break
 
             self._process_callbacks("on_train_end")
 
@@ -293,10 +304,14 @@ class Trainer(BaseTrainer):
 
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
-                    num_tokens = (
-                        batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
-                    )
-                    self.state.total_tokens_seen += num_tokens
+                    if self.tokenizer is not None and "input_ids" in batch:
+                        num_tokens = (
+                            batch["input_ids"]
+                            .ne(self.tokenizer.pad_token_id)
+                            .sum()
+                            .item()
+                        )
+                        self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
                     if not self.is_using_fsdp and not self.is_using_ring_attention:
