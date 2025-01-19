@@ -102,7 +102,7 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_azure_job.yaml
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 ```
 
-## Why use Oumi?
+## 💻 Why use Oumi?
 
 If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
 
@@ -115,7 +115,7 @@ Here are some of the key features that make Oumi stand out:
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
 
-### Examples &  Recipes
+## 📚 Examples &  Recipes
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
@@ -237,7 +237,7 @@ Oumi is a community-first effort. Whether you are a developer, a researcher, or 
 
 Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! ✨ 🌟 💫
 
-## 📚 Citation
+## 📝 Citation
 
 If you find Oumi useful in your research, please consider citing it:
 
