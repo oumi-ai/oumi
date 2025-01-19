@@ -295,7 +295,10 @@ class Trainer(BaseTrainer):
                 with self._telemetry_block("computing tokens"):
                     if self.tokenizer is not None and "input_ids" in batch:
                         num_tokens = (
-                            batch["input_ids"].ne(self.tokenizer.pad_token_id).sum().item()
+                            batch["input_ids"]
+                            .ne(self.tokenizer.pad_token_id)
+                            .sum()
+                            .item()
                         )
                         self.state.total_tokens_seen += num_tokens
 
