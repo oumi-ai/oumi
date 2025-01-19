@@ -728,13 +728,15 @@ class Trainer(BaseTrainer):
         if self.params.num_train_epochs > 0:
             num_dataset_examples = 0
             if not isinstance(self.train_dataset, IterableDataset):
-                num_dataset_examples = len(self.train_dataset)
+                num_dataset_examples = len(self.train_dataset)  # type: ignore
             elif hasattr(self.train_dataset, "datapipe"):
                 # Hacky way to get examples count from
                 # torchdata.datapipes.map.util.converter.MapToIterConverterIterDataPipe
                 # FIXME Remove DataPipes OPE-811
                 try:
+                    # test
                     num_dataset_examples = len(self.train_dataset.datapipe)  # type: ignore
+                    getattr(self.train_dataset, "datapipe")
                 except Exception:
                     logger.warning("Failed to get size of DataPipe dataset!")
                     num_dataset_examples = 0
