@@ -727,19 +727,16 @@ class Trainer(BaseTrainer):
 
         if self.params.num_train_epochs > 0:
             num_dataset_examples = 0
-            if not isinstance(self.train_dataset, IterableDataset):
-                num_dataset_examples = len(self.train_dataset)  # type: ignore
-            elif hasattr(self.train_dataset, "datapipe"):
-                # Hacky way to get examples count from
-                # torchdata.datapipes.map.util.converter.MapToIterConverterIterDataPipe
-                # FIXME Remove DataPipes OPE-811
-                try:
-                    # test
+            try:
+                if not isinstance(self.train_dataset, IterableDataset):
+                    num_dataset_examples = len(self.train_dataset)  # type: ignore
+                elif hasattr(self.train_dataset, "datapipe"):
+                    # Hacky way to get examples count from
+                    # MapToIterConverterIterDataPipe.
+                    # FIXME Remove DataPipes OPE-811
                     num_dataset_examples = len(self.train_dataset.datapipe)  # type: ignore
-                    getattr(self.train_dataset, "datapipe")
-                except Exception:
-                    logger.warning("Failed to get size of DataPipe dataset!")
-                    num_dataset_examples = 0
+            except Exception:
+                num_dataset_examples = 0
 
             if num_dataset_examples > 0:
                 device_info = get_device_rank_info()
