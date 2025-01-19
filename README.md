@@ -143,16 +143,13 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
 
 
-## Supported Models
-
-<details>
+#### More options
 This section lists all the language models that can be used with Oumi. Thanks to the integration with the [🤗 Transformers](https://github.com/huggingface/transformers) library, you can easily use any of these models for training, evaluation, or inference.
 
 Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the [configs/recipes](configs/recipes) directory.
 
-<summary>
-Supported Models
-</summary>
+<details>
+<summary>Supported Models</summary>
 
 #### Instruct Models
 
