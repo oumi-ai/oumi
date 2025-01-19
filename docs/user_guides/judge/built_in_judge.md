@@ -31,7 +31,7 @@ For alternative judgment types that offer more granular insights, such as `categ
 
 The Built-In LLM Judge is powered by an underlying model that evaluates responses across the selected attributes. You have the flexibility to choose between using a locally hosted model or leveraging a remote API to access advanced models such as GPT-4 or Claude. The model is specified in the {py:class}`~oumi.core.configs.JudgeConfig` used to instantiate the judge. A list of available configurations is shown below.
 
-1. **Local Judge** ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_local_judge>`)
+1. **Local Judge** ({py:func}`~oumi.judges.oumi_v1_xml_local_judge`)
    - Uses GGUF models for local inference
    - Suitable for offline evaluation
    - Lower latency, higher throughput
@@ -41,7 +41,7 @@ The Built-In LLM Judge is powered by an underlying model that evaluates response
    judge = OumiXmlJudge(oumi_v1_xml_local_judge())
    ```
 
-2. **GPT-4 Judge** ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_gpt4o_judge>`)
+2. **GPT-4 Judge** ({py:func}`~oumi.judges.oumi_v1_xml_gpt4o_judge`)
    - Uses OpenAI's GPT-4o API (Requires OpenAI API key)
    - GPT-4o judge is the reference implementation of the Built-In Judge
 
@@ -50,7 +50,7 @@ The Built-In LLM Judge is powered by an underlying model that evaluates response
    judge = OumiXmlJudge(oumi_v1_xml_gpt4o_judge())
    ```
 
-3. **Claude Judge** ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_claude_sonnet_judge>`)
+3. **Claude Judge** ({py:func}`~oumi.judges.oumi_v1_xml_claude_sonnet_judge`)
    - Uses Anthropic's Claude API (Requires Anthropic API key)
    - The Claude-based judge is the best at judging prompts that require reasoning
 
