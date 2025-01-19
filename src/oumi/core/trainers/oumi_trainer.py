@@ -172,7 +172,7 @@ class Trainer(BaseTrainer):
             optimizer=self.optimizer,
             training_params=self.params,
             current_epoch=self.state.epoch,
-            num_training_steps=self._get_total_training_steps(),
+            num_training_steps=self._estimate_total_training_steps(),
         )
 
         self.train_dataloader = self._get_train_dataloader()
@@ -192,7 +192,7 @@ class Trainer(BaseTrainer):
         if is_local_process_zero():
             log_trainable_parameters(self.model)
 
-        total_steps = self._get_total_training_steps()
+        total_steps = self._estimate_total_training_steps()
 
         self.start_time = time.perf_counter()
 
@@ -720,7 +720,7 @@ class Trainer(BaseTrainer):
             collate_fn=self.collator_fn,
         )
 
-    def _get_total_training_steps(self) -> int:
+    def _estimate_total_training_steps(self) -> int:
         # If max_steps is set, use it.
         if self.params.max_steps > 0:
             return self.params.max_steps
@@ -750,6 +750,7 @@ class Trainer(BaseTrainer):
                 )
             )
 
+        # Return a positive number (otherwise, LR scheduler may be completely off).
         _DEFAULT_TOTAL_STEPS: Final[int] = 1000
         logger.warning(
             f"Unable to estimate `total_training_steps`, using {_DEFAULT_TOTAL_STEPS}"
