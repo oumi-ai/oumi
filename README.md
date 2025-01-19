@@ -14,7 +14,7 @@
 
 ### Everything you need to build state-of-the-art foundation models, end-to-end.
 
-Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're experimenting on a laptop or deploying models in production, Oumi provides the tools and workflows you need.
+Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
 
 With Oumi, you can:
 
@@ -149,7 +149,7 @@ This section lists all the language models that can be used with Oumi. Thanks to
 Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the [configs/recipes](configs/recipes) directory.
 
 <details>
-<summary>More supported models</summary>
+<summary>📋 Click to see more supported models</summary>
 
 #### Instruct Models
 
@@ -171,7 +171,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 #### Vision-Language Models
 
-| Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | ✅ Llama 3.2 Vision | 11B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-11b-vision) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ LLaVA-1.5 | 7B | [Paper](https://arxiv.org/abs/2310.03744) | [Hub](https://huggingface.co/llava-hf/llava-1.5-7b-hf) | [License](https://ai.meta.com/llama/license) | ❌ | |
@@ -183,7 +183,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 #### Base Models
 
-| Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | ✅ SmolLM2 | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM2-135M) | Apache 2.0 | ✅ | |
 | ✅ Llama 3.2 | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
@@ -200,13 +200,13 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 #### Reasoning Models
 
-| Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ✅ | |
 
 #### Code Models
 
-| Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | ✅ Qwen2.5 Coder | 0.5B-32B | [Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Hub](https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
 | DeepSeek Coder | 1.3B-33B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
@@ -214,7 +214,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 #### Math Models
 
-| Model | Size | Paper | HF Hub | License | Open [^1]  | Recommended Parameters |
+| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | DeepSeek Math | 7B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-math-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
 
