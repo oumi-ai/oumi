@@ -143,13 +143,16 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/gcp_job.yaml) |
 
 
-#### Datasets
+## Supported Models
 
 <details>
-<summary>🌟 Key Features that Make Oumi Stand Out</summary>
+<summary>
+This section lists all the language models that can be used with Oumi. Thanks to the integration with the [🤗 Transformers](https://github.com/huggingface/transformers) library, you can easily use any of these models for training, evaluation, or inference.
 
+Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the {gh}`configs <configs/recipes>` directory.
+</summary>
 
-### Instruct Models
+#### Instruct Models
 
 | Model | Size | Paper | HF Hub  | License  | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|------------------------|
@@ -167,7 +170,7 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ | |
 | Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  | |
 
-### Vision-Language Models
+#### Vision-Language Models
 
 | Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
@@ -179,7 +182,7 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
 
 
-### Base Models
+#### Base Models
 
 | Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
@@ -196,13 +199,13 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | MPT | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b) | Apache 2.0 | ✅ | |
 | OLMo | 1B/7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-7B-hf) | Apache 2.0 | ✅ | |
 
-### Reasoning Models
+#### Reasoning Models
 
 | Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ✅ | |
 
-### Code Models
+#### Code Models
 
 | Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
@@ -210,7 +213,7 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | DeepSeek Coder | 1.3B-33B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
 | StarCoder 2 | 3B/7B/15B | [Paper](https://arxiv.org/abs/2402.19173) | [Hub](https://huggingface.co/bigcode/starcoder2-15b) | [License](https://huggingface.co/spaces/bigcode/bigcode-model-license-agreement) | ✅ | |
 
-### Math Models
+#### Math Models
 
 | Model | Size | Paper | HF Hub | License | Open [^1]  | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
@@ -255,3 +258,6 @@ If you find Oumi useful in your research, please consider citing it:
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+
+[^1]: Open models are defined as models with fully open weights, training code, and data, and a permissive license. See [Open Source Definitions](https://opensource.org/ai) for more information.
