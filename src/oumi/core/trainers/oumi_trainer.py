@@ -206,6 +206,7 @@ class Trainer(BaseTrainer):
         ) as progress_bar:
             while True:
                 epoch = self.state.epoch
+                print(f"epoch: {epoch} global_step: {self.state.global_step}")
                 if self.params.max_steps > 0:
                     if self.state.global_step >= self.params.max_steps:
                         self.log(
