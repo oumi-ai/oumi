@@ -735,20 +735,21 @@ class Trainer(BaseTrainer):
                 # FIXME Remove DataPipes OPE-811
                 num_dataset_examples = len(self.train_dataset.datapipe)
 
-            device_info = get_device_rank_info()
-            return int(
-                self.params.num_train_epochs
-                * max(
-                    1,
-                    math.ceil(
-                        float(num_dataset_examples)
-                        / (
-                            self.params.per_device_train_batch_size
-                            * device_info.world_size
-                        )
-                    ),
+            if num_dataset_examples > 0:
+                device_info = get_device_rank_info()
+                return int(
+                    self.params.num_train_epochs
+                    * max(
+                        1,
+                        math.ceil(
+                            float(num_dataset_examples)
+                            / (
+                                self.params.per_device_train_batch_size
+                                * device_info.world_size
+                            )
+                        ),
+                    )
                 )
-            )
 
         # Return a positive number (otherwise, LR scheduler may be completely off).
         _DEFAULT_TOTAL_STEPS: Final[int] = 1000
