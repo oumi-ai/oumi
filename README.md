@@ -32,7 +32,7 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 
 ## 🚀 Getting Started
 
-| **Notebook** | **Try in Colab** | **Description** |
+| **Notebook** | **Try in Colab** | **Goal** |
 |----------|--------------|-------------|
 | **🎯 Getting Started: A Tour** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - A Tour.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Quick tour of core features: training, evaluation, inference, and job management |
 | **🔧 Model Finetuning Guide** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Finetuning Tutorial.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | End-to-end guide to LoRA tuning with data prep, training, and evaluation |
@@ -44,10 +44,6 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 
 
 ## 🔧 Usage
-
-> [!NOTE]
-> Oumi is under active development. While the core features are stable, some advanced features might change as we improve the platform.
-
 
 ### Installation
 
@@ -101,6 +97,9 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_azure_job.yaml
 # Lambda
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
 ```
+
+Note: Oumi is in beta and under active development. The core features are stable, but some advanced features might change as the platform improves."
+
 
 ## 💻 Why use Oumi?
 
