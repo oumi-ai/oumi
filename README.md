@@ -149,7 +149,7 @@ This section lists all the language models that can be used with Oumi. Thanks to
 Models prefixed with a checkmark (✅) have been thoroughly tested and validated by the Oumi community, with ready-to-use recipes available in the [configs/recipes](configs/recipes) directory.
 
 <details>
-<summary>**More supported models**</summary>
+<summary>More supported models</summary>
 
 #### Instruct Models
 
