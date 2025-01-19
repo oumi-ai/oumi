@@ -734,11 +734,19 @@ class Trainer(BaseTrainer):
                 # torchdata.datapipes.map.util.converter.MapToIterConverterIterDataPipe
                 # FIXME Remove DataPipes OPE-811
                 num_dataset_examples = len(self.train_dataset.datapipe)
+
+            device_info = get_device_rank_info()
             return int(
                 self.params.num_train_epochs
-                * math.ceil(
-                    float(num_dataset_examples)
-                    / self.params.per_device_train_batch_size
+                * max(
+                    1,
+                    math.ceil(
+                        float(num_dataset_examples)
+                        / (
+                            self.params.per_device_train_batch_size
+                            * device_info.world_size
+                        )
+                    ),
                 )
             )
 
