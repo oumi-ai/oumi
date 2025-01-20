@@ -33,15 +33,15 @@ class CNNClassifier(BaseModel):
             kernel_size: Convolutional kernel size.
         """
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=5)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             image_width, image_height, kernel_size=kernel_size, halve=False
         )
-        self.conv2 = nn.Conv2d(32, 32, kernel_size=5)
+        self.conv2 = nn.Conv2d(32, 32, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             w, h, kernel_size=kernel_size, halve=True
         )
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=5)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             w, h, kernel_size=kernel_size, halve=True
         )
