@@ -124,13 +124,25 @@ def build_oumi_model(
     model = model_class(**model_params.model_kwargs)
 
     if model_params.load_pretrained_weights:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Loading pretrained weights for custom Oumi models is not yet implemented. "
+            "Currently, custom models can only be initialized from scratch. "
+            "Please open a feature request at https://github.com/oumi-ai/oumi."
+        )
 
     if peft_params and peft_params.q_lora:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "QLoRA fine-tuning is not yet supported for custom Oumi models. "
+            "If you need QLoRA support, please use a HuggingFace model instead "
+            "or open a feature request at https://github.com/oumi-ai/oumi."
+        )
 
     if model_params.adapter_model is not None:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Loading PEFT adapters is not yet supported for custom Oumi models. "
+            "If you need to use PEFT adapters, please use a HuggingFace model instead "
+            "or open a feature request at https://github.com/oumi-ai/oumi."
+        )
 
     dtype = model_params.torch_dtype
     model = model.to(dtype=dtype)
