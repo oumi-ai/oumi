@@ -20,18 +20,16 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruc"
+_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruct"
 _DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
     """List all SFT datasets in the registry."""
     datasets = []
-    for key, value in REGISTRY._registry.items():
-        if key.registry_type == RegistryType.DATASET and issubclass(
-            value, VisionLanguageSftDataset
-        ):
-            datasets.append(key.name)
+    for key, value in REGISTRY.get_all(RegistryType.DATASET).items():
+        if issubclass(value, VisionLanguageSftDataset):
+            datasets.append(key)
     return datasets
 
 
@@ -45,6 +43,11 @@ class LoadDatasetInfo(NamedTuple):
     dataset_split: str = _DEFALT_DATASET_SPLIT
     collator_name: str = "vision_language_with_padding"
     trust_remote_code: bool = False
+
+
+def get_dataset_test_id_fn(info):
+    assert isinstance(info, LoadDatasetInfo), f"{type(info)}: {info}"
+    return f"{info.dataset_name} {info.model_name}"
 
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
@@ -102,11 +105,10 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     return result
 
 
-@pytest.skip(
-    "This test is very time consuming, and should be run manually.",
-    allow_module_level=True,
+@pytest.mark.parametrize(
+    "info", _get_all_sft_vision_dataset_infos(), ids=get_dataset_test_id_fn
 )
-@pytest.mark.parametrize("info", _get_all_sft_vision_dataset_infos())
+@pytest.mark.e2e
 def test_build_dataset_mixture(info: LoadDatasetInfo):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -158,16 +160,3 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
 
     assert dataset[0] is not None, debug_tag
     assert dataset[dataset.num_rows - 1] is not None, debug_tag
-
-
-if __name__ == "__main__":
-    datasets.disable_caching()
-    info = LoadDatasetInfo(
-        dataset_name="merve/vqav2-small",
-        model_name=_DEFAULT_MODEL_NAME,
-        dataset_split="validation",
-        chat_template=_DEFAULT_CHAT_TEMPLATE,
-        trust_remote_code=True,
-        max_rows=513,
-    )
-    test_build_dataset_mixture(info)

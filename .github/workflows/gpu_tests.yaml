@@ -42,4 +42,4 @@ jobs:
         nvidia-smi
 
         cd ./tests/integration/
-        pytest -s --durations=50 --timeout=300
+        pytest -s -m "not e2e and not e2e_eternal" --durations=50 --timeout=300
