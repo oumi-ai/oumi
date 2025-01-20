@@ -24,11 +24,15 @@ def _convert_example_to_model_input(example: dict, device: torch.device) -> dict
 )
 def test_instantiation_and_basic_usage(from_registry: bool):
     if from_registry:
-        model_cls = REGISTRY.get("MnistCNN", RegistryType.MODEL)
+        model_cls = REGISTRY.get("CnnClassifier", RegistryType.MODEL)
         assert model_cls is not None
-        model = model_cls()
+        model = model_cls(in_channels=1, output_dim=10)
     else:
-        model_params = ModelParams(model_name="MnistCNN", load_pretrained_weights=False)
+        model_params = ModelParams(
+            model_name="CnnClassifier",
+            load_pretrained_weights=False,
+            model_kwargs={"in_channels": 1, "output_dim": 10},
+        )
         model = build_model(model_params)
 
     model_device = next(model.parameters()).device
