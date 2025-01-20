@@ -10,6 +10,7 @@ sft_datasets
 pretraining_datasets
 preference_datasets
 vl_sft_datasets
+other_datasets
 ```
 
 ## Overview

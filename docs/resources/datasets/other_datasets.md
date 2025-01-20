@@ -1,107 +1,30 @@
-# Vision-Language
+(other-datasets)=
+# Other Datasets
 
-Vision-Language Supervised Finetuning (VL-SFT) extends the concept of Supervised Fine-Tuning (SFT) to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications.
+In addition to the common LLM dataset formats ([Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md), etc),
+Oumi infrastructure also allows users to define arbitrary ad-hoc dataset formats,
+which can be used not just for text-centric LLM models, but for alternative model types
+and applications such as Vison models (e.g., convolutional networks), scientific computing, etc.
 
-This guide covers Vision-Language datasets used for instruction tuning and supervised learning in Oumi.
+This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or of {py:class}`~oumi.core.datasets.BaseIterableDataset`.
 
-(vl-sft-datasets)=
-## VL-SFT Datasets
+## NumPy Dataset
 
-```{include} /api/summary/vl_sft_datasets.md
-```
+The popular `numpy` library defines `.npy` and `.npz` file formats [[details](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)],
+which can be used to [save](https://numpy.org/doc/2.1/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/2.1/reference/generated/numpy.ndarray.html)):
 
-## Usage
+1. `.npy` file contains a single `np.ndarray`.
+2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/2.1/reference/generated/numpy.savez_compressed.html).
 
-### Configuration
 
-The configuration for VL-SFT datasets is similar to regular SFT datasets, with some additional parameters for image processing. Here's an example:
+### Adding a New Numpy (.npz) Dataset
 
-```yaml
-training:
-  data:
-    train:
-      collator_name: vision_language_with_padding
-      datasets:
-        - dataset_name: "your_vl_sft_dataset_name"
-          split: "train"
-          trust_remote_code: False # Set to true if needed for model-specific processors
-          transform_num_workers: "auto"
-          dataset_kwargs:
-            processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Model-specific processor
-            return_tensors: True
-```
-In this configuration:
+To add a new dataset that can load data from `.npz` files, follow these steps:
 
-- `dataset_name`: Name of the vision-language dataset
-- `trust_remote_code`: Enable for model-specific processors that use downloaded scripts
-- `transform_num_workers`: Number of workers for image processing
-- `processor_name`: Vision model processor to use
+1. Subclass {py:class}`~oumi.core.datasets.BaseMapDataset`
+2. Implement the {py:meth}`~oumi.core.datasets.BaseMapDataset.__init__`, {py:meth}`~oumi.core.datasets.BaseMapDataset._load_data`, {py:meth}`~oumi.core.datasets.BaseMapDataset.transform` methods to handle initialization, data loading, and data transforms respectively.
 
-### Python API
-
-Using a VL-SFT dataset in code is similar to using a regular SFT dataset, with the main difference being in the batch contents:
-
-```python
-from oumi.builders import build_dataset, build_processor, build_tokenizer
-from oumi.core.configs import DatasetSplit, ModelParams
-from torch.utils.data import DataLoader
-
-# Assume you have your tokenizer and image processor initialized
-model_params: ModelParams = ...
-trust_remote_code: bool = False # `True` if model-specific processor requires it
-tokenizer: BaseTokenizer = build_tokenizer(model_params)
-processor: BaseProcessor = build_processor(
-        model_params.model_name, tokenizer, trust_remote_code=trust_remote_code
-)
-
-# Build the dataset
-dataset = build_dataset(
-    dataset_name="your_vl_sft_dataset_name",
-    tokenizer=tokenizer,
-    split=DatasetSplit.TRAIN,
-    dataset_kwargs=dict(processor=processor),
-    trust_remote_code=trust_remote_code,
-)
-
-# Create dataloader
-loader = DataLoader(dataset, batch_size=16, shuffle=True)
-
-# Now you can use the dataset in your training loop
-for batch in loader:
-    # Process your batch
-    # Note: batch will contain both text and image data
-    ...
-```
-
-### Batch Contents
-
-Vision-language batches typically include:
-
-- `input_ids`: Text token IDs
-- `attention_mask`: Text attention mask
-- `pixel_values`: Processed image tensors
-- `image_attention_mask`: Image attention mask
-- Additional model-specific keys
-
-```{tip}
-VL-SFT batches typically include additional keys for image data, such as `pixel_values` or `cross_attention_mask`, depending on the specific dataset and model architecture.
-```
-
-## Custom VL-SFT Datasets
-
-### VisionLanguageSftDataset Base Class
-
-All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseSftDataset` to handle image data alongside text.
-
-### Adding a New VL-SFT Dataset
-
-To add a new VL-SFT dataset, follow these steps:
-
-1. Subclass {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`
-2. Implement the {py:meth}`~oumi.core.datasets.VisionLanguageSftDataset.transform_conversation` method to handle both text and image data.
-
-Here's a basic example, which loads data from the hypothetical `example/foo` HuggingFace dataset (image + text),
-and formats the data as Oumi `Conversation`-s for SFT tuning:
+Here's a basic example, which shows how to do that:
 
 ```python
 from oumi.core.datasets import VisionLanguageSftDataset
