@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Final
 
 import jsonlines
+import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import (
@@ -384,3 +385,14 @@ def test_infer_from_file_to_file_with_images():
             for line in f:
                 parsed_conversations.append(Conversation.from_json(line))
             assert expected_result == parsed_conversations
+
+
+def test_unsupported_model_raises_error():
+    model_params = ModelParams(
+        model_name="MlpEncoder",
+        tokenizer_name="gpt2",
+        tokenizer_pad_token="<|endoftext|>",
+        load_pretrained_weights=False,
+    )
+    with pytest.raises(ValueError, match="does not support generation"):
+        NativeTextInferenceEngine(model_params)
