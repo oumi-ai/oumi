@@ -1,4 +1,4 @@
-"""The CnnClassifier model provides a basic example how to use ConvNets in Oumi."""
+"""The CNNClassifier model provides a basic example how to use ConvNets in Oumi."""
 
 from typing import Callable, Optional
 
