@@ -29,7 +29,7 @@ def test_train_basic():
                 ),
             ),
             model=ModelParams(
-                model_name="MlpEncoder",
+                model_name="openai-community/gpt2",
                 model_max_length=1024,
                 trust_remote_code=True,
                 tokenizer_name="gpt2",

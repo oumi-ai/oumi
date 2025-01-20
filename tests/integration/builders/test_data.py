@@ -151,15 +151,23 @@ def test_data_single_dataset_from_params(stream: bool):
 def test_data_multiple_datasets(stream: bool):
     config = _get_default_config(
         [
-            DatasetParams(dataset_name="debug_sft", dataset_kwargs={"dataset_size": 5}),
-            DatasetParams(dataset_name="debug_sft", dataset_kwargs={"dataset_size": 7}),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+            ),
+            DatasetParams(
+                dataset_name="tasksource/mmlu",
+                subset="abstract_algebra",
+                split="test",
+            ),
         ],
         stream,
         DatasetSplit.TEST,
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
-    assert _get_dataset_size(dataset, stream) == 5 + 7
+    assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 
 
 def test_data_multiple_datasets_local_sample(stream: bool):
