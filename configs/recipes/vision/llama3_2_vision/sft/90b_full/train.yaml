@@ -58,15 +58,8 @@ training:
 
 fsdp:
   enable_fsdp: True
-<<<<<<< HEAD
-  forward_prefetch: True
-  backward_prefetch: "BACKWARD_PRE"
-  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "MllamaSelfAttentionDecoderLayer,MllamaCrossAttentionDecoderLayer,MllamaVisionEncoderLayer"
-=======
   sharding_strategy: "FULL_SHARD"
   forward_prefetch: True
   backward_prefetch: "BACKWARD_PRE"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
->>>>>>> origin/main
