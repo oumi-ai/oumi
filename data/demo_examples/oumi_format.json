@@ -24,6 +24,14 @@
             {
                 "role": "assistant",
                 "content": "The Golden Gate Bridge is an iconic suspension bridge in San Francisco."
+            },
+            {
+                "role": "user",
+                "content": "And where is San Francisco?"
+            },
+            {
+                "role": "assistant",
+                "content": "In California, USA!"
             }
         ],
         "metadata":
