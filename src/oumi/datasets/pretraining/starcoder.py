@@ -50,4 +50,5 @@ class StarCoderDataset(BasePretrainingDataset):
         - git-commits-cleaned
     """
 
+    default_dataset = "bigcode/starcoderdata"
     _data_column = "content"

@@ -35,6 +35,12 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
+
+        if not hasattr(self._model, "generate"):
+            raise ValueError(
+                f"Model {self._model_params.model_name} does not support generation."
+            )
+
         if is_image_text_llm(self._model_params):
             # Only enable Processor for vision language models for now.
             self._processor = build_processor(
