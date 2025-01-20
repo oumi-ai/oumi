@@ -1,7 +1,7 @@
 (other-datasets)=
 # Other Datasets
 
-In addition to the common LLM dataset formats ([Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md), etc),
+In addition to the common LLM dataset formats (e.g, [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
 Oumi infrastructure also allows users to define arbitrary ad-hoc dataset formats,
 which can be used not just for text-centric LLM models, but for alternative model types
 and applications such as Vison models (e.g., convolutional networks), scientific computing, etc.
@@ -13,10 +13,10 @@ To give a concrete example, let's show how to add support for Numpy `.npz` file 
 ## NumPy Dataset
 
 The popular `numpy` library defines `.npy` and `.npz` file formats [[details](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)],
-which can be used to [save](https://numpy.org/doc/2.1/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/2.1/reference/generated/numpy.ndarray.html)):
+which can be used to [save](https://numpy.org/doc/stable/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/2.1/reference/generated/numpy.ndarray.html)):
 
 1. `.npy` file contains a single `np.ndarray`
-2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/2.1/reference/generated/numpy.savez_compressed.html)
+2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/stable/reference/generated/numpy.savez_compressed.html)
 
 
 ### Adding a New Numpy (.npz) Dataset
@@ -24,7 +24,7 @@ which can be used to [save](https://numpy.org/doc/2.1/reference/generated/numpy.
 To add a new dataset that can load data from `.npz` files, follow these steps:
 
 1. Subclass {py:class}`~oumi.core.datasets.BaseMapDataset`
-2. Implement the {py:meth}`~oumi.core.datasets.BaseMapDataset.__init__`, {py:meth}`~oumi.core.datasets.BaseMapDataset._load_data`, {py:meth}`~oumi.core.datasets.BaseMapDataset.transform` methods to handle initialization, data loading, and data transforms respectively.
+2. Implement the methods to handle initialization, data loading, and data transform.
 
 Here's a basic example, which shows how to do that:
 
@@ -133,11 +133,12 @@ class NpzDataset(BaseMapDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample."""
+        # Just return the data as a `dict`.
         return sample.to_dict()
 ```
 
 ```{note}
-The file format can be used read images, vector fields, financial data, etc.
+The file format can be used to load images, vector fields, financial, medical/health data, and many other data types.
 ```
 
 ### Using Custom Datasets via the CLI
