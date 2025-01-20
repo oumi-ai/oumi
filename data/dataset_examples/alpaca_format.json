@@ -1,0 +1,12 @@
+[
+    {
+      "instruction": "What's the weather like in Seattle today?",
+      "input": "",
+      "output": "I apologize, but I don't have access to real-time weather information for Seattle."
+    },
+    {
+        "instruction": "Compute the average of the presented numbers.",
+        "input": "5, 6, 10",
+        "output": "The average for the numbers: 5, 6, 10 can be computed by adding first all of them, and then dividing this sum by their total number. First, 5+6+10 = 21. Then, 21 / 3 = 7. The average is 7."
+    }
+]
