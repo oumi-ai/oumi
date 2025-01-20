@@ -93,10 +93,8 @@ def test_data_single_dataset_in_mixture(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
-                trust_remote_code=True,
+                dataset_name="debug_sft",
+                dataset_kwargs={"dataset_size": 5},
             )
         ],
         stream,
@@ -104,7 +102,7 @@ def test_data_single_dataset_in_mixture(stream: bool):
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
-    assert _get_dataset_size(dataset, stream) == 100
+    assert _get_dataset_size(dataset, stream) == 5
 
 
 def test_data_single_dataset_from_kwargs(stream: bool):
@@ -115,13 +113,12 @@ def test_data_single_dataset_from_kwargs(stream: bool):
     )
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(
-        dataset_name="tasksource/mmlu",
-        split="test",
-        subset="abstract_algebra",
+        dataset_name="debug_sft",
+        dataset_kwargs={"dataset_size": 6},
         tokenizer=tokenizer,
         stream=stream,
     )
-    assert _get_dataset_size(dataset, stream) == 100
+    assert _get_dataset_size(dataset, stream) == 6
 
 
 def test_data_single_dataset_from_params(stream: bool):
@@ -132,18 +129,15 @@ def test_data_single_dataset_from_params(stream: bool):
     )
 
     dataset_params = DatasetParams(
-        dataset_name="tasksource/mmlu",
-        subset="abstract_algebra",
-        split="test",
+        dataset_name="debug_sft", dataset_kwargs={"dataset_size": 5}
     )
-
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset_from_params(
         dataset_params=dataset_params,
         tokenizer=tokenizer,
         stream=stream,
     )
-    assert _get_dataset_size(dataset, stream) == 100
+    assert _get_dataset_size(dataset, stream) == 5
 
 
 def test_data_multiple_datasets(stream: bool):
@@ -172,15 +166,13 @@ def test_data_multiple_datasets_local_sample(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
+                dataset_kwargs={"size": 10},
                 sample_count=5,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
+                dataset_kwargs={"size": 200},
                 sample_count=201,  # oversample by 1.
             ),
         ],
@@ -196,31 +188,23 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 shuffle=True,
                 seed=1,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 shuffle=True,
                 seed=2,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
             ),
         ],
@@ -247,25 +231,19 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="cais/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.1,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=50,
                 mixture_proportion=0.4,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.5,
                 trust_remote_code=True,
@@ -287,25 +265,19 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
     config = _get_default_config(
         [
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.1,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=50,
                 mixture_proportion=0.4,
                 trust_remote_code=True,
             ),
             DatasetParams(
-                dataset_name="tasksource/mmlu",
-                subset="abstract_algebra",
-                split="test",
+                dataset_name="debug_sft",
                 sample_count=5,
                 mixture_proportion=0.5,
                 trust_remote_code=True,
@@ -329,23 +301,17 @@ def test_data_multiple_datasets_mixed_exception(stream: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
@@ -362,23 +328,17 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
         config = _get_default_config(
             [
                 DatasetParams(
-                    dataset_name="cais/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.1,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=50,
                     mixture_proportion=0.4,
                 ),
                 DatasetParams(
-                    dataset_name="tasksource/mmlu",
-                    subset="abstract_algebra",
-                    split="test",
+                    dataset_name="debug_sft",
                     sample_count=5,
                     mixture_proportion=0.5,
                 ),
