@@ -285,7 +285,9 @@ def _load_dataset(
             )
 
         dataset = dataset_class(
-            dataset_name=dataset_params.dataset_name,
+            # NOTE: Don't pass `dataset_params.dataset_name` as `dataset_name=` argument
+            # to allow custom dataset name to be different from HF dataset name: OPE-897
+            # HF name can be configured in `dataset_kwargs`.
             dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
