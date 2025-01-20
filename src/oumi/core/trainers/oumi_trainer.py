@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -725,7 +725,8 @@ class Trainer(BaseTrainer):
         if self.params.max_steps > 0:
             return self.params.max_steps
 
-        if self.params.num_train_epochs > 0:
+        num_epochs = self.params.num_train_epochs
+        if num_epochs > 0:
             num_dataset_examples = 0
             try:
                 if not isinstance(self.train_dataset, IterableDataset):
@@ -739,27 +740,18 @@ class Trainer(BaseTrainer):
                 num_dataset_examples = 0
 
             if num_dataset_examples > 0:
-                device_info = get_device_rank_info()
-                return int(
-                    self.params.num_train_epochs
-                    * max(
-                        1,
-                        math.ceil(
-                            float(num_dataset_examples)
-                            / (
-                                self.params.per_device_train_batch_size
-                                * device_info.world_size
-                            )
-                        ),
-                    )
+                world_size = get_device_rank_info().world_size
+                batch_size = self.params.per_device_train_batch_size
+                steps_per_epoch_per_device = math.ceil(
+                    float(num_dataset_examples) / (batch_size * world_size)
                 )
+                return int(num_epochs * max(steps_per_epoch_per_device, 1))
 
-        # Return a positive number (otherwise, LR scheduler may be completely off).
-        _DEFAULT_TOTAL_STEPS: Final[int] = 1000
-        logger.warning(
-            f"Unable to estimate `total_training_steps`, using {_DEFAULT_TOTAL_STEPS}"
+        raise ValueError(
+            "Unable to estimate `total_training_steps` "
+            + (f"in {num_epochs} epochs" if num_epochs > 0 else "")
+            + ". Please define `max_steps` training parameter!"
         )
-        return _DEFAULT_TOTAL_STEPS
 
     def _set_sampler_epoch(self, epoch: int) -> None:
         """Sets the current epoch on sampler, if it exists and supports it."""
