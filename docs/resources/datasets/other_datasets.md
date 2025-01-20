@@ -1,7 +1,7 @@
 (other-datasets)=
 # Other Datasets
 
-In addition to the common LLM dataset formats (e.g, [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
+In addition to the common LLM dataset formats (e.g., [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
 Oumi infrastructure also allows users to define arbitrary ad-hoc datasets,
 which can be used not just for text-centric LLM models, but for alternative model architectures
 and applications such as Vision models (e.g., convolutional networks), scientific computing, etc.
@@ -60,10 +60,10 @@ class NpzDataset(BaseMapDataset):
         Args:
             dataset_name: Dataset name.
             dataset_path: Path to .npz file.
-            split: Dataset split.
+            split: Dataset split. If unspecified then the whole dataset is loaded.
             npz_split_col: Name of '.npz' array containing dataset split info.
                 If unspecified, then the name "split" is assumed by default.
-            npz_allow_pickle: Whether pickle is allowed when loading data from the npz archive.
+            npz_allow_pickle: Whether pickle is allowed when loading data from the '.npz' archive.
             **kwargs: Additional arguments to pass to the parent class.
         Raises:
             ValueError: If dataset_path is not provided, or
