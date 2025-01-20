@@ -6,7 +6,7 @@ from oumi.datasets import TextSftJsonLinesDataset
 def test_data_format_loading():
     """Tests demo examples are correctly loaded in both json and jsonl formats."""
     current_dir = Path(__file__).resolve().parent
-    data_top_dir = current_dir / "../../../data/demo_examples"
+    data_top_dir = current_dir / "../../../data/dataset_examples"
 
     for format in ["alpaca", "oumi"]:
         all_data = []
