@@ -15,6 +15,7 @@ Possible contributions include:
 
 If you want to contribute but you are short of ideas or have any questions, reach out (<contact@oumi.ai>) and we can help.
 
+(prerequisites)=
 ## 📢 Prerequisites
 
 To set up the development environment on your local machine, please follow the steps outlined in the [development setup documentation](/development/dev_setup).
