@@ -54,3 +54,5 @@ class RedPajamaDataV1Dataset(BasePretrainingDataset):
     Citations:
         .. footbibliography::
     """
+
+    default_dataset = "togethercomputer/RedPajama-Data-1T"

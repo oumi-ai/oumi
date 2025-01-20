@@ -31,3 +31,5 @@ class FineWebEduDataset(BasePretrainingDataset):
     Citations:
       .. footbibliography::
     """
+
+    default_dataset = "HuggingFaceFW/fineweb-edu"

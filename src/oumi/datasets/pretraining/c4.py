@@ -32,3 +32,5 @@ class C4Dataset(BasePretrainingDataset):
     The dataset is released under the ODC-BY license and is subject to the
     Common Crawl terms of use.
     """
+
+    default_dataset = "allenai/c4"
