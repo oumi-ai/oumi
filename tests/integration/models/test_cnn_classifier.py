@@ -114,9 +114,10 @@ class NpzDataset(BaseMapDataset):
                     f"'.npz' doesn't contain data split info: '{split_feature_name}'!"
                 )
             dataframe = pd.DataFrame(
-                dataframe[dataframe[split_feature_name] == self.split]
-                .drop(split_feature_name, axis=1)
-                .copy()
+                dataframe[dataframe[split_feature_name] == self.split].drop(
+                    split_feature_name, axis=1
+                ),
+                copy=True,
             )
         return dataframe
 
