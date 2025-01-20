@@ -55,6 +55,7 @@ class SmallIterableDataset(BaseIterableDataset):
         split=None,
         subset=None,
         tokenizer=None,
+        dataset_name=None,
         dataset_path=None,
         trust_remote_code: bool = False,
     ):
