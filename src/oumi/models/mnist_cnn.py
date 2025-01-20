@@ -1,4 +1,4 @@
-"""The SampleMnistCNN model provides a basic example how to use ConvNets in Oumi."""
+"""The MnistCNN model provides a basic example how to use ConvNets in Oumi."""
 
 from typing import Callable, Optional
 
@@ -10,9 +10,9 @@ from oumi.core import registry
 from oumi.core.models.base_model import BaseModel
 
 
-@registry.register("SampleMnistCNN", registry.RegistryType.MODEL)
-class SampleMnistCNN(BaseModel):
-    """Sample ConvNet for MNIST handwritten digits classification."""
+@registry.register("MnistCNN", registry.RegistryType.MODEL)
+class MnistCNN(BaseModel):
+    """A ConvNet for MNIST handwritten digits classification."""
 
     def __init__(
         self,
