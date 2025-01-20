@@ -38,6 +38,8 @@ jobs:
         uv pip install -e '.[ci_gpu]' --system --prerelease=allow
 
     - name: Run GPU tests
+      env:
+        CUDA_LAUNCH_BLOCKING: 1
       run: |
         nvidia-smi
 
