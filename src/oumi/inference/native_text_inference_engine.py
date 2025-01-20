@@ -44,8 +44,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             )
 
         # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
-        if hasattr(self._model, "generation_config"):
-            self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
+        self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
     def _make_batches(
         self, input: list[Conversation], batch_size: int
