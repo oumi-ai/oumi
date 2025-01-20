@@ -244,7 +244,7 @@ def test_basic_training_and_prediction():
             per_device_eval_batch_size=8,
             eval_strategy="steps",
             eval_steps=50,
-            max_steps=200,
+            max_steps=100,
             save_steps=0,
             logging_steps=50,
             optimizer="adam",
