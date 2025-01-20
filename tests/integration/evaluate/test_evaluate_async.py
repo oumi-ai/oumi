@@ -24,9 +24,8 @@ def test_evaluate_async_polling_interval():
                     )
                 ],
                 model=ModelParams(
-                    model_name="MlpEncoder",
+                    model_name="openai-community/gpt2",
                     trust_remote_code=True,
-                    tokenizer_name="gpt2",
                 ),
             ),
             polling_interval=0.5,

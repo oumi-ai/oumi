@@ -151,7 +151,6 @@ def test_train_pack_with_sft_dataset():
                 trust_remote_code=True,
                 tokenizer_name="gpt2",
                 tokenizer_pad_token="<|endoftext|>",
-                load_pretrained_weights=False,
             ),
             training=TrainingParams(
                 trainer_type=TrainerType.TRL_SFT,

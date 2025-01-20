@@ -24,6 +24,8 @@ TEST_IMAGE_DIR: Final[Path] = (
 )
 
 
+@requires_cuda_initialized()
+@requires_gpus()
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
@@ -31,7 +33,6 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
             trust_remote_code=True,
             chat_template="gpt2",
             tokenizer_pad_token="<|endoftext|>",
-            tokenizer_name="gpt2",
         ),
         generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
     )
@@ -89,7 +90,6 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
-        tokenizer_name="gpt2",
     )
     generation_params = GenerationParams(
         max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size
