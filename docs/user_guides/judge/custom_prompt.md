@@ -78,7 +78,7 @@ Our judge supports the following judgment value types ({py:class}`~oumi.core.con
 | `categorical` | Multiple choice evaluations | Security levels (safe, warning, unsafe)  |
 | `likert-5`    | 5-point scale evaluations   | Response quality (1=poor to 5=excellent) |
 
-### Putting everything together
+### Putting Everything Together
 
 After defining the system prompt, examples, and selecting the value type, you can create a  {py:class}`~oumi.core.configs.JudgeAttribute` as shown below:
 
