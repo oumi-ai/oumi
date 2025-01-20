@@ -10,7 +10,11 @@ resources:
   accelerators: "A100-80GB:8"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
+<<<<<<< HEAD
   disk_size: 2000 # Disk size in GBs
+=======
+  disk_size: 1000 # Disk size in GBs
+>>>>>>> origin/main
 
 num_nodes: 1 # Set it to N for multi-node training.
 
