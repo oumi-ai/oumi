@@ -3,7 +3,7 @@
 
 In addition to the common LLM dataset formats (e.g, [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
 Oumi infrastructure also allows users to define arbitrary ad-hoc dataset formats,
-which can be used not just for text-centric LLM models, but for alternative model types
+which can be used not just for text-centric LLM models, but for alternative model architectures
 and applications such as Vison models (e.g., convolutional networks), scientific computing, etc.
 
 This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or {py:class}`~oumi.core.datasets.BaseIterableDataset`.
@@ -21,10 +21,10 @@ which can be used to [save](https://numpy.org/doc/stable/reference/generated/num
 
 ### Adding a New Numpy (.npz) Dataset
 
-To add a new dataset that can load data from `.npz` files, follow these steps:
+To add a new Oumi dataset that can load data from `.npz` files, follow these steps:
 
 1. Subclass {py:class}`~oumi.core.datasets.BaseMapDataset`
-2. Implement the methods to handle initialization, data loading, and data transform.
+2. Implement the methods to handle initialization, data loading, and data transformation.
 
 Here's a basic example, which shows how to do that:
 
@@ -138,7 +138,7 @@ class NpzDataset(BaseMapDataset):
 ```
 
 ```{note}
-The file format can be used to load images, vector fields, financial, medical/health data, and many other data types.
+The `.npz` file format can be used to load images, vector fields, financial, medical/health data, and other new data types.
 ```
 
 ### Using Custom Datasets via the CLI
