@@ -2,13 +2,13 @@
 # Other Datasets
 
 In addition to the common LLM dataset formats (e.g, [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
-Oumi infrastructure also allows users to define arbitrary ad-hoc dataset formats,
+Oumi infrastructure also allows users to define arbitrary ad-hoc datasets,
 which can be used not just for text-centric LLM models, but for alternative model architectures
 and applications such as Vison models (e.g., convolutional networks), scientific computing, etc.
 
 This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or {py:class}`~oumi.core.datasets.BaseIterableDataset`.
 
-To give a concrete example, let's show how to add support for Numpy `.npz` file format:
+To give a concrete example, let's show how to add support for datasets stored in Numpy `.npz` file format:
 
 ## NumPy Dataset
 
