@@ -6,15 +6,17 @@ Oumi infrastructure also allows users to define arbitrary ad-hoc dataset formats
 which can be used not just for text-centric LLM models, but for alternative model types
 and applications such as Vison models (e.g., convolutional networks), scientific computing, etc.
 
-This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or of {py:class}`~oumi.core.datasets.BaseIterableDataset`.
+This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or {py:class}`~oumi.core.datasets.BaseIterableDataset`.
+
+To give a concrete example, let's show how to add support for Numpy `.npz` file format:
 
 ## NumPy Dataset
 
 The popular `numpy` library defines `.npy` and `.npz` file formats [[details](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)],
 which can be used to [save](https://numpy.org/doc/2.1/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/2.1/reference/generated/numpy.ndarray.html)):
 
-1. `.npy` file contains a single `np.ndarray`.
-2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/2.1/reference/generated/numpy.savez_compressed.html).
+1. `.npy` file contains a single `np.ndarray`
+2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/2.1/reference/generated/numpy.savez_compressed.html)
 
 
 ### Adding a New Numpy (.npz) Dataset
@@ -27,43 +29,116 @@ To add a new dataset that can load data from `.npz` files, follow these steps:
 Here's a basic example, which shows how to do that:
 
 ```python
-from oumi.core.datasets import VisionLanguageSftDataset
+from pathlib import Path
+from typing import Optional, Union
+from typing_extensions import override
+import numpy as np
+import pandas as pd
+
+from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
-@register_dataset("your_vl_sft_dataset_name")
-class CustomVLDataset(VisionLanguageSftDataset):
-    """Dataset class for the `example/foo` dataset."""
-    default_dataset = "example/foo" # Name of the original HuggingFace dataset (image + text)
 
-    def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
-        """Transform raw data into a conversation with images."""
-        # Transform the raw example into a Conversation object
-        # 'example' represents one row of the raw dataset
-        # Structure of 'example':
-        # {
-        #     'image_bytes': bytes,  # PNG bytes of the image
-        #     'question': str,       # The user's question about the image
-        #     'answer': str          # The assistant's response
-        # }
-        conversation = Conversation(
-            messages=[
-                Message(role=Role.USER, content=[
-                    ContentItem(type=Type.IMAGE_BINARY, binary=example['image_bytes']),
-                    ContentItem(type=Type.TEXT, content=example['question']),
-                ]),
-                Message(role=Role.ASSISTANT, content=example['answer'])
-            ]
+@register_dataset("npz_file")
+class NpzDataset(BaseMapDataset):
+    """Loads dataset from Numpy .npz archive."""
+
+    default_dataset = "custom"
+
+    def __init__(
+        self,
+        *,
+        dataset_name: Optional[str] = None,
+        dataset_path: Optional[Union[str, Path]] = None,
+        split: Optional[str] = None,
+        npz_split_col: str = None,
+        npz_allow_pickle: bool = False,
+        **kwargs,
+    ) -> None:
+        """Initializes a new instance of the NpzDataset class.
+
+        Args:
+            dataset_name: Dataset name.
+            dataset_path: Path to .npz file.
+            split: Dataset split.
+            npz_split_col: Name of '.npz' array containing dataset split info.
+                If unspecified, then the name "split" is assumed by default.
+            npz_allow_pickle: Whether pickle is allowed when loading data from the npz archive.
+            **kwargs: Additional arguments to pass to the parent class.
+        Raises:
+            ValueError: If dataset_path is not provided, or
+                if .npz file contains data in unexpected format.
+        """
+        if not dataset_path:
+            raise ValueError("`dataset_path` must be provided")
+        super().__init__(
+            dataset_name=dataset_name, dataset_path=dataset_path, split=split, **kwargs
         )
+        self._npz_allow_pickle = npz_allow_pickle
+        self._npz_split_col = npz_split_col
 
-        return conversation
+        dataset_path = Path(dataset_path)
+        if not dataset_path.is_file():
+            raise ValueError(f"Path is not a file! '{dataset_path}'")
+        elif dataset_path.suffix.lower() != ".npz":
+            raise ValueError(f"File extension is not '.npz'! '{dataset_path}'")
+
+        self._data = self._load_data()
+
+    @staticmethod
+    def _to_list(x: np.ndarray) -> list:
+        # `pd.DataFrame` expects Python lists for columns (elements can still be `ndarray`)
+        if len(x.shape) > 1:
+            return [x[i, ...] for i in range(x.shape[0])]
+        return x.tolist()
+
+    @override
+    def _load_data(self) -> pd.DataFrame:
+        data_dict: dict[str, np.ndarray] = {}
+        with np.load(self.dataset_path, allow_pickle=self._npz_allow_pickle) as npzfile:
+            feature_names = list(sorted(npzfile.files))
+            if len(feature_names) == 0:
+                raise ValueError(
+                    f"'.npz' archive contains no data! '{self.dataset_path}'"
+                )
+            num_examples = None
+            for feature_name in feature_names:
+                col_data = npzfile[feature_name]
+                assert isinstance(col_data, np.ndarray)
+                if num_examples is None:
+                    num_examples = col_data.shape[0]
+                elif num_examples != col_data.shape[0]:
+                    raise ValueError(
+                        "Inconsistent number of examples for features "
+                        f"'{feature_name}' and '{feature_names[0]}': "
+                        f"{col_data.shape[0]} vs {num_examples}!"
+                    )
+                data_dict[feature_name] = self._to_list(col_data)
+
+        dataframe = pd.DataFrame(data_dict)
+
+        split_feature_name = (self._npz_split_col or "split") if self.split else None
+        if split_feature_name:
+            if split_feature_name not in dataframe:
+                raise ValueError(
+                    f"'.npz' doesn't contain data split info: '{split_feature_name}'!"
+                )
+            dataframe = (
+                dataframe[dataframe[split_feature_name] == self.split]
+                .drop(split_feature_name, axis=1)
+                .copy()
+            )
+        return dataframe
+
+    @override
+    def transform(self, sample: pd.Series) -> dict:
+        """Preprocesses the inputs in the given sample."""
+        return sample.to_dict()
 ```
 
 ```{note}
-The key difference in VL-SFT datasets is the inclusion of image data, typically represented as an additional `ContentItem` with `type=Type.IMAGE_BINARY`, `type=Type.IMAGE_PATH` or `Type.IMAGE_URL`.
+The file format can be used read images, vector fields, financial data, etc.
 ```
-
-For more advanced VL-SFT dataset implementations, explore the {py:mod}`oumi.datasets.vision_language` module.
 
 ### Using Custom Datasets via the CLI
 
