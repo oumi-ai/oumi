@@ -32,9 +32,7 @@ def test_train_basic():
                 model_name="openai-community/gpt2",
                 model_max_length=1024,
                 trust_remote_code=True,
-                tokenizer_name="gpt2",
                 tokenizer_pad_token="<|endoftext|>",
-                load_pretrained_weights=False,
             ),
             training=TrainingParams(
                 trainer_type=TrainerType.TRL_SFT,
@@ -67,12 +65,10 @@ def test_train_unregistered_metrics_function():
                     ),
                 ),
                 model=ModelParams(
-                    model_name="MlpEncoder",
+                    model_name="openai-community/gpt2",
                     model_max_length=1024,
                     trust_remote_code=True,
-                    tokenizer_name="gpt2",
                     tokenizer_pad_token="<|endoftext|>",
-                    load_pretrained_weights=False,
                 ),
                 training=TrainingParams(
                     trainer_type=TrainerType.TRL_SFT,
@@ -144,12 +140,11 @@ def test_train_pack_with_sft_dataset():
                 ),
             ),
             model=ModelParams(
-                model_name="MlpEncoder",
+                model_name="openai-community/gpt2",
                 # The true max length is 1024, but a lower value works. This is done to
                 # reduce test runtime.
                 model_max_length=128,
                 trust_remote_code=True,
-                tokenizer_name="gpt2",
                 tokenizer_pad_token="<|endoftext|>",
             ),
             training=TrainingParams(
@@ -179,12 +174,10 @@ def test_train_dpo():
                 ),
             ),
             model=ModelParams(
-                model_name="MlpEncoder",
+                model_name="openai-community/gpt2",
                 model_max_length=1024,
                 trust_remote_code=True,
-                tokenizer_name="gpt2",
                 tokenizer_pad_token="<|endoftext|>",
-                load_pretrained_weights=False,
             ),
             training=TrainingParams(
                 per_device_train_batch_size=1,
