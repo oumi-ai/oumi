@@ -186,7 +186,7 @@ gcloud config set project <YOUR_PROJECT>
 
 You can now run `sky check` to confirm GCP is enabled.
 
-If you get stuck, please refer to our {doc}`running jobs remotely </user_guides/launch/remote>` section, as well as the documentation for GCP and SkyPilot linked above, for more information.
+If you get stuck, please refer to our {doc}`running jobs remotely </user_guides/launch/launch>` section, as well as the documentation for GCP and SkyPilot linked above, for more information.
 
 ### Launching your first cloud job with Oumi
 
@@ -236,7 +236,7 @@ This command will **destroy your cluster**, including all data on those remote m
 
 ### What's next?
 
-Although this example used GCP, Oumi natively supports a wide range of cloud providers. To explore the Cloud providers that we support, visit {doc}`running jobs remotely </user_guides/launch/remote>`.
+Although this example used GCP, Oumi natively supports a wide range of cloud providers. To explore the Cloud providers that we support, visit {doc}`running jobs remotely </user_guides/launch/launch>`.
 
 ## 🔗 Community
 

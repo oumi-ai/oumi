@@ -1,0 +1,65 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
+##
+# Full SFT-training config for Llama-90B-Vision with the vqav2-small dataset.
+##
+
+model:
+  model_name: "meta-llama/Llama-3.2-90B-Vision-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 1024
+  attn_implementation: "sdpa"
+  chat_template: "llama3-instruct"
+  freeze_layers:
+    - "vision_model"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    experimental_use_torch_datapipes: True
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "meta-llama/Llama-3.2-90B-Vision-Instruct"
+          return_tensors: True
+          limit: 4096
+
+training:
+  output_dir: "output/vlm_finetuned"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1
+  max_steps: 5 # Train for a few steps only (demonstration purposes)
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "paged_adamw_8bit"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 2
+  save_steps: 0
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+  include_performance_metrics: True
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "FULL_SHARD"
+  forward_prefetch: True
+  backward_prefetch: "BACKWARD_PRE"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
