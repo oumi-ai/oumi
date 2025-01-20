@@ -111,14 +111,7 @@ from oumi.core.types.conversation import ContentItem, Conversation, Message, Rol
 @register_dataset("your_vl_sft_dataset_name")
 class CustomVLDataset(VisionLanguageSftDataset):
     """Dataset class for the `example/foo` dataset."""
-    default_dataset = "example/foo"
-
-     def __init__(self, *, **kwargs) -> None:
-        """Initializes a new instance of the CustomVLDataset class."""
-        if not dataset_path:
-            raise ValueError("`dataset_path` must be provided")
-        # Point to the original HuggingFace dataset (image + text).
-        super().__init__(dataset_name="example/foo", **kwargs)
+    default_dataset = "example/foo" # Name of the original HuggingFace dataset (image + text)
 
     def transform_conversation(self, example: Dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
