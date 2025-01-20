@@ -1,8 +1,7 @@
 from typing import Union
 
-import datasets
 import pytest
-from torch.utils.data import IterableDataset
+from datasets import Dataset, IterableDataset
 from trl.trainer import ConstantLengthDataset
 
 from oumi.builders import (
@@ -34,21 +33,19 @@ def _get_default_config(
     stream: bool,
     split: DatasetSplit,
     pack: bool = False,
-    model_max_length: int = 64,
 ) -> TrainingConfig:
     dataset_split_params = DatasetSplitParams(
         datasets=datasets,
+        target_col="question",
         stream=stream,
         pack=pack,
-        use_async_dataset=pack,
     )
     base_config = TrainingConfig(
         data=DataParams(),
         model=ModelParams(
-            model_name="MlpEncoder",
-            model_max_length=model_max_length,
+            model_name="openai-community/gpt2",
+            model_max_length=1024,
             tokenizer_pad_token="<|endoftext|>",
-            tokenizer_name="gpt2",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.HF,
@@ -66,10 +63,7 @@ def _get_default_config(
 
 def _get_dataset_size(
     dataset: Union[
-        datasets.Dataset,
-        datasets.IterableDataset,
-        ConstantLengthDataset,
-        PretrainingAsyncTextDataset,
+        Dataset, IterableDataset, ConstantLengthDataset, PretrainingAsyncTextDataset
     ],
     stream: bool,
     pack: bool = False,
@@ -90,11 +84,9 @@ def _get_dataset_size(
         for _ in dataset:
             example_count += 1
         return example_count
-
-    elif isinstance(dataset, datasets.Dataset):
-        return dataset.num_rows
     else:
-        raise ValueError(f"Unsupported dataset type: {type(dataset)}")
+        assert isinstance(dataset, Dataset)
+        return dataset.num_rows
 
 
 def test_data_single_dataset_in_mixture(stream: bool):
@@ -387,7 +379,6 @@ def test_data_multiple_datasets_packing(stream: bool):
         ],
         stream,
         DatasetSplit.TEST,
-        model_max_length=1024,
         pack=True,
     )
     config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"

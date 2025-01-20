@@ -30,9 +30,8 @@ def _get_default_config(output_temp_dir):
             train=DatasetSplitParams(
                 datasets=[
                     DatasetParams(
-                        dataset_name="Salesforce/wikitext",
-                        subset="wikitext-2-raw-v1",
-                        dataset_kwargs={"seq_length": 128},
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 25, "seq_length": 128},
                     )
                 ],
                 stream=True,
