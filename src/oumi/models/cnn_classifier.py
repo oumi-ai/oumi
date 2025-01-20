@@ -26,8 +26,8 @@ class CNNClassifier(BaseModel):
         """Initialize the ConvNet for image classification.
 
         Args:
-            image_width: Width of input images.
-            image_height: Height of input images.
+            image_width: Width of input images in pixels.
+            image_height: Height of input images in pixels.
             in_channels: The number of input channels e.g., 3 for RGB, 1 for greyscale.
             output_dim: The output dimension i.e., the number of classes.
             kernel_size: Convolutional kernel size.
