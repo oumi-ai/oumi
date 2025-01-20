@@ -42,3 +42,5 @@ class FalconRefinedWebDataset(BasePretrainingDataset):
         - The dataset may contain sensitive information and biased content.
         - No canonical splits are provided for this dataset.
     """
+
+    default_dataset = "tiiuae/falcon-refinedweb"

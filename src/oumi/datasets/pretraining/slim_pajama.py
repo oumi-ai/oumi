@@ -49,3 +49,5 @@ class SlimPajamaDataset(BasePretrainingDataset):
     Citations:
         .. footbibliography::
     """
+
+    default_dataset = "cerebras/SlimPajama-627B"
