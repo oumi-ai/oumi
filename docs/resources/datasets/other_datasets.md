@@ -13,7 +13,7 @@ To give a concrete example, let's show how to add support for datasets stored in
 ## NumPy Dataset
 
 The popular `numpy` library defines `.npy` and `.npz` file formats [[details](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)],
-which can be used to [save](https://numpy.org/doc/stable/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/2.1/reference/generated/numpy.ndarray.html)):
+which can be used to [save](https://numpy.org/doc/stable/reference/generated/numpy.save.html) arbitrary multi-dimensional arrays ([`np.ndarray`](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html)):
 
 1. `.npy` file contains a single `np.ndarray`
 2. `.npz` is an archive that contains a collection of multiple `np.ndarray`-s, with optional support for [data compression](https://numpy.org/doc/stable/reference/generated/numpy.savez_compressed.html)
