@@ -23,7 +23,7 @@ def test_train_basic():
                 train=DatasetSplitParams(
                     datasets=[
                         DatasetParams(
-                            dataset_name="debug_sft",
+                            dataset_name="yahma/alpaca-cleaned",
                         )
                     ],
                 ),
@@ -59,7 +59,7 @@ def test_train_unregistered_metrics_function():
                     train=DatasetSplitParams(
                         datasets=[
                             DatasetParams(
-                                dataset_name="debug_sft",
+                                dataset_name="yahma/alpaca-cleaned",
                             )
                         ],
                     ),
