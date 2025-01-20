@@ -32,3 +32,5 @@ class WikipediaDataset(BasePretrainingDataset):
         - Homepage: https://dumps.wikimedia.org
         - Hugging Face Hub: https://huggingface.co/datasets/wikimedia/wikipedia
     """
+
+    default_dataset = "wikimedia/wikipedia"

@@ -126,6 +126,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
     "model_name, trust_remote_code, expected_result",
     [
         ("MlpEncoder", False, False),  # Custom model
+        ("CnnClassifier", False, False),  # Custom model
         ("openai-community/gpt2", False, False),
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),

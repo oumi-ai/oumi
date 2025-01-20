@@ -29,3 +29,5 @@ class WikiTextDataset(BasePretrainingDataset):
     Citations:
         .. footbibliography::
     """
+
+    default_dataset = "Salesforce/wikitext"

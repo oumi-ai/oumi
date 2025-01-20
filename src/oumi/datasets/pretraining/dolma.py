@@ -38,3 +38,5 @@ class DolmaDataset(BasePretrainingDataset):
     Citations:
       .. footbibliography::
     """
+
+    default_dataset = "allenai/dolma"
