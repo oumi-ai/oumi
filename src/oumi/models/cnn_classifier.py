@@ -11,7 +11,7 @@ from oumi.core.models.base_model import BaseModel
 
 
 @registry.register("CnnClassifier", registry.RegistryType.MODEL)
-class CnnClassifier(BaseModel):
+class CNNClassifier(BaseModel):
     """A simple ConvNet for classification of small fixed-size images."""
 
     def __init__(
