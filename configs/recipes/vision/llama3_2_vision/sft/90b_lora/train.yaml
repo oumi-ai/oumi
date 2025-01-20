@@ -58,7 +58,7 @@ training:
 
   use_peft: True
 
-peft:  
+peft:
   lora_r: 16
   lora_alpha: 16
   lora_dropout: 0
@@ -76,10 +76,8 @@ fsdp:
   enable_fsdp: True
   forward_prefetch: False
   backward_prefetch: "NO_PREFETCH"
-  
-  # cpu_offload: True # If activated we get a error regarding
-  # RuntimeError: Input type (CPUBFloat16Type) and weight type (CUDABFloat16Type) 
-  # should be the same or input should be a MKLDNN tensor and weight is a dense tensor
+
+  # cpu_offload: True # True => runtime error see PR description
 
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "MllamaSelfAttentionDecoderLayer,MllamaCrossAttentionDecoderLayer,MllamaVisionEncoderLayer"
