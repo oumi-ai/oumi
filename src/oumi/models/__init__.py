@@ -23,7 +23,7 @@ Note:
     class documentation.
 """
 
+from oumi.models.cnn_classifier import CnnClassifier
 from oumi.models.mlp import MLPEncoder
-from oumi.models.mnist_cnn import MnistCNN
 
-__all__ = ["MLPEncoder", "MnistCNN"]
+__all__ = ["MLPEncoder", "CnnClassifier"]
