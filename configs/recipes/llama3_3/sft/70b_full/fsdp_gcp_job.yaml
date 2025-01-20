@@ -1,0 +1,50 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Config to FSDP full fine-tune Llama 3.3 70B Instruct on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/llama3_3/sft/70b_full/fsdp_gcp_job.yaml --cluster llama70b-sft-fsdp
+name: llama70b-sft-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  use_spot: true
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama70b.fft.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]' hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.3-70B-Vision-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/llama3_3/sft/70b_full/fsdp_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.save_final_model false
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
