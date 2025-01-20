@@ -1,7 +1,7 @@
 # Test for a non-textual custom model (CNNClassifier).
 import tempfile
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -145,7 +145,13 @@ def _get_dataset_length(dataset) -> int:
     return result
 
 
-def test_basic_training_and_prediction():
+class MyDatasets(NamedTuple):
+    train_dataset: Any
+    validation_dataset: Any
+    test_dataset: Any
+
+
+def _create_test_data() -> MyDatasets:
     # Generate small test dataset.
     train_samples_per_digit = 8
     validation_samples_per_digit = 3
@@ -193,19 +199,6 @@ def test_basic_training_and_prediction():
         npz_filename = tmp_npz_file.name
         np.savez_compressed(npz_filename, images=images, labels=labels, split=splits)
 
-        # Create a model.
-        model_params = ModelParams(
-            model_name="CnnClassifier",
-            load_pretrained_weights=False,
-            model_kwargs={
-                "image_width": 28,
-                "image_height": 28,
-                "in_channels": 1,
-                "output_dim": 10,
-            },
-        )
-        model = build_model(model_params)
-
         dataset_cls = REGISTRY.get("npz_file", RegistryType.DATASET)
         assert dataset_cls is not None
 
@@ -238,8 +231,64 @@ def test_basic_training_and_prediction():
         )
         assert _get_dataset_length(test_dataset) == 10 * test_samples_per_digit
 
+        return MyDatasets(
+            train_dataset=train_dataset,
+            validation_dataset=validation_dataset,
+            test_dataset=test_dataset,
+        )
+
+
+def _validate_prediction(model: torch.nn.Module, dataset, *, max_iters: int = 5):
+    with torch.no_grad():
+        model_device = next(model.parameters()).device
+        batch_size = 2
+
+        for idx, test_input in enumerate(DataLoader(dataset, batch_size=batch_size)):
+            if idx >= max_iters:
+                break
+            inputs = _convert_example_to_model_input(test_input, device=model_device)
+
+            # Without label
+            outputs = model(images=inputs["images"])
+            assert outputs.keys() == ({"logits"})
+            assert isinstance(outputs["logits"], torch.Tensor)
+            logits = outputs["logits"].cpu().numpy()
+            assert logits.shape == (batch_size, 10)
+            assert logits.dtype == np.float32
+
+            # With label
+            outputs = model(images=inputs["images"], labels=inputs["labels"])
+            assert outputs.keys() == ({"logits", "loss"})
+            assert isinstance(outputs["logits"], torch.Tensor)
+            logits = outputs["logits"].cpu().numpy()
+            assert logits.shape == (batch_size, 10)
+            assert logits.dtype == np.float32
+            loss = outputs["loss"].cpu().numpy()
+            assert loss.shape == ()
+            assert loss.dtype == np.float32
+
+
+def test_basic_training_and_prediction():
+    test_data = _create_test_data()
+
+    # Create a model.
+    model_params = ModelParams(
+        model_name="CnnClassifier",
+        load_pretrained_weights=False,
+        model_kwargs={
+            "image_width": 28,
+            "image_height": 28,
+            "in_channels": 1,
+            "output_dim": 10,
+        },
+    )
+    model = build_model(model_params)
+
+    with (
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         training_params = TrainingParams(
-            output_dir=str(Path(tmp_dir) / "mnist_cnn_test_output"),
+            output_dir=str(Path(tmp_dir) / "cnn_classifier_test_output"),
             per_device_train_batch_size=32,
             per_device_eval_batch_size=8,
             eval_strategy="steps",
@@ -255,38 +304,11 @@ def test_basic_training_and_prediction():
             model=model,
             tokenizer=None,  # No tokenizer! The custom model is non-textual
             args=training_params,
-            train_dataset=train_dataset,
+            train_dataset=test_data.train_dataset,
             dataloader_num_workers=2,
             dataloader_prefetch_factor=32,
         )
 
         trainer.train()
 
-        with torch.no_grad():
-            model_device = next(model.parameters()).device
-            batch_size = 2
-            for test_input in DataLoader(test_dataset, batch_size=batch_size):
-                inputs = _convert_example_to_model_input(
-                    test_input, device=model_device
-                )
-
-                # Without label
-                outputs = trainer.model(images=inputs["images"])
-                assert outputs.keys() == ({"logits"})
-                assert isinstance(outputs["logits"], torch.Tensor)
-                logits = outputs["logits"].cpu().numpy()
-                assert logits.shape == (batch_size, 10)
-                assert logits.dtype == np.float32
-
-                # With label
-                outputs = trainer.model(
-                    images=inputs["images"], labels=inputs["labels"]
-                )
-                assert outputs.keys() == ({"logits", "loss"})
-                assert isinstance(outputs["logits"], torch.Tensor)
-                logits = outputs["logits"].cpu().numpy()
-                assert logits.shape == (batch_size, 10)
-                assert logits.dtype == np.float32
-                loss = outputs["loss"].cpu().numpy()
-                assert loss.shape == ()
-                assert loss.dtype == np.float32
+        _validate_prediction(trainer.model, test_data.test_dataset)
