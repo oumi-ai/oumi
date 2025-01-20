@@ -43,6 +43,8 @@ from oumi.core.registry import register_dataset
 class NpzDataset(BaseMapDataset):
     """Loads dataset from Numpy .npz archive."""
 
+    default_dataset = "custom"
+
     def __init__(
         self,
         *,
