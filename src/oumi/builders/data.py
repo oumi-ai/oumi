@@ -287,7 +287,7 @@ def _load_dataset(
         # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
         if "dataset_name" in dataset_kwargs:
             dataset_name = dataset_kwargs["dataset_name"] or dataset_name
-            del dataset_kwargs["dataset_name"]
+            del dataset_kwargs["dataset_name"]  # Drop duplicate argument name.
 
         dataset = dataset_class(
             dataset_name=dataset_name,
