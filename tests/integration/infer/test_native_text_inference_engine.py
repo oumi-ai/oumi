@@ -24,7 +24,8 @@ TEST_IMAGE_DIR: Final[Path] = (
 
 def _get_default_text_model_params() -> ModelParams:
     return ModelParams(
-        model_name="MlpEncoder",
+        # MlpEncoder is not supported for generation
+        model_name="openai-community/gpt2",
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
