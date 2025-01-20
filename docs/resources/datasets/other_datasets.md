@@ -6,7 +6,7 @@ Oumi infrastructure also allows users to define arbitrary ad-hoc datasets,
 which can be used not just for text-centric LLM models, but for alternative model architectures
 and applications such as Vision models (e.g., convolutional networks), scientific computing, etc.
 
-This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or {py:class}`~oumi.core.datasets.BaseIterableDataset`. A {py:class}`~oumi.core.datasets.BaseIterableDataset` is great for data streamed online, or for large datasets (e.g., hundreds of GBs) due to its lazy loading behavior, while {py:class}`~oumi.core.datasets.BaseMapDataset` should be the default choice for everything else e.g., for datasets that can be fully loaded into memory.
+This can be accomplished by defining a subclass of {py:class}`~oumi.core.datasets.BaseMapDataset` or {py:class}`~oumi.core.datasets.BaseIterableDataset`. A {py:class}`~oumi.core.datasets.BaseIterableDataset` is great for data streamed online, or for large datasets (e.g., hundreds of GBs) due to its lazy loading behavior, while {py:class}`~oumi.core.datasets.BaseMapDataset` should be the default choice for everything else (e.g., datasets that can be fully loaded into memory).
 
 To give a concrete example, let's show how to add support for datasets stored in Numpy `.npz` file format:
 
