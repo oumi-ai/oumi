@@ -7,7 +7,7 @@ with the datasets and training pipelines provided by Oumi.
 Available models:
     - :py:class:`~oumi.models.mlp.MLPEncoder`: A Multi-Layer Perceptron (MLP)
         encoder model.
-    - :py:class:`~oumi.models.mnist_cnn.CnnClassifier`: A simple ConvNet for
+    - :py:class:`~oumi.models.cnn_classifier.CnnClassifier`: A simple ConvNet for
         image classification e.g., can be used for MNIST digits classification.
 
 Each model is implemented as a separate class, inheriting from appropriate base classes
