@@ -244,7 +244,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             extra_kwargs["min_p"] = min_p
             extra_kwargs["temperature"] = temperature
         elif min_p > 0.0 or temperature > 0.0:
-            logger.debug(
+            logger.info(
                 f"The sampling params: min_p: {min_p} and temperature: {temperature} "
                 "are ignored because sampling is disabled!"
             )
