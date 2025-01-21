@@ -62,6 +62,9 @@ def evaluate(
         output_dir: The directory where the evaluation results will be saved.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
         run_name: Unique identifier for wandb for the current training run.
+
+    Returns:
+        The evaluation results (dict of metric names and their corresponding values).
     """
     if torch.cuda.is_available():
         # CUDA device may be overwritten if `accelerate launch`,

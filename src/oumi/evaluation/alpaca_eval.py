@@ -48,6 +48,9 @@ def evaluate(
         inference_remote_params: The remote inference parameters to use.
         output_dir: The directory where the evaluation results will be saved.
         run_name: Unique identifier for the current run.
+
+    Returns:
+        The evaluation results (dict of metric names and their corresponding values).
     """
     # Prerequisites
     if not alpaca_eval:

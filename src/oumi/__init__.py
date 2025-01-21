@@ -101,7 +101,8 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
         config: The desired configuration for evaluation.
 
     Returns:
-        List of evaluation results.
+        A list of evaluation results (one for each task). Each evaluation result is a
+        dictionary of metric names and their corresponding values.
     """
     import oumi.evaluate
 

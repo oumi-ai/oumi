@@ -18,7 +18,8 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
         config: The desired configuration for evaluation.
 
     Returns:
-        None.
+        A list of evaluation results (one for each task). Each evaluation result is a
+        dictionary of metric names and their corresponding values.
     """
     results = []
     for task in config.tasks:
