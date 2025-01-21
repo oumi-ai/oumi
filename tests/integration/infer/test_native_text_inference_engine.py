@@ -288,6 +288,7 @@ def test_infer_from_file_to_file():
 
 
 @requires_cuda_initialized()
+@pytest.mark.single_gpu
 def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
     png_image_bytes_great_wave = load_image_png_bytes_from_path(
         root_testdata_dir / "images" / "the_great_wave_off_kanagawa.jpg"
