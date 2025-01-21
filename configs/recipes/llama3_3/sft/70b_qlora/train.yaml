@@ -7,7 +7,7 @@
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/405B_qlora.yaml
 
 model:
-  model_name: "meta-llama/meta-llama/Llama-3.3-70B-Instruct"
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -28,6 +28,7 @@ training:
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
+  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
