@@ -235,4 +235,5 @@ addopts = ["--import-mode=prepend"]
 markers = [
     "e2e: Slow e2e integration tests",
     "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",
+    "single_gpu: The test uses max 1 GPU (can be potentially skipped on multi-GPU machine to conserve GPU resources)",
 ]
