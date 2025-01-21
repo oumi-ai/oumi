@@ -1,0 +1,53 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Sample command:
+# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
+name: oumi-e2e-tests
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  # Allow Spot VM-s, which cost ~3X less.
+  use_spot: true
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+# Upload working directory to remote ~/sky_workdir.
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on your local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-e2e-tests
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[ci_gpu]' hf_transfer
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  pip install '.[ci_gpu]'
+
+  nvidia-smi
+
+  cd ./tests/integration/
+  pytest -s -vv -m "not e2e and not e2e_eternal" --durations=50 --timeout=300
+
+  cd ./tests/e2e/
+  pytest -s -vv -m "e2e" --durations=50 --timeout=300
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
