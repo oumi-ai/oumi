@@ -23,3 +23,13 @@ Example command for 70B full fine-tuning on GCP:
 ```shell
 oumi launch up -c configs/recipes/llama3_3/sft/70b_full/gcp_job.yaml --cluster llama3-3
 ```
+
+Example command for 70B LoRA fine-tuning on GCP:
+```shell
+oumi launch up -c configs/recipes/llama3_3/sft/70b_lora/gcp_job.yaml --cluster llama3-3
+```
+
+Example command for 70B quantized LoRA fine-tuning on GCP:
+```shell
+oumi launch up -c configs/recipes/llama3_3/sft/70b_qlora/gcp_job.yaml --cluster llama3-3
+```
