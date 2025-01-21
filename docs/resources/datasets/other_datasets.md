@@ -161,7 +161,7 @@ data:
 ...
 ```
 
-You can review the {gh}`→ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` notebook for a complete example.
+You can review the {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` notebook for a complete example.
 Additional information is available in [→ Custom Models](/resources/models/custom_models).
 
 ### Using Custom Datasets via the CLI

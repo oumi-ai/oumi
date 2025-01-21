@@ -335,4 +335,4 @@ for batch in dataloader:
 - {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi models
 - {py:class}`oumi.core.registry.Registry` - Model registration system
 - {py:class}`oumi.core.configs.params.model_params.ModelParams` - Base parameters class for models
-- {gh}`Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).
+- {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).
