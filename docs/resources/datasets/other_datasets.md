@@ -10,6 +10,7 @@ This can be accomplished by defining a subclass of {py:class}`~oumi.core.dataset
 
 To give a concrete example, let's show how to add support for datasets stored in Numpy `.npz` file format:
 
+(sample-custom-numpy-dataset)=
 ## NumPy Dataset
 
 The popular `numpy` library defines `.npy` and `.npz` file formats [[details](https://numpy.org/devdocs/reference/generated/numpy.lib.format.html)],
@@ -146,6 +147,22 @@ class NpzDataset(BaseMapDataset):
 ```{note}
 The `.npz` file format can be used to load images, vector fields, financial, medical/health data, and other new data types.
 ```
+
+To use the custom dataset, add the following section to your {py:class}`~oumi.core.configs.TrainingConfig`:
+
+```yaml
+...
+data:
+  train:
+    datasets:
+      - dataset_name: "npz_file" # Custom dataset type defined above for .npz archives
+        dataset_path: "/your_dir/mnist.npz" # File name of your `.npz` archive
+        split: "train"
+...
+```
+
+You can review the {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` notebook for a complete example.
+Additional information is available in [→ Custom Models](/resources/models/custom_models).
 
 ### Using Custom Datasets via the CLI
 
