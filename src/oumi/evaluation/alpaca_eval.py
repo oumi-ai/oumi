@@ -178,6 +178,6 @@ def evaluate(
             )
 
         if metric_dict:
-            return metric_dict
+            return {"results": metric_dict}
 
     return {}

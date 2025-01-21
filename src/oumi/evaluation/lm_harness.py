@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 from datetime import datetime
@@ -158,7 +159,7 @@ def evaluate(
             save_evaluation_output(
                 base_output_dir=output_dir,
                 platform=task_params.get_evaluation_platform(),
-                platform_results=platform_results,
+                platform_results=copy.deepcopy(platform_results),
                 platform_task_config=platform_task_config,
                 task_params=task_params,
                 start_time_str=start_time_str,
