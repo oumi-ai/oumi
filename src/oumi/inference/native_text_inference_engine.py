@@ -244,17 +244,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             extra_kwargs["min_p"] = min_p
             extra_kwargs["temperature"] = temperature
         elif min_p > 0.0 or temperature > 0.0:
-            logger.info(
+            logger.debug(
                 f"The sampling params: min_p: {min_p} and temperature: {temperature} "
                 "are ignored because sampling is disabled!"
             )
 
         generation_config = transformers.GenerationConfig(
             max_new_tokens=generation_params.max_new_tokens,
+            top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             do_sample=use_sampling,
-            top_p=generation_params.top_p,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
