@@ -150,8 +150,6 @@ The `.npz` file format can be used to load images, vector fields, financial, med
 
 To use the custom dataset, add the following section to your {py:class}`~oumi.core.configs.TrainingConfig`:
 
-https://oumi.ai/docs/latest/api/oumi.core.configs.html#oumi.core.configs.TrainingConfig
-
 ```yaml
 ...
 data:
@@ -164,7 +162,7 @@ data:
 ```
 
 You can review the {gh}`→ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` notebook for a complete example.
-Additional information is available in [→ Custom Models](resources/models/custom_models).
+Additional information is available in [→ Custom Models](/resources/models/custom_models).
 
 ### Using Custom Datasets via the CLI
 
