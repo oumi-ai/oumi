@@ -156,7 +156,7 @@ data:
   train:
     datasets:
       - dataset_name: "npz_file" # Custom dataset type defined above for .npz archives
-        dataset_path: "/home/yourself/mnist.npz" # Filename of your `.npz` archive
+        dataset_path: "/your_dir/mnist.npz" # File name of your `.npz` archive
         split: "train"
 ...
 ```
