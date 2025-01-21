@@ -1,13 +1,13 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 
-# FSDP SFT config for Llama 3.3 70B.
-# Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_2/3B_full.yaml
+# SFT config for Llama 3.3 70B.
+# Some param values are inspired by the following recipe:
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_3/70B_full.yaml
 
 model:
   model_name: "meta-llama/Llama-3.3-70B-Instruct"
-  model_max_length: 1024
+  model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   chat_template: "llama3-instruct"
@@ -24,30 +24,34 @@ data:
 training:
   trainer_type: "TRL_SFT"
   max_steps: 20
-  per_device_train_batch_size: 1
-  # gradient_accumulation_steps: 1
+  save_steps: 0
+  per_device_train_batch_size: 2
+  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "adamw_torch_fused" # try also paged_adamw_8bit
+  optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
-  compile: False
+  warmup_ratio: 0.02
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
 
-  save_steps: 0
   logging_steps: 5
   log_model_summary: False
+  empty_device_cache_steps: 50
   output_dir: "output/llama70b.fft"
   include_performance_metrics: True
   enable_wandb: True
 
 fsdp:
   enable_fsdp: True
-  sharding_strategy: "FULL_SHARD"
+  cpu_offload: True
   forward_prefetch: True
+
+  sharding_strategy: "FULL_SHARD"
+  state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"

@@ -1,47 +1,25 @@
-# Llama 3.2
+# Llama 3.3
 
-Configs for Meta's Llama 3.2 model family. This includes the 1B and 3B text-to-text models.
+Configs for Meta's Llama 3.3 model family. This includes the 70B text-to-text models.
 
-## 1B
-
-### Model Info
-
-| Attribute | Value |
-|--|--|
-| Vocab size | 128,256 |
-| Hidden size | 2048 |
-| MLP intermediate size | 8192 |
-| Num layers | 16 |
-| Num attention heads | 32 |
-| Num KV heads | 8 |
-| Weight tying | True |
-| Model max length | 131,072 (initially trained with 8192) |
-
-### Launch Command
-
-Example command for 1B full fine-tuning on your local machine:
-```shell
-oumi train -c configs/recipes/llama3_2/sft/1b_full/train.yaml
-```
-
-## 3B
+## 70B
 
 ### Model Info
 
 | Attribute | Value |
 |--|--|
 | Vocab size | 128,256 |
-| Hidden size | 3072 |
-| MLP intermediate size | 8192 |
-| Num layers | 28 |
-| Num attention heads | 24 |
+| Hidden size | 8192 |
+| MLP intermediate size | 28,672 |
+| Num layers | 80 |
+| Num attention heads | 64 |
 | Num KV heads | 8 |
-| Weight tying | True |
+| Weight tying | False |
 | Model max length | 131,072 (initially trained with 8192) |
 
 ### Launch Command
 
-Example command for 3B full fine-tuning on GCP:
+Example command for 70B full fine-tuning on GCP:
 ```shell
-oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster llama3-2
+oumi launch up -c configs/recipes/llama3_3/sft/70b_full/gcp_job.yaml --cluster llama3-3
 ```

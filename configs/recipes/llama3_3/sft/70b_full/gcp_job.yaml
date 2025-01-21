@@ -1,16 +1,16 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
-# Config to FSDP full fine-tune Llama 3.3 70B Instruct on 1 GCP node.
+# Config to FSDP full fine-tune Llama 3.3 70B Instruct on a single GCP node.
 # Example command:
-# oumi launch up -c configs/recipes/llama3_3/sft/70b_full/fsdp_gcp_job.yaml --cluster llama70b-sft-fsdp
+# oumi launch up -c configs/recipes/llama3_3/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
 name: llama70b-sft-fsdp
 
 resources:
   cloud: gcp
   accelerators: "A100-80GB:8"
   use_spot: true
-  disk_size: 1000 # Disk size in GBs
+  disk_size: 2000 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
 
@@ -21,6 +21,13 @@ file_mounts:
   # Mount HF token, which is needed to download locked-down models from HF Hub.
   # This is created on the local machine by running `huggingface-cli login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -43,8 +50,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/llama3_3/sft/70b_full/fsdp_train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.save_final_model false
+      -c configs/recipes/llama3_3/sft/70b_full/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
