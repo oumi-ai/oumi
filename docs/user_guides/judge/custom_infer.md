@@ -9,30 +9,30 @@ The choice of the judge model should also align with your specific application n
 A custom judge is defined using a {py:class}`~oumi.core.configs.JudgeConfig`, which specifies the attribute(s) to be evaluated (for more details, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page) along with the underlying model. The model definition includes several key components:
 
 1. **Model Configuration** ({py:class}`~oumi.core.configs.ModelParams`):
-   - Model Selection: Specifies the model to be used, either loaded from a local path or sourced from a platform like HuggingFace.
-   - Model-Specific Settings: Configures essential components such as tokenizers, chat templates, attention mechanisms, and more.
-   - Adapter Integration: Supports the application of adapter models on top of the base model for task-specific customization.
-   - Model Sharding: Enables model sharding across GPUs, allowing for efficient distribution of model layers across available devices.
+   - **Model selection**: Specify the model to be used, either loaded from a local path or sourced from a platform like HuggingFace.
+   - **Model-specific settings**: Configure essential components such as the tokenizer, chat template, attention mechanism, and more.
+   - **Adapter integration**: Apply an adapter model on top of the base model for task-specific customization.
+   - **Model sharding**: Enable model sharding across GPUs, allowing for efficient distribution of model layers across available devices.
 
 2. **Inference Engine** ({py:class}`~oumi.core.configs.InferenceEngineType`):
-   - Local Engines: Utilize locally-hosted models for improved speed and privacy (e.g., via vLLM, LlamaCPP, SGLang).
-   - Remote Engines: Leverage API-based models for enhanced accuracy (e.g., OpenAI, Anthropic, Google).
+   - **Local engines**: Utilize locally-hosted models for improved speed and privacy (e.g., via vLLM, LlamaCPP, SGLang).
+   - **Remote engines**: Leverage API-based models for enhanced accuracy (e.g., OpenAI, Anthropic, Google).
 
 3. **Generation Parameters** ({py:class}`~oumi.core.configs.GenerationParams`):
-   - Key Settings: Controls key aspects of the model’s output, such as maximum token length, temperature, stop tokens, and other relevant parameters.
-   - Guided Decoding & Beam Search: Supports advanced techniques like guided decoding and beam search to refine output quality and enhance coherence.
-   - Performance Constraints: Defines performance-related settings like batch size, number of beams for beam search.
-   - Penalties for Repetition: Supports penalties based on token frequency or presence, resulting in greater diversity in the generated text.
-   - Sampling Parameters: Adjusts sampling parameters (min_p, top_p, etc.) to refine generation behavior.
+   - **Key settings**: Control key aspects of the model’s output, such as maximum token length, temperature, stop tokens, and other relevant parameters.
+   - **Advanced techniques**: Leverage guided decoding and beam search to refine output quality and enhance coherence.
+   - **Performance options**: Define performance-related settings like batch size, number of beams for beam search.
+   - **Repetition Penalties**: Enforce token frequency or presence penalties for greater diversity in the generated text.
+   - **Sampling parameters**: Adjust sampling parameters (min_p, top_p, etc.) to refine the generation behavior.
 
 4. **Remote Parameters** ({py:class}`~oumi.core.configs.RemoteParams`):
-   - API Connection Management: Manages API connections and handles authentication for remote model access.
-   - Rate Limiting: Controls request rate limits based on politeness policies to ensure fair usage and prevent overloading services.
-   - Parallel Processing: Enables parallel processing across multiple workers, optimizing performance and reducing response time.
+   - **API connection**: Manage API connections and handle authentication for remote model access.
+   - **Rate limiting**: Control request rate limits based on politeness policies to ensure fair usage and prevent overloading services.
+   - **Parallel processing**: Enable parallel processing across multiple workers, optimizing performance and reducing response time.
 
 ## Examples
 
-Below are two example configurations: one for a local judge utilizing Llama 3B, and another for a remote judge powered by a GPT-based model. These examples serve as a starting point for evaluating performance and accuracy trade-offs.
+Below are two example configurations: one for a local judge utilizing a quantized Llama 3B, and another for a remote judge powered by a GPT-based model. These examples serve as a starting point for evaluating performance and accuracy trade-offs.
 
 ### Fast Local Judge
 
