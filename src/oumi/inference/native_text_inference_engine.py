@@ -237,14 +237,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         # Create a GenerationConfig object with the new parameters
         # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
+        extra_kwargs = {}
+        if generation_params.use_sampling:
+            # These params should only be set if sampling is enabled.
+            extra_kwargs["min_p"] = generation_params.min_p
+            extra_kwargs["top_p"] = generation_params.top_p
+
         generation_config = transformers.GenerationConfig(
             max_new_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
-            top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             do_sample=generation_params.use_sampling,
-            min_p=generation_params.min_p,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
@@ -252,6 +256,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             eos_token_id=generation_params.stop_token_ids,
             num_beams=generation_params.num_beams,
             use_cache=generation_params.use_cache,
+            **extra_kwargs,
         )
 
         # skip using a progress for single turns
