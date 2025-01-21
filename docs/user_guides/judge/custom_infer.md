@@ -8,21 +8,21 @@ The choice of the judge model should also align with your specific application n
 
 A custom judge is defined using a {py:class}`~oumi.core.configs.JudgeConfig`, which specifies the attribute(s) to be evaluated (for more details, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page) along with the underlying model. The model definition includes several key components:
 
-1. **Model Configuration** ({py:class}`~oumi.core.configs.ModelParams`):
+1. **Model Parameters** ({py:class}`~oumi.core.configs.ModelParams`):
    - **Model selection**: Specify the model to be used, either loaded from a local path or sourced from a platform like HuggingFace.
    - **Model-specific settings**: Configure essential components such as the tokenizer, chat template, attention mechanism, and more.
    - **Adapter integration**: Apply an adapter model on top of the base model for task-specific customization.
    - **Model sharding**: Enable model sharding across GPUs, allowing for efficient distribution of model layers across available devices.
 
 2. **Inference Engine** ({py:class}`~oumi.core.configs.InferenceEngineType`):
-   - **Local engines**: Utilize locally-hosted models for improved speed and privacy (e.g., via vLLM, LlamaCPP, SGLang).
-   - **Remote engines**: Leverage API-based models for enhanced accuracy (e.g., OpenAI, Anthropic, Google).
+   - **Local engines**: Host models locally for improved speed and privacy (e.g., via vLLM, LlamaCPP, SGLang).
+   - **Remote engines**: Query API-based models for enhanced accuracy (e.g., OpenAI, Anthropic, Google).
 
 3. **Generation Parameters** ({py:class}`~oumi.core.configs.GenerationParams`):
-   - **Key settings**: Control key aspects of the model’s output, such as maximum token length, temperature, stop tokens, and other relevant parameters.
-   - **Advanced techniques**: Leverage guided decoding and beam search to refine output quality and enhance coherence.
-   - **Performance options**: Define performance-related settings like batch size, number of beams for beam search.
-   - **Repetition Penalties**: Enforce token frequency or presence penalties for greater diversity in the generated text.
+   - **Key settings**: Control key aspects of the model’s output, such as maximum token length, temperature, stop tokens, and others.
+   - **Advanced techniques**: Leverage guided decoding and beam search to refine output quality and improved coherence.
+   - **Performance options**: Tweak performance-related settings like batch size, number of beams for beam search.
+   - **Repetition Penalties**: Enforce token frequency or presence penalties to enhance diversity in the generated text.
    - **Sampling parameters**: Adjust sampling parameters (min_p, top_p, etc.) to refine the generation behavior.
 
 4. **Remote Parameters** ({py:class}`~oumi.core.configs.RemoteParams`):
@@ -32,7 +32,7 @@ A custom judge is defined using a {py:class}`~oumi.core.configs.JudgeConfig`, wh
 
 ## Examples
 
-Below are two example configurations: one for a local judge utilizing a quantized Llama 3B, and another for a remote judge powered by a GPT-based model. These examples serve as a starting point for evaluating performance and accuracy trade-offs.
+Below are two example configurations: one for a local judge utilizing a quantized Llama 3B, and another for a remote judge powered by a GPT model. These examples serve as a starting point for evaluating performance and accuracy trade-offs.
 
 ### Fast Local Judge
 
