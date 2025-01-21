@@ -195,15 +195,18 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Initialize model and tokenizer.
     tokenizer: Optional[BaseTokenizer] = None
-    if is_custom_model(config.model.model_name) and not (config.model.tokenizer_name):
+    if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
         # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
         tokenizer = None
     else:
         tokenizer = build_tokenizer(config.model)
 
     processor: Optional[BaseProcessor] = None
-    if is_image_text_llm(config.model) and tokenizer is not None:
-        # Only create `processor` for MLLM-s for now.
+    if is_image_text_llm(config.model):
+        assert (
+            tokenizer is not None
+        ), "Tokenizer can't be None because all VLM-s are non-custom currently"
+        # Only create `processor` for VLM-s for now.
         processor = build_processor(
             config.model.model_name,
             tokenizer,
