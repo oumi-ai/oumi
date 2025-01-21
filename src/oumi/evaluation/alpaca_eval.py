@@ -34,7 +34,7 @@ def evaluate(
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Evaluates a model using the Alpaca Eval framework.
 
     For detailed documentation on the AlpacaEval framework, we refer you to the
@@ -48,6 +48,9 @@ def evaluate(
         inference_remote_params: The remote inference parameters to use.
         output_dir: The directory where the evaluation results will be saved.
         run_name: Unique identifier for the current run.
+
+    Returns:
+        The evaluation results (dict of metric names and their corresponding values).
     """
     # Prerequisites
     if not alpaca_eval:
@@ -173,3 +176,8 @@ def evaluate(
                 generation_params=generation_params,
                 inference_config=inference_config,
             )
+
+        if metric_dict:
+            return {"results": metric_dict}
+
+    return {}
