@@ -281,7 +281,7 @@ def _do_test_train_impl(
         raise
 
 
-@requires_gpus(min_count=1, min_gb=24.0)
+@requires_gpus(count=1, min_gb=24.0)
 @pytest.mark.parametrize(
     "test_config",
     [
@@ -326,7 +326,7 @@ def test_train_1gpu_24gb(
     )
 
 
-@requires_gpus(min_count=1, min_gb=24.0)
+@requires_gpus(count=1, min_gb=24.0)
 @pytest.mark.parametrize(
     "test_config",
     [
@@ -371,7 +371,7 @@ def test_train_multimodal_1gpu_24gb(
     )
 
 
-@requires_gpus(min_count=4, min_gb=79.0)
+@requires_gpus(count=4, min_gb=79.0)
 @pytest.mark.parametrize(
     "test_config",
     [
