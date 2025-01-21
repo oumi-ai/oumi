@@ -1,6 +1,9 @@
 # Class: oumi.core.configs.EvaluationConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
 
+# NOTE: Your must first request access to the GPQA dataset here:
+# https://huggingface.co/datasets/Idavidrein/gpqa
+
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
   model_max_length: 2048
@@ -39,7 +42,7 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: leaderboard_math_hard
 
-# Note: If you are running this in a remote machine, which is not accessible after the
+# NOTE: If you are running this in a remote machine, which is not accessible after the
 #       evaluation completes, you need to re-direct your output to persistent storage.
 #       For GCP nodes, you can store your output into a mounted GCS Bucket.
 #       For example: `output_dir: "/my-gcs-bucket/huggingface_leaderboard_v2"`,

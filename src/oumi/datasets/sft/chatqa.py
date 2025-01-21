@@ -131,7 +131,7 @@ class ChatqaTatqaDataset(ChatqaDataset):
     default_subset = "tatqa-arithmetic"
 
     @override
-    def _load_hf_hub_dataset(self, path: str) -> pd.DataFrame:
+    def _load_hf_hub_dataset(self) -> pd.DataFrame:
         if self.dataset_subset == "tatqa-arithmetic":
             filename = "tatqa/train_arithmetic.json"
         else:
