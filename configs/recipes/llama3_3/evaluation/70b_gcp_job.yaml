@@ -1,7 +1,7 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
-# Config to eval Llama 3.3 70B Instruct on GCP.
+# Config to eval Llama 3.3v 70B Instruct on GCP.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_3/evaluation/70b_gcp_job.yaml --cluster llama70b-eval
 name: llama70b-eval
@@ -26,7 +26,7 @@ envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-70B-Instruct
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.3-70B-Instruct
   WANDB_PROJECT: oumi-eval
   OUMI_RUN_NAME: llama70b.eval
 
