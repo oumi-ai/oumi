@@ -34,7 +34,7 @@ def evaluate(
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Evaluates a model using the Alpaca Eval framework.
 
     For detailed documentation on the AlpacaEval framework, we refer you to the
@@ -173,3 +173,8 @@ def evaluate(
                 generation_params=generation_params,
                 inference_config=inference_config,
             )
+
+        if metric_dict:
+            return metric_dict
+
+    return {}

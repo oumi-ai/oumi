@@ -1,3 +1,5 @@
+from typing import Any
+
 from oumi.core.configs import EvaluationConfig
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
@@ -9,7 +11,7 @@ from oumi.evaluation.lm_harness import evaluate as evaluate_lm_harness
 from oumi.evaluation.platform_prerequisites import check_prerequisites
 
 
-def evaluate(config: EvaluationConfig) -> None:
+def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
     """Evaluates a model using the provided configuration.
 
     Args:
@@ -18,6 +20,7 @@ def evaluate(config: EvaluationConfig) -> None:
     Returns:
         None.
     """
+    results = []
     for task in config.tasks:
         check_prerequisites(
             evaluation_platform=task.get_evaluation_platform(),
@@ -27,7 +30,7 @@ def evaluate(config: EvaluationConfig) -> None:
         if task.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
             lm_harness_task_params = task.get_evaluation_platform_task_params()
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
-            evaluate_lm_harness(
+            result = evaluate_lm_harness(
                 task_params=lm_harness_task_params,
                 output_dir=config.output_dir,
                 model_params=config.model,
@@ -35,6 +38,7 @@ def evaluate(config: EvaluationConfig) -> None:
                 enable_wandb=config.enable_wandb,
                 run_name=config.run_name,
             )
+            results.append(result)
         elif task.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
             alpaca_eval_task_params = task.get_evaluation_platform_task_params()
             assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
@@ -42,7 +46,7 @@ def evaluate(config: EvaluationConfig) -> None:
                 raise ValueError(
                     "Inference engine must be specified for Alpaca Eval evaluation."
                 )
-            evaluate_alpaca_eval(
+            result = evaluate_alpaca_eval(
                 task_params=alpaca_eval_task_params,
                 output_dir=config.output_dir,
                 model_params=config.model,
@@ -51,5 +55,7 @@ def evaluate(config: EvaluationConfig) -> None:
                 inference_remote_params=config.inference_remote_params,
                 run_name=config.run_name,
             )
+            results.append(result)
         else:
             raise ValueError("Unknown evaluation platform")
+    return results
