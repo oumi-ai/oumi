@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Final
 
 import pytest
 
@@ -13,15 +12,10 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.image_utils import load_image_png_bytes_from_path
-from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_cuda_initialized, requires_gpus
 
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
-
-TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
-)
 
 
 @requires_cuda_initialized()
@@ -54,7 +48,9 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 @requires_cuda_initialized()
 @requires_gpus()
 @pytest.mark.skip(reason="TODO: this test takes too long to run")
-def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
+def test_infer_basic_interactive_with_images(
+    monkeypatch: pytest.MonkeyPatch, root_testdata_dir: Path
+):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="Qwen/Qwen2-VL-2B-Instruct",
@@ -66,7 +62,7 @@ def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
-        TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
+        root_testdata_dir / "images" / "the_great_wave_off_kanagawa.jpg"
     )
 
     # Simulate the user entering "Hello world!" in the terminal folowed by Ctrl+D.
@@ -84,7 +80,7 @@ def test_infer_basic_interactive_with_images(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
-def test_infer_basic_non_interactive(num_batches, batch_size):
+def test_infer_basic_non_interactive(num_batches: int, batch_size: int):
     model_params = ModelParams(
         model_name="openai-community/gpt2",
         trust_remote_code=True,
@@ -115,7 +111,10 @@ def test_infer_basic_non_interactive(num_batches, batch_size):
 
 @requires_gpus()
 @pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2)])
-def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
+@pytest.mark.single_gpu
+def test_infer_basic_non_interactive_with_images(
+    num_batches: int, batch_size: int, root_testdata_dir: Path
+):
     model_params = ModelParams(
         model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
@@ -128,7 +127,7 @@ def test_infer_basic_non_interactive_with_images(num_batches, batch_size):
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
-        TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
+        root_testdata_dir / "images" / "the_great_wave_off_kanagawa.jpg"
     )
 
     test_prompt: str = "Generate a short, descriptive caption for this image!"

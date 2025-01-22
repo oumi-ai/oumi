@@ -34,12 +34,10 @@ from oumi.utils.conversation_utils import (
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
-from oumi.utils.io_utils import get_oumi_root_directory
+from tests import get_testdata_dir
 
 _TARGET_SERVER: Final[str] = "http://fakeurl"
-_TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
-)
+_TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 
 
 #

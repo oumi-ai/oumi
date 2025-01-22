@@ -6,7 +6,7 @@ import nbformat
 import pytest
 from nbconvert.preprocessors import ExecutePreprocessor
 
-from oumi.utils.io_utils import get_oumi_root_directory
+from tests import get_notebooks_dir
 
 # Notebooks whose tests we should skip, as they can't be run in an automated fashion.
 # Reasons include that they're too slow, they start remote jobs, etc.
@@ -25,7 +25,7 @@ _NOTEBOOKS_TO_SKIP = {
 
 def get_notebooks():
     """Get all notebooks in the notebooks directory."""
-    notebooks_dir = get_oumi_root_directory().parent.parent / "notebooks"
+    notebooks_dir = get_notebooks_dir()
     notebooks_to_skip = _NOTEBOOKS_TO_SKIP.copy()
     notebooks_to_test = []
     for notebook_path in notebooks_dir.glob("*.ipynb"):

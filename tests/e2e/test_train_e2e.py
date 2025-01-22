@@ -12,10 +12,10 @@ import yaml
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
-from oumi.utils.io_utils import get_oumi_root_directory
+from tests import get_configs_dir
 from tests.markers import requires_gpus
 
-CONFIG_FOLDER_ROOT = get_oumi_root_directory().parent.parent.resolve() / "configs"
+CONFIG_FOLDER_ROOT = get_configs_dir()
 
 
 def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
@@ -318,6 +318,7 @@ def _do_test_train_impl(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.single_gpu
 def test_train_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
@@ -363,6 +364,7 @@ def test_train_1gpu_24gb(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.single_gpu
 def test_train_multimodal_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
