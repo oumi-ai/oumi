@@ -5,17 +5,27 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import pytest
 import yaml
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
+from oumi.utils.io_utils import load_json
 from tests import get_configs_dir
 from tests.markers import requires_gpus
 
 CONFIG_FOLDER_ROOT = get_configs_dir()
+
+
+def _remove_recursively(filepath: Path):
+    if filepath.is_file():
+        filepath.unlink()
+    elif filepath.is_dir():
+        for child in filepath.iterdir():
+            _remove_recursively(child)
+        filepath.rmdir()
 
 
 def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
@@ -34,22 +44,58 @@ def _is_file_not_empty(file_path: Path) -> bool:
     return file_path.stat().st_size > 0
 
 
-def _check_checkpoint_dir(dir_path: Path):
+def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
     """Helper to verify model directory structure."""
     # Check essential model files
     essential_files = [
         "config.json",
         "generation_config.json",
-        "model.safetensors",
         "special_tokens_map.json",
         "tokenizer_config.json",
         "tokenizer.json",
         "trainer_state.json",
         "training_args.bin",
     ]
+
     for file in essential_files:
         assert (dir_path / file).is_file(), f"Missing {file} in {dir_path}"
         assert _is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
+
+    model_safetensors = dir_path / "model.safetensors"
+
+    is_model_sharded: bool = False
+    if model_safetensors.exists():
+        assert (
+            model_safetensors.is_file()
+        ), f"Exists but not a file: {model_safetensors}"
+        assert _is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
+        is_model_sharded = False
+    else:
+        # The model is sharded. Let's validate model shards.
+        model_index_json = dir_path / "model.safetensors.index.json"
+        assert model_index_json.is_file(), (
+            "Model safetensors missing: "
+            f"None of {model_index_json} and {model_safetensors} exists"
+        )
+        model_shards = list(sorted(dir_path.glob("model-*-of-*.safetensors")))
+        assert (
+            len(model_shards) > 0
+        ), f"No 'model-*-of-*.safetensors' files found under {dir_path}"
+        for model_shard in model_shards:
+            assert (
+                dir_path / model_shard
+            ).is_file(), f"Missing {model_shard} in {dir_path}"
+            assert _is_file_not_empty(
+                dir_path / model_shard
+            ), f"Empty {model_shard} in {dir_path}"
+        index_dict: dict[str, Any] = load_json(model_index_json)
+        assert "weight_map" in index_dict, f"No `weights_map` in {model_index_json}"
+        assert isinstance(index_dict["weight_map"], dict)
+        index_shards = set(index_dict["weight_map"].values())
+        assert index_shards == set(
+            model_shards
+        ), "Shards defined in model index are inconsistent with shards on file system"
+        is_model_sharded = True
 
     # Verify config.json is valid JSON
     with open(dir_path / "config.json") as f:
@@ -82,6 +128,23 @@ def _check_checkpoint_dir(dir_path: Path):
         assert "best_model_checkpoint" in trainer_state, "Invalid trainer state"
         assert "log_history" in trainer_state, "Missing training logs in trainer state"
 
+    if validate_extra_files:
+        # Additional checkpoint-specific files
+        checkpoint_files = ["scheduler.pt"] + (
+            ["optimizer.bin"] if is_model_sharded else ["optimizer.pt", "rng_state.pth"]
+        )
+        for file in checkpoint_files:
+            assert (dir_path / file).exists(), f"Missing {file} in checkpoint"
+            assert _is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
+
+        if is_model_sharded:
+            rng_state_shards = list(sorted(dir_path.glob("rng_state_*.pth")))
+            assert len(rng_state_shards) > 1
+            for file in rng_state_shards:
+                assert _is_file_not_empty(
+                    dir_path / file
+                ), f"Empty {file} in checkpoint"
+
 
 class TrainTestConfig(NamedTuple):
     test_name: str
@@ -110,6 +173,7 @@ def _test_train_impl(
     *,
     use_distributed: bool,
     interactive_logs: bool = True,
+    cleanup_output_dir_on_success: bool = True,
 ):
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
@@ -142,7 +206,7 @@ def _test_train_impl(
 
         cmd: list[str] = []
         if use_distributed:
-            cmd.append("oumi distributed torchrun")
+            cmd.append("oumi distributed torchrun -m oumi train")
         else:
             cmd.append("oumi train")
 
@@ -197,10 +261,12 @@ def _test_train_impl(
         )
         duration_sec = time.perf_counter() - _START_TIME
         if result.returncode == 0:
-            print(f"{test_tag} Successfully finished in {duration_sec:.2f}s!")
+            print(
+                f"{test_tag} Training job successfully finished in {duration_sec:.2f}s!"
+            )
         else:
             print(
-                f"{test_tag} Training failed with error code: {result.returncode} "
+                f"{test_tag} Training job failed with error code: {result.returncode} "
                 f"in {duration_sec:.2f}s!"
             )
             if not interactive_logs:
@@ -233,15 +299,7 @@ def _test_train_impl(
         assert len(checkpoints) > 0, f"{test_tag} No checkpoints found"
 
         for checkpoint in checkpoints:
-            _check_checkpoint_dir(checkpoint)
-
-            # Additional checkpoint-specific files
-            checkpoint_files = ["optimizer.pt", "rng_state.pth", "scheduler.pt"]
-            for file in checkpoint_files:
-                assert (checkpoint / file).exists(), f"Missing {file} in checkpoint"
-                assert _is_file_not_empty(
-                    checkpoint / file
-                ), f"{test_tag} Empty {file} in checkpoint"
+            _check_checkpoint_dir(checkpoint, validate_extra_files=True)
 
         # Check logs directory
         logs_dir = train_output_dir / "logs"
@@ -287,9 +345,16 @@ def _test_train_impl(
             ), f"{test_tag} Invalid world size format"
 
     except Exception as e:
+        duration_sec = time.perf_counter() - _START_TIME
         print(f"{test_tag} Test failed: {str(e)}")
+        print(f"{test_tag} Test duration: {duration_sec:.2f}s")
         print(f"{test_tag} Test artifacts can be found in: {output_dir}")
         raise
+
+    if cleanup_output_dir_on_success:
+        # Clean-up temp data to stay under disk quota.
+        print(f"{test_tag} Cleaning up output dir on success: '{output_dir}'...")
+        _remove_recursively(output_dir)
 
 
 @requires_gpus(count=1, min_gb=24.0)
