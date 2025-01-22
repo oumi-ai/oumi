@@ -82,16 +82,14 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
             len(model_shards) > 0
         ), f"No 'model-*-of-*.safetensors' files found under {dir_path}"
         for model_shard in model_shards:
-            assert (
-                dir_path / model_shard
-            ).is_file(), f"Missing {model_shard} in {dir_path}"
-            assert _is_file_not_empty(
-                dir_path / model_shard
-            ), f"Empty {model_shard} in {dir_path}"
+            assert (model_shard).is_file(), f"Missing {model_shard}"
+            assert _is_file_not_empty(model_shard), f"Empty {model_shard}"
         index_dict: dict[str, Any] = load_json(model_index_json)
         assert "weight_map" in index_dict, f"No `weights_map` in {model_index_json}"
         assert isinstance(index_dict["weight_map"], dict)
-        index_shards = set(index_dict["weight_map"].values())
+        index_shards = {
+            (dir_path / shard) for shard in set(index_dict["weight_map"].values())
+        }
         assert index_shards == set(
             model_shards
         ), "Shards defined in model index are inconsistent with shards on file system"
