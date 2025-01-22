@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import Final
 
 import jsonlines
 import pytest
@@ -15,12 +14,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
-from oumi.utils.io_utils import get_oumi_root_directory
 from tests.markers import requires_cuda_initialized
-
-TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
-)
 
 
 def _get_default_text_model_params() -> ModelParams:
@@ -43,7 +37,9 @@ def _get_default_image_model_params() -> ModelParams:
 
 def _get_default_inference_config() -> InferenceConfig:
     return InferenceConfig(
-        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
+        generation=GenerationParams(
+            max_new_tokens=5, use_sampling=False, temperature=0.0, min_p=0.0, seed=42
+        )
     )
 
 
@@ -294,12 +290,13 @@ def test_infer_from_file_to_file():
 
 
 @requires_cuda_initialized()
-def test_infer_from_file_to_file_with_images():
+@pytest.mark.single_gpu
+def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
     png_image_bytes_great_wave = load_image_png_bytes_from_path(
-        TEST_IMAGE_DIR / "the_great_wave_off_kanagawa.jpg"
+        root_testdata_dir / "images" / "the_great_wave_off_kanagawa.jpg"
     )
     png_image_bytes_logo = load_image_png_bytes_from_path(
-        TEST_IMAGE_DIR / "oumi_logo_dark.png"
+        root_testdata_dir / "images" / "oumi_logo_dark.png"
     )
 
     test_prompt: str = "Generate a short, descriptive caption for this image!"
