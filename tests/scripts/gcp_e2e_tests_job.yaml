@@ -52,6 +52,9 @@ run: |
 
   ROOT_DIR=$(pwd)
 
+  cd "${ROOT_DIR}/tests/unit/"
+  pytest -s -vv  --durations=50 --timeout=300
+
   cd "${ROOT_DIR}/tests/"
   echo "Running all tests marked 'e2e' that require multiple GPUs..."
   pytest -s -vv -m "e2e and ${SINGLE_GPU_CONDITION}" --durations=50 --timeout=300
