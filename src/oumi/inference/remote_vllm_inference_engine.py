@@ -26,6 +26,7 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
             "guided_decoding",
+            "max_new_tokens",
         }
 
     @override

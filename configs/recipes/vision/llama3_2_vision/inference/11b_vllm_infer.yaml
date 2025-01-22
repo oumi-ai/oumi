@@ -8,6 +8,8 @@ model:
   model_max_length: 1024
   chat_template: "llama3-instruct"
   trust_remote_code: True
+  model_kwargs:
+    max_num_seqs: 2 # Set to a low number to reduce GPU memory requirements.
 
 generation:
   max_new_tokens: 32
