@@ -12,10 +12,10 @@ import yaml
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
-from oumi.utils.io_utils import get_oumi_root_directory
+from tests import get_configs_dir
 from tests.markers import requires_gpus
 
-CONFIG_FOLDER_ROOT = get_oumi_root_directory().parent.parent.resolve() / "configs"
+CONFIG_FOLDER_ROOT = get_configs_dir()
 
 
 def _get_output_dir(test_name: str, tmp_path: Path) -> Path:

@@ -7,7 +7,7 @@ name: oumi-e2e-tests
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100:1"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
   disk_size: 1000 # Disk size in GBs
@@ -54,10 +54,10 @@ run: |
 
   cd "${ROOT_DIR}/tests/unit/"
   echo "Running all unit tests..."
-  # pytest -s -vv --durations=50 --timeout=300
+  pytest -s -vv --durations=50 --timeout=300
 
   cd "${ROOT_DIR}/tests/"
-  echo "Running all tests marked 'e2e' that require multiple GPUs..."
+  echo "Running all tests: e2e and ${SINGLE_GPU_CONDITION}..."
   pytest -s -vv -m "e2e and ${SINGLE_GPU_CONDITION}" --durations=50 --timeout=300
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
