@@ -29,10 +29,9 @@ class TorchJsonEncoder(json.JSONEncoder):
         else:
             try:
                 return super().default(obj)
-            except Exception as e:
-                logger.error(f"Non-serializable value `{obj}` of type `{type(obj)}`.")
-                logger.error(f"Masking exception: {e}.")
-                return f"NON_SERIALIZABLE_OBJECT ({type(obj)})"
+            except Exception:
+                logger.warning(f"Non-serializable value `{obj}` of type `{type(obj)}`.")
+                return str(obj)
 
 
 def json_serializer(obj: Any) -> str:
