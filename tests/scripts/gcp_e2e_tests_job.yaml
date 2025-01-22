@@ -7,7 +7,7 @@ name: oumi-e2e-tests
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:4"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
   disk_size: 1000 # Disk size in GBs
