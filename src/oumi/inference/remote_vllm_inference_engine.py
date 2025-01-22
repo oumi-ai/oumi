@@ -49,7 +49,9 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),
-            "max_completion_tokens": generation_params.max_new_tokens,
+            "max_tokens": generation_params.max_new_tokens,
+            # "max_completion_tokens": generation_params.max_new_tokens,
+            # Future transition instead of `max_tokens`. See https://github.com/vllm-project/vllm/issues/9845
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
