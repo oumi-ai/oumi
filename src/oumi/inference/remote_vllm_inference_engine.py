@@ -44,13 +44,11 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
         api_input = {
-            "model": self._model
-            if self._adapter_model is None
-            else self._adapter_model,
+            "model": (self._adapter_model if self._adapter_model else self._model),
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),
-            # "max_completion_tokens": generation_params.max_new_tokens,
+            "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,

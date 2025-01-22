@@ -40,7 +40,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         enable_prefix_caching: bool = True,
         gpu_memory_utilization: float = 1.0,
         enforce_eager: bool = True,
-        max_num_seqs: int = 2,
+        max_num_seqs: int | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -92,6 +92,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             lora_rank = get_lora_rank(model_params.adapter_model)
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
+
+        if max_num_seqs is not None:
+            vllm_kwargs["max_num_seqs"] = max_num_seqs
+
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
@@ -108,7 +112,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             max_model_len=model_params.model_max_length,
             gpu_memory_utilization=gpu_memory_utilization,
             enforce_eager=enforce_eager,
-            max_num_seqs=max_num_seqs,
             **vllm_kwargs,
         )
         # Ensure the tokenizer is set properly
