@@ -41,19 +41,19 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
+  nvidia-smi
 
   pip install '.[ci_gpu]'
 
-  nvidia-smi
+  SINGLE_GPU_CONDITION='single_gpu'
+  if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
+    SINGLE_GPU_CONDITION='not single_gpu'
+  fi
 
   ROOT_DIR=$(pwd)
 
-  cd "${ROOT_DIR}/tests/integration/"
-  CUDA_VISIBLE_DEVICES=0 pytest -s -vv -m "not e2e and not e2e_eternal and single_gpu" --durations=50 --timeout=300
-  pytest -s -vv -m "not e2e and not e2e_eternal and not single_gpu" --durations=50 --timeout=300
-
-  cd "${ROOT_DIR}/tests/e2e/"
-  CUDA_VISIBLE_DEVICES=0 pytest -s -vv -m "e2e and single_gpu" --durations=50 --timeout=300
-  pytest -s -vv -m "e2e and not single_gpu" --durations=50 --timeout=300
+  cd "${ROOT_DIR}/tests/"
+  echo "Running all tests marked 'e2e' that require multiple GPUs..."
+  pytest -s -vv -m "e2e and ${SINGLE_GPU_CONDITION}" --durations=50 --timeout=300
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
