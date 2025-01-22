@@ -2,14 +2,14 @@
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
 # Sample command:
-# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster xrdaukar-1node4gpu-80gb-02-lema-cluster
+# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster
 name: oumi-e2e-tests
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:4"
+  accelerators: "A100-80GB:4" # "A100-80GB:4"
   # Allow Spot VM-s, which cost ~3X less.
-  use_spot: false # true
+  use_spot: true
   disk_size: 1000 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
@@ -61,5 +61,3 @@ run: |
   pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=900
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
-
-  # Non-editable: /home/gcpuser/sky_workdir/notebooks

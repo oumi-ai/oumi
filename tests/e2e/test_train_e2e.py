@@ -303,8 +303,12 @@ def _test_train_impl(
         logs_dir = train_output_dir / "logs"
         assert logs_dir.exists(), f"{test_tag} Logs directory not found"
         rank_logs = list(logs_dir.glob("rank_*.log"))
-        assert len(rank_logs) > 0, f"{test_tag} No rank logs found"
-        assert _is_file_not_empty(rank_logs[0]), f"{test_tag} Empty rank log file"
+        num_ranks = len(rank_logs)
+        assert num_ranks > 0, f"{test_tag} No rank logs found"
+        for idx in range(num_ranks):
+            assert _is_file_not_empty(
+                rank_logs[idx]
+            ), f"{test_tag} Empty rank log file: {rank_logs[idx]}"
 
         # Check telemetry directory
         telemetry_dir = train_output_dir / "telemetry"
@@ -338,9 +342,10 @@ def _test_train_impl(
 
         with open(telemetry_dir / "world_size.json") as f:
             world_size = json.load(f)
+            assert "WORLD_SIZE" in world_size
             assert (
-                world_size.get("WORLD_SIZE", None) == 1
-            ), f"{test_tag} Invalid world size format"
+                world_size.get("WORLD_SIZE", None) == num_ranks
+            ), f"{test_tag} World size is inconsistent with: {num_ranks}"
 
     except Exception as e:
         duration_sec = time.perf_counter() - _START_TIME
