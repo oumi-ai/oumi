@@ -2,12 +2,12 @@
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
 # Sample command:
-# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster
+# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
 name: oumi-e2e-tests
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:4" # "A100-80GB:4"
+  accelerators: "A100:1"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
   disk_size: 1000 # Disk size in GBs
