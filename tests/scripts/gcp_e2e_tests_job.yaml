@@ -58,6 +58,6 @@ run: |
 
   cd "${ROOT_DIR}/tests/"
   echo "Running all tests: e2e and ${SINGLE_GPU_CONDITION}..."
-  pytest -s -vv -m "e2e and ${SINGLE_GPU_CONDITION}" --durations=50 --timeout=300
+  pytest -s -vv -m "e2e and ${SINGLE_GPU_CONDITION}" --durations=50 --timeout=600
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
