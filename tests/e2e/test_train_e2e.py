@@ -104,8 +104,12 @@ def get_train_test_id_fn(val):
     return val.test_name
 
 
-def _do_test_train_impl(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+def _test_train_impl(
+    test_config: TrainTestConfig,
+    tmp_path: Path,
+    *,
+    use_distributed: bool,
+    interactive_logs: bool = True,
 ):
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
@@ -136,18 +140,25 @@ def _do_test_train_impl(
 
         assert test_config.max_steps > 0, f"max_steps: {test_config.max_steps}"
 
+        cmd: list[str] = []
+        if use_distributed:
+            cmd.append("oumi distributed torchrun")
+        else:
+            cmd.append("oumi train")
+
         # Execute training command
-        cmd = [
-            "oumi train",
-            "-c",
-            str(test_config.config_path),
-            "--training.max_steps",
-            str(test_config.max_steps),
-            "--training.output_dir",
-            str(output_dir / "train"),
-            "--training.run_name",
-            test_config.test_name,
-        ]
+        cmd.extend(
+            [
+                "-c",
+                str(test_config.config_path),
+                "--training.max_steps",
+                str(test_config.max_steps),
+                "--training.output_dir",
+                str(output_dir / "train"),
+                "--training.run_name",
+                test_config.test_name,
+            ]
+        )
 
         for param_name, param_value in [
             ("model_max_length", test_config.model_max_length),
@@ -322,8 +333,11 @@ def _do_test_train_impl(
 def test_train_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    _do_test_train_impl(
-        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=False,
+        interactive_logs=interactive_logs,
     )
 
 
@@ -368,8 +382,11 @@ def test_train_1gpu_24gb(
 def test_train_multimodal_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    _do_test_train_impl(
-        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=False,
+        interactive_logs=interactive_logs,
     )
 
 
@@ -400,6 +417,9 @@ def test_train_multimodal_1gpu_24gb(
 def test_train_fsdp_4gpu_80gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
-    _do_test_train_impl(
-        test_config=test_config, tmp_path=tmp_path, interactive_logs=interactive_logs
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+        interactive_logs=interactive_logs,
     )
