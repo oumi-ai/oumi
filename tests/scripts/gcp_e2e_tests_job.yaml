@@ -7,7 +7,7 @@ name: oumi-e2e-tests
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
   # Allow Spot VM-s, which cost ~3X less.
   use_spot: true
   disk_size: 1000 # Disk size in GBs
@@ -31,6 +31,7 @@ envs:
   TOKENIZERS_PARALLELISM: false
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+  ENABLE_OUMI_UNIT_TESTS: false
 
 setup: |
   set -e
@@ -52,9 +53,11 @@ run: |
 
   ROOT_DIR=$(pwd)
 
-  cd "${ROOT_DIR}/tests/unit/"
-  echo "Running all unit tests..."
-  # pytest -s -vv --durations=50 --timeout=300
+  if "${ENABLE_OUMI_UNIT_TESTS}"; then
+    cd "${ROOT_DIR}/tests/unit/"
+    echo "Running all unit tests..."
+    pytest -s -vv --durations=50 --timeout=300
+  fi
 
   cd "${ROOT_DIR}/tests/"
   echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
