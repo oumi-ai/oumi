@@ -4,7 +4,7 @@ This guide will help you set up a development environment for contributing to Ou
 
 ## 1. Install Miniconda
 
-The simplest way to install Miniconda is to first clone the Oumi repository (step 3.1 [below](#clone-the-oumi-repository)), then run:
+The simplest way to install Miniconda is to first clone the Oumi repository (step 2.2 [below](#clone-repository)), then run:
 
 ```shell
 make install-miniconda
@@ -12,12 +12,14 @@ make install-miniconda
 
 Alternatively, install Miniconda from the [Anaconda website](https://docs.anaconda.com/free/miniconda/miniconda-install/).
 
+(set-up-oumi)=
 ## 2. Set up Oumi
 
 ### 2.1 Fork the Oumi repository
 
 You can create a fork of Oumi by clicking the [Fork button](https://github.com/oumi-ai/oumi/fork) in the upper right of the repository. This will create a fork of Oumi associated with your GitHub account.
 
+(clone-repository)=
 ### 2.2 Clone your fork of the Oumi repository
 
 Now you're ready to clone your fork to your local disk and set up the original repository as a remote:

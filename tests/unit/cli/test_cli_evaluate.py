@@ -31,8 +31,9 @@ def _create_eval_config() -> EvaluationConfig:
             )
         ],
         model=ModelParams(
-            model_name="openai-community/gpt2",
+            model_name="MlpEncoder",
             trust_remote_code=True,
+            tokenizer_name="gpt2",
         ),
     )
 

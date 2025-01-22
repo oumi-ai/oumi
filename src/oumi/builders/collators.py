@@ -98,11 +98,19 @@ def build_data_collator(
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
-def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Callable]:
+def build_collator_from_config(
+    config: TrainingConfig, tokenizer: Optional[BaseTokenizer]
+) -> Optional[Callable]:
     """Creates data collator if specified in config."""
     train_split = config.data.get_split(DatasetSplit.TRAIN)
     if not train_split.collator_name:
         return None
+
+    if tokenizer is None:
+        raise ValueError(
+            "Tokenizer must be provided if collator is specified! "
+            f"collator: '{train_split.collator_name}'"
+        )
 
     model_config = find_internal_model_config(config.model)
 

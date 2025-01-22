@@ -51,3 +51,5 @@ class PileV1Dataset(BasePretrainingDataset):
     Citations:
         .. footbibliography::
     """
+
+    default_dataset = "EleutherAI/pile"

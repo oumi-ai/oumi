@@ -10,6 +10,7 @@ sft_datasets
 pretraining_datasets
 preference_datasets
 vl_sft_datasets
+other_datasets
 ```
 
 ## Overview
@@ -153,6 +154,7 @@ Our dataset collection covers various training objectives and tasks:
 | **Preference Tuning** | • Human preference data for RLHF or DPOtraining | [→ Preference learning guide](preference_datasets.md) |
 | **Vision-Language** | • Image-text pairs for multi-modal training <br>• Conversation format support for chat models| [→ Vision-language guide](vl_sft_datasets.md) |
 
+It's also possible to define custom datasets for new types of data not covered above. See [→ Other Datasets](other_datasets.md).
 
 ## Next Steps
 
