@@ -318,6 +318,7 @@ def _do_test_train_impl(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.single_gpu
 def test_train_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
@@ -363,6 +364,7 @@ def test_train_1gpu_24gb(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.single_gpu
 def test_train_multimodal_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
