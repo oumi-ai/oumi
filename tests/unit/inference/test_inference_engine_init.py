@@ -75,7 +75,9 @@ def _mock_engine(engine_class):
     """Mock the engine to avoid loading non-existent models."""
 
     mock_tokenizer = mock.MagicMock()
-    mock_tokenizer.pad_token_id = 0  #
+    mock_tokenizer.pad_token_id = 0
+    mock_tokenizer.eos_token_id = 0
+    mock_tokenizer.eos_token = "<eos>"
     mock_model = mock.MagicMock()
     mock_model.generate = mock.MagicMock()  # Add generate attribute
 

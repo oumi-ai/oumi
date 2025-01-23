@@ -72,12 +72,40 @@ def _should_skip_engine(engine_class) -> bool:
 
 def _mock_engine(engine_class):
     """Mock the engine to avoid loading non-existent models."""
+
+    mock_tokenizer = mock.MagicMock()
+    mock_tokenizer.pad_token_id = 0
+    mock_tokenizer.eos_token_id = 0
+    mock_tokenizer.eos_token = "<eos>"
+    mock_model = mock.MagicMock()
+    mock_model.generate = mock.MagicMock()  # Add generate attribute
+
     if engine_class == VLLMInferenceEngine:
-        mock_ctx = patch("vllm.LLM")
+        mock_llm = mock.MagicMock()
+        mock_ctx = patch.multiple(
+            "oumi.inference.vllm_inference_engine",
+            vllm=mock.MagicMock(LLM=mock.MagicMock(return_value=mock_llm)),
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+        )
     elif engine_class == LlamaCppInferenceEngine:
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
-    # elif issubclass(engine_class, RemoteInferenceEngine):
-    #     mock_ctx = patch("aiohttp.ClientSession")
+    elif engine_class == SGLangInferenceEngine:
+        mock_ctx = patch.multiple(
+            "oumi.inference.sglang_inference_engine",
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+            build_processor=mock.MagicMock(return_value=None),
+            is_image_text_llm=mock.MagicMock(return_value=False),
+        )
+    elif engine_class == NativeTextInferenceEngine:
+        mock_ctx = patch.multiple(
+            "oumi.inference.native_text_inference_engine",
+            build_model=mock.MagicMock(return_value=mock_model),
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+            build_processor=mock.MagicMock(return_value=None),
+            is_image_text_llm=mock.MagicMock(return_value=False),
+        )
+    elif issubclass(engine_class, RemoteInferenceEngine):
+        mock_ctx = patch("aiohttp.ClientSession")
     else:
         mock_ctx = contextlib.nullcontext()
 
@@ -418,6 +446,9 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
                 }
 
                 engine.infer([sample_conversation], inference_config)
+        elif engine_class == NativeTextInferenceEngine:
+            inference_config.generation.exclude_prompt_from_response = False
+            engine.infer([sample_conversation], inference_config)
         else:
             engine.infer([sample_conversation], inference_config)
 
