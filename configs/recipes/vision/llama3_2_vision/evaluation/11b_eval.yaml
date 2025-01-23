@@ -80,4 +80,3 @@ tasks:
   #   task_name: "mmmu_val_sociology"
 
 enable_wandb: True
-inference_engine: NATIVE
