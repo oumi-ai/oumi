@@ -215,6 +215,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params.api_key_env_varname:
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
+        self._remote_params.finalize_and_validate()
 
     @staticmethod
     def _get_list_of_message_json_dicts(
