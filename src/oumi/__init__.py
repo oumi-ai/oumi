@@ -94,14 +94,15 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
     return oumi.evaluate_async.evaluate_async(config)
 
 
-def evaluate(config: EvaluationConfig) -> None:
+def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
     """Evaluates a model using the provided configuration.
 
     Args:
         config: The desired configuration for evaluation.
 
     Returns:
-        None.
+        A list of evaluation results (one for each task). Each evaluation result is a
+        dictionary of metric names and their corresponding values.
     """
     import oumi.evaluate
 

@@ -42,4 +42,5 @@ class TheStackDataset(BasePretrainingDataset):
           Last timestamp of a stars/forks/issues event.
     """
 
+    default_dataset = "bigcode/the-stack"
     _data_column = "content"

@@ -175,7 +175,7 @@ def test_nvidia_gpu_runtime_info():
         # Test default argument value
         info = get_nvidia_gpu_runtime_info()
         assert info is not None
-        assert info.device_index == device_index
+        assert info.device_index == 0
         assert info.device_count == num_devices
         assert info.used_memory_mb is not None and info.used_memory_mb > 0
         assert (

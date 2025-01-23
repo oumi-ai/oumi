@@ -677,6 +677,13 @@ class TrainingParams(BaseParams):
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
             raise ValueError("max_grad_norm must be >= 0.")
 
+        if not (self.max_steps > 0 or self.num_train_epochs > 0):
+            raise ValueError(
+                "At least one of max_steps and num_train_epochs must be positive. "
+                f"Actual: max_steps: {self.max_steps}, "
+                f"num_train_epochs: {self.num_train_epochs}."
+            )
+
     @property
     def telemetry_dir(self) -> Optional[Path]:
         """Returns the telemetry stats output directory."""

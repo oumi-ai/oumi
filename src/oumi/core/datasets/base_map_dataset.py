@@ -65,7 +65,10 @@ class BaseMapDataset(MapDataPipe, ABC):
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
         dataset_type_name = self.__class__.__name__
-        logger.info(f"Creating map dataset (type: {dataset_type_name})...")
+        logger.info(
+            f"Creating map dataset (type: {dataset_type_name}) "
+            f"dataset_name: '{dataset_name}', dataset_path: '{dataset_path}'..."
+        )
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
@@ -357,7 +360,7 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         logger.info(
             f"Finished transforming dataset ({dataset_type_name})! "
-            f"Speed: {total_examples/duration_sec:.2f} examples/sec. "
+            f"Speed: {total_examples / duration_sec:.2f} examples/sec. "
             f"Examples: {total_examples}. "
             f"Duration: {duration_sec:.1f} sec. Transform workers: {num_proc}."
         )
@@ -406,8 +409,7 @@ class BaseMapDataset(MapDataPipe, ABC):
         gc.collect()
 
         logger.info(
-            f"Loaded DataFrame with shape: {result.shape}. Columns:\n"
-            f"{result.dtypes}"
+            f"Loaded DataFrame with shape: {result.shape}. Columns:\n{result.dtypes}"
         )
         return result
 

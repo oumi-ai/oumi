@@ -7,7 +7,7 @@ from oumi.utils.logging import get_logger
 
 
 @pytest.fixture
-def root_testdata_dir():
+def root_testdata_dir() -> Path:
     return Path(__file__).parent / "testdata"
 
 

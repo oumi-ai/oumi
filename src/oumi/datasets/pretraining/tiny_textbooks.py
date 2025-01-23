@@ -23,3 +23,5 @@ class TinyTextbooksDataset(BasePretrainingDataset):
         - The MiniPile Challenge for Data-Efficient Language Models
       (https://arxiv.org/abs/2304.08442)
     """
+
+    default_dataset = "nampdn-ai/tiny-textbooks"
