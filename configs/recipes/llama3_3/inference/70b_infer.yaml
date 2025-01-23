@@ -1,0 +1,18 @@
+# Class: oumi.core.configs.InferenceConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+
+# Inference config for Llama 3.3v 70B Instruct with a NATIVE engine.
+
+model:
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+
+engine: NATIVE

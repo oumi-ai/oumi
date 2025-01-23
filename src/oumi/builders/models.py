@@ -432,7 +432,7 @@ def build_tokenizer(
             )
             logger.warning(
                 "Setting tokenizer to use the 'default' chat template "
-                f"for model '{model_params.model_name}'."
+                f"for model '{model_params.model_name}'. "
                 "The 'default' template does not use any special tokens, "
                 "and is unlikely to yield good results."
             )
