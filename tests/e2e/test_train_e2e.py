@@ -388,12 +388,7 @@ def _test_train_impl(
         TrainTestConfig(
             test_name="pretrain_gpt2",
             config_path=(
-                CONFIG_FOLDER_ROOT
-                / "configs"
-                / "recipes"
-                / "gpt2"
-                / "pretraining"
-                / "train.yaml"
+                CONFIG_FOLDER_ROOT / "recipes" / "gpt2" / "pretraining" / "train.yaml"
             ),
             batch_size=16,
             dataloader_num_workers=2,
@@ -404,7 +399,6 @@ def _test_train_impl(
             test_name="smollm_135m_sft",
             config_path=(
                 CONFIG_FOLDER_ROOT
-                / "configs"
                 / "recipes"
                 / "smollm"
                 / "sft"
