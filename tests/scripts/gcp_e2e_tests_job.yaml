@@ -37,6 +37,7 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install ".[ci_gpu]" hf_transfer
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
