@@ -101,7 +101,6 @@ def configure_logger(
             console_handler_out.setLevel(level)
 
             def _filter_log_record(record):
-                # print(f"record: {record}")
                 return record.levelno < logging.WARNING
 
             console_handler_out.addFilter(_filter_log_record)
