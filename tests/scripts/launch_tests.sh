@@ -15,5 +15,5 @@ do
    CLUSTER_SUFFIX=$(echo "print('${CURR_GPU_NAME}'.lower().replace(':','-').strip())" | python)
    CLUSTER_NAME="${E2E_CLUSTER_PREFIX}-${CLUSTER_SUFFIX}"
    oumi launch up --config "${E2E_TEST_CONFIG}" --resources.accelerators="${CURR_GPU_NAME}" --cluster "${CLUSTER_NAME}"
-   sky stop "${CLUSTER_NAME}"
+   sky stop --yes "${CLUSTER_NAME}"
 done
