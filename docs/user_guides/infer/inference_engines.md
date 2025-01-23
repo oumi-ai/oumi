@@ -403,6 +403,48 @@ engine = RemoteInferenceEngine(
 
 - [OpenAI API Documentation](https://platform.openai.com/docs) for OpenAI API details
 
+### Together
+
+[Together](https://together.xyz) offers remote inference for 100+ models through serverless endpoints.
+
+**Basic Usage**
+
+```python
+from oumi.inference import RemoteInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = RemoteInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Llama-3.2-1B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_url="https://api.together.xyz/v1/chat/completions",
+        api_key_env_varname="TOGETHER_API_KEY",
+    )
+)
+```
+
+### DeepSeek
+
+[DeepSeek](https://deepseek.com) allows to access the DeepSeek models (Chat, Code, and Reasoning) through the DeepSeek AI Platform.
+
+**Basic Usage**
+
+```python
+from oumi.inference import RemoteInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = RemoteInferenceEngine(
+    model_params=ModelParams(
+        model_name="deepseek-chat"
+    ),
+    remote_params=RemoteParams(
+        api_url="https://api.deepseek.com/v1/chat/completions",
+        api_key_env_varname="DEEPSEEK_API_KEY",
+    )
+)
+```
+
 ### Parasail.io
 
 [Parasail.io](https://parasail.io) offers a cloud-native inference platform that combines the flexibility of self-hosted models with the convenience of cloud infrastructure.
