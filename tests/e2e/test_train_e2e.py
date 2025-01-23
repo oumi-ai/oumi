@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -17,15 +18,6 @@ from tests import get_configs_dir
 from tests.markers import requires_gpus
 
 CONFIG_FOLDER_ROOT = get_configs_dir()
-
-
-def _remove_recursively(filepath: Path):
-    if filepath.is_file():
-        filepath.unlink()
-    elif filepath.is_dir():
-        for child in filepath.iterdir():
-            _remove_recursively(child)
-        filepath.rmdir()
 
 
 def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
@@ -357,7 +349,7 @@ def _test_train_impl(
     if cleanup_output_dir_on_success:
         # Clean-up temp data to stay under disk quota.
         print(f"{test_tag} Cleaning up output dir on success: '{output_dir}'...")
-        _remove_recursively(output_dir)
+        shutil.rmtree(output_dir)
 
 
 @requires_gpus(count=1, min_gb=24.0)
