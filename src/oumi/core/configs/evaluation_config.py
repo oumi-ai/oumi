@@ -60,7 +60,3 @@ class EvaluationConfig(BaseConfig):
     def __post_init__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
-
-        """Ensure that the model and inference engine are compatible."""
-        if self.inference_engine:
-            self.inference_engine.verify_model_compatibility(self.model)
