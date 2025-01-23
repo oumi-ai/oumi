@@ -187,6 +187,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params: Remote server params.
         """
         self._model = model_params.model_name
+        self._adapter_model = model_params.adapter_model
         self._remote_params = copy.deepcopy(remote_params)
 
     @staticmethod

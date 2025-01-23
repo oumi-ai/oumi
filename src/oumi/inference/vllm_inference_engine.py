@@ -40,6 +40,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         enable_prefix_caching: bool = True,
         gpu_memory_utilization: float = 1.0,
         enforce_eager: bool = True,
+        max_num_seqs: int | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -54,6 +55,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 full (100%) memory utilization.
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
+            max_num_seqs: Maximum number of sequences per iteration.
         """
         if not vllm:
             raise RuntimeError(
@@ -90,6 +92,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             lora_rank = get_lora_rank(model_params.adapter_model)
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
+
+        if max_num_seqs is not None:
+            vllm_kwargs["max_num_seqs"] = max_num_seqs
+
         self._tokenizer = build_tokenizer(model_params)
         self._model_params = model_params
         self._llm = vllm.LLM(
