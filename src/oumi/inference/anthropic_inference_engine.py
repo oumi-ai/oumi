@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -27,11 +27,17 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     https://docs.anthropic.com/claude/reference/versioning
     """
 
-    base_url = "https://api.anthropic.com/v1/messages"
-    """The base URL for the Anthropic API."""
+    @property
+    @override
+    def base_url(self) -> Optional[str]:
+        """Return the default base URL for the Anthropic API."""
+        return "https://api.anthropic.com/v1/messages"
 
-    api_key_env_varname = "ANTHROPIC_API_KEY"
-    """The environment variable name for the Anthropic API key."""
+    @property
+    @override
+    def api_key_env_varname(self) -> Optional[str]:
+        """Return the default environment variable name for the Anthropic API key."""
+        return "ANTHROPIC_API_KEY"
 
     @override
     def _convert_conversation_to_api_input(

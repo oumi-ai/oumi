@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -12,6 +12,18 @@ _ROLE_KEY: str = "role"
 
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Remote vLLM."""
+
+    @property
+    @override
+    def base_url(self) -> Optional[str]:
+        """Return the default base URL for the Remote vLLM API."""
+        return None
+
+    @property
+    @override
+    def api_key_env_varname(self) -> Optional[str]:
+        """Return the default environment variable name for the Remote vLLM API key."""
+        return None
 
     @override
     def get_supported_params(self) -> set[str]:
