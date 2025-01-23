@@ -89,6 +89,8 @@ def configure_logger(
 
     # Add a console handler to the logger for only global leader.
     if device_rank == 0:
+        # Configure STDOUT/STDERR console logging:
+        # https://stackoverflow.com/questions/2302315/
         level_value = _get_logging_level_value(level)
         if level_value < logging.WARNING:
             # Configure STDOUT logging
