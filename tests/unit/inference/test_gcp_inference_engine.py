@@ -38,7 +38,7 @@ def create_test_remote_params():
 def gcp_engine():
     model_params = ModelParams(model_name="gcp-model")
     return GoogleVertexInferenceEngine(
-        model_params=model_params, remote_params=create_test_remote_params()
+        model_params, remote_params=create_test_remote_params()
     )
 
 

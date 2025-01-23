@@ -20,8 +20,7 @@ def test_openai_init_with_custom_params():
         api_key="custom-key",
     )
     engine = OpenAIInferenceEngine(
-        model_params=model_params,
-        remote_params=remote_params,
+        model_params=model_params, remote_params=remote_params
     )
     assert engine._model == "gpt-4"
     assert engine._remote_params.api_url == "custom-url"
@@ -31,7 +30,7 @@ def test_openai_init_with_custom_params():
 def test_openai_init_default_params():
     """Test initialization with default parameters."""
     model_params = ModelParams(model_name="gpt-4")
-    engine = OpenAIInferenceEngine(model_params=model_params)
+    engine = OpenAIInferenceEngine(model_params)
     assert engine._model == "gpt-4"
     assert engine._remote_params.api_url == "https://api.openai.com/v1/chat/completions"
     assert engine._remote_params.api_key_env_varname == "OPENAI_API_KEY"
