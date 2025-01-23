@@ -204,13 +204,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         self._model = model_params.model_name
 
-        if not remote_params:
+        if remote_params:
+            remote_params = copy.deepcopy(remote_params)
+        else:
             remote_params = RemoteParams()
+
         if not remote_params.api_url:
             remote_params.api_url = self.base_url
         if not remote_params.api_key_env_varname:
             remote_params.api_key_env_varname = self.api_key_env_varname
-        self._remote_params = copy.deepcopy(remote_params)
+        self._remote_params = remote_params
 
     @staticmethod
     def _get_list_of_message_json_dicts(

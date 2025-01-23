@@ -142,7 +142,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return result
 
     def _infer(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
@@ -155,7 +157,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
 
         if generation_params.guided_decoding is not None:
             guided_decoding = VLLMGuidedDecodingParams.from_optional(
@@ -223,7 +229,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
             output_conversations.append(new_conversation)
 
-        if inference_config.output_path:
+        if inference_config and inference_config.output_path:
             self._save_conversations(
                 output_conversations,
                 inference_config.output_path,
@@ -232,7 +238,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -247,7 +255,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

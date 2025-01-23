@@ -141,7 +141,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
@@ -155,7 +157,11 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             appended. Each conversation in the output list corresponds to an input
             conversation, with an additional message from the assistant (model) added.
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
         output_conversations = []
 
         # skip using a progress for single turns
@@ -198,7 +204,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
-            if inference_config.output_path:
+            if inference_config and inference_config.output_path:
                 self._save_conversation(
                     new_conversation,
                     inference_config.output_path,
@@ -221,7 +227,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -236,7 +244,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

@@ -202,7 +202,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: list[Conversation],
-        inference_config: InferenceConfig,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
@@ -213,7 +213,11 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Returns:
             object: A list of model responses of shape (num_batches, batch_size).
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
         model_device = next(self._model.parameters()).device
         if generation_params.batch_size is None:
             logger.warning("Batch size not specified. Defaulting to 1.")
@@ -321,7 +325,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     metadata=conversation.metadata,
                     conversation_id=conversation.conversation_id,
                 )
-                if inference_config.output_path:
+                if inference_config and inference_config.output_path:
                     self._save_conversation(
                         new_conversation, inference_config.output_path
                     )
@@ -331,7 +335,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -346,7 +352,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
