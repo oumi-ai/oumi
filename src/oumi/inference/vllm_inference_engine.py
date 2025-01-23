@@ -73,20 +73,21 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"{gpu_memory_utilization}."
             )
 
-        # Ensure the model is compatible (we dont support BitsAndBytes yet).
+        # Ensure the model is compatible (we do NOT support BitsAndBytes yet).
         if model_params.model_kwargs:
             incompatible_model_kwargs = ["load_in_4bit", "load_in_8bit"]
-            if any(
-                key in model_params.model_kwargs.keys()
-                for key in incompatible_model_kwargs
-            ):
-                raise RuntimeError(
-                    "`VLLM` inference engine does not support BitsAndBytes "
-                    "quantization. Please either remove relevant quantization keys "
-                    f"(such as {', '.join(incompatible_model_kwargs)}) from "
-                    "`model_params.model_kwargs`, or use the `NATIVE` inference engine "
-                    "instead."
-                )
+            for key in incompatible_model_kwargs:
+                if (
+                    key in model_params.model_kwargs.keys()
+                    and model_params.model_kwargs[key]
+                ):
+                    raise RuntimeError(
+                        "`VLLM` inference engine does not support BitsAndBytes "
+                        "quantization. Please either remove relevant quantization "
+                        f"keys (such as {', '.join(incompatible_model_kwargs)}) from "
+                        "`model_params.model_kwargs`, or use the `NATIVE` inference "
+                        "engine instead."
+                    )
 
         if tensor_parallel_size <= 0:
             if torch.cuda.device_count() > 1:
