@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import warnings
 from pathlib import Path
 from typing import Optional, Union
@@ -47,6 +48,21 @@ def _detect_rank() -> int:
     return 0
 
 
+def _get_logging_level_value(level: Union[str, int]) -> int:
+    """Returns a numeric value of a logging level."""
+    level_value = logging.DEBUG
+    if isinstance(level, str):
+        level_value = logging.getLevelName(level.upper())
+        if not isinstance(level_value, int):
+            raise TypeError(
+                f"getLevelName() mapped log level name to non-integer: "
+                f"{type(level_value)}!"
+            )
+    elif isinstance(level, int):
+        level_value = int(level)
+    return level_value
+
+
 def configure_logger(
     name: str,
     level: str = "info",
@@ -59,7 +75,8 @@ def configure_logger(
     logger.handlers = []
 
     # Configure the logger
-    logger.setLevel(level.upper())
+    level = level.upper()
+    logger.setLevel(level)
 
     device_rank = _detect_rank()
 
@@ -72,10 +89,23 @@ def configure_logger(
 
     # Add a console handler to the logger for only global leader.
     if device_rank == 0:
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(level.upper())
-        logger.addHandler(console_handler)
+        level_value = _get_logging_level_value(level)
+        if level_value < logging.WARNING:
+            # Configure STDOUT logging
+            console_handler_out = logging.StreamHandler(sys.stdout)
+            console_handler_out.setFormatter(formatter)
+            console_handler_out.setLevel(level)
+            console_handler_out.addFilter(
+                lambda record: record.levelno < logging.WARNING
+            )
+            logger.addHandler(console_handler_out)
+
+        # Configure STDERR logging
+        console_handler_err = logging.StreamHandler(sys.stderr)
+        # Take only warnings and error logs
+        console_handler_err.setLevel(max(level_value, logging.WARNING))
+        console_handler_err.setFormatter(formatter)
+        logger.addHandler(console_handler_out)
 
     # Add a file handler if log_dir is provided
     if log_dir:
@@ -84,7 +114,7 @@ def configure_logger(
 
         file_handler = logging.FileHandler(log_dir / f"rank_{device_rank:04d}.log")
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(level.upper())
+        file_handler.setLevel(level)
         logger.addHandler(file_handler)
 
     logger.propagate = False
@@ -110,16 +140,7 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
     Args:
         level (str, optional): The log level to set for the logger. Defaults to "info".
     """
-    level_value = logging.DEBUG
-    if isinstance(level, str):
-        level_value = logging.getLevelName(level.upper())
-        if not isinstance(level_value, int):
-            raise TypeError(
-                f"getLevelName() mapped log level name to non-integer: "
-                f"{type(level_value)}!"
-            )
-    elif isinstance(level, int):
-        level_value = int(level)
+    level_value = _get_logging_level_value(level)
 
     if level_value > logging.DEBUG:
         warnings.filterwarnings(action="ignore", category=UserWarning, module="torch")
