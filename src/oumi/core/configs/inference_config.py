@@ -45,7 +45,10 @@ class InferenceEngineType(str, Enum):
 
         if self == InferenceEngineType.VLLM:
             incompatible_model_kwargs = ["load_in_4bit", "load_in_8bit"]
-            if model_params.model_kwargs.keys() & incompatible_model_kwargs:
+            if any(
+                key in model_params.model_kwargs.keys()
+                for key in incompatible_model_kwargs
+            ):
                 raise RuntimeError(
                     "`VLLM` inference engine does not support BitsAndBytes "
                     "quantization. Please either remove relevant quantization keys "
