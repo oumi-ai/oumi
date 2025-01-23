@@ -10,7 +10,7 @@ resources:
   cloud: gcp
   accelerators: "A100:4"
   # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
-  use_spot: true
+  use_spot: false
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .

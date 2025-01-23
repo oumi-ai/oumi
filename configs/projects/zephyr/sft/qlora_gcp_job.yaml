@@ -8,7 +8,7 @@ resources:
   accelerators: "A100:8"
   disk_size: 200  # Disk size in GB
   # region: us-west3  # Uncomment this line to only consider a specific region.
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 

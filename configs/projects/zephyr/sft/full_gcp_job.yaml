@@ -12,7 +12,7 @@ resources:
   disk_size: 200  # Disk size in GB
   # region: us-west1  # Uncomment this line to only consider a specific region.
 
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 
