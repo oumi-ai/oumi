@@ -13,6 +13,20 @@ from oumi.utils.logging import logger
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
 
+    def __init__(self, inference_config: Optional[InferenceConfig] = None):
+        """Initializes the inference engine.
+
+        Args:
+            inference_config: The inference configuration.
+        """
+        self.inference_config = inference_config
+        self.generation_params = (
+            inference_config.generation if inference_config else None
+        )
+
+        if self.generation_params:
+            self._check_unsupported_params(self.generation_params)
+
     def infer(
         self,
         input: Optional[list[Conversation]] = None,
@@ -28,20 +42,20 @@ class BaseInferenceEngine(ABC):
         Returns:
             List[Conversation]: Inference output.
         """
-        if inference_config is None:
-            logger.warning("No inference config provided. Using the default config.")
-            inference_config = InferenceConfig()
-        if input is not None and inference_config.input_path is not None:
+        if input is not None and (
+            inference_config and inference_config.input_path is not None
+        ):
             raise ValueError(
-                "Only one of input or inference_config.input_path should be "
-                "provided."
+                "Only one of input or inference_config.input_path should be provided."
             )
 
-        self._check_unsupported_params(inference_config.generation)
+        generation_params = inference_config.generation if inference_config else None
+        if generation_params:
+            self._check_unsupported_params(generation_params)
 
         if input is not None:
             return self.infer_online(input, inference_config)
-        elif inference_config.input_path is not None:
+        elif inference_config and inference_config.input_path is not None:
             return self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
@@ -150,7 +164,9 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -165,7 +181,9 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

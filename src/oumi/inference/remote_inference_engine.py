@@ -402,7 +402,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _infer(
         self,
         input: list[Conversation],
-        inference_config: InferenceConfig,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
@@ -436,7 +436,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def infer_online(
         self,
         input: list[Conversation],
-        inference_config: InferenceConfig,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -448,13 +448,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config.output_path:
+        if inference_config and inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self, input_filepath: str, inference_config: Optional[InferenceConfig] = None
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -471,7 +471,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         input = self._read_conversations(input_filepath)
         conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config.output_path:
+        if inference_config and inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
@@ -496,7 +496,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def infer_batch(
         self,
         conversations: list[Conversation],
-        inference_config: InferenceConfig,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> str:
         """Creates a new batch inference job.
 
@@ -507,9 +507,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The batch job ID
         """
-        return safe_asyncio_run(
-            self._create_batch(conversations, inference_config.generation)
+        generation_params = (
+            inference_config.generation if inference_config else self._generation_params
         )
+        return safe_asyncio_run(self._create_batch(conversations, generation_params))
 
     def get_batch_status(
         self,
