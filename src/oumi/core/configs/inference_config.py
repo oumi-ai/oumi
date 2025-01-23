@@ -38,6 +38,22 @@ class InferenceEngineType(str, Enum):
     GOOGLE_GEMINI = "GEMINI"
     """The inference engine for Gemini."""
 
+    def verify_model_compatibility(self, model_params: Optional[ModelParams]) -> None:
+        """Checks if a model is compatible with this inference engine type."""
+        if not model_params or not model_params.model_kwargs:
+            return
+
+        if self == InferenceEngineType.VLLM:
+            incompatible_model_kwargs = ["load_in_4bit", "load_in_8bit"]
+            if model_params.model_kwargs.keys() & incompatible_model_kwargs:
+                raise RuntimeError(
+                    "`VLLM` inference engine does not support BitsAndBytes "
+                    "quantization. Please either remove relevant quantization keys "
+                    f"(such as {', '.join(incompatible_model_kwargs)}) from "
+                    "`model_params.model_kwargs`, or use the `NATIVE` inference engine "
+                    "instead."
+                )
+
 
 @dataclass
 class InferenceConfig(BaseConfig):
@@ -76,3 +92,8 @@ class InferenceConfig(BaseConfig):
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
+
+    def __post_init__(self):
+        """Ensure that the model and inference engine are compatible."""
+        if self.engine:
+            self.engine.verify_model_compatibility(self.model)

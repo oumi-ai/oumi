@@ -153,3 +153,8 @@ class JudgeConfig(BaseConfig):
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
+
+    def __post_init__(self):
+        """Ensure that the model and inference engine are compatible."""
+        if self.engine:
+            self.engine.verify_model_compatibility(self.model)
