@@ -19,7 +19,10 @@ def test_deepseek_init_with_custom_params():
         api_url="custom-url",
         api_key="custom-key",
     )
-    engine = DeepSeekInferenceEngine(model_params, remote_params)
+    engine = DeepSeekInferenceEngine(
+        model_params=model_params,
+        remote_params=remote_params,
+    )
     assert engine._model == "deepseek-model"
     assert engine._remote_params.api_url == "custom-url"
     assert engine._remote_params.api_key == "custom-key"
@@ -28,7 +31,7 @@ def test_deepseek_init_with_custom_params():
 def test_deepseek_init_default_params():
     """Test initialization with default parameters."""
     model_params = ModelParams(model_name="deepseek-model")
-    engine = DeepSeekInferenceEngine(model_params)
+    engine = DeepSeekInferenceEngine(model_params=model_params)
     assert engine._model == "deepseek-model"
     assert (
         engine._remote_params.api_url == "https://api.deepseek.com/v1/chat/completions"

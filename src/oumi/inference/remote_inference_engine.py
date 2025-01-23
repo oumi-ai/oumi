@@ -179,19 +179,35 @@ class FileListResponse:
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
 
+    base_url: str
+    """The base URL for the remote API."""
+
+    api_key_env_varname: str
+    """The environment variable name for the API key."""
+
     def __init__(
         self,
+        *,
         model_params: ModelParams,
-        remote_params: RemoteParams,
         generation_params: Optional[GenerationParams] = None,
+        remote_params: Optional[RemoteParams] = None,
+        **kwargs,
     ):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
-            remote_params: Remote server params.
             generation_params: Generation parameters to use for inference.
+            remote_params: Remote server params.
+            **kwargs: Additional keyword arguments.
         """
+        if not remote_params:
+            remote_params = RemoteParams()
+        if not remote_params.api_url:
+            remote_params.api_url = self.base_url
+        if not remote_params.api_key_env_varname:
+            remote_params.api_key_env_varname = self.api_key_env_varname
+
         self._model = model_params.model_name
         self._remote_params = copy.deepcopy(remote_params)
         self._generation_params = generation_params or GenerationParams()

@@ -5,7 +5,11 @@ from typing import Optional
 import jsonlines
 from tqdm import tqdm
 
-from oumi.core.configs import GenerationParams, InferenceConfig
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+)
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
@@ -13,16 +17,21 @@ from oumi.utils.logging import logger
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
 
-    def __init__(self, inference_config: Optional[InferenceConfig] = None):
+    def __init__(
+        self,
+        model_params: ModelParams,
+        generation_params: Optional[GenerationParams] = None,
+        **kwargs,
+    ):
         """Initializes the inference engine.
 
         Args:
-            inference_config: The inference configuration.
+            model_params: The model parameters.
+            generation_params: The generation parameters.
+            **kwargs: Additional keyword arguments.
         """
-        self.inference_config = inference_config
-        self.generation_params = (
-            inference_config.generation if inference_config else None
-        )
+        self.model_params = model_params
+        self.generation_params = generation_params
 
         if self.generation_params:
             self._check_unsupported_params(self.generation_params)

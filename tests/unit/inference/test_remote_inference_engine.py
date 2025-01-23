@@ -172,7 +172,7 @@ def test_infer_online():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation = Conversation(
@@ -225,7 +225,8 @@ def test_infer_online():
 
 def test_infer_no_remote_params():
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     with pytest.raises(
         ValueError, match="Remote params must be provided in inference config"
@@ -239,7 +240,8 @@ def test_infer_no_remote_params():
 
 def test_infer_online_empty():
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     expected_result = []
     result = engine.infer_online(
@@ -257,7 +259,7 @@ def test_infer_online_fails():
         m.post(_TARGET_SERVER, status=501)
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation = Conversation(
@@ -293,7 +295,7 @@ def test_infer_online_fails_with_message():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation = Conversation(
@@ -339,7 +341,7 @@ def test_infer_online_recovers_from_retries():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation = Conversation(
@@ -434,7 +436,7 @@ def test_infer_online_multiple_requests():
         m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation1 = Conversation(
@@ -555,7 +557,7 @@ def test_infer_online_multiple_requests_politeness():
 
         remote_params = RemoteParams(api_url=_TARGET_SERVER, politeness_policy=0.5)
         engine = RemoteInferenceEngine(
-            _get_default_model_params(), remote_params=remote_params
+            model_params=_get_default_model_params(), remote_params=remote_params
         )
         conversation1 = Conversation(
             messages=[
@@ -688,7 +690,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             num_workers=2,
         )
         engine = RemoteInferenceEngine(
-            _get_default_model_params(), remote_params=remote_params
+            model_params=_get_default_model_params(), remote_params=remote_params
         )
 
         conversation1 = Conversation(
@@ -765,7 +767,7 @@ def test_infer_from_file_empty():
         _setup_input_conversations(str(input_path), [])
         remote_params = RemoteParams(api_url=_TARGET_SERVER, num_workers=2)
         engine = RemoteInferenceEngine(
-            _get_default_model_params(), remote_params=remote_params
+            model_params=_get_default_model_params(), remote_params=remote_params
         )
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = InferenceConfig(
@@ -846,7 +848,7 @@ def test_infer_from_file_to_file():
             m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
             remote_params = RemoteParams(api_url=_TARGET_SERVER, num_workers=2)
             engine = RemoteInferenceEngine(
-                _get_default_model_params(), remote_params=remote_params
+                model_params=_get_default_model_params(), remote_params=remote_params
             )
             conversation1 = Conversation(
                 messages=[
@@ -1067,7 +1069,8 @@ def test_convert_conversation_to_api_input_with_json_schema():
         confidence: float
 
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1099,7 +1102,8 @@ def test_convert_conversation_to_api_input_with_json_schema():
 def test_convert_conversation_to_api_input_without_guided_decoding():
     """Test conversion without guided decoding."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1121,7 +1125,8 @@ def test_convert_conversation_to_api_input_without_guided_decoding():
 def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
     """Test conversion with invalid guided decoding raises error."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1148,7 +1153,8 @@ def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
 def test_convert_conversation_to_api_input_with_dict_schema():
     """Test conversion with JSON schema provided as a dictionary."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1189,7 +1195,8 @@ def test_convert_conversation_to_api_input_with_dict_schema():
 def test_convert_conversation_to_api_input_with_json_string_schema():
     """Test conversion with JSON schema provided as a JSON string."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1237,7 +1244,8 @@ def test_convert_conversation_to_api_input_with_json_string_schema():
 def test_convert_conversation_to_api_input_with_invalid_json_string():
     """Test conversion with invalid JSON string raises error."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1264,7 +1272,8 @@ def test_convert_conversation_to_api_input_with_invalid_json_string():
 def test_convert_conversation_to_api_input_with_unsupported_schema_type():
     """Test conversion with unsupported schema type raises error."""
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     conversation = Conversation(
         messages=[
@@ -1294,7 +1303,8 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
 
 def test_get_request_headers_no_remote_params():
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
     headers = engine._get_request_headers(None)
     assert headers == {}
@@ -1303,7 +1313,7 @@ def test_get_request_headers_no_remote_params():
 def test_get_request_headers_with_api_key():
     remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="test-key")
     engine = RemoteInferenceEngine(
-        _get_default_model_params(), remote_params=remote_params
+        model_params=_get_default_model_params(), remote_params=remote_params
     )
     headers = engine._get_request_headers(remote_params)
     assert headers == {"Authorization": "Bearer test-key"}
@@ -1315,7 +1325,7 @@ def test_get_request_headers_with_env_var():
             api_url=_TARGET_SERVER, api_key_env_varname="OPENAI_API_KEY"
         )
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
@@ -1328,7 +1338,7 @@ def test_get_request_headers_missing_env_var():
             api_url=_TARGET_SERVER, api_key_env_varname="NONEXISTENT_API_KEY"
         )
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
@@ -1346,7 +1356,7 @@ async def test_upload_batch_file():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1383,7 +1393,7 @@ async def test_create_batch():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1420,7 +1430,7 @@ async def test_get_batch_status():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1476,7 +1486,7 @@ async def test_get_batch_results():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1513,7 +1523,7 @@ def test_infer_batch():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1549,7 +1559,7 @@ def test_get_batch_status_public():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1604,7 +1614,7 @@ def test_get_batch_results_public():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1656,7 +1666,7 @@ async def test_list_batches():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
@@ -1706,7 +1716,7 @@ def test_list_batches_public():
         )
 
         engine = RemoteInferenceEngine(
-            _get_default_model_params(),
+            model_params=_get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
 
