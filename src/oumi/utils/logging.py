@@ -104,10 +104,10 @@ def configure_logger(
 
         # Configure STDERR logging
         console_handler_err = logging.StreamHandler(sys.stderr)
-        # Take only warnings and error logs
+        # Take only warnings, errors, and higher
         console_handler_err.setLevel(max(level_value, logging.WARNING))
         console_handler_err.setFormatter(formatter)
-        logger.addHandler(console_handler_out)
+        logger.addHandler(console_handler_err)
 
     # Add a file handler if log_dir is provided
     if log_dir:
