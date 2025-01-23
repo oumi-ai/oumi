@@ -77,10 +77,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if model_params.model_kwargs:
             incompatible_model_kwargs = ["load_in_4bit", "load_in_8bit"]
             for key in incompatible_model_kwargs:
-                if (
-                    key in model_params.model_kwargs.keys()
-                    and model_params.model_kwargs[key]
-                ):
+                if model_params.model_kwargs.get(key):
                     raise RuntimeError(
                         "`VLLM` inference engine does not support BitsAndBytes "
                         "quantization. Please either remove relevant quantization "
