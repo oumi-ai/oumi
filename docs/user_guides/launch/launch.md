@@ -40,12 +40,14 @@ Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check
 Like most configurable pieces of Oumi, Jobs are defined via YAML configs. In this case, every job is defined by a {class}`~oumi.launcher.JobConfig`.
 
 When creating a job, there are several important fields you should be aware of:
+
 - {attr}`~oumi.launcher.JobConfig.resources`: where you specify resource requirements (cloud to use, GPUs, disk size, etc)  via {class}`oumi.launcher.JobResources`
 - {attr}`~oumi.launcher.JobConfig.setup`: an optional script that is run when a cluster is created
 - {attr}`~oumi.launcher.JobConfig.run`: the main script to run for your job
 - {attr}`~oumi.launcher.JobConfig.working_dir`: the local directory to be copied to the cluster for use during execution.
 
 A sample job is provided below:
+
 ````{dropdown} configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 ```{literalinclude} ../../../configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 :language: yaml
@@ -73,9 +75,11 @@ For a quick overview of all `oumi launch` commands, see our [CLI Launch Referenc
 :::{tab-item} CLI
 
 To launch a job on your desired cloud, run:
+
 ```{code-block} shell
 oumi launch up --cluster my-cluster -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 ```
+
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
 To launch on the cloud of your choice, use the `--resources.cloud` flag, ex. `--resources.cloud lambda`. Most of our configs run on GCP by default. See {attr}`~oumi.launcher.JobResources.cloud` for all supported clouds, or run:
@@ -104,6 +108,7 @@ changes on the cluster.
 :::{tab-item} Python
 
 To launch a job on your desired cloud, run:
+
 ```{code-block} python
 import oumi.launcher as launcher
 
@@ -112,6 +117,7 @@ job_config = launcher.JobConfig.from_yaml(str(Path("configs/recipes/smollm/sft/1
 # Start the job
 launcher.up(job_config, "your_cluster_name")
 ```
+
 This command will create the cluster if it doesn't exist, and then execute the job on it. It can also run the job on an existing cluster with that name.
 
 To launch on the cloud of your choice, simply set `job_config.resources.cloud`, ex. `job_config.resources.cloud = "gcp"`. Most of our configs run on GCP by default. See {attr}`~oumi.launcher.JobResources.cloud` for all supported clouds, or run:
@@ -135,13 +141,14 @@ changes on the cluster.
 :::
 ::::
 
-
 #### Mount Cloud Storage
 
 You can mount cloud storage containers like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. This is a fantastic way to write important information (such as data or model checkpoints) to a persistent disk that outlives your cluster's lifetime.
 
 ```{tip}
 Writing your job's output to cloud storage is recommended for preemptible cloud instances, or jobs outputting a large amount of data like large model checkpoints. Data on local disk will be lost on job preemption, and your job's local disk may not have enough storage for multiple large model checkpoints.
+
+To resume training from your last saved checkpoint after your instance is preempted, set `--training.try_resume_from_last_checkpoint=True` in your {py:class}`~oumi.core.configs.TrainingConfig`.
 ```
 
 For example, to mount your GCS bucket `gs://my-bucket`, add the following to your {py:class}`~oumi.core.configs.JobConfig`:
@@ -161,7 +168,6 @@ To improve I/O speeds, prefer using a bucket in the same cloud region as your jo
 
 ### Check Cluster and Job Status
 
-
 ::::{tab-set}
 :::{tab-item} CLI
 To quickly check the status of all jobs and clusters, run:
@@ -177,6 +183,7 @@ To further filter this list, you can optionally specify a cloud provider, cluste
 ```{code-block} shell
 oumi launch status --cluster my-cluster --id my-job-id
 ```
+
 :::
 
 :::{tab-item} Python
@@ -201,10 +208,9 @@ status_list = launcher.status(cluster="my-cluster", id="my-job-id")
 
 print(status_list)
 ```
+
 :::
 ::::
-
-
 
 ### View Logs
 
@@ -242,8 +248,6 @@ section.
 :::
 ::::
 
-
-
 ### Stop/Turn Down Clusters
 
 ::::{tab-set}
@@ -263,6 +267,7 @@ To turn down a cluster, which deletes their associated disk and removes them fro
 ```{code-block} shell
 oumi launch down --cluster my-cluster
 ```
+
 :::
 
 :::{tab-item} Python
@@ -285,5 +290,6 @@ import oumi.launcher as launcher
 
 launcher.down(cloud_name="gcp", cluster_name="my-cluster")
 ```
+
 :::
 ::::
