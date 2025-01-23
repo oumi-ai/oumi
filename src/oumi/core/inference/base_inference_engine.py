@@ -1,3 +1,4 @@
+import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
@@ -17,24 +18,29 @@ from oumi.utils.logging import logger
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
 
+    _model_params: ModelParams
+    """The model parameters."""
+
+    _generation_params: GenerationParams
+    """The generation parameters."""
+
     def __init__(
         self,
         model_params: ModelParams,
+        *,
         generation_params: Optional[GenerationParams] = None,
-        **kwargs,
     ):
         """Initializes the inference engine.
 
         Args:
             model_params: The model parameters.
             generation_params: The generation parameters.
-            **kwargs: Additional keyword arguments.
         """
-        self.model_params = model_params
-        self.generation_params = generation_params
+        self._model_params = copy.deepcopy(model_params)
+        self._generation_params = copy.deepcopy(generation_params) or GenerationParams()
 
-        if self.generation_params:
-            self._check_unsupported_params(self.generation_params)
+        if self._generation_params:
+            self._check_unsupported_params(self._generation_params)
 
     def infer(
         self,

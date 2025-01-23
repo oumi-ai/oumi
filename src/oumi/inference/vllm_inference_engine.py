@@ -6,7 +6,7 @@ import torch
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -35,6 +35,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
+        *,
+        generation_params: GenerationParams | None = None,
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
         enable_prefix_caching: bool = True,
@@ -45,6 +47,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         Args:
             model_params: The model parameters to use for inference.
+            generation_params: The generation parameters to use for inference.
             tensor_parallel_size: The number of tensor parallel processes to use.
                 If set to -1, we will use all the available GPUs.
             quantization: The quantization method to use for inference.
@@ -55,6 +58,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         if not vllm:
             raise RuntimeError(
                 "vLLM is not installed. "
@@ -91,7 +96,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
         self._tokenizer = build_tokenizer(model_params)
-        self._model_params = model_params
         self._llm = vllm.LLM(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,

@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import cast
+from typing import Optional, cast
 
 from tqdm.auto import tqdm
 from typing_extensions import override
 
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -44,6 +44,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
     ):
         """Initializes the LlamaCppInferenceEngine.
 
@@ -56,6 +58,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             model_params (ModelParams): Parameters for the model, including the model
                 name, maximum length, and any additional keyword arguments for model
                 initialization.
+            generation_params (GenerationParams): Parameters for generation.
 
         Raises:
             RuntimeError: If the llama-cpp-python package is not installed.
@@ -71,6 +74,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         if not Llama:
             raise RuntimeError(
                 "llama-cpp-python is not installed. "

@@ -1,4 +1,3 @@
-import copy
 from typing import Optional
 
 import PIL.Image
@@ -25,13 +24,20 @@ from oumi.utils.logging import logger
 class NativeTextInferenceEngine(BaseInferenceEngine):
     """Engine for running text-to-text model inference."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
+    ):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            generation_params: Parameters for generation.
         """
-        self._model_params = copy.deepcopy(model_params)
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None

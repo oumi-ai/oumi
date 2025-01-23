@@ -388,7 +388,9 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
     with mock_ctx, mock.patch.object(engine_class, "_check_unsupported_params"):
         remote_params = RemoteParams(api_url="test")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params=model_params, remote_param=remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 

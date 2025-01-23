@@ -187,11 +187,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def __init__(
         self,
-        *,
         model_params: ModelParams,
+        *,
         generation_params: Optional[GenerationParams] = None,
         remote_params: Optional[RemoteParams] = None,
-        **kwargs,
     ):
         """Initializes the inference Engine.
 
@@ -201,16 +200,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params: Remote server params.
             **kwargs: Additional keyword arguments.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
+        self._model = model_params.model_name
+
         if not remote_params:
             remote_params = RemoteParams()
         if not remote_params.api_url:
             remote_params.api_url = self.base_url
         if not remote_params.api_key_env_varname:
             remote_params.api_key_env_varname = self.api_key_env_varname
-
-        self._model = model_params.model_name
         self._remote_params = copy.deepcopy(remote_params)
-        self._generation_params = generation_params or GenerationParams()
 
     @staticmethod
     def _get_list_of_message_json_dicts(
