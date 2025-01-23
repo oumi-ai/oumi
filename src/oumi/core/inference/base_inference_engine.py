@@ -37,10 +37,11 @@ class BaseInferenceEngine(ABC):
             generation_params: The generation parameters.
         """
         self._model_params = copy.deepcopy(model_params)
-        self._generation_params = copy.deepcopy(generation_params) or GenerationParams()
-
-        if self._generation_params:
-            self._check_unsupported_params(self._generation_params)
+        if generation_params:
+            self._check_unsupported_params(generation_params)
+        else:
+            generation_params = GenerationParams()
+        self._generation_params = generation_params
 
     def infer(
         self,
@@ -64,9 +65,11 @@ class BaseInferenceEngine(ABC):
                 "Only one of input or inference_config.input_path should be provided."
             )
 
-        generation_params = inference_config.generation if inference_config else None
-        if generation_params:
+        if inference_config and inference_config.generation:
+            generation_params = inference_config.generation
             self._check_unsupported_params(generation_params)
+        else:
+            generation_params = self._generation_params
 
         if input is not None:
             return self.infer_online(input, inference_config)
