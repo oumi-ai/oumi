@@ -179,7 +179,7 @@ class FileListResponse:
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
 
-    base_url: str
+    base_url: Optional[str] = None
     """The base URL for the remote API."""
 
     api_key_env_varname: Optional[str] = None

@@ -223,19 +223,29 @@ def test_infer_online():
         assert expected_result == result
 
 
-def test_infer_no_remote_params():
-    engine = RemoteInferenceEngine(
-        model_params=_get_default_model_params(),
-        remote_params=RemoteParams(api_url=_TARGET_SERVER),
-    )
+def test_infer_no_remote_params_api_url():
     with pytest.raises(
-        ValueError, match="Remote params must be provided in inference config"
+        ValueError, match="The API URL must be provided in remote_params"
     ):
-        engine.infer_online([], InferenceConfig())
+        RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+        )
+
     with pytest.raises(
-        ValueError, match="Remote params must be provided in inference config"
+        ValueError, match="The API URL must be provided in remote_params"
     ):
-        engine.infer_from_file("path", InferenceConfig())
+        RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(),
+        )
+
+    with pytest.raises(
+        ValueError, match="The API URL must be provided in remote_params"
+    ):
+        RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=""),
+        )
 
 
 def test_infer_online_empty():
