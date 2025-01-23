@@ -92,14 +92,19 @@ def configure_logger(
         # Configure STDOUT/STDERR console logging:
         # https://stackoverflow.com/questions/2302315/
         level_value = _get_logging_level_value(level)
+        print(f"level_value: {level_value} WARNING: {logging.WARNING}")
         if level_value < logging.WARNING:
             # Configure STDOUT logging
+            print("logging.StreamHandler(sys.stdout)")
             console_handler_out = logging.StreamHandler(sys.stdout)
             console_handler_out.setFormatter(formatter)
             console_handler_out.setLevel(level)
-            console_handler_out.addFilter(
-                lambda record: record.levelno < logging.WARNING
-            )
+
+            def _filter_log_record(record):
+                # print(f"record: {record}")
+                return record.levelno < logging.WARNING
+
+            console_handler_out.addFilter(_filter_log_record)
             logger.addHandler(console_handler_out)
 
         # Configure STDERR logging
