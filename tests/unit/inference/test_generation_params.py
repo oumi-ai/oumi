@@ -72,12 +72,40 @@ def _should_skip_engine(engine_class) -> bool:
 
 def _mock_engine(engine_class):
     """Mock the engine to avoid loading non-existent models."""
+
+    mock_tokenizer = mock.MagicMock()
+    mock_tokenizer.pad_token_id = 0
+    mock_tokenizer.eos_token_id = 0
+    mock_tokenizer.eos_token = "<eos>"
+    mock_model = mock.MagicMock()
+    mock_model.generate = mock.MagicMock()  # Add generate attribute
+
     if engine_class == VLLMInferenceEngine:
-        mock_ctx = patch("vllm.LLM")
+        mock_llm = mock.MagicMock()
+        mock_ctx = patch.multiple(
+            "oumi.inference.vllm_inference_engine",
+            vllm=mock.MagicMock(LLM=mock.MagicMock(return_value=mock_llm)),
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+        )
     elif engine_class == LlamaCppInferenceEngine:
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
-    # elif issubclass(engine_class, RemoteInferenceEngine):
-    #     mock_ctx = patch("aiohttp.ClientSession")
+    elif engine_class == SGLangInferenceEngine:
+        mock_ctx = patch.multiple(
+            "oumi.inference.sglang_inference_engine",
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+            build_processor=mock.MagicMock(return_value=None),
+            is_image_text_llm=mock.MagicMock(return_value=False),
+        )
+    elif engine_class == NativeTextInferenceEngine:
+        mock_ctx = patch.multiple(
+            "oumi.inference.native_text_inference_engine",
+            build_model=mock.MagicMock(return_value=mock_model),
+            build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+            build_processor=mock.MagicMock(return_value=None),
+            is_image_text_llm=mock.MagicMock(return_value=False),
+        )
+    elif issubclass(engine_class, RemoteInferenceEngine):
+        mock_ctx = patch("aiohttp.ClientSession")
     else:
         mock_ctx = contextlib.nullcontext()
 
@@ -120,7 +148,9 @@ def test_generation_params_used_in_inference(
     ):
         remote_params = RemoteParams(api_url="<placeholder>")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -180,7 +210,9 @@ def test_generation_params_defaults_used_in_inference(
     ):
         remote_params = RemoteParams(api_url="<placeholder>")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -222,7 +254,9 @@ def test_supported_params_exist_in_config(
     with mock_ctx:
         remote_params = RemoteParams(api_url="<placeholder>")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -262,7 +296,9 @@ def test_unsupported_params_warning(
     ):
         remote_params = RemoteParams(api_url="test")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -314,7 +350,9 @@ def test_no_warning_for_default_values(
     ):
         remote_params = RemoteParams(api_url="test")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -378,7 +416,9 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
     with mock_ctx, mock.patch.object(engine_class, "_check_unsupported_params"):
         remote_params = RemoteParams(api_url="test")
         if issubclass(engine_class, RemoteInferenceEngine):
-            engine = engine_class(model_params, remote_params)
+            engine = engine_class(
+                model_params=model_params, remote_params=remote_params
+            )
         else:
             engine = engine_class(model_params)
 
@@ -406,6 +446,9 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
                 }
 
                 engine.infer([sample_conversation], inference_config)
+        elif engine_class == NativeTextInferenceEngine:
+            inference_config.generation.exclude_prompt_from_response = False
+            engine.infer([sample_conversation], inference_config)
         else:
             engine.infer([sample_conversation], inference_config)
 
