@@ -1,6 +1,6 @@
 <div align="center">
 <img src="_static/logo/oumi_logo_dark.png" alt="Oumi Logo" width="150"/>
-<h1> Oumi: Open Universal Machine Intelligence </h1>
+# Oumi: Open Universal Machine Intelligence
 </div>
 
 [![Github](https://img.shields.io/badge/Github-oumi-blue.svg)](https://github.com/oumi-ai/oumi)
