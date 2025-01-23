@@ -12,6 +12,7 @@ model:
   trust_remote_code: True
   model_max_length: 2048
   chat_template: "zephyr"
+  tokenizer_pad_token: "</s>"
   attn_implementation: "sdpa"
 
 data:
@@ -24,8 +25,7 @@ data:
     target_col: "text"
 
 training:
-  optimizer: "adamw_torch"
-  use_peft: False
+  optimizer: "adamw_torch_fused"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 16
@@ -39,7 +39,6 @@ training:
   warmup_ratio: 0.1
   gradient_checkpointing_kwargs:
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
-  max_steps: -1
   num_train_epochs: 1
   save_steps: 100
   mixed_precision_dtype: "BF16"

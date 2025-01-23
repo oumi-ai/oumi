@@ -5,7 +5,7 @@ name: phi3-dpo-fsdp
 
 resources:
   cloud: gcp
-  accelerators: "A40:2"
+  accelerators: "A100:2"
   use_spot: true
 
 working_dir: .

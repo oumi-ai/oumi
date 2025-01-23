@@ -5,7 +5,7 @@ name: phi3-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100"
+  accelerators: "A100:1"
 
   disk_size: 200  # Disk size in GB
 

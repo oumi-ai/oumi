@@ -12,6 +12,7 @@ model:
   trust_remote_code: True
   model_max_length: 2048
   chat_template: "zephyr"
+  tokenizer_pad_token: "</s>"
   attn_implementation: "sdpa"
 
 data:

@@ -29,10 +29,10 @@ file_mounts:
 # Note: Autostop is a feature that allows you to set a timer to ensure that the machine
 # automatically stops after a certain period of inactivity. This is useful to save costs
 # and resources when the machine is not being actively used.
-storage_mounts:
-  /my-gcs-bucket:
-    source: gs://my-gcs-bucket
-    store: gcs
+# storage_mounts:
+#   /my-gcs-bucket:
+#     source: gs://my-gcs-bucket
+#     store: gcs
 
 envs:
   OUMI_RUN_NAME: smollm135m.eval

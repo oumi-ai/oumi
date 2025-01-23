@@ -16,6 +16,7 @@ generation:
 tasks:
   - evaluation_platform: lm_harness
     task_name: mmmu_val
+    # num_samples: 100  # Limit the number of eval samples.
     eval_kwargs:
       num_fewshot: 5
   # To enable individual sub-tasks, uncomment the entries of interest below:

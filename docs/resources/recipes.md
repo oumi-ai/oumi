@@ -100,7 +100,6 @@ This section lists an example config for various training techniques supported b
 | | `recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml` |
 | | `recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml>` {gh}`configs/recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml` |
 | GPT-2 | `recipes/gpt2/inference/infer.yaml` | {download}`Download </../configs/recipes/gpt2/inference/infer.yaml>` {gh}`configs/recipes/gpt2/inference/infer.yaml` |
-| Mistral | `examples/bulk_inference/mistral_small_infer.yaml` | {download}`Download </../configs/examples/bulk_inference/mistral_small_infer.yaml>` {gh}`configs/examples/bulk_inference/mistral_small_infer.yaml` |
 
 ## Additional Resources
 

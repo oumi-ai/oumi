@@ -1,6 +1,8 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
+# NOTE: Your must first request access to the GPQA dataset here:
+# https://huggingface.co/datasets/Idavidrein/gpqa
 # Config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
 # Example command:
 # oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml --cluster smollm-135m-lb-v2-eval
@@ -34,10 +36,10 @@ file_mounts:
 # Note: Autostop is a feature that allows you to set a timer to ensure that the machine
 # automatically stops after a certain period of inactivity. This is useful to save costs
 # and resources when the machine is not being actively used.
-storage_mounts:
-  /my-gcs-bucket:
-    source: gs://my-gcs-bucket
-    store: gcs
+# storage_mounts:
+#   /my-gcs-bucket:
+#     source: gs://my-gcs-bucket
+#     store: gcs
 
 envs:
   OUMI_RUN_NAME: smollm135m.eval
