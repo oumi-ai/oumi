@@ -75,6 +75,11 @@ For a detailed guide on distributed training, see {doc}`/user_guides/train/train
 
 ## Environment
 
+This command is a great tool for debugging!
+
+`oumi env` will list relevant details of your environment setup, including python
+version, package versions, and Oumi environment variables.
+
 ```{typer} oumi.cli.main.app.env
   :prog: oumi env
   :make-sections:

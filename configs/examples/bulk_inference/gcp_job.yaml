@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 name: oumi-bulk-inference
 
 num_nodes: 1
@@ -5,7 +8,7 @@ resources:
   cloud: gcp
   accelerators: "A100:2"
   use_spot: true
-  disk_size: 2000 # Disk size in GBs
+  disk_size: 400 # Disk size in GBs
 
 working_dir: .
 
@@ -24,12 +27,12 @@ storage_mounts:
 
 envs:
   TOKENIZERS_PARALLELISM: false
-  INFERENCE_CONFIG: configs/examples/bulk_inference/mistral_small_infer.yaml # Inference config file
+  INFERENCE_CONFIG: configs/recipes/llama3_1/inference/8b_infer.yaml # Inference config file
   HF_DATASETS_TRUST_REMOTE_CODE: 1
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install '.[gpu]' vllm==0.6.3
 
 run: |
   set -e  # Exit if any command failed.

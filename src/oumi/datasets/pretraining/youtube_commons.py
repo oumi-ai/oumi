@@ -44,3 +44,5 @@ class YouTubeCommonsDataset(BasePretrainingDataset):
     Note:
         This dataset is licensed under CC-BY-4.0.
     """
+
+    default_dataset = "PleIAs/YouTube-Commons"

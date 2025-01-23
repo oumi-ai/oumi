@@ -19,6 +19,8 @@ _COCO_COLUMN_BYTES = "bytes"
 
 @register_dataset("coco_captions")
 class COCOCaptionsDataset(VisionLanguageSftDataset):
+    """Dataset class for the `HuggingFaceM4/COCO` dataset."""
+
     default_dataset = "HuggingFaceM4/COCO"
     default_prompt = "Describe this image:"
 

@@ -51,11 +51,16 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-- `train`
-- `evaluate`
-- `infer`
-- `launch`
-- `judge`
+
+| Command      | Purpose                                                               |
+|--------------|-----------------------------------------------------------------------|
+`train`        | Train a model.
+`evaluate`     | Evaluate a model.
+`infer`        | Run inference on a model.
+`launch`       | Launch jobs remotely.
+`judge`        | Judge datasets, models or conversations.
+`env`          | Prints information about the current environment.
+`distributed`  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
 
 See {doc}`/cli/commands` for full CLI details.
 
@@ -114,10 +119,10 @@ For a full list of recipes, you can explore the {doc}`recipes page </resources/r
 |------|-------------|---------------|
 | Recipe | Predefined configurations in Oumi for common model training, evaluation and inference workflows | {doc}`/resources/recipes` |
 | Launcher | Oumi's job orchestration system for running workloads across different cloud providers | {doc}`/user_guides/launch/launch` |
-| Models | Model architectures and implementations. Oumi supports most models from HuggingFace's transformers library, as well as custom models. | {doc}`/resources/models/custom_models` |
-| Datasets | Data loading and preprocessing pipelines | {doc}`/resources/datasets/custom_datasets` |
-| Trainers | Orchestrate training process and optimization. Oumi supports custom trainers, as well as trainers from HuggingFace's transformers, TRL, and many others in the future. | {doc}`/user_guides/train/training_methods` |
-| Data Mixtures | Oumi's system for combining and weighting multiple datasets during training | {doc}`/resources/datasets/custom_datasets` |
+| Models | Model architectures and implementations. Oumi supports most models from HuggingFace's `transformers` library, as well as custom models. | {doc}`/resources/models/custom_models` |
+| Datasets | Data loading and preprocessing pipelines | {doc}`/resources/datasets/datasets` |
+| Trainers | Orchestrate training process and optimization. Oumi supports custom trainers, as well as trainers from HuggingFace's `transformers`, `TRL`, and many others in the future. | {doc}`/user_guides/train/training_methods` |
+| Data Mixtures | Oumi's system for combining and weighting multiple datasets during training | {doc}`/resources/datasets/datasets` |
 | Oumi Judge | Built-in system for evaluating model outputs based on customizable attributes (e.g. helpfulness, honesty, and safety) | {doc}`/user_guides/judge/judge` |
 
 ## Navigating the Repository
@@ -154,7 +159,7 @@ To contribute to Oumi or troubleshoot issues, it's helpful to understand how the
 
 ## Next Steps
 
-1. **Get started with Oumi:** Follow the {doc}`/get_started/quickstart` guide to install Oumi and run your first training job.
+1. **Get started with Oumi:** First {doc}`install Oumi </get_started/installation>`, then follow the {doc}`/get_started/quickstart` guide to run your first training job.
 2. **Explore example recipes:**  Check out the {doc}`/resources/recipes` page and try running a few examples.
 3. **Dive deeper with tutorials:** The {doc}`/get_started/tutorials` provide step-by-step guidance on specific tasks and workflows.
 4. **Learn more about key functionalities:** Explore detailed guides on {doc}`training </user_guides/train/training_methods>`, {doc}`inference </user_guides/infer/infer>`, {doc}`evaluation </user_guides/evaluate/evaluate>`, and {doc}`model judging </user_guides/judge/judge>`.

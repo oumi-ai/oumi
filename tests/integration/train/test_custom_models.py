@@ -1,5 +1,4 @@
 import tempfile
-import unittest
 
 from transformers import Trainer
 
@@ -8,7 +7,6 @@ from oumi.builders.data import build_dataset_mixture
 from oumi.builders.models import (
     build_model,
     build_tokenizer,
-    is_custom_model,
     is_image_text_llm,
 )
 from oumi.core.configs import (
@@ -21,6 +19,9 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
+)
 
 
 def _get_default_config(output_temp_dir):
@@ -29,14 +30,12 @@ def _get_default_config(output_temp_dir):
             train=DatasetSplitParams(
                 datasets=[
                     DatasetParams(
-                        dataset_name="Salesforce/wikitext",
-                        subset="wikitext-2-raw-v1",
-                        dataset_kwargs={"seq_length": 128},
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 25, "seq_length": 128},
                     )
                 ],
                 stream=True,
                 pack=True,
-                target_col="text",
             ),
         ),
         model=ModelParams(
@@ -89,7 +88,6 @@ def test_train_native_pt_model_from_api():
         trainer.train()
 
 
-@unittest.skip("Temporarily disabled. Failing potentially due to network timeout")
 def test_train_native_pt_model_from_config():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         config = _get_default_config(output_temp_dir)

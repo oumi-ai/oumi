@@ -184,6 +184,7 @@ class ModelParams(BaseParams):
             "trust_remote_code": self.trust_remote_code,
             "parallelize": self.shard_for_eval,
             "dtype": self.torch_dtype,
+            "device_map": self.device_map,
         }
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
@@ -193,7 +194,7 @@ class ModelParams(BaseParams):
         # Handle extra model_kwargs (construction arguments).
         # Towards OPE-564.
         if self.model_kwargs:
-            relevant_for_lm = ["load_in_4bit", "load_in_8bit"]
+            relevant_for_lm = ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]
             for key in relevant_for_lm:
                 if key in self.model_kwargs:
                     model_args_dict[key] = self.model_kwargs[key]

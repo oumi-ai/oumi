@@ -24,6 +24,8 @@ from oumi.core.types.conversation import (
     Conversation,
     Message,
     Role,
+    TemplatedMessage,
+    Type,
 )
 from oumi.core.types.exceptions import HardwareException
 
@@ -34,4 +36,6 @@ __all__ = [
     "Conversation",
     "Message",
     "Role",
+    "Type",
+    "TemplatedMessage",
 ]

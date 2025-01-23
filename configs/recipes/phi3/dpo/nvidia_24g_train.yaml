@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
   torch_dtype_str: "bfloat16"
@@ -9,7 +12,7 @@ data:
       - dataset_name: "mlabonne/orpo-dpo-mix-40k"
 
 training:
-  optimizer: "adamw_torch"
+  optimizer: "adamw_torch_fused"
   use_peft: true
   output_dir: "output/phi3.dpo"
   trainer_type: "TRL_DPO"
@@ -22,10 +25,4 @@ training:
 peft:
   q_lora: False
   lora_target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
-    - "o_proj"
-    - "gate_proj"
-    - "up_proj"
-    - "down_proj"
+    - "qkv_proj"

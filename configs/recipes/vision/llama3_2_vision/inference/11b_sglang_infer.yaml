@@ -1,3 +1,11 @@
+# Class: oumi.core.configs.InferenceConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+
+# Sample command to start SGLang server:
+# CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
+#     --model-path meta-llama/Llama-3.2-11B-Vision-Instruct \
+#     --tokenizer-path meta-llama/Llama-3.2-11B-Vision-Instruct \
+#     --port 6864 --disable-cuda-graph --mem-fraction-static=0.99
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
   torch_dtype_str: "bfloat16"
@@ -9,17 +17,12 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
-# Sample command to start SGLang server:
-# CUDA_VISIBLE_DEVICES=0 python3 -m sglang.launch_server \
-#     --model-path meta-llama/Llama-3.2-11B-Vision-Instruct \
-#     --tokenizer-path meta-llama/Llama-3.2-11B-Vision-Instruct \
-#     --port 30000 --disable-cuda-graph --mem-fraction-static=0.99
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).
   # For production use, set it to a remote address/port.
   # For more details, see the following:
   # https://sgl-project.github.io/references/sampling_params.html
   # https://github.com/skypilot-org/skypilot/blob/master/llm/sglang/README.md
-  api_url: "http://127.0.0.1:30000/generate"
+  api_url: "http://127.0.0.1:6864/generate"
 
 engine: SGLANG

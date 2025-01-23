@@ -27,7 +27,11 @@ class TorchJsonEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         else:
-            return super().default(obj)
+            try:
+                return super().default(obj)
+            except Exception:
+                logger.warning(f"Non-serializable value `{obj}` of type `{type(obj)}`.")
+                return str(obj)
 
 
 def json_serializer(obj: Any) -> str:

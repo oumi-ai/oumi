@@ -134,22 +134,46 @@ def test_trainer_initialization(
 
 def test_get_total_training_steps(trainer):
     if trainer.params.max_steps is not None:
-        assert trainer._get_total_training_steps() == trainer.params.max_steps
+        assert trainer._estimate_total_training_steps() == trainer.params.max_steps
 
 
 @patch("oumi.core.distributed.is_world_process_zero", return_value=True)
-def test_train(mock_is_world_process_zero, trainer):
+def test_train_with_num_epochs(mock_is_world_process_zero, trainer):
     trainer._train_epoch = MagicMock()
     trainer.save_state = MagicMock()
     trainer.evaluate = MagicMock()
 
     trainer.params.eval_strategy = "epoch"
+    trainer.params.max_steps = -1  # Use `num_train_epochs`
 
     trainer.train()
 
     assert trainer._train_epoch.call_count == trainer.params.num_train_epochs
     assert trainer.save_state.call_count == trainer.params.num_train_epochs
     assert trainer.evaluate.call_count == trainer.params.num_train_epochs
+
+
+@patch("oumi.core.distributed.is_world_process_zero", return_value=True)
+def test_train_with_max_steps(mock_is_world_process_zero, trainer):
+    steps_per_epoch: int = 5
+
+    def _increment_global_step():
+        trainer.state.global_step += steps_per_epoch
+
+    trainer._train_epoch = MagicMock()
+    trainer._train_epoch.side_effect = lambda pbar: _increment_global_step()
+    trainer.save_state = MagicMock()
+    trainer.evaluate = MagicMock()
+
+    trainer.params.eval_strategy = "epoch"
+    trainer.params.max_steps = 100
+    expected_epochs = trainer.params.max_steps // steps_per_epoch
+
+    trainer.train()
+
+    assert trainer._train_epoch.call_count == expected_epochs
+    assert trainer.save_state.call_count == expected_epochs
+    assert trainer.evaluate.call_count == expected_epochs
 
 
 def test_train_epoch(trainer, mock_stateful_dataloader, tmp_path):

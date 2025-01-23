@@ -111,10 +111,8 @@ data:
     collator_name: "text_with_padding"      # Data collator type
     pack: false                             # Pack text into constant-length chunks
     stream: false                           # Enable dataset streaming
-    target_col: null                        # Column name containing training input
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
     seed: null                              # Random seed for mixing
-    use_async_dataset: false                # Use async text dataset
     experimental_use_torch_datapipes: false # Use torch DataPipes (experimental)
 
   validation:  # Optional validation dataset config
@@ -167,10 +165,10 @@ training:
   adam_beta1: 0.9                         # Adam beta1 parameter
   adam_beta2: 0.999                       # Adam beta2 parameter
   adam_epsilon: 1e-8                      # Adam epsilon parameter
-  sgd_momentum: 0.9                       # SGD momentum (if using SGD)
+  sgd_momentum: 0.0                       # SGD momentum (if using SGD)
 
   # Learning rate schedule
-  lr_scheduler_type: "cosine"             # LR scheduler type
+  lr_scheduler_type: "linear"             # LR scheduler type
   warmup_ratio: null                      # Warmup ratio of total steps
   warmup_steps: null                      # Number of warmup steps
 
@@ -180,20 +178,20 @@ training:
   enable_gradient_checkpointing: false    # Trade compute for memory
 
   # Checkpointing
-  save_steps: 100                         # Save every N steps
+  save_steps: 500                         # Save every N steps
   save_epoch: false                       # Save at end of each epoch
   save_final_model: true                  # Save model at end of training
   resume_from_checkpoint: null            # Path to resume from
   try_resume_from_last_checkpoint: false  # Try auto-resume from last checkpoint
 
   # Evaluation
-  eval_strategy: "no"                     # When to evaluate ("no", "steps", "epoch")
-  eval_steps: 50                          # Evaluate every N steps
+  eval_strategy: "steps"                  # When to evaluate ("no", "steps", "epoch")
+  eval_steps: 500                         # Evaluate every N steps
   metrics_function: null                  # Name of metrics function to use
 
   # Logging
   log_level: "info"                       # Main logger level
-  dep_log_level: "warning"               # Dependencies logger level
+  dep_log_level: "warning"                # Dependencies logger level
   enable_wandb: false                     # Enable Weights & Biases logging
   enable_tensorboard: true                # Enable TensorBoard logging
   logging_strategy: "steps"               # When to log ("steps", "epoch", "no")
@@ -206,7 +204,7 @@ training:
   dataloader_main_process_only: null      # Iterate dataloader on main process only (auto if null)
 
   # Distributed training
-  ddp_find_unused_parameters: null        # Find unused parameters in DDP
+  ddp_find_unused_parameters: false       # Find unused parameters in DDP
   nccl_default_timeout_minutes: null      # NCCL timeout in minutes
 
   # Performance monitoring
@@ -223,21 +221,21 @@ Configure parameter-efficient fine-tuning using the {py:obj}`~oumi.core.configs.
 ```yaml
 peft:
   # LoRA settings
-  lora_r: 16                          # Rank of update matrices
-  lora_alpha: 16                      # Scaling factor
-  lora_dropout: 0.05                  # Dropout probability
-  lora_target_modules: null           # Modules to apply LoRA to
-  lora_modules_to_save: null          # Modules to unfreeze and train
-  lora_bias: "none"                   # Bias training type
+  lora_r: 8                          # Rank of update matrices
+  lora_alpha: 8                      # Scaling factor
+  lora_dropout: 0.0                  # Dropout probability
+  lora_target_modules: null          # Modules to apply LoRA to
+  lora_modules_to_save: null         # Modules to unfreeze and train
+  lora_bias: "none"                  # Bias training type
   lora_task_type: "CAUSAL_LM"        # Task type for adaptation
 
   # Q-LoRA settings
-  q_lora: false                       # Enable quantization
-  q_lora_bits: 4                      # Quantization bits
+  q_lora: false                      # Enable quantization
+  q_lora_bits: 4                     # Quantization bits
   bnb_4bit_quant_type: "fp4"         # 4-bit quantization type
   use_bnb_nested_quant: false        # Use nested quantization
   bnb_4bit_quant_storage: "uint8"    # Storage type for params
-  bnb_4bit_compute_dtype: "float16"  # Compute type for params
+  bnb_4bit_compute_dtype: "float32"  # Compute type for params
 ```
 
 ### FSDP Configuration
@@ -246,22 +244,22 @@ Configure fully sharded data parallel training using the {py:obj}`~oumi.core.con
 
 ```yaml
 fsdp:
-  enable_fsdp: false                         # Enable FSDP training
-  sharding_strategy: "FULL_SHARD"            # How to shard model
-  cpu_offload: false                         # Offload to CPU
-  mixed_precision: null                      # Mixed precision type
-  backward_prefetch: "BACKWARD_PRE"          # When to prefetch params
-  forward_prefetch: false                    # Prefetch forward results
-  use_orig_params: null                      # Use original module params
+  enable_fsdp: false                        # Enable FSDP training
+  sharding_strategy: "FULL_SHARD"           # How to shard model
+  cpu_offload: false                        # Offload to CPU
+  mixed_precision: null                     # Mixed precision type
+  backward_prefetch: "BACKWARD_PRE"         # When to prefetch params
+  forward_prefetch: false                   # Prefetch forward results
+  use_orig_params: null                     # Use original module params
   state_dict_type: "FULL_STATE_DICT"        # Checkpoint format
 
   # Auto wrapping settings
-  auto_wrap_policy: "SIZE_BASED_WRAP"        # How to wrap layers
-  min_num_params: 100000                     # Min params for wrapping
-  transformer_layer_cls: null                # Transformer layer class
+  auto_wrap_policy: "NO_WRAP"               # How to wrap layers
+  min_num_params: 100000                    # Min params for wrapping
+  transformer_layer_cls: null               # Transformer layer class
 
   # Other settings
-  sync_module_states: true                   # Sync states across processes
+  sync_module_states: true                  # Sync states across processes
 ```
 
 Notes on FSDP sharding strategies:
@@ -273,7 +271,7 @@ Notes on FSDP sharding strategies:
 
 ## Example Configurations
 
-You can find these examples and many more in the {doc}'/resources/recipes' section.
+You can find these examples and many more in the {doc}`/resources/recipes` section.
 
 We aim to provide a comprehensive (and growing) set of recipes for all the common training scenarios:
 

@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 # Config to eval Llama 3.1 70B Instruct on GCP.
 # Example command:
 # oumi launch up -c configs/recipes/llama3_1/evaluation/70b_gcp_job.yaml --cluster llama70b-eval
@@ -29,7 +32,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install '.[gpu,evaluation]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct --exclude original/*

@@ -5,6 +5,7 @@ from pprint import pformat
 from typing import Callable, Optional, Union
 
 import torch
+import transformers
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
@@ -24,6 +25,9 @@ from oumi.core.configs import (
     TrainerType,
     TrainingConfig,
 )
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
+)
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -37,6 +41,7 @@ from oumi.core.distributed import (
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
@@ -166,7 +171,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     config = _finalize_training_config(config)
 
     if is_local_process_zero():
-        logger.info(f"TrainingConfig: {pformat(config)}")
+        logger.info(f"TrainingConfig:\n{pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
@@ -189,10 +194,19 @@ def train(config: TrainingConfig, **kwargs) -> None:
         )
 
     # Initialize model and tokenizer.
-    tokenizer = build_tokenizer(config.model)
+    tokenizer: Optional[BaseTokenizer] = None
+    if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
+        # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
+        tokenizer = None
+    else:
+        tokenizer = build_tokenizer(config.model)
+
     processor: Optional[BaseProcessor] = None
     if is_image_text_llm(config.model):
-        # Only create `processor` for MLLM-s for now.
+        assert (
+            tokenizer is not None
+        ), "Tokenizer can't be None because all VLM-s are non-custom currently"
+        # Only create `processor` for VLM-s for now.
         processor = build_processor(
             config.model.model_name,
             tokenizer,
@@ -228,7 +242,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor
+        config.training.trainer_type, processor=processor
     )
 
     metrics_function = build_metrics_function(config.training)
@@ -296,7 +310,11 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
         with torch.profiler.record_function("train"):
             logger.info(f"Training init time: {time.time() - _START_TIME:.3f}s")
-            logger.info("Starting training...")
+            logger.info(
+                f"Starting training... "
+                f"({config.training.trainer_type}, "
+                f"transformers: {transformers.__version__})"
+            )
             trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
@@ -308,6 +326,8 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if config.training.save_final_model:
         logger.info("Saving final state...")
         trainer.save_state()
+
+        barrier()
 
         logger.info("Saving final model...")
         trainer.save_model(config=config)

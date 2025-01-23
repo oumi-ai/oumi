@@ -1,6 +1,13 @@
 name: "GPU Tests"
 
-on: [pull_request]
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'notebooks/**'
+      - 'configs/**'
+      - 'scripts/**'
+      - 'README.md'
 
 jobs:
   gpu-tests:
@@ -35,4 +42,4 @@ jobs:
         nvidia-smi
 
         cd ./tests/integration/
-        pytest -s --durations=50
+        pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300

@@ -331,13 +331,6 @@ rank000_gpu_temperature_max: 75.2C
 ...
 ```
 
-
-## Key Training Signals
-```{attention}
-Section under construction. Contributions welcome!
-```
-
-
 ## Next Steps
 
 - Explore {doc}`training methods <training_methods>` for specific tasks

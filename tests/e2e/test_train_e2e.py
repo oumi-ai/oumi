@@ -1,20 +1,23 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import pytest
 import yaml
 
 from oumi.core.configs import TrainingConfig
-from oumi.utils.io_utils import get_oumi_root_directory
+from oumi.core.configs.params.training_params import TrainerType
+from oumi.utils.io_utils import load_json
+from tests import get_configs_dir
 from tests.markers import requires_gpus
 
-CONFIG_FOLDER_ROOT = get_oumi_root_directory().parent.parent.resolve() / "configs"
+CONFIG_FOLDER_ROOT = get_configs_dir()
 
 
 def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
@@ -33,22 +36,56 @@ def _is_file_not_empty(file_path: Path) -> bool:
     return file_path.stat().st_size > 0
 
 
-def _check_checkpoint_dir(dir_path: Path):
+def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
     """Helper to verify model directory structure."""
     # Check essential model files
     essential_files = [
         "config.json",
         "generation_config.json",
-        "model.safetensors",
         "special_tokens_map.json",
         "tokenizer_config.json",
         "tokenizer.json",
         "trainer_state.json",
         "training_args.bin",
     ]
+
     for file in essential_files:
         assert (dir_path / file).is_file(), f"Missing {file} in {dir_path}"
         assert _is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
+
+    model_safetensors = dir_path / "model.safetensors"
+
+    is_model_sharded: bool = False
+    if model_safetensors.exists():
+        assert (
+            model_safetensors.is_file()
+        ), f"Exists but not a file: {model_safetensors}"
+        assert _is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
+        is_model_sharded = False
+    else:
+        # The model is sharded. Let's validate model shards.
+        model_index_json = dir_path / "model.safetensors.index.json"
+        assert model_index_json.is_file(), (
+            "Model safetensors missing: "
+            f"None of {model_index_json} and {model_safetensors} exists"
+        )
+        model_shards = list(sorted(dir_path.glob("model-*-of-*.safetensors")))
+        assert (
+            len(model_shards) > 0
+        ), f"No 'model-*-of-*.safetensors' files found under {dir_path}"
+        for model_shard in model_shards:
+            assert (model_shard).is_file(), f"Missing {model_shard}"
+            assert _is_file_not_empty(model_shard), f"Empty {model_shard}"
+        index_dict: dict[str, Any] = load_json(model_index_json)
+        assert "weight_map" in index_dict, f"No `weights_map` in {model_index_json}"
+        assert isinstance(index_dict["weight_map"], dict)
+        index_shards = {
+            (dir_path / shard) for shard in set(index_dict["weight_map"].values())
+        }
+        assert index_shards == set(
+            model_shards
+        ), "Shards defined in model index are inconsistent with shards on file system"
+        is_model_sharded = True
 
     # Verify config.json is valid JSON
     with open(dir_path / "config.json") as f:
@@ -81,13 +118,38 @@ def _check_checkpoint_dir(dir_path: Path):
         assert "best_model_checkpoint" in trainer_state, "Invalid trainer state"
         assert "log_history" in trainer_state, "Missing training logs in trainer state"
 
+    if validate_extra_files:
+        # Additional checkpoint-specific files
+        checkpoint_files = ["scheduler.pt"] + (
+            ["optimizer.bin"] if is_model_sharded else ["optimizer.pt", "rng_state.pth"]
+        )
+        for file in checkpoint_files:
+            assert (dir_path / file).exists(), f"Missing {file} in checkpoint"
+            assert _is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
+
+        if is_model_sharded:
+            rng_state_shards = list(sorted(dir_path.glob("rng_state_*.pth")))
+            assert len(rng_state_shards) > 1
+            for file in rng_state_shards:
+                assert _is_file_not_empty(
+                    dir_path / file
+                ), f"Empty {file} in checkpoint"
+
 
 class TrainTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     max_steps: int
+    skip: bool = False
+    trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
     save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
 
 
 def get_train_test_id_fn(val):
@@ -95,45 +157,21 @@ def get_train_test_id_fn(val):
     return val.test_name
 
 
-@requires_gpus(count=1, min_gb=24.0)
-@pytest.mark.parametrize(
-    "test_config",
-    [
-        TrainTestConfig(
-            test_name="train_llama_1b",
-            config_path=(
-                CONFIG_FOLDER_ROOT
-                / "recipes"
-                / "llama3_2"
-                / "sft"
-                / "1b_full"
-                / "train.yaml"
-            ),
-            max_steps=10,
-            model_max_length=128,
-        ),
-        TrainTestConfig(
-            test_name="train_qwen2_vl_2b",
-            config_path=(
-                CONFIG_FOLDER_ROOT
-                / "recipes"
-                / "vision"
-                / "qwen2_vl_2b"
-                / "sft"
-                / "train.yaml"
-            ),
-            max_steps=5,
-            save_steps=5,
-        ),
-    ],
-    ids=get_train_test_id_fn,
-)
-@pytest.mark.skip(reason="Skipping until the markers are configured")
-def test_train(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+def _test_train_impl(
+    test_config: TrainTestConfig,
+    tmp_path: Path,
+    *,
+    use_distributed: bool,
+    interactive_logs: bool = True,
+    cleanup_output_dir_on_success: bool = True,
 ):
-    _START_TIME = time.perf_counter()
+    if test_config.skip:
+        pytest.skip(f"Skipped the test '{test_config.test_name}'!")
+        return
+
     test_tag = f"[{test_config.test_name}]"
+
+    _START_TIME = time.perf_counter()
     output_dir = _get_output_dir(test_config.test_name, tmp_path=tmp_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -156,34 +194,44 @@ def test_train(
 
         assert test_config.max_steps > 0, f"max_steps: {test_config.max_steps}"
 
-        # Execute training command
-        cmd = [
-            "oumi train",
-            "-c",
-            str(test_config.config_path),
-            "--training.max_steps",
-            str(test_config.max_steps),
-            "--training.output_dir",
-            str(output_dir / "train"),
-        ]
-        if (
-            test_config.model_max_length is not None
-            and test_config.model_max_length > 0
-        ):
-            cmd.extend(
-                [
-                    "--model.model_max_length",
-                    str(test_config.model_max_length),
-                ]
-            )
+        cmd: list[str] = []
+        if use_distributed:
+            cmd.append("oumi distributed torchrun -m oumi train")
+        else:
+            cmd.append("oumi train")
 
-        if test_config.save_steps is not None:
-            cmd.extend(
-                [
-                    "--training.save_steps",
-                    str(test_config.save_steps),
-                ]
-            )
+        # Execute training command
+        cmd.extend(
+            [
+                "-c",
+                str(test_config.config_path),
+                "--training.max_steps",
+                str(test_config.max_steps),
+                "--training.output_dir",
+                str(output_dir / "train"),
+                "--training.run_name",
+                test_config.test_name,
+            ]
+        )
+
+        for param_name, param_value in [
+            ("model_max_length", test_config.model_max_length),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--model.{param_name}={str(param_value)}")
+
+        for param_name, param_value in [
+            ("trainer_type", test_config.trainer_type),
+            ("per_device_train_batch_size", test_config.batch_size),
+            ("gradient_accumulation_steps", test_config.gradient_accumulation_steps),
+            ("dataloader_num_workers", test_config.dataloader_num_workers),
+            ("dataloader_prefetch_factor", test_config.dataloader_prefetch_factor),
+            ("save_steps", test_config.save_steps),
+            ("save_final_model", test_config.save_final_model),
+            ("enable_wandb", test_config.enable_wandb),
+        ]:
+            if param_value is not None:
+                cmd.append(f"--training.{param_name}={str(param_value)}")
 
         env_vars = dict(os.environ)
         if "TOKENIZERS_PARALLELISM" not in env_vars:
@@ -203,10 +251,12 @@ def test_train(
         )
         duration_sec = time.perf_counter() - _START_TIME
         if result.returncode == 0:
-            print(f"{test_tag} Successfully finished in {duration_sec:.2f}s!")
+            print(
+                f"{test_tag} Training job successfully finished in {duration_sec:.2f}s!"
+            )
         else:
             print(
-                f"{test_tag} Training failed with error code: {result.returncode} "
+                f"{test_tag} Training job failed with error code: {result.returncode} "
                 f"in {duration_sec:.2f}s!"
             )
             if not interactive_logs:
@@ -224,6 +274,13 @@ def test_train(
             train_output_dir.is_dir()
         ), f"{test_tag} Output directory is not a directory"
 
+        # If saving is disabled, then return early.
+        if (test_config.save_steps is not None and test_config.save_steps <= 0) and (
+            test_config.save_final_model is not None
+            and not test_config.save_final_model
+        ):
+            return
+
         # Check main output directory structure
         _check_checkpoint_dir(train_output_dir)
 
@@ -232,22 +289,18 @@ def test_train(
         assert len(checkpoints) > 0, f"{test_tag} No checkpoints found"
 
         for checkpoint in checkpoints:
-            _check_checkpoint_dir(checkpoint)
-
-            # Additional checkpoint-specific files
-            checkpoint_files = ["optimizer.pt", "rng_state.pth", "scheduler.pt"]
-            for file in checkpoint_files:
-                assert (checkpoint / file).exists(), f"Missing {file} in checkpoint"
-                assert _is_file_not_empty(
-                    checkpoint / file
-                ), f"{test_tag} Empty {file} in checkpoint"
+            _check_checkpoint_dir(checkpoint, validate_extra_files=True)
 
         # Check logs directory
         logs_dir = train_output_dir / "logs"
         assert logs_dir.exists(), f"{test_tag} Logs directory not found"
         rank_logs = list(logs_dir.glob("rank_*.log"))
-        assert len(rank_logs) > 0, f"{test_tag} No rank logs found"
-        assert _is_file_not_empty(rank_logs[0]), f"{test_tag} Empty rank log file"
+        num_ranks = len(rank_logs)
+        assert num_ranks > 0, f"{test_tag} No rank logs found"
+        for idx in range(num_ranks):
+            assert _is_file_not_empty(
+                rank_logs[idx]
+            ), f"{test_tag} Empty rank log file: {rank_logs[idx]}"
 
         # Check telemetry directory
         telemetry_dir = train_output_dir / "telemetry"
@@ -281,11 +334,152 @@ def test_train(
 
         with open(telemetry_dir / "world_size.json") as f:
             world_size = json.load(f)
+            assert "WORLD_SIZE" in world_size
             assert (
-                world_size.get("WORLD_SIZE", None) == 1
-            ), f"{test_tag} Invalid world size format"
+                world_size.get("WORLD_SIZE", None) == num_ranks
+            ), f"{test_tag} World size is inconsistent with: {num_ranks}"
 
     except Exception as e:
+        duration_sec = time.perf_counter() - _START_TIME
         print(f"{test_tag} Test failed: {str(e)}")
+        print(f"{test_tag} Test duration: {duration_sec:.2f}s")
         print(f"{test_tag} Test artifacts can be found in: {output_dir}")
         raise
+
+    if cleanup_output_dir_on_success:
+        # Clean-up temp data to stay under disk quota.
+        print(f"{test_tag} Cleaning up output dir on success: '{output_dir}'...")
+        shutil.rmtree(output_dir)
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_llama_1b",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "llama3_2"
+                / "sft"
+                / "1b_full"
+                / "train.yaml"
+            ),
+            max_steps=10,
+            model_max_length=128,
+        ),
+        TrainTestConfig(
+            test_name="pretrain_fineweb",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "examples"
+                / "fineweb_ablation_pretraining"
+                / "ddp"
+                / "train.yaml"
+            ),
+            batch_size=2,
+            gradient_accumulation_steps=4,
+            dataloader_num_workers=1,
+            dataloader_prefetch_factor=2,
+            max_steps=5,
+            model_max_length=512,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.single_gpu
+def test_train_1gpu_24gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=False,
+        interactive_logs=interactive_logs,
+    )
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_qwen2_vl_2b_trl_sft",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
+        TrainTestConfig(
+            test_name="train_qwen2_vl_2b_oumi",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.OUMI,
+            max_steps=5,
+            save_steps=0,
+            save_final_model=False,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.single_gpu
+def test_train_multimodal_1gpu_24gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=False,
+        interactive_logs=interactive_logs,
+    )
+
+
+@requires_gpus(count=4, min_gb=79.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_llama3_2_vision_11b",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "llama3_2_vision"
+                / "sft"
+                / "11b_full"
+                / "train.yaml"
+            ),
+            max_steps=5,
+            save_steps=5,
+            model_max_length=1024,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_fsdp_4gpu_80gb(
+    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+        interactive_logs=interactive_logs,
+    )

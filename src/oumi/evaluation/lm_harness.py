@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 from datetime import datetime
@@ -49,7 +50,7 @@ def evaluate(
     generation_params: GenerationParams,
     enable_wandb: bool,
     run_name: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
@@ -62,6 +63,9 @@ def evaluate(
         output_dir: The directory where the evaluation results will be saved.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
         run_name: Unique identifier for wandb for the current training run.
+
+    Returns:
+        The evaluation results (dict of metric names and their corresponding values).
     """
     if torch.cuda.is_available():
         # CUDA device may be overwritten if `accelerate launch`,
@@ -136,26 +140,26 @@ def evaluate(
             wandb_logger.post_init(lm_eval_output)
             wandb_logger.log_eval_result()
 
+        # The LM Harness platform's task configuration is a dictionary which
+        # includes: the number of samples, the number of few-shots, task version(s),
+        # the prompt(s) text, model/git hashes, seeds, and the special tokens used
+        # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
+        platform_task_config = lm_eval_output
+
+        # The LM Harness platform's results is a dictionary that includes all
+        # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
+        # or a classification category.
+        platform_results = {
+            key: platform_task_config.pop(key)
+            for key in ["results", "groups"]
+            if key in platform_task_config
+        }
+
         if output_dir:
-            # The LM Harness platform's task configuration is a dictionary which
-            # includes: the number of samples, the number of few-shots, task version(s),
-            # the prompt(s) text, model/git hashes, seeds, and the special tokens used
-            # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
-            platform_task_config = lm_eval_output
-
-            # The LM Harness platform's results is a dictionary that includes all
-            # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
-            # or a classification category.
-            platform_results = {
-                key: platform_task_config.pop(key)
-                for key in ["results", "groups"]
-                if key in platform_task_config
-            }
-
             save_evaluation_output(
                 base_output_dir=output_dir,
                 platform=task_params.get_evaluation_platform(),
-                platform_results=platform_results,
+                platform_results=copy.deepcopy(platform_results),
                 platform_task_config=platform_task_config,
                 task_params=task_params,
                 start_time_str=start_time_str,
@@ -164,3 +168,6 @@ def evaluate(
                 generation_params=generation_params,
                 inference_config=None,
             )
+
+        return platform_results
+    return {}

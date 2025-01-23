@@ -1,6 +1,14 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 # SFT config for Llama 70B.
 # Borrows param values from:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/70B_full.yaml
+# Command to run locally on a single-node 8xA100-80GB machine:
+# oumi distributed torchrun -m oumi train -c configs/recipes/llama3_1/sft/70b_full/train.yaml
+#
+# Strongly recommend downloading the model first:
+# HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct --exclude original/*
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-70B-Instruct"
@@ -21,7 +29,7 @@ training:
   trainer_type: "TRL_SFT"
   save_steps: 200
   num_train_epochs: 1
-  per_device_train_batch_size: 2
+  per_device_train_batch_size: 7
   gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True

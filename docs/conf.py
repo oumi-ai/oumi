@@ -14,9 +14,9 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Open Universal Machine Intelligence"
-copyright = "2024, Open Universal Machine Intelligence"
-author = "Open Universal Machine Intelligence"
+project = "Oumi"
+copyright = "2025 - Oumi"
+author = "Oumi Community"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -28,7 +28,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_rtd_theme",
-    "sphinx_term.termynal",
+    # "sphinx_term.termynal",  # Not currently used, but could be useful in the future
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
@@ -73,6 +73,8 @@ exclude_patterns = [
     "api/modules.rst",
     "api/oumi.models.experimental.*",
 ]
+
+trim_doctest_flags = True
 
 # Importing these modules causes errors in the docs build
 autodoc_mock_imports = ["oumi.models.experimental"]

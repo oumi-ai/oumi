@@ -32,6 +32,24 @@ class InferenceEngineType(str, Enum):
     ANTHROPIC = "ANTHROPIC"
     """The inference engine for Anthropic's API."""
 
+    GOOGLE_VERTEX = "GOOGLE_VERTEX"
+    """The inference engine for Google Vertex AI."""
+
+    GOOGLE_GEMINI = "GEMINI"
+    """The inference engine for Gemini."""
+
+    DEEPSEEK = "DEEPSEEK"
+    """The inference engine for DeepSeek Platform API."""
+
+    PARASAIL = "PARASAIL"
+    """The inference engine for Parasail API."""
+
+    TOGETHER = "TOGETHER"
+    """The inference engine for Together API."""
+
+    OPENAI = "OPENAI"
+    """The inference engine for OpenAI API."""
+
 
 @dataclass
 class InferenceConfig(BaseConfig):

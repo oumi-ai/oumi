@@ -78,21 +78,56 @@ Vision-Language SFT extends the concept of Supervised Fine-Tuning to handle both
 ### Data Format
 Vision-Language SFT uses the {class}`~oumi.core.types.conversation.Conversation` format with additional support for images. The `image` field contains the path to the image file.
 
-```python
+::::{tab-set-code}
+:::{code-block} JSON
+
 {
-    "image": "path/to/image.jpg",
-    "messages": [
+  "messages": [
+    {
+      "role": "user",
+      "content": [
         {
-            "role": "user",
-            "content": "What is in this image?"
+          "type": "image_url",
+          "content": "https://oumi.ai/the_great_wave_off_kanagawa.jpg"
         },
         {
-            "role": "assistant",
-            "content": "The image shows a brown dog sitting on a windowsill."
+          "type": "text",
+          "content": "What is in this image?"
         }
-    ]
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "The image is a traditional Japanese ukiyo-e print."
+    }
+  ]
 }
-```
+:::
+
+:::{code-block} python
+
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
+
+Conversation(
+    messages=[
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(
+                    type=Type.IMAGE_URL,
+                    content="https://oumi.ai/the_great_wave_off_kanagawa.jpg"
+                ),
+                ContentItem(type=Type.TEXT, content="What is in this image?"),
+            ],
+        ),
+        Message(
+            role=Role.ASSISTANT,
+            content="The image is a traditional Japanese ukiyo-e print."
+        )
+    ]
+)
+:::
+::::
 
 See {doc}`/resources/datasets/vl_sft_datasets` for available vision-language datasets.
 
@@ -101,15 +136,19 @@ The configuration for Vision-Language SFT is similar to SFT, but with additional
 
 ```yaml
 model:
-  freeze_layers: ["vision_encoder"]  # freeze specific layers to only train the language model, and not the vision encoder
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  chat_template: "llama3-instruct"
+  freeze_layers: ["vision_encoder"]  # Freeze specific layers to only train the language model, and not the vision encoder
 
 data:
   train:
+    collator_name: "vision_language_with_padding" # Visual features collator
     datasets:
       - dataset_name: "vl_sft_jsonl"
         dataset_path: "/path/to/data"
-    collator_name: "vision_language_with_padding
-
+        trust_remote_code: False # Set to true if needed for model-specific processors
+        dataset_kwargs:
+          processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct" # Feature generator
 
 training:
   trainer_type: "TRL_SFT"
@@ -119,11 +158,11 @@ training:
 
 ### Overview
 The most common pretraining method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
-Pretraining is the process of training a language model from scratch or adapting it to a new domain using large amounts of unlabeled text data. This is a computationally expensive process, but it can result in models with strong general language understanding capabilities.
+Pretraining is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. This is a computationally expensive process, but it can result in models with strong general language understanding capabilities.
 
 Pretraining is typically used for:
 - **Training models from scratch:** This involves training a new language model from scratch on a massive text corpus.
-- **Continuing training on new data:** This involves taking a pre-trained model and continuing to train it on additional data, either to improve its performance on existing tasks or to adapt it to a new domain.
+- **Continuing training on new data:** This involves taking a pre-trained model and continuing to train it on additional data, to improve its performance on existing tasks.
 - **Domain adaptation:** This involves adapting a pre-trained model to a specific domain, such as scientific literature or legal documents.
 
 

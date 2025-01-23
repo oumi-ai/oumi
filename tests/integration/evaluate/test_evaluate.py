@@ -1,10 +1,12 @@
 import json
 import os
 import tempfile
+from importlib.util import find_spec
 from typing import Any
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from oumi import evaluate
 from oumi.core.configs import (
@@ -118,7 +120,36 @@ def _get_evaluation_config(platform: str, output_dir: str) -> EvaluationConfig:
     )
 
 
-def _validate_results(platform: str, output_dir: str) -> None:
+def _validate_results_returned(
+    platform: str, results_list: list[dict[str, Any]]
+) -> None:
+    # Retrieve the results returned from the `evaluate` function.
+    assert len(results_list) == 1  # 1 task was evaluated.
+    results_dict = results_list[0]["results"]
+
+    # Platforms with tasks (e.g. LM Harness) nest the results under the task names.
+    if "task_name" in TEST_TASK_PARAMS[platform]:
+        task_name = TEST_TASK_PARAMS[platform]["task_name"]
+        results_dict = results_dict[task_name] if task_name else results_dict
+
+    # Validate the results.
+    for expected_key in EXPECTED_RESULTS[platform]:
+        if expected_key not in results_dict:
+            raise ValueError(
+                f"Key `{expected_key}` was not found in the results: `{results_dict}`."
+            )
+        expected_value = EXPECTED_RESULTS[platform][expected_key]["value"]
+        round_digits = EXPECTED_RESULTS[platform][expected_key]["round_digits"]
+        actual_value = results_dict[expected_key]
+        if round(actual_value, round_digits) != expected_value:
+            raise ValueError(
+                f"Expected value for key `{expected_key}` should be `{expected_value}` "
+                f"(rounded to `{round_digits}` digits), but instead the actual value "
+                f"that was returned is `{actual_value}`."
+            )
+
+
+def _validate_results_in_file(platform: str, output_dir: str) -> None:
     # Identify the relevant `output_path` for the evaluation test:
     # <output_dir> / <platform>_<timestamp> / platform_results.json
     subfolders = [sf for sf in os.listdir(output_dir) if sf.startswith(f"{platform}_")]
@@ -185,15 +216,20 @@ def test_evaluate_lm_harness():
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         config = _get_evaluation_config(LM_HARNESS, nested_output_dir)
-        evaluate(config)
-        _validate_results(platform=LM_HARNESS, output_dir=nested_output_dir)
+        results_list = evaluate(config)
+        _validate_results_returned(platform=LM_HARNESS, results_list=results_list)
+        _validate_results_in_file(platform=LM_HARNESS, output_dir=nested_output_dir)
 
 
 @requires_gpus()
 def test_evaluate_alpaca_eval():
+    if find_spec("alpaca_eval") is None:
+        pytest.skip("Skipping because alpaca_eval is not installed")
+
     with tempfile.TemporaryDirectory() as output_temp_dir:
         nested_output_dir = os.path.join(output_temp_dir, "nested", "dir")
         config = _get_evaluation_config(ALPACA_EVAL, nested_output_dir)
         with patch("alpaca_eval.evaluate", _mock_alpaca_eval_evaluate):
-            evaluate(config)
-        _validate_results(platform=ALPACA_EVAL, output_dir=nested_output_dir)
+            results_list = evaluate(config)
+        _validate_results_returned(platform=ALPACA_EVAL, results_list=results_list)
+        _validate_results_in_file(platform=ALPACA_EVAL, output_dir=nested_output_dir)

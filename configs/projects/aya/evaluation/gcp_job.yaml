@@ -1,8 +1,11 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
 name: llama3-8b-aya-sft
 
 resources:
   cloud: gcp
-  accelerators: "A100"
+  accelerators: "A100:1"
   use_spot: true
   disk_size: 200  # Disk size in GB
 
@@ -11,6 +14,7 @@ working_dir: .
 # Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-eval
@@ -18,7 +22,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install '.[gpu,evaluation]'
 
 run: |
   set -e  # Exit if any command failed.

@@ -1,3 +1,6 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
 ## Recipe and HPs used for Quantized Zephyr.7B:
 ## https://huggingface.co/alignment-handbook/zephyr-7b-sft-qlora
 
@@ -9,6 +12,7 @@ model:
   trust_remote_code: True
   model_max_length: 2048
   chat_template: "zephyr"
+  tokenizer_pad_token: "</s>"
   attn_implementation: "sdpa"
 
 data:

@@ -204,6 +204,10 @@ def criterion(self) -> Callable:
 - Implemented as a property following {py:class}`oumi.core.models.BaseModel` interface
 - Can be customized for different training objectives
 
+## Using Custom Models via the CLI
+
+See {doc}`/user_guides/customization` to quickly enable your model when using the CLI.
+
 ## Testing Models
 
 Oumi uses pytest for testing models. Here's an example test for the MLPEncoder:
@@ -331,3 +335,4 @@ for batch in dataloader:
 - {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi models
 - {py:class}`oumi.core.registry.Registry` - Model registration system
 - {py:class}`oumi.core.configs.params.model_params.ModelParams` - Base parameters class for models
+- {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).

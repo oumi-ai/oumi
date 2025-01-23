@@ -25,11 +25,10 @@ pip install jupyterlab ipykernel
 pip install oumi
 ```
 
-If you're using `conda`, then register the Jupyter kernel:
+If you're using `conda`, you also need to register the Jupyter kernel. This allows you to easily use the kernel in your Jupyter notebooks:
 
 ```bash
-# Note: If you're using conda, 'oumi' should be the name of your conda environment
-# If you're not using conda, you can still use this name or choose a different one
+# Note: replace "oumi" with the name of your environment
 python -m ipykernel install --user --name oumi
 ```
 

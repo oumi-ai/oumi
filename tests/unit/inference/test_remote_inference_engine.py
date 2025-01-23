@@ -34,12 +34,10 @@ from oumi.utils.conversation_utils import (
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
-from oumi.utils.io_utils import get_oumi_root_directory
+from tests import get_testdata_dir
 
 _TARGET_SERVER: Final[str] = "http://fakeurl"
-_TEST_IMAGE_DIR: Final[Path] = (
-    get_oumi_root_directory().parent.parent.resolve() / "tests" / "testdata" / "images"
-)
+_TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 
 
 #
@@ -53,8 +51,9 @@ def mock_aioresponse():
 
 def _get_default_model_params() -> ModelParams:
     return ModelParams(
-        model_name="openai-community/gpt2",
+        model_name="MlpEncoder",
         trust_remote_code=True,
+        tokenizer_name="gpt2",
     )
 
 

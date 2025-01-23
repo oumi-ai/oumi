@@ -14,7 +14,7 @@ from oumi.utils.logging import logger
 
 @register_dataset("HuggingFaceH4/llava-instruct-mix-vsft")
 class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
-    """Dataset class for the HuggingFaceH4/llava-instruct-mix-vsft dataset."""
+    """Dataset class for the `HuggingFaceH4/llava-instruct-mix-vsft` dataset."""
 
     default_dataset = "HuggingFaceH4/llava-instruct-mix-vsft"
 

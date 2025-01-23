@@ -8,7 +8,6 @@
 local
 vscode
 notebooks
-cloud
 ```
 
 Training machine learning models requires different environments as you progress from initial experimentation & debugging to large-scale deployment.

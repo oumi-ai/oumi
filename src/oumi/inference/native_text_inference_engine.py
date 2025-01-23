@@ -35,6 +35,12 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
+
+        if not hasattr(self._model, "generate"):
+            raise ValueError(
+                f"Model {self._model_params.model_name} does not support generation."
+            )
+
         if is_image_text_llm(self._model_params):
             # Only enable Processor for vision language models for now.
             self._processor = build_processor(
@@ -231,14 +237,24 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         # Create a GenerationConfig object with the new parameters
         # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
+        use_sampling = generation_params.use_sampling
+        extra_kwargs = {}
+        min_p, temperature = generation_params.min_p, generation_params.temperature
+        if use_sampling:
+            extra_kwargs["min_p"] = min_p
+            extra_kwargs["temperature"] = temperature
+        elif min_p > 0.0 or temperature > 0.0:
+            logger.debug(
+                f"The sampling params: min_p: {min_p} and temperature: {temperature} "
+                "are ignored because sampling is disabled!"
+            )
+
         generation_config = transformers.GenerationConfig(
             max_new_tokens=generation_params.max_new_tokens,
-            temperature=generation_params.temperature,
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.use_sampling,
-            min_p=generation_params.min_p,
+            do_sample=use_sampling,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
@@ -246,6 +262,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             eos_token_id=generation_params.stop_token_ids,
             num_beams=generation_params.num_beams,
             use_cache=generation_params.use_cache,
+            **extra_kwargs,
         )
 
         # skip using a progress for single turns
@@ -268,7 +285,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 new_batch_data = []
                 for response_index, response in enumerate(output_batch.data):
                     prompt = input_batches[batch_index]["input_ids"][response_index]  # type: ignore
-                    assert prompt.tolist() == response[: len(prompt)].tolist()
+                    # Sanity check
+                    prompt_as_list = prompt.tolist()
+                    response_prefix_as_list = response[: len(prompt)].tolist()
+                    if prompt_as_list != response_prefix_as_list:
+                        raise RuntimeError(
+                            "Inconsistent prompt prefix content! "
+                            f"\nRequest: {prompt_as_list} "
+                            f"\nResponse: {response_prefix_as_list}"
+                        )
+
                     new_batch_data.append(response[len(prompt) :])
                 output_batch.data = torch.stack(new_batch_data, dim=0)
 

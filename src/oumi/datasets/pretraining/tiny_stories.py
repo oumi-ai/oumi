@@ -17,3 +17,5 @@ class TinyStoriesDataset(BasePretrainingDataset):
     Note:
         The dataset is available under the CDLA-Sharing-1.0 license.
     """
+
+    default_dataset = "roneneldan/TinyStories"
