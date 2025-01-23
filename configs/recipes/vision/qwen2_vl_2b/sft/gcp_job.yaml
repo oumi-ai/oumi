@@ -8,7 +8,6 @@ name: qwen2-vl-sft-oumi-train
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  # Allow Spot VM-s, which cost ~3X less.
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
