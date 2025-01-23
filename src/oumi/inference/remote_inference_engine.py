@@ -182,7 +182,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     base_url: str
     """The base URL for the remote API."""
 
-    api_key_env_varname: str
+    api_key_env_varname: Optional[str] = None
     """The environment variable name for the API key."""
 
     def __init__(

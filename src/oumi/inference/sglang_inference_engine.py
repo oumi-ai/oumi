@@ -70,6 +70,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             remote_params: Remote server params.
             generation_params: The generation parameters to use for inference.
         """
+        if remote_params is None:
+            raise ValueError("remote_params is required")
+
         super().__init__(
             model_params=model_params,
             generation_params=generation_params,
