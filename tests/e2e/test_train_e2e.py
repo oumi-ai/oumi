@@ -385,6 +385,28 @@ def _test_train_impl(
             max_steps=5,
             model_max_length=512,
         ),
+        TrainTestConfig(
+            test_name="pretrain_gpt2",
+            config_path=(
+                CONFIG_FOLDER_ROOT / "recipes" / "gpt2" / "pretraining" / "train.yaml"
+            ),
+            batch_size=16,
+            dataloader_num_workers=2,
+            dataloader_prefetch_factor=4,
+            max_steps=20,
+        ),
+        TrainTestConfig(
+            test_name="smollm_135m_sft",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "smollm"
+                / "sft"
+                / "135m"
+                / "train.yaml"
+            ),
+            max_steps=10,
+        ),
     ],
     ids=get_train_test_id_fn,
 )
@@ -455,7 +477,7 @@ def test_train_multimodal_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama3_2_vision_11b",
+            test_name="train_llama3_2_vision_11b_full",
             config_path=(
                 CONFIG_FOLDER_ROOT
                 / "recipes"
@@ -467,14 +489,40 @@ def test_train_multimodal_1gpu_24gb(
             ),
             max_steps=5,
             save_steps=5,
-            model_max_length=1024,
+        ),
+        TrainTestConfig(
+            test_name="train_llama3_2_vision_11b_lora",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "llama3_2_vision"
+                / "sft"
+                / "11b_lora"
+                / "train.yaml"
+            ),
+            max_steps=5,
+            save_steps=5,
+        ),
+        TrainTestConfig(
+            test_name="train_llava_7b_sft_full",
+            config_path=(
+                CONFIG_FOLDER_ROOT
+                / "recipes"
+                / "vision"
+                / "llava_7b"
+                / "sft"
+                / "train.yaml"
+            ),
+            max_steps=5,
+            save_steps=5,
         ),
     ],
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_train_fsdp_4gpu_80gb(
+def test_train_multimodal_fsdp_4gpu_80gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_train_impl(
