@@ -5,7 +5,7 @@ name: zephyr-7b-qlora
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:8"
+  accelerators: "A100:8"
   disk_size: 200  # Disk size in GB
   # region: us-west3  # Uncomment this line to only consider a specific region.
   use_spot: true
