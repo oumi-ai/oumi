@@ -74,9 +74,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
 
         # Check if BitsAndBytes quantization was requested.
+        bitsandbytes_quantization = False
         if model_params.model_kwargs:
             bitsandbytes_quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
-            bitsandbytes_quantization = False
             for key in bitsandbytes_quantization_kwargs:
                 if model_params.model_kwargs.get(key):
                     bitsandbytes_quantization = True
