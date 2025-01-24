@@ -6,7 +6,7 @@ import torch
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -35,6 +35,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
+        *,
+        generation_params: GenerationParams | None = None,
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
         enable_prefix_caching: bool = True,
@@ -46,6 +48,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         Args:
             model_params: The model parameters to use for inference.
+            generation_params: The generation parameters to use for inference.
             tensor_parallel_size: The number of tensor parallel processes to use.
                 If set to -1, we will use all the available GPUs.
             quantization: The quantization method to use for inference.
@@ -57,6 +60,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 If False, will use eager mode and CUDA graph in hybrid mode.
             max_num_seqs: Maximum number of sequences per iteration.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         if not vllm:
             raise RuntimeError(
                 "vLLM is not installed. "
@@ -119,7 +124,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_num_seqs"] = max_num_seqs
 
         self._tokenizer = build_tokenizer(model_params)
-        self._model_params = model_params
         self._llm = vllm.LLM(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
@@ -166,7 +170,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return result
 
     def _infer(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
@@ -179,7 +185,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
 
         if generation_params.guided_decoding is not None:
             guided_decoding = VLLMGuidedDecodingParams.from_optional(
@@ -247,7 +257,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
             output_conversations.append(new_conversation)
 
-        if inference_config.output_path:
+        if inference_config and inference_config.output_path:
             self._save_conversations(
                 output_conversations,
                 inference_config.output_path,
@@ -256,7 +266,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -271,7 +283,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

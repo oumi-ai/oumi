@@ -1,9 +1,8 @@
-import copy
 from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import GenerationParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -28,24 +27,17 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     https://docs.anthropic.com/claude/reference/versioning
     """
 
-    def __init__(
-        self, model_params: ModelParams, remote_params: Optional[RemoteParams] = None
-    ):
-        """Initializes the inference Engine.
+    @property
+    @override
+    def base_url(self) -> Optional[str]:
+        """Return the default base URL for the Anthropic API."""
+        return "https://api.anthropic.com/v1/messages"
 
-        Args:
-            model_params: The model parameters to use for inference.
-            remote_params: Remote server params.
-        """
-        self._model = model_params.model_name
-
-        if remote_params is None:
-            self._remote_params = RemoteParams(
-                api_url="https://api.anthropic.com/v1/messages",
-                api_key_env_varname="ANTHROPIC_API_KEY",
-            )
-        else:
-            self._remote_params = copy.deepcopy(remote_params)
+    @property
+    @override
+    def api_key_env_varname(self) -> Optional[str]:
+        """Return the default environment variable name for the Anthropic API key."""
+        return "ANTHROPIC_API_KEY"
 
     @override
     def _convert_conversation_to_api_input(

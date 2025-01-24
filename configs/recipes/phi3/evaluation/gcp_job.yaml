@@ -9,7 +9,7 @@ resources:
 
   disk_size: 200  # Disk size in GB
 
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 

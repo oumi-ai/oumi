@@ -1,9 +1,8 @@
-import copy
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import GenerationParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.gcp_inference_engine import (
     _convert_guided_decoding_config_to_api_input,
@@ -14,24 +13,13 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Gemini API."""
 
-    def __init__(
-        self, model_params: ModelParams, remote_params: Optional[RemoteParams] = None
-    ):
-        """Initializes the inference Engine.
+    base_url = (
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    )
+    """The base URL for the Gemini API."""
 
-        Args:
-            model_params: The model parameters to use for inference.
-            remote_params: Remote server params.
-        """
-        self._model = model_params.model_name
-
-        if remote_params is None:
-            self._remote_params = RemoteParams(
-                api_url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-                api_key_env_varname="GEMINI_API_KEY",
-            )
-        else:
-            self._remote_params = copy.deepcopy(remote_params)
+    api_key_env_varname = "GEMINI_API_KEY"
+    """The environment variable name for the Gemini API key."""
 
     @override
     def _convert_conversation_to_api_input(

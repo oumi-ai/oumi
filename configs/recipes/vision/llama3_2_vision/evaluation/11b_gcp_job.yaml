@@ -9,7 +9,7 @@ name: llama32v-11b-eval
 resources:
   cloud: gcp
   accelerators: "A100:1"
-  use_spot: true
+  use_spot: false
   disk_size: 1000 # Disk size in GBs
 
 # Upload working directory to remote ~/sky_workdir.
