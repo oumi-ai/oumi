@@ -139,7 +139,7 @@ cambrian = [
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,optional]",
+    "oumi[dev,docs,gcp]",
     "vllm>=0.6.3,<0.7.0", # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -147,8 +147,6 @@ ci_cpu = [
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-# all the other dependencies are copied here
-# from the optional dependencies section
 ci_gpu = [
     "oumi[dev,docs,gcp,gpu]",
     "vllm>=0.6.3,<0.7.0",
