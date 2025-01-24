@@ -78,18 +78,22 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"{gpu_memory_utilization}."
             )
 
-        # Ensure the model is compatible (we do NOT support BitsAndBytes yet).
+        # Check if any quantization keys are set.
+        quantization_keys_set = False
         if model_params.model_kwargs:
-            incompatible_model_kwargs = ["load_in_4bit", "load_in_8bit"]
-            for key in incompatible_model_kwargs:
+            quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
+            for key in quantization_kwargs:
                 if model_params.model_kwargs.get(key):
-                    raise RuntimeError(
-                        "`VLLM` inference engine does not support BitsAndBytes "
-                        "quantization. Please either remove relevant quantization "
-                        f"keys (such as {', '.join(incompatible_model_kwargs)}) from "
-                        "`model_params.model_kwargs`, or use the `NATIVE` inference "
-                        "engine instead."
-                    )
+                    quantization_keys_set = True
+
+        vllm_kwargs = {}
+
+        # If quantization requested but undefined, default to BitsAndBytes.
+        if quantization_keys_set:
+            if not quantization or quantization == "bitsandbytes":
+                quantization = "bitsandbytes"
+                vllm_kwargs["load_format"] = "bitsandbytes"
+                logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
 
         if tensor_parallel_size <= 0:
             if torch.cuda.device_count() > 1:
@@ -97,7 +101,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else:
                 tensor_parallel_size = 1
 
-        vllm_kwargs = {}
         self._lora_request = None
         if model_params.adapter_model:
             # ID should be unique for this adapter, but isn't enforced by vLLM.
