@@ -189,10 +189,6 @@ def build_huggingface_model(
     hf_config = find_model_hf_config(
         model_params.model_name, trust_remote_code=model_params.trust_remote_code
     )
-    if not hf_config:
-        raise ValueError(
-            f"Could not find HuggingFace config for model: {model_params.model_name}."
-        )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
