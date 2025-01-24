@@ -190,6 +190,10 @@ def build_huggingface_model(
     hf_config = find_model_hf_config(
         model_params.model_name, trust_remote_code=model_params.trust_remote_code
     )
+    if not hf_config:
+        raise ValueError(
+            f"Could not find HuggingFace config for model: {model_params.model_name}."
+        )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
     if model_params.model_kwargs.get("disable_dropout"):
@@ -376,8 +380,11 @@ def build_tokenizer(
     tokenizer_pad_token = model_params.tokenizer_pad_token
     if not tokenizer_pad_token:
         # Try to find the default `tokenizer_pad_token` by model type.
-        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
-            model_params
+        internal_config: Optional[InternalModelConfig] = (
+            find_internal_model_config_using_model_name(
+                model_name=tokenizer_name,
+                trust_remote_code=model_params.trust_remote_code,
+            )
         )
         if internal_config is not None and internal_config.tokenizer_pad_token:
             tokenizer_pad_token = internal_config.tokenizer_pad_token
