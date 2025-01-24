@@ -19,7 +19,10 @@ def test_together_init_with_custom_params():
         api_url="custom-url",
         api_key="custom-key",
     )
-    engine = TogetherInferenceEngine(model_params, remote_params)
+    engine = TogetherInferenceEngine(
+        model_params=model_params,
+        remote_params=remote_params,
+    )
     assert engine._model == "together-model"
     assert engine._remote_params.api_url == "custom-url"
     assert engine._remote_params.api_key == "custom-key"

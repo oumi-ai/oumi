@@ -35,23 +35,24 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[ci_gpu]' hf_transfer
+  pip install uv && uv pip install ".[ci_gpu]" hf_transfer
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
-  source ./configs/examples/misc/sky_init.sh
+  source "./configs/examples/misc/sky_init.sh"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
   nvidia-smi
 
-  pip install -e '.[ci_gpu]'
+  pip install -e ".[ci_gpu]"
 
-  GPU_MULTIPLICITY_MARKER='single_gpu'
+  GPU_MULTIPLICITY_MARKER="single_gpu"
   if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
-    GPU_MULTIPLICITY_MARKER='multi_gpu'
+    GPU_MULTIPLICITY_MARKER="multi_gpu"
   fi
 
-  ROOT_DIR=$(pwd)
+  ROOT_DIR="$(pwd)"
 
   if "${ENABLE_OUMI_UNIT_TESTS}"; then
     cd "${ROOT_DIR}/tests/unit/"
