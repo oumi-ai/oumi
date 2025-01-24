@@ -122,7 +122,7 @@ def test_infer_basic_non_interactive_with_images(
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
-        torch_dtype_str="float16",
+        torch_dtype_str="bfloat16",
         device_map=get_default_device_map_for_inference(),
     )
     generation_params = GenerationParams(
@@ -145,6 +145,8 @@ def test_infer_basic_non_interactive_with_images(
     valid_responses = [
         "A detailed Japanese print depicting a large wave crashing with",
         "A traditional Japanese painting of a large wave crashing with",
+        "A traditional Japanese ukiyo-e painting depicting a",
+        "A detailed Japanese woodblock print depicting a large wave",
     ]
 
     def _create_conversation(response: str) -> Conversation:

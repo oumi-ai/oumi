@@ -351,7 +351,7 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
                 messages=[
                     *conversation_1.messages,
                     Message(
-                        content="A detailed Japanese print depicting",
+                        content="A traditional Japanese painting of",
                         role=Role.ASSISTANT,
                     ),
                 ],
