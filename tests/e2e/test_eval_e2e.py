@@ -68,7 +68,7 @@ def _test_eval_impl(
 
         cmd: list[str] = []
         if use_distributed:
-            cmd.append("oumi distributed accelerate")
+            cmd.append("oumi distributed accelerate launch -m oumi evaluate")
         else:
             cmd.append("oumi evaluate")
 
@@ -164,7 +164,7 @@ def _test_eval_impl(
     "test_config",
     [
         EvalTestConfig(
-            test_name="eval_llama32v_11b",
+            test_name="eval_llama32v_11b_single_gpu",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -173,7 +173,7 @@ def _test_eval_impl(
                 / "evaluation"
                 / "11b_eval.yaml"
             ),
-            num_samples=10,
+            num_samples=3,  # The actual number is ~30X (30 sub-tasks)
         ),
     ],
     ids=get_eval_test_id_fn,
@@ -187,5 +187,37 @@ def test_eval_1gpu_24gb(
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=False,
+        interactive_logs=interactive_logs,
+    )
+
+
+@requires_gpus(count=4, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        EvalTestConfig(
+            test_name="eval_llama32v_11b_multi_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "vision"
+                / "llama3_2_vision"
+                / "evaluation"
+                / "11b_eval.yaml"
+            ),
+            num_samples=3,  # The actual number is ~30X (30 sub-tasks)
+        ),
+    ],
+    ids=get_eval_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_eval_4gpu_24gb(
+    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_eval_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
         interactive_logs=interactive_logs,
     )
