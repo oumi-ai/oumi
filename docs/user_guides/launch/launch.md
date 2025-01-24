@@ -141,6 +141,12 @@ changes on the cluster.
 :::
 ::::
 
+#### Spot instances
+
+On some cloud providers, you can use spot/preemptible instances instead of on-demand instances. These instances often have more quota available and are much cheaper (ex. ~3x cheaper on GCP). However, they may be shut down at any time, losing their disk. To mitigate this, follow the next section to mount cloud storage to persist your job's output.
+
+To use spot instances, set `use_spot` to True in the {py:class}`~oumi.core.configs.JobResources` of your {py:class}`~oumi.core.configs.JobConfig`.
+
 #### Mount Cloud Storage
 
 You can mount cloud storage containers like GCS or S3 to your job, which maps their remote paths to a directory on your job's disk. This is a fantastic way to write important information (such as data or model checkpoints) to a persistent disk that outlives your cluster's lifetime.
@@ -148,7 +154,7 @@ You can mount cloud storage containers like GCS or S3 to your job, which maps th
 ```{tip}
 Writing your job's output to cloud storage is recommended for preemptible cloud instances, or jobs outputting a large amount of data like large model checkpoints. Data on local disk will be lost on job preemption, and your job's local disk may not have enough storage for multiple large model checkpoints.
 
-To resume training from your last saved checkpoint after your instance is preempted, set `--training.try_resume_from_last_checkpoint=True` in your {py:class}`~oumi.core.configs.TrainingConfig`.
+To resume training from your last saved checkpoint after your instance is preempted, set `training.try_resume_from_last_checkpoint` to True in your {py:class}`~oumi.core.configs.TrainingConfig`.
 ```
 
 For example, to mount your GCS bucket `gs://my-bucket`, add the following to your {py:class}`~oumi.core.configs.JobConfig`:
