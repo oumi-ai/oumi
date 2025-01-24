@@ -9,7 +9,7 @@ name: llama8b-qlora-fsdp
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 

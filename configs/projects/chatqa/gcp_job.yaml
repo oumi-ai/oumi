@@ -6,7 +6,7 @@ name: chatqa-stage2-nopack
 resources:
   cloud: gcp
   accelerators: "A100-80GB"
-  use_spot: true
+  use_spot: false
   disk_size: 1000  # Disk size in GB
 
 working_dir: .

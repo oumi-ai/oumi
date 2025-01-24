@@ -6,7 +6,7 @@ name: gpt2-pt
 resources:
   cloud: gcp
   accelerators: "A100-80GB"
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 
