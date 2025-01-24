@@ -91,7 +91,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # Ensure BitsAndBytes keys for vllm.LLM are properly set.
         if bitsandbytes_quantization:
             if quantization and quantization != "bitsandbytes":
-                raise RuntimeError(
+                raise ValueError(
                     "The model kwargs include `bitsandbytes` quantization keys "
                     f"(such as {', '.join(bitsandbytes_quantization_kwargs)}), but a "
                     "different quantization method was requested: `{quantization}`."
