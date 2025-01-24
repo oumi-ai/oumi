@@ -4,9 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
+from oumi.builders.inference_engines import ENGINE_MAP
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
+    InferenceEngineType,
     ModelParams,
     RemoteParams,
 )
@@ -324,3 +326,11 @@ def test_engine_config_partial_override(engine_class):
             assert passed_config.remote_params.api_key == "init-key"  # Same
             assert passed_config.remote_params.num_workers == 1  # Same
             assert passed_config.remote_params.max_retries == 3  # Same
+
+
+def test_all_inference_engine_types_in_engine_map():
+    """Test that all InferenceEngineType values are present in ENGINE_MAP."""
+    for engine_type in InferenceEngineType:
+        assert (
+            engine_type in ENGINE_MAP
+        ), f"Missing engine type {engine_type} in ENGINE_MAP"

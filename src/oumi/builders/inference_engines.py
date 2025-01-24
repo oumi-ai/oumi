@@ -23,29 +23,20 @@ from oumi.inference import (
     VLLMInferenceEngine,
 )
 
-# Engines that don't require remote params
-LOCAL_ENGINES: dict[InferenceEngineType, type[BaseInferenceEngine]] = {
-    InferenceEngineType.NATIVE: NativeTextInferenceEngine,
-    InferenceEngineType.VLLM: VLLMInferenceEngine,
-    InferenceEngineType.LLAMACPP: LlamaCppInferenceEngine,
-}
-
-# Engines that can work with optional remote params
-REMOTE_OPTIONAL_ENGINES: dict[InferenceEngineType, type[RemoteInferenceEngine]] = {
-    InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
-    InferenceEngineType.PARASAIL: ParasailInferenceEngine,
-    InferenceEngineType.TOGETHER: TogetherInferenceEngine,
-    InferenceEngineType.OPENAI: OpenAIInferenceEngine,
+ENGINE_MAP: dict[InferenceEngineType, type[BaseInferenceEngine]] = {
     InferenceEngineType.ANTHROPIC: AnthropicInferenceEngine,
+    InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
     InferenceEngineType.GOOGLE_GEMINI: GoogleGeminiInferenceEngine,
-}
-
-# Engines that require remote params
-REMOTE_REQUIRED_ENGINES: dict[InferenceEngineType, type[RemoteInferenceEngine]] = {
-    InferenceEngineType.REMOTE_VLLM: RemoteVLLMInferenceEngine,
-    InferenceEngineType.SGLANG: SGLangInferenceEngine,
     InferenceEngineType.GOOGLE_VERTEX: GoogleVertexInferenceEngine,
+    InferenceEngineType.LLAMACPP: LlamaCppInferenceEngine,
+    InferenceEngineType.NATIVE: NativeTextInferenceEngine,
+    InferenceEngineType.OPENAI: OpenAIInferenceEngine,
+    InferenceEngineType.PARASAIL: ParasailInferenceEngine,
+    InferenceEngineType.REMOTE_VLLM: RemoteVLLMInferenceEngine,
     InferenceEngineType.REMOTE: RemoteInferenceEngine,
+    InferenceEngineType.SGLANG: SGLangInferenceEngine,
+    InferenceEngineType.TOGETHER: TogetherInferenceEngine,
+    InferenceEngineType.VLLM: VLLMInferenceEngine,
 }
 
 
@@ -70,29 +61,19 @@ def build_inference_engine(
         ValueError: If engine_type is not supported or if remote_params is
          required but not provided
     """
-    if engine_type in LOCAL_ENGINES:
-        return LOCAL_ENGINES[engine_type](
-            model_params=model_params,
-            generation_params=generation_params,
-        )
+    if engine_type in ENGINE_MAP:
+        engine = ENGINE_MAP[engine_type]
 
-    if engine_type in REMOTE_OPTIONAL_ENGINES:
-        return REMOTE_OPTIONAL_ENGINES[engine_type](
-            model_params=model_params,
-            remote_params=remote_params,
-            generation_params=generation_params,
-        )
-
-    if engine_type in REMOTE_REQUIRED_ENGINES:
-        if remote_params is None:
-            raise ValueError(
-                f"remote_params must be configured for the '{engine_type}' "
-                "inference engine."
+        if issubclass(engine, RemoteInferenceEngine):
+            return engine(
+                model_params=model_params,
+                generation_params=generation_params,
+                remote_params=remote_params,
             )
-        return REMOTE_REQUIRED_ENGINES[engine_type](
-            model_params=model_params,
-            remote_params=remote_params,
-            generation_params=generation_params,
-        )
+        else:
+            return engine(
+                model_params=model_params,
+                generation_params=generation_params,
+            )
 
     raise ValueError(f"Unsupported inference engine: {engine_type}")
