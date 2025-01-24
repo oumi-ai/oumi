@@ -14,6 +14,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
+from tests.integration.infer import get_default_device_map_for_inference
 from tests.markers import requires_cuda_initialized
 
 
@@ -23,6 +24,7 @@ def _get_default_text_model_params() -> ModelParams:
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+        device_map=get_default_device_map_for_inference(),
     )
 
 
@@ -32,6 +34,7 @@ def _get_default_image_model_params() -> ModelParams:
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
+        device_map=get_default_device_map_for_inference(),
     )
 
 
