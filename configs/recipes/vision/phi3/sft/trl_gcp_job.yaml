@@ -8,8 +8,11 @@ name: phi3-sft-trl-train
 resources:
   cloud: gcp
   accelerators: "A100-80GB:4"
-  # Allow Spot VM-s, which cost ~3X less.
-  use_spot: true
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
   disk_size: 1000 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.

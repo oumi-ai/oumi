@@ -1,6 +1,12 @@
+from types import MappingProxyType
 from typing import Optional
 
-from oumi.core.configs import InferenceEngineType, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceEngineType,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.inference import (
     AnthropicInferenceEngine,
@@ -18,51 +24,61 @@ from oumi.inference import (
     VLLMInferenceEngine,
 )
 
+ENGINE_MAP: MappingProxyType[InferenceEngineType, type[BaseInferenceEngine]] = (
+    MappingProxyType(
+        {
+            InferenceEngineType.ANTHROPIC: AnthropicInferenceEngine,
+            InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
+            InferenceEngineType.GOOGLE_GEMINI: GoogleGeminiInferenceEngine,
+            InferenceEngineType.GOOGLE_VERTEX: GoogleVertexInferenceEngine,
+            InferenceEngineType.LLAMACPP: LlamaCppInferenceEngine,
+            InferenceEngineType.NATIVE: NativeTextInferenceEngine,
+            InferenceEngineType.OPENAI: OpenAIInferenceEngine,
+            InferenceEngineType.PARASAIL: ParasailInferenceEngine,
+            InferenceEngineType.REMOTE_VLLM: RemoteVLLMInferenceEngine,
+            InferenceEngineType.REMOTE: RemoteInferenceEngine,
+            InferenceEngineType.SGLANG: SGLangInferenceEngine,
+            InferenceEngineType.TOGETHER: TogetherInferenceEngine,
+            InferenceEngineType.VLLM: VLLMInferenceEngine,
+        }
+    )
+)
+
 
 def build_inference_engine(
     engine_type: InferenceEngineType,
     model_params: ModelParams,
-    remote_params: Optional[RemoteParams],
+    remote_params: Optional[RemoteParams] = None,
+    generation_params: Optional[GenerationParams] = None,
 ) -> BaseInferenceEngine:
-    """Returns the inference engine based on the provided config."""
-    if engine_type == InferenceEngineType.NATIVE:
-        return NativeTextInferenceEngine(model_params)
-    elif engine_type == InferenceEngineType.VLLM:
-        return VLLMInferenceEngine(model_params)
-    elif engine_type == InferenceEngineType.LLAMACPP:
-        return LlamaCppInferenceEngine(model_params)
-    elif engine_type == InferenceEngineType.DEEPSEEK:
-        return DeepSeekInferenceEngine(model_params, remote_params)
-    elif engine_type == InferenceEngineType.PARASAIL:
-        return ParasailInferenceEngine(model_params, remote_params)
-    elif engine_type == InferenceEngineType.TOGETHER:
-        return TogetherInferenceEngine(model_params, remote_params)
-    elif engine_type == InferenceEngineType.OPENAI:
-        return OpenAIInferenceEngine(model_params, remote_params)
-    elif engine_type == InferenceEngineType.ANTHROPIC:
-        return AnthropicInferenceEngine(model_params, remote_params)
-    elif engine_type == InferenceEngineType.GOOGLE_GEMINI:
-        return GoogleGeminiInferenceEngine(model_params, remote_params)
-    elif engine_type in (
-        InferenceEngineType.REMOTE_VLLM,
-        InferenceEngineType.SGLANG,
-        InferenceEngineType.REMOTE,
-        InferenceEngineType.GOOGLE_VERTEX,
-    ):
-        # These inference engines do not have a default remote params configuration,
-        # so we need to check that remote_params is provided.
-        if remote_params is None:
-            raise ValueError(
-                "remote_params must be configured "
-                f"for the '{engine_type}' inference engine in inference config."
+    """Returns the inference engine based on the provided config.
+
+    Args:
+        engine_type: Type of inference engine to create
+        model_params: Model parameters
+        remote_params: Remote configuration parameters (required for some engines)
+        generation_params: Generation parameters
+
+    Returns:
+        An instance of the specified inference engine
+
+    Raises:
+        ValueError: If engine_type is not supported or if remote_params is
+         required but not provided
+    """
+    if engine_type in ENGINE_MAP:
+        engine = ENGINE_MAP[engine_type]
+
+        if issubclass(engine, RemoteInferenceEngine):
+            return engine(
+                model_params=model_params,
+                generation_params=generation_params,
+                remote_params=remote_params,
             )
-        if engine_type == InferenceEngineType.REMOTE_VLLM:
-            return RemoteVLLMInferenceEngine(model_params, remote_params)
-        elif engine_type == InferenceEngineType.SGLANG:
-            return SGLangInferenceEngine(model_params, remote_params)
-        elif engine_type == InferenceEngineType.GOOGLE_VERTEX:
-            return GoogleVertexInferenceEngine(model_params, remote_params)
         else:
-            return RemoteInferenceEngine(model_params, remote_params)
+            return engine(
+                model_params=model_params,
+                generation_params=generation_params,
+            )
 
     raise ValueError(f"Unsupported inference engine: {engine_type}")

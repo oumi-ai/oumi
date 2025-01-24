@@ -9,7 +9,7 @@ name: llama3b-sft-fsdp
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  use_spot: true
+  use_spot: false
   disk_size: 1000 # Disk size in GBs
 
 working_dir: .

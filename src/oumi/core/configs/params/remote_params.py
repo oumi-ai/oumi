@@ -43,8 +43,6 @@ class RemoteParams(BaseParams):
 
     def __post_init__(self):
         """Validate the remote parameters."""
-        if not self.api_url:
-            raise ValueError("The API URL must be provided in remote_params.")
         if self.num_workers < 1:
             raise ValueError(
                 "Number of num_workers must be greater than or equal to 1."
@@ -57,3 +55,8 @@ class RemoteParams(BaseParams):
             raise ValueError("Politeness policy must be finite.")
         if self.max_retries < 0:
             raise ValueError("Max retries must be greater than or equal to 0.")
+
+    def finalize_and_validate(self):
+        """Finalize the remote parameters."""
+        if not self.api_url:
+            raise ValueError("The API URL must be provided in remote_params.")

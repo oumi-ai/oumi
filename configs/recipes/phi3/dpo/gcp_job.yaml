@@ -13,7 +13,7 @@ resources:
   # disk_tier: medium # medium is the default.
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
-  use_spot: true
+  use_spot: false
 
 working_dir: .
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import warnings
 from pathlib import Path
 from typing import Optional, Union
@@ -72,7 +73,7 @@ def configure_logger(
 
     # Add a console handler to the logger for only global leader.
     if device_rank == 0:
-        console_handler = logging.StreamHandler()
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         console_handler.setLevel(level.upper())
         logger.addHandler(console_handler)
