@@ -228,6 +228,7 @@ peft:
   lora_modules_to_save: null         # Modules to unfreeze and train
   lora_bias: "none"                  # Bias training type
   lora_task_type: "CAUSAL_LM"        # Task type for adaptation
+  init_lora_weights: "DEFAULT"       # Initialization of LoRA weights
 
   # Q-LoRA settings
   q_lora: false                      # Enable quantization
