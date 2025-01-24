@@ -4,7 +4,6 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
@@ -15,25 +14,8 @@ from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import load_json
 from tests import get_configs_dir
+from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
-
-CONFIG_FOLDER_ROOT = get_configs_dir()
-
-
-def _get_output_dir(test_name: str, tmp_path: Path) -> Path:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    if os.environ.get("OUMI_E2E_TESTS_OUTPUT_DIR"):
-        output_base = Path(os.environ["OUMI_E2E_TESTS_OUTPUT_DIR"])
-    else:
-        output_base = tmp_path / "e2e_tests"
-
-    return output_base / f"{timestamp}_{test_name}"
-
-
-def _is_file_not_empty(file_path: Path) -> bool:
-    """Check if a file is not empty."""
-    return file_path.stat().st_size > 0
 
 
 def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
@@ -51,7 +33,7 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
 
     for file in essential_files:
         assert (dir_path / file).is_file(), f"Missing {file} in {dir_path}"
-        assert _is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
+        assert is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
 
     model_safetensors = dir_path / "model.safetensors"
 
@@ -60,7 +42,7 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
         assert (
             model_safetensors.is_file()
         ), f"Exists but not a file: {model_safetensors}"
-        assert _is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
+        assert is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
         is_model_sharded = False
     else:
         # The model is sharded. Let's validate model shards.
@@ -75,7 +57,7 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
         ), f"No 'model-*-of-*.safetensors' files found under {dir_path}"
         for model_shard in model_shards:
             assert (model_shard).is_file(), f"Missing {model_shard}"
-            assert _is_file_not_empty(model_shard), f"Empty {model_shard}"
+            assert is_file_not_empty(model_shard), f"Empty {model_shard}"
         index_dict: dict[str, Any] = load_json(model_index_json)
         assert "weight_map" in index_dict, f"No `weights_map` in {model_index_json}"
         assert isinstance(index_dict["weight_map"], dict)
@@ -125,15 +107,13 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
         )
         for file in checkpoint_files:
             assert (dir_path / file).exists(), f"Missing {file} in checkpoint"
-            assert _is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
+            assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
 
         if is_model_sharded:
             rng_state_shards = list(sorted(dir_path.glob("rng_state_*.pth")))
             assert len(rng_state_shards) > 1
             for file in rng_state_shards:
-                assert _is_file_not_empty(
-                    dir_path / file
-                ), f"Empty {file} in checkpoint"
+                assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
 
 
 class TrainTestConfig(NamedTuple):
@@ -172,7 +152,7 @@ def _test_train_impl(
     test_tag = f"[{test_config.test_name}]"
 
     _START_TIME = time.perf_counter()
-    output_dir = _get_output_dir(test_config.test_name, tmp_path=tmp_path)
+    output_dir = get_e2e_test_output_dir(test_config.test_name, tmp_path=tmp_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -298,7 +278,7 @@ def _test_train_impl(
         num_ranks = len(rank_logs)
         assert num_ranks > 0, f"{test_tag} No rank logs found"
         for idx in range(num_ranks):
-            assert _is_file_not_empty(
+            assert is_file_not_empty(
                 rank_logs[idx]
             ), f"{test_tag} Empty rank log file: {rank_logs[idx]}"
 
@@ -320,7 +300,7 @@ def _test_train_impl(
         for file in telemetry_files:
             file_path = telemetry_dir / file
             assert file_path.exists(), f"Missing telemetry file: {file}"
-            assert _is_file_not_empty(file_path), f"Empty telemetry file: {file}"
+            assert is_file_not_empty(file_path), f"Empty telemetry file: {file}"
 
         # Verify telemetry content
         with open(telemetry_dir / "training_config.yaml") as f:
@@ -359,7 +339,7 @@ def _test_train_impl(
         TrainTestConfig(
             test_name="train_llama_1b",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "llama3_2"
                 / "sft"
@@ -372,7 +352,7 @@ def _test_train_impl(
         TrainTestConfig(
             test_name="pretrain_fineweb",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "examples"
                 / "fineweb_ablation_pretraining"
                 / "ddp"
@@ -388,7 +368,7 @@ def _test_train_impl(
         TrainTestConfig(
             test_name="pretrain_gpt2",
             config_path=(
-                CONFIG_FOLDER_ROOT / "recipes" / "gpt2" / "pretraining" / "train.yaml"
+                get_configs_dir() / "recipes" / "gpt2" / "pretraining" / "train.yaml"
             ),
             batch_size=16,
             dataloader_num_workers=2,
@@ -398,12 +378,7 @@ def _test_train_impl(
         TrainTestConfig(
             test_name="smollm_135m_sft",
             config_path=(
-                CONFIG_FOLDER_ROOT
-                / "recipes"
-                / "smollm"
-                / "sft"
-                / "135m"
-                / "train.yaml"
+                get_configs_dir() / "recipes" / "smollm" / "sft" / "135m" / "train.yaml"
             ),
             max_steps=10,
         ),
@@ -430,7 +405,7 @@ def test_train_1gpu_24gb(
         TrainTestConfig(
             test_name="train_qwen2_vl_2b_trl_sft",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
@@ -444,7 +419,7 @@ def test_train_1gpu_24gb(
         TrainTestConfig(
             test_name="train_qwen2_vl_2b_oumi",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
@@ -479,7 +454,7 @@ def test_train_multimodal_1gpu_24gb(
         TrainTestConfig(
             test_name="train_llama3_2_vision_11b_full",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "llama3_2_vision"
@@ -493,7 +468,7 @@ def test_train_multimodal_1gpu_24gb(
         TrainTestConfig(
             test_name="train_llama3_2_vision_11b_lora",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "llama3_2_vision"
@@ -507,7 +482,7 @@ def test_train_multimodal_1gpu_24gb(
         TrainTestConfig(
             test_name="train_llava_7b_sft_full",
             config_path=(
-                CONFIG_FOLDER_ROOT
+                get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "llava_7b"
