@@ -78,25 +78,19 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"{gpu_memory_utilization}."
             )
 
-        # Check if BitsAndBytes quantization was requested.
-        bitsandbytes_quantization = False
+        # Check if any quantization keys are set.
+        quantization_keys_set = False
         if model_params.model_kwargs:
-            bitsandbytes_quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
-            for key in bitsandbytes_quantization_kwargs:
+            quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
+            for key in quantization_kwargs:
                 if model_params.model_kwargs.get(key):
-                    bitsandbytes_quantization = True
+                    quantization_keys_set = True
 
         vllm_kwargs = {}
 
-        # Ensure BitsAndBytes keys for vllm.LLM are properly set.
-        if bitsandbytes_quantization:
-            if quantization and quantization != "bitsandbytes":
-                raise ValueError(
-                    "The model kwargs include `bitsandbytes` quantization keys "
-                    f"(such as {', '.join(bitsandbytes_quantization_kwargs)}), but a "
-                    "different quantization method was requested: `{quantization}`."
-                )
-            else:
+        # If quantization requested but undefined, default to BitsAndBytes.
+        if quantization_keys_set:
+            if not quantization or quantization == "bitsandbytes":
                 quantization = "bitsandbytes"
                 vllm_kwargs["load_format"] = "bitsandbytes"
                 logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
