@@ -352,7 +352,8 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
         for response1, response2 in itertools.product(
             [
                 "A traditional Japanese painting of",
-                " A detailed Japanese print depicting",
+                "A detailed Japanese print depicting",
+                "A Japanese print depicting a",
             ],
             ["The image features a black"],
         ):
