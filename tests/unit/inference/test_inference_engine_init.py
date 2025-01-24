@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.builders.inference_engines import ENGINE_MAP
+from oumi.builders.inference_engines import ENGINE_MAP, build_inference_engine
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -334,3 +334,30 @@ def test_all_inference_engine_types_in_engine_map():
         assert (
             engine_type in ENGINE_MAP
         ), f"Missing engine type {engine_type} in ENGINE_MAP"
+
+
+def test_build_all_inference_engines():
+    """Test that all inference engines can be built using the builder."""
+    model_params = ModelParams(model_name="test-model")
+    remote_params = RemoteParams(api_url="http://test.com", api_key="test-key")
+
+    for engine_type in InferenceEngineType:
+        engine_class = ENGINE_MAP[engine_type]
+        mock_ctx = _mock_engine(engine_class)
+
+        with mock_ctx:
+            # Build with appropriate params based on engine type
+            if issubclass(engine_class, RemoteInferenceEngine):
+                engine = build_inference_engine(
+                    engine_type=engine_type,
+                    model_params=model_params,
+                    remote_params=remote_params,
+                )
+            else:
+                engine = build_inference_engine(
+                    engine_type=engine_type,
+                    model_params=model_params,
+                )
+
+            # Verify the engine is of the correct type
+            assert isinstance(engine, engine_class)
