@@ -4,7 +4,6 @@ Oumi's inference API provides a unified interface for multiple inference engines
 
 In this guide, we'll go through each supported engine, what they are best for, and how to get started using them.
 
-
 ## Introduction
 
 Before digging into specific engines, let's look at the basic patterns for initializing both local and remote inference engines.
@@ -37,7 +36,6 @@ oumi infer --engine VLLM --model.model_name meta-llama/Llama-3.2-1B-Instruct
 
 Checkout the {doc}`cli_reference` for more information on how to use the CLI.
 
-
 **Cloud APIs**
 
 Remote inference engines (i.e. API based) require a `RemoteParams` object to be passed in.
@@ -67,7 +65,6 @@ Make sure to check the {doc}`configuration` for an exhaustive list of supported 
 
 For example, the supported parameters for the `VLLMInferenceEngine` can be found here {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
 
-
 ## Local Inference
 
 This next section covers setting up and optimizing local inference engines for running models directly on your machine, whether you're running on a laptop or a server with multiple GPUs.
@@ -83,6 +80,7 @@ The actual memory requirements might vary based on the specific quantization imp
 Also note that Q4 quantization typically comes with some degradation in model quality, though the impact varies by model architecture and task.
 
 **BF16 / FP16 (16-bit)**
+
 | Model Size | GPU VRAM              | Notes |
 |------------|----------------------|--------|
 | 1B         | ~2 GB                | Can run on most modern GPUs |
@@ -103,7 +101,6 @@ Also note that Q4 quantization typically comes with some degradation in model qu
 | 33B        | ~16.5 GB             | Can run on high-end consumer GPUs |
 | 70B        | ~35 GB               | Can run on professional GPUs |
 
-
 ### vLLM Engine
 
 [vLLM](https://github.com/vllm-project/vllm) is a high-performance inference engine that implements state-of-the-art serving techniques like PagedAttention for optimal memory usage and throughput.
@@ -113,6 +110,7 @@ vLLM is our recommended choice for production deployments on GPUs.
 **Installation**
 
 First, make sure to install the vLLM package:
+
 ```bash
 pip install vllm
 ```
@@ -146,6 +144,7 @@ model_params = ModelParams(
 **Resources**
 
 - [vLLM Documentation](https://vllm.readthedocs.io/en/latest/)
+
 ### LlamaCPP Engine
 
 For scenarios where GPU resources are limited or unavailable, the [LlamaCPP engine](https://github.com/ggerganov/llama.cpp) provides an excellent alternative.
@@ -153,7 +152,6 @@ For scenarios where GPU resources are limited or unavailable, the [LlamaCPP engi
 Built on the highly optimized llama.cpp library, this engine excels at CPU inference and quantized models, making it particularly suitable for edge deployment and resource-constrained environments. ls even on modest hardware.
 
 LlamaCPP is a great choice for CPU inference and inference with quantized models.
-
 
 **Installation**
 
@@ -178,6 +176,7 @@ engine = LlamaCppInferenceEngine(
 ```
 
 **Resources**
+
 - [llama.cpp Python Documentation](https://llama-cpp-python.readthedocs.io/en/latest/)
 - [llama.cpp GitHub Project](https://github.com/ggerganov/llama.cpp)
 
@@ -186,7 +185,6 @@ engine = LlamaCppInferenceEngine(
 The Native engine uses HuggingFace's [🤗 Transformers](https://huggingface.co/docs/transformers/index) library directly, providing maximum compatibility and ease of use.
 
 While it may not offer the same performance optimizations as vLLM or LlamaCPP, its simplicity and compatibility make it an excellent choice for prototyping and testing.
-
 
 **Basic Usage**
 
@@ -237,7 +235,6 @@ python -m vllm.entrypoints.openai.api_server \
     --tensor-parallel-size 4
 
 ```
-
 
 #### Client Configuration
 
@@ -298,7 +295,6 @@ oumi infer -c configs/recipes/llama3_1/inference/8b_sglang_infer.yaml -i
 
 While local inference offers control and flexibility, cloud APIs provide access to state-of-the-art models and scalable infrastructure without the need to manage your own hardware.
 
-
 ### Anthropic
 
 [Claude](https://www.anthropic.com/claude) is Anthropic's advanced language model, available through their API.
@@ -324,7 +320,6 @@ engine = AnthropicInferenceEngine(
 
 - [Anthropic API Documentation](https://docs.anthropic.com/en/api/getting-started)
 - [Available Models](https://docs.anthropic.com/en/docs/about-claude/models)
-
 
 ### Google Cloud
 
@@ -355,11 +350,13 @@ engine = GoogleVertexInferenceEngine(
 ```
 
 **Resources**
+
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs) for Google Cloud AI services
 
 #### Gemini API
 
 **Basic Usage**
+
 ```python
 from oumi.inference import GoogleGeminiInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
@@ -376,6 +373,7 @@ engine = GoogleGeminiInferenceEngine(
 ```
 
 **Resources**
+
 - [Gemini API Documentation](https://ai.google.dev/docs) for Gemini API details
 
 ### OpenAI
