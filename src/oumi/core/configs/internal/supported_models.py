@@ -20,17 +20,11 @@ from oumi.utils.logging import logger
 @functools.cache
 def find_model_hf_config(model_name: str, *, trust_remote_code: bool):
     """Finds HF model config by model name."""
-    try:
-        hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
-            model_name,
-            trust_remote_code=trust_remote_code,
-            return_unused_kwargs=True,
-        )
-    except OSError:
-        # If the model is not found, it's likely a .gguf model. Instead of failing, we
-        # return None, indicating that no HF config was found for this model.
-        return None
-
+    hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        return_unused_kwargs=True,
+    )
     if unused_kwargs:
         logger.warning(
             f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
@@ -305,9 +299,7 @@ def find_internal_model_config_using_model_name(
         return None
 
     hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
-    llm_info = (
-        get_all_models_map().get(hf_config.model_type, None) if hf_config else None
-    )
+    llm_info = get_all_models_map().get(hf_config.model_type, None)
     return llm_info.config if llm_info is not None else None
 
 
