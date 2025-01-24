@@ -112,7 +112,11 @@ def test_infer_basic_non_interactive(num_batches: int, batch_size: int):
 
 
 @requires_gpus()
-@pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2)])
+@pytest.mark.parametrize(
+    "num_batches,batch_size",
+    [(1, 1), (1, 2)],
+    ids=lambda x: f"batches={x[0]} bs={x[1]}",
+)
 @pytest.mark.single_gpu
 def test_infer_basic_non_interactive_with_images(
     num_batches: int, batch_size: int, root_testdata_dir: Path
