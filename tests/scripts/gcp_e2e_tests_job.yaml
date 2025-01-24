@@ -30,9 +30,9 @@ envs:
   TOKENIZERS_PARALLELISM: false
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
-  ENABLE_OUMI_UNIT_TESTS: false
-  ENABLE_OUMI_INTEGRATION_TESTS: true
-  ENABLE_OUMI_E2E_TESTS: false
+  ENABLE_OUMI_UNIT_TESTS: "false"
+  ENABLE_OUMI_INTEGRATION_TESTS: "true"
+  ENABLE_OUMI_E2E_TESTS: "false"
 
 setup: |
   set -e
@@ -44,6 +44,10 @@ run: |
   source "./configs/examples/misc/sky_init.sh"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
+  echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
+  echo "Integration tests: ${ENABLE_OUMI_INTEGRATION_TESTS}"
+  echo "e2e tests: ${ENABLE_OUMI_E2E_TESTS}"
+
   nvidia-smi
 
   pip install -e ".[ci_gpu]"
@@ -63,7 +67,7 @@ run: |
   fi
 
   if "${ENABLE_OUMI_INTEGRATION_TESTS}"; then
-    cd "${ROOT_DIR}/tests/integration/"
+    cd "${ROOT_DIR}/tests/integration/infer/"
     echo "Running all integration tests..."
     pytest -s -vv --durations=50 --timeout=300
   fi
