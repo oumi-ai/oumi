@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to pre-downlod common models referenced in tests to reduce test time variance.
+# Script to pre-download common models referenced in tests to reduce test time variance.
 # Used in ".github/workflows/gpu_tests.yaml"
 set -xe
 
