@@ -120,7 +120,7 @@ class TrainTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     max_steps: int
-    skip: bool = True  # False
+    skip: bool = False
     trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
