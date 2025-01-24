@@ -1,3 +1,4 @@
+from types import MappingProxyType
 from typing import Optional
 
 from oumi.core.configs import (
@@ -23,21 +24,25 @@ from oumi.inference import (
     VLLMInferenceEngine,
 )
 
-ENGINE_MAP: dict[InferenceEngineType, type[BaseInferenceEngine]] = {
-    InferenceEngineType.ANTHROPIC: AnthropicInferenceEngine,
-    InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
-    InferenceEngineType.GOOGLE_GEMINI: GoogleGeminiInferenceEngine,
-    InferenceEngineType.GOOGLE_VERTEX: GoogleVertexInferenceEngine,
-    InferenceEngineType.LLAMACPP: LlamaCppInferenceEngine,
-    InferenceEngineType.NATIVE: NativeTextInferenceEngine,
-    InferenceEngineType.OPENAI: OpenAIInferenceEngine,
-    InferenceEngineType.PARASAIL: ParasailInferenceEngine,
-    InferenceEngineType.REMOTE_VLLM: RemoteVLLMInferenceEngine,
-    InferenceEngineType.REMOTE: RemoteInferenceEngine,
-    InferenceEngineType.SGLANG: SGLangInferenceEngine,
-    InferenceEngineType.TOGETHER: TogetherInferenceEngine,
-    InferenceEngineType.VLLM: VLLMInferenceEngine,
-}
+ENGINE_MAP: MappingProxyType[InferenceEngineType, type[BaseInferenceEngine]] = (
+    MappingProxyType(
+        {
+            InferenceEngineType.ANTHROPIC: AnthropicInferenceEngine,
+            InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
+            InferenceEngineType.GOOGLE_GEMINI: GoogleGeminiInferenceEngine,
+            InferenceEngineType.GOOGLE_VERTEX: GoogleVertexInferenceEngine,
+            InferenceEngineType.LLAMACPP: LlamaCppInferenceEngine,
+            InferenceEngineType.NATIVE: NativeTextInferenceEngine,
+            InferenceEngineType.OPENAI: OpenAIInferenceEngine,
+            InferenceEngineType.PARASAIL: ParasailInferenceEngine,
+            InferenceEngineType.REMOTE_VLLM: RemoteVLLMInferenceEngine,
+            InferenceEngineType.REMOTE: RemoteInferenceEngine,
+            InferenceEngineType.SGLANG: SGLangInferenceEngine,
+            InferenceEngineType.TOGETHER: TogetherInferenceEngine,
+            InferenceEngineType.VLLM: VLLMInferenceEngine,
+        }
+    )
+)
 
 
 def build_inference_engine(
