@@ -31,8 +31,8 @@ envs:
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
   ENABLE_OUMI_UNIT_TESTS: "false"
-  ENABLE_OUMI_INTEGRATION_TESTS: "true"
-  ENABLE_OUMI_E2E_TESTS: "false"
+  ENABLE_OUMI_INTEGRATION_TESTS: "false"
+  ENABLE_OUMI_E2E_TESTS: "true"
 
 setup: |
   set -e
@@ -67,7 +67,7 @@ run: |
   fi
 
   if "${ENABLE_OUMI_INTEGRATION_TESTS}"; then
-    cd "${ROOT_DIR}/tests/integration/infer/"
+    cd "${ROOT_DIR}/tests/integration/"
     echo "Running all integration tests..."
     pytest -s -vv --durations=50 --timeout=300
   fi
