@@ -31,7 +31,8 @@ envs:
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
   ENABLE_OUMI_UNIT_TESTS: false
-  ENABLE_OUMI_INTEGRATION_TESTS: false
+  ENABLE_OUMI_INTEGRATION_TESTS: true
+  ENABLE_OUMI_E2E_TESTS: false
 
 setup: |
   set -e
@@ -46,6 +47,7 @@ run: |
   nvidia-smi
 
   pip install -e ".[ci_gpu]"
+  oumi env
 
   GPU_MULTIPLICITY_MARKER="single_gpu"
   if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
@@ -66,8 +68,10 @@ run: |
     pytest -s -vv --durations=50 --timeout=300
   fi
 
-  cd "${ROOT_DIR}/tests/"
-  echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
-  pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=900
+  if "${ENABLE_OUMI_E2E_TESTS}"; then
+    cd "${ROOT_DIR}/tests/"
+    echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
+    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=900
+  fi
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
