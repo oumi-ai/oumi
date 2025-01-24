@@ -86,6 +86,7 @@ def test_infer_basic_non_interactive(num_batches: int, batch_size: int):
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+        device_map="cuda",
     )
     generation_params = GenerationParams(
         max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size
@@ -121,6 +122,7 @@ def test_infer_basic_non_interactive_with_images(
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
         torch_dtype_str="float16",
+        device_map="cuda",
     )
     generation_params = GenerationParams(
         max_new_tokens=10, temperature=0.0, seed=42, batch_size=batch_size

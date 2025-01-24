@@ -40,7 +40,7 @@ setup: |
   pip install -U flash-attn --no-build-isolation
 
 run: |
-  set -e  # Exit if any command failed.
+  set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
