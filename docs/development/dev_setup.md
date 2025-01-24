@@ -13,6 +13,7 @@ make install-miniconda
 Alternatively, install Miniconda from the [Anaconda website](https://docs.anaconda.com/free/miniconda/miniconda-install/).
 
 (set-up-oumi)=
+
 ## 2. Set up Oumi
 
 ### 2.1 Fork the Oumi repository
@@ -20,9 +21,11 @@ Alternatively, install Miniconda from the [Anaconda website](https://docs.anacon
 You can create a fork of Oumi by clicking the [Fork button](https://github.com/oumi-ai/oumi/fork) in the upper right of the repository. This will create a fork of Oumi associated with your GitHub account.
 
 (clone-repository)=
+
 ### 2.2 Clone your fork of the Oumi repository
 
 Now you're ready to clone your fork to your local disk and set up the original repository as a remote:
+
 ```shell
 git clone git@github.com:<your Github handle>/oumi.git
 cd oumi

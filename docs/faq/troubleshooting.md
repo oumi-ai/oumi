@@ -24,22 +24,25 @@ See {doc}`oom` for more information.
 
 ### Launching Remote Jobs Fail due to File Mounts
 
-When running a remote training job using a command like:
+When running a remote job using a command like:
 
 ```shell
-oumi launch up -c you/config/file.yaml
+oumi launch up -c your/config/file.yaml
 ```
 
 It's common to see failures with errors like:
+
 ```
 ValueError: File mount source '~/.netrc' does not exist locally. To fix: check if it exists, and correct the path.
 ```
 
-These errors indicate that your JobConfig contains a reference to a file that does not exist on your local machine.
-In the example above, `~/.netrc` is a file used to preserve credentials (such as your WandB credentials) during training.
+These errors indicate that your JobConfig contains a reference to a file that does not exist on your local machine. You can remove the offending line from your yaml file's {py:attr}`~oumi.core.configs.JobConfig.file_mounts` to resolve the error if it's unneeded. Otherwise, here's how to resolve the error for specific files often mounted by Oumi jobs:
 
-#### The Fix
-Simply remove the offending line from your yaml file's {py:attr}`~oumi.core.configs.JobConfig.file_mounts` and rerun your command.
+- `~/.netrc`: This file contains your Weights and Biases (WandB) credentials, which are needed to log your run's metrics to WandB.
+  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-weights-and-biases)
+  - If you don't require WandB logging, disable either {py:attr}`~oumi.core.configs.TrainingParams.enable_wandb` or {py:attr}`~oumi.core.configs.EvaluationConfig.enable_wandb`, for training and evaluation jobs respectively. This is needed in addition to removing the file mount to prevent an error.
+- `~/.cache/huggingface/token`: This file contains your Huggingface credentials, which are needed to access gated datasets/models on HuggingFace Hub.
+  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-huggingface)
 
 ### Training Stability & NaN Loss
 

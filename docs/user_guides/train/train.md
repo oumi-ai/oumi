@@ -33,7 +33,9 @@ For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-
 
 ::::{tab-set-code}
 :::{code-block} bash
+
 # Train a small model (SmolLM-135M)
+
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :::
 
@@ -42,9 +44,11 @@ from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load config from file
+
 config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Start training
+
 train(config)
 :::
 ::::
@@ -95,13 +99,16 @@ from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load base config
+
 config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Override specific values
+
 config.training.learning_rate = 1e-4
 config.training.max_steps = 30
 
 # Start training
+
 train(config)
 :::
 ::::
@@ -168,6 +175,10 @@ oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster ll
 ```
 
 Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/latest/), most cloud providers are supported -- make sure to check out {doc}`/user_guides/launch/launch` for more details.
+
+#### Multi-node Training
+
+To train with multiple nodes using the Oumi launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
 
 ### Using Custom Datasets
 
