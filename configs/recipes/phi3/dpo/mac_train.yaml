@@ -25,10 +25,7 @@ training:
 peft:
   q_lora: False
   lora_target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
+    - "qkv_proj"
     - "o_proj"
-    - "gate_proj"
-    - "up_proj"
+    - "gate_up_proj"
     - "down_proj"

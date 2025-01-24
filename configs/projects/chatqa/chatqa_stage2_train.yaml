@@ -6,7 +6,7 @@ model:
   # torch_dtype_str: "float16"
   # model_max_length: 1024
 
-  # model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # model_name: "meta-llama/Llama-3.1-8B-Instruct"
   # torch_dtype_str: "bfloat16"
   # model_max_length: 4096
 

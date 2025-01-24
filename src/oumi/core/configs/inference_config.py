@@ -38,6 +38,18 @@ class InferenceEngineType(str, Enum):
     GOOGLE_GEMINI = "GEMINI"
     """The inference engine for Gemini."""
 
+    DEEPSEEK = "DEEPSEEK"
+    """The inference engine for DeepSeek Platform API."""
+
+    PARASAIL = "PARASAIL"
+    """The inference engine for Parasail API."""
+
+    TOGETHER = "TOGETHER"
+    """The inference engine for Together API."""
+
+    OPENAI = "OPENAI"
+    """The inference engine for OpenAI API."""
+
 
 @dataclass
 class InferenceConfig(BaseConfig):

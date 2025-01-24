@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -13,6 +13,18 @@ _ROLE_KEY: str = "role"
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Remote vLLM."""
 
+    @property
+    @override
+    def base_url(self) -> Optional[str]:
+        """Return the default base URL for the Remote vLLM API."""
+        return None
+
+    @property
+    @override
+    def api_key_env_varname(self) -> Optional[str]:
+        """Return the default environment variable name for the Remote vLLM API key."""
+        return None
+
     @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
@@ -26,6 +38,7 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
             "guided_decoding",
+            "max_new_tokens",
         }
 
     @override
@@ -44,11 +57,13 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
         api_input = {
-            "model": self._model,
+            "model": (self._adapter_model if self._adapter_model else self._model),
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),
+            "max_tokens": generation_params.max_new_tokens,
             # "max_completion_tokens": generation_params.max_new_tokens,
+            # Future transition instead of `max_tokens`. See https://github.com/vllm-project/vllm/issues/9845
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,

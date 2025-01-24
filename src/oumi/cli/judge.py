@@ -191,6 +191,7 @@ def model(
         model_inference_config.engine,
         model_params=model_inference_config.model,
         remote_params=model_inference_config.remote_params,
+        generation_params=model_inference_config.generation,
     )
 
     model_outputs = inference_engine.infer(

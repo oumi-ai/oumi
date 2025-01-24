@@ -5,8 +5,8 @@ name: phi3-dpo-fsdp
 
 resources:
   cloud: gcp
-  accelerators: "A40:2"
-  use_spot: true
+  accelerators: "A100:2"
+  use_spot: false
 
 working_dir: .
 
@@ -34,7 +34,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml \
+      -c src/experimental/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

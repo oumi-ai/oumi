@@ -116,7 +116,10 @@ class BaseConfig:
             config = OmegaConf.merge(*all_configs)
         except Exception:
             if logger:
-                logger.exception(f"Failed to merge Omega configs: {all_configs}")
+                configs_str = "\n\n".join([f"{config}" for config in all_configs])
+                logger.exception(
+                    f"Failed to merge {len(all_configs)} Omega configs:\n{configs_str}"
+                )
             raise
 
         config = OmegaConf.to_object(config)

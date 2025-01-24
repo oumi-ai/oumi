@@ -13,6 +13,14 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Gemini API."""
 
+    base_url = (
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    )
+    """The base URL for the Gemini API."""
+
+    api_key_env_varname = "GEMINI_API_KEY"
+    """The environment variable name for the Gemini API key."""
+
     @override
     def _convert_conversation_to_api_input(
         self, conversation: Conversation, generation_params: GenerationParams

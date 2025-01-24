@@ -55,10 +55,9 @@ def evaluate(
     # Prerequisites
     if not alpaca_eval:
         raise RuntimeError(
-            "The `alpaca_eval` package, which is part of Oumi's optional dependencies, "
-            "is NOT installed. Please either install all optional dependencies with "
-            "`pip install -e '.[optional]'` or directly install the missing package "
-            "with `pip install alpaca_eval`."
+            "The `alpaca_eval` package is NOT installed. Please either install all "
+            "evaluation dependencies with `pip install -e '.[evaluation]'` or directly "
+            "install the missing package with `pip install alpaca_eval`."
         )
 
     open_ai_key = os.environ.get("OPENAI_API_KEY")

@@ -50,7 +50,7 @@ tasks:
     eval_kwargs:
       num_fewshot: 5
 
-# Note: If you are running this in a remote machine, which is not accessible after the
+# NOTE: If you are running this in a remote machine, which is not accessible after the
 #       evaluation completes, you need to re-direct your output to persistent storage.
 #       For GCP nodes, you can store your output into a mounted GCS Bucket.
 #       For example: `output_dir: "/my-gcs-bucket/huggingface_leaderboard_v1"`,

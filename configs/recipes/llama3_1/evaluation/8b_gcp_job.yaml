@@ -8,8 +8,8 @@ name: llama8b-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
-  use_spot: true
+  accelerators: "A100:1"
+  use_spot: false
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .

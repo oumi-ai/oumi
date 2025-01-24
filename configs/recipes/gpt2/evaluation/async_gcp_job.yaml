@@ -5,8 +5,8 @@ name: gpt2-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100"
-  use_spot: true
+  accelerators: "A100:1"
+  use_spot: false
   disk_size: 200  # Disk size in GB
 
 working_dir: .
@@ -39,4 +39,4 @@ run: |
 
   python -m oumi.evaluate_async \
     -c configs/recipes/gpt2/evaluation/async_eval.yaml \
-    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+    "evaluation.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
