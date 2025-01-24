@@ -1,6 +1,6 @@
 <div align="center">
 <img src="_static/logo/oumi_logo_dark.png" alt="Oumi Logo" width="150"/>
-# Oumi: Open Universal Machine Intelligence
+<h1> Oumi: Open Universal Machine Intelligence </h1>
 </div>
 
 [![Github](https://img.shields.io/badge/Github-oumi-blue.svg)](https://github.com/oumi-ai/oumi)
@@ -106,7 +106,6 @@ With Oumi, you can:
 
 All with one consistent API, production-grade reliability, and all the flexibility you need for research.
 
-Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quickstart guide](https://oumi.ai/docs/latest/get_started/quickstart.html).
 
 ## 🚀 Getting Started
 

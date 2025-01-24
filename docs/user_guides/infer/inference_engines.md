@@ -42,7 +42,7 @@ Remote inference engines (i.e. API based) require a `RemoteParams` object to be 
 
 The `RemoteParams` object contains the API URL and any necessary API keys. For example, here is to use Claude Sonnet 3.5:
 
-```python
+```{testcode}
 from oumi.inference import AnthropicInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -51,7 +51,6 @@ engine = AnthropicInferenceEngine(
         model_name="claude-3-5-sonnet-20240620",
     ),
     remote_params=RemoteParams(
-        api_url="https://api.anthropic.com/v1/messages",
         api_key_env_varname="ANTHROPIC_API_KEY",
     )
 )
@@ -240,7 +239,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 The client can be configured with different reliability and performance options similar to any other remote engine:
 
-```python
+```{testcode}
 # Basic client with timeout and retry settings
 engine = RemoteVLLMInferenceEngine(
     model_params=ModelParams(
@@ -274,7 +273,7 @@ Please refer to [SGLang documentation](https://sgl-project.github.io/backend/ser
 
 The client can be configured with different reliability and performance options similar to any other remote engines:
 
-```python
+```{testcode}
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -301,7 +300,7 @@ While local inference offers control and flexibility, cloud APIs provide access 
 
 **Basic Usage**
 
-```python
+```{testcode}
 from oumi.inference import AnthropicInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -310,7 +309,6 @@ engine = AnthropicInferenceEngine(
         model_name="claude-3-5-sonnet-20240620"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.anthropic.com/v1/messages",
         api_key_env_varname="ANTHROPIC_API_KEY",
     )
 )
@@ -335,7 +333,7 @@ pip install "oumi[gcp]"
 
 **Basic Usage**
 
-```python
+```{testcode}
 from oumi.inference import GoogleVertexInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -357,7 +355,7 @@ engine = GoogleVertexInferenceEngine(
 
 **Basic Usage**
 
-```python
+```{testcode}
 from oumi.inference import GoogleGeminiInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -366,7 +364,6 @@ engine = GoogleGeminiInferenceEngine(
         model_name="gemini-1.5-flash"
     ),
     remote_params=RemoteParams(
-        api_url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         api_key_env_varname="GEMINI_API_KEY",
     )
 )
@@ -383,15 +380,14 @@ engine = GoogleGeminiInferenceEngine(
 **Basic Usage**
 
 ```python
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = OpenAIInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.openai.com/v1/chat/completions",
         api_key_env_varname="OPENAI_API_KEY",
     )
 )
@@ -407,16 +403,15 @@ engine = RemoteInferenceEngine(
 
 **Basic Usage**
 
-```python
-from oumi.inference import RemoteInferenceEngine
+```{testcode}
+from oumi.inference import TogetherInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = TogetherInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.2-1B-Instruct"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.together.xyz/v1/chat/completions",
         api_key_env_varname="TOGETHER_API_KEY",
     )
 )
@@ -428,16 +423,15 @@ engine = RemoteInferenceEngine(
 
 **Basic Usage**
 
-```python
-from oumi.inference import RemoteInferenceEngine
+```{testcode}
+from oumi.inference import DeepSeekInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = DeepSeekInferenceEngine(
     model_params=ModelParams(
         model_name="deepseek-chat"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.deepseek.com/v1/chat/completions",
         api_key_env_varname="DEEPSEEK_API_KEY",
     )
 )
@@ -453,16 +447,15 @@ This service is particularly useful when you need to run open source models in a
 
 Here's how to configure Oumi for Parasail.io:
 
-```python
-from oumi.inference import RemoteInferenceEngine
+```{testcode}
+from oumi.inference import ParasailInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = ParasailInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.2-1B-Instruct"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.parasail.io/v1/chat/completions",
         api_key_env_varname="PARASAIL_API_KEY",
     )
 )
