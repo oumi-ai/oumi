@@ -37,17 +37,18 @@ for dataset_format in ["alpaca", "oumi"]:
 
 ## Example Usage for Multi-modal Data
 ```python
-from oumi.builders import build_tokenizer
+from oumi.builders import build_processor, build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.datasets import VLJsonlinesDataset
 
-model_name = "Qwen/Qwen2-1.5B-Instruct"
+model_name = "Qwen/Qwen2-VL-2B-Instruct"
 tokenizer = build_tokenizer(ModelParams(model_name=model_name))
+processor = build_processor(model_name, tokenizer, trust_remote_code=True)
 
 # Load the dataset
-dataset = VLJsonlinesDataset(dataset_path="vision_language_oumi_format.jsonl",
+dataset = VLJsonlinesDataset(dataset_path="./vision_language_oumi_format.jsonl",
                              tokenizer=tokenizer,
-                             processor_name=model_name)
+                             processor=processor)
 
 # Iterate through the dataset and print conversations
 for i in range(len(dataset)):
