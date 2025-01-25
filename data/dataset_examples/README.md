@@ -9,6 +9,10 @@
    The `alpaca instruction` format offers broader compatibility with existing libraries but lacks support for multi-turn conversations and per-example metadata.
    - A small dataset in `alpaca instruction` format is stored as a `json` file [here](./alpaca_format.json), and as a `jsonl` file [here](./alpaca_format.jsonl).
 
+3. **Oumi Conversation Format for Multi-modal (Vision-Language) Data**
+   This is technically the same `conversation` format listed above. However for multi-modal applications we allow the underlying contained messages to include items (`ContentItem`) that correspond to images. The images can be in the form of an `IMAGE_URL`, a local image file (`IMAGE_PATH`), or raw image data (`Type.IMAGE_BINARY`).
+   - A short example of a conversation-formatted dataset for vision-language data is shown [here](./vision_language_oumi_format.jsonl), stored in a `jsonl` file.
+
 
 ## Example Usage
 
@@ -29,4 +33,23 @@ for dataset_format in ["alpaca", "oumi"]:
         # Iterate through the dataset and print conversations
         for i in range(len(dataset)):
             print(dataset.conversation(i))
+```
+
+## Example Usage for Multi-modal Data
+```python
+from oumi.builders import build_tokenizer
+from oumi.core.configs import ModelParams
+from oumi.datasets import VLJsonlinesDataset
+
+model_name = "Qwen/Qwen2-1.5B-Instruct"
+tokenizer = build_tokenizer(ModelParams(model_name=model_name))
+
+# Load the dataset
+dataset = VLJsonlinesDataset(dataset_path="vision_language_oumi_format.jsonl",
+                             tokenizer=tokenizer,
+                             processor_name=model_name)
+
+# Iterate through the dataset and print conversations
+for i in range(len(dataset)):
+   print(dataset.conversation(i))
 ```
