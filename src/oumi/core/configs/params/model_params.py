@@ -8,7 +8,6 @@ from transformers.utils import find_adapter_config_file, is_flash_attn_2_availab
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
-from oumi.utils.distributed_utils import is_using_accelerate
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -252,12 +251,6 @@ class ModelParams(BaseParams):
                 "Flash attention 2 was requested but it is not "
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
-            )
-
-        if False and (self.shard_for_eval and is_using_accelerate()):
-            raise ValueError(
-                "Sharded-model evaluations with LM Harness should be invoked with "
-                "`python`, not `accelerate launch`."
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:
