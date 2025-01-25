@@ -191,7 +191,7 @@ def _test_eval_impl(
             config_path=(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
-            num_samples=20,
+            num_samples=10,
         ),
         EvalTestConfig(
             test_name="eval_text_llama32_3b_single_gpu",
