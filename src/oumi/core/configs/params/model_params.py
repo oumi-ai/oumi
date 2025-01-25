@@ -162,10 +162,6 @@ class ModelParams(BaseParams):
 
     This is needed for large models that do not fit on a single GPU.
     It is used as the value for the `parallelize` argument in LM Harness.
-
-    If this is enabled, the eval job must be kicked off with `python` as opposed to
-    `accelerate launch`, as described here:
-    https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#multi-gpu-evaluation-with-hugging-face-accelerate
     """
 
     freeze_layers: list[str] = field(default_factory=list)
@@ -258,7 +254,7 @@ class ModelParams(BaseParams):
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
             )
 
-        if self.shard_for_eval and is_using_accelerate():
+        if False and (self.shard_for_eval and is_using_accelerate()):
             raise ValueError(
                 "Sharded-model evaluations with LM Harness should be invoked with "
                 "`python`, not `accelerate launch`."
