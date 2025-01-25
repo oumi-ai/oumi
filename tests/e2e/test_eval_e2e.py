@@ -164,7 +164,79 @@ def _test_eval_impl(
     "test_config",
     [
         EvalTestConfig(
-            test_name="eval_llama32v_11b_single_gpu",
+            test_name="eval_text_smollm_135m_single_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "smollm"
+                / "evaluation"
+                / "135m"
+                / "eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_llama32_1b_single_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "llama3_2"
+                / "evaluation"
+                / "1b_eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_phi3_single_gpu",
+            config_path=(
+                get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_llama32_3b_single_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "llama3_2"
+                / "evaluation"
+                / "3b_eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_llama31_8b_single_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "llama3_1"
+                / "evaluation"
+                / "8b_eval.yaml"
+            ),
+            num_samples=20,
+        ),
+    ],
+    ids=get_eval_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.single_gpu
+def test_eval_text_1gpu_24gb(
+    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_eval_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=False,
+        interactive_logs=interactive_logs,
+    )
+
+
+@requires_gpus(count=1, min_gb=24.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        EvalTestConfig(
+            test_name="eval_mm_llama32v_11b_single_gpu",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -180,7 +252,7 @@ def _test_eval_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_eval_1gpu_24gb(
+def test_eval_multimodal_1gpu_24gb(
     test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_eval_impl(
@@ -191,12 +263,39 @@ def test_eval_1gpu_24gb(
     )
 
 
+@requires_gpus(count=4, min_gb=40.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        EvalTestConfig(
+            test_name="eval_mm_llama31_70b_multi_gpu",
+            config_path=(
+                get_configs_dir() / "recipes" / "llama3_1" / "evaluation" / "70b_eval"
+            ),
+            num_samples=20,
+        ),
+    ],
+    ids=get_eval_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_eval_text_4gpu_24gb(
+    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
+):
+    _test_eval_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+        interactive_logs=interactive_logs,
+    )
+
+
 @requires_gpus(count=4, min_gb=24.0)
 @pytest.mark.parametrize(
     "test_config",
     [
         EvalTestConfig(
-            test_name="eval_llama32v_11b_multi_gpu",
+            test_name="eval_mm_llama32v_11b_multi_gpu",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -212,7 +311,7 @@ def test_eval_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_4gpu_24gb(
+def test_eval_multimodal_4gpu_24gb(
     test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_eval_impl(

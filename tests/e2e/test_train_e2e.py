@@ -337,7 +337,7 @@ def _test_train_impl(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama_1b",
+            test_name="train_text_llama_1b",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -350,7 +350,7 @@ def _test_train_impl(
             model_max_length=128,
         ),
         TrainTestConfig(
-            test_name="pretrain_fineweb",
+            test_name="pretrain_text_fineweb",
             config_path=(
                 get_configs_dir()
                 / "examples"
@@ -366,7 +366,7 @@ def _test_train_impl(
             model_max_length=512,
         ),
         TrainTestConfig(
-            test_name="pretrain_gpt2",
+            test_name="pretrain_text_gpt2",
             config_path=(
                 get_configs_dir() / "recipes" / "gpt2" / "pretraining" / "train.yaml"
             ),
@@ -376,7 +376,7 @@ def _test_train_impl(
             max_steps=20,
         ),
         TrainTestConfig(
-            test_name="smollm_135m_sft",
+            test_name="train_text_smollm_135m_sft",
             config_path=(
                 get_configs_dir() / "recipes" / "smollm" / "sft" / "135m" / "train.yaml"
             ),
@@ -387,7 +387,7 @@ def _test_train_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_train_1gpu_24gb(
+def test_train_text_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_train_impl(
@@ -403,7 +403,7 @@ def test_train_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_qwen2_vl_2b_trl_sft",
+            test_name="train_mm_qwen2_vl_2b_trl_sft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -417,7 +417,7 @@ def test_train_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_qwen2_vl_2b_oumi",
+            test_name="train_mm_qwen2_vl_2b_oumi",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -452,7 +452,7 @@ def test_train_multimodal_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama3_2_vision_11b_full",
+            test_name="train_mm_llama3_2_vision_11b_full",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -466,7 +466,7 @@ def test_train_multimodal_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_llama3_2_vision_11b_lora",
+            test_name="train_mm_llama3_2_vision_11b_lora",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -480,7 +480,7 @@ def test_train_multimodal_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_llava_7b_sft_full",
+            test_name="train_mm_llava_7b_sft_full",
             config_path=(
                 get_configs_dir()
                 / "recipes"
