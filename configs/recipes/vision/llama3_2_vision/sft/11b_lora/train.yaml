@@ -72,7 +72,7 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  lora_inti_weights: DEFAULT
+  lora_init_weights: DEFAULT
 
 fsdp:
   enable_fsdp: True
