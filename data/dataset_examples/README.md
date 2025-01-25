@@ -10,7 +10,7 @@
    - A small dataset in `alpaca instruction` format is stored as a `json` file [here](./alpaca_format.json), and as a `jsonl` file [here](./alpaca_format.jsonl).
 
 3. **Oumi Conversation Format for Multi-modal (Vision-Language) Data**
-   This is technically the same `conversation` format listed above. However for multi-modal applications we allow the underlying contained messages to include items (`ContentItem`) that correspond to images. The images can be in the form of an `IMAGE_URL`, a local image file (`IMAGE_PATH`), or raw image data (`Type.IMAGE_BINARY`).
+   This is technically the same `conversation` format listed above. However for multi-modal applications we allow the underlying contained messages to include items (`ContentItem`) that correspond to images. The images can be in the form of an `Type.IMAGE_URL`, a local image file (`Type.IMAGE_PATH`), or raw image data (`Type.IMAGE_BINARY`).
    - A short example of a conversation-formatted dataset for vision-language data is shown [here](./vision_language_oumi_format.jsonl), stored in a `jsonl` file.
 
 
