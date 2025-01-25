@@ -9,7 +9,6 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
-    find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
@@ -376,8 +375,11 @@ def build_tokenizer(
     tokenizer_pad_token = model_params.tokenizer_pad_token
     if not tokenizer_pad_token:
         # Try to find the default `tokenizer_pad_token` by model type.
-        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
-            model_params
+        internal_config: Optional[InternalModelConfig] = (
+            find_internal_model_config_using_model_name(
+                model_name=tokenizer_name,
+                trust_remote_code=model_params.trust_remote_code,
+            )
         )
         if internal_config is not None and internal_config.tokenizer_pad_token:
             tokenizer_pad_token = internal_config.tokenizer_pad_token
@@ -414,8 +416,11 @@ def build_tokenizer(
         template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.
-        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
-            model_params
+        internal_config: Optional[InternalModelConfig] = (
+            find_internal_model_config_using_model_name(
+                model_name=tokenizer_name,
+                trust_remote_code=model_params.trust_remote_code,
+            )
         )
         if internal_config is not None and internal_config.chat_template:
             template_name = internal_config.chat_template

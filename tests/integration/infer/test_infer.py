@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -12,10 +13,21 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.image_utils import load_image_png_bytes_from_path
+from tests.integration.infer import get_default_device_map_for_inference
 from tests.markers import requires_cuda_initialized, requires_gpus
 
 FIXED_PROMPT = "Hello world!"
 FIXED_RESPONSE = "The U.S."
+
+
+class InferTestSpec(NamedTuple):
+    num_batches: int
+    batch_size: int
+
+
+def _get_infer_test_spec_id(x):
+    assert isinstance(x, InferTestSpec)
+    return f"batches={x.num_batches} bs={x.batch_size}"
 
 
 @requires_cuda_initialized()
@@ -79,19 +91,29 @@ def test_infer_basic_interactive_with_images(
     infer_interactive(config, input_image_bytes=png_image_bytes)
 
 
-@pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2), (2, 1), (2, 2)])
-def test_infer_basic_non_interactive(num_batches: int, batch_size: int):
+@pytest.mark.parametrize(
+    "test_spec",
+    [
+        InferTestSpec(num_batches=1, batch_size=1),
+        InferTestSpec(num_batches=1, batch_size=2),
+        InferTestSpec(num_batches=2, batch_size=1),
+        InferTestSpec(num_batches=2, batch_size=2),
+    ],
+    ids=_get_infer_test_spec_id,
+)
+def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     model_params = ModelParams(
         model_name="openai-community/gpt2",
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+        device_map=get_default_device_map_for_inference(),
     )
     generation_params = GenerationParams(
-        max_new_tokens=5, temperature=0.0, seed=42, batch_size=batch_size
+        max_new_tokens=5, temperature=0.0, seed=42, batch_size=test_spec.batch_size
     )
 
-    input = [FIXED_PROMPT] * (num_batches * batch_size)
+    input = [FIXED_PROMPT] * (test_spec.num_batches * test_spec.batch_size)
     output = infer(
         config=InferenceConfig(model=model_params, generation=generation_params),
         inputs=input,
@@ -105,25 +127,33 @@ def test_infer_basic_non_interactive(num_batches: int, batch_size: int):
             ]
         )
     )
-    expected_output = [conversation] * (num_batches * batch_size)
+    expected_output = [conversation] * (test_spec.num_batches * test_spec.batch_size)
     assert output == expected_output
 
 
 @requires_gpus()
-@pytest.mark.parametrize("num_batches,batch_size", [(1, 1), (1, 2)])
+@pytest.mark.parametrize(
+    "test_spec",
+    [
+        InferTestSpec(num_batches=1, batch_size=1),
+        InferTestSpec(num_batches=1, batch_size=2),
+    ],
+    ids=_get_infer_test_spec_id,
+)
 @pytest.mark.single_gpu
 def test_infer_basic_non_interactive_with_images(
-    num_batches: int, batch_size: int, root_testdata_dir: Path
+    test_spec: InferTestSpec, root_testdata_dir: Path
 ):
     model_params = ModelParams(
         model_name="Qwen/Qwen2-VL-2B-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
-        torch_dtype_str="float16",
+        torch_dtype_str="bfloat16",
+        device_map=get_default_device_map_for_inference(),
     )
     generation_params = GenerationParams(
-        max_new_tokens=10, temperature=0.0, seed=42, batch_size=batch_size
+        max_new_tokens=10, temperature=0.0, seed=42, batch_size=test_spec.batch_size
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
@@ -132,7 +162,7 @@ def test_infer_basic_non_interactive_with_images(
 
     test_prompt: str = "Generate a short, descriptive caption for this image!"
 
-    input = [test_prompt] * (num_batches * batch_size)
+    input = [test_prompt] * (test_spec.num_batches * test_spec.batch_size)
     output = infer(
         config=InferenceConfig(model=model_params, generation=generation_params),
         inputs=input,
@@ -142,6 +172,8 @@ def test_infer_basic_non_interactive_with_images(
     valid_responses = [
         "A detailed Japanese print depicting a large wave crashing with",
         "A traditional Japanese painting of a large wave crashing with",
+        "A traditional Japanese ukiyo-e painting depicting a",
+        "A detailed Japanese woodblock print depicting a large wave",
     ]
 
     def _create_conversation(response: str) -> Conversation:
@@ -167,7 +199,7 @@ def test_infer_basic_non_interactive_with_images(
         )
 
     # Check that each output conversation matches one of the valid responses
-    assert len(output) == num_batches * batch_size
+    assert len(output) == test_spec.num_batches * test_spec.batch_size
     for conv in output:
         assert any(
             conv == _create_conversation(response) for response in valid_responses

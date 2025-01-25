@@ -25,7 +25,7 @@ Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trai
 - **Agent development:** Training language models to act as agents that can interact with their environment and perform tasks autonomously. This involves fine-tuning the model on data that demonstrates how to complete tasks, communicate effectively, and make decisions.
 - **Tool use:** Fine-tuning models to effectively use external tools (e.g., calculators, APIs, databases) to augment their capabilities. This involves training on data that shows how to call tools, interpret their outputs, and integrate them into problem-solving.
 - **Structured data extraction:** Training models to extract structured information from unstructured text. This can be used to extract entities, relationships, or key events from documents, enabling automated data analysis and knowledge base construction.
-- **Text generation:** Generating coherent text, code, scripts, email, etc based on a prompt.
+- **Text generation:** Generating coherent text, code, scripts, email, etc. based on a prompt.
 
 ### Data Format
 SFT uses the {class}`~oumi.core.types.conversation.Conversation` format, which represents a conversation between a user and an assistant. Each turn in the conversation is represented by a message with a role ("user" or "assistant") and content.

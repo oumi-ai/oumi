@@ -30,8 +30,9 @@ envs:
   TOKENIZERS_PARALLELISM: false
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
-  ENABLE_OUMI_UNIT_TESTS: false
-  ENABLE_OUMI_INTEGRATION_TESTS: false
+  ENABLE_OUMI_UNIT_TESTS: "false"
+  ENABLE_OUMI_INTEGRATION_TESTS: "false"
+  ENABLE_OUMI_E2E_TESTS: "true"
 
 setup: |
   set -e
@@ -39,13 +40,18 @@ setup: |
   pip install -U flash-attn --no-build-isolation
 
 run: |
-  set -e  # Exit if any command failed.
+  set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
+  echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
+  echo "Integration tests: ${ENABLE_OUMI_INTEGRATION_TESTS}"
+  echo "e2e tests: ${ENABLE_OUMI_E2E_TESTS}"
+
   nvidia-smi
 
   pip install -e ".[ci_gpu]"
+  echo "$(oumi env)"
 
   GPU_MULTIPLICITY_MARKER="single_gpu"
   if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
@@ -66,8 +72,10 @@ run: |
     pytest -s -vv --durations=50 --timeout=300
   fi
 
-  cd "${ROOT_DIR}/tests/"
-  echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
-  pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=900
+  if "${ENABLE_OUMI_E2E_TESTS}"; then
+    cd "${ROOT_DIR}/tests/"
+    echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
+    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=900
+  fi
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

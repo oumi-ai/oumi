@@ -112,7 +112,7 @@ In the following sections, we'll cover some common workflows for training.
 
 ### Fine-tuning a Pre-trained Model
 
-The simplest workflow is to fine-tune a pre-trained model on a dataset. This will perform fully finetune the model using SFT (supervised fine-tuning).
+The simplest workflow is to fine-tune a pre-trained model on a dataset. The following will fully finetune the model using SFT (supervised fine-tuning).
 
 ```yaml
 model:
@@ -131,6 +131,42 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   max_steps: 10  # Number of training steps
+```
+
+### Using Parameter-Efficient Fine-tuning (PEFT)
+
+Excellent results can be achieved at a fraction of the computational cost by fine-tuning your network with [Low Rank (LoRA) adapters](https://arxiv.org/abs/2106.09685) instead of updating all original parameters. The following adaptation enables _parameter efficient fine-tuning_ with very few additions:
+
+
+```yaml
+model:
+  model_name: "meta-llama/Meta-Llama-3.2-3B-Instruct"  # Replace with your model
+  trust_remote_code: true
+  dtype: "bfloat16"
+
+data:
+  train:  # Training dataset mixture, can be a single dataset or a list of datasets
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned" # Replace with your dataset, or add more datasets
+        split: "train"
+
+training:
+  output_dir: "output/llama-finetuned"  # Where to save outputs
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  max_steps: 10  # Number of training steps
+  use_peft: True  # Activate Parameter Efficient Fine-Tuning
+
+peft: # Control key hyper-parameters of the PEFT training process
+  lora_r: 64
+  lora_alpha: 128
+  lora_target_modules: # Select the modules for which adapters will be added
+    - "q_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
 ```
 
 ### Fine-tuning a Vision-Language Model
