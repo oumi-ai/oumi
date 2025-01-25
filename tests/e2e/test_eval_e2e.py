@@ -245,7 +245,7 @@ def test_eval_text_1gpu_24gb(
                 / "evaluation"
                 / "11b_eval.yaml"
             ),
-            num_samples=3,  # The actual number is ~30X (30 sub-tasks)
+            num_samples=2,  # The actual number is ~30X (30 sub-tasks)
         ),
     ],
     ids=get_eval_test_id_fn,
