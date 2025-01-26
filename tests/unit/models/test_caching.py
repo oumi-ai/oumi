@@ -3,6 +3,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from oumi.models.utils.caching import get_local_filepath_for_gguf
 
 HF_REPO_ID = "repo_id"
@@ -56,3 +58,13 @@ def test_caching_gguf():
             filename=HF_GGUF_FILENAME,
             local_dir=output_folder,
         )
+
+
+def test_caching_gguf_invalid_filename():
+    with tempfile.TemporaryDirectory() as output_folder:
+        with pytest.raises(AssertionError):
+            get_local_filepath_for_gguf(
+                repo_id=HF_REPO_ID,
+                filename="invalid_file.txt",  # Invalid: not a GGUF file.
+                cache_dir=output_folder,
+            )

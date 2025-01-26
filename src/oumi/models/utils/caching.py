@@ -21,8 +21,7 @@ def get_local_filepath_for_gguf(
         A local path caching the GGUF file.
     """
     # Ensure that the filename corresponds to a `GGUF` file indeed.
-    assert len(filename) > 5
-    assert filename[-5:].lower() == ".gguf"
+    assert Path(filename).suffix == ".gguf"
 
     # Ensure the cache directory exists. If not, create it.
     cache_dir = Path(cache_dir)

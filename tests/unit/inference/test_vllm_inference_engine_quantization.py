@@ -13,7 +13,7 @@ def _mock_gguf(repo_id: str, filename: str) -> str:
 def test_gguf():
     model_name = "my_model_name"
     model_kwargs = {"filename": "my_model_filename.gguf"}
-    tokenizer_name = "meta-llama/Llama-3.2-3B-Instruct"
+    tokenizer_name = "gpt2"
 
     expected_model_name = _mock_gguf(model_name, model_kwargs["filename"])
     expected_tokenizer_name = tokenizer_name
@@ -74,7 +74,7 @@ def test_gguf_no_tokenizer():
 def test_bnb():
     model_name = "my_model_name"
     model_kwargs = {"load_in_8bit": True}
-    tokenizer_name = "meta-llama/Llama-3.2-3B-Instruct"
+    tokenizer_name = "gpt2"
 
     expected_model_name = model_name
     expected_tokenizer_name = tokenizer_name
