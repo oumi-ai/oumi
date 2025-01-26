@@ -62,7 +62,10 @@ def test_caching_gguf():
 
 def test_caching_gguf_invalid_filename():
     with tempfile.TemporaryDirectory() as output_folder:
-        with pytest.raises(AssertionError):
+        with pytest.raises(
+            ValueError,
+            match="The `filename` provided is not a `.gguf` file: `invalid_file.txt`",
+        ):
             get_local_filepath_for_gguf(
                 repo_id=HF_REPO_ID,
                 filename="invalid_file.txt",  # Invalid: not a GGUF file.
