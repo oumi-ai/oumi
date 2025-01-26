@@ -240,6 +240,6 @@ Although this example used GCP, Oumi natively supports a wide range of cloud pro
 
 ## 🔗 Community
 
-⭐ If you like our project, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
+⭐ If you like Oumi and you would like to support it, please give it a star on [GitHub](https://github.com/oumi-ai/oumi).
 
 👋 If you are interested in contributing, please read the [Contributor’s Guide](/development/contributing).
