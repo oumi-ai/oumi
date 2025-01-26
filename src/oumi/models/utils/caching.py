@@ -38,10 +38,9 @@ def get_local_filepath_for_gguf(
             gguf_local_file_path = hf_hub_download(
                 repo_id=repo_id, filename=filename, local_dir=cache_dir
             )
-        except Exception as e:
-            logger.error(
+        except Exception:
+            logger.exception(
                 f"Failed to download the GGUF file `{filename}` from HuggingFace "
                 f"Hub's repo id `{repo_id}`."
             )
-            raise e
         return gguf_local_file_path

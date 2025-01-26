@@ -88,10 +88,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 for key in bnb_quantization_kwargs:
                     if model_params.model_kwargs.get(key):
                         quantization = "bitsandbytes"
+                        break
             if not quantization and model_params.model_kwargs.get("filename"):
                 # Check if quantization is GGUF.
-                quant_filename = str(model_params.model_kwargs.get("filename"))
-                if len(quant_filename) > 5 and (quant_filename[-5:].lower() == ".gguf"):
+                gguf_filename = str(model_params.model_kwargs.get("filename"))
+                if gguf_filename.lower().endswith(".gguf"):
                     quantization = "gguf"
                     if (
                         not model_params.tokenizer_name
@@ -112,7 +113,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             # Download the GGUF file from HuggingFace to a local cache.
             gguf_local_path = get_local_filepath_for_gguf(
                 repo_id=model_params.model_name,
-                filename=str(model_params.model_kwargs.get("filename")),
+                filename=gguf_filename,
             )
             # Overwrite `model_name` with the locally cached GGUF model.
             model_params = copy.deepcopy(model_params)
