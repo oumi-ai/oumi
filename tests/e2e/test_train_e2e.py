@@ -18,43 +18,48 @@ from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
 
 
-def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
+def _check_checkpoint_dir(
+    dir_path: Path, *, is_lora: bool, validate_extra_files: bool = False
+):
     """Helper to verify model directory structure."""
     # Check essential model files
     essential_files = [
-        "config.json",
-        "generation_config.json",
         "special_tokens_map.json",
         "tokenizer_config.json",
         "tokenizer.json",
         "trainer_state.json",
         "training_args.bin",
     ]
+    if is_lora:
+        essential_files = ["adapter_config.json"] + essential_files  # OPE-938
+    else:
+        essential_files = ["config.json", "generation_config.json"] + essential_files
 
     for file in essential_files:
         assert (dir_path / file).is_file(), f"Missing {file} in {dir_path}"
         assert is_file_not_empty(dir_path / file), f"Empty {file} in {dir_path}"
 
-    model_safetensors = dir_path / "model.safetensors"
+    model_basename = "adapter_model" if is_lora else "model"
+    model_safetensors = dir_path / f"{model_basename}.safetensors"
 
-    is_model_sharded: bool = False
     if model_safetensors.exists():
         assert (
             model_safetensors.is_file()
         ), f"Exists but not a file: {model_safetensors}"
         assert is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
-        is_model_sharded = False
     else:
         # The model is sharded. Let's validate model shards.
-        model_index_json = dir_path / "model.safetensors.index.json"
+        model_index_json = dir_path / f"{model_basename}.safetensors.index.json"
         assert model_index_json.is_file(), (
-            "Model safetensors missing: "
+            f"{model_basename} safetensors missing: "
             f"None of {model_index_json} and {model_safetensors} exists"
         )
-        model_shards = list(sorted(dir_path.glob("model-*-of-*.safetensors")))
+        model_shards = list(
+            sorted(dir_path.glob(f"{model_basename}-*-of-*.safetensors"))
+        )
         assert (
             len(model_shards) > 0
-        ), f"No 'model-*-of-*.safetensors' files found under {dir_path}"
+        ), f"No '{model_basename}-*-of-*.safetensors' files found under {dir_path}"
         for model_shard in model_shards:
             assert (model_shard).is_file(), f"Missing {model_shard}"
             assert is_file_not_empty(model_shard), f"Empty {model_shard}"
@@ -67,16 +72,18 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
         assert index_shards == set(
             model_shards
         ), "Shards defined in model index are inconsistent with shards on file system"
-        is_model_sharded = True
 
-    # Verify config.json is valid JSON
-    with open(dir_path / "config.json") as f:
-        config = json.load(f)
-        assert "model_type" in config, "Invalid model config"
+    if is_lora:
+        config = load_json(dir_path / "adapter_config.json")
+        for key in ("peft_type", "r", "target_modules", "lora_alpha"):
+            assert key in config, f"Invalid model config: Missing '{key}'\n{config}"
+    else:  # OPE-938
+        # Verify config.json is valid JSON
+        config = load_json(dir_path / "config.json")
+        assert "model_type" in config, f"Invalid model config:\n{config}"
 
-    # Verify generation config
-    with open(dir_path / "generation_config.json") as f:
-        gen_config = json.load(f)
+        # Verify generation config
+        gen_config = load_json(dir_path / "generation_config.json")
         assert isinstance(gen_config, dict), "Invalid generation config"
 
     # Verify special tokens map
@@ -102,14 +109,28 @@ def _check_checkpoint_dir(dir_path: Path, validate_extra_files: bool = False):
 
     if validate_extra_files:
         # Additional checkpoint-specific files
-        checkpoint_files = ["scheduler.pt"] + (
-            ["optimizer.bin"] if is_model_sharded else ["optimizer.pt", "rng_state.pth"]
-        )
+        checkpoint_files = ["scheduler.pt"]
         for file in checkpoint_files:
             assert (dir_path / file).exists(), f"Missing {file} in checkpoint"
             assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
 
-        if is_model_sharded:
+        optimizer_files = ["optimizer.pt", "optimizer.bin"]
+        num_valid_optimizer_files = 0
+        for file in optimizer_files:
+            optimizer_file = dir_path / file
+            if optimizer_file.exists():
+                assert is_file_not_empty(
+                    optimizer_file
+                ), f"Empty {optimizer_file} in checkpoint"
+                num_valid_optimizer_files += 1
+        assert num_valid_optimizer_files == 1, (
+            f"Exactly one of {optimizer_files} must exist. "
+            f"Got: {num_valid_optimizer_files}"
+        )
+
+        if (dir_path / "rng_state.pth").exists():
+            assert is_file_not_empty(dir_path / "rng_state.pth")
+        else:
             rng_state_shards = list(sorted(dir_path.glob("rng_state_*.pth")))
             assert len(rng_state_shards) > 1
             for file in rng_state_shards:
@@ -120,6 +141,7 @@ class TrainTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     max_steps: int
+    is_lora: bool = False
     skip: bool = False
     trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
@@ -262,14 +284,16 @@ def _test_train_impl(
             return
 
         # Check main output directory structure
-        _check_checkpoint_dir(train_output_dir)
+        _check_checkpoint_dir(train_output_dir, is_lora=test_config.is_lora)
 
         # Verify checkpoint directory
         checkpoints = list(train_output_dir.glob("checkpoint-*"))
         assert len(checkpoints) > 0, f"{test_tag} No checkpoints found"
 
         for checkpoint in checkpoints:
-            _check_checkpoint_dir(checkpoint, validate_extra_files=True)
+            _check_checkpoint_dir(
+                checkpoint, is_lora=test_config.is_lora, validate_extra_files=True
+            )
 
         # Check logs directory
         logs_dir = train_output_dir / "logs"
@@ -337,7 +361,7 @@ def _test_train_impl(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama_1b",
+            test_name="train_text_llama_1b",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -350,7 +374,7 @@ def _test_train_impl(
             model_max_length=128,
         ),
         TrainTestConfig(
-            test_name="pretrain_fineweb",
+            test_name="pretrain_text_fineweb",
             config_path=(
                 get_configs_dir()
                 / "examples"
@@ -359,14 +383,11 @@ def _test_train_impl(
                 / "train.yaml"
             ),
             batch_size=2,
-            gradient_accumulation_steps=4,
-            dataloader_num_workers=1,
-            dataloader_prefetch_factor=2,
             max_steps=5,
             model_max_length=512,
         ),
         TrainTestConfig(
-            test_name="pretrain_gpt2",
+            test_name="pretrain_text_gpt2",
             config_path=(
                 get_configs_dir() / "recipes" / "gpt2" / "pretraining" / "train.yaml"
             ),
@@ -376,7 +397,7 @@ def _test_train_impl(
             max_steps=20,
         ),
         TrainTestConfig(
-            test_name="smollm_135m_sft",
+            test_name="train_text_smollm_135m_sft",
             config_path=(
                 get_configs_dir() / "recipes" / "smollm" / "sft" / "135m" / "train.yaml"
             ),
@@ -387,7 +408,7 @@ def _test_train_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_train_1gpu_24gb(
+def test_train_text_1gpu_24gb(
     test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_train_impl(
@@ -403,7 +424,7 @@ def test_train_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_qwen2_vl_2b_trl_sft",
+            test_name="train_mm_qwen2_vl_2b_trl_sft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -417,7 +438,7 @@ def test_train_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_qwen2_vl_2b_oumi",
+            test_name="train_mm_qwen2_vl_2b_oumi",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -452,7 +473,7 @@ def test_train_multimodal_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_llama3_2_vision_11b_full",
+            test_name="train_mm_llama3_2_vision_11b_full",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -466,7 +487,7 @@ def test_train_multimodal_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_llama3_2_vision_11b_lora",
+            test_name="train_mm_llama3_2_vision_11b_lora",
             config_path=(
                 get_configs_dir()
                 / "recipes"
@@ -476,11 +497,12 @@ def test_train_multimodal_1gpu_24gb(
                 / "11b_lora"
                 / "train.yaml"
             ),
+            is_lora=True,
             max_steps=5,
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_llava_7b_sft_full",
+            test_name="train_mm_llava_7b_sft_full",
             config_path=(
                 get_configs_dir()
                 / "recipes"
