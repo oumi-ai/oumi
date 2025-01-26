@@ -15,7 +15,7 @@ monitoring
 
 Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Our goal is to allow you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Oumi enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
