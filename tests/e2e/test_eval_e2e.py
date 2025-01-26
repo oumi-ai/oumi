@@ -264,14 +264,18 @@ def test_eval_multimodal_1gpu_24gb(
     )
 
 
-@requires_gpus(count=4, min_gb=40.0)
+@requires_gpus(count=4, min_gb=39.0)
 @pytest.mark.parametrize(
     "test_config",
     [
         EvalTestConfig(
             test_name="eval_mm_llama31_70b_multi_gpu",
             config_path=(
-                get_configs_dir() / "recipes" / "llama3_1" / "evaluation" / "70b_eval"
+                get_configs_dir()
+                / "recipes"
+                / "llama3_1"
+                / "evaluation"
+                / "70b_eval.yaml"
             ),
             num_samples=20,
         ),
@@ -280,7 +284,7 @@ def test_eval_multimodal_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_text_4gpu_24gb(
+def test_eval_text_4gpu_40gb(
     test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
 ):
     _test_eval_impl(
