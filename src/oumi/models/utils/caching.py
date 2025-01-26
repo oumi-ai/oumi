@@ -25,22 +25,25 @@ def get_local_filepath_for_gguf(
     assert filename[-5:].lower() == ".gguf"
 
     # Ensure the cache directory exists. If not, create it.
-    Path(cache_dir).mkdir(parents=True, exist_ok=True)
-    gguf_local_file_path = f"{cache_dir}/{filename}"
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    gguf_local_file_path = cache_dir / filename
 
     # Check if the file is already cached; if not, download it.
-    if Path(gguf_local_file_path).exists():
-        logger.info(f"Loading GGUF file from cache ({gguf_local_file_path}).")
-        return gguf_local_file_path
+    if gguf_local_file_path.exists():
+        logger.info(f"Loading GGUF file from cache ({str(gguf_local_file_path)}).")
+        return gguf_local_file_path.absolute().as_posix()
     else:
         logger.info(f"Downloading GGUF file `{filename}` from HuggingFace.")
         try:
-            gguf_local_file_path = hf_hub_download(
-                repo_id=repo_id, filename=filename, local_dir=cache_dir
+            gguf_local_file_path = Path(
+                hf_hub_download(
+                    repo_id=repo_id, filename=filename, local_dir=cache_dir.as_posix()
+                )
             )
         except Exception:
             logger.exception(
                 f"Failed to download the GGUF file `{filename}` from HuggingFace "
                 f"Hub's repo id `{repo_id}`."
             )
-        return gguf_local_file_path
+        return gguf_local_file_path.absolute().as_posix()
