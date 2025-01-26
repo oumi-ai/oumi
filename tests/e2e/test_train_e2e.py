@@ -24,8 +24,6 @@ def _check_checkpoint_dir(
     """Helper to verify model directory structure."""
     # Check essential model files
     essential_files = [
-        "config.json",
-        "generation_config.json",
         "special_tokens_map.json",
         "tokenizer_config.json",
         "tokenizer.json",
@@ -44,13 +42,11 @@ def _check_checkpoint_dir(
     model_basename = "adapter_model" if is_lora else "model"
     model_safetensors = dir_path / f"{model_basename}.safetensors"
 
-    is_model_sharded: bool = False
     if model_safetensors.exists():
         assert (
             model_safetensors.is_file()
         ), f"Exists but not a file: {model_safetensors}"
         assert is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
-        is_model_sharded = False
     else:
         # The model is sharded. Let's validate model shards.
         model_index_json = dir_path / f"{model_basename}.safetensors.index.json"
@@ -76,7 +72,6 @@ def _check_checkpoint_dir(
         assert index_shards == set(
             model_shards
         ), "Shards defined in model index are inconsistent with shards on file system"
-        is_model_sharded = True
 
     if is_lora:
         config = load_json(dir_path / "adapter_config.json")
@@ -114,9 +109,7 @@ def _check_checkpoint_dir(
 
     if validate_extra_files:
         # Additional checkpoint-specific files
-        checkpoint_files = ["scheduler.pt"] + (
-            [] if is_model_sharded else ["rng_state.pth"]
-        )
+        checkpoint_files = ["scheduler.pt"]
         for file in checkpoint_files:
             assert (dir_path / file).exists(), f"Missing {file} in checkpoint"
             assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
@@ -135,7 +128,9 @@ def _check_checkpoint_dir(
             f"Got: {num_valid_optimizer_files}"
         )
 
-        if is_model_sharded:
+        if (dir_path / "rng_state.pth").exists():
+            assert is_file_not_empty(dir_path / "rng_state.pth")
+        else:
             rng_state_shards = list(sorted(dir_path.glob("rng_state_*.pth")))
             assert len(rng_state_shards) > 1
             for file in rng_state_shards:
