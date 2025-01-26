@@ -15,12 +15,12 @@ def get_local_filepath_for_gguf(
     Args:
         repo_id: HuggingFace Hub repo ID (e.g., `bartowski/Llama-3.2-3B-Instruct-GGUF`)
         filename: HuggingFace Hub filename (e.g., `Llama-3.2-3B-Instruct-Q8_0.gguf`)
-        cache_dir: Local path to cached models. Defaults to `HUGGINGFACE_CACHE_PATH`.
+        cache_dir: Local path to cached models. Defaults to `HUGGINGFACE_CACHE`.
 
     Returns:
         A local path caching the GGUF file.
     """
-    # Ensure that the filename corresponds to a `GGUF` file indeed.
+    # Ensure that the filename corresponds to a `GGUF` file.
     assert Path(filename).suffix == ".gguf"
 
     # Ensure the cache directory exists. If not, create it.
