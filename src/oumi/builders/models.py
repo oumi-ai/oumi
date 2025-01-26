@@ -448,7 +448,7 @@ def build_tokenizer(
     return tokenizer
 
 
-def _convert_init_lora_weights_to_lora_config(
+def _convert_lora_init_weights_to_lora_config(
     param: LoraWeightInitialization,
 ) -> Union[
     bool,
@@ -491,7 +491,7 @@ def build_peft_model(
         bias=peft_params.lora_bias,  # type: ignore
         task_type=peft_params.lora_task_type,
         init_lora_weights=(
-            _convert_init_lora_weights_to_lora_config(peft_params.init_lora_weights)
+            _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
         ),
     )
 
