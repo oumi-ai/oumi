@@ -1,4 +1,4 @@
-name: Build and Publish to Artifact Registry
+name: Release - GCP Registry
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: 'read'
       id-token: 'write'

@@ -1,0 +1,48 @@
+name: Release -  PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: pypi
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine build
+
+    - name: Build package
+      run: python -m build
+
+    - name: Check distribution
+      run: |
+        twine check dist/*
+        if [ $? -ne 0 ]; then
+          echo "Invalid distribution files"
+          exit 1
+        fi
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        packages-dir: dist/

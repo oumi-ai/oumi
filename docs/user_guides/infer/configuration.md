@@ -1,4 +1,4 @@
-# Configuration Reference
+# Inference Configuration
 
 ## Introduction
 
@@ -105,10 +105,10 @@ generation:
 ```
 
 ```{note}
-Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `supported_params` attribute of the engine class. For example:
-- {py:obj}`~oumi.inference.NativeTextInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.VLLMInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.RemoteInferenceEngine.supported_params`
+Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `get_supported_params` attribute of the engine class. For example:
+- {py:obj}`NativeTextInferenceEngine <oumi.inference.NativeTextInferenceEngine.get_supported_params>`
+- {py:obj}`VLLMInferenceEngine <oumi.inference.VLLMInferenceEngine.get_supported_params>`
+- {py:obj}`RemoteInferenceEngine <oumi.inference.RemoteInferenceEngine.get_supported_params>`
 
 Please refer to the specific engine's documentation for details on supported parameters.
 ```
