@@ -21,7 +21,7 @@ We'll use a small model (`SmolLM-135M`) so that the examples can run fast on bot
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page </resources/recipes>`.
 
-## 💲 Oumi CLI
+## 💻 Oumi CLI
 
 The general structure of Oumi CLI commands is:
 
