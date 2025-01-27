@@ -64,9 +64,9 @@ HumanEval is a benchmark designed to evaluate language models' capabilities in g
 
 ## Custom Benchmarks (LLM-as-a-judge)
 
-Using LLMs as response judges provides a flexible approach to evaluate model outputs. If you have a custom set of judgement prompts, a special model configuration for the judge, or you need to tailor the scoring criteria to meet your specific needs, we recommend that you define a custom judge.
+While the out-of-the-box benchmarks provided by Oumi cover a broad spectrum of generic generative use cases, we understand that many specialized applications require more tailored evaluation criteria. If the existing benchmarks do not fully meet your needs, Oumi offers a flexible and streamlined process to create and automate custom evaluations.
 
-See {doc}`/user_guides/judge/judge` to get started.
+You can define your own set of evaluation prompts and customize the metrics to align with your specific domain or use case. By leveraging an LLM to assess your model's outputs (see {doc}`LLM Judge </user_guides/judge/judge>`), you can fully automate the evaluation pipeline, producing meaningful scores that accurately reflect your criteria.
 
 **Resources:**
 - {gh}`Custom Judge Implementation <notebooks/Oumi - Custom Judge.ipynb>`
