@@ -104,8 +104,7 @@ With Oumi, you can:
 - 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
 - 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail, ...)
 
-All with one consistent API, production-grade reliability, and all the flexibility you need for research.
-
+All with one consistent API, production-grade reliability, and all the flexibility you need for research. Oumi is currently in <ins>beta</ins> and under active development.
 
 ## 🚀 Getting Started
 
