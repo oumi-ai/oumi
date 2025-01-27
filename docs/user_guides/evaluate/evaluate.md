@@ -13,7 +13,7 @@ leaderboards
 
 ## Overview
 
-Oumi offers a flexible evaluation framework designed to assess and benchmark Large Language Models (LLMs). The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized way.
+Oumi offers a flexible and unified framework designed to assess and benchmark Large Language Models (LLMs) and Vision Language Models (VLMs). The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
 
 Key features include:
 - **Seamless Setup**: Single-step installation for all packages and dependencies, ensuring quick and conflict-free setup.
@@ -24,7 +24,7 @@ Key features include:
 **Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
 -->
 
-Our benchmark diversity is enabled through seamless integration with leading platforms such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
+Oumi seamlessly integrates with leading platforms such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
 
 
 ## Benchmark Types
@@ -115,7 +115,7 @@ The evaluation outputs are saved under the specified `output_dir`, in a folder n
 
 ### Reproducibility Metadata
 
-To ensure that Oumi evaluations are fully reproducible, we log comprehensive metadata to capture all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
+To ensure that evaluations are fully reproducible, Oumi automatically logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
 
 
 | File | Description | Reference |
