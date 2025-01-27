@@ -1,4 +1,4 @@
-# CLI Reference
+# Inference CLI
 
 ## Overview
 
