@@ -15,12 +15,12 @@ monitoring
 
 Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Our goal is to allow you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Oumi enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
 - **Multiple Training Methods**: {ref}`Supervised Fine-Tuning (SFT) <supervised-fine-tuning-sft>` to adapt models to your specific tasks, {ref}`Vision-Language SFT <vision-language-sft>` for multimodal models, {ref}`Pretraining <pretraining>` for training from scratch, and {ref}`Direct Preference Optimization (DPO) <direct-preference-optimization-dpo>` for preference-based fine-tuning
-- **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple PEFT methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
+- **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple [PEFT](#using-peft) methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
 - **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment </user_guides/launch/launch>`
 - **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
 - **Scalable Training**: Scale from single-GPU training to multi-node distributed training using [Distributed Data Parallel (DDP)](https://pytorch.org/tutorials/beginner/ddp_series_theory.html) or [Fully Sharded Data Parallel (FSDP)](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html)
@@ -33,7 +33,9 @@ For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-
 
 ::::{tab-set-code}
 :::{code-block} bash
+
 # Train a small model (SmolLM-135M)
+
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 :::
 
@@ -42,9 +44,11 @@ from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load config from file
+
 config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Start training
+
 train(config)
 :::
 ::::
@@ -95,13 +99,16 @@ from oumi import train
 from oumi.core.configs import TrainingConfig
 
 # Load base config
+
 config = TrainingConfig.from_yaml("configs/recipes/smollm/sft/135m/quickstart_train.yaml")
 
 # Override specific values
+
 config.training.learning_rate = 1e-4
 config.training.max_steps = 30
 
 # Start training
+
 train(config)
 :::
 ::::
@@ -133,6 +140,7 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+(using-peft)=
 ### Using Parameter-Efficient Fine-tuning (PEFT)
 
 Excellent results can be achieved at a fraction of the computational cost by fine-tuning your network with [Low Rank (LoRA) adapters](https://arxiv.org/abs/2106.09685) instead of updating all original parameters. The following adaptation enables _parameter efficient fine-tuning_ with very few additions:
@@ -204,6 +212,10 @@ oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster ll
 ```
 
 Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/latest/), most cloud providers are supported -- make sure to check out {doc}`/user_guides/launch/launch` for more details.
+
+#### Multi-node Training
+
+To train with multiple nodes using the Oumi launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
 
 ### Using Custom Datasets
 
