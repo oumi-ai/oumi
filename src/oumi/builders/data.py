@@ -44,11 +44,11 @@ def build_dataset_mixture(
         dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
-    if dataset_split_params.experimental_use_torchdata:
+    if dataset_split_params.use_torchdata:
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
         logger.warning(
-            "Using experimental torchdata preprocessing pipeline. "
+            "Using torchdata preprocessing pipeline. "
             "This is currently in beta and may not be stable."
         )
         # TODO: OPE-271. Some type hackery going on here.
@@ -105,7 +105,7 @@ def build_dataset_from_params(
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
-    experimental_use_torchdata: Optional[bool] = None,
+    use_torchdata: Optional[bool] = None,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
@@ -118,7 +118,7 @@ def build_dataset_from_params(
                 datasets=[dataset_params],
                 stream=stream,
                 pack=pack,
-                experimental_use_torchdata=experimental_use_torchdata,
+                use_torchdata=use_torchdata,
             )
         )
     )
@@ -137,7 +137,7 @@ def build_dataset(
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
-    experimental_use_torchdata: Optional[bool] = None,
+    use_torchdata: Optional[bool] = None,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
@@ -156,7 +156,7 @@ def build_dataset(
         seed=seed,
         stream=stream,
         pack=pack,
-        experimental_use_torchdata=experimental_use_torchdata,
+        use_torchdata=use_torchdata,
     )
 
 

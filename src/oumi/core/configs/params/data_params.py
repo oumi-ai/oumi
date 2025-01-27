@@ -230,13 +230,13 @@ class DatasetSplitParams(BaseParams):
         This parameter is deprecated and will be removed in the future.
     """
 
-    # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_torchdata: Optional[bool] = False
+    use_torchdata: Optional[bool] = None
     """Whether to use the `torchdata` for dataset loading and processing.
 
-    Warning:
-        This is an experimental feature and may change without notice.
+    If set to `None`, this setting may be auto-inferred.
     """
+
+    # EXPERIMENTAL PARAMS -------------------------
 
     # END EXPERIMENTAL PARAMS --------------------
 
