@@ -231,7 +231,7 @@ class DatasetSplitParams(BaseParams):
     """
 
     use_torchdata: Optional[bool] = None
-    """Whether to use the `torchdata` for dataset loading and processing.
+    """Whether to use the `torchdata` library for dataset loading and processing.
 
     If set to `None`, this setting may be auto-inferred.
     """
