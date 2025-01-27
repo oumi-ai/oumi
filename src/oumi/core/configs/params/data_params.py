@@ -231,8 +231,8 @@ class DatasetSplitParams(BaseParams):
     """
 
     # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_torch_datapipes: bool = False
-    """Whether to use the torch DataPipes for dataset processing.
+    experimental_use_torchdata: Optional[bool] = False
+    """Whether to use the `torchdata` for dataset loading and processing.
 
     Warning:
         This is an experimental feature and may change without notice.
