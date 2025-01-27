@@ -304,7 +304,7 @@ model:
 
 ## Distributed Training with FSDP
 
-If you have access to multiple GPUs, you can leverage FSDP to distribute the training process across multiple GPUs.
+If you have access to multiple GPUs, you can leverage FSDP to distribute the training process across multiple GPUs. To run FSDP jobs, make sure to invoke your training job with [`torchrun`](https://pytorch.org/docs/stable/elastic/run.html) to run on multiple GPUs/nodes. We also provide the `oumi distributed` wrapper to automatically try to set the flags needed for `torchrun`. For example, you can simply run `oumi distributed torchrun -m oumi train -c path/to/train.yaml`.
 
 1. Enable distributed training:
 

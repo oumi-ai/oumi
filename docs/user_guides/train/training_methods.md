@@ -9,10 +9,10 @@ Here's a quick comparison:
 
 | Method | Use Case | Data Required | Compute | Key Features |
 |--------|----------|---------------|---------|--------------|
-| [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning-sft) | Task adaptation | Input-output pairs | Moderate | Fine-tunes pre-trained models on specific tasks by providing labeled conversations. |
-| [Vision-Language SFT](#vision-language-sft) | Multimodal tasks | Image-text pairs | High | Extends SFT to handle both images and text, enabling image understanding problems. |
+| [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning-sft) | Task adaptation | Input-output pairs | Low | Fine-tunes pre-trained models on specific tasks by providing labeled conversations. |
+| [Vision-Language SFT](#vision-language-sft) | Multimodal tasks | Image-text pairs | Moderate | Extends SFT to handle both images and text, enabling image understanding problems. |
 | [Pretraining](#pretraining) | Domain adaptation | Raw text | Very High | Trains a language model from scratch or adapts it to a new domain using large amounts of unlabeled text. |
-| [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Moderate | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
+| [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Low | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
 
 (supervised-fine-tuning-sft)=
 ## Supervised Fine-Tuning (SFT)
