@@ -98,7 +98,7 @@ torchrun --standalone --nproc-per-node 4 --log-dir ./logs \
 ```
 
 
-## 📝 Evaluation
+## 📊 Evaluation
 
 To evaluate a trained model:
 
