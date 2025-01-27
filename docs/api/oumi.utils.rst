@@ -77,6 +77,14 @@ oumi.utils.logging module
    :undoc-members:
    :show-inheritance:
 
+oumi.utils.model\_caching module
+--------------------------------
+
+.. automodule:: oumi.utils.model_caching
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 oumi.utils.packaging module
 ---------------------------
 
