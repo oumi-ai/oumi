@@ -23,7 +23,7 @@ def test_caching_gguf():
     with (
         tempfile.TemporaryDirectory() as output_top_dir,
         patch(
-            "oumi.models.utils.caching.hf_hub_download", side_effect=_mock_download
+            "oumi.utils.model_caching.hf_hub_download", side_effect=_mock_download
         ) as mock_download,
     ):
         output_folder = os.path.join(output_top_dir, "subfolder")
