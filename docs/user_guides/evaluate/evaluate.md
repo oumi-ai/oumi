@@ -115,7 +115,7 @@ The evaluation outputs are saved under the specified `output_dir`, in a folder n
 
 ### Reproducibility Metadata
 
-To ensure that evaluations are fully reproducible, Oumi logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
+To ensure that evaluations are fully reproducible, Oumi automatically logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
 
 
 | File | Description | Reference |

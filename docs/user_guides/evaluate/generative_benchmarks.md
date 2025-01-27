@@ -64,10 +64,10 @@ HumanEval is a benchmark designed to evaluate language models' capabilities in g
 
 ## Custom Benchmarks (LLM-as-a-judge)
 
-While the out-of-the-box benchmarks provided by Oumi cover a broad spectrum of generic generative use cases, we understand that many specialized applications require more tailored evaluation criteria. If the existing benchmarks do not fully meet your needs, Oumi offers a flexible and streamlined process to create and automate custom evaluations.
+While the out-of-the-box benchmarks provided by Oumi cover a broad spectrum of generative use cases, we understand that many specialized applications require more tailored evaluation objectives. If the existing benchmarks do not fully meet your needs, Oumi offers a flexible and streamlined process to create and automate custom evaluations, by defining an {doc}`LLM Judge </user_guides/judge/judge>`.
 
-You can define your own set of evaluation prompts and customize the metrics to align with your specific domain or use case. By leveraging an LLM to assess your model's outputs (see {doc}`LLM Judge </user_guides/judge/judge>`), you can fully automate the evaluation pipeline, producing meaningful scores that accurately reflect your criteria.
+You can author your {doc}`own set of evaluation prompts </user_guides/judge/custom_prompt>` and customize the metrics to align with your specific domain or use case. By leveraging {doc}`an LLM to assess your model's outputs </user_guides/judge/custom_infer>`, you can fully automate the evaluation pipeline, producing insightful scores that truly reflect your unique criteria.
 
 **Resources:**
-- {gh}`Custom Judge Implementation <notebooks/Oumi - Custom Judge.ipynb>`
-- {gh}`Oumi Judge Framework <notebooks/Oumi - Oumi Judge.ipynb>`
+- {gh}`Oumi Judge <notebooks/Oumi - Oumi Judge.ipynb>` notebook
+- {gh}`Custom Judge <notebooks/Oumi - Custom Judge.ipynb>` notebook
