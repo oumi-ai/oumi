@@ -1,6 +1,6 @@
 # Quickstart
 
-## 📢 Pre-requisites
+## 📋 Prerequisites
 
 Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
 
