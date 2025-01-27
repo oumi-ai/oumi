@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import math
 
 import torch
@@ -9,6 +10,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.models.utils.caching import get_local_filepath_for_gguf
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.peft_utils import get_lora_rank
@@ -78,22 +80,45 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"{gpu_memory_utilization}."
             )
 
-        # Check if any quantization keys are set.
-        quantization_keys_set = False
+        # Infer the `quantization` type from the model's kwargs.
         if model_params.model_kwargs:
-            quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
-            for key in quantization_kwargs:
-                if model_params.model_kwargs.get(key):
-                    quantization_keys_set = True
+            if not quantization:
+                # Check if quantization is BitsAndBytes.
+                bnb_quantization_kwargs = ["load_in_4bit", "load_in_8bit"]
+                for key in bnb_quantization_kwargs:
+                    if model_params.model_kwargs.get(key):
+                        quantization = "bitsandbytes"
+                        break
+            if not quantization and model_params.model_kwargs.get("filename"):
+                # Check if quantization is GGUF.
+                gguf_filename = str(model_params.model_kwargs.get("filename"))
+                if gguf_filename.lower().endswith(".gguf"):
+                    quantization = "gguf"
+                    if (
+                        not model_params.tokenizer_name
+                        or model_params.tokenizer_name == model_params.model_name
+                    ):
+                        raise ValueError(
+                            "GGUF quantization with the VLLM engine requires that you "
+                            "explicitly set the `tokenizer_name` in `model_params`."
+                        )
 
         vllm_kwargs = {}
 
-        # If quantization requested but undefined, default to BitsAndBytes.
-        if quantization_keys_set:
-            if not quantization or quantization == "bitsandbytes":
-                quantization = "bitsandbytes"
-                vllm_kwargs["load_format"] = "bitsandbytes"
-                logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
+        # Set the proper VLLM keys for the quantization type.
+        if quantization and quantization == "bitsandbytes":
+            vllm_kwargs["load_format"] = "bitsandbytes"
+            logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
+        elif quantization and quantization == "gguf":
+            # Download the GGUF file from HuggingFace to a local cache.
+            gguf_local_path = get_local_filepath_for_gguf(
+                repo_id=model_params.model_name,
+                filename=gguf_filename,
+            )
+            # Overwrite `model_name` with the locally cached GGUF model.
+            model_params = copy.deepcopy(model_params)
+            model_params.model_name = gguf_local_path
+            logger.info("VLLM engine loading a `GGUF` quantized model.")
 
         if tensor_parallel_size <= 0:
             if torch.cuda.device_count() > 1:
