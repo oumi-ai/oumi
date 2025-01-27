@@ -1,4 +1,4 @@
-name: "Pre-review Tests"
+name: "Doctests"
 
 on:
   pull_request:
