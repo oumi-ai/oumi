@@ -1,12 +1,10 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 
-# SFT config for Llama 3.3v 70B.
-# Some param values are inspired by the following recipe:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_3/70B_full.yaml
+# SFT config for Deepseek R1 Distill Llama 3.3 70B.
 
 model:
-  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -17,7 +15,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned"
+      - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
     target_col: "prompt"
     use_async_dataset: True
 
@@ -42,7 +40,7 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/llama70b.fft"
+  output_dir: "output/deepseek_r1_llama70b.fft"
   include_performance_metrics: True
   enable_wandb: True
 

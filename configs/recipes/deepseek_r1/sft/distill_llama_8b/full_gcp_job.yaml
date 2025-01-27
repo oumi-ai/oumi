@@ -6,7 +6,6 @@
 # oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_8b/full_gcp_job.yaml --cluster deepseek-r1-llama8b-sft
 name: deepseek-r1-distill-llama8b-sft
 
-num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:4"
