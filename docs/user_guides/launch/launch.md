@@ -539,7 +539,7 @@ To stop the cluster when you are done to avoid extra charges, run:
 oumi launch stop --cluster my-cluster
 ```
 
-In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
+In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 60, i.e. clusters will stop automatically after 60 minutes of no jobs running.
 
 Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in an `oumi launch up` command.
 
@@ -560,7 +560,7 @@ import oumi.launcher as launcher
 launcher.stop(cloud_name="gcp", cluster_name="my-cluster")
 ```
 
-In addition, Oumi automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
+In addition, Oumi automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 60, i.e. clusters will stop automatically after 60 minutes of no jobs running.
 
 Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in a `launcher.up(...)` command.
 
