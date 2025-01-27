@@ -32,11 +32,11 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | | `recipes/llama3_1/pretraining/8b/train.yaml` | {download}`Download </../configs/recipes/llama3_1/pretraining/8b/train.yaml>` {gh}`configs/recipes/llama3_1/pretraining/8b/train.yaml` |
 | | `recipes/llama3_1/evaluation/8b_eval.yaml` | {download}`Download </../configs/recipes/llama3_1/evaluation/8b_eval.yaml>` {gh}`configs/recipes/llama3_1/evaluation/8b_eval.yaml` |
 | | `recipes/llama3_1/inference/8b_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/8b_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/8b_infer.yaml` |
-| Llama 3.1 70B | `recipes/llama3_1/sft/70b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/70b_full/train.yaml>` {gh}`configs/recipes/llama3_1/sft/70b_full/train.yaml` |
-| | `recipes/llama3_1/sft/70b_lora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/70b_lora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/70b_lora/train.yaml` |
-| | `recipes/llama3_1/sft/70b_qlora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/70b_qlora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/70b_qlora/train.yaml` |
-| | `recipes/llama3_1/evaluation/70b_eval.yaml` | {download}`Download </../configs/recipes/llama3_1/evaluation/70b_eval.yaml>` {gh}`configs/recipes/llama3_1/evaluation/70b_eval.yaml` |
-| | `recipes/llama3_1/inference/70b_infer.yaml` | {download}`Download </../configs/recipes/llama3_1/inference/70b_infer.yaml>` {gh}`configs/recipes/llama3_1/inference/70b_infer.yaml` |
+| Llama 3.3 70B | `recipes/llama3_3/sft/70b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_3/sft/70b_full/train.yaml>` {gh}`configs/recipes/llama3_3/sft/70b_full/train.yaml` |
+| | `recipes/llama3_3/sft/70b_lora/train.yaml` | {download}`Download </../configs/recipes/llama3_3/sft/70b_lora/train.yaml>` {gh}`configs/recipes/llama3_3/sft/70b_lora/train.yaml` |
+| | `recipes/llama3_3/sft/70b_qlora/train.yaml` | {download}`Download </../configs/recipes/llama3_3/sft/70b_qlora/train.yaml>` {gh}`configs/recipes/llama3_3/sft/70b_qlora/train.yaml` |
+| | `recipes/llama3_3/evaluation/70b_eval.yaml` | {download}`Download </../configs/recipes/llama3_3/evaluation/70b_eval.yaml>` {gh}`configs/recipes/llama3_3/evaluation/70b_eval.yaml` |
+| | `recipes/llama3_3/inference/70b_infer.yaml` | {download}`Download </../configs/recipes/llama3_3/inference/70b_infer.yaml>` {gh}`configs/recipes/llama3_3/inference/70b_infer.yaml` |
 | Llama 3.1 405B | `recipes/llama3_1/sft/405b_full/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_full/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_full/train.yaml` |
 | | `recipes/llama3_1/sft/405b_lora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_lora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_lora/train.yaml` |
 | | `recipes/llama3_1/sft/405b_qlora/train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/405b_qlora/train.yaml>` {gh}`configs/recipes/llama3_1/sft/405b_qlora/train.yaml` |
