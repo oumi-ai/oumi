@@ -90,8 +90,8 @@ class SkyClient:
             A JobStatus with only `id` and `cluster` populated.
         """
         autostop_kw = "idle_minutes_to_autostop"
-        # Default to 30 minutes.
-        idle_minutes_to_autostop = 30
+        # Default to 60 minutes.
+        idle_minutes_to_autostop = 60
         if autostop_kw in kwargs:
             idle_minutes_to_autostop = kwargs.get(autostop_kw)
         else:
