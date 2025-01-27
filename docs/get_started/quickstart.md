@@ -1,6 +1,6 @@
 # Quickstart
 
-## 📢 Pre-requisites
+## 📋 Prerequisites
 
 Let's start by installing Oumi. You can easily install the latest stable version of Oumi with the following commands:
 
@@ -21,7 +21,7 @@ We'll use a small model (`SmolLM-135M`) so that the examples can run fast on bot
 
 For a full list of recipes, including larger models like Llama 3.2, you can explore the {doc}`recipes page </resources/recipes>`.
 
-## 💲 Oumi CLI
+## 💻 Oumi CLI
 
 The general structure of Oumi CLI commands is:
 
@@ -98,7 +98,7 @@ torchrun --standalone --nproc-per-node 4 --log-dir ./logs \
 ```
 
 
-## 📝 Evaluation
+## 📊 Evaluation
 
 To evaluate a trained model:
 
@@ -157,7 +157,7 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml \
 
 To learn more about running inference locally or remotely (including OpenAI, Google, Anthropic APIs) and leveraging inference engines to parallelize and speed up your jobs, visit our {doc}`inference guide </user_guides/infer/infer>`.
 
-## 💭 Launching Jobs in the Cloud
+## ☁️ Launching Jobs in the Cloud
 
 So far we have been using Oumi locally. But one of the most exciting and unique Oumi features, compared to similar frameworks, is its integrated ability to launch jobs directly *to the cloud* (GCP, AWS, Azure, etc).
 
@@ -230,7 +230,7 @@ sky down sky-7fdd-ab183
 
 This command will **destroy your cluster**, including all data on those remote machines, so save your logs and artifacts first!
 
-### What's next?
+### 🧭 What's next?
 
 Although this example used GCP, Oumi natively supports a wide range of cloud providers. To explore the Cloud providers that we support, visit {doc}`running jobs remotely </user_guides/launch/launch>`.
 

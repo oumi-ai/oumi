@@ -10,9 +10,9 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.models.utils.caching import get_local_filepath_for_gguf
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
+from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
 
 try:
