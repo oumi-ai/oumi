@@ -8,7 +8,7 @@ directly from your terminal, while the batch mode lets you submit a jsonl file o
 
 To use the CLI you need an {py:obj}`~oumi.core.configs.InferenceConfig`. This config
 will specify which model and inference engine you're using, as well as any relevant
-inference-time variables.
+inference-time variables - see {doc}`/user_guides/infer/configuration` for more details.
 
 ```{seealso}
 Check out our [Infer CLI definition](/cli/commands.md#inference) to see the full list of command line options.

@@ -20,7 +20,7 @@ Our goal is to allow you to start small—in a notebook or local machine—and e
 Key features include:
 
 - **Multiple Training Methods**: {ref}`Supervised Fine-Tuning (SFT) <supervised-fine-tuning-sft>` to adapt models to your specific tasks, {ref}`Vision-Language SFT <vision-language-sft>` for multimodal models, {ref}`Pretraining <pretraining>` for training from scratch, and {ref}`Direct Preference Optimization (DPO) <direct-preference-optimization-dpo>` for preference-based fine-tuning
-- **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple PEFT methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
+- **Parameter-Efficient Fine-Tuning (PEFT) & Full Fine-Tuning (FFT)**: Support for multiple [PEFT](#using-peft) methods including LoRA for efficient adapter training, QLoRA for quantized fine-tuning with 4-bit precision, and full fine-tuning for maximum performance
 - **Flexible Environments**: Train on {doc}`local machines <environments/local>`, with {doc}`VSCode integration <environments/vscode>`, in {doc}`Jupyter notebooks <environments/notebooks>`, or in a {doc}`cloud environment </user_guides/launch/launch>`
 - **Production-Ready**: Ensure reproducibility through {doc}`YAML-based configurations <configuration>` and gain insights with comprehensive {doc}`monitoring & debugging tools <monitoring>`
 - **Scalable Training**: Scale from single-GPU training to multi-node distributed training using [Distributed Data Parallel (DDP)](https://pytorch.org/tutorials/beginner/ddp_series_theory.html) or [Fully Sharded Data Parallel (FSDP)](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html)
@@ -133,6 +133,7 @@ training:
   max_steps: 10  # Number of training steps
 ```
 
+(using-peft)=
 ### Using Parameter-Efficient Fine-tuning (PEFT)
 
 Excellent results can be achieved at a fraction of the computational cost by fine-tuning your network with [Low Rank (LoRA) adapters](https://arxiv.org/abs/2106.09685) instead of updating all original parameters. The following adaptation enables _parameter efficient fine-tuning_ with very few additions:
