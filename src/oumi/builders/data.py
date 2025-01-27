@@ -48,7 +48,7 @@ def build_dataset_mixture(
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
         logger.warning(
-            "Using experimental torchdatap preprocessing pipeline. "
+            "Using experimental torchdata preprocessing pipeline. "
             "This is currently in beta and may not be stable."
         )
         # TODO: OPE-271. Some type hackery going on here.
