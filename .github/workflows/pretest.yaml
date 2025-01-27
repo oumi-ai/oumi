@@ -1,4 +1,4 @@
-name: "Pre-review Tests"
+name: "CPU Tests"
 
 on:
   pull_request:

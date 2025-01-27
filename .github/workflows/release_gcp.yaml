@@ -1,4 +1,4 @@
-name: Build and Publish to Artifact Registry
+name: Release - GCP Registry
 
 on:
   push:
