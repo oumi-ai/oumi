@@ -1,9 +1,15 @@
-name: Publish to PyPI
+name: Release -  PyPI
 
 on:
     push:
       tags:
         - 'v*'  # Trigger on version tags
+    workflow_dispatch:
+      inputs:
+        tag:
+          description: 'Tag to release (e.g., v1.0.0)'
+          required: true
+          type: string
 
 jobs:
   publish:
