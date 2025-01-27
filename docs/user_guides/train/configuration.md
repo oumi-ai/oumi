@@ -1,4 +1,4 @@
-# Configuration Reference
+# Training Configuration
 
 ## Introduction
 

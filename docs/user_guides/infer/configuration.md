@@ -1,4 +1,4 @@
-# Configuration Reference
+# Inference Configuration
 
 ## Introduction
 

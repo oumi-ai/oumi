@@ -164,6 +164,9 @@ So far we have been using Oumi locally. But one of the most exciting and unique 
 This section of the quickstart is going to be a little different than the others, so please read this next bit carefully before you proceed.
 
 * This tutorial uses GCP; you'll need a [GCP account](https://cloud.google.com/free?hl=en). You can also use other cloud providers, such as AWS, Azure, etc. See {doc}`running jobs remotely </user_guides/launch/launch>` for more details.
+
+````{dropdown} Configuring GCP Account
+
 * In particular, Oumi uses [Skypilot](https://docs.skypilot.co/en/latest/docs/index.html), and the recommended way to use SkyPilot and GCP is with a [GCP service account](https://cloud.google.com/iam/docs/service-account-overview)
 * You will need to install Oumi with GCP support: `pip install oumi[gcp]`. Please note that we recommend setting up a different environment for each cloud provider you wish to use.
 * Depending on your precise use case, you may also need to install a few other packages from Google
@@ -185,6 +188,7 @@ gcloud config set project <YOUR_PROJECT>
 You can now run `sky check` to confirm GCP is enabled.
 
 If you get stuck, please refer to our {doc}`running jobs remotely </user_guides/launch/launch>` section, as well as the documentation for GCP and SkyPilot linked above, for more information.
+````
 
 ### Launching your first cloud job with Oumi
 
