@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.inference.utils.caching import get_local_filepath_for_gguf
+from oumi.utils.model_caching import get_local_filepath_for_gguf
 
 HF_REPO_ID = "repo_id"
 HF_GGUF_FILENAME = "file.gguf"
