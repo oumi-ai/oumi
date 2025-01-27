@@ -6,6 +6,16 @@ from oumi.core.configs.base_config import BaseConfig
 from oumi.core.constants import LABEL_IGNORE_INDEX
 
 
+class InternalPaddingSide(Enum):
+    """Enum representing how to do padding for the model."""
+
+    PAD_LEFT = "left"
+    """Left padding."""
+
+    PAD_RIGHT = "right"
+    """Right padding."""
+
+
 class InternalFeatureFirstDimAction(Enum):
     """Enum representing how to handle the first feature dimension in datasets."""
 
@@ -80,6 +90,9 @@ class InternalModelConfig(BaseConfig):
     If specified in internal model type config and unspecified
     in `ModelParams.tokenizer_pad_token`, then this value will be used.
     """
+
+    padding_side: Optional[InternalPaddingSide] = None
+    """Padding side for the model."""
 
     model_input_features: dict[str, InternalFeatureSpec] = field(
         default_factory=_default_model_input_features_factory

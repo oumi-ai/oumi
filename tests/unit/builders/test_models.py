@@ -146,18 +146,27 @@ def test_is_image_text_llm(
 
 
 @pytest.mark.parametrize(
-    "model_name, trust_remote_code, template_name",
+    "model_name, trust_remote_code, template_name, expected_padding_side",
     [
-        ("openai-community/gpt2", False, "gpt2"),
-        ("llava-hf/llava-1.5-7b-hf", False, "llava"),
-        ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct"),
+        ("openai-community/gpt2", False, "gpt2", "right"),
+        ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
+        ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
+        ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
     ],
 )
 def test_default_chat_template_in_build_tokenizer(
-    model_name: str, trust_remote_code: bool, template_name: str
+    model_name: str,
+    trust_remote_code: bool,
+    template_name: str,
+    expected_padding_side: str,
 ):
     tokenizer = build_tokenizer(
         ModelParams(model_name=model_name, trust_remote_code=trust_remote_code)
     )
+
     expected = build_chat_template(template_name=template_name)
     assert tokenizer.chat_template == expected, f"template_name: {template_name}"
+
+    # Also check padding side here.
+    assert hasattr(tokenizer, "padding_side")
+    assert tokenizer.padding_side == expected_padding_side
