@@ -7,6 +7,7 @@ model:
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+  shard_for_eval: True
 
 generation:
   batch_size: 1

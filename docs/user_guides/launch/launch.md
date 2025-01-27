@@ -35,6 +35,281 @@ The Oumi launcher integrates with SkyPilot to launch jobs on various cloud provi
 
 Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).
 
+## Quickstart
+
+Got a {class}`~oumi.core.configs.TrainingConfig` you want to run on the cloud?
+Just replace the `run` section of one of the configs below with your training command
+and kick off the job via our CLI:
+
+```shell
+oumi launch up -c ./your_job.yaml
+```
+
+::::{tab-set}
+:::{tab-item} GCP
+````{dropdown} sample-gcp-job.yaml
+```yaml
+name: sample-gcp-job
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.gcp.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} AWS
+````{dropdown} sample-aws-job.yaml
+```yaml
+name: sample-aws-job
+
+resources:
+  cloud: aws
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.aws.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} Azure
+````{dropdown} sample-azure-job.yaml
+```yaml
+name: sample-azure-job
+
+resources:
+  cloud: azure
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.azure.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} RunPod
+````{dropdown} sample-runpod-job.yaml
+```yaml
+name: sample-runpod-job
+
+resources:
+  cloud: runpod
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.runpod.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} Lambda
+````{dropdown} sample-lambda-job.yaml
+```yaml
+name: sample-lambda-job
+
+resources:
+  cloud: lambda
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.lambda.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+::::
+
+```{note}
+Don't forget:
+- Make sure your training config is saved under `working_dir` so it will be copied by
+your job
+- Update the `setup` section if you need to install any custom dependencies
+- Update `accelerators` if you need to run on a specific set of GPUs (e.g. "A100-80GB:4" creates a job with 4x A100-80GBs)
+```
+
 ## Defining a Job
 
 Like most configurable pieces of Oumi, Jobs are defined via YAML configs. In this case, every job is defined by a {class}`~oumi.launcher.JobConfig`.

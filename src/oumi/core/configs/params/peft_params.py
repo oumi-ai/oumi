@@ -161,7 +161,7 @@ class PeftParams(BaseParams):
     https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
-    init_lora_weights: LoraWeightInitialization = field(
+    lora_init_weights: LoraWeightInitialization = field(
         default=LoraWeightInitialization.DEFAULT,
         metadata={
             "help": "Weights initialization for LoRA adapters.",

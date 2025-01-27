@@ -30,14 +30,14 @@ from oumi.inference import (
 
 # Check if optional dependencies are available
 try:
-    import vllm  # noqa: F401
+    import vllm  # noqa: F401 # pyright: ignore[reportMissingImports]
 
     vllm_import_failed = False
 except ImportError:
     vllm_import_failed = True
 
 try:
-    import llama_cpp  # noqa: F401
+    import llama_cpp  # noqa: F401 # pyright: ignore[reportMissingImports]
 
     llama_cpp_import_failed = False
 except ImportError:

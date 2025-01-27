@@ -223,7 +223,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
 
-## 🤝 How to Join the Community
+## 🤝 Join the Community!
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
