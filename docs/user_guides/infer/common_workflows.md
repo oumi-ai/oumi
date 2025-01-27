@@ -1,4 +1,4 @@
-# Common Workflows
+ # Common Workflows
 
 This guide provides practical examples for common inference tasks in Oumi, focusing on real-world use cases and patterns.
 
@@ -153,7 +153,7 @@ This is useful for non-interactive workloads, or when you need to process a larg
 
 Batch processing offers several key advantages over real-time inference with multiple workers: all the error handling, rate limiting, and throughput batching are handled for you, and it's typically cheaper than manually managing concurrent real-time requests.
 
-Here's an example of how to use it with oumi:
+Here's an OpenAI example of how to use Oumi's async batch inference:
 
 ```{code-block} python
 :emphasize-lines: 10,26
