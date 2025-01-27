@@ -13,7 +13,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: True
+    use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"

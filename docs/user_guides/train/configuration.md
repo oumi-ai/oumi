@@ -113,7 +113,7 @@ data:
     stream: false                           # Enable dataset streaming
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
     seed: null                              # Random seed for mixing
-    experimental_use_torch_datapipes: false # Use torch DataPipes (experimental)
+    use_torchdata: false                    # Use `torchdata` (experimental)
 
   validation:  # Optional validation dataset config
     datasets:
