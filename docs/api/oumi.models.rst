@@ -12,3 +12,4 @@ Subpackages
    :maxdepth: 2
 
    oumi.models.layers
+   oumi.models.utils

@@ -18,7 +18,7 @@ oumi evaluate --config path/to/config.yaml
 oumi infer --config path/to/config.yaml
 ```
 
-You can also check out the `README.md` in each recipe's directory for more details and examples.
+You can also check out the `README.md` in each recipe's directory for more details and examples. You can easily adapt these recipes to use with other supported {doc}`models </resources/models/models>`, {doc}`datasets </resources/datasets/datasets>`, and {doc}`cloud providers </user_guides/launch/launch>`.
 
 ## Common Models
 
