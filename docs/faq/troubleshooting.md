@@ -40,7 +40,7 @@ These errors indicate that your JobConfig contains a reference to a file that do
 
 - `~/.netrc`: This file contains your Weights and Biases (WandB) credentials, which are needed to log your run's metrics to WandB.
   - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-weights-and-biases)
-  - If you don't require WandB logging, disable either {py:attr}`~oumi.core.configs.TrainingParams.enable_wandb` or {py:attr}`~oumi.core.configs.EvaluationConfig.enable_wandb`, for training and evaluation jobs respectively. This is needed in addition to removing the file mount to prevent an error.
+  - If you don't require WandB logging, disable either TrainingParams.{py:attr}`~oumi.core.configs.TrainingParams.enable_wandb` or EvaluationConfig.{py:attr}`~oumi.core.configs.EvaluationConfig.enable_wandb`, for training and evaluation jobs respectively. This is needed in addition to removing the file mount to prevent an error.
 - `~/.cache/huggingface/token`: This file contains your Huggingface credentials, which are needed to access gated datasets/models on HuggingFace Hub.
   - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-huggingface)
 
