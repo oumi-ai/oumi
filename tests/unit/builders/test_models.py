@@ -151,6 +151,7 @@ def test_is_image_text_llm(
         ("openai-community/gpt2", False, "gpt2", "right"),
         ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
+        ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "right"),
     ],
 )
 def test_default_chat_template_in_build_tokenizer(
