@@ -145,7 +145,7 @@ While you can dive directly into any section that interests you, we recommend fo
 | 📖 API Reference | Documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
 
 
-## 🤝 How to Join the Community
+## 🤝 Join the Community!
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
