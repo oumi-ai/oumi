@@ -34,7 +34,7 @@ You can also specify configuration in YAML, and use the CLI to run inference:
 oumi infer --engine VLLM --model.model_name meta-llama/Llama-3.2-1B-Instruct
 ```
 
-Checkout the {doc}`cli_reference` for more information on how to use the CLI.
+Checkout the {doc}`inference_cli` for more information on how to use the CLI.
 
 **Cloud APIs**
 

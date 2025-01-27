@@ -8,7 +8,7 @@
 inference_engines
 common_workflows
 configuration
-cli_reference
+inference_cli
 ```
 
 Oumi Infer provides a unified interface for running models, whether you're deploying models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
