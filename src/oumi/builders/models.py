@@ -365,22 +365,38 @@ def build_tokenizer(
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
 
+    internal_config: Optional[InternalModelConfig] = (
+        find_internal_model_config_using_model_name(
+            model_name=tokenizer_name,
+            trust_remote_code=model_params.trust_remote_code,
+        )
+    )
+
+    tokenizer_kwargs = {**model_params.tokenizer_kwargs}
+    if internal_config is not None:
+        if (
+            "padding_side" not in tokenizer_kwargs
+            and internal_config.padding_side is not None
+        ):
+            padding_side = str(internal_config.padding_side.value)
+            logger.info(
+                f"Setting tokenizer to use the '{padding_side}' padding side "
+                f"for model '{model_params.model_name}'. "
+                f"The '{padding_side}' padding side is configured as the default value "
+                "for this model type."
+            )
+            tokenizer_kwargs["padding_side"] = padding_side
+
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
-        **model_params.tokenizer_kwargs,
+        **tokenizer_kwargs,
     )
 
     tokenizer_pad_token = model_params.tokenizer_pad_token
     if not tokenizer_pad_token:
         # Try to find the default `tokenizer_pad_token` by model type.
-        internal_config: Optional[InternalModelConfig] = (
-            find_internal_model_config_using_model_name(
-                model_name=tokenizer_name,
-                trust_remote_code=model_params.trust_remote_code,
-            )
-        )
         if internal_config is not None and internal_config.tokenizer_pad_token:
             tokenizer_pad_token = internal_config.tokenizer_pad_token
 
@@ -416,12 +432,6 @@ def build_tokenizer(
         template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.
-        internal_config: Optional[InternalModelConfig] = (
-            find_internal_model_config_using_model_name(
-                model_name=tokenizer_name,
-                trust_remote_code=model_params.trust_remote_code,
-            )
-        )
         if internal_config is not None and internal_config.chat_template:
             template_name = internal_config.chat_template
             logger.info(
