@@ -55,7 +55,6 @@ oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 To run evaluation with multiple GPUs:
 ```bash
 oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
-oumi distributed torchrun -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
 ### Using the Python API
