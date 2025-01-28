@@ -9,7 +9,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   chat_template: "llama3-instruct"
-  load_pretrained_weights: True
   trust_remote_code: True
 
 data:

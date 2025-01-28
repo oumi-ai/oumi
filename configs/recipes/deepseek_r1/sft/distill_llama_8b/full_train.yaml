@@ -8,7 +8,6 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  load_pretrained_weights: True
   trust_remote_code: True
   # Improves training speed by 20% with default config.
   enable_liger_kernel: True
