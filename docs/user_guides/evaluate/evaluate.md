@@ -13,13 +13,14 @@ leaderboards
 
 ## Overview
 
-Oumi offers a flexible and unified framework designed to assess and benchmark Large Language Models (LLMs) and Vision Language Models (VLMs). The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
+Oumi offers a flexible and unified framework designed to assess and benchmark **Large Language Models (LLMs)** and **Vision Language Models (VLMs)**. The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
 
 Key features include:
 - **Seamless Setup**: Single-step installation for all packages and dependencies, ensuring quick and conflict-free setup.
 - **Consistency**: Platform ensures deterministic execution and [reproducible results](/user_guides/evaluate/evaluate.md#results-and-logging). Reproducibility is achieved by automatically logging and versioning all environmental parameters and experimental configurations.
 - **Diversity**: Offering a [wide range of benchmarks](/user_guides/evaluate/evaluate.md#benchmark-types) across domains. Oumi enables a comprehensive evaluation of LLMs on tasks ranging from natural language understanding to creative text generation, providing holistic assessment across various real-world applications.
 - **Scalability**: Supports [multi-GPU and multi-node evaluations](/user_guides/infer/infer.md#distributed-inference), along with the ability to shard large models across multiple GPUs/nodes. Incorporates batch processing optimizations to effectively manage memory constraints and ensure efficient resource utilization.
+- **Multimodality**: Designed with multiple modalities in mind, Oumi already supports evaluating on {ref}`joint image-text <multi-modal-standardized-benchmarks>` inputs, assessing VLMs on cross-modal reasoning tasks, where visual and linguistic data are inherently linked.
 <!-- Consider adding later:
 **Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
 -->
@@ -31,7 +32,7 @@ Oumi seamlessly integrates with leading platforms such as [LM Evaluation Harness
 
 | Type | Description | When to Use | Get Started |
 |------|-------------|-------------|-------------|
-| **Standardized Benchmarks** | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
+| **Standardized Benchmarks** | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established text-based and multi-modal benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
 | **Open-Ended Generation** | Evaluate model's ability to effectively respond to open-ended questions | Best for assessing instruction-following capabilities and response quality | See {doc}`Generative benchmarks page </user_guides/evaluate/generative_benchmarks>` |
 | **LLM as Judge** | Automated assessment using LLMs | Suitable for automated evaluation of response quality against predefined (helpfulness, honesty, safety) or custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
 
