@@ -25,7 +25,6 @@ training:
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
-  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -33,6 +32,7 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
   warmup_steps: 100
   weight_decay: 0.01
   compile: False

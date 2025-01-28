@@ -1,11 +1,11 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 
-# QLoRA config for Deepseek R1 Distill Llama 3.3 70B.
+# LoRA config for Deepseek R1 Distill Qwen2.5 1.5B.
 
 model:
-  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
-  model_max_length: 2048
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
@@ -21,12 +21,12 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
-  save_steps: 200
+  save_steps: 800
   num_train_epochs: 1
-  per_device_train_batch_size: 2
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
 
-  enable_gradient_checkpointing: True
+  enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
@@ -43,32 +43,19 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/deepseek_r1_llama70b.qlora"
+  output_dir: "output/deepseek_r1_qwen1.5b.lora"
   include_performance_metrics: True
   enable_wandb: True
 
 peft:
-  q_lora: True
-  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
-  bnb_4bit_quant_type: "nf4"
-  # Must use a float type for quantized data storage. See:
-  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
-  bnb_4bit_quant_storage: "bfloat16"
-  bnb_4bit_compute_dtype: "bfloat16"
-  lora_r: 16
-  lora_alpha: 32
+  q_lora: False
+  lora_r: 64
+  lora_alpha: 128
   lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
-    - "k_proj"
     - "v_proj"
     - "o_proj"
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-
-fsdp:
-  enable_fsdp: True
-  forward_prefetch: True
-  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "LlamaDecoderLayer"
