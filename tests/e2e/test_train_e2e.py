@@ -13,6 +13,7 @@ import yaml
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import load_json
+from oumi.utils.torch_utils import device_cleanup
 from tests import get_configs_dir
 from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
@@ -167,6 +168,7 @@ def _test_train_impl(
     interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
 ):
+    device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
@@ -242,6 +244,7 @@ def _test_train_impl(
 
         shell_command = " ".join(cmd)
         print(f"{test_tag} Running the command:\n{shell_command}\n")
+        device_cleanup()
         result = subprocess.run(
             shell_command,
             shell=True,
