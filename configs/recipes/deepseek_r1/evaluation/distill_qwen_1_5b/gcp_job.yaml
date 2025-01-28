@@ -1,16 +1,15 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
-# Config to eval Deepseek R1 Distill Llama 3.3 70B.
+# Config to eval Deepseek R1 Distill Qwen2.5 1.5B.
 # Example command:
-# oumi launch up -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/gcp_job.yaml --cluster deepseek-r1-llama70b-eval
-name: deepseek-r1-distill-llama70b-eval
+# oumi launch up -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/gcp_job.yaml --cluster deepseek-r1-qwen1-5b-eval
+name: deepseek-r1-distill-qwen1-5b-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100"
   use_spot: false
-  disk_size: 400 # Disk size in GBs
 
 working_dir: .
 
@@ -21,16 +20,13 @@ envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+  MODEL_CHECKPOINT_DIR: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
   WANDB_PROJECT: oumi-eval
-  OUMI_RUN_NAME: deepseek-r1.llama70b.eval
+  OUMI_RUN_NAME: deepseek-r1.qwen1.5b.eval
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu,evaluation]' hf_transfer
-  # Install model from HF Hub. This tool increases download speed compared to
-  # downloading the model during eval.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+  pip install uv && uv pip install '.[gpu,evaluation]'
 
 run: |
   set -e  # Exit if any command failed.
@@ -44,8 +40,9 @@ run: |
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
 
-  oumi evaluate \
-    -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/eval.yaml \
+  accelerate launch \
+    -m oumi evaluate \
+    -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
 

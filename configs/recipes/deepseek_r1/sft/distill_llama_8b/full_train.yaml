@@ -1,14 +1,13 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 
-# SFT config for Deepseek R1 Distill Llama 3.1 8B.
+# FFT config for Deepseek R1 Distill Llama 3.1 8B.
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  load_pretrained_weights: True
   trust_remote_code: True
   # Improves training speed by 20% with default config.
   enable_liger_kernel: True
@@ -33,6 +32,7 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
+  lr_scheduler_type: "cosine"
   compile: False
 
   dataloader_num_workers: "auto"

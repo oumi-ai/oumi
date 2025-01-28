@@ -1,15 +1,16 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
-# Config to QLoRA tune Deepseek R1 Distill Llama 3.1 8B.
+# Config to LoRA tune Deepseek R1 Distill Qwen2.5 32B.
 # Example command:
-# oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_8b/qlora_gcp_job.yaml --cluster deepseek-r1-llama8b-qlora
-name: llama8b-qlora
+# oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_gcp_job.yaml --cluster deepseek-r1-qwen32b-lora
+name: deepseek-r1-distill-qwen32b-lora
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: false
+  disk_size: 400 # Disk size in GBs
 
 working_dir: .
 
@@ -18,14 +19,14 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: deepseek-r1.llama8b.qlora
+  OUMI_RUN_NAME: deepseek-r1.qwen32b.lora
 
 setup: |
   set -e
   pip install uv && uv pip install '.[gpu]' hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
 
 run: |
   set -e  # Exit if any command failed.
@@ -33,8 +34,8 @@ run: |
 
   set -x
   oumi distributed torchrun \
-    -m oumi train \
-    -c configs/recipes/deepseek_r1/sft/distill_llama_8b/qlora_train.yaml \
-    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+      -m oumi train \
+      -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

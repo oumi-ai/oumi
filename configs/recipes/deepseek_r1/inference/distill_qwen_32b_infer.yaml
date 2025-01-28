@@ -1,10 +1,10 @@
 # Class: oumi.core.configs.InferenceConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
 
-# Inference config for Deepseek R1 Distill Llama 3.3 70B.
+# Inference config for Deepseek R1 Distill Qwen2.5 32B.
 
 model:
-  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
