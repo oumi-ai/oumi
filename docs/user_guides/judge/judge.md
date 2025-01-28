@@ -12,7 +12,7 @@ custom_infer
 
 As Large Language Models (LLMs) continue to evolve, traditional evaluation benchmarks, which focus primarily on task-specific metrics, are increasingly inadequate for capturing the full scope of a model's generative potential. In real-world applications, LLM capabilities such as creativity, coherence, and the ability to effectively handle nuanced and open-ended queries are critical and cannot be fully assessed through standardized metrics alone. While human raters are often employed to evaluate these aspects, the process is costly and time-consuming. As a result, the use of LLM-based evaluation systems, or "LLM judges", has gained traction as a more scalable and efficient alternative.
 
-Oumi provides a versatile LLM Judge framework that **enables the automation of pointwise and pairwise model evaluations**, **dataset filtering and curation**, and **embedding quality assurance into model deployment pipelines**. You can easily customize both the {doc}`evaluation prompts and criteria </user_guides/judge/custom_prompt>`, and select {doc}`any underlying judge LLM </user_guides/judge/custom_infer>` (open-source or proprietary), locally hosted or accessed remotely via API.
+Oumi provides a versatile LLM Judge framework that enables the automation of pointwise and pairwise **model evaluations**, **dataset curation**, and **quality assurance** for model deployment. You can easily customize both the {doc}`evaluation prompts and criteria </user_guides/judge/custom_prompt>`, and select {doc}`any underlying judge LLM </user_guides/judge/custom_infer>` (open-source or proprietary), locally hosted or accessed remotely via API.
 
 ## Overview
 
