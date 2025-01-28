@@ -107,6 +107,12 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
+Using `accelerate` is recommended with `shard_for_eval: True`:
+
+```shell
+oumi distributed accelerate launch -c configs/recipes/phi3/evaluation/eval.yaml
+```
+
 ```{note}
 Only single node, multiple GPU machine configurations are currently allowed i.e., multi-node evaluation isn't supported.
 ```
