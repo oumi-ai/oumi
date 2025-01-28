@@ -6,13 +6,13 @@ model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
-  attn_implementation: "sdpa"
-  load_pretrained_weights: True
+  # attn_implementation: "sdpa"
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
   trust_remote_code: True
   shard_for_eval: True
 
 generation:
-  batch_size: 2
+  batch_size: 1
 
 tasks:
   - evaluation_platform: lm_harness
@@ -20,13 +20,16 @@ tasks:
     # num_samples: 100  # Limit the number of eval samples.
     eval_kwargs:
       num_fewshot: 5
+
   # To enable individual sub-tasks, uncomment the entries of interest below:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_accounting"
   # - evaluation_platform: lm_harness
-  #   task_name: "mmmu_val_agriculture"
+  #   task_name: "mmmu_val_agriculture" # Memory!
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_architecture_and_engineering"
+
+
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_art"
   # - evaluation_platform: lm_harness
@@ -34,7 +37,8 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_basic_medical_science"
   # - evaluation_platform: lm_harness
-  #   task_name: "mmmu_val_biology"
+  #   task_name: "mmmu_val_biology" # DONE!
+
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_chemistry"
   # - evaluation_platform: lm_harness
@@ -50,7 +54,8 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_electronics"
   # - evaluation_platform: lm_harness
-  #   task_name: "mmmu_val_energy_and_power"
+  #  task_name: "mmmu_val_energy_and_power" # DONE bs=1!
+
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_finance"
   # - evaluation_platform: lm_harness
@@ -82,5 +87,5 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_sociology"
 
-enable_wandb: True
+enable_wandb: False
 inference_engine: NATIVE
