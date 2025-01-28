@@ -3,7 +3,6 @@
 
 # Sample command:
 # oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
-# oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster
 name: phi3-sft-oumi-train
 
 resources:
