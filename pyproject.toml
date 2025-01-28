@@ -51,7 +51,7 @@ dependencies = [
     "responses>=0.25.0,<0.26",
     "skypilot>=0.7.0,<0.8",         # Used by launcher
     "tensorboard>=2.18.0,<2.19",    # Optional, for monitoring training
-    "torch>=2.4.0,<2.5.0",
+    "torch>=2.5.0,<2.6.0",
     # 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
     "torchvision>=0.19.0,<0.20", # Used by some VLM-s (multimodal)
