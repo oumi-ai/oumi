@@ -54,6 +54,7 @@ oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 
 To run evaluation with multiple GPUs:
 ```bash
+oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 oumi distributed torchrun -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
@@ -107,10 +108,10 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
-With `shard_for_eval: True`, it's recommendsed to use `accelerate`:
+With `shard_for_eval: True`, it's recommended to use `accelerate`:
 
 ```shell
-oumi distributed accelerate launch -c configs/recipes/phi3/evaluation/eval.yaml
+oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
 ```{note}
