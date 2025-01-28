@@ -6,8 +6,7 @@ model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
-  # attn_implementation: "sdpa"
-  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
+  attn_implementation: "flash_attention_2" # For this eval "sdpa" leads to CUDA OOM
   trust_remote_code: True
   shard_for_eval: True
 
@@ -25,11 +24,9 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_accounting"
   # - evaluation_platform: lm_harness
-  #   task_name: "mmmu_val_agriculture" # Memory!
+  #   task_name: "mmmu_val_agriculture" # This task requires more GPU memory!
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_architecture_and_engineering"
-
-
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_art"
   # - evaluation_platform: lm_harness
@@ -37,8 +34,7 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_basic_medical_science"
   # - evaluation_platform: lm_harness
-  #   task_name: "mmmu_val_biology" # DONE!
-
+  #   task_name: "mmmu_val_biology"
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_chemistry"
   # - evaluation_platform: lm_harness
@@ -54,8 +50,7 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_electronics"
   # - evaluation_platform: lm_harness
-  #  task_name: "mmmu_val_energy_and_power" # DONE bs=1!
-
+  #  task_name: "mmmu_val_energy_and_power"
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_finance"
   # - evaluation_platform: lm_harness
