@@ -1,4 +1,4 @@
-# Running Code on Clusters
+# Running Jobs on Clusters
 
 ```{toctree}
 :maxdepth: 2
