@@ -3,6 +3,8 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import os
+
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -119,6 +121,11 @@ html_theme_options = {
     "analytics": {
         "google_analytics_id": "G-YZE0YFDLPT",
     },
+    "switcher": {
+        "json_url": "https://oumi.ai/docs/version.json",
+        "version_match": os.environ.get("OUMI_VERSION", "latest"),
+    },
+    "navbar_start": ["version-switcher"],
 }
 
 # see https://pygments.org/demo/ for options
