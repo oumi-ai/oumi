@@ -11,7 +11,7 @@ model:
   shard_for_eval: True
 
 generation:
-  batch_size: 1
+  batch_size: 2
 
 tasks:
   - evaluation_platform: lm_harness
@@ -50,7 +50,7 @@ tasks:
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_electronics"
   # - evaluation_platform: lm_harness
-  #  task_name: "mmmu_val_energy_and_power"
+  #   task_name: "mmmu_val_energy_and_power"
   # - evaluation_platform: lm_harness
   #   task_name: "mmmu_val_finance"
   # - evaluation_platform: lm_harness
