@@ -4,6 +4,15 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      index:
+        description: 'Target index (pypi or testpypi)'
+        required: true
+        default: 'testpypi'
+        type: choice
+        options:
+          - testpypi
+          - pypi
 
 jobs:
   publish:
@@ -44,5 +53,6 @@ jobs:
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        repository-url: https://test.pypi.org/legacy/
+        repository-url: ${{ github.event.inputs.index == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
         packages-dir: dist/
+        verbose: true
