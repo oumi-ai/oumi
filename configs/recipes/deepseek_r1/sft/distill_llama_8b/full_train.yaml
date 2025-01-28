@@ -1,18 +1,17 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 
-# SFT config for Llama 3.3v 70B.
-# Some param values are inspired by the following recipe:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_3/70B_full.yaml
+# SFT config for Deepseek R1 Distill Llama 3.1 8B.
 
 model:
-  model_name: "meta-llama/Llama-3.3-70B-Instruct"
-  model_max_length: 2048
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  chat_template: "llama3-instruct"
   load_pretrained_weights: True
   trust_remote_code: True
+  # Improves training speed by 20% with default config.
+  enable_liger_kernel: True
 
 data:
   train:
@@ -23,10 +22,10 @@ data:
 
 training:
   trainer_type: "TRL_SFT"
-  save_steps: 200
+  save_steps: 800
   num_train_epochs: 3
   per_device_train_batch_size: 2
-  max_grad_norm: null
+  gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -34,24 +33,21 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
-  warmup_ratio: 0.02
+  compile: False
 
   dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 16
+  dataloader_prefetch_factor: 32
 
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/llama70b.fft"
+  output_dir: "output/deepseek_r1_llama8b.fft"
   include_performance_metrics: True
   enable_wandb: True
 
 fsdp:
   enable_fsdp: True
-  cpu_offload: True
+  sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
-
-  sharding_strategy: "FULL_SHARD"
-  state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"

@@ -1,22 +1,29 @@
 name: Release -  PyPI
 
 on:
-    push:
-      tags:
-        - 'v*'  # Trigger on version tags
-    workflow_dispatch:
-      inputs:
-        tag:
-          description: 'Tag to release (e.g., v1.0.0)'
-          required: true
-          type: string
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      index:
+        description: 'Target index (pypi or testpypi)'
+        required: true
+        default: 'testpypi'
+        type: choice
+        options:
+          - testpypi
+          - pypi
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
+
+    environment:
+      name: pypi
 
     steps:
     - name: Checkout
@@ -35,8 +42,17 @@ jobs:
     - name: Build package
       run: python -m build
 
-    - name: Upload to PyPI
-      env:
-        TWINE_REPOSITORY: testpypi
+    - name: Check distribution
       run: |
-        twine upload --verbose dist/*
+        twine check dist/*
+        if [ $? -ne 0 ]; then
+          echo "Invalid distribution files"
+          exit 1
+        fi
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: ${{ github.event.inputs.index == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+        packages-dir: dist/
+        verbose: true
