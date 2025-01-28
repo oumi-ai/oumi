@@ -52,10 +52,7 @@ The simplest way to evaluate a model is by authoring a `YAML` configuration, and
 oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
-To run evaluation with multiple GPUs:
-```bash
-oumi distributed torchrun -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
-```
+To run evaluation with multiple GPUs, see {ref}`Multi-GPU Evaluation <multi-gpu-evaluation>`.
 
 ### Using the Python API
 
@@ -86,6 +83,36 @@ tasks:
     task_name: mmlu
 
 output_dir: "my_evaluation_results"
+```
+
+(multi-gpu-evaluation)=
+#### Multi-GPU Evaluation
+
+Multiple GPUs can be used to make evaluation faster and to allow evaluation of larger models that do not fit on a single GPU.
+The parallelization can be enabled using the `shard_for_eval: True` configuration parameter.
+
+```{code-block} yaml
+:emphasize-lines: 4
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  trust_remote_code: True
+  shard_for_eval: True
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+
+output_dir: "my_evaluation_results"
+```
+
+With `shard_for_eval: True` it's recommended to use `accelerate`:
+
+```shell
+oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
+```
+
+```{note}
+Only single node, multiple GPU machine configurations are currently allowed i.e., multi-node evaluation isn't supported.
 ```
 
 
