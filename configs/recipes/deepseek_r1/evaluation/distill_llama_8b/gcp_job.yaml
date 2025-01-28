@@ -8,7 +8,7 @@ name: deepseek-r1-distill-llama8b-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:4"
   use_spot: false
 
 working_dir: .
@@ -43,7 +43,7 @@ run: |
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
 
-  accelerate launch \
+  oumi distributed accelerate launch \
     -m oumi evaluate \
     -c configs/recipes/deepseek_r1/evaluation/distill_llama_8b/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
