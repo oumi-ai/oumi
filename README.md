@@ -239,6 +239,16 @@ Oumi makes use of [several libraries](https://oumi.ai/docs/en/latest/about/ackno
 
 If you find Oumi useful in your research, please consider citing it:
 
+```bibtex
+@software{oumi2025,
+  author = {Oumi Community},
+  title = {Oumi: an Open, End-to-end Platform for Building Large Foundation Models},
+  month = {January},
+  year = {2025},
+  url = {https://github.com/oumi-ai/oumi}
+}
+```
+
 ## 📜 License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

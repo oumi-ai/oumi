@@ -20,8 +20,10 @@ class GenerationParams(BaseParams):
     Larger batch sizes can improve throughput but require more memory. Default is 1.
 
     The value must either be positive or None, in which case the behavior is dependent
-    on the downstream applicaiton. For example, LM Harness will automatically determine
+    on the downstream application. For example, LM Harness will automatically determine
     the largest batch size that will fit in memory.
+
+    For inference, this parameter is only used in `NativeTextInferenceEngine`.
     """
 
     exclude_prompt_from_response: bool = True
