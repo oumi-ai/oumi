@@ -55,3 +55,4 @@ jobs:
       with:
         repository-url: ${{ github.event.inputs.index == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
         packages-dir: dist/
+        verbose: true
