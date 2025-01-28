@@ -36,4 +36,4 @@ tasks:
 generation:
   batch_size: 1
 
-enable_wandb: True
+enable_wandb: False
