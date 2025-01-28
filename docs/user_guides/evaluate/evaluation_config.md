@@ -54,7 +54,7 @@ run_name: "phi3-evaluation"
   - `trust_remote_code`: Whether to trust remote code (for custom models)
   - `adapter_model`: Path to adapter weights (optional)
   - `adapter_type`: Type of adapter ("lora" or "qlora")
-  - `shard_for_eval`: Enable multi-GPU parallelization on a single node.
+  - `shard_for_eval`: Enable multi-GPU parallelization on a single node
 
 - `tasks`: List of evaluation tasks ({py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`)
   - LM Harness Task Parameters:   ({py:class}`~oumi.core.configs.params.evaluation_params.LMHarnessTaskParams`)
