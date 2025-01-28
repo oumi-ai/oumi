@@ -409,11 +409,11 @@ The Gemini models available via this API as of late Jan'2025 are listed below. F
 
 | Model Name                            | API Model Name            |
 |---------------------------------------|---------------------------|
-| Gemini 2.0 Flash (Experimental)       | gemini-2.0-flash-exp      |
+| Gemini 2.0 Flash (experimental)       | gemini-2.0-flash-exp      |
 | Gemini 1.5 Flash                      | gemini-1.5-flash          |
 | Gemini 1.5 Flash-8B                   | gemini-1.5-flash-8b       |
 | Gemini 1.5 Pro                        | gemini-1.5-pro            |
-| Gemini 1.0 Pro (Deprecated)           | gemini-1.0-pro            |
+| Gemini 1.0 Pro (deprecated)           | gemini-1.0-pro            |
 | AQA                                   | aqa                       |
 
 **Resources**
@@ -449,7 +449,7 @@ The most popular models available via the OpenAI API as of late Jan'2025 are lis
 | GPT 4o (flagship model)               | gpt-4o                    |
 | GPT 4o mini (fast and affordable)     | gpt-4o-mini               |
 | o1 (reasoning model)                  | o1                        |
-| o1 mini (reasoning, affordable)       | o1-mini                   |
+| o1 mini (reasoning and affordable)    | o1-mini                   |
 | GPT-4 Turbo                           | gpt-4-turbo               |
 | GPT-4                                 | gpt-4                     |
 
@@ -506,7 +506,7 @@ The DeepSeek models available via this API as of late Jan'2025 are listed below.
 | DeepSeek Model                        | API Model Name            |
 |---------------------------------------|---------------------------|
 | DeepSeek-V3                           | deepseek-chat             |
-| DeepSeek-R1 (Reasoning with CoT)      | deepseek-reasoner         |
+| DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
 
 
 ### Parasail.io
