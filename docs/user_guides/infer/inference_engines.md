@@ -314,6 +314,18 @@ engine = AnthropicInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The Anthropic models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://docs.anthropic.com/en/docs/about-claude/models).
+
+| Anthropic Model                       | API Model Name            |
+|---------------------------------------|---------------------------|
+| Claude 3.5 Sonnet (most intelligent)  | claude-3-5-sonnet-latest  |
+| Claude 3.5 Haiku (fastest)            | claude-3-5-haiku-latest   |
+| Claude 3.0 Opus                       | claude-3-opus-latest      |
+| Claude 3.0 Sonnet                     | claude-3-sonnet-20240229  |
+| Claude 3.0 Haiku                      | claude-3-haiku-20240307   |
+
 **Resources**
 
 - [Anthropic API Documentation](https://docs.anthropic.com/en/api/getting-started)
@@ -347,6 +359,28 @@ engine = GoogleVertexInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The most popular Google Vertex AI models available via this API (as of late Jan'2025) are listed below. For a full list, including specialized and 3rd party models, please visit [this page](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models).
+
+| Gemini Model                          | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemini 2.0 Flash Thinking Mode        | google/gemini-2.0-flash-thinking-exp-01-21 |
+| Gemini 2.0 Flash                      | google/gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | google/gemini-1.5-flash-002      |
+| Gemini 1.5 Pro                        | google/gemini-1.5-pro-002        |
+| Gemini 1.0 Pro Vision                 | google/gemini-1.0-pro-vision-001 |
+
+| Gemma Model                           | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemma 2 2B IT                         | google/gemma2-2b-it              |
+| Gemma 2 9B IT                         | google/gemma2-9b-it              |
+| Gemma 2 27B IT                        | google/gemma2-27b-it             |
+| Code Gemma 2B                         | google/codegemma-2b              |
+| Code Gemma 7B                         | google/codegemma-7b              |
+| Code Gemma 7B IT                      | google/codegemma-7b-it           |
+
+
 **Resources**
 
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs) for Google Cloud AI services
@@ -368,6 +402,19 @@ engine = GoogleGeminiInferenceEngine(
     )
 )
 ```
+
+**Supported Models**
+
+The Gemini models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://ai.google.dev/gemini-api/docs/models/gemini).
+
+| Model Name                            | API Model Name            |
+|---------------------------------------|---------------------------|
+| Gemini 2.0 Flash (Experimental)       | gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | gemini-1.5-flash          |
+| Gemini 1.5 Flash-8B                   | gemini-1.5-flash-8b       |
+| Gemini 1.5 Pro                        | gemini-1.5-pro            |
+| Gemini 1.0 Pro (Deprecated)           | gemini-1.0-pro            |
+| AQA                                   | aqa                       |
 
 **Resources**
 
@@ -392,6 +439,19 @@ engine = OpenAIInferenceEngine(
     )
 )
 ```
+
+**Supported Models**
+
+The most popular models available via the OpenAI API as of late Jan'2025 are listed below. For a full list please visit [this page](https://platform.openai.com/docs/models)
+
+| OpenAI Model                          | API Model Name            |
+|---------------------------------------|---------------------------|
+| GPT 4o (flagship model)               | gpt-4o                    |
+| GPT 4o mini (fast and affordable)     | gpt-4o-mini               |
+| o1 (reasoning model)                  | o1                        |
+| o1 mini (reasoning, affordable)       | o1-mini                   |
+| GPT-4 Turbo                           | gpt-4-turbo               |
+| GPT-4                                 | gpt-4                     |
 
 **Resources**
 
@@ -436,6 +496,16 @@ engine = DeepSeekInferenceEngine(
     )
 )
 ```
+
+**Supported Models**
+
+The DeepSeek models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://api-docs.deepseek.com/quick_start/pricing).
+
+| DeepSeek Model                        | API Model Name            |
+|---------------------------------------|---------------------------|
+| DeepSeek-V3                           | deepseek-chat             |
+| DeepSeek-R1 (Reasoning with CoT)      | deepseek-reasoner         |
+
 
 ### Parasail.io
 
