@@ -1,6 +1,6 @@
 ![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
 
-[![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/latest/index.html)
+[![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
 [![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
 [![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
@@ -28,7 +28,7 @@ With Oumi, you can:
 
 All with one consistent API, production-grade reliability, and all the flexibility you need for research.
 
-Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quickstart guide](https://oumi.ai/docs/latest/get_started/quickstart.html).
+Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quickstart guide](https://oumi.ai/docs/en/latest/get_started/quickstart.html).
 
 ## 🚀 Getting Started
 
@@ -58,7 +58,7 @@ pip install oumi[gpu]  # For GPU training
 pip install git+https://github.com/oumi-ai/oumi.git
 ```
 
-For more advanced installation options, see the [installation guide](https://oumi.ai/docs/latest/get_started/installation.html).
+For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
 
 
 ### Oumi CLI
@@ -76,7 +76,7 @@ oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
 ```
 
-For more advanced options, see the [training](https://oumi.ai/docs/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html), [inference](https://oumi.ai/docs/latest/user_guides/infer/infer.html), and [llm-as-a-judge](https://oumi.ai/docs/latest/user_guides/judge/judge.html) guides.
+For more advanced options, see the [training](https://oumi.ai/docs/en/latest/user_guides/train/train.html), [evaluation](https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html), [inference](https://oumi.ai/docs/en/latest/user_guides/infer/infer.html), and [llm-as-a-judge](https://oumi.ai/docs/en/latest/user_guides/judge/judge.html) guides.
 
 ### Running Jobs Remotely
 
@@ -116,7 +116,7 @@ Here are some of the key features that make Oumi stand out:
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
-**Note:** These configurations are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
+**Note:** These configurations are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/en/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/en/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/en/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/en/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/en/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
 
 #### 🦙 Llama Family
 
@@ -233,7 +233,7 @@ Oumi is a community-first effort. Whether you are a developer, a researcher, or 
 
 ## 🙏 Acknowledgements
 
-Oumi makes use of [several libraries](https://oumi.ai/docs/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! ✨ 🌟 💫
+Oumi makes use of [several libraries](https://oumi.ai/docs/en/latest/about/acknowledgements.html) and tools from the open-source community. We would like to acknowledge and deeply thank the contributors of these projects! ✨ 🌟 💫
 
 ## 📝 Citation
 
