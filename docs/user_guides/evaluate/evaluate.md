@@ -94,7 +94,7 @@ output_dir: "my_evaluation_results"
 Multiple GPUs can be used to make evaluation faster and to allow evaluation of larger models that do not fit on a single GPU.
 The parallelization can be enabled using the `shard_for_eval: True` configuration parameter.
 
-```yaml
+```{code-block} yaml
 :emphasize-lines: 4
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
@@ -108,7 +108,7 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
-With `shard_for_eval: True`, it's recommended to use `accelerate`:
+With `shard_for_eval: True` it's recommended to use `accelerate`:
 
 ```shell
 oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
