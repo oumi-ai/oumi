@@ -3,6 +3,7 @@
 
 # Sample command:
 # oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
+# oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster xrdaukar-1node4gpu-80gb-01-lema-cluster
 name: phi3-sft-oumi-train
 
 resources:
@@ -51,7 +52,6 @@ run: |
   oumi distributed torchrun \
       -m oumi train \
       -c configs/recipes/vision/phi3/sft/train.yaml \
-      --data.train.use_torchdata=true \
       --training.run_name="${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type=OUMI \
       --training.max_steps=20 \
