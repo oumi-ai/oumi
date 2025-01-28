@@ -107,7 +107,7 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
-Using `accelerate` is recommended with `shard_for_eval: True`:
+With `shard_for_eval: True`, it's recommendsed to use `accelerate`:
 
 ```shell
 oumi distributed accelerate launch -c configs/recipes/phi3/evaluation/eval.yaml
