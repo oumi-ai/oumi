@@ -9,6 +9,7 @@ from typing import NamedTuple, Optional
 import pytest
 
 from oumi.core.configs import EvaluationConfig
+from oumi.utils.torch_utils import device_cleanup
 from tests import get_configs_dir
 from tests.e2e import get_e2e_test_output_dir
 from tests.markers import requires_gpus
@@ -39,6 +40,7 @@ def _test_eval_impl(
     interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
 ):
+    device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
@@ -121,6 +123,7 @@ def _test_eval_impl(
 
         shell_command = " ".join(cmd)
         print(f"{test_tag} Running the command:\n{shell_command}\n")
+        device_cleanup()
         result = subprocess.run(
             shell_command,
             shell=True,
