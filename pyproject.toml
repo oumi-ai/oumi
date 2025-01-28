@@ -52,9 +52,9 @@ dependencies = [
     "skypilot>=0.7.0,<0.8",         # Used by launcher
     "tensorboard>=2.18.0,<2.19",    # Optional, for monitoring training
     "torch>=2.5.0,<2.6.0",
-    # 0.10 drops support for datapipes which we currently use
+    # torchdata 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.19.0,<0.20", # Used by some VLM-s (multimodal)
+    "torchvision>=0.20.0,<0.21", # Used by some VLM-s (multimodal)
     "tqdm",
     # NOTE: Liger kernel will soon deprecate support for versions < 4.46.1.
     # https://github.com/linkedin/Liger-Kernel/blob/5c5a7b4f67772f2196efd69d0821b28c0e4ac45e/src/liger_kernel/transformers/monkey_patch.py#L40
@@ -101,7 +101,7 @@ docs = [
 
 # Dependencies that require a GPU to install
 gpu = [
-    "liger-kernel>=0.3.1,<0.4",
+    "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
 ]
