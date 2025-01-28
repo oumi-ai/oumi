@@ -52,10 +52,7 @@ The simplest way to evaluate a model is by authoring a `YAML` configuration, and
 oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 ```
 
-To run evaluation with multiple GPUs:
-```bash
-oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
-```
+To run evaluation with multiple GPUs, see {ref}`Multi-GPU Evaluation <multi-gpu-evaluation>`.
 
 ### Using the Python API
 
@@ -88,6 +85,7 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
+(multi-gpu-evaluation)=
 #### Multi-GPU Evaluation
 
 Multiple GPUs can be used to make evaluation faster and to allow evaluation of larger models that do not fit on a single GPU.
