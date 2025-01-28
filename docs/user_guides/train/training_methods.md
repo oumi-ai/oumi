@@ -63,6 +63,7 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+See the {gh}`🔧 Model Finetuning Guide <notebooks/Oumi - Finetuning Tutorial.ipynb>` notebook for a complete example.
 
 (vision-language-sft)=
 ## Vision-Language SFT
@@ -153,6 +154,9 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+
+See the {gh}`🖼️ Oumi Multimodal <notebooks/Oumi - Vision Language Models.ipynb>` notebook for a complete example.
+
 (pretraining)=
 ## Pretraining
 
