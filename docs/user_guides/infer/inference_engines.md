@@ -477,6 +477,8 @@ engine = TogetherInferenceEngine(
 )
 ```
 
+The models available via this API can be found at [together.ai](https://www.together.ai/).
+
 ### DeepSeek
 
 [DeepSeek](https://deepseek.com) allows to access the DeepSeek models (Chat, Code, and Reasoning) through the DeepSeek AI Platform.
@@ -530,6 +532,8 @@ engine = ParasailInferenceEngine(
     )
 )
 ```
+
+The models available via this API can be found at [docs.parasail.io](https://docs.parasail.io/).
 
 **Resources**
 
