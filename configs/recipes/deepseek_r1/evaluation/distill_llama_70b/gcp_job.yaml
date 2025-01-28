@@ -44,8 +44,7 @@ run: |
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
 
-  oumi distributed accelerate launch \
-    -m oumi evaluate \
+  oumi evaluate \
     -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
