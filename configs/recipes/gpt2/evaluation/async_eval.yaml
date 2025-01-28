@@ -15,7 +15,7 @@ evaluation:
     trust_remote_code: True
 
   tasks:
-    # For all available tasks, see https://oumi.ai/docs/latest/user_guides/evaluate/evaluate.html
+    # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
     - evaluation_platform: lm_harness
       task_name: mmlu_college_computer_science
       eval_kwargs:
