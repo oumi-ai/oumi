@@ -88,6 +88,29 @@ tasks:
 output_dir: "my_evaluation_results"
 ```
 
+#### Multi-GPU Evaluation
+
+Multiple GPUs can be used to make evaluation faster and to allow evaluation of larger models that do not fit on a single GPU.
+The parallelization can be enabled using the `shard_for_eval: True` configuration parameter.
+
+```yaml
+:emphasize-lines: 4
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  trust_remote_code: True
+  shard_for_eval: True
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+
+output_dir: "my_evaluation_results"
+```
+
+```{note}
+Only single node, multiple GPU machine configurations are currently allowed i.e., multi-node evaluation isn't supported.
+```
+
 
 ## Results and Logging
 
