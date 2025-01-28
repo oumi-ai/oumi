@@ -272,13 +272,37 @@ def test_eval_multimodal_1gpu_24gb(
     "test_config",
     [
         EvalTestConfig(
-            test_name="eval_mm_llama31_70b_multi_gpu",
+            test_name="eval_text_llama31_70b_multi_gpu",
             config_path=(
                 get_configs_dir()
                 / "recipes"
                 / "llama3_1"
                 / "evaluation"
                 / "70b_eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_deepseek_r1_distill_llama8b_multi_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "deepseek_r1"
+                / "evaluation"
+                / "distill_llama_8b"
+                / "eval.yaml"
+            ),
+            num_samples=20,
+        ),
+        EvalTestConfig(
+            test_name="eval_text_deepseek_r1_distill_llama70b_multi_gpu",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "deepseek_r1"
+                / "evaluation"
+                / "distill_llama_70b"
+                / "eval.yaml"
             ),
             num_samples=20,
         ),
