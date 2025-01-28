@@ -242,7 +242,7 @@ If you find Oumi useful in your research, please consider citing it:
 ```bibtex
 @software{oumi2025,
   author = {Oumi Community},
-  title = {Oumi: an Open, Collaborative Platform for Building Large Foundation Models},
+  title = {Oumi: an Open, End-to-end Platform for Building Large Foundation Models},
   month = {January},
   year = {2025},
   url = {https://github.com/oumi-ai/oumi}
