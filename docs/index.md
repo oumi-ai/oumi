@@ -150,7 +150,7 @@ Oumi is a community-first effort. Whether you are a developer, a researcher, or 
 
 - To contribute to the `oumi` repository, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
 - Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
-- If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/open-collaboration) page.
+- If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/community) page.
 
 
 ## ❓ Need Help?
