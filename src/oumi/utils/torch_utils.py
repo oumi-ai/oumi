@@ -82,9 +82,13 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
+    # pyright seems to have an issue with torch==2.5.1
+    # torch.version is always available, but pyright doesn't know that
+    if hasattr(torch, "version"):
+        logger.info(f"CUDA version: {torch.version.cuda} ")  # type: ignore
+
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
-        f"CUDA version: {torch.version.cuda} "
         f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 
