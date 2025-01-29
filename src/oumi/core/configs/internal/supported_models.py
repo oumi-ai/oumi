@@ -80,6 +80,10 @@ def _create_gpt2_config() -> InternalModelConfig:
     )
 
 
+def _create_llama_config() -> InternalModelConfig:
+    return InternalModelConfig()
+
+
 @functools.cache
 def get_default_vlm_model_config() -> InternalModelConfig:
     """Returns default VLM model config."""
@@ -209,6 +213,12 @@ def get_all_models_map() -> (
             model_class=default_llm_class,
             tested=True,
             config=_create_gpt2_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="llama",
+            model_class=default_llm_class,
+            tested=True,
+            config=_create_llama_config(),
         ),
         _ModelTypeInfo(
             model_type="blip-2",
