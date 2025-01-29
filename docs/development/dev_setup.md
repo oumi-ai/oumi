@@ -84,6 +84,7 @@ oumi-conda
 The Oumi launcher can be used to launch jobs on remote clusters. Our launcher integrates with SkyPilot to launch jobs on popular cloud providers (GCP, Lambda, etc.). To enable the Oumi launcher to run on your preferred cloud, make sure to follow the setup instructions in our [launch guide](../user_guides/launch/launch.md).
 
 (optional-set-up-huggingface)=
+
 ## 4. [optional] Set up HuggingFace
 
 Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
@@ -109,6 +110,7 @@ Llama models are gated on HF Hub. To gain access, sign the agreement on your des
 - [Llama 3.3](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
 
 (optional-set-up-weights-and-biases)=
+
 ## 5. [optional] Set up Weights and Biases
 
 Oumi integrates with Weights and Biases (WandB) to track the results of training and evaluation runs. Run the following to log in on your machine:
