@@ -1,4 +1,4 @@
-![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
+![# Oumi: Open Universal Machine Intelligence]!(https://oumi.ai/docs/en/latest/_static/logo/header_logo.png)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
 [![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
@@ -24,7 +24,7 @@ With Oumi, you can:
 - ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
 - 📊 Evaluate models comprehensively across standard benchmarks
 - 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
-- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail, ...)
+- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Together, Parasail, ...)
 
 All with one consistent API, production-grade reliability, and all the flexibility you need for research.
 
