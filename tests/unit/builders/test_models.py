@@ -152,8 +152,9 @@ def test_is_image_text_llm(
         ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
         ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
-        ("meta-llama/Meta-Llama-3.1-8B-Instruct", False, "llama3-instruct", "right"),
-        ("meta-llama/Llama-3.2-3B-Instruct", False, "llama3-instruct", "right"),
+        # Llama models are restricted:
+        # ("meta-llama/Meta-Llama-3.1-8B-Instruct", False, "llama3-instruct", "right"),
+        # ("meta-llama/Llama-3.2-3B-Instruct", False, "llama3-instruct", "right"),
         # ("meta-llama/Llama-3.3-70B-Instruct", False, "llama3-instruct", "right"),
     ],
 )

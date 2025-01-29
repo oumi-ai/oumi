@@ -25,7 +25,6 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
     InternalModelConfig,
-    InternalPaddingSide,
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
@@ -82,9 +81,7 @@ def _create_gpt2_config() -> InternalModelConfig:
 
 
 def _create_llama_config() -> InternalModelConfig:
-    return InternalModelConfig(
-        chat_template="llama3-instruct", padding_side=InternalPaddingSide.PAD_RIGHT
-    )
+    return InternalModelConfig(chat_template="llama3-instruct")
 
 
 @functools.cache
