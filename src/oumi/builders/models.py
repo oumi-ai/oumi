@@ -375,9 +375,18 @@ def build_tokenizer(
     # Identify the tokenizer we need to leverage for this model.
     if model_params.tokenizer_name:
         tokenizer_name = model_params.tokenizer_name
+
     else:
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
+
+    # String for logging
+    if tokenizer_name != model_params.model_name:
+        tokenizer_id_str = (
+            f"tokenizer '{tokenizer_name}' and model '{model_params.model_name}'"
+        )
+    else:
+        tokenizer_id_str = f"model '{model_params.model_name}'"
 
     internal_config: Optional[InternalModelConfig] = (
         find_internal_model_config_using_model_name(
@@ -395,7 +404,7 @@ def build_tokenizer(
             padding_side = str(internal_config.padding_side.value)
             logger.info(
                 f"Setting tokenizer to use the '{padding_side}' padding side "
-                f"for model '{model_params.model_name}'. "
+                f"for {tokenizer_id_str}. "
                 f"The '{padding_side}' padding side is configured as the default value "
                 "for this model type."
             )
@@ -441,7 +450,7 @@ def build_tokenizer(
     if model_params.chat_template:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
-            "specified in model config!"
+            f"specified in model config for {tokenizer_id_str}. "
         )
         template_name = model_params.chat_template
     else:
@@ -450,20 +459,24 @@ def build_tokenizer(
             template_name = internal_config.chat_template
             logger.info(
                 f"Using the chat template '{template_name}', which is the default "
-                f"for model '{model_params.model_name}'."
+                f"for {tokenizer_id_str}. "
             )
         elif not tokenizer.chat_template:
             template_name = "default"
             logger.warning(
-                "No chat template found for tokenizer. "
+                f"No chat template found for tokenizer for {tokenizer_id_str}. "
                 "Please specify a chat template using the `chat_template` field. "
                 "This will be required in future versions of Oumi."
             )
             logger.warning(
                 "Setting tokenizer to use the 'default' chat template "
-                f"for model '{model_params.model_name}'. "
+                f"for {tokenizer_id_str}. "
                 "The 'default' template does not use any special tokens, "
                 "and is unlikely to yield good results."
+            )
+        else:
+            logger.info(
+                f"Using the model's built-in chat template " f"for {tokenizer_id_str}."
             )
 
     if template_name:
