@@ -75,8 +75,8 @@ oumi infer -i -c configs/chat.yaml --model.device_map cuda:0
 # Process dataset
 oumi infer -c configs/batch.yaml \
   --input_path dataset.jsonl \
-  --output results.jsonl \
-  --batch-size 32
+  --output_path results.jsonl \
+  --generation.batch_size 32
 ```
 
 ### Multi-GPU Inference

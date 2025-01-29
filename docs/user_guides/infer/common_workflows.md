@@ -55,7 +55,7 @@ Here's an example of how to use guided decoding to generate data in a structured
 :emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 52
 
 from pydantic import BaseModel
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import (
     ModelParams,
     RemoteParams,
@@ -74,10 +74,7 @@ class ProductInfo(BaseModel):
 
 config = InferenceConfig(
     model=ModelParams(model_name="gpt-4o-mini"),
-    remote_params=RemoteParams(
-        api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY",
-    ),
+
     generation=GenerationParams(
         max_new_tokens=512,
         temperature=0,  # Use deterministic output for structured data
@@ -86,7 +83,7 @@ config = InferenceConfig(
 )
 
 # Configure engine for JSON output
-engine = RemoteInferenceEngine(
+engine = OpenAIInferenceEngine(
     model_params=config.model,
     remote_params=config.remote_params,
 )
@@ -116,22 +113,20 @@ For high-throughput scenarios where you need to process many requests concurrent
 ```{code-block} python
 :emphasize-lines: 10, 11, 12
 
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams
 
 # Configure engine with multiple workers
 config = InferenceConfig(
     model=ModelParams(model_name="gpt-4"),
     remote_params=RemoteParams(
-        api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY",
         max_retries=3,  # Number of retry attempts on failure
         num_workers=4,  # Process 4 requests concurrently
         politeness_policy=1.  # Sleep duration in seconds after an error
     )
 )
 
-engine = RemoteInferenceEngine(
+engine = OpenAIInferenceEngine(
     model_params=config.model,
     remote_params=config.remote_params
 )
@@ -158,20 +153,18 @@ Here's an OpenAI example of how to use Oumi's async batch inference:
 ```{code-block} python
 :emphasize-lines: 10,26
 
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams
 
 # Initialize engine with batch settings
 config = InferenceConfig(
     model=ModelParams(model_name="gpt-4"),
     remote_params=RemoteParams(
-        api_url="https://api.openai.com/v1/chat/completions",
-        api_key_env_varname="OPENAI_API_KEY",
         batch_completion_window="24h"  # Time window for processing
     )
 )
 
-engine = RemoteInferenceEngine(
+engine = OpenAIInferenceEngine(
     model_params=config.model,
     remote_params=config.remote_params
 )
