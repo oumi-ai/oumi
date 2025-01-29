@@ -46,7 +46,7 @@ except ModuleNotFoundError:
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
-    """Engine for running vllm inference locally."""
+    """Engine for running vLLM inference locally."""
 
     def __init__(
         self,

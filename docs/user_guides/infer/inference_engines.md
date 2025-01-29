@@ -62,7 +62,7 @@ Each inference engine supports a different set of parameters (for example, diffe
 
 Make sure to check the {doc}`configuration` for an exhaustive list of supported parameters, and the reference page for the specific engine you are using to find the parameters it supports.
 
-For example, the supported parameters for the `VLLMInferenceEngine` can be found here {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
+For example, the supported parameters for the `VLLMInferenceEngine` can be found in {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
 
 ## Local Inference
 
