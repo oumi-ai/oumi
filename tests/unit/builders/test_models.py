@@ -128,6 +128,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
         ("MlpEncoder", False, False),  # Custom model
         ("CnnClassifier", False, False),  # Custom model
         ("openai-community/gpt2", False, False),
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False, False),
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),
         ("microsoft/Phi-3-vision-128k-instruct", True, True),
@@ -149,6 +150,7 @@ def test_is_image_text_llm(
     "model_name, trust_remote_code, template_name, expected_padding_side",
     [
         ("openai-community/gpt2", False, "gpt2", "right"),
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False, "default", "right"),
         ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
         ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
