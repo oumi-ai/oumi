@@ -1,4 +1,4 @@
-![# Oumi: Open Universal Machine Intelligence]!(https://oumi.ai/docs/en/latest/_static/logo/header_logo.png)
+![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
 [![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
