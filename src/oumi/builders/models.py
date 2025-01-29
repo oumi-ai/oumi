@@ -475,7 +475,7 @@ def build_tokenizer(
             )
         else:
             logger.info(
-                f"Using the model's built-in chat template " f"for {tokenizer_id_str}."
+                f"Using the model's built-in chat template for {tokenizer_id_str}."
             )
 
     if template_name:
