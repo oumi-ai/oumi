@@ -70,7 +70,7 @@ def evaluate(
     if not alpaca_eval:
         raise RuntimeError(
             "The `alpaca_eval` package is NOT installed. Please either install all "
-            "evaluation dependencies with `pip install -e '.[evaluation]'` or directly "
+            "evaluation dependencies with `pip install oumi[evaluation]` or directly "
             "install the missing package with `pip install alpaca_eval`."
         )
 
