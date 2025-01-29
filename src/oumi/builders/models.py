@@ -375,7 +375,6 @@ def build_tokenizer(
     # Identify the tokenizer we need to leverage for this model.
     if model_params.tokenizer_name:
         tokenizer_name = model_params.tokenizer_name
-
     else:
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
