@@ -1,7 +1,7 @@
 # Async eval config for GPT2.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/gpt2/evaluation/async_eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

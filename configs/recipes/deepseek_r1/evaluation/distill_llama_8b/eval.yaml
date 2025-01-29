@@ -1,7 +1,7 @@
 # Eval config for Deepseek R1 Distill Llama 3.1 8B.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_llama_8b/eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

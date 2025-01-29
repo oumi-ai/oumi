@@ -1,7 +1,7 @@
 # Eval config for Qwen2 VL 2B Instruct.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

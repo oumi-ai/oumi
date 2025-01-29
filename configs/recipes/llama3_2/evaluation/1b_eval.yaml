@@ -1,7 +1,7 @@
 # Eval config for Llama 3.2 1B Instruct.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/llama3_2/evaluation/1b_eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

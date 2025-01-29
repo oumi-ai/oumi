@@ -1,7 +1,7 @@
 # HuggingFace Leaderboard V1 eval config.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

@@ -1,7 +1,7 @@
 # Quickstart Alpaca v2 eval config for SmolLM 135M Instruct.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html

@@ -1,7 +1,7 @@
 # Eval config for Deepseek R1 Distill Qwen2.5 1.5B.
 #
 # Usage:
-#   oumi evaluate -c <config_path>
+#   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
