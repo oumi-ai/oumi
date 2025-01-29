@@ -26,8 +26,8 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-90B-Vision-Instruct"
-          return_tensors: True
           limit: 4096
+          return_tensors: True
 
 training:
   output_dir: "output/vlm_finetuned"

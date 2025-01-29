@@ -75,7 +75,7 @@ def check_prerequisites(
     )
     runtime_error_suffix = (
         "\nNote that you can install all evaluation-related packages with the "
-        "following command:\n`pip install -e '.[evaluation]'`"
+        "following command:\n`pip install oumi[evaluation]`"
     )
 
     # Per platform prerequisite checks.
