@@ -155,6 +155,8 @@ def test_is_image_text_llm(
         ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
         ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
+        # These models require allowlisting:
+        # ("meta-llama/Llama-3.2-3B-Instruct", False, None, "right"),
     ],
 )
 def test_default_chat_template_in_build_tokenizer(
