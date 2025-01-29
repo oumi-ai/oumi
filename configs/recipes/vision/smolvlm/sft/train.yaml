@@ -24,7 +24,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-          limit: 4096
+          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
 
 training:
