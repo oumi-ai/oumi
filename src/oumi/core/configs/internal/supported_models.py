@@ -81,7 +81,10 @@ def _create_gpt2_config() -> InternalModelConfig:
 
 
 def _create_llama_config() -> InternalModelConfig:
-    return InternalModelConfig(chat_template="llama3-instruct")
+    config = InternalModelConfig(chat_template="llama3-instruct")
+    # FIXME OPE-617 Consider updating to "right":
+    # config.padding_side = InternalPaddingSide.PAD_RIGHT
+    return config
 
 
 @functools.cache
@@ -132,7 +135,7 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=True)
     config.chat_template = "qwen2-vl-instruct"
     # FIXME OPE-946 Consider updating to "right":
-    # config.padding_side = InternalPaddingSide.PAD_LEFT
+    # config.padding_side = InternalPaddingSide.PAD_RIGHT
     config.model_input_features.update(
         {
             feature_name: InternalFeatureSpec(
