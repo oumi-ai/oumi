@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
-
 # Config for Llama 3.1 8B Instruct SFT on 1 Polaris node.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/8b_full/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
 name: llama8b-sft
 # NOTE: Replace with your username.
 user: your_username

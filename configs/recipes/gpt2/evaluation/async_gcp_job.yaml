@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config.
+#
+# Usage:
+#   oumi launch up -c <config_path>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: gpt2-eval
 
