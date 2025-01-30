@@ -1,10 +1,16 @@
-# Class: oumi.core.configs.InferenceConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
-
 # Inference config for Deepseek R1 671B.
-# NOTE: Set the `TOGETHER_API_KEY` env var to your Together API key.
-# Example command:
-# oumi infer -i -c configs/recipes/deepseek_r1/inference/671b_together_infer.yaml
+#
+# Requirements:
+#   - Set the `TOGETHER_API_KEY` env var to your Together API key.
+#
+# Usage:
+#   oumi infer -i -c <config_path>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other eval configs: configs/**/inference/
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1"
