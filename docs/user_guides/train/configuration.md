@@ -157,7 +157,8 @@ training:
 
   # Optimization
   learning_rate: 5e-5                     # Initial learning rate
-  optimizer: "adamw_torch"                # Optimizer type
+  optimizer: "adamw_torch"                # Optimizer type ("adam", "adamw", "adamw_torch", "adamw_torch_fused", "sgd", "adafactor")
+                                          # "adamw_8bit", "paged_adamw_8bit", "paged_adamw", "paged_adamw_32bit" (requires bitsandbytes)
   weight_decay: 0.0                       # Weight decay for regularization
   max_grad_norm: 1.0                      # Max gradient norm for clipping
 
