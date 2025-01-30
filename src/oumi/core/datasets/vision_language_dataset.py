@@ -348,17 +348,18 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
         # Generates the prompt using the chat template
         # including image placeholders for each image in the conversation
-        texts = []
+        messages = []
         for turn in conversation.messages:
             if turn.contains_text() or turn.contains_images():
-                texts.append(turn)
+                messages.append(turn)
             else:
                 raise ValueError(
-                    f"Unsupported message: {turn.id}. "
-                    "Contains no text and no images."
+                    f"Unsupported message: {turn.id}. Contains no text and no images."
                 )
 
-        text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
+        text_prompt = self._processor.apply_chat_template(
+            messages, add_generation_prompt=False
+        )
 
         # Loads the images from the conversation
         image_items = [
@@ -366,7 +367,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         ]
         images = [self._load_image(item) for item in image_items]
 
-        return images, text
+        return images, text_prompt
 
     def _load_image(self, image_item: ContentItem) -> Image.Image:
         """Loads an image from a message.
