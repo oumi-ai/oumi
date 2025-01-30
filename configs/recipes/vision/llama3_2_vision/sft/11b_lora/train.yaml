@@ -1,7 +1,7 @@
 # LoRA config for Llama 11B Vision with the vqav2-small dataset.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/vision/llama3_2_vision/sft/11b_lora/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

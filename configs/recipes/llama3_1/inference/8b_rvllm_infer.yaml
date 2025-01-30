@@ -1,7 +1,7 @@
 # Inference config for Llama 8B Instruct.
 #
 # Usage:
-#   oumi infer -i -c <config_path>
+#   oumi infer -i -c configs/recipes/llama3_1/inference/8b_rvllm_infer.yaml
 #
 # Sample command to start vLLM server:
 # python -u -m vllm.entrypoints.openai.api_server \

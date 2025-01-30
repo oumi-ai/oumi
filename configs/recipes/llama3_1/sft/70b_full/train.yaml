@@ -6,7 +6,7 @@
 # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-70B-Instruct --exclude original/*
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/llama3_1/sft/70b_full/train.yaml
 #
 # Command to run locally on a single-node 8xA100-80GB machine:
 #   oumi distributed torchrun -m oumi train -c configs/recipes/llama3_1/sft/70b_full/train.yaml

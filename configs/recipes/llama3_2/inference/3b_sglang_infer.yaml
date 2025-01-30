@@ -1,7 +1,7 @@
 # Inference config for Llama 3B Instruct.
 #
 # Usage:
-#   oumi infer -i -c <config_path>
+#   oumi infer -i -c configs/recipes/llama3_2/inference/3b_sglang_infer.yaml
 #
 # Sample command to start SGLang server:
 # CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \

@@ -1,7 +1,7 @@
 # Inference config for SmolLM 135M Instruct.
 #
 # Usage:
-#   oumi infer -i -c <config_path>
+#   oumi infer -i -c configs/recipes/smollm/inference/135m_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

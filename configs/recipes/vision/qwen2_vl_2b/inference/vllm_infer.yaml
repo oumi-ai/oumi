@@ -1,7 +1,7 @@
 # Inference config.
 #
 # Usage:
-#   oumi infer -i -c <config_path>
+#   oumi infer -i -c configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

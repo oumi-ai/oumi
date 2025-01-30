@@ -1,7 +1,7 @@
 # Job config.
 #
 # Usage:
-#   oumi launch up -c <config_path> --cluster my-oumi-cluster
+#   oumi launch up -c configs/examples/misc/hello_world_gcp_job.yaml --cluster my-oumi-cluster
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

@@ -1,7 +1,7 @@
 # FFT config for SmolLM 135M Instruct.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/smollm/sft/135m/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

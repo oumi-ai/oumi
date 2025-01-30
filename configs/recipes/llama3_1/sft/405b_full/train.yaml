@@ -1,7 +1,7 @@
 # FFT config for Llama 405B.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/llama3_1/sft/405b_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

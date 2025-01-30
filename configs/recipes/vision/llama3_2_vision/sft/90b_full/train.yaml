@@ -1,7 +1,7 @@
 # FFT config for Llama- 90B Vision with the vqav2-small dataset.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/vision/llama3_2_vision/sft/90b_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

@@ -1,7 +1,7 @@
 # Training config.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/vision/llava_7b/sft/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

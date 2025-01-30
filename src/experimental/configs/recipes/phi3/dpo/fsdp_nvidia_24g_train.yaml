@@ -1,7 +1,7 @@
 # Training config.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c src/experimental/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

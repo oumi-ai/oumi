@@ -1,7 +1,7 @@
 # QLoRA config for Deepseek R1 Distill Llama 3.3 70B.
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/deepseek_r1/sft/distill_llama_70b/qlora_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

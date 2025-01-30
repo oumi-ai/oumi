@@ -1,7 +1,7 @@
 # Inference config.
 #
 # Usage:
-#   oumi infer -i -c <config_path>
+#   oumi infer -i -c configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

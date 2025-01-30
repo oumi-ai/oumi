@@ -3,7 +3,7 @@
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
 #
 # Usage:
-#   oumi train -c <config_path>
+#   oumi train -c configs/recipes/llama3_1/sft/8b_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
