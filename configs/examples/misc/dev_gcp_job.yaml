@@ -1,4 +1,4 @@
-# Config used by our Makefile to launch a bare-bones GCP VM for development.
+# Job config used by our Makefile to launch a bare-bones GCP VM for development.
 #
 # Usage:
 #   oumi launch up -c configs/examples/misc/dev_gcp_job.yaml --cluster my-oumi-cluster

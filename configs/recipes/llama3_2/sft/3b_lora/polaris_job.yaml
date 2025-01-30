@@ -1,4 +1,4 @@
-# Config to LoRA tune Llama 3.2 3B Instruct on 1 Polaris node.
+# Job config to LoRA tune Llama 3.2 3B Instruct on 1 Polaris node.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_2/sft/3b_lora/polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER

@@ -1,4 +1,4 @@
-# Config to eval Llama 3.1 70B Instruct on Polaris.
+# Job config to eval Llama 3.1 70B Instruct on Polaris.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/evaluation/70b_polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER

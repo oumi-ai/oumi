@@ -1,4 +1,4 @@
-# Config for Llama 3.1 8B pre-training on 1 Polaris node.
+# Job config for Llama 3.1 8B pre-training on 1 Polaris node.
 #
 # Usage:
 #   oumi launch up --cluster preemptable.$ALCF_USER --detach --user $ALCF_USER -c configs/recipes/llama3_1/pretraining/8b/polaris_job.yaml

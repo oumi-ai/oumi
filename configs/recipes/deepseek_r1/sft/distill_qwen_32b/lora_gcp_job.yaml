@@ -1,4 +1,4 @@
-# Config to LoRA tune Deepseek R1 Distill Qwen2.5 32B.
+# Job config to LoRA tune Deepseek R1 Distill Qwen2.5 32B.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_gcp_job.yaml --cluster deepseek-r1-qwen32b-lora

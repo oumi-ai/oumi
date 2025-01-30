@@ -1,4 +1,4 @@
-# Configuration for fine-tuning Llama 3.8B model with long context.
+# Config for fine-tuning Llama 3.8B model with long context.
 #
 # Usage (for 8xA100-40GB GPUs):
 #   accelerate launch \

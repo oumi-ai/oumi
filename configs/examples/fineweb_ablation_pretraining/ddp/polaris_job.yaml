@@ -1,4 +1,4 @@
-# Config to DDP pretrain the FineWeb ablation model on Polaris.
+# Job config to DDP pretrain the FineWeb ablation model on Polaris.
 #
 # Usage:
 #   oumi launch up -c configs/examples/fineweb_ablation_pretraining/ddp/polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER

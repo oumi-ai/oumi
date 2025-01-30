@@ -1,4 +1,4 @@
-# Config to evaluate smollm 135M on HuggingFace's Leaderboard V1 (1 GCP node).
+# Job config to evaluate smollm 135M on HuggingFace's Leaderboard V1 (1 GCP node).
 #
 # Usage:
 #   oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml --cluster smollm-135m-lb-v1-eval

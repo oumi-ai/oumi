@@ -1,4 +1,4 @@
-# Config to FSDP LoRA tune Llama 3.3 70B Instruct.
+# Job config to FSDP LoRA tune Llama 3.3 70B Instruct.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_3/sft/70b_lora/gcp_job.yaml --cluster llama70b-lora-fsdp

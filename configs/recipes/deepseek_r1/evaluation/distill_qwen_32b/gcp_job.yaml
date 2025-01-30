@@ -1,4 +1,4 @@
-# Config to eval Deepseek R1 Distill Qwen2.5 32B.
+# Job config to eval Deepseek R1 Distill Qwen2.5 32B.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/evaluation/distill_qwen_32b/gcp_job.yaml --cluster deepseek-r1-qwen32b-eval

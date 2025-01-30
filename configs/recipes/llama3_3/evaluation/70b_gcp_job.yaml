@@ -1,4 +1,4 @@
-# Config to eval Llama 3.3 70B Instruct on GCP.
+# Job config to eval Llama 3.3 70B Instruct on GCP.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_3/evaluation/70b_gcp_job.yaml --cluster llama70b-eval

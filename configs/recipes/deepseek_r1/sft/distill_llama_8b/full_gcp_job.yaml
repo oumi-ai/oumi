@@ -1,4 +1,4 @@
-# Config to full fine-tune Deepseek R1 Distill Llama 3.1 8B.
+# Job config to full fine-tune Deepseek R1 Distill Llama 3.1 8B.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_8b/full_gcp_job.yaml --cluster deepseek-r1-llama8b-fft

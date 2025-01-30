@@ -1,4 +1,4 @@
-# Config to FSDP QLoRA tune Llama 3.1 70B Instruct.
+# Job config to FSDP QLoRA tune Llama 3.1 70B Instruct.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/70b_qlora/gcp_job.yaml --cluster llama70b-qlora-fsdp

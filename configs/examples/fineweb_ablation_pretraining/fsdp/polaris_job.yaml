@@ -1,4 +1,4 @@
-# Config to FSDP pretrain the FineWeb ablation model on Polaris.
+# Job config to FSDP pretrain the FineWeb ablation model on Polaris.
 #
 # Usage:
 #   oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/polaris_job.yaml --cluster debug-scaling.$ALCF_USER --user $ALCF_USER --num_nodes 2 --log-level DEBUG

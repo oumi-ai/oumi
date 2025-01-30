@@ -1,4 +1,4 @@
-# Config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
+# Job config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
 #
 # Requirements:
 #   - Request access to the GPQA dataset: https://huggingface.co/datasets/Idavidrein/gpqa

@@ -1,4 +1,4 @@
-# Config for Llama 3.1 70B Instruct SFT on 4 Polaris nodes.
+# Job config for Llama 3.1 70B Instruct SFT on 4 Polaris nodes.
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/70b_full/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
