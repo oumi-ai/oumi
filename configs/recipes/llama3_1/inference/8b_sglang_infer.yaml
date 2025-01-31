@@ -6,7 +6,8 @@
 # Sample command to start SGLang server:
 # CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
 #     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
-#     --port 6864 --disable-cuda-graph --mem-fraction-static=0.99
+#     --port 6864 --disable-cuda-graph --mem-fraction-static=0.9
+# For GPU-s with less than 40GB of VRAM, try --mem-fraction-static=0.99
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
