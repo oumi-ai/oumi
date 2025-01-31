@@ -23,10 +23,14 @@ def _get_test_name_for_invalid_field_name_list(x):
     ids=_get_test_name_for_invalid_field_name_list,
 )
 def test_dataset_params_reserved_kwargs(field_names: list[str]):
+    invalid_names = {f.name for f in dataclasses.fields(DatasetParams())}.intersection(
+        field_names
+    )
     with pytest.raises(
         ValueError,
         match=(
-            "dataset_kwargs attempts to override the following " "reserved fields: "
+            "dataset_kwargs attempts to override the following reserved fields: "
+            f"{invalid_names}"
         ),
     ):
         DatasetParams(
