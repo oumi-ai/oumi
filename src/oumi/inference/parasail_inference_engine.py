@@ -26,7 +26,7 @@ class ParasailInferenceEngine(RemoteInferenceEngine):
     @override
     def base_url(self) -> Optional[str]:
         """Return the default base URL for the Parasail API."""
-        return "https://api.parasail.com/v1/chat/completions"
+        return "https://api.parasail.io/v1/chat/completions"
 
     @property
     @override
