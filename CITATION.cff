@@ -1,7 +1,6 @@
 cff-version: 1.2.0
 title: >-
-  Oumi: An Open, Collaborative Platform for Training Large
-  Foundation Models
+  Oumi: an Open, End-to-end Platform for Building Large Foundation Models
 message: >-
   If you use this software, please cite it using the
   metadata from this file.

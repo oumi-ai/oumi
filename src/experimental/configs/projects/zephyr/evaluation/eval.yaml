@@ -1,0 +1,32 @@
+# Eval config for Zephyr.
+#
+# Usage:
+#   oumi evaluate -c src/experimental/configs/projects/zephyr/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  # Note: update model_name or adapter_model with your checkpoint directories
+  model_name: "mistralai/Mistral-7B-v0.1"
+  adapter_model: "your-checkpoint-dir"
+  trust_remote_code: True
+  #TODO currently below are not passed in LM_HARNESS
+  torch_dtype_str: "bfloat16"
+  model_max_length: 2048
+  chat_template: "zephyr"
+  attn_implementation: "sdpa"
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+
+generation:
+  batch_size: 32
+
+enable_wandb: True

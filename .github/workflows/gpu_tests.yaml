@@ -35,11 +35,15 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_gpu]' --system --prerelease=allow
+        uv pip install -e '.[ci_gpu]' hf_transfer --system
+
+    - name: Download Test Data
+      run: |
+        ./tests/scripts/predownload_for_github_gpu_tests.sh
 
     - name: Run GPU tests
       run: |
         nvidia-smi
 
         cd ./tests/integration/
-        pytest -s -m "not e2e and not e2e_eternal" --durations=50 --timeout=300
+        pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300

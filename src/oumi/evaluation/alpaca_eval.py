@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import time
 from datetime import datetime
@@ -34,7 +48,7 @@ def evaluate(
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Evaluates a model using the Alpaca Eval framework.
 
     For detailed documentation on the AlpacaEval framework, we refer you to the
@@ -48,14 +62,16 @@ def evaluate(
         inference_remote_params: The remote inference parameters to use.
         output_dir: The directory where the evaluation results will be saved.
         run_name: Unique identifier for the current run.
+
+    Returns:
+        The evaluation results (dict of metric names and their corresponding values).
     """
     # Prerequisites
     if not alpaca_eval:
         raise RuntimeError(
-            "The `alpaca_eval` package, which is part of Oumi's optional dependencies, "
-            "is NOT installed. Please either install all optional dependencies with "
-            "`pip install -e '.[optional]'` or directly install the missing package "
-            "with `pip install alpaca_eval`."
+            "The `alpaca_eval` package is NOT installed. Please either install all "
+            "evaluation dependencies with `pip install oumi[evaluation]` or directly "
+            "install the missing package with `pip install alpaca_eval`."
         )
 
     open_ai_key = os.environ.get("OPENAI_API_KEY")
@@ -173,3 +189,8 @@ def evaluate(
                 generation_params=generation_params,
                 inference_config=inference_config,
             )
+
+        if metric_dict:
+            return {"results": metric_dict}
+
+    return {}

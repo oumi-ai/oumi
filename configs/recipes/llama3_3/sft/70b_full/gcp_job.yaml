@@ -1,0 +1,65 @@
+# Job config to FSDP full fine-tune Llama 3.3 70B Instruct on a single GCP node.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_3/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: llama70b-sft-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 2000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama70b.fft.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.3-70B-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/llama3_3/sft/70b_full/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,7 +22,6 @@ from transformers.utils import find_adapter_config_file, is_flash_attn_2_availab
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
-from oumi.utils.distributed_utils import is_using_accelerate
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -162,10 +175,6 @@ class ModelParams(BaseParams):
 
     This is needed for large models that do not fit on a single GPU.
     It is used as the value for the `parallelize` argument in LM Harness.
-
-    If this is enabled, the eval job must be kicked off with `python` as opposed to
-    `accelerate launch`, as described here:
-    https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#multi-gpu-evaluation-with-hugging-face-accelerate
     """
 
     freeze_layers: list[str] = field(default_factory=list)
@@ -256,12 +265,6 @@ class ModelParams(BaseParams):
                 "Flash attention 2 was requested but it is not "
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
-            )
-
-        if self.shard_for_eval and is_using_accelerate():
-            raise ValueError(
-                "Sharded-model evaluations with LM Harness should be invoked with "
-                "`python`, not `accelerate launch`."
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:

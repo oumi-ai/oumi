@@ -1,13 +1,20 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config.
+#
+# Usage:
+#   oumi launch up -c configs/examples/fineweb_ablation_pretraining/ddp/gcp_job.yaml --cluster fineweb-ddp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: fineweb-ddp
 
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  # Allow Spot VM-s for A100 40GB GPUs, which are plentiful on GCP, and cost ~3X less.
-  use_spot: true
+  use_spot: false
 
 # Upload working directory to remote ~/sky_workdir.
 working_dir: .
@@ -22,7 +29,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

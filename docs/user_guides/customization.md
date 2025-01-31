@@ -66,6 +66,7 @@ See the following snippets for examples of custom datasets:
 - [Custom Pre-training Dataset](/resources/datasets/pretraining_datasets.md#adding-a-new-pre-training-dataset)
 - [Custom Preference Tuning Dataset](/resources/datasets/preference_datasets.md#creating-custom-preference-dataset)
 - [Custom Vision-Language Dataset](/resources/datasets/vl_sft_datasets.md#adding-a-new-vl-sft-dataset)
+- [Custom Numpy Dataset](sample-custom-numpy-dataset)
 
 ```{note}
 Don't forget to decorate your class with `@register_dataset(...)`!
@@ -120,3 +121,10 @@ With your `requirements.txt` file created, you simply need to set the
 ``` {code-block} shell
 export OUMI_EXTRA_DEPS_FILE=/another/path/requirements.txt
 ```
+
+## See Also
+
+- {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi models
+- {py:class}`oumi.core.registry.Registry` - Model registration system
+- {py:class}`oumi.core.configs.params.model_params.ModelParams` - Base parameters class for models
+- {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).

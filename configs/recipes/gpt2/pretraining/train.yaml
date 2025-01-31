@@ -1,7 +1,13 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-
 # GPT-2's implementation in nanoGPT: https://github.com/karpathy/build-nanogpt
+#
+# Usage:
+#   oumi train -c configs/recipes/gpt2/pretraining/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 # Model automatically uses weight tying
 model:
@@ -28,7 +34,7 @@ data:
     target_col: "text"
 
 training:
-  trainer_type: OUMI
+  trainer_type: "TRL_SFT"
   save_steps: 200
   per_device_train_batch_size: 64 # Use 64 for A100-80GB
   gradient_accumulation_steps: 8 # Disable when running on 8 GPUs
@@ -52,3 +58,4 @@ training:
 
   run_name: "gpt2_pt"
   output_dir: "output/gpt2.pt"
+  include_performance_metrics: True

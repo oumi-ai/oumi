@@ -9,7 +9,6 @@ supported_models
 custom_models
 ```
 
-
 Oumi provides a _unified_ interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi simplifies the process with _seamless_ integrations.
 
 Out-of-the-box, Oumi supports popular causal LLMs and large vision-language models, with optimized implementations available for efficient use. For a comprehensive list of supported models, configuration examples, and best practices, see the {doc}`/resources/recipes` page.
@@ -18,7 +17,7 @@ This guide provides a quick overview of Oumi’s unified interface, demonstratin
 
 ## Main Model Interface
 
-Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can robustly create models and handle textual input across diverse architectures. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
+Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can instantiate models and tokenizers, regardless of their architecture. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
 
 ```python
 # Example using Oumi's main model interface
@@ -58,8 +57,6 @@ model = build_model(model_params)
 tokenizer = build_tokenizer(model_params)
 ```
 
-
-
 ### Custom Models
 
 You can also easily create custom models by extending our base classes:
@@ -77,6 +74,7 @@ class MyCustomModel(BaseModel):
 For detailed implementation guidance on this subject, see the {doc}`/resources/models/custom_models` documentation.
 
 ## Advanced Topics
+
 ### Tokenizer Integration
 
 Oumi ensures consistent tokenizer handling through the {py:mod}`core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
@@ -98,7 +96,6 @@ tokenizer = build_tokenizer(model_params)
 ```
 
 For details on handling special tokens, refer to {py:func}`core.tokenizers.get_default_special_tokens`.
-
 
 ### Parameter Adapters and Quantization
 
@@ -130,6 +127,7 @@ model = build_model(model_params)
 ```
 
 The framework supports:
+
 - **PEFT Adapters**: Load trained LoRA or other PEFT adapters using the `adapter_model` parameter
 - **Quantization**: Enable 8-bit (or 4-bit) quantization through `PeftParams` with `q_lora` and `q_lora_bits`
 - **Mixed Precision**: Control model precision using `torch_dtype` parameter
@@ -137,9 +135,11 @@ The framework supports:
 For more details on training with adapters and quantization, see {doc}`/user_guides/train/configuration`.
 
 ### Chat Templates
+
 Oumi uses Jinja2 templates to format conversations for different model architectures. Oumi's default templates ensure that messages are formatted correctly for each model's expected input format.
 
 Available templates include:
+
 - `default` - Basic template without special tokens
 - `llama3-instruct` - For Llama 3 instruction models
 - `llava` - For LLaVA multimodal models
@@ -162,6 +162,7 @@ You can find all supported templates in the {file}`src/oumi/datasets/chat_templa
 ## Next Steps
 
 For more detailed information about working with models, see:
+
 - {doc}`/resources/recipes` - Detailed configuration examples
 - {doc}`/user_guides/train/train` - Model fine-tuning guide
 - {doc}`/user_guides/evaluate/evaluate` - Model evaluation and benchmarking

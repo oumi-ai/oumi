@@ -1,0 +1,48 @@
+# Job config.
+#
+# Usage:
+#   oumi launch up -c src/experimental/configs/recipes/phi3/dpo/fsdp_gcp_job.yaml --cluster my-oumi-cluster
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: phi3-dpo-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "A100:2"
+  use_spot: false
+
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: phi3.dpo.nvidia.24g.fsdp
+  ACCELERATE_LOG_LEVEL: info
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_TOTAL_NUM_GPUS} -lt 2; then
+    echo "Using FSDP with only 1 GPU may lead to errors. Multiple GPUs are expected."
+  fi
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c src/experimental/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

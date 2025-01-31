@@ -4,7 +4,6 @@ Oumi's inference API provides a unified interface for multiple inference engines
 
 In this guide, we'll go through each supported engine, what they are best for, and how to get started using them.
 
-
 ## Introduction
 
 Before digging into specific engines, let's look at the basic patterns for initializing both local and remote inference engines.
@@ -35,8 +34,7 @@ You can also specify configuration in YAML, and use the CLI to run inference:
 oumi infer --engine VLLM --model.model_name meta-llama/Llama-3.2-1B-Instruct
 ```
 
-Checkout the {doc}`cli_reference` for more information on how to use the CLI.
-
+Checkout the {doc}`inference_cli` for more information on how to use the CLI.
 
 **Cloud APIs**
 
@@ -44,7 +42,7 @@ Remote inference engines (i.e. API based) require a `RemoteParams` object to be 
 
 The `RemoteParams` object contains the API URL and any necessary API keys. For example, here is to use Claude Sonnet 3.5:
 
-```python
+```{testcode}
 from oumi.inference import AnthropicInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -53,7 +51,6 @@ engine = AnthropicInferenceEngine(
         model_name="claude-3-5-sonnet-20240620",
     ),
     remote_params=RemoteParams(
-        api_url="https://api.anthropic.com/v1/messages",
         api_key_env_varname="ANTHROPIC_API_KEY",
     )
 )
@@ -65,8 +62,7 @@ Each inference engine supports a different set of parameters (for example, diffe
 
 Make sure to check the {doc}`configuration` for an exhaustive list of supported parameters, and the reference page for the specific engine you are using to find the parameters it supports.
 
-For example, the supported parameters for the `VLLMInferenceEngine` can be found here {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
-
+For example, the supported parameters for the `VLLMInferenceEngine` can be found in {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
 
 ## Local Inference
 
@@ -83,6 +79,7 @@ The actual memory requirements might vary based on the specific quantization imp
 Also note that Q4 quantization typically comes with some degradation in model quality, though the impact varies by model architecture and task.
 
 **BF16 / FP16 (16-bit)**
+
 | Model Size | GPU VRAM              | Notes |
 |------------|----------------------|--------|
 | 1B         | ~2 GB                | Can run on most modern GPUs |
@@ -103,7 +100,6 @@ Also note that Q4 quantization typically comes with some degradation in model qu
 | 33B        | ~16.5 GB             | Can run on high-end consumer GPUs |
 | 70B        | ~35 GB               | Can run on professional GPUs |
 
-
 ### vLLM Engine
 
 [vLLM](https://github.com/vllm-project/vllm) is a high-performance inference engine that implements state-of-the-art serving techniques like PagedAttention for optimal memory usage and throughput.
@@ -113,6 +109,7 @@ vLLM is our recommended choice for production deployments on GPUs.
 **Installation**
 
 First, make sure to install the vLLM package:
+
 ```bash
 pip install vllm
 ```
@@ -146,6 +143,7 @@ model_params = ModelParams(
 **Resources**
 
 - [vLLM Documentation](https://vllm.readthedocs.io/en/latest/)
+
 ### LlamaCPP Engine
 
 For scenarios where GPU resources are limited or unavailable, the [LlamaCPP engine](https://github.com/ggerganov/llama.cpp) provides an excellent alternative.
@@ -153,7 +151,6 @@ For scenarios where GPU resources are limited or unavailable, the [LlamaCPP engi
 Built on the highly optimized llama.cpp library, this engine excels at CPU inference and quantized models, making it particularly suitable for edge deployment and resource-constrained environments. ls even on modest hardware.
 
 LlamaCPP is a great choice for CPU inference and inference with quantized models.
-
 
 **Installation**
 
@@ -178,6 +175,7 @@ engine = LlamaCppInferenceEngine(
 ```
 
 **Resources**
+
 - [llama.cpp Python Documentation](https://llama-cpp-python.readthedocs.io/en/latest/)
 - [llama.cpp GitHub Project](https://github.com/ggerganov/llama.cpp)
 
@@ -186,7 +184,6 @@ engine = LlamaCppInferenceEngine(
 The Native engine uses HuggingFace's [🤗 Transformers](https://huggingface.co/docs/transformers/index) library directly, providing maximum compatibility and ease of use.
 
 While it may not offer the same performance optimizations as vLLM or LlamaCPP, its simplicity and compatibility make it an excellent choice for prototyping and testing.
-
 
 **Basic Usage**
 
@@ -238,12 +235,11 @@ python -m vllm.entrypoints.openai.api_server \
 
 ```
 
-
 #### Client Configuration
 
 The client can be configured with different reliability and performance options similar to any other remote engine:
 
-```python
+```{testcode}
 # Basic client with timeout and retry settings
 engine = RemoteVLLMInferenceEngine(
     model_params=ModelParams(
@@ -277,7 +273,7 @@ Please refer to [SGLang documentation](https://sgl-project.github.io/backend/ser
 
 The client can be configured with different reliability and performance options similar to any other remote engines:
 
-```python
+```{testcode}
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -298,14 +294,13 @@ oumi infer -c configs/recipes/llama3_1/inference/8b_sglang_infer.yaml -i
 
 While local inference offers control and flexibility, cloud APIs provide access to state-of-the-art models and scalable infrastructure without the need to manage your own hardware.
 
-
 ### Anthropic
 
 [Claude](https://www.anthropic.com/claude) is Anthropic's advanced language model, available through their API.
 
 **Basic Usage**
 
-```python
+```{testcode}
 from oumi.inference import AnthropicInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -314,17 +309,27 @@ engine = AnthropicInferenceEngine(
         model_name="claude-3-5-sonnet-20240620"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.anthropic.com/v1/messages",
         api_key_env_varname="ANTHROPIC_API_KEY",
     )
 )
 ```
 
+**Supported Models**
+
+The Anthropic models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://docs.anthropic.com/en/docs/about-claude/models).
+
+| Anthropic Model                       | API Model Name            |
+|---------------------------------------|---------------------------|
+| Claude 3.5 Sonnet (most intelligent)  | claude-3-5-sonnet-latest  |
+| Claude 3.5 Haiku (fastest)            | claude-3-5-haiku-latest   |
+| Claude 3.0 Opus                       | claude-3-opus-latest      |
+| Claude 3.0 Sonnet                     | claude-3-sonnet-20240229  |
+| Claude 3.0 Haiku                      | claude-3-haiku-20240307   |
+
 **Resources**
 
 - [Anthropic API Documentation](https://docs.anthropic.com/en/api/getting-started)
 - [Available Models](https://docs.anthropic.com/en/docs/about-claude/models)
-
 
 ### Google Cloud
 
@@ -340,7 +345,7 @@ pip install "oumi[gcp]"
 
 **Basic Usage**
 
-```python
+```{testcode}
 from oumi.inference import GoogleVertexInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -354,13 +359,37 @@ engine = GoogleVertexInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The most popular Google Vertex AI models available via this API (as of late Jan'2025) are listed below. For a full list, including specialized and 3rd party models, please visit [this page](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models).
+
+| Gemini Model                          | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemini 2.0 Flash Thinking Mode        | google/gemini-2.0-flash-thinking-exp-01-21 |
+| Gemini 2.0 Flash                      | google/gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | google/gemini-1.5-flash-002      |
+| Gemini 1.5 Pro                        | google/gemini-1.5-pro-002        |
+| Gemini 1.0 Pro Vision                 | google/gemini-1.0-pro-vision-001 |
+
+| Gemma Model                           | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemma 2 2B IT                         | google/gemma2-2b-it              |
+| Gemma 2 9B IT                         | google/gemma2-9b-it              |
+| Gemma 2 27B IT                        | google/gemma2-27b-it             |
+| Code Gemma 2B                         | google/codegemma-2b              |
+| Code Gemma 7B                         | google/codegemma-7b              |
+| Code Gemma 7B IT                      | google/codegemma-7b-it           |
+
+
 **Resources**
+
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs) for Google Cloud AI services
 
 #### Gemini API
 
 **Basic Usage**
-```python
+
+```{testcode}
 from oumi.inference import GoogleGeminiInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
@@ -369,13 +398,26 @@ engine = GoogleGeminiInferenceEngine(
         model_name="gemini-1.5-flash"
     ),
     remote_params=RemoteParams(
-        api_url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         api_key_env_varname="GEMINI_API_KEY",
     )
 )
 ```
 
+**Supported Models**
+
+The Gemini models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://ai.google.dev/gemini-api/docs/models/gemini).
+
+| Model Name                            | API Model Name            |
+|---------------------------------------|---------------------------|
+| Gemini 2.0 Flash (experimental)       | gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | gemini-1.5-flash          |
+| Gemini 1.5 Flash-8B                   | gemini-1.5-flash-8b       |
+| Gemini 1.5 Pro                        | gemini-1.5-pro            |
+| Gemini 1.0 Pro (deprecated)           | gemini-1.0-pro            |
+| AQA                                   | aqa                       |
+
 **Resources**
+
 - [Gemini API Documentation](https://ai.google.dev/docs) for Gemini API details
 
 ### OpenAI
@@ -385,23 +427,87 @@ engine = GoogleGeminiInferenceEngine(
 **Basic Usage**
 
 ```python
-from oumi.inference import RemoteInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = OpenAIInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.openai.com/v1/chat/completions",
         api_key_env_varname="OPENAI_API_KEY",
     )
 )
 ```
 
+**Supported Models**
+
+The most popular models available via the OpenAI API as of late Jan'2025 are listed below. For a full list please visit [this page](https://platform.openai.com/docs/models)
+
+| OpenAI Model                          | API Model Name            |
+|---------------------------------------|---------------------------|
+| GPT 4o (flagship model)               | gpt-4o                    |
+| GPT 4o mini (fast and affordable)     | gpt-4o-mini               |
+| o1 (reasoning model)                  | o1                        |
+| o1 mini (reasoning and affordable)    | o1-mini                   |
+| GPT-4 Turbo                           | gpt-4-turbo               |
+| GPT-4                                 | gpt-4                     |
+
 **Resources**
 
 - [OpenAI API Documentation](https://platform.openai.com/docs) for OpenAI API details
+
+### Together
+
+[Together](https://together.xyz) offers remote inference for 100+ models through serverless endpoints.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import TogetherInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = TogetherInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Llama-3.2-1B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_key_env_varname="TOGETHER_API_KEY",
+    )
+)
+```
+
+The models available via this API can be found at [together.ai](https://www.together.ai/).
+
+### DeepSeek
+
+[DeepSeek](https://deepseek.com) allows to access the DeepSeek models (Chat, Code, and Reasoning) through the DeepSeek AI Platform.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import DeepSeekInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = DeepSeekInferenceEngine(
+    model_params=ModelParams(
+        model_name="deepseek-chat"
+    ),
+    remote_params=RemoteParams(
+        api_key_env_varname="DEEPSEEK_API_KEY",
+    )
+)
+```
+
+**Supported Models**
+
+The DeepSeek models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://api-docs.deepseek.com/quick_start/pricing).
+
+| DeepSeek Model                        | API Model Name            |
+|---------------------------------------|---------------------------|
+| DeepSeek-V3                           | deepseek-chat             |
+| DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
+
 
 ### Parasail.io
 
@@ -413,20 +519,21 @@ This service is particularly useful when you need to run open source models in a
 
 Here's how to configure Oumi for Parasail.io:
 
-```python
-from oumi.inference import RemoteInferenceEngine
+```{testcode}
+from oumi.inference import ParasailInferenceEngine
 from oumi.core.configs import ModelParams, RemoteParams
 
-engine = RemoteInferenceEngine(
+engine = ParasailInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.2-1B-Instruct"
     ),
     remote_params=RemoteParams(
-        api_url="https://api.parasail.io/v1/chat/completions",
         api_key_env_varname="PARASAIL_API_KEY",
     )
 )
 ```
+
+The models available via this API can be found at [docs.parasail.io](https://docs.parasail.io/).
 
 **Resources**
 

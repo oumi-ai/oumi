@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config.
+#
+# Usage:
+#   oumi launch up -c configs/examples/bulk_inference/gcp_job.yaml --cluster my-oumi-cluster
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: oumi-bulk-inference
 
@@ -7,8 +15,8 @@ num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:2"
-  use_spot: true
-  disk_size: 2000 # Disk size in GBs
+  use_spot: false
+  disk_size: 400 # Disk size in GBs
 
 working_dir: .
 
@@ -16,7 +24,7 @@ file_mounts:
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Update with your GCS buckets
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 storage_mounts:
   /input_gcs_bucket:
     source: gs://<your-input-bucket> # GCS bucket that contains our input data
@@ -27,12 +35,12 @@ storage_mounts:
 
 envs:
   TOKENIZERS_PARALLELISM: false
-  INFERENCE_CONFIG: configs/examples/bulk_inference/mistral_small_infer.yaml # Inference config file
+  INFERENCE_CONFIG: configs/recipes/llama3_1/inference/8b_infer.yaml # Inference config file
   HF_DATASETS_TRUST_REMOTE_CODE: 1
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install oumi[gpu] vllm==0.6.3
 
 run: |
   set -e  # Exit if any command failed.

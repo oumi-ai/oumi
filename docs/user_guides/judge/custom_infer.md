@@ -1,77 +1,103 @@
 # Custom Model
 
-This level allows you to change the underlying model and its parameters to balance speed, accuracy, and resource usage.
+The quality of the judgments is heavily influenced by the underlying model that powers our judge, as well as how well it aligns with your specific use case. Selecting the right model involves balancing factors such as speed, accuracy, resource usage, and cost. Smaller models, such as [SmolLM](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) or [Llama-1B](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct), are often more cost-effective and can be hosted locally on modest GPUs. In contrast, larger models typically require more powerful hardware (e.g., A100 GPUs), which may necessitate access to a {doc}`remote cluster </user_guides/launch/launch>`. Then, proprietary models from companies like OpenAI, Google, or Anthropic may offer additional performance benefits, but at the cost of per-token pricing.
+
+The choice of the judge model should also align with your specific application needs. For instance, Anthropic's models are renowned for their safety focus, with Claude being particularly adept at coding tasks. OpenAI's ChatGPT is widely regarded as the leader in conversational AI, while Google’s MedPaLM is increasingly recognized for its effectiveness in medical domains. Regardless of your use case or budget, our judge framework provides flexibility, allowing you to select any model, host it on your preferred platform (or connect via a remote API), all while optimizing configuration to best suit your needs.
 
 ## Core Components
 
-The inference configuration consists of several key parts:
+A custom judge is defined using a {py:class}`~oumi.core.configs.JudgeConfig`, which specifies the attribute(s) to be evaluated (for more details, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page) along with the underlying model. The model definition includes several key components:
 
-1. **Model Configuration** (`ModelParams`):
-   - Specifies the model to use
-   - Controls model-specific settings
-   - Defines trust and safety parameters
+1. **Model Parameters** ({py:class}`~oumi.core.configs.ModelParams`):
+   - **Model selection**: Specify the model to be used, either loaded from a local path or sourced from a platform like HuggingFace.
+   - **Model-specific settings**: Configure essential components such as the tokenizer, chat template, attention mechanism, and more.
+   - **Adapter integration**: Apply an adapter model on top of the base model for task-specific customization.
+   - **Model sharding**: Enable model sharding across GPUs, allowing for efficient distribution of model layers across available devices.
 
-2. **Inference Engine** (`InferenceEngineType`):
-   - Local: local models for speed and privacy (using vLLM, LlamaCPP, SGLang, etc.)
-   - Remote: API-based models for accuracy (using OpenAI, Anthropic, Google, etc.)
+2. **Inference Engine** ({py:class}`~oumi.core.configs.InferenceEngineType`):
+   - **Local engines**: Host models locally for improved speed and privacy (e.g., via vLLM, LlamaCPP, SGLang).
+   - **Remote engines**: Query API-based models for enhanced accuracy (e.g., OpenAI, Anthropic, Google).
 
-3. **Generation Parameters** (`GenerationParams`):
-   - Controls output generation settings
-   - Sets performance constraints
-   - Supports guided decoding and beam search
-   - Configures sampling parameters like min_p
+3. **Generation Parameters** ({py:class}`~oumi.core.configs.GenerationParams`):
+   - **Key settings**: Control key aspects of the model’s output, such as maximum token length, temperature, stop tokens, and others.
+   - **Advanced techniques**: Leverage guided decoding and beam search to refine output quality and improved coherence.
+   - **Performance options**: Tweak performance-related settings like batch size, number of beams for beam search.
+   - **Repetition Penalties**: Enforce token frequency or presence penalties to enhance diversity in the generated text.
+   - **Sampling parameters**: Adjust sampling parameters (min_p, top_p, etc.) to refine the generation behavior.
 
-4. **Remote Parameters** (`RemoteParams`):
-   - Manages API connections and authentication
-   - Controls request rate limiting via politeness policy
-   - Handles parallel processing with multiple workers
+4. **Remote Parameters** ({py:class}`~oumi.core.configs.RemoteParams`):
+   - **API connection**: Manage API connections and handle authentication for remote model access.
+   - **Rate limiting**: Control request rate limits based on politeness policies to ensure fair usage and prevent overloading services.
+   - **Parallel processing**: Enable parallel processing across multiple workers, optimizing performance and reducing response time.
 
 ## Examples
-### 1. Fast Local Judge
+
+Below are two example configurations: one for a local judge utilizing a quantized Llama 3B, and another for a remote judge powered by a GPT model. These examples serve as a starting point for evaluating performance and accuracy trade-offs.
+
+### Fast Local Judge
+
 ```python
 from oumi.core.configs import (
-    GenerationParams,
+    JudgeAttribute,
     JudgeConfig,
     ModelParams,
+    GenerationParams,
     InferenceEngineType,
 )
 from oumi.judges.oumi_judge import OumiXmlJudge
-from oumi.core.configs import JudgeAttribute
 
-# Load existing attribute
-judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
-helpful_attribute = JudgeAttribute.load(str(judges_directory / "helpful.json"))
+# Load an existing attribute.
+my_attribute = JudgeAttribute.load("<oumi src>/judges/oumi_v1/helpful.json")
 
-# Configure for local GGUF model
+# Create a judge configuration for a local GGUF model.
 local_config = JudgeConfig(
-    attributes={"helpful": helpful_attribute},
+    attributes={"my_attribute": my_attribute},
     model=ModelParams(
-        model_name="Qwen/Qwen2-0.5B-Instruct-GGUF",
-    ),
-    engine=InferenceEngineType.LLAMACPP,
-    generation=GenerationParams(
-        max_new_tokens=512,  # Smaller for faster processing
-        temperature=0.0,
+        model_name="bartowski/Llama-3.2-3B-Instruct-GGUF",
+        model_kwargs={"filename": "Llama-3.2-3B-Instruct-Q8_0.gguf"},  # 3.42 GB
+        model_max_length=4096,
+        torch_dtype_str="bfloat16",
+        attn_implementation="sdpa",
+        trust_remote_code=True
     )
+    generation=GenerationParams(
+        max_new_tokens=4096,
+        batch_size=4,
+        seed=1234,
+        temperature=0.5
+    )
+    engine=InferenceEngineType.LLAMACPP,
 )
 
-# Initialize judge
-local_judge = OumiXmlJudge(config=local_config)
+# Instantiate the judge.
+judge = OumiXmlJudge(config=local_config)
 ```
 
-### 2. Accurate Remote Judge
+### Accurate Remote Judge
+
 ```python
-# Configure for GPT-4
+from oumi.core.configs import (
+    JudgeAttribute,
+    JudgeConfig,
+    ModelParams,
+    GenerationParams,
+    InferenceEngineType,
+    RemoteParams,
+)
+from oumi.judges.oumi_judge import OumiXmlJudge
+
+# Load an existing attribute.
+my_attribute = JudgeAttribute.load("<oumi src>/judges/oumi_v1/helpful.json")
+
+# Create a judge configuration for for GPT-4
 remote_config = JudgeConfig(
-    attributes={"helpful": helpful_attribute},
-    model=ModelParams(
-        model_name="gpt-4",
-    ),
-    engine=InferenceEngineType.REMOTE,
+    attributes={"my_attribute": my_attribute},
+    model=ModelParams(model_name="gpt-4"),
     generation=GenerationParams(
         max_new_tokens=2048,
         temperature=0.0,
     ),
+    engine=InferenceEngineType.REMOTE,
     remote_params=RemoteParams(
         api_url="https://api.openai.com/v1/chat/completions",
         api_key_env_varname="OPENAI_API_KEY",
@@ -79,38 +105,6 @@ remote_config = JudgeConfig(
     )
 )
 
-# Initialize judge
-remote_judge = OumiXmlJudge(config=remote_config)
-```
-
-### 3. Using Different Models
-```python
-# Create test conversation
-conversation = Conversation(messages=[
-    Message(role=Role.USER, content="What is a Python decorator?"),
-    Message(role=Role.ASSISTANT, content="""
-    A decorator is a function that modifies another function. Here's an example:
-
-    ```python
-    def log_execution(func):
-        def wrapper(*args, **kwargs):
-            print(f"Calling {func.__name__}")
-            result = func(*args, **kwargs)
-            print(f"Finished {func.__name__}")
-            return result
-        return wrapper
-
-    @log_execution
-    def greet(name):
-        return f"Hello, {name}!"
-    ```
-    """)
-])
-
-# Compare results
-local_results = local_judge.judge([conversation])
-remote_results = remote_judge.judge([conversation])
-
-print("Local Judge Results:", local_results)
-print("Remote Judge Results:", remote_results)
+# Instantiate the judge.
+judge = OumiXmlJudge(config=remote_config)
 ```

@@ -1,0 +1,74 @@
+# QLoRA config for Zephyr 7B:
+# https://huggingface.co/alignment-handbook/zephyr-7b-sft-qlora
+#
+# Setup for training with 8 A100 GPUS.
+# Adjust per_device_train_batch_size & gradient_accumulation_steps for your setup.
+#
+# Usage:
+#   oumi train -c src/experimental/configs/projects/zephyr/sft/qlora_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "mistralai/Mistral-7B-v0.1"
+  trust_remote_code: True
+  model_max_length: 2048
+  chat_template: "zephyr"
+  tokenizer_pad_token: "</s>"
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/ultrachat_200k"
+        split: "train_sft"
+        shuffle: True
+        seed: 42
+    target_col: "text"
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: True
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 2 # effective batch-size should be 64=4x2x(8)
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  output_dir: "output/zephyr-7b-sft-qlora"
+  logging_dir: ${training.output_dir}/runs
+  logging_first_step: True
+  logging_steps: 25
+  warmup_ratio: 0.1
+  gradient_checkpointing_kwargs:
+    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
+  max_steps: -1
+  num_train_epochs: 1
+  save_steps: 100
+  mixed_precision_dtype: "BF16"
+  # resume_from_checkpoint: "your-checkpoint-directory" # Optional
+  trainer_kwargs:
+    dataset_text_field: ${data.train.target_col}
+    max_seq_length: ${model.model_max_length}
+    packing: True # Enable for faster training
+
+peft:
+  q_lora: True
+  q_lora_bits: 4
+  bnb_4bit_compute_dtype: "bfloat16"
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  bnb_4bit_quant_type: "nf4"

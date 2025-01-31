@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 from collections.abc import Sequence
 from typing import Callable, Optional, TypeVar, Union, cast
@@ -44,11 +58,11 @@ def build_dataset_mixture(
         dataset: The built dataset for `dataset_split`.
     """
     dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
-    if dataset_split_params.experimental_use_torch_datapipes:
+    if dataset_split_params.use_torchdata:
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
         logger.warning(
-            "Using experimental torch datapipes preprocessing pipeline. "
+            "Using torchdata preprocessing pipeline. "
             "This is currently in beta and may not be stable."
         )
         # TODO: OPE-271. Some type hackery going on here.
@@ -105,7 +119,7 @@ def build_dataset_from_params(
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
-    experimental_use_torch_datapipes: bool = False,
+    use_torchdata: Optional[bool] = None,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
@@ -118,7 +132,7 @@ def build_dataset_from_params(
                 datasets=[dataset_params],
                 stream=stream,
                 pack=pack,
-                experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+                use_torchdata=use_torchdata,
             )
         )
     )
@@ -137,7 +151,7 @@ def build_dataset(
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
-    experimental_use_torch_datapipes: bool = False,
+    use_torchdata: Optional[bool] = None,
     **kwargs,
 ) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
@@ -156,7 +170,7 @@ def build_dataset(
         seed=seed,
         stream=stream,
         pack=pack,
-        experimental_use_torch_datapipes=experimental_use_torch_datapipes,
+        use_torchdata=use_torchdata,
     )
 
 

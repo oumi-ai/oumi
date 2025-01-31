@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import dataclasses
 import logging
 import re
@@ -116,7 +130,10 @@ class BaseConfig:
             config = OmegaConf.merge(*all_configs)
         except Exception:
             if logger:
-                logger.exception(f"Failed to merge Omega configs: {all_configs}")
+                configs_str = "\n\n".join([f"{config}" for config in all_configs])
+                logger.exception(
+                    f"Failed to merge {len(all_configs)} Omega configs:\n{configs_str}"
+                )
             raise
 
         config = OmegaConf.to_object(config)

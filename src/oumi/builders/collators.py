@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Callable, Optional
 
 import oumi.core.constants as constants
@@ -98,11 +112,19 @@ def build_data_collator(
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
-def build_collator_from_config(config: TrainingConfig, tokenizer) -> Optional[Callable]:
+def build_collator_from_config(
+    config: TrainingConfig, tokenizer: Optional[BaseTokenizer]
+) -> Optional[Callable]:
     """Creates data collator if specified in config."""
     train_split = config.data.get_split(DatasetSplit.TRAIN)
     if not train_split.collator_name:
         return None
+
+    if tokenizer is None:
+        raise ValueError(
+            "Tokenizer must be provided if collator is specified! "
+            f"collator: '{train_split.collator_name}'"
+        )
 
     model_config = find_internal_model_config(config.model)
 

@@ -29,8 +29,6 @@ training:
           pack: true    # Enable sequence packing
           dataset_kwargs:
             seq_length: 4096  # packing sequence length
-          stream: true  # Recommended for large datasets
-          pack: true    # Enable sequence packing
 ```
 
 In this configuration:

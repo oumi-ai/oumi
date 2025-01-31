@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to eval Llama 3.1 8B Instruct on Polaris.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to eval Llama 3.1 8B Instruct on Polaris.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 name: llama8b-eval
 # NOTE: Replace with your username.
 user: your_username
@@ -43,7 +48,7 @@ run: |
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
-  accelerate launch \
+  oumi distributed accelerate launch \
     -m oumi evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
     --run_name "polaris.llama8b.eval.${OUMI_JOBNUM}" \

@@ -22,17 +22,21 @@ To prevent dependency conflicts, let's start by creating a virtual environment. 
 
 ::::{tab-set}
 :::{tab-item} Linux / MacOS
+
 ```{code-block} shell
 python -m venv .env
 source .env/bin/activate
 ```
+
 :::
 
 :::{tab-item} Windows
+
 ```{code-block} shell
 python -m venv .env
 .env/Scripts/activate
 ```
+
 :::
 ::::
 
@@ -50,15 +54,19 @@ For the latest development version, you can install Oumi directly from the GitHu
 
 ::::{tab-set}
 :::{tab-item} SSH
+
 ```{code-block} shell
 pip install git+ssh://git@github.com/oumi-ai/oumi.git
 ```
+
 :::
 
 :::{tab-item} HTTPS
+
 ```{code-block} shell
 pip install git+https://github.com/oumi-ai/oumi.git
 ```
+
 :::
 ::::
 
@@ -68,19 +76,23 @@ If you want to contribute to Oumi or need the full source code, you can clone th
 
 ::::{tab-set}
 :::{tab-item} SSH
+
 ```{code-block} shell
 git clone git@github.com:oumi-ai/oumi.git
 cd oumi
 pip install -e ".[dev]"
 ```
+
 :::
 
 :::{tab-item} HTTPS
+
 ```{code-block} shell
 git clone https://github.com/oumi-ai/oumi.git
 cd oumi
 pip install -e ".[dev]"
 ```
+
 :::
 ::::
 
@@ -96,29 +108,29 @@ Oumi has several optional features that require additional dependencies:
 - For GPU support:
 
   ```bash
-  pip install ".[gpu]"  # Only if you have an Nvidia or AMD GPU
+  pip install oumi[gpu]  # Only if you have an Nvidia or AMD GPU
   ```
 
 - For development and testing:
 
   ```bash
-  pip install ".[dev]"
+  pip install oumi[dev]
   ```
 
 - For specific cloud providers:
 
   ```bash
-  pip install ".[aws]"     # For Amazon Web Services
-  pip install ".[azure]"   # For Microsoft Azure
-  pip install ".[gcp]"     # For Google Cloud Platform
-  pip install ".[lambda]"  # For Lambda Cloud
-  pip install ".[runpod]"  # For RunPod
+  pip install oumi[aws]     # For Amazon Web Services
+  pip install oumi[azure]   # For Microsoft Azure
+  pip install oumi[gcp]     # For Google Cloud Platform
+  pip install oumi[lambda]  # For Lambda Cloud
+  pip install oumi[runpod]  # For RunPod
   ```
 
   You can install multiple cloud dependencies by combining them, e.g.:
 
   ```bash
-  pip install ".[aws,azure,gcp]"
+  pip install oumi[aws,azure,gcp]
   ```
 
 ## Verifying the Installation

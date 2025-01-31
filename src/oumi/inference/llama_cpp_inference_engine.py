@@ -1,10 +1,24 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from pathlib import Path
-from typing import cast
+from typing import Optional, cast
 
 from tqdm.auto import tqdm
 from typing_extensions import override
 
-from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -44,6 +58,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def __init__(
         self,
         model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
     ):
         """Initializes the LlamaCppInferenceEngine.
 
@@ -56,6 +72,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             model_params (ModelParams): Parameters for the model, including the model
                 name, maximum length, and any additional keyword arguments for model
                 initialization.
+            generation_params (GenerationParams): Parameters for generation.
 
         Raises:
             RuntimeError: If the llama-cpp-python package is not installed.
@@ -71,6 +88,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         if not Llama:
             raise RuntimeError(
                 "llama-cpp-python is not installed. "
@@ -136,7 +155,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         ]
 
     def _infer(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
@@ -150,7 +171,11 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             appended. Each conversation in the output list corresponds to an input
             conversation, with an additional message from the assistant (model) added.
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
         output_conversations = []
 
         # skip using a progress for single turns
@@ -193,7 +218,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
-            if inference_config.output_path:
+            if inference_config and inference_config.output_path:
                 self._save_conversation(
                     new_conversation,
                     inference_config.output_path,
@@ -216,7 +241,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -231,7 +258,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

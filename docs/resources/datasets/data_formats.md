@@ -120,7 +120,7 @@ conversation = Conversation(
 
 ## Examples
 
-Let's looks at some examples of how these formats look in practice.
+Let's looks at some examples of how these formats look in practice. You can further directly inspect small _sample_ datasets in these formats available [here](https://github.com/oumi-ai/oumi/tree/main/data/dataset_examples).
 
 ### Multi-turn with System Message
 

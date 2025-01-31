@@ -1,4 +1,4 @@
-# Configuration Reference
+# Training Configuration
 
 ## Introduction
 
@@ -113,7 +113,7 @@ data:
     stream: false                           # Enable dataset streaming
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
     seed: null                              # Random seed for mixing
-    experimental_use_torch_datapipes: false # Use torch DataPipes (experimental)
+    use_torchdata: false                    # Use `torchdata` (experimental)
 
   validation:  # Optional validation dataset config
     datasets:
@@ -157,7 +157,8 @@ training:
 
   # Optimization
   learning_rate: 5e-5                     # Initial learning rate
-  optimizer: "adamw_torch"                # Optimizer type
+  optimizer: "adamw_torch"                # Optimizer type ("adam", "adamw", "adamw_torch", "adamw_torch_fused", "sgd", "adafactor")
+                                          # "adamw_8bit", "paged_adamw_8bit", "paged_adamw", "paged_adamw_32bit" (requires bitsandbytes)
   weight_decay: 0.0                       # Weight decay for regularization
   max_grad_norm: 1.0                      # Max gradient norm for clipping
 
@@ -228,6 +229,7 @@ peft:
   lora_modules_to_save: null         # Modules to unfreeze and train
   lora_bias: "none"                  # Bias training type
   lora_task_type: "CAUSAL_LM"        # Task type for adaptation
+  lora_init_weights: "DEFAULT"       # Initialization of LoRA weights
 
   # Q-LoRA settings
   q_lora: false                      # Enable quantization

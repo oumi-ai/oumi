@@ -1,0 +1,55 @@
+# Job config.
+#
+# Usage:
+#   oumi launch up -c src/experimental/configs/projects/zephyr/sft/full_gcp_job.yaml --cluster my-oumi-cluster
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: zephyr-7b-fft
+
+num_nodes: 1  # Set it to N for multi-node training.
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 200  # Disk size in GB
+  # region: us-west1  # Uncomment this line to only consider a specific region.
+
+working_dir: .
+
+# Mount local files.
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: zephyr.7b.fft
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c src/experimental/configs/projects/zephyr/sft/full_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.enable_wandb true \
+      --training.enable_tensorboard true \
+      --training.include_performance_metrics false
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

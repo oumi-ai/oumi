@@ -1,3 +1,18 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
@@ -5,13 +20,42 @@ from typing import Optional
 import jsonlines
 from tqdm import tqdm
 
-from oumi.core.configs import GenerationParams, InferenceConfig
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+)
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 
 
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
+
+    _model_params: ModelParams
+    """The model parameters."""
+
+    _generation_params: GenerationParams
+    """The generation parameters."""
+
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
+    ):
+        """Initializes the inference engine.
+
+        Args:
+            model_params: The model parameters.
+            generation_params: The generation parameters.
+        """
+        self._model_params = copy.deepcopy(model_params)
+        if generation_params:
+            self._check_unsupported_params(generation_params)
+        else:
+            generation_params = GenerationParams()
+        self._generation_params = generation_params
 
     def infer(
         self,
@@ -28,20 +72,22 @@ class BaseInferenceEngine(ABC):
         Returns:
             List[Conversation]: Inference output.
         """
-        if inference_config is None:
-            logger.warning("No inference config provided. Using the default config.")
-            inference_config = InferenceConfig()
-        if input is not None and inference_config.input_path is not None:
+        if input is not None and (
+            inference_config and inference_config.input_path is not None
+        ):
             raise ValueError(
-                "Only one of input or inference_config.input_path should be "
-                "provided."
+                "Only one of input or inference_config.input_path should be provided."
             )
 
-        self._check_unsupported_params(inference_config.generation)
+        if inference_config and inference_config.generation:
+            generation_params = inference_config.generation
+            self._check_unsupported_params(generation_params)
+        else:
+            generation_params = self._generation_params
 
         if input is not None:
             return self.infer_online(input, inference_config)
-        elif inference_config.input_path is not None:
+        elif inference_config and inference_config.input_path is not None:
             return self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
@@ -150,7 +196,9 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -165,7 +213,9 @@ class BaseInferenceEngine(ABC):
 
     @abstractmethod
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

@@ -1,0 +1,32 @@
+# Eval config for Llama 3.3 70B Instruct.
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/llama3_3/evaluation/70b_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 3
+
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+  - evaluation_platform: lm_harness
+    task_name: mmlu_college_computer_science
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True

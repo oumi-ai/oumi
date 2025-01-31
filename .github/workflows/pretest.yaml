@@ -1,4 +1,4 @@
-name: "Pre-review Tests"
+name: "CPU Tests"
 
 on:
   pull_request:
@@ -34,7 +34,7 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_cpu]' --system --prerelease=allow
+        uv pip install -e '.[ci_cpu]' --system
 
     - name: Cache pre-commit
       uses: actions/cache@v4
@@ -49,4 +49,4 @@ jobs:
     - name: Run tests
       run: |
         cd ./tests/unit/
-        pytest -s -m "not e2e and not e2e_eternal" --durations=50 --timeout=300
+        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300

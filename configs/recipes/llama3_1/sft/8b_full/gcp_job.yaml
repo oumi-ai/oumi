@@ -1,16 +1,21 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml --cluster llama8b-sft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml --cluster llama8b-sft
 name: llama8b-sft
 
 num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100:4"
-  use_spot: true
+  use_spot: false
   disk_size: 2000 # Disk size in GBs
 
 working_dir: .
@@ -30,7 +35,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --exclude original/*

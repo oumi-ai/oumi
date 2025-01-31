@@ -1,6 +1,19 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
-import copy
 import functools
 import json
 from typing import Any, NamedTuple
@@ -58,16 +71,28 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
     """Engine for running SGLang inference."""
 
     def __init__(
-        self, model_params: ModelParams, remote_params: RemoteParams, **kwargs
+        self,
+        model_params: ModelParams,
+        *,
+        remote_params: RemoteParams | None = None,
+        generation_params: GenerationParams | None = None,
     ):
         """Initializes the SGL inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
             remote_params: Remote server params.
-            kwargs: Other keyword arguments.
+            generation_params: The generation parameters to use for inference.
         """
-        self._model_params = copy.deepcopy(model_params)
+        if remote_params is None:
+            raise ValueError("remote_params is required")
+
+        super().__init__(
+            model_params=model_params,
+            generation_params=generation_params,
+            remote_params=remote_params,
+        )
+
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: BaseProcessor | None = None
         if is_image_text_llm(self._model_params):
@@ -79,10 +104,6 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             )
 
         # TODO Launch a local SGLLang server if requested.
-
-        super().__init__(
-            model_params=model_params, remote_params=remote_params, **kwargs
-        )
 
     def _create_sampling_params(
         self, generation_params: GenerationParams

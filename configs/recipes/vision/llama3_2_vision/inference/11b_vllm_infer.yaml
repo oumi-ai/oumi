@@ -1,0 +1,26 @@
+# Inference config.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  adapter_model: null # As of 01/25, VLLM does not fully support LoRA adapters for MllamaForConditionalGeneration (see: https://docs.vllm.ai/en/latest/models/supported_models.html)
+  torch_dtype_str: "bfloat16"
+  model_max_length: 1024
+  chat_template: "llama3-instruct"
+  trust_remote_code: True
+  model_kwargs:
+    max_num_seqs: 2 # Set to a low number to reduce GPU memory requirements.
+
+generation:
+  max_new_tokens: 32
+  batch_size: 1
+
+engine: VLLM

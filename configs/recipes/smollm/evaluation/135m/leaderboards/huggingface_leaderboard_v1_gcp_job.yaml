@@ -1,15 +1,20 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to evaluate smollm 135M on HuggingFace's Leaderboard V1 (1 GCP node).
+#
+# Usage:
+#   oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml --cluster smollm-135m-lb-v1-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to evaluate smollm 135M on HuggingFace's Leaderboard V1 (1 GCP node).
-# Example command:
-# oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_gcp_job_eval.yaml --cluster smollm-135m-lb-v1-eval
 name: smollm-135m-lb-v1-eval
 
 resources:
   cloud: gcp
   accelerators: "A100:1"
-  use_spot: true
+  use_spot: false
   disk_size: 100 # Disk size in GBs
 
 working_dir: .
@@ -29,10 +34,10 @@ file_mounts:
 # Note: Autostop is a feature that allows you to set a timer to ensure that the machine
 # automatically stops after a certain period of inactivity. This is useful to save costs
 # and resources when the machine is not being actively used.
-storage_mounts:
-  /my-gcs-bucket:
-    source: gs://my-gcs-bucket
-    store: gcs
+# storage_mounts:
+#   /my-gcs-bucket:
+#     source: gs://my-gcs-bucket
+#     store: gcs
 
 envs:
   OUMI_RUN_NAME: smollm135m.eval
@@ -41,7 +46,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu,evaluation]'
+  pip install uv && uv pip install oumi[gpu,evaluation]
 
 run: |
   set -e  # Exit if any command failed.

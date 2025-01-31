@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """The CNNClassifier model provides a basic example how to use ConvNets in Oumi."""
 
 from typing import Callable, Optional
@@ -33,15 +47,15 @@ class CNNClassifier(BaseModel):
             kernel_size: Convolutional kernel size.
         """
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=5)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             image_width, image_height, kernel_size=kernel_size, halve=False
         )
-        self.conv2 = nn.Conv2d(32, 32, kernel_size=5)
+        self.conv2 = nn.Conv2d(32, 32, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             w, h, kernel_size=kernel_size, halve=True
         )
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=5)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             w, h, kernel_size=kernel_size, halve=True
         )

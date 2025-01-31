@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Training config.
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/smolvlm/sft/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "HuggingFaceTB/SmolVLM-Instruct"
@@ -14,7 +22,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: True
+    use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -24,7 +32,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-          limit: 4096
+          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
 
 training:

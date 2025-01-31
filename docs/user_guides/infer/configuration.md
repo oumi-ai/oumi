@@ -1,4 +1,4 @@
-# Configuration Reference
+# Inference Configuration
 
 ## Introduction
 
@@ -105,10 +105,10 @@ generation:
 ```
 
 ```{note}
-Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `supported_params` attribute of the engine class. For example:
-- {py:obj}`~oumi.inference.NativeTextInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.VLLMInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.RemoteInferenceEngine.supported_params`
+Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `get_supported_params` attribute of the engine class. For example:
+- {py:obj}`NativeTextInferenceEngine <oumi.inference.NativeTextInferenceEngine.get_supported_params>`
+- {py:obj}`VLLMInferenceEngine <oumi.inference.VLLMInferenceEngine.get_supported_params>`
+- {py:obj}`RemoteInferenceEngine <oumi.inference.RemoteInferenceEngine.get_supported_params>`
 
 Please refer to the specific engine's documentation for details on supported parameters.
 ```
@@ -133,13 +133,19 @@ remote_params:
 
 The `engine` parameter specifies which inference engine to use. Available options from {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`:
 
-- `NATIVE`: Use native PyTorch inference via {py:obj}`~oumi.inference.NativeTextInferenceEngine`
-- `VLLM`: Use vLLM for optimized inference via {py:obj}`~oumi.inference.VLLMInferenceEngine`
-- `REMOTE_VLLM`: Use external vLLM server via {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine`
-- `SGLANG`: Use SGLang inference engine via {py:obj}`~oumi.inference.SGLangInferenceEngine`
-- `LLAMACPP`: Use llama.cpp for CPU inference via {py:obj}`~oumi.inference.LlamaCppInferenceEngine`
-- `REMOTE`: Use OpenAI-compatible API via {py:obj}`~oumi.inference.RemoteInferenceEngine`
 - `ANTHROPIC`: Use Anthropic's API via {py:obj}`~oumi.inference.AnthropicInferenceEngine`
+- `DEEPSEEK`: Use DeepSeek Platform API via {py:obj}`~oumi.inference.DeepSeekInferenceEngine`
+- `GOOGLE_GEMINI`: Use Google Gemini via {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`
+- `GOOGLE_VERTEX`: Use Google Vertex AI via {py:obj}`~oumi.inference.GoogleVertexInferenceEngine`
+- `LLAMACPP`: Use llama.cpp for CPU inference via {py:obj}`~oumi.inference.LlamaCppInferenceEngine`
+- `NATIVE`: Use native PyTorch inference via {py:obj}`~oumi.inference.NativeTextInferenceEngine`
+- `OPENAI`: Use OpenAI API via {py:obj}`~oumi.inference.OpenAIInferenceEngine`
+- `PARASAIL`: Use Parasail API via {py:obj}`~oumi.inference.ParasailInferenceEngine`
+- `REMOTE_VLLM`: Use external vLLM server via {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine`
+- `REMOTE`: Use any OpenAI-compatible API via {py:obj}`~oumi.inference.RemoteInferenceEngine`
+- `SGLANG`: Use SGLang inference engine via {py:obj}`~oumi.inference.SGLangInferenceEngine`
+- `TOGETHER`: Use Together API via {py:obj}`~oumi.inference.TogetherInferenceEngine`
+- `VLLM`: Use vLLM for optimized local inference via {py:obj}`~oumi.inference.VLLMInferenceEngine`
 
 ### Additional Configuration
 

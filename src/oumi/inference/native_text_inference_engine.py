@@ -1,4 +1,17 @@
-import copy
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Optional
 
 import PIL.Image
@@ -25,13 +38,20 @@ from oumi.utils.logging import logger
 class NativeTextInferenceEngine(BaseInferenceEngine):
     """Engine for running text-to-text model inference."""
 
-    def __init__(self, model_params: ModelParams):
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
+    ):
         """Initializes the inference Engine.
 
         Args:
             model_params: The model parameters to use for inference.
+            generation_params: Parameters for generation.
         """
-        self._model_params = copy.deepcopy(model_params)
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         self._model = build_model(self._model_params)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
@@ -196,7 +216,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: list[Conversation],
-        inference_config: InferenceConfig,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
@@ -207,7 +227,11 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Returns:
             object: A list of model responses of shape (num_batches, batch_size).
         """
-        generation_params = inference_config.generation
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
         model_device = next(self._model.parameters()).device
         if generation_params.batch_size is None:
             logger.warning("Batch size not specified. Defaulting to 1.")
@@ -237,14 +261,24 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
         # Create a GenerationConfig object with the new parameters
         # Documentation: https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig
+        use_sampling = generation_params.use_sampling
+        extra_kwargs = {}
+        min_p, temperature = generation_params.min_p, generation_params.temperature
+        if use_sampling:
+            extra_kwargs["min_p"] = min_p
+            extra_kwargs["temperature"] = temperature
+        elif min_p > 0.0 or temperature > 0.0:
+            logger.debug(
+                f"The sampling params: min_p: {min_p} and temperature: {temperature} "
+                "are ignored because sampling is disabled!"
+            )
+
         generation_config = transformers.GenerationConfig(
             max_new_tokens=generation_params.max_new_tokens,
-            temperature=generation_params.temperature,
             top_p=generation_params.top_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
-            do_sample=generation_params.use_sampling,
-            min_p=generation_params.min_p,
+            do_sample=use_sampling,
             include_stop_str_in_output=False,
             detokenize=True,
             seed=generation_params.seed,
@@ -252,6 +286,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             eos_token_id=generation_params.stop_token_ids,
             num_beams=generation_params.num_beams,
             use_cache=generation_params.use_cache,
+            **extra_kwargs,
         )
 
         # skip using a progress for single turns
@@ -304,7 +339,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     metadata=conversation.metadata,
                     conversation_id=conversation.conversation_id,
                 )
-                if inference_config.output_path:
+                if inference_config and inference_config.output_path:
                     self._save_conversation(
                         new_conversation, inference_config.output_path
                     )
@@ -314,7 +349,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_online(
-        self, input: list[Conversation], inference_config: InferenceConfig
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -329,7 +366,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     @override
     def infer_from_file(
-        self, input_filepath: str, inference_config: InferenceConfig
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
