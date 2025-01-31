@@ -151,11 +151,11 @@ def test_is_image_text_llm(
 @pytest.mark.parametrize(
     "model_name, trust_remote_code, template_name, expected_padding_side",
     [
-        # ("openai-community/gpt2", False, "gpt2", "right"),
-        # ("HuggingFaceTB/SmolLM2-135M-Instruct", False, None, "right"),
-        # ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
+        ("openai-community/gpt2", False, "gpt2", "right"),
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False, None, "right"),
+        ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
-        # ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
+        ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
         # These models require allowlisting:
         # ("meta-llama/Llama-3.2-3B-Instruct", False, None, "right"),
     ],
