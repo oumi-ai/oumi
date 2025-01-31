@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional, Union
 
@@ -163,6 +163,17 @@ class DatasetParams(BaseParams):
                 raise ValueError(
                     "Non-positive value of transform_num_workers: "
                     f"{self.transform_num_workers}."
+                )
+
+        if len(self.dataset_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.dataset_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "dataset_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of DatasetParams instead."
                 )
 
 
