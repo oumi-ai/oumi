@@ -111,7 +111,8 @@ def build_trainer(
         return _create_hf_builder_fn(transformers.Trainer)
     elif trainer_type == TrainerType.OUMI:
         warnings.warn(
-            "OUMI trainer is still in development model. Please use HF trainer for now."
+            "OUMI trainer is still in alpha mode. "
+            "Prefer to use HF trainer when possible."
         )
         return _create_oumi_builder_fn()
 
