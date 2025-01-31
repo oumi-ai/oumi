@@ -32,7 +32,7 @@ def create_small_dataset(size=10):
     return [{"text": f"Sample text {i}", "label": i % 2} for i in range(size)]
 
 
-@register_dataset("small_map_dataset")
+@register_dataset("small_map_dataset_for_build_data_testing")
 class SmallMapDataset(BaseMapDataset):
     def __init__(
         self,
@@ -55,7 +55,7 @@ class SmallMapDataset(BaseMapDataset):
         return x
 
 
-@register_dataset("small_iterable_dataset")
+@register_dataset("small_iterable_dataset_for_build_data_testing")
 class SmallIterableDataset(BaseIterableDataset):
     def __init__(
         self,
@@ -74,7 +74,7 @@ class SmallIterableDataset(BaseIterableDataset):
         return x
 
 
-@register_dataset("custom_proxy_dataset")
+@register_dataset("custom_proxy_dataset_for_build_data_testing")
 class CustomProxyIterableDataset(BaseIterableDataset):
     def __init__(
         self,
@@ -114,7 +114,6 @@ class CustomProxyIterableDataset(BaseIterableDataset):
 
     @override
     def transform(self, x):
-        # return self._inner_dataset.transform(x)
         raise NotImplementedError("Not implemented!")
 
 
@@ -186,7 +185,9 @@ def test_build_dataset_conversations(
 
 def test_load_dataset_map(gpt2_tokenizer):
     result = build_dataset_from_params(
-        DatasetParams(dataset_name="small_map_dataset", split="train"),
+        DatasetParams(
+            dataset_name="small_map_dataset_for_build_data_testing", split="train"
+        ),
         stream=False,
         tokenizer=gpt2_tokenizer,
     )
@@ -196,7 +197,9 @@ def test_load_dataset_map(gpt2_tokenizer):
 
 def test_load_dataset_iterable(gpt2_tokenizer):
     result = build_dataset_from_params(
-        DatasetParams(dataset_name="small_iterable_dataset", split="train"),
+        DatasetParams(
+            dataset_name="small_iterable_dataset_for_build_data_testing", split="train"
+        ),
         stream=True,
         tokenizer=gpt2_tokenizer,
     )
@@ -207,9 +210,11 @@ def test_load_dataset_iterable(gpt2_tokenizer):
 def test_load_custom_proxy_map_dataset_using_name_override(gpt2_tokenizer):
     result = build_dataset_from_params(
         DatasetParams(
-            dataset_name="custom_proxy_dataset",
+            dataset_name="custom_proxy_dataset_for_build_data_testing",
             split="train",
-            dataset_kwargs={"dataset_name_override": "small_map_dataset"},
+            dataset_kwargs={
+                "dataset_name_override": "small_map_dataset_for_build_data_testing"
+            },
         ),
         stream=True,
         tokenizer=gpt2_tokenizer,
@@ -221,9 +226,11 @@ def test_load_custom_proxy_map_dataset_using_name_override(gpt2_tokenizer):
 def test_load_custom_proxy_iterable_dataset_using_name_override(gpt2_tokenizer):
     result = build_dataset_from_params(
         DatasetParams(
-            dataset_name="custom_proxy_dataset",
+            dataset_name="custom_proxy_dataset_for_build_data_testing",
             split="train",
-            dataset_kwargs={"dataset_name_override": "small_iterable_dataset"},
+            dataset_kwargs={
+                "dataset_name_override": "small_iterable_dataset_for_build_data_testing"
+            },
         ),
         stream=True,
         tokenizer=gpt2_tokenizer,
