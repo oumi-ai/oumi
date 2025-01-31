@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to eval Llama 3.1 70B Instruct on Polaris.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/evaluation/70b_polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to eval Llama 3.1 70B Instruct on Polaris.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/evaluation/70b_polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama70b-eval
 # NOTE: Replace with your username.
 user: your_username

@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to FSDP full fine-tune Llama 3.1 70B Instruct.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to FSDP full fine-tune Llama 3.1 70B Instruct.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/70b_full/gcp_job.yaml --cluster llama70b-sft-fsdp
 name: llama70b-sft-fsdp
 
 resources:

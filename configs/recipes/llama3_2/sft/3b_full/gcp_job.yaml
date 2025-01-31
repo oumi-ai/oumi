@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster llama3b-sft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_2/sft/3b_full/gcp_job.yaml --cluster llama3b-sft
 name: llama3b-sft
 
 resources:

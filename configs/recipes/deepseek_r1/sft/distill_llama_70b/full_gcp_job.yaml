@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to full fine-tune Deepseek R1 Distill Llama 3.3 70B.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_70b/full_gcp_job.yaml --cluster deepseek-r1-llama70b-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to full fine-tune Deepseek R1 Distill Llama 3.3 70B.
-# Example command:
-# oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_70b/full_gcp_job.yaml --cluster deepseek-r1-llama70b-fft
 name: deepseek-r1-distill-llama70b-fft
 
 resources:
