@@ -255,20 +255,27 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                     )
 
 
-def test_phi3_chat_template():
+@pytest.mark.parametrize(
+    "model_name, is_vision",
+    [
+        ("microsoft/Phi-3-vision-128k-instruct", True),
+        ("microsoft/Phi-3-mini-4k-instruct", False),
+    ],
+)
+def test_phi3_chat_template(model_name: str, is_vision: bool):
     oumi_chat_template: str = build_chat_template("phi3-instruct")
-    hf_chat_template = get_hf_chat_template("microsoft/Phi-3-vision-128k-instruct")
+    hf_chat_template = get_hf_chat_template(model_name)
     assert hf_chat_template != oumi_chat_template
 
     oumi_tokenizer = create_test_tokenizer(
-        "microsoft/Phi-3-vision-128k-instruct",
+        model_name,
         chat_template_name="phi3-instruct",
         trust_remote_code=True,
     )
     assert oumi_chat_template == oumi_tokenizer.chat_template
 
     hf_tokenizer = create_test_tokenizer(
-        "microsoft/Phi-3-vision-128k-instruct",
+        model_name,
         inline_chat_template=hf_chat_template,
         trust_remote_code=True,
     )
@@ -283,11 +290,13 @@ def test_phi3_chat_template():
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
         )
+        assert isinstance(oumi_result, str), debug_tag
         hf_result = hf_tokenizer.apply_chat_template(
             test_convo_tuple.convo.messages,  # type: ignore
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
         )
+        assert isinstance(hf_result, str), debug_tag
         unique_text_pieces = test_convo_tuple.unique_text_pieces
         assert len(unique_text_pieces) == 3
         expected_lines = (
@@ -304,30 +313,149 @@ def test_phi3_chat_template():
         )
         expected = "\n".join(expected_lines)
         assert oumi_result == expected, debug_tag
-        assert hf_result == expected, debug_tag
+        assert hf_result.startswith(
+            expected
+        ), f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+        if not is_vision:
+            # Why the difference for text-only Phi3?
+            hf_result.endswith("\n<|endoftext|>")
 
-    # With images.
-    test_convo_tuple: ConversationTuple = create_test_conversation(3, num_with_images=2)
+    if is_vision:  # With images.
+        test_convo_tuple: ConversationTuple = create_test_conversation(
+            3, num_with_images=2
+        )
+        for add_generation_prompt in (False, True):
+            debug_tag = f"Multi-modal: add_generation_prompt: {add_generation_prompt} "
+            oumi_result = oumi_tokenizer.apply_chat_template(
+                test_convo_tuple.convo.messages,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+            unique_text_pieces = test_convo_tuple.unique_text_pieces
+            assert len(unique_text_pieces) == 3
+            expected_lines = (
+                [
+                    "<|user|>",
+                    f"<|image_1|>{unique_text_pieces[0]}<|end|>",
+                    "<|assistant|>",
+                    f"<|image_2|>{unique_text_pieces[1]}<|end|>",
+                    "<|user|>",
+                    f"{unique_text_pieces[2]}<|end|>",
+                ]
+                + (["<|assistant|>"] if add_generation_prompt else [])
+                + [""]
+            )
+            expected = "\n".join(expected_lines)
+            assert oumi_result == expected, debug_tag
+
+
+def _strip_llama3_system_prefix(s: str) -> str:
+    if s.startswith("<|begin_of_text|><|start_header_id|>system<|end_header_id|>"):
+        pos: int = s.index("<|eot_id|>")
+        pos += len("<|eot_id|>")
+        return "<|begin_of_text|>" + s[pos:]
+    return s
+
+
+@pytest.mark.parametrize(
+    "model_name, is_vision",
+    [
+        ("meta-llama/Llama-3.2-1B-Instruct", False),
+        ("meta-llama/Llama-3.2-11B-Vision-Instruct", True),
+    ],
+)
+def test_llama3_chat_template(model_name: str, is_vision: bool):
+    oumi_chat_template: str = build_chat_template("llama3-instruct")
+    hf_chat_template = get_hf_chat_template(model_name)
+    assert hf_chat_template != oumi_chat_template
+
+    oumi_tokenizer = create_test_tokenizer(
+        model_name,
+        chat_template_name="llama3-instruct",
+        trust_remote_code=True,
+    )
+    assert oumi_chat_template == oumi_tokenizer.chat_template
+
+    hf_tokenizer = create_test_tokenizer(
+        model_name,
+        inline_chat_template=hf_chat_template,
+        trust_remote_code=True,
+    )
+    assert hf_chat_template == hf_tokenizer.chat_template
+
+    # Text only: Verify that oumi template leads to the same result as HF template.
+    test_convo_tuple: ConversationTuple = create_test_conversation(3, num_with_images=0)
     for add_generation_prompt in (False, True):
-        debug_tag = f"Multi-modal: add_generation_prompt: {add_generation_prompt} "
+        debug_tag = (
+            f"Text-only ({model_name}): add_generation_prompt: {add_generation_prompt} "
+        )
         oumi_result = oumi_tokenizer.apply_chat_template(
             test_convo_tuple.convo.messages,  # type: ignore
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
         )
+        assert isinstance(oumi_result, str), debug_tag
+        hf_result = hf_tokenizer.apply_chat_template(
+            test_convo_tuple.convo.messages,  # type: ignore
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+        )
+        assert isinstance(hf_result, str), debug_tag
+        hf_result = _strip_llama3_system_prefix(hf_result)
         unique_text_pieces = test_convo_tuple.unique_text_pieces
         assert len(unique_text_pieces) == 3
-        expected_lines = (
-            [
-                "<|user|>",
-                f"<|image_1|>{unique_text_pieces[0]}<|end|>",
-                "<|assistant|>",
-                f"<|image_2|>{unique_text_pieces[1]}<|end|>",
-                "<|user|>",
-                f"{unique_text_pieces[2]}<|end|>",
-            ]
-            + (["<|assistant|>"] if add_generation_prompt else [])
-            + [""]
-        )
+        expected_lines = [
+            "<|begin_of_text|><|start_header_id|>user<|end_header_id|>",
+            "",
+            f"{unique_text_pieces[0]}<|eot_id|><|start_header_id|>assistant<|end_header_id|>",
+            "",
+            f"{unique_text_pieces[1]}<|eot_id|><|start_header_id|>user<|end_header_id|>",
+            (
+                f"\n{unique_text_pieces[2]}<|eot_id|>"
+                + (
+                    "<|start_header_id|>assistant<|end_header_id|>"
+                    if add_generation_prompt
+                    else ""
+                )
+            ),
+        ] + (["", ""] if add_generation_prompt else [])
         expected = "\n".join(expected_lines)
-        assert oumi_result == expected, debug_tag
+        assert (
+            hf_result == expected
+        ), f"{debug_tag}\nHF result:\n{hf_result}\nExpected:\n{expected}"
+        assert (
+            oumi_result == expected
+        ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+
+    if is_vision:  # With images.
+        test_convo_tuple: ConversationTuple = create_test_conversation(
+            3, num_with_images=2
+        )
+        for add_generation_prompt in (False, True):
+            debug_tag = f"Multi-modal: add_generation_prompt: {add_generation_prompt} "
+            oumi_result = oumi_tokenizer.apply_chat_template(
+                test_convo_tuple.convo.messages,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+            unique_text_pieces = test_convo_tuple.unique_text_pieces
+            assert len(unique_text_pieces) == 3
+            expected_lines = [
+                "<|begin_of_text|><|start_header_id|>user<|end_header_id|>",
+                "",
+                f"<|image|>{unique_text_pieces[0]}<|eot_id|><|start_header_id|>assistant<|end_header_id|>",
+                "",
+                f"<|image|>{unique_text_pieces[1]}<|eot_id|><|start_header_id|>user<|end_header_id|>",
+                (
+                    f"\n{unique_text_pieces[2]}<|eot_id|>"
+                    + (
+                        "<|start_header_id|>assistant<|end_header_id|>"
+                        if add_generation_prompt
+                        else ""
+                    )
+                ),
+            ] + (["", ""] if add_generation_prompt else [])
+            expected = "\n".join(expected_lines)
+            assert (
+                oumi_result == expected
+            ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
