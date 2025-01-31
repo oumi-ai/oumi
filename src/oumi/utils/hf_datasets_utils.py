@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from oumi.utils.logging import logger
 
@@ -43,3 +44,34 @@ def is_cached_to_disk_hf_dataset(dataset_folder: Union[str, Path]) -> bool:
         return True
 
     return False
+
+
+def find_hf_token() -> Optional[str]:
+    """Attempts to find HuggingFace access token.
+
+    Returns:
+        A valid HF access token, or `None` if not found.
+    """
+    hf_token = os.environ.get("HF_TOKEN", None)
+    if not hf_token:
+        _DEFAULT_HF_HOME_PATH = "~/.cache/huggingface"
+
+        file_must_exist = False
+        token_path = os.environ.get("HF_TOKEN_PATH", None)
+        if token_path:
+            token_path = Path(token_path)
+            file_must_exist = file_must_exist
+        else:
+            hf_home_dir = Path(
+                os.environ.get("HF_HOME", _DEFAULT_HF_HOME_PATH)
+                or _DEFAULT_HF_HOME_PATH
+            )
+            token_path = hf_home_dir / "token"
+
+        if token_path.exists():
+            if token_path.is_file():
+                hf_token = token_path.read_text().strip()
+        elif file_must_exist:
+            raise FileNotFoundError(f"HF token file: '{token_path}' not found")
+
+    return hf_token if hf_token else None
