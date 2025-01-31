@@ -145,11 +145,11 @@ def _load_dataset(
 
     if dataset_class is not None:
         dataset_kwargs = {**dataset_params.dataset_kwargs}
-        dataset_name = dataset_params.dataset_name
         # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
-        if "dataset_name" in dataset_kwargs:
-            dataset_name = dataset_kwargs["dataset_name"] or dataset_name
-            del dataset_kwargs["dataset_name"]  # Drop duplicate argument name.
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
 
         dataset = dataset_class(
             dataset_name=dataset_name,
