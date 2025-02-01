@@ -1,7 +1,6 @@
 import base64
 import copy
 import functools
-import os
 import random
 import string
 from typing import Final, NamedTuple, Optional
@@ -21,6 +20,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.io_utils import get_oumi_root_directory
 from oumi.utils.logging import logger
+from tests.markers import requires_hf_token
 
 
 class ChatTemplateTestSpec(NamedTuple):
@@ -365,11 +365,7 @@ def _strip_llama3_system_prefix(s: str) -> str:
         ("meta-llama/Llama-3.2-11B-Vision-Instruct", True),
     ],
 )
-# FIXME Replace with `@requires_hf_token()` when submitted (PR 1329)
-@pytest.mark.skipif(
-    "HF_TOKEN" not in os.environ,
-    reason="Models are gated and require a valid HF_TOKEN",
-)
+@requires_hf_token()
 def test_llama3_chat_template(model_name: str, is_vision: bool):
     oumi_chat_template: str = build_chat_template("llama3-instruct")
     hf_chat_template = get_hf_chat_template(model_name)
