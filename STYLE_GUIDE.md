@@ -62,7 +62,7 @@ All imports in Oumi should be absolute.
 We use Sphinx for documentation. To build and serve the documentation, use the following commands:
 
 ```shell
-make docs-rebuild # cleanup everything, rebuild apidocs, rebuild html
+make docs-rebuild # clean up everything, rebuild apidocs, rebuild html
 make docs-serve # serve existing html
 ```
 
