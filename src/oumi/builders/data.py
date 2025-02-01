@@ -33,7 +33,7 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import datasets
 
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 
 
 def test_is_saved_to_disk_hf_dataset():

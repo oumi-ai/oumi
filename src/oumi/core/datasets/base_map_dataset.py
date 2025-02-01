@@ -25,7 +25,7 @@ import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
