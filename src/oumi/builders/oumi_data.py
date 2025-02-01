@@ -144,13 +144,21 @@ def _load_dataset(
     )
 
     if dataset_class is not None:
+        dataset_kwargs = {**dataset_params.dataset_kwargs}
+        # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
+
         dataset = dataset_class(
+            dataset_name=dataset_name,
+            dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
-            dataset_path=dataset_params.dataset_path,
             tokenizer=tokenizer,
             trust_remote_code=dataset_params.trust_remote_code,
-            **dataset_params.dataset_kwargs,
+            **dataset_kwargs,
         )
 
         if isinstance(dataset, MapDataPipe):
