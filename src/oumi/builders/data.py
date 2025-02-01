@@ -297,9 +297,14 @@ def _load_dataset(
             dataset_kwargs["transform_num_workers"] = (
                 dataset_params.transform_num_workers
             )
+        # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
 
         dataset = dataset_class(
-            dataset_name=dataset_params.dataset_name,
+            dataset_name=dataset_name,
             dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
