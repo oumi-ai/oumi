@@ -60,7 +60,7 @@ def find_hf_token() -> Optional[str]:
         token_path = os.environ.get("HF_TOKEN_PATH", None)
         if token_path:
             token_path = Path(token_path)
-            file_must_exist = file_must_exist
+            file_must_exist = True
         else:
             hf_home_dir = Path(
                 os.environ.get("HF_HOME", _DEFAULT_HF_HOME_PATH)
@@ -72,6 +72,6 @@ def find_hf_token() -> Optional[str]:
             if token_path.is_file():
                 hf_token = token_path.read_text().strip()
         elif file_must_exist:
-            raise FileNotFoundError(f"HF token file: '{token_path}' not found")
+            raise FileNotFoundError(f"Missing HF token file: '{token_path}'")
 
     return hf_token if hf_token else None
