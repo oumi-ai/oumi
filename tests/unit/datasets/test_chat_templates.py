@@ -438,6 +438,14 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
+            assert isinstance(oumi_result, str), debug_tag
+            hf_result = hf_tokenizer.apply_chat_template(
+                test_convo_tuple.convo.messages,  # type: ignore
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+            assert isinstance(hf_result, str), debug_tag
+            hf_result = _strip_llama3_system_prefix(hf_result)
             unique_text_pieces = test_convo_tuple.unique_text_pieces
             assert len(unique_text_pieces) == 3
             expected_lines = [
@@ -456,6 +464,9 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
                 ),
             ] + (["", ""] if add_generation_prompt else [])
             expected = "\n".join(expected_lines)
+            assert (
+                hf_result == expected
+            ), f"{debug_tag}\nHF result:\n{hf_result}\nExpected:\n{expected}"
             assert (
                 oumi_result == expected
             ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
