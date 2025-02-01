@@ -365,6 +365,7 @@ def _strip_llama3_system_prefix(s: str) -> str:
         ("meta-llama/Llama-3.2-11B-Vision-Instruct", True),
     ],
 )
+# FIXME Replace with `@requires_hf_token()` when submitted (PR 1329)
 @pytest.mark.skipif(
     "HF_TOKEN" not in os.environ,
     reason="Models are gated and require a valid HF_TOKEN",
