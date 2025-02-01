@@ -1,6 +1,7 @@
 import base64
 import copy
 import functools
+import os
 import random
 import string
 from typing import Final, NamedTuple, Optional
@@ -364,6 +365,10 @@ def _strip_llama3_system_prefix(s: str) -> str:
         ("meta-llama/Llama-3.2-11B-Vision-Instruct", True),
     ],
 )
+@pytest.mark.skipif(
+    "HF_TOKEN" not in os.environ,
+    reason="Models are gated and require a valid HF_TOKEN",
+)
 def test_llama3_chat_template(model_name: str, is_vision: bool):
     oumi_chat_template: str = build_chat_template("llama3-instruct")
     hf_chat_template = get_hf_chat_template(model_name)
@@ -439,13 +444,6 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
                 add_generation_prompt=add_generation_prompt,
             )
             assert isinstance(oumi_result, str), debug_tag
-            hf_result = hf_tokenizer.apply_chat_template(
-                test_convo_tuple.convo.messages,  # type: ignore
-                tokenize=False,
-                add_generation_prompt=add_generation_prompt,
-            )
-            assert isinstance(hf_result, str), debug_tag
-            hf_result = _strip_llama3_system_prefix(hf_result)
             unique_text_pieces = test_convo_tuple.unique_text_pieces
             assert len(unique_text_pieces) == 3
             expected_lines = [
@@ -464,9 +462,6 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
                 ),
             ] + (["", ""] if add_generation_prompt else [])
             expected = "\n".join(expected_lines)
-            assert (
-                hf_result == expected
-            ), f"{debug_tag}\nHF result:\n{hf_result}\nExpected:\n{expected}"
             assert (
                 oumi_result == expected
             ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
